@@ -633,7 +633,7 @@ function TitleButton({
           aria-label={`${kindTitle(container.kind)} name`}
           className="h-7 w-56 min-w-0 rounded-md border bg-background px-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-background"
           onBlur={(event) => {
-            renameDesign(session, entry, event.currentTarget.value)
+            renameDesign(session.store, entry, event.currentTarget.value)
             setRenaming(false)
           }}
           onKeyDown={(event) => {

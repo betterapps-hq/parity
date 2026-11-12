@@ -139,7 +139,7 @@ export interface ProjectMedia {
  * The project's media, following its designs as they change. It scans as the tab opens, and again when a design names
  * an image file the last scan didn't have, as one pasted or dropped onto the canvas meanwhile.
  */
-export function useProjectMedia(session: ProjectSession): ProjectMedia {
+export function useProjectMedia(session: Pick<ProjectSession, "id" | "store" | "untilClosed">): ProjectMedia {
   const files = mediaFilesOf(session)
   const { scanned, fresh } = useSyncExternalStore(files.subscribe, files.get)
   const entries = useContainerEntries(session.store)

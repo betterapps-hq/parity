@@ -2,10 +2,12 @@ import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { newDesign } from "@parity-app/editor"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { describe, expect, it, vi } from "vite-plus/test"
+import { ComponentStore } from "../components-store.ts"
 import { DesignStore } from "../design-store.ts"
+import { keepRecovery } from "../recovery.ts"
 import { SelectionStore } from "../selection.ts"
 import { traceWith } from "../tracing.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { ProjectSession, type SessionParts } from "../workspace.ts"
 import * as registry from "./actions.ts"
 import { keymap } from "./keymap.ts"
 import { type Recording, recordActions } from "./record-actions.ts"
@@ -37,8 +39,17 @@ function tab(containers: ContainerSpec[] = []): ProjectSession {
     { saveDocument: async () => undefined, autosave: () => false }
   )
 
-  // SAFETY: the commands run here, and whether they apply, read only the store and the selection.
-  return { store, selection: new SelectionStore() } as ProjectSession
+  return new ProjectSession(
+    {
+      id: "project",
+      store,
+      selection: new SelectionStore(),
+      components: new ComponentStore(),
+      recovery: keepRecovery(store, async () => undefined)
+    },
+    // SAFETY: the commands run here, and whether they apply, read the stores, not the project's info, guest or tokens.
+    {} as SessionParts
+  )
 }
 
 /** Recording with every action applying in no tab, and the counts given. */
