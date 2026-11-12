@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a layout is relative only when a child is placed in it",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -17,6 +17,7 @@ import { createRoot } from "react-dom/client"
 import { defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "./ModeView.tsx"
+import { frameCss } from "./guest.ts"
 import { useDesignFailures } from "./failures-store.ts"
 export { hitInFrame } from "./canvas/hit.ts"
 export { tabOrder } from "./canvas/tab-order.ts"
@@ -41,7 +42,12 @@ function Broken() {
   throw new Error("Not built yet")
 }
 
-const loaded = { guest: createGuest({ components: { Field, Broken }, css: "" }), sheet, tokens: [] }
+const loaded = {
+  guest: createGuest({ components: { Field, Broken }, css: "" }),
+  sheet,
+  tokens: [],
+  ...frameCss("", "http://parity.test")
+}
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
@@ -50,18 +56,44 @@ function Failures({ design }) {
   return createElement("output", { id: "failures" }, JSON.stringify(useDesignFailures("project", design)))
 }
 
+/**
+ * The guest of a project whose styling framework writes classes, and a service that writes them once it's let to: a
+ * class for each declaration, except a gap, which this framework has no class for.
+ */
+const classed = { ...loaded, ...frameCss("@layer base, utilities;", "http://parity.test") }
+const writtenClasses = new Map()
+export let answerClasses
+
+export function serveClasses() {
+  const let_ = new Promise((resolve) => (answerClasses = resolve))
+  window.canvasHost = {
+    ask: async (method, { declarations, written }) => {
+      await let_
+      if (!Array.isArray(written)) throw new Error("A frame says which classes it has")
+      const classes = declarations.map(({ property, value }) => {
+        if (property === "gap") return null
+        const name = "c" + (writtenClasses.get(property + ":" + value) ?? writtenClasses.size)
+        writtenClasses.set(property + ":" + value, name.slice(1))
+        return [name]
+      })
+      const rules = [...writtenClasses].map(([css, name]) => ".c" + name + "{" + css + "}").join("")
+      return { result: { supported: true, classes, css: "@layer utilities {" + rules + "}" } }
+    }
+  }
+}
+
 /** Gives the guest components from other files, as the type checker does once it finds them. */
 export function addComponents(sources) {
   loaded.guest.addComponents(sources)
 }
 
 /** Shows a design in one frame, as the canvas does, interactive or not, or asleep; \`shows\` keys what it renders. */
-export function show(container, { interactive = false, scale = 1, asleep = false, shows } = {}) {
+export function show(container, { interactive = false, scale = 1, asleep = false, shows, classes = false } = {}) {
   root ??= createRoot(document.querySelector("#area"))
   const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
   flushSync(() =>
     root.render([
-      createElement(ModeView, { key: "frame", project: "project", loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows }),
+      createElement(ModeView, { key: "frame", project: "project", loaded: classes ? classed : loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows }),
       createElement(Failures, { key: "failures", design: container.id })
     ])
   )
@@ -157,7 +189,7 @@ function failedBox() {
 /** Shows a design and lets its effects run. */
 async function show(
   container: ContainerSpec,
-  options: { interactive?: boolean; scale?: number; asleep?: boolean; shows?: string } = {}
+  options: { interactive?: boolean; scale?: number; asleep?: boolean; shows?: string; classes?: boolean } = {}
 ) {
   // @ts-expect-error The bundle's global.
   await page.evaluate(({ container, options }) => app.show(container, options), { container, options })
@@ -419,5 +451,65 @@ describe("a component that fails to draw (PAR-165)", () => {
     await show(broken, { shows: "version 2" })
     await expect.poll(drawn).toContain("Live 2")
     await expect.poll(failures).toBe("[]")
+  })
+})
+
+describe("a frame in a project whose styling framework writes classes (PAR-942)", () => {
+  const card: ContainerSpec = {
+    id: "classed",
+    name: "Classed",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "root",
+      style: { padding: 4, gap: 2 },
+      children: [{ type: "text", id: "title", text: "Plans", style: { width: 20 } }]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  /** How each layer is drawn: its classes, whether the frame has a rule for it, and its box and padding. */
+  const drawn = () =>
+    page.evaluate(() => {
+      const shadow = document.querySelector("[data-frame]")!.shadowRoot!
+      const rules = shadow.adoptedStyleSheets.flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText))
+
+      return Object.fromEntries(
+        ["root", "title"].map((id) => {
+          const element = shadow.querySelector<HTMLElement>(`[data-canvas-node="${id}"]`)!
+
+          return [
+            id,
+            {
+              classes: element.className,
+              rule: rules.some((rule) => rule.includes(`[data-canvas-node="${id}"]`)),
+              width: element.getBoundingClientRect().width,
+              padding: getComputedStyle(element).padding,
+              inline: element.style.cssText
+            }
+          ]
+        })
+      )
+    })
+
+  it("draws a layer from its rule until its classes are written, and from them after, the same", async () => {
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.serveClasses())
+    // @ts-expect-error The bundle's global.
+    await page.evaluate((container) => app.show(container, { classes: true }), card)
+    const first = await drawn()
+    expect(first.title).toMatchObject({ classes: "", rule: true, width: 80, inline: "" })
+
+    // @ts-expect-error The bundle's global.
+    await page.evaluate(() => app.answerClasses())
+    await page.waitForTimeout(100)
+    const after = await drawn()
+    expect(after.title!.classes).toMatch(/^c\d+ c\d+$/)
+    expect(after.title).toMatchObject({ rule: false, width: 80, inline: "" })
+  })
+
+  it("keeps the rule of a layer with a declaration the framework has no class for", async () => {
+    // The root has a gap, so it's drawn whole from its rule, padding included.
+    expect((await drawn()).root).toMatchObject({ classes: "", rule: true, padding: "16px" })
   })
 })

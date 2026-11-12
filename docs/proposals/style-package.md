@@ -1,9 +1,10 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2, 5 and 6 are built: the package holds the stored
+Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2, 4, 5 and 6 are built: the package holds the stored
 style and `declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the adapter contract, which
-`@parity-app/styles-tailwind` implements (PAR-943), and the plain CSS printer and reader (PAR-944). The rest isn't built
-yet. It sets where the rules for what a layer's style means live, so the canvas, Copy as code, writing components
+`@parity-app/styles-tailwind` implements (PAR-943), the plain CSS printer and reader (PAR-944), and frames draw from
+rules and compiled classes (PAR-942, in [editor.md](../editor.md), Rendering frames). Step 3, the format change, isn't
+built yet. It sets where the rules for what a layer's style means live, so the canvas, Copy as code, writing components
 (PAR-265) and reading code back all follow one set.
 
 ## In one line

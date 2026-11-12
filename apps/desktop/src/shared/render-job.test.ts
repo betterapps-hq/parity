@@ -205,7 +205,7 @@ describe("renderJob", () => {
   })
 
   it("draws empty layouts as the code does unless the job stands in for a canvas frame (PAR-888)", () => {
-    const empty = { kind: "element", nodeId: "gap", tag: "div", style: {}, children: [] }
+    const empty = { kind: "element", nodeId: "gap", tag: "div", declarations: [], children: [] }
     const tree = [{ ...empty, attributes: { "data-canvas-empty-layout": "width height" } }]
     expect(renderJob(guest, { ...drawsText, tree }).tree).toEqual([empty])
     expect(renderJob(guest, { ...drawsText, tree, canvas: true }).tree).toEqual(tree)
