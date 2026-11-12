@@ -76,8 +76,8 @@ async function expectWhole(canvasElement: HTMLElement, name: string, value: stri
 }
 
 /**
- * A 96 by 48 brand mark with the inspector at its narrowest, 260 pixels: Width and Height show 96 and 48 whole, with
- * Fixed under each rather than beside it (PAR-496).
+ * A 96 by 48 brand mark with the inspector at its narrowest, 260 pixels: Width and Height show 96 and 48 whole
+ * (PAR-496).
  */
 export const SizeAtNarrowest: Story = {
   parameters: { panelWidth: 260 },
@@ -88,7 +88,7 @@ export const SizeAtNarrowest: Story = {
   }
 }
 
-/** A 1440 by 900 brand mark at the inspector's usual width: four digits and px fit beside Fixed (PAR-496). */
+/** A 1440 by 900 brand mark at the inspector's usual width: four digits fit whole (PAR-496). */
 export const LargeSize: Story = {
   loaders: [pick("Pricing", "Brand mark", { width: { step: 360 }, height: { step: 225 } })],
   play: async ({ canvasElement }) => {
@@ -156,74 +156,59 @@ export const ChangedInAState: Story = {
   loaders: [pick("Stat card", "Label", { color: { token: "primary" }, fontWeight: { value: 700 } }, "loading")]
 }
 
+/** Opens the picker a button names, which is labelled as the button is. A color's swatch and its end both open it. */
+async function opens(canvasElement: HTMLElement, name: string) {
+  await userEvent.click(within(canvasElement).getAllByRole("button", { name })[0]!)
+  await within(document.body).findByRole("dialog", { name }, slowly)
+}
+
 /** The fill picker open: the project's colors with swatches, searchable, and None. */
 export const PickingAColor: Story = {
   loaders: [pick("Pricing", "Brand mark")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Fill, / }))
-    await within(document.body).findByPlaceholderText("Search tokens", undefined, slowly)
-  }
+  play: async ({ canvasElement }) => opens(canvasElement, "Fill 1 picker")
 }
 
-/** The gap's picker open: the project's length tokens, then the spacing scale with each step's size. */
+/** The gap's options open: the project's spacing tokens, with each one's size. */
 export const PickingASpacing: Story = {
   loaders: [pick("Pricing", "Hero")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Pick a token for gap" }))
-    await within(document.body).findByPlaceholderText("Search spacing", undefined, slowly)
-  }
+  play: async ({ canvasElement }) => opens(canvasElement, "Gap options")
 }
 
 /** The weight list open on the headline. */
 export const PickingAWeight: Story = {
   loaders: [pick("Pricing", "Headline")],
-  play: async ({ canvasElement }) => {
-    const weight = within(canvasElement).getByText("Semibold 600")
-    await userEvent.click(weight.closest("button")!)
-    await within(document.body).findByRole("listbox", undefined, slowly)
-  }
+  play: async ({ canvasElement }) => opens(canvasElement, "Weight picker")
 }
 
-/** Width's sizing list open: fixed, fill or hug. */
+/** Width's sizing menu open: hug, fill, and limits to add. */
 export const PickingASizing: Story = {
   loaders: [pick("Plan card", "Call to action")],
-  play: async ({ canvasElement }) => {
-    const width = within(canvasElement).getAllByRole("combobox")[0]!
-    await userEvent.click(width)
-    await within(document.body).findByRole("listbox", undefined, slowly)
-  }
+  play: async ({ canvasElement }) => opens(canvasElement, "Width sizing")
 }
 
 /**
- * A width off the spacing scale, the brand mark at 281px: kept as it is, and flagged under the row with a button for
- * the nearest step, 280px (PAR-194). Using it puts the width on the scale and the flag goes.
+ * A width off the spacing scale, the brand mark at 281px: kept as it is. A length can be any number of pixels; only
+ * values `NodeStyle` holds as tokens, such as a font size, land on the nearest token.
  */
 export const OffScaleSize: Story = {
   loaders: [pick("Pricing", "Brand mark", { width: { step: 70.25 }, height: { step: 12 } })],
   play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await expect(panel.getByRole("textbox", { name: "Width" })).toHaveValue("281")
-    await expect(panel.getByText("281px is off the scale")).toBeInTheDocument()
-    await userEvent.click(panel.getByRole("button", { name: "Use 280px for width" }))
-    await expect(panel.getByRole("textbox", { name: "Width" })).toHaveValue("280")
-    await expect(panel.queryByText(/off the scale/)).toBeNull()
+    await expect(within(canvasElement).getByRole("textbox", { name: "Width" })).toHaveValue("281")
   }
 }
 
-/** Insets off the scale on an absolutely placed layer, 3px from the top and 281px from the left: each flagged. */
+/** Insets off the scale on an absolutely placed layer, 3px from the top and 281px from the left. */
 export const OffScaleInsets: Story = {
   loaders: [pick("Pricing", "Billing period", { position: "absolute", top: { step: 0.75 }, left: { step: 70.25 } })]
 }
 
-/** 281 typed into Width stays 281px rather than landing on a step, and the row flags it. */
+/** 281 typed into Width stays 281px rather than landing on a step. */
 export const TypingOffScale: Story = {
   loaders: [pick("Pricing", "Brand mark")],
   play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    const width = panel.getByRole("textbox", { name: "Width" })
+    const width = within(canvasElement).getByRole("textbox", { name: "Width" })
     await userEvent.clear(width)
     await userEvent.type(width, "281{Enter}")
     await expect(width).toHaveValue("281")
-    await expect(await panel.findByText("281px is off the scale", undefined, slowly)).toBeInTheDocument()
   }
 }

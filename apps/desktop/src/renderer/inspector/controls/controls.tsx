@@ -50,14 +50,18 @@ import {
   stepToken,
   unitButtonClass,
   UnitMenu,
+  Unstored,
   usePercentUnit,
   useTokens,
   useTokenSets,
-  ValueField
+  ValueField,
+  wrappingText
 } from "./field-parts.tsx"
 import { CornerGlyph, EachToggle, Field, nameMenuButton, SectionButton } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
+import { ClipContentField } from "./keyword-sets.tsx"
 import { RemoveButton } from "./list-parts.tsx"
+import { OpacityRow } from "./opacity-blend.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber, sideRules, type Sides } from "./sides-writes.ts"
 import { FourSidesField } from "./sides.tsx"
@@ -93,11 +97,23 @@ export function SizeSection({
   draft,
   set,
   measured,
-  tokensShown
+  tokensShown,
+  modes,
+  takesPercent,
+  mixedAxes,
+  eachAxis
 }: SectionProps & {
   /** The layer's drawn size and its parent's width, from the canvas. */
   measured?: Measured
   tokensShown?: TokensShown
+  /** The words W and H take, where the layer can't fill or the style can't hold one. */
+  modes?: readonly SizeMode[]
+  /** Whether W and H take a percentage of the parent. */
+  takesPercent?: boolean
+  /** The axes whose size differs across the selected layers. */
+  mixedAxes?: { width?: boolean; height?: boolean }
+  /** Where an axis differs, works out what uses the value there from each layer's own pixels (`ValueField`'s `each`). */
+  eachAxis?: (axis: "width" | "height", update: (px: number) => number) => void
 }) {
   // An unset width shows what the layer comes to, and writes nothing until it's changed.
   const width = draft.width ?? measured?.width ?? 100
@@ -141,27 +157,37 @@ export function SizeSection({
             value={width}
             measured={measured?.width}
             parent={measured?.parent}
+            modes={modes}
+            takesPercent={takesPercent}
+            mixed={mixedAxes?.width}
+            each={eachAxis && ((update) => eachAxis("width", update))}
             limits={{ min: draft.minWidth !== undefined, max: draft.maxWidth !== undefined }}
             onAddLimit={(which) => addLimit("Width", which)}
             onChange={(next) => set({ width: next })}
           />
-          <Hint label={ratio ? "Unlock aspect ratio" : "Lock aspect ratio"}>
-            <Toggle
-              size="sm"
-              className="size-7 min-w-7 p-0"
-              aria-label="Lock aspect ratio"
-              pressed={ratio !== undefined}
-              onPressedChange={lock}
-            >
-              <Link2 />
-            </Toggle>
-          </Hint>
+          <Unstored part="aspect">
+            <Hint label={ratio ? "Unlock aspect ratio" : "Lock aspect ratio"}>
+              <Toggle
+                size="sm"
+                className="size-7 min-w-7 p-0"
+                aria-label="Lock aspect ratio"
+                pressed={ratio !== undefined}
+                onPressedChange={lock}
+              >
+                <Link2 />
+              </Toggle>
+            </Hint>
+          </Unstored>
           <SizeField
             axis="Height"
             tokensShown={tokensShown}
             value={height}
             measured={measured?.height}
             parent={undefined}
+            modes={modes}
+            takesPercent={takesPercent}
+            mixed={mixedAxes?.height}
+            each={eachAxis && ((update) => eachAxis("height", update))}
             setBy={ratio ? "Aspect ratio" : undefined}
             limits={{ min: draft.minHeight !== undefined, max: draft.maxHeight !== undefined }}
             onAddLimit={(which) => addLimit("Height", which)}
@@ -181,9 +207,8 @@ export function SizeSection({
               <Field key={key} label={label}>
                 <div className="flex items-center gap-1">
                   <div className="min-w-0 flex-1">
-                    <Num
+                    <PixelField
                       label={label}
-                      pixels
                       spacing
                       value={draft[key]}
                       min={0}
@@ -276,6 +301,10 @@ export function SizeField({
   limits,
   onAddLimit,
   tokensShown,
+  modes = sizeModes,
+  takesPercent = true,
+  mixed = false,
+  each,
   onChange
 }: {
   axis: "Width" | "Height"
@@ -291,6 +320,14 @@ export function SizeField({
   onAddLimit?: (which: "min" | "max") => void
   /** How Sizing shows the tokens under the words. */
   tokensShown?: TokensShown
+  /** The words it takes, in Sizing and typed: all four, or fewer where the layer can't fill or the style can't hold one. */
+  modes?: readonly SizeMode[]
+  /** Whether it takes a percentage of its parent, typed or from the unit's menu. */
+  takesPercent?: boolean
+  /** The selected layers differ here: it says Mixed, and typing sets them all, unless `each` works it out for each. */
+  mixed?: boolean
+  /** Where the layers differ, works out what uses the value there from each one's own pixels (`ValueField`'s). */
+  each?: (update: (px: number) => number) => void
   onChange: (size: Size) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
@@ -342,7 +379,7 @@ export function SizeField({
 
     const word = typedSizes.get(typed)
 
-    if (word !== undefined) {
+    if (word !== undefined && modes.includes(word)) {
       return { value: word }
     }
 
@@ -361,10 +398,10 @@ export function SizeField({
       input = `${typed}rem`
     }
 
-    const reading = readLength(input, { label: axis, current: length ?? measured, takesPercent: true })
+    const reading = readLength(input, { label: axis, current: length ?? measured, takesPercent })
 
     if ("reason" in reading) {
-      return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
+      return { reason: reading.reason }
     }
 
     if ("clear" in reading) {
@@ -434,6 +471,11 @@ export function SizeField({
     }
   }
 
+  if (mixed) {
+    shown = undefined
+    chip = undefined
+  }
+
   let hint: { label?: string; detail?: string } | undefined
 
   if (setBy) {
@@ -450,7 +492,9 @@ export function SizeField({
         // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a word Fixed first.
         scrub={{ from: () => length ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
         shown={shown}
-        muted={setBy !== undefined}
+        mixed={mixed}
+        each={each}
+        muted={setBy !== undefined && !mixed}
         chip={chip}
         unit={
           fixed === undefined && percent === undefined ? undefined : (
@@ -459,7 +503,7 @@ export function SizeField({
               unit={percent === undefined ? unit : "%"}
               units={[
                 { unit: "px", label: "Pixels" },
-                { unit: "%", label: `Of its ${within}'s ${of}` },
+                ...(takesPercent ? [{ unit: "%" as const, label: `Of its ${within}'s ${of}` }] : []),
                 { unit: "rem", label: "Root em, 16px" }
               ]}
               onUnit={toUnit}
@@ -504,7 +548,7 @@ export function SizeField({
                   }
                 }
               },
-              ...(["hug", "fill", "min", "max"] as const).map((each) => ({
+              ...modes.map((each) => ({
                 key: each,
                 name: words[each].name,
                 detail: words[each].detail,
@@ -536,6 +580,9 @@ export function SizeField({
   )
 }
 
+/** Every word W and H take, in Sizing's order. */
+const sizeModes: readonly SizeMode[] = ["hug", "fill", "min", "max"]
+
 /** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
 const namedRatios = [
   { value: "1 / 1", name: "Square" },
@@ -562,7 +609,7 @@ function readRatio(text: string): string | undefined {
 
 /**
  * The ratio, typed, with its name after it (Video) and the named ratios in its unit's menu. A ratio it can't read
- * stays, with the reason under it; Enter keeps it, and Escape puts the ratio back; leaving does too, and says why.
+ * stays, with the reason under it; Enter or leaving keeps it, and Escape puts the ratio back.
  */
 export function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
   const name = namedRatios.find((option) => option.value === aspect)?.name
@@ -625,8 +672,9 @@ const cornersAsLaidOut = [0, 1, 3, 2] as const
 type CornerRadii = [Radius?, Radius?, Radius?, Radius?]
 
 /**
- * Appearance's Radius, as the simpler fields lay it out (PAR-186): one field under its name, and each corner, laid out
- * where it is, once Each corner at the end of the name's row is pressed. It opens pressed when the corners differ.
+ * Appearance: Opacity beside Blend mode, then Radius, then Clip content. Radius is as the simpler fields lay it out
+ * (PAR-186): one field under its name, and each corner, laid out where it is, once Each corner at the end of the name's
+ * row is pressed. It opens pressed when the corners differ.
  * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
  * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
  */
@@ -641,26 +689,39 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-2.5">
+        <Field label="Opacity">
+          <OpacityRow
+            opacity={draft.opacity}
+            blend={draft.blend}
+            onOpacity={(opacity) => set({ opacity })}
+            onBlend={(blend) => set({ blend })}
+            onPreviewBlend={() => undefined}
+          />
+        </Field>
         <Field
           label="Radius"
           changed={changed !== undefined}
           onReset={changed?.onReset}
           action={
             <>
-              <CornerStyle value={draft.cornerStyle} onChange={(cornerStyle) => set({ cornerStyle })} />
-              <EachToggle
-                label="Each corner"
-                parts="corners"
-                pressed={each}
-                onClick={() => {
-                  // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
-                  if (each && alike && Array.isArray(draft.radius)) {
-                    set({ radius: radii[0] })
-                  }
+              <Unstored part="cornerShape">
+                <CornerStyle value={draft.cornerStyle} onChange={(cornerStyle) => set({ cornerStyle })} />
+              </Unstored>
+              <Unstored part="eachCorner">
+                <EachToggle
+                  label="Each corner"
+                  parts="corners"
+                  pressed={each}
+                  onClick={() => {
+                    // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
+                    if (each && alike && Array.isArray(draft.radius)) {
+                      set({ radius: radii[0] })
+                    }
 
-                  setEach(!each)
-                }}
-              />
+                    setEach(!each)
+                  }}
+                />
+              </Unstored>
             </>
           }
         >
@@ -693,6 +754,9 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
               onChange={(radius) => set({ radius })}
             />
           )}
+        </Field>
+        <Field label="Clip content">
+          <ClipContentField value={draft.clip} onChange={(clip) => set({ clip })} />
         </Field>
       </div>
     </PanelSection>
@@ -777,6 +841,7 @@ export function RadiusChoice({
   tokensOnly,
   mixed,
   mixedNote,
+  takesPercent = true,
   onChange
 }: {
   mixed?: boolean
@@ -786,13 +851,15 @@ export function RadiusChoice({
   corner?: 0 | 1 | 2 | 3
   value: Radius | undefined
   tokensOnly?: boolean
+  /** Whether it takes a percentage of the layer's size, as a radius of its own can be. */
+  takesPercent?: boolean
   onChange: (value: Radius | undefined) => void
 }) {
   return (
     <LengthField
       label={label}
       kind="radius"
-      takesPercent
+      takesPercent={takesPercent}
       // Past 50%, the corners meet and the shape stops changing.
       percentMax={50}
       icon={corner === undefined ? undefined : <CornerGlyph corner={corner} />}
@@ -935,12 +1002,6 @@ function LengthField({
 
     // The app's maths and units: `6`, `6px`, `0.5rem`, `+2`, `*2`, and `50%` where it takes one.
     const reading = readLength(trimmed, { label, current: own?.px ?? token?.px, takesPercent })
-
-    if ("reason" in reading && reading.reason.startsWith("Can't read")) {
-      const example = takesPercent ? "6px or 50%" : "6px"
-
-      return { reason: `Enter a length, such as ${example}, or a ${kind} token` }
-    }
 
     if ("reason" in reading) {
       return reading
@@ -1118,6 +1179,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
         <Field label="Color">
           <ColorInput
             label="Stroke"
+            alphaPart="alpha"
             tokensOnly={tokensOnly}
             used={usedColors}
             value={draft.border}
@@ -1133,6 +1195,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
           together="one"
           sides={widths}
           tokensOnly={tokensOnly}
+          eachSide="eachSide"
           onChange={(next) => {
             const change: Partial<Draft> = { borderWidth: next }
 
@@ -1149,53 +1212,55 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
           label="Position"
           hint="In layout, the stroke is a border, which takes up room. Out of it, it's an outline, drawn inside, centered on or outside the edge, and takes none."
         >
-          <div className="flex items-center gap-1">
-            <div className="min-w-0 flex-1">
-              <AppSelect
-                variant="panel"
-                none="Default"
-                aria-label="Stroke position"
-                value={position}
-                items={strokePositions}
-                onValueChange={(next) => {
-                  if (!next || next === position) {
-                    return
-                  }
+          <Unstored part="strokePosition">
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <AppSelect
+                  variant="panel"
+                  none="Default"
+                  aria-label="Stroke position"
+                  value={position}
+                  items={strokePositions}
+                  onValueChange={(next) => {
+                    if (!next || next === position) {
+                      return
+                    }
 
-                  // Center and Outside are outlines, which stroke every side at one width.
-                  if (next !== "inside") {
-                    set({ strokeInLayout: false, strokePosition: next, borderWidth: outlined })
-                  } else {
-                    set({ strokePosition: inLayout ? undefined : "inside" })
-                  }
-                }}
-              />
-            </div>
-            <Hint
-              label="Include in layout"
-              detail={
-                inLayout
-                  ? "On: a border, which takes up room in the layout"
-                  : "Off: an outline, which takes no room in the layout"
-              }
-            >
-              <Toggle
-                size="sm"
-                className="size-7 min-w-7 shrink-0 p-0"
-                aria-label="Include in layout"
-                pressed={inLayout}
-                onPressedChange={(on) => {
-                  set(
-                    on
-                      ? { strokeInLayout: undefined, strokePosition: undefined }
-                      : { strokeInLayout: false, strokePosition: "inside", borderWidth: outlined }
-                  )
-                }}
+                    // Center and Outside are outlines, which stroke every side at one width.
+                    if (next !== "inside") {
+                      set({ strokeInLayout: false, strokePosition: next, borderWidth: outlined })
+                    } else {
+                      set({ strokePosition: inLayout ? undefined : "inside" })
+                    }
+                  }}
+                />
+              </div>
+              <Hint
+                label="Include in layout"
+                detail={
+                  inLayout
+                    ? "On: a border, which takes up room in the layout"
+                    : "Off: an outline, which takes no room in the layout"
+                }
               >
-                <LayoutTemplate />
-              </Toggle>
-            </Hint>
-          </div>
+                <Toggle
+                  size="sm"
+                  className="size-7 min-w-7 shrink-0 p-0"
+                  aria-label="Include in layout"
+                  pressed={inLayout}
+                  onPressedChange={(on) => {
+                    set(
+                      on
+                        ? { strokeInLayout: undefined, strokePosition: undefined }
+                        : { strokeInLayout: false, strokePosition: "inside", borderWidth: outlined }
+                    )
+                  }}
+                >
+                  <LayoutTemplate />
+                </Toggle>
+              </Hint>
+            </div>
+          </Unstored>
         </Field>
       </div>
     </PanelSection>
@@ -1230,7 +1295,8 @@ function TagLabel({ label, tag }: { label: string; tag: string }) {
   )
 }
 
-export function TextSection({ draft, set }: SectionProps) {
+/** The element a text layer is, from Paragraph (unset) to Strong, each with the tag it writes. */
+export function TagField({ tag, onChange }: { tag: string | undefined; onChange: (tag: string | undefined) => void }) {
   // Unset is a paragraph, which is what the text is written as.
   const items = [
     { value: "__unset", label: <TagLabel label="Paragraph" tag="p" /> },
@@ -1241,17 +1307,85 @@ export function TextSection({ draft, set }: SectionProps) {
   ]
 
   return (
-    <PanelSection title="Text" description="The headline inside Plans.">
-      <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
-        <AppSelect
-          variant="panel"
-          aria-label="Tag"
-          className="w-full"
-          items={items}
-          value={draft.tag ?? "__unset"}
-          onValueChange={(next) => set({ tag: next === null || next === "__unset" ? undefined : next })}
+    <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
+      <AppSelect
+        variant="panel"
+        aria-label="Tag"
+        className="w-full"
+        items={items}
+        value={tag ?? "__unset"}
+        onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : next)}
+      />
+    </Field>
+  )
+}
+
+/**
+ * A text layer's words, in the field's box: they wrap and it grows with them, and its handle drags it taller. Enter or
+ * leaving keeps what's typed, Shift+Enter starts a line, and Escape puts the words back.
+ */
+export function TextContentField({
+  text,
+  onChange,
+  changed,
+  around = (field) => field
+}: {
+  text: string
+  onChange: (text: string) => void
+  /** Changed in the state being edited, with the reset arrow by its name. */
+  changed?: { onReset: () => void }
+  /** What the field sits in, as a component design's text sits beside its button to use a prop. */
+  around?: (field: ReactNode) => ReactNode
+}) {
+  return (
+    <Field label="Text" changed={changed !== undefined} onReset={changed?.onReset}>
+      {around(
+        <textarea
+          key={text}
+          aria-label="Text"
+          defaultValue={text}
+          rows={1}
+          onBlur={(event) => event.currentTarget.value !== text && onChange(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.currentTarget.value = text
+              event.currentTarget.blur()
+            } else if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              event.currentTarget.blur()
+            }
+          }}
+          className={`${wrappingText} min-h-7 w-full resize-y rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-snug outline-none ring-inset hover:not-focus:ring-1 hover:not-focus:ring-border focus:ring-1 focus:ring-ring dark:bg-input/40`}
         />
-      </Field>
+      )}
+    </Field>
+  )
+}
+
+/** Content, a text layer's own section, shown only for one: its words, then its tag. */
+export function ContentSection({
+  text,
+  tag,
+  onText,
+  onTag,
+  textChanged,
+  aroundText
+}: {
+  text: string
+  tag: string | undefined
+  onText: (text: string) => void
+  onTag: (tag: string | undefined) => void
+  textChanged?: { onReset: () => void }
+  aroundText?: (field: ReactNode) => ReactNode
+}) {
+  return (
+    <PanelSection title="Content">
+      <div className="flex flex-col gap-2.5">
+        <TextContentField text={text} onChange={onText} changed={textChanged} around={aroundText} />
+        <Unstored part="tag">
+          <TagField tag={tag} onChange={onTag} />
+        </Unstored>
+      </div>
     </PanelSection>
   )
 }
@@ -1331,7 +1465,7 @@ function FrameWidthField({ width, onChange }: { width: FrameWidth; onChange: (wi
       return { value: Math.max(1, Math.round(reading.px)) }
     }
 
-    return { reason: "reason" in reading && !reading.reason.startsWith("Can't read") ? reading.reason : reason }
+    return { reason: "reason" in reading ? reading.reason : reason }
   }
 
   const step = (up: boolean, { shift }: ScrubKeys) => {
@@ -1475,21 +1609,19 @@ function FrameHeightField({
 }
 
 /**
- * A number typed, committed on Enter or blur, with a short label inside and a unit after: a ValueField. A length in
- * pixels (`pixels`) is shown in px or rem, chosen from its unit's menu, and takes either typed (`1rem`, `16px`); it's
- * kept in pixels whichever is shown, so 16px becomes 1rem.
- * A spacing length (`spacing`) steps to the next whole spacing step (4px) on Up and Down and scrubs a step per 2 screen
- * pixels; others step by 1, or 10 with Shift, and scrub a step per screen pixel.
+ * A length in pixels, with a short label inside and a unit after: a ValueField. It's shown in px or rem, chosen from
+ * its unit's menu, and takes either typed (`1rem`, `16px`), with the app's maths and `spacing-4`; it's kept in pixels
+ * whichever is shown, so 16px becomes 1rem. A spacing length (`spacing`) steps to the next whole spacing step (4px) on
+ * Up and Down and scrubs a step per 2 screen pixels; others step by 1, or 10 with Shift, and scrub a step per screen
+ * pixel. It holds at `min` or more.
  *
  * In a narrow field (`narrow`, under about 96px, as sides are), what it comes to is in its hint. Input it can't read
  * stays, outlined in the error color with a mark in the status slot and the reason under the row; Enter keeps it, and
- * Escape puts the value back; leaving does too, and says why.
+ * Escape puts the value back; leaving keeps it too.
  */
-export function Num({
+export function PixelField({
   label,
   inner,
-  suffix,
-  pixels = false,
   spacing = false,
   narrow = false,
   value,
@@ -1501,8 +1633,6 @@ export function Num({
   label: string
   /** A letter or glyph inside, which scrubs: T, or a side's glyph. */
   inner?: ReactNode
-  suffix?: string
-  pixels?: boolean
   spacing?: boolean
   narrow?: boolean
   value: number | undefined
@@ -1513,58 +1643,29 @@ export function Num({
   onChange: (value: number | undefined) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
-  const inRem = pixels && unit === "rem"
+  const inRem = unit === "rem"
   let shown = value === undefined ? undefined : formatNumber(value)
 
   if (inRem && value !== undefined) {
     shown = formatNumber(value / remPx)
   }
 
-  /**
-   * What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the
-   * unit shown; or, for a count, a whole number.
-   */
+  /** What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the unit shown. */
   const read = (text: string): Reading<number | undefined> => {
-    if (pixels) {
-      const bare = isBareNumber(text)
-      const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
+    const reading = readLength(inRem && isBareNumber(text) ? `${text}rem` : text, { label, current: value })
 
-      if ("clear" in reading) {
-        return { value: undefined }
-      }
-
-      if ("px" in reading) {
-        return { value: Math.max(min, reading.px) }
-      }
-
-      return { reason: "reason" in reading ? reading.reason : "Enter a length" }
-    }
-
-    if (text.trim() === "") {
+    if ("clear" in reading) {
       return { value: undefined }
     }
 
-    const number = Number(text)
+    if ("px" in reading) {
+      return { value: Math.max(min, reading.px) }
+    }
 
-    return Number.isFinite(number) ? { value: Math.max(min, Math.round(number)) } : { reason: "Enter a whole number" }
+    return { reason: "reason" in reading ? reading.reason : "Enter a length" }
   }
 
   const from = () => value ?? Math.max(min, 0)
-  let unitPart: ReactNode = suffix
-
-  if (pixels) {
-    unitPart = (
-      <UnitMenu
-        label={label}
-        unit={unit}
-        units={[
-          { unit: "px", label: "Pixels" },
-          { unit: "rem", label: "Root em, 16px" }
-        ]}
-        onUnit={setUnit}
-      />
-    )
-  }
 
   return (
     <ValueField
@@ -1579,7 +1680,17 @@ export function Num({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
-      unit={unitPart}
+      unit={
+        <UnitMenu
+          label={label}
+          unit={unit}
+          units={[
+            { unit: "px", label: "Pixels" },
+            { unit: "rem", label: "Root em, 16px" }
+          ]}
+          onUnit={setUnit}
+        />
+      }
       narrow={narrow}
       read={read}
       onCommit={onChange}

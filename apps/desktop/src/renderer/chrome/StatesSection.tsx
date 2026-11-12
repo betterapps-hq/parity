@@ -44,6 +44,8 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
   const { container, key } = entry
   const active = activeState(container)
   const allStates = container.view?.allStates ?? false
+  // With one state there's nothing to pick between or show beside it.
+  const several = designStates(container).length > 1
   const [renaming, setRenaming] = useState<string>()
 
   // A change to the states records them all, by id and name, before and after (PAR-713).
@@ -85,7 +87,8 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
             key={state.id}
             state={state}
             base={index === 0}
-            active={!allStates && state.id === active.id}
+            pickable={several}
+            active={several && !allStates && state.id === active.id}
             renaming={renaming === state.id}
             onView={() => view(state.id)}
             onRename={() => setRenaming(state.id)}
@@ -120,19 +123,21 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
           />
         ))}
       </ul>
-      <Label className="mt-3 flex items-center justify-between rounded-md px-2 text-xs font-normal text-muted-foreground">
-        Show every state on the canvas
-        <Switch
-          size="sm"
-          checked={allStates}
-          onCheckedChange={(on) =>
-            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (current) => ({
-              ...current,
-              allStates: on
-            }))
-          }
-        />
-      </Label>
+      {several && (
+        <Label className="mt-3 flex items-center justify-between rounded-md px-2 text-xs font-normal text-muted-foreground">
+          Show every state on the canvas
+          <Switch
+            size="sm"
+            checked={allStates}
+            onCheckedChange={(on) =>
+              store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (current) => ({
+                ...current,
+                allStates: on
+              }))
+            }
+          />
+        </Label>
+      )}
       {!isBaseState(container, active.id) && !allStates && <ChangesList entry={entry} state={active} />}
     </PanelSection>
   )
@@ -148,6 +153,8 @@ interface StateRowProps {
   onRenamed: (name: string | undefined) => void
   onDuplicate: () => void
   onDelete?: () => void
+  /** Whether it's one of several to pick between, with the mark that says which is shown; a lone state has none. */
+  pickable?: boolean
 }
 
 function StateRow({
@@ -159,7 +166,8 @@ function StateRow({
   onRename,
   onRenamed,
   onDuplicate,
-  onDelete
+  onDelete,
+  pickable = true
 }: StateRowProps) {
   // The first state is what the others change, so it has nothing to count.
   const changes = changeCount(state)
@@ -179,7 +187,7 @@ function StateRow({
     >
       {renaming ? (
         <span className="flex min-w-0 flex-1 items-center gap-2.5 pl-2">
-          <RadioMark active={active} />
+          {pickable && <RadioMark active={active} />}
           <input
             ref={focusOnMount}
             defaultValue={state.name}
@@ -205,7 +213,7 @@ function StateRow({
           aria-pressed={active}
           className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-2 text-left"
         >
-          <RadioMark active={active} />
+          {pickable && <RadioMark active={active} />}
           <Name className="min-w-0 flex-1">{state.name}</Name>
         </button>
       )}

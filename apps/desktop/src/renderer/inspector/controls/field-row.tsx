@@ -25,7 +25,7 @@ import {
 import { kindColors } from "../../canvas/kinds.tsx"
 import { FirstStateName } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { overrideColor } from "./field-parts.tsx"
+import { overrideColor, StoresContext, type Unstorable } from "./field-parts.tsx"
 
 /*
  * A property's row as the simpler fields lay it out (PAR-186): its name above the control in words, as Figma's with
@@ -65,6 +65,8 @@ export function useRowScrub(scrub: Scrub | undefined): void {
 
 interface FieldProps {
   label: string
+  /** A small mark before the name, as a prop's type. */
+  icon?: ReactNode
   /** Says more about the property, on hover. */
   hint?: string
   /** The value differs from the base design in the state being edited. */
@@ -108,6 +110,7 @@ export const nameMenuButton = `${nameButton} data-popup-open:bg-muted data-popup
  */
 export function Field({
   label,
+  icon,
   hint,
   changed,
   mixed = false,
@@ -165,6 +168,7 @@ export function Field({
     <fieldset aria-labelledby={labelId} className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}>
       <div className={nameRow}>
         <span className="flex min-w-0 items-center gap-1">
+          {icon}
           <Hint
             label={nameHint}
             detail={[mixed && "Different across the selected layers", hint, dragsBy && "Drag to change it"]
@@ -250,6 +254,8 @@ export interface Segment<V extends string> {
   icon?: ReactNode
   /** A mark in its corner, as a value that isn't Baseline has. */
   mark?: ReactNode
+  /** What the document must store for it to be chosen; until it does, it's disabled. */
+  part?: Unstorable
 }
 
 /**
@@ -273,6 +279,7 @@ export function Segments<V extends string>({
   options: readonly Segment<V>[]
   onChange: (value: V) => void
 }) {
+  const stores = useContext(StoresContext)
   // The Tab stop: the chosen option, or the one unset comes to, or the first.
   const stop = options.find((option) => option.value === value)?.value ?? faint ?? options[0]?.value
 
@@ -322,8 +329,9 @@ export function Segments<V extends string>({
               aria-label={option.label}
               aria-pressed={pressed}
               tabIndex={option.value === stop ? 0 : -1}
+              disabled={option.part !== undefined && !stores(option.part)}
               onClick={() => onChange(option.value)}
-              className={`h-full rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
+              className={`h-full rounded-sm px-1 text-xs outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
             >
               {/* A sample drawn for the eye (AG, Ag), so the name says what it does. */}
               {option.icon === undefined ? option.label : <span aria-hidden>{option.icon}</span>}
@@ -344,17 +352,20 @@ export function IconSegments<V extends string>({
   onChange
 }: {
   label: string
-  value: V
+  /** Unset presses none, as for selected layers that differ. */
+  value: V | undefined
   options: readonly (Segment<V> & { icon: ReactNode })[]
   onChange: (value: V) => void
 }) {
+  const stores = useContext(StoresContext)
+
   return (
     <ToggleGroup
       variant="outline"
       size="sm"
       spacing={0}
       aria-label={label}
-      value={[value]}
+      value={value === undefined ? [] : [value]}
       onValueChange={([next]) => {
         const chosen = options.find((option) => option.value === next)
 
@@ -365,7 +376,12 @@ export function IconSegments<V extends string>({
     >
       {options.map((option) => (
         <Hint key={option.value} label={option.label} detail={option.detail}>
-          <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
+          <ToggleGroupItem
+            value={option.value}
+            aria-label={option.label}
+            disabled={option.part !== undefined && !stores(option.part)}
+            className="h-7 px-2"
+          >
             {option.icon}
           </ToggleGroupItem>
         </Hint>
@@ -380,23 +396,53 @@ export function IconSegments<V extends string>({
  */
 export function SwitchRow({
   label,
+  icon,
   detail,
+  changed = false,
+  onReset,
+  action,
   checked,
   onCheckedChange
 }: {
   label: string
+  /** A small mark before the name, as a prop's type. */
+  icon?: ReactNode
+  /** A button after the switch, as a prop's menu. */
+  action?: ReactNode
   /** What it does, in the switch's hint. */
   detail?: string
+  /** Changed in the state being edited: its name in the agent color, and the reset arrow after the switch. */
+  changed?: boolean
+  onReset?: () => void
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
+  const firstState = useContext(FirstStateName)
+
   return (
-    <label className="col-span-2 flex h-5 min-w-0 cursor-pointer items-center justify-between gap-2">
-      <span className="truncate text-xs text-muted-foreground">{label}</span>
-      <Hint label={label} detail={detail}>
-        <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
-      </Hint>
-    </label>
+    <div className="col-span-2 flex h-5 min-w-0 items-center justify-between gap-2">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2">
+        {icon && <span className="-mr-1 shrink-0">{icon}</span>}
+        <span
+          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+          style={changed ? { color: kindColors.agent } : undefined}
+        >
+          {label}
+          {changed && <span className="sr-only">, changed in this state</span>}
+        </span>
+        <Hint label={label} detail={detail}>
+          <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
+        </Hint>
+      </label>
+      {changed && onReset && (
+        <Hint label={`Reset to ${firstState}`}>
+          <button type="button" onClick={onReset} className={nameButton} aria-label={`Reset ${label} to ${firstState}`}>
+            <RotateCcw className="size-3" />
+          </button>
+        </Hint>
+      )}
+      {action}
+    </div>
   )
 }
 

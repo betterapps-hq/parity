@@ -509,6 +509,11 @@ const containerViewSettings = fileObject({
   mode: z.string().optional(),
   /** Other modes shown beside the main frame. */
   modes: z.array(z.string()).optional(),
+  /**
+   * The design's own order of the project's modes, by id, as its Modes list shows them and its frames are drawn beside
+   * the main one; modes it doesn't name follow in project order. The main frame's mode comes first whatever the order.
+   */
+  order: z.array(z.string()).optional(),
   /** A component's state the canvas shows. Defaults to the first. */
   state: z.string().optional(),
   /** Show every state of a component, one row each, instead of only the active one. */

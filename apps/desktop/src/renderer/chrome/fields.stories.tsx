@@ -1,30 +1,21 @@
-import type { FieldRules } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
+import { PixelField } from "../inspector/controls/controls.tsx"
+import { NumberField } from "../inspector/controls/number-field.tsx"
 import { useTokenList } from "../tokens-store.ts"
 import { AppSelect } from "./AppSelect.tsx"
-import {
-  Field,
-  type FieldValue,
-  NumberField,
-  NumberInput,
-  Swatch,
-  SwitchInput,
-  TextInput,
-  TokenInput,
-  ValueInput
-} from "./fields.tsx"
+import { Field, Swatch, SwitchInput, TextInput, TokenInput, ValueInput } from "./fields.tsx"
 import { InspectorStage, openInspector, PanelColumn, search, slowly, typing } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { booleanValue, numberValue, type PropValue, textValue } from "./prop-values.ts"
 
 /**
  * The inspector's controls, one row each: a label, the control, and a reset button when a state changes the value.
- * Text and numbers commit on Enter or blur; choices, switches and tokens right away. Numbers and lengths read units and
- * maths, step with Up and Down, scrub by their label, keep focus on Enter, and say under the row what they couldn't read
- * or what they did with a value.
+ * Text and numbers commit on Enter or blur; choices, switches and tokens right away. Numbers and lengths are the Design
+ * tab's own (`NumberField`, `PixelField`): they read units and maths, step with Up and Down, scrub by their label, and
+ * say under the row what they couldn't read.
  */
 const meta = {
   title: "Parity/Inspector/Fields",
@@ -69,10 +60,6 @@ function kindOf(value: PropValue): string {
 
 type Story = StoryObj<typeof meta>
 
-const percentRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Opacity" }
-const countRules: FieldRules = { kind: "count", min: 1, label: "Max lines" }
-const lengthRules: FieldRules = { kind: "length", unit: 4, min: 0, label: "Gap" }
-
 /** How the rows look: values set, changed in a state, different across selected layers, or not set at all. */
 type Look = "set" | "changed" | "mixed" | "unset"
 
@@ -81,10 +68,10 @@ interface Values {
   label: string
   description: string
   id: string
-  opacity: FieldValue
-  lines: FieldValue
-  /** Steps of the spacing scale: 4 is 16px. */
-  gap: FieldValue
+  opacity: number | undefined
+  lines: number | undefined
+  /** In pixels. */
+  gap: number | undefined
   variant: string | undefined
   visible: boolean
   json: PropValue | undefined
@@ -98,7 +85,7 @@ const initial: Values = {
   id: "plan-call-to-action",
   opacity: 80,
   lines: undefined,
-  gap: 4,
+  gap: 16,
   variant: "outline",
   visible: true,
   json: { monthly: true, seats: [3, 10] },
@@ -155,34 +142,39 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
         {row(
           "opacity",
           "Number",
-          <NumberInput
+          <NumberField
+            label={labels?.opacity ?? "Number"}
+            min={0}
+            max={100}
+            unit="%"
             value={values.opacity}
-            rules={percentRules}
             placeholder="100"
-            suffix="%"
-            blank={() => 100}
-            onCommit={(update) => set({ opacity: update(values.opacity) })}
+            mixed={look === "mixed"}
+            onChange={(opacity) => set({ opacity })}
           />
         )}
         {row(
           "lines",
           "No number",
-          <NumberInput
+          <NumberField
+            label="No number"
+            whole
+            min={1}
             value={values.lines}
-            rules={countRules}
             placeholder="No limit"
-            onCommit={(update) => set({ lines: update(values.lines) })}
+            unsetIs={1}
+            onChange={(lines) => set({ lines })}
           />
         )}
         {row(
           "gap",
           "Length",
-          <NumberField
+          <PixelField
+            label="Length"
+            spacing
             value={values.gap}
-            rules={lengthRules}
-            suffix={values.gap === undefined ? undefined : "px"}
-            blank={() => 0}
-            onCommit={(update) => set({ gap: update(values.gap) })}
+            mixed={look === "mixed"}
+            onChange={(gap) => set({ gap })}
           />
         )}
         {row(
@@ -335,25 +327,24 @@ export const Typing: Story = {
   }
 }
 
-/** Maths in a number field: 50-10 in the percentage gives 40, and Enter keeps the field, with its text selected. */
+/** Maths in a number field: 50-10 in the percentage gives 40, and Enter makes it and leaves the field. */
 export const TypingMaths: Story = {
   play: async ({ canvasElement }) => {
     const input = within(canvasElement).getByRole("textbox", { name: "Number" })
     await userEvent.tripleClick(input)
     await userEvent.keyboard("50-10{Enter}")
     await expect(input).toHaveValue("40")
-    await expect(input).toHaveFocus()
+    await expect(input).not.toHaveFocus()
   }
 }
 
-/** A length typed in pixels lands on the nearest half step of the spacing scale, and the field says so. */
-export const SnappedToTheScale: Story = {
+/** A length off the spacing scale stays as typed: 281 is 281px. */
+export const KeepsAnyLength: Story = {
   play: async ({ canvasElement }) => {
     const input = within(canvasElement).getByRole("textbox", { name: "Length" })
     await userEvent.tripleClick(input)
     await userEvent.keyboard("281{Enter}")
-    await expect(input).toHaveValue("282")
-    await within(canvasElement).findByText("Snapped to 282px, the nearest step on the spacing scale")
+    await expect(input).toHaveValue("281")
   }
 }
 
@@ -365,7 +356,7 @@ export const CantRead: Story = {
     await userEvent.keyboard("16em{Enter}")
     await expect(input).toHaveValue("16em")
     await expect(input).toHaveAttribute("aria-invalid", "true")
-    await within(canvasElement).findByText(`"em" isn't a unit Gap takes: type a number, px, rem or %`)
+    await within(canvasElement).findByText(/"em" isn't a unit/)
   }
 }
 

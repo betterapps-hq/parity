@@ -23,6 +23,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
+import { NumberField } from "./number-field.tsx"
 import { type FontFamily, findFont, genericOf, moreFonts, stackFamilies, weightName } from "./text-data.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
 import {
@@ -239,7 +240,8 @@ export function FontFamilyField({
         mixed={mixed}
         chip={tokenChip(held, heldToken, {
           pick: (name) => change(asToken(name)),
-          detach: (token) => change({ stack: token.stack })
+          detach: (token) => change({ stack: token.stack }),
+          namespace: "font-"
         })}
         comesTo={comesTo}
         status={{ missing }}
@@ -497,29 +499,19 @@ export function WeightField({
             value={shown}
             onValueChange={(next) => onChange(weightValue(Array.isArray(next) ? next[0]! : next))}
           />
-          <ValueField
+          <NumberField
             label="Weight number"
-            shown={String(shown)}
+            called="Weight"
+            whole
+            min={1}
+            max={1000}
+            past="refuse"
+            required
+            step={10}
+            scrubs={false}
+            value={shown}
             selectOnFocus
-            read={(text): Reading<number> => {
-              const reading = readNumber(text, shown, "Weight")
-
-              if ("reason" in reading) {
-                return { reason: reading.reason }
-              }
-
-              if ("clear" in reading) {
-                return { reason: "Enter a weight from 1 to 1000" }
-              }
-
-              if (reading.value < 1 || reading.value > 1000) {
-                return { reason: "Weight goes from 1 to 1000" }
-              }
-
-              return { value: Math.round(reading.value) }
-            }}
-            onCommit={(next) => onChange(weightValue(next))}
-            onStep={(up, { shift }) => onChange(weightValue(clamp(shown + stepCount(up, shift) * 10, 1, 1000)))}
+            onChange={(next) => next !== undefined && onChange(weightValue(next))}
           />
         </div>
       )}
@@ -558,7 +550,8 @@ export function WeightField({
             mixed={mixed}
             chip={tokenChip(held, heldToken, {
               pick: (name) => onChange(asToken(name)),
-              detach: (token) => onChange({ value: token.weight })
+              detach: (token) => onChange({ value: token.weight }),
+              namespace: "font-weight-"
             })}
             picker={{ content: picker, open, onOpenChange: choose, className: "w-60 gap-0 p-0" }}
             hint={{
@@ -832,7 +825,8 @@ export function LineHeightField({
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),
-        detach: (each) => onChange({ multiple: each.multiple })
+        detach: (each) => onChange({ multiple: each.multiple }),
+        namespace: "leading-"
       })}
       unit={
         auto ? undefined : (
@@ -970,7 +964,8 @@ export function FontSizeField({
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),
-        detach: (each) => onChange({ px: each.px })
+        detach: (each) => onChange({ px: each.px }),
+        namespace: "text-"
       })}
       unit="px"
       comesTo={token ? `${formatNumber(token.px)}px` : undefined}
@@ -1135,7 +1130,8 @@ export function LetterSpacingField({
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),
-        detach: (each) => onChange({ em: each.em })
+        detach: (each) => onChange({ em: each.em }),
+        namespace: "tracking-"
       })}
       unit={
         <UnitMenu

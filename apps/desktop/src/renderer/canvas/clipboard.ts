@@ -27,7 +27,8 @@ import {
   designsSelection,
   layersSelection,
   selectedDesigns,
-  selectedNodes
+  selectedNodes,
+  selectionToPasteOn
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import type { CopiedFile } from "../../shared/protocol.ts"
@@ -256,17 +257,27 @@ export async function pasteOverSelection(
   session: ProjectDesigns & Pick<ProjectSession, "components" | "id">
 ): Promise<void> {
   const { store, selection } = session
-  const current = selection.get()
-  const frame = store.editFrame(current)
-  const ids = selectedNodes(current)
+  const asked = selection.get()
 
-  if (frame && ids.length > 0) {
+  if (store.editFrame(asked) && selectedNodes(asked).length > 0) {
     const layers = await clipboardLayers(session.id, "over", "Copy layers to paste them over layers")
 
     if (!layers) {
       return
     }
 
+    // Saving an image takes a while, so the selection is read again: the copies go over what's selected now.
+    const current = selectionToPasteOn("over", asked, selection.get())
+    const frame = current && store.editFrame(current)
+
+    if (!current || !frame) {
+      toast.info("No layers are selected, so nothing was pasted")
+      pasteFailed("over", layers.content, "noTarget")
+
+      return
+    }
+
+    const ids = selectedNodes(current)
     const { nodes } = layers
     let copies: string[] = []
     store.updateContainer(
@@ -294,7 +305,7 @@ export async function pasteOverSelection(
     return
   }
 
-  const selected = selectedDesigns(current).flatMap((key) => store.getEntry(key) ?? [])
+  const selected = selectedDesigns(asked).flatMap((key) => store.getEntry(key) ?? [])
 
   if (selected.length === 0) {
     return
@@ -346,11 +357,9 @@ export async function pasteOverSelection(
 export async function pasteToReplace(
   session: ProjectDesigns & Pick<ProjectSession, "components" | "id">
 ): Promise<void> {
-  const current = session.selection.get()
-  const frame = session.store.editFrame(current)
-  const ids = selectedNodes(current)
+  const asked = session.selection.get()
 
-  if (!frame || ids.length === 0) {
+  if (!session.store.editFrame(asked) || selectedNodes(asked).length === 0) {
     return
   }
 
@@ -360,6 +369,18 @@ export async function pasteToReplace(
     return
   }
 
+  // Saving an image takes a while, and replacing removes layers, so it only replaces what was selected when asked.
+  const current = selectionToPasteOn("replace", asked, session.selection.get())
+  const frame = current && session.store.editFrame(current)
+
+  if (!current || !frame) {
+    toast.info("The selection changed, so nothing was replaced")
+    pasteFailed("replace", layers.content, "noTarget")
+
+    return
+  }
+
+  const ids = selectedNodes(current)
   const { nodes } = layers
   let copies: string[] = []
   session.store.updateContainer(

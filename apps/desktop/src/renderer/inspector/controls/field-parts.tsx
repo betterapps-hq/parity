@@ -43,18 +43,17 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
+import { type FieldSessionEvent, relativeUpdate } from "./edit-session.ts"
 import { useRowScrub } from "./field-row.tsx"
-import { inScaleOrder, stepToken, tokenNamed } from "./token-scale.ts"
+import { inScaleOrder, tokenNamed } from "./token-scale.ts"
 import {
   type FieldToken,
   type LengthToken,
   lengthToken,
-  type OpacityToken,
   type TokenSetName,
   type TokenSets,
   tokenSets
 } from "./tokens.ts"
-import { readNumber } from "./typing.ts"
 
 /*
  * The one field every styling control builds on, as PAR-652's design-options-fields.md sets its anatomy: an inner
@@ -100,19 +99,76 @@ export const arrowMoves = new Map<string, [number, number]>([
   ["ArrowDown", [0, 1]]
 ])
 
-/** A reason as a sentence of its own, ending in a full stop unless it ends in one already or leads into an answer. */
-const sentence = (text: string) => (/[.:?!]$/.test(text) ? text : `${text}.`)
+/**
+ * How a field's changes reach what it edits while they're under way, where that can show a change before making it, as
+ * the Design tab's edit session can (`edit-session.ts`). Without it, each change is made as it comes, as the stories'
+ * drafts take them.
+ */
+export interface LiveEdits {
+  /** Says what happened in the field, running `change` to find what it edits: a preview, a step, the made value. */
+  send: (event: FieldSessionEvent, change?: () => void) => void
+}
+
+/** The live edits the fields inside make their changes through, as the Design tab's sections provide them. */
+export const LiveEditsContext = createContext<LiveEdits | undefined>(undefined)
+
+/** The live edits a control's changes go through, where the Design tab's sections give them; none in the stories. */
+export const useLiveEdits = () => useContext(LiveEditsContext)
+
+/**
+ * The parts of the approved controls whose values the document the panel edits can't store yet, each added by one of
+ * PAR-924 to PAR-935. The stories store everything, so they show every control working.
+ */
+export type Unstorable =
+  | "aspect"
+  | "reverse"
+  | "lines"
+  | "dense"
+  | "baseline"
+  | "trackSizes"
+  | "fixedPlacement"
+  | "pinCenter"
+  | "pinScale"
+  | "cornerShape"
+  | "eachCorner"
+  | "blend"
+  | "alpha"
+  | "eachSide"
+  | "strokePosition"
+  | "preset"
+  | "smallCaps"
+  | "tag"
+  | "scrollAlways"
+
+/** Whether the document stores a part's value; unset, as in the stories, it stores every part. */
+export const StoresContext = createContext<(part: Unstorable) => boolean>(() => true)
+
+/**
+ * A part of a control the document can't store yet, shown as the approved design has it but disabled and dimmed, so
+ * the section matches its story while the property waits for its issue. Without a part, it's always stored.
+ */
+export function Unstored({ part, children }: { part: Unstorable | undefined; children: ReactNode }) {
+  const stores = useContext(StoresContext)
+
+  if (part === undefined || stores(part)) {
+    return children
+  }
+
+  return (
+    <fieldset disabled className="contents *:opacity-50">
+      {children}
+    </fieldset>
+  )
+}
 
 /**
  * Text typed into a field, checked before it's stored: `read` gives what to store, or the reason it can't. Text it
- * can't read stays, outlined, with the reason under the row; Enter keeps it, and Escape puts the value back; leaving does
- * too, and says why. Up and Down step the value, ending any typing. Fields that say things on one line under their row
+ * can't read stays, outlined, with the reason under the row in the error's red, whether Enter is pressed or the field is
+ * left, until it's typed in again or Escape puts the value back. Up and Down step the value, ending any typing. Fields that say things on one line under their row
  * together, as a color's channels do, pass that line as `line`; each still outlines itself.
  */
 export function useTyped<T>({
-  label,
   shown,
-  backTo,
   read,
   onCommit,
   onStep,
@@ -122,8 +178,6 @@ export function useTyped<T>({
   label: string
   /** The value as the field shows it at rest, which Escape puts back. */
   shown: string
-  /** What the field says it's back to, where that isn't the text shown (a token's chip shows no text). */
-  backTo?: string
   read: (text: string) => Reading<T>
   onCommit: (value: T) => void
   onStep?: (up: boolean, shift: boolean, alt: boolean) => void
@@ -136,6 +190,41 @@ export function useTyped<T>({
   // What's typed as of now, not as of the last render: Enter commits and leaves the field at once, and leaving reads
   // what's typed again, so it finds it already taken rather than committing it twice.
   const typedNow = useRef<string>(undefined)
+  const live = useContext(LiveEditsContext)
+  const liveNow = useRef(live)
+  useEffect(() => {
+    liveNow.current = live
+  })
+  // What's typed doesn't outlive its field on the canvas, as when the row it's in goes while it's typed in.
+  useEffect(
+    () => () => {
+      if (typedNow.current !== undefined) {
+        liveNow.current?.send({ type: "hide" })
+      }
+    },
+    []
+  )
+
+  const cancelPreview = () => live?.send({ type: "hide" })
+
+  // Each keystroke that reads shows on the canvas at once, as the app's fields always have (CAN-48).
+  const previewTyped = (text: string) => {
+    if (!live) {
+      return
+    }
+
+    const outcome = read(text)
+
+    if ("value" in outcome) {
+      live.send({ type: "show" }, () => onCommit(outcome.value))
+    } else {
+      cancelPreview()
+    }
+  }
+
+  // Made, the edit takes the preview's place: one undo step.
+  const make = (value: T) => (live ? live.send({ type: "make" }, () => onCommit(value)) : onCommit(value))
+
   const [focused, setFocused] = useState(false)
   const [ownMessage, setOwnMessage] = useState<Message>()
   const [failed, setFailed] = useState(false)
@@ -166,13 +255,6 @@ export function useTyped<T>({
   }
 
   const error = failed
-  const named = backTo ?? (shown || "unset")
-  // What's put back, said under the field: the value kept, with the field's name where fields share a line.
-  let kept = named === "unset" ? "Left unset." : `Reverted to ${named}.`
-
-  if (line) {
-    kept = named === "unset" ? `${label} left unset.` : `${label} reverted to ${named}.`
-  }
 
   const commit = (leaving: boolean): boolean => {
     const text = typedNow.current
@@ -184,20 +266,21 @@ export function useTyped<T>({
     const outcome = read(text)
 
     if ("value" in outcome) {
-      onCommit(outcome.value)
+      make(outcome.value)
       setMessage(outcome.message)
     } else if (leaving && quiet) {
       setMessage(undefined)
-    } else if (leaving) {
-      setMessage({
-        tone: "note",
-        text: `${kept} ${sentence(outcome.reason)}`,
-        action: outcome.action
-      })
     } else {
+      // What it can't read stays as typed, leaving or not, with the reason in the error's red, until it's typed in
+      // again or Escape puts the value back.
+      cancelPreview()
       setMessage({ tone: "error", text: outcome.reason, action: outcome.action })
 
       return false
+    }
+
+    if (!("value" in outcome)) {
+      cancelPreview()
     }
 
     setTyped(undefined)
@@ -216,7 +299,10 @@ export function useTyped<T>({
     input: {
       value: typed ?? shown,
       "aria-invalid": error || undefined,
-      onChange: (event: { target: { value: string } }) => setTyped(event.target.value),
+      onChange: (event: { target: { value: string } }) => {
+        setTyped(event.target.value)
+        previewTyped(event.target.value)
+      },
       onFocus: () => {
         setFocused(true)
 
@@ -227,6 +313,7 @@ export function useTyped<T>({
       onBlur: () => {
         setFocused(false)
         commit(true)
+        live?.send({ type: "end" })
       },
       onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Enter" && commit(false)) {
@@ -235,16 +322,29 @@ export function useTyped<T>({
 
         if (event.key === "Escape" && typed !== undefined) {
           event.stopPropagation()
+          cancelPreview()
           setTyped(undefined)
           // Escape is asked for, so putting the value back says nothing; it clears what was said.
           setMessage(undefined)
+        } else if (event.key === "Escape" && !event.defaultPrevented) {
+          // With nothing typed, Escape takes back a run of Up and Down presses and leaves the field, so the canvas's
+          // keys, Undo among them, reach the app again.
+          live?.send({ type: "cancel" })
+          event.currentTarget.blur()
         }
 
         if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
           event.preventDefault()
           setTyped(undefined)
           setMessage(undefined)
-          onStep(event.key === "ArrowUp", event.shiftKey, event.altKey)
+          const up = event.key === "ArrowUp"
+          const { shiftKey, altKey } = event
+
+          if (live) {
+            live.send({ type: "step" }, () => onStep(up, shiftKey, altKey))
+          } else {
+            onStep(up, shiftKey, altKey)
+          }
         }
       }
     }
@@ -410,8 +510,13 @@ function scrubbed(start: number, dx: number, keys: ScrubKeys, by: ScrubBy): numb
 export function scrub(
   from: () => number,
   apply: (value: number, keys: ScrubKeys) => void,
-  by: ScrubBy
+  by: ScrubBy,
+  live?: LiveEdits,
+  each?: (update: (own: number) => number, keys: ScrubKeys) => void
 ): (event: ReactPointerEvent<Element>) => void {
+  // A value held to the field's limits, to a ten-thousandth.
+  const settle = (value: number) => Math.round(clamp(value, by.min ?? -Infinity, by.max ?? Infinity) * 10_000) / 10_000
+
   return (event) => {
     if (event.button !== 0) {
       return
@@ -419,14 +524,46 @@ export function scrub(
 
     event.preventDefault()
     const start = from()
+    // With live edits, the drag previews as it goes and makes its last value once, on release: one undo step. Escape,
+    // or the pointer being cancelled, puts the value back.
+    let last: (() => void) | undefined
+    live?.send({ type: "end" })
     drag(event, {
+      escapes: live !== undefined,
       move: ({ dx, shift, alt }) => {
         const keys = { shift, alt }
-        const next = clamp(scrubbed(start, dx, keys, by), by.min ?? -Infinity, by.max ?? Infinity)
-        apply(Math.round(next * 10_000) / 10_000, keys)
+        const value = settle(scrubbed(start, dx, keys, by))
+        // Where the layers differ, each moves from its own value.
+        const change = each ? () => each((own) => settle(scrubbed(own, dx, keys, by)), keys) : () => apply(value, keys)
+
+        if (live) {
+          last = change
+          live.send({ type: "show" }, change)
+        } else {
+          change()
+        }
+      },
+      end: (_point, cancelled) => {
+        if (!live || !last) {
+          return
+        }
+
+        if (cancelled) {
+          live.send({ type: "cancel" })
+        } else {
+          live.send({ type: "make" }, last)
+        }
       }
     })
   }
+}
+
+/** A value moved by one press of Up or Down, as a drag of its label moves it: one step, ten with Shift. */
+export function pressed(own: number, up: boolean, keys: ScrubKeys, by: ScrubBy): number {
+  // A spacing step is two pixels of drag; anything else, one.
+  const next = scrubbed(own, (up ? 1 : -1) * ("spacing" in by ? 2 : 1), keys, by)
+
+  return Math.round(clamp(next, by.min ?? -Infinity, by.max ?? Infinity) * 10_000) / 10_000
 }
 
 /** Where a dragging pointer is. */
@@ -446,7 +583,10 @@ export interface DragPoint {
 /**
  * Follows a pointer from a press on an element until it's let go or the browser cancels it, capturing it so the drag
  * keeps going outside the element. Every drag in the controls goes through this, so none is left listening after a
- * cancelled one. With `press`, the press itself counts as the first move, so a click sets a position.
+ * cancelled one. With `press`, the press itself counts as the first move, so a click sets a position. With `escapes`,
+ * Escape cancels it too, and goes no further. With `runs`, the live edits a control's drag goes through, each move's
+ * edit is made at once, so the control follows the pointer, and the drag is one undo step that Escape or the pointer
+ * being cancelled takes back, as a run of Up and Down presses is.
  */
 export function drag(
   event: ReactPointerEvent<Element>,
@@ -454,12 +594,16 @@ export function drag(
     move,
     end,
     within,
-    press = false
+    press = false,
+    escapes = false,
+    runs
   }: {
     move: (point: DragPoint) => void
     end?: (point: DragPoint, cancelled: boolean) => void
     within?: Element | null
     press?: boolean
+    escapes?: boolean
+    runs?: LiveEdits
   }
 ): void {
   if (event.button !== 0) {
@@ -483,9 +627,20 @@ export function drag(
 
   let last = at(event)
   target.setPointerCapture(event.pointerId)
+  const moveTo = (point: DragPoint) => (runs ? runs.send({ type: "step" }, () => move(point)) : move(point))
+
+  // A field focused before the press ends its own edit as it loses focus, before the drag's run begins, so it can't end
+  // the run halfway, as it would once the press moves the focus.
+  if (runs && target instanceof HTMLElement && target.tabIndex >= 0) {
+    target.focus()
+  } else if (runs && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur()
+  }
+
+  runs?.send({ type: "end" })
 
   if (press) {
-    move(last)
+    moveTo(last)
   }
 
   const onMove = (moveEvent: Event) => {
@@ -494,21 +649,43 @@ export function drag(
     }
 
     last = at(moveEvent)
-    move(last)
+    moveTo(last)
   }
 
   const stop = (cancelled: boolean) => {
     target.removeEventListener("pointermove", onMove)
     target.removeEventListener("pointerup", onUp)
     target.removeEventListener("pointercancel", onCancel)
-    end?.(last, cancelled)
+    window.removeEventListener("keydown", onKey, true)
+
+    // What the drag does as it ends, as a stop dragged off its bar is removed, is part of its step.
+    if (runs && !cancelled) {
+      runs.send({ type: "step" }, () => end?.(last, cancelled))
+      runs.send({ type: "end" })
+    } else {
+      runs?.send({ type: "cancel" })
+      end?.(last, cancelled)
+    }
   }
 
   const onUp = () => stop(false)
   const onCancel = () => stop(true)
+
+  const onKey = (keyEvent: globalThis.KeyboardEvent) => {
+    if (keyEvent.key === "Escape") {
+      keyEvent.preventDefault()
+      keyEvent.stopPropagation()
+      stop(true)
+    }
+  }
+
   target.addEventListener("pointermove", onMove)
   target.addEventListener("pointerup", onUp)
   target.addEventListener("pointercancel", onCancel)
+
+  if (escapes || runs) {
+    window.addEventListener("keydown", onKey, true)
+  }
 }
 
 /**
@@ -2044,8 +2221,19 @@ export interface ValueFieldProps<T> {
   shown: string | undefined
   /** What unset comes to, shown faintly: `0`, `None`, `Hug`, `Auto`. */
   placeholder?: string
-  /** The selected layers differ here: unset shows Mixed, and typing replaces every one. */
+  /** The selected layers differ here: unset shows Mixed, and typing replaces every one, unless `each` is given. */
   mixed?: boolean
+  /**
+   * Where the layers differ (`mixed`), what works from the value there is worked out for each layer from its own, as
+   * `Mixed+8` adds 8 to each: maths that uses the value (`+8`, `*2`), Up and Down, and a scrub. `update` takes a
+   * layer's own number, in the field's units, and gives its next; `keys` are those held for a step or a scrub.
+   */
+  each?: (update: (own: number) => number, keys?: ScrubKeys) => void
+  /**
+   * How Up or Down moves a layer's own number where `each` works it out for each layer, where a press moves it
+   * differently from a drag of its label, as a side's does. Without it, a press moves it as a drag of a step does.
+   */
+  stepEach?: (own: number, up: boolean, keys: ScrubKeys) => number
   /** The value shows faintly, as one set by another control does. */
   muted?: boolean
   /** Slot 2: the token the field holds, as a chip in the value's place. */
@@ -2311,7 +2499,7 @@ function lockedTyping<T>(
  * and opens them, with Detach in what it opens while a token's set. Nothing in the field shows only on hover. A
  * value of its own has no mark: its token list offers the nearest token first, then Create token (`own`). What's typed
  * is read when Enter is pressed or the field is left: text it can't read stays, outlined, with the reason under the
- * row, and Escape puts the value back; leaving does too, and says why. Up and Down step it. Typing on a focused pill replaces
+ * row, whether Enter is pressed or the field is left, and Escape puts the value back. Up and Down step it. Typing on a focused pill replaces
  * the token; Backspace in the empty field, or on the pill, takes it off, and Detach keeps what it came to. A click on
  * the pill focuses the field as a click on its text does, and once it's focused opens the tokens, as Alt+Down does.
  * Messages span a grid's row, so a row of fields says things under the whole row.
@@ -2323,6 +2511,8 @@ export function ValueField<T>({
   shown,
   placeholder = "",
   mixed = false,
+  each,
+  stepEach,
   muted = false,
   chip,
   unit,
@@ -2355,6 +2545,7 @@ export function ValueField<T>({
   locked,
   expression
 }: ValueFieldProps<T>) {
+  const live = useContext(LiveEditsContext)
   const [listOpen, setListOpen] = useState(false)
   const [searching, setSearching] = useState(false)
   const [highlight, setHighlight] = useState(0)
@@ -2390,13 +2581,33 @@ export function ValueField<T>({
   // something's typed, Up and Down step the value as they do unlocked.
   const searchOnFocus = ownSearch !== undefined
 
-  const typed = useTyped({
+  // Where the layers differ, a change that works from the value there is worked out for each layer.
+  const perLayer = mixed && locked === undefined ? each : undefined
+  const readOne = locking?.read ?? read
+
+  const typed = useTyped<{ value: T } | { each: (own: number) => number }>({
     label,
     shown: shown ?? "",
-    backTo,
-    read: locking?.read ?? read,
-    onCommit,
-    onStep: onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
+    read: (text) => {
+      const update = perLayer && relativeUpdate(text, label)
+
+      if (update) {
+        return { value: { each: update } }
+      }
+
+      const reading = readOne(text)
+
+      return "value" in reading ? { ...reading, value: { value: reading.value } } : reading
+    },
+    onCommit: (typedValue) => ("each" in typedValue ? perLayer?.(typedValue.each) : onCommit(typedValue.value)),
+    onStep:
+      perLayer && scrubbing && onStep
+        ? (up, shift, alt) =>
+            perLayer(
+              (own) => (stepEach ?? ((at, to, keys) => pressed(at, to, keys, scrubbing.by)))(own, up, { shift, alt }),
+              { shift, alt }
+            )
+        : onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
     line,
     quiet: locked !== undefined
   })
@@ -2456,7 +2667,7 @@ export function ValueField<T>({
     scrubbing && !disabled
       ? (event) => {
           clearTyping()
-          scrub(scrubbing.from, scrubbing.apply, scrubbing.by)(event)
+          scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live, perLayer)(event)
         }
       : undefined
   )
@@ -2464,7 +2675,7 @@ export function ValueField<T>({
   let labelSlot: ReactNode
 
   if (inner !== undefined && scrubbing) {
-    const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by)
+    const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live, perLayer)
     labelSlot = (
       <span
         onPointerDown={(event) => {
@@ -2781,6 +2992,11 @@ export function ValueField<T>({
 
             if (search && event.key === "Escape" && searching) {
               closeSearch()
+
+              // Escape closes the list first; the next one leaves the field.
+              if (!typing) {
+                return
+              }
             }
 
             if (offers && !altSteps && event.key === "ArrowDown" && event.altKey) {
@@ -2974,159 +3190,4 @@ export function ValueField<T>({
 }
 
 /** The step Up and Down take in a percentage: 1, 10 with Shift, a quarter with Alt. */
-const percentStep = ({ shift, alt }: ScrubKeys) => {
-  if (shift) {
-    return 10
-  }
-
-  return alt ? 0.25 : 1
-}
-
-/**
- * A percentage, as opacity, a color's alpha, scale and a gradient stop's position take one: typed with the app's
- * maths (`50`, `50%`, `+10`, `*0.5`), stepped by 1 with Up and Down (10 with Shift), scrubbed by its inner label, and
- * held to its range when what's typed is past either end. Text it can't read is refused, never stored as
- * a number it isn't.
- */
-export function PercentField({
-  label,
-  value,
-  placeholder = "100",
-  unsetIs,
-  min = 0,
-  max = 100,
-  places = 2,
-  inner,
-  narrow,
-  mixed,
-  disabled,
-  hint,
-  rowClassName,
-  keywords,
-  tokens,
-  status,
-  own,
-  onChange
-}: {
-  label: string
-  value: number | undefined
-  /** What unset shows, faintly. */
-  placeholder?: string
-  /** What unset counts as for maths and steps: the placeholder's number unless said. */
-  unsetIs?: number
-  min?: number
-  max?: number
-  /** Decimals kept: 0 for a color's alpha, as `bg-primary/50` takes whole percentages. */
-  places?: number
-  inner?: ReactNode
-  narrow?: boolean
-  mixed?: boolean
-  disabled?: boolean
-  hint?: FieldHint
-  rowClassName?: string
-  /** Words it also reads as percentages, as a position's X reads `left` as 0 and `right` as 100. */
-  keywords?: Readonly<Record<string, number>>
-  /**
-   * The opacity tokens it offers, as Opacity and a color's alpha do: the one it holds (`current`) is its chip, typing a
-   * token's name (`muted`, `opacity-muted`) picks it, and Up and Down step through them in order.
-   */
-  tokens?: { list: readonly OpacityToken[]; current?: string; onPick: (name: string | undefined) => void }
-  /** Slot 5's marks. */
-  status?: StatusMarks
-  /** A value of its own, which its token list offers the nearest token and Create token for. */
-  own?: OwnValue
-  onChange: (value: number | undefined) => void
-}) {
-  const held = tokens?.current === undefined ? undefined : tokens.list.find((token) => token.name === tokens.current)
-  const from = value ?? held?.percent ?? unsetIs ?? (Number(placeholder) || 0)
-  const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
-  const words = Object.keys(keywords ?? {})
-  const others = [...words, ...(tokens ? ["an opacity token"] : [])]
-
-  const takes =
-    others.length > 0
-      ? `Enter a percentage${others.length > 1 ? `, ${others.slice(0, -1).join(", ")}` : ""} or ${others.at(-1)}`
-      : "Enter a percentage, such as 50"
-
-  // A token steps to the next in the list's order, Shift to the first or last, as every token does.
-  const stepHeld = (up: boolean, { shift }: ScrubKeys) => {
-    if (!tokens || !held) {
-      return false
-    }
-
-    tokens.onPick(stepToken(tokens.list, held, up, shift).name)
-
-    return true
-  }
-
-  return (
-    <ValueField
-      label={label}
-      inner={inner}
-      scrub={
-        inner === undefined
-          ? undefined
-          : { from: () => from, apply: (next) => onChange(settle(next)), by: { step: 1, shiftStep: 10, min, max } }
-      }
-      shown={value === undefined ? undefined : formatNumber(value, places)}
-      placeholder={placeholder}
-      mixed={mixed}
-      chip={tokenChip(tokens?.current, held, {
-        pick: (name) => tokens?.onPick(name),
-        detach: (token) => onChange(token.percent)
-      })}
-      unit="%"
-      comesTo={held?.detail}
-      status={status}
-      own={own}
-      tokens={tokens && { list: tokens.list, current: tokens.current, onPick: tokens.onPick }}
-      narrow={narrow}
-      hint={hint}
-      disabled={disabled}
-      rowClassName={rowClassName}
-      read={(text): Reading<number | undefined | { token: string }> => {
-        const trimmed = text.trim().toLowerCase()
-        const token = tokenNamed(tokens?.list, trimmed, "opacity-")
-
-        if (token) {
-          return { value: { token: token.name } }
-        }
-
-        const word = keywords?.[trimmed]
-
-        if (word !== undefined) {
-          return { value: word }
-        }
-
-        const reading = readNumber(text.replace(/%\s*$/, ""), from, label)
-
-        if ("clear" in reading) {
-          return { value: undefined }
-        }
-
-        if ("reason" in reading) {
-          return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
-        }
-
-        const kept = Number(formatNumber(reading.value, places))
-
-        // Past either end, it stops there: the field shows it, so it says nothing.
-        return { value: clamp(kept, min, max) }
-      }}
-      onCommit={(next) => {
-        if (next instanceof Object) {
-          tokens?.onPick(next.token)
-        } else {
-          onChange(next)
-        }
-      }}
-      onStep={(up, keys) => {
-        if (!stepHeld(up, keys)) {
-          onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))
-        }
-      }}
-    />
-  )
-}
-
 export { stepToken, tokenNamed } from "./token-scale.ts"

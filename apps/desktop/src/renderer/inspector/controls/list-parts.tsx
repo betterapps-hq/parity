@@ -22,9 +22,10 @@ import {
 } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { checker } from "../../chrome/token-previews.tsx"
-import { clamp, formatNumber, stepCount } from "./css-values.ts"
-import { arrowMoves, drag, NewTokenForm, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
+import { clamp } from "./css-values.ts"
+import { arrowMoves, drag, useLiveEdits, NewTokenForm, useLiveRow } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
+import { NumberField } from "./number-field.tsx"
 import { type Carried, useSortable } from "./sortable.ts"
 
 /*
@@ -495,25 +496,6 @@ export function CenteredSlider({
     background: `linear-gradient(to right, ${rest} ${from}%, var(--primary) ${from}%, var(--primary) ${to}%, ${rest} ${to}%)`
   }
 
-  const takes = `${label} takes a number from ${min} to ${max}`
-
-  const read = (text: string): Reading<number> => {
-    const reading = readNumber(text.replace(unit, "").replace("−", "-"), value, label)
-
-    if ("clear" in reading) {
-      return { reason: takes }
-    }
-
-    if ("reason" in reading) {
-      return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
-    }
-
-    const number = Math.round(reading.value)
-
-    // Past either end, it stops there: the field shows it, so it says nothing.
-    return { value: Math.min(max, Math.max(min, number)) }
-  }
-
   return (
     <Field label={label} hint={value === zero ? "No change, which writes nothing" : `Writes ${hint}`}>
       <div className="grid grid-cols-[1fr_3.25rem] items-center gap-x-2">
@@ -538,19 +520,17 @@ export function CenteredSlider({
           style={track}
           className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background"
         />
-        <ValueField
+        {/* The row's name drags it, one a screen pixel and ten with Shift, as every number scrubs. */}
+        <NumberField
           label={`${label} value`}
-          shown={formatNumber(value)}
+          called={label}
+          whole
+          min={min}
+          max={max}
+          required
           unit={unit || undefined}
-          // The row's name drags it, one a screen pixel and ten with Shift, as every number scrubs.
-          scrub={{
-            from: () => value,
-            apply: (next) => onChange(Math.round(next)),
-            by: { step: 1, shiftStep: 10, min, max }
-          }}
-          read={read}
-          onCommit={onChange}
-          onStep={(up, { shift }) => onChange(clamp(value + stepCount(up, shift), min, max))}
+          value={value}
+          onChange={(next) => next !== undefined && onChange(next)}
         />
       </div>
     </Field>
@@ -562,12 +542,14 @@ export function CenteredSlider({
  * once, or moved with the arrow keys, 1px a step and 10px with Shift.
  */
 export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: (x: number, y: number) => void }) {
+  const live = useLiveEdits()
   // The pad reaches a little past the offset, so a large one stays on it.
   const reach = Math.max(24, Math.abs(x), Math.abs(y)) * 1.25
 
   // The reach stays as it was at the press while the pad's dragged.
   const press = (event: PointerEvent<HTMLDivElement>) =>
     drag(event, {
+      runs: live,
       press: true,
       move: (point) => onChange(Math.round((point.x * 2 - 1) * reach), Math.round((point.y * 2 - 1) * reach))
     })

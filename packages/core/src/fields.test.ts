@@ -227,8 +227,8 @@ describe("counts and numbers", () => {
 
 describe("input it can't read", () => {
   it.each([
-    ["abc", length, `Can't read "abc": type a number, px, rem or %`],
-    ["abc", opacity, `Can't read "abc": type a number or %`],
+    ["abc", length, `"abc" isn't a valid number`],
+    ["abc", opacity, `"abc" isn't a valid percentage`],
     ["16em", length, `"em" isn't a unit Width takes: type a number, px, rem or %`],
     ["16+", length, `Something's missing after "+"`],
     ["16++", length, `Something's missing after "+"`],
@@ -239,8 +239,8 @@ describe("input it can't read", () => {
     ["16 4", length, "Put an operator between 16 and 4"],
     ["16/0", length, "Can't divide by zero"],
     ["%", length, "A % needs a number before it, as in 50%"],
-    ["1,000", length, `Can't read ",": type a number, px, rem or %`],
-    ["16#", length, `Can't read "#": type a number, px, rem or %`]
+    ["1,000", length, `"1,000" isn't a valid number`],
+    ["16#", length, `"16#" isn't a valid number`]
   ])("%s says why", (text, rules, expected) => {
     expect(reason(text, rules, 4)).toBe(expected)
   })
@@ -248,7 +248,7 @@ describe("input it can't read", () => {
   it("is unreadable before it's worked out", () => {
     expect(readFieldInput("abc", length)).toEqual({
       type: "unreadable",
-      reason: `Can't read "abc": type a number, px, rem or %`
+      reason: `"abc" isn't a valid number`
     })
   })
 })
