@@ -2726,6 +2726,19 @@ the Repository, CI and releases stream in Linear.
     or systems do.
   - Vite Task's cache isn't kept between runs yet. `pnpm verify` runs through `vp run` since PAR-405, and ci-verify's
     `vite-task-cache` input turns the rest on.
+- **CI checks each system's app in a job of its own, beside `verify`, and Windows runs from a Dev Drive (PAR-1010).**
+  Windows' verify took 14.4 minutes against Ubuntu's 4.1, though its `pnpm verify` took 4, about what macOS took. The
+  rest was a slow disk under the install and the 2 GB fixtures cache, and checks only Windows ran, one after another.
+  You asked for all three changes:
+  - `verify` runs `pnpm verify` and `try-packed` on each system. `app-windows`, `app-linux` and `app-macos` build and
+    package the app, each its own ci-verify call that runs beside it: Windows also starts the built app, installs it and
+    updates it, Linux updates it, and macOS only packages. Every installer target still has to build before a merge.
+    `app-windows` uploads the source maps, and `CI passes` waits on every job.
+  - The app jobs cache only Electron's downloads, keyed on the app's `package.json`, and skip the fixtures.
+  - On Windows, ci-verify's `dev-drive` input runs the job from a copy of the checkout on a trusted ReFS Dev Drive, with
+    TEMP and pnpm's store on it, which is faster with many small files.
+  - `try-update.ts` builds its two installers with `store` compression, since neither leaves the runner. Compressing
+    each took about a minute on Windows.
 - **Parity's checks are Vite+ tasks, so Vite Task replays one whose inputs haven't changed (PAR-405).** My calls:
   - The root `vite.config.ts` defines `check` (`vp check`), `test` (`vp test run`) and `types`
     (`vp lint --type-aware --type-check`). `pnpm verify` is `vp run check && vp run test`, `pnpm check:types` is

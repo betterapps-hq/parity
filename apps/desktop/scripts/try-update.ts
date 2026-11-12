@@ -144,7 +144,9 @@ async function packageVersion(version: string, output: string, url: string): Pro
       extends: join(appDir, "electron-builder.yml"),
       directories: { output },
       extraMetadata: { version },
-      publish: [{ provider: "generic", url }]
+      publish: [{ provider: "generic", url }],
+      // Neither installer leaves the runner, and compressing each took about a minute on Windows (PAR-1010).
+      compression: "store"
     })
   )
 

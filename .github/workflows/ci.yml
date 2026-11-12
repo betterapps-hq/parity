@@ -9,18 +9,21 @@ permissions:
   contents: read
 
 jobs:
-  # pnpm verify on each system, through the shared template. A newer push to the same branch or pull request cancels
-  # the run before it.
+  # pnpm verify on each system, through the shared template, and the CLI's packed tarball installed in an empty folder
+  # (PAR-13). What only one system checks runs beside it, in a job per system below (PAR-1010). A newer push to the
+  # same branch or pull request cancels the run before it. On Windows it runs from a Dev Drive, which is faster with
+  # many small files.
   verify:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
+      dev-drive: true
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
       # node_modules come back from the cache while their lockfiles are unchanged, and npm ci would delete them, so
       # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
       # come from npm at pinned versions, the same on every system.
       prepare: |
-        # Electron's binary and what electron-builder downloads to package it go where the cache below keeps them. Electron
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
         # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
         # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
         home=$(node -p "require('os').homedir()")
@@ -47,38 +50,104 @@ jobs:
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
       cache-key-files: fixtures/*/*lock*
-      # Then the CLI's packed tarball, installed in an empty folder, has to run on each system (PAR-13).
       command: |
         pnpm verify
         pnpm --filter @parity-app/cli try-packed
-        pnpm build
-        # The startup check launches the production app only in CI, outside the checkout and without a dev server.
-        if [ "$RUNNER_OS" = Windows ]; then
-          pnpm --filter @parity-app/desktop try-built vite7-js
-          pnpm --filter @parity-app/desktop try-built headless
-        fi
-        # Every installer target must build before this can merge. Signing is a separate release task.
-        export CSC_IDENTITY_AUTO_DISCOVERY=false
-        node scripts/retry.ts pnpm --filter @parity-app/desktop package
-        if [ "$RUNNER_OS" = Windows ]; then
-          pnpm --filter @parity-app/desktop try-installed
-        fi
-        # Real N -> N+1 updates, including corrupt downloads and unsaved-work cancellation, run only here.
-        if [ "$RUNNER_OS" = Windows ]; then
-          pnpm --filter @parity-app/desktop try-update
-        elif [ "$RUNNER_OS" = Linux ]; then
-          xvfb-run -a pnpm --filter @parity-app/desktop try-update
-        fi
       # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
       timeout-minutes: 45
-      # The bundles and source maps of the Windows build, the one CI installs and starts, for the sourcemaps job.
-      artifact-path: apps/desktop/sourcemaps
-      artifact-name: desktop-sourcemaps
-      artifact-os: windows-latest
-      artifact-retention-days: 7
       # pnpm verify runs the check and test tasks through vp run, so their cache is kept between runs, under each
       # system's newest. checks doesn't keep one: its types task would save only about 4 seconds.
       vite-task-cache: true
+
+  # The Windows app, built, packaged and installed as people get it, then updated. Every installer target must build
+  # before a change can merge; signing is a separate release task. Its bundles and source maps go to the sourcemaps job.
+  app-windows:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    with:
+      os: '["windows-latest"]'
+      # A group of its own, so it never cancels verify's run on the same system.
+      concurrency-key: app-${{ github.ref }}
+      dev-drive: true
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+      cache-path: |
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # Electron's version is in the app's package.json, so its downloads are fetched again when that changes.
+      cache-key-files: apps/desktop/package.json
+      command: |
+        pnpm build
+        # The startup check launches the production app only in CI, outside the checkout and without a dev server.
+        pnpm --filter @parity-app/desktop try-built vite7-js
+        pnpm --filter @parity-app/desktop try-built headless
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
+        pnpm --filter @parity-app/desktop try-installed
+        # Real N -> N+1 updates, including corrupt downloads and unsaved-work cancellation.
+        pnpm --filter @parity-app/desktop try-update
+      artifact-path: apps/desktop/sourcemaps
+      artifact-name: desktop-sourcemaps
+      artifact-retention-days: 7
+
+  # The Linux app, packaged, then updated from one real version to the next.
+  app-linux:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    with:
+      os: '["ubuntu-latest"]'
+      # A group of its own, so it never cancels verify's run on the same system.
+      concurrency-key: app-${{ github.ref }}
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+      cache-path: |
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # Electron's version is in the app's package.json, so its downloads are fetched again when that changes.
+      cache-key-files: apps/desktop/package.json
+      command: |
+        pnpm build
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
+        xvfb-run -a pnpm --filter @parity-app/desktop try-update
+
+  # The macOS app, packaged for both chips.
+  app-macos:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    with:
+      os: '["macos-latest"]'
+      # A group of its own, so it never cancels verify's run on the same system.
+      concurrency-key: app-${{ github.ref }}
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+      cache-path: |
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # Electron's version is in the app's package.json, so its downloads are fetched again when that changes.
+      cache-key-files: apps/desktop/package.json
+      command: |
+        pnpm build
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
 
   # What needs only one system and the branch's history: types, and on pull requests the change files Beachball and
   # scripts/changes.ts check, and the title squash merging makes the commit's subject. Both compare with origin/main,
@@ -111,9 +180,9 @@ jobs:
   # never fails CI's run, which cd-desktop.yml and cd-npm.yml wait on, and `CI passes` leaves it out.
   sourcemaps:
     name: Upload source maps
-    needs: verify
+    needs: app-windows
     if: >-
-      needs.verify.outputs.artifact-name != '' && (github.event_name == 'push' ||
+      needs.app-windows.outputs.artifact-name != '' && (github.event_name == 'push' ||
       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -122,7 +191,7 @@ jobs:
       - uses: betterapps-hq/pipelines/github/actions/setup@main
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.verify.outputs.artifact-name }}
+          name: ${{ needs.app-windows.outputs.artifact-name }}
           path: apps/desktop/sourcemaps
       - name: Upload to Sentry
         env:
@@ -134,7 +203,7 @@ jobs:
   ci-passes:
     name: CI passes
     if: always()
-    needs: [verify, checks]
+    needs: [verify, app-windows, app-linux, app-macos, checks]
     runs-on: ubuntu-latest
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
