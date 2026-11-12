@@ -257,7 +257,8 @@ its Linear issue.
    answer has no file and no code. The inspector's Code tab, which PAR-167 started: the component's file and line with
    Open in editor, its import, the instance as JSX with its props, the JSX and Tailwind classes Parity would write for a
    layout or text layer (PAR-265's output, in the UI), every token with its value in the mode showing, and Copy as JSX.
-   The Components panel shows each component's file. No other tool can do this without a hand-written mapping.
+   The Components panel shows each component's file. No other tool can do this without a hand-written mapping. Deferred
+   on 2026-11-12 with the rest of the code side; the Code tab was set aside as an exploration (PAR-1027).
 10. **Know the source line of every element** (PAR-167; M). A development-only Vite transform in builder-vite tags each
     JSX element with its file, line and column, so anything inside a real component can show and open its source, and
     agents get the same in `parity components` and snapshots. This is Onlook's approach, and it keeps agents from

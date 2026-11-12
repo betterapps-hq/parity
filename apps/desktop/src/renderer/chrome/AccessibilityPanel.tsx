@@ -186,7 +186,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
             className="size-4 shrink-0"
             style={{ color: designColor(container.kind) }}
           />
-          {/* The selection's title, as the Design and Code tabs show it, so switching tabs doesn't resize it. */}
+          {/* The selection's title, as the Design tab shows it, so switching tabs doesn't resize it. */}
           <Name className="min-w-0 flex-1 text-base font-semibold">{container.name}</Name>
           {shown && shown.findings.length > 0 && (
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Take the Code tab out of the inspector, with the canvas's Inspect picking only it started; the canvas menu's Open in editor stays",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
