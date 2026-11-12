@@ -2256,11 +2256,13 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 
 - **What's copied is what the frame shows.** A layer copied in a state other than the base carries that state's changes,
   all the way down, slots included, and so do the variant options the board shows, the frame's viewport patches and the
-  values bound params show there (PAR-464). Only the outermost selected layers are copied.
+  values bound params show there (PAR-464). The layers an instance fills its slots with are copied the same way
+  (PAR-966). Only the outermost selected layers are copied.
 - **A binding goes only where its param is** (PAR-464). A copied layer bound to a param keeps the binding when it's
   pasted into a design with a param of that name, and follows it there; anywhere else the binding is dropped and the
-  layer keeps the value it showed. A new screen has no params, so it keeps none. Pastes, Paste over, Paste to replace,
-  Paste here and dragging to another design all do this.
+  layer keeps the value it showed. That holds all the way down, in an instance's filled slots too (PAR-966). A new
+  screen has no params, so it keeps none. Pastes, Paste over, Paste to replace, Paste here and dragging to another
+  design all do this.
 - **The copy is an envelope** (`{"parity":"clipboard","version":1,"project":…,"payload":…}`) holding layers, designs or
   notes, and the project they came from. Text that starts like a Parity copy but isn't a complete envelope of a known
   kind, such as cut-off JSON or an unknown version, pastes nothing and shows a message. So does an envelope whose
@@ -2284,7 +2286,9 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
   inspector marks each value taken away as changed in that state, with Reset.
 - **Layers naming components the project doesn't have** still paste, with a warning naming them.
 
-Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`).
+Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`). Copying as shown and fitting bindings
+go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which knows each place a node holds nodes:
+a layout's children, a code component's slots and an instance's filled slots.
 `apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, saves images, places designs by
 their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
 
@@ -2296,16 +2300,20 @@ SVG markup, and text that only looks like it; copying the outermost layers as a 
 lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout); fresh ids in
 order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and viewport, the
 bound title as it shows, and pasting it into a design with and without the param, and bindings fitted all the way down;
-designs' ids, kept when free even when not made from the name, and whole-pixel moves; notes beside where they were and
-at a place; copying style in a state, and in a variant and viewport, and pasting it in the base and in another state,
-where the state shows only the copied style, taking away the design's values and keeping nothing for what the design
-doesn't set; and missing components at any depth, and none while the project's aren't known. The new screen layers make,
-its name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What a state
-takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state, a value
-the state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a
-state taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to
-its default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap
-away in one state and refusing an unknown key.
+an instance whose slot is filled (3, PAR-966), copied as a state shows its fill, its fill's bindings fitted to a design
+with and without the param, and pasted showing what it showed, unbound; designs' ids, kept when free even when not made
+from the name, and whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a
+variant and viewport, and pasting it in the base and in another state, where the state shows only the copied style,
+taking away the design's values and keeping nothing for what the design doesn't set; and missing components at any
+depth, and none while the project's aren't known. `mapNodes` and `mapChildLists` are tested in
+`packages/core/src/edit.test.ts` ("mapping every node", 5): every place a node holds nodes reached in order, a
+replacement's own layers gone into, the same tree back when nothing changes, each list mapped by its slot, and fresh ids
+for a copy's filled slots. The new screen layers make, its name and the bindings it keeps none of, are in
+`packages/editor/src/new-screen.test.ts` (PAR-546). What a state takes away is tested in `packages/core`: `edit.test.ts`
+("taking a value away"), a prop taken away in one state, a value the state set taken away with nothing kept, setting it
+again and Reset, and removal in the base; `render.test.ts`, a state taking style and props away over the design and the
+viewport's patch, layered patches, an instance's param back to its default, and reading `unset` from a file;
+`packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in one state and refusing an unknown key.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
 a value a state takes away has no automated DOM test.
@@ -3563,7 +3571,13 @@ A slot it leaves empty shows the placeholder.
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
   selecting them works as for any other. Layers doesn't list them under the instance.
-- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids.
+- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids. A component can place an instance of
+  its own and fill that one's slots; those layers are the component's, so Detach bakes them like its others, with the
+  values they show, no bindings and fresh ids (PAR-966).
+- **Repeated parts** count what fills an instance's slots as its structure, so two instances of one component are the
+  same part only when their fills are built alike, and what differs between the fills becomes params (PAR-966).
+- **Agents read the fill on the instance.** `Get` in a state or mode gives it as that state draws it, and `depth` leaves
+  it out as `"…"` past the level asked for, as it does a layout's children (PAR-966).
 
 The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
 `@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
@@ -3576,9 +3590,13 @@ Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `In
 
 Tests:
 
-- `packages/core/src/slots.test.ts`, filling an instance's slots (6): a fill kept in its slot and listed, a fill drawn
-  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, and the file refusing
-  a fill that reuses an id.
+- `packages/core/src/slots.test.ts`, filling an instance's slots (7): a fill kept in its slot and listed, a fill drawn
+  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, Detach twice of a
+  component whose own instance fills a slot (PAR-966), and the file refusing a fill that reuses an id.
+- `packages/core/src/decompose.test.ts`, "findRepeats among instances filling a slot" (2, PAR-966): instances told apart
+  by their fills with the values that differ found, and a shorter fill beside a longer one.
+- `packages/agent/src/workspace.test.ts`, "Get reading the layers an instance fills its slots with" (2, PAR-966): the
+  fill as a state draws it, and left out past the depth asked for.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
 - Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
 
@@ -4538,8 +4556,8 @@ The component designs in a dependency's `.lib.par` canvas show in that library's
 showcase.
 
 - **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
-  designs, and instances inside it that place the library's other designs point at their new names. A project design
-  with the same id wins, and the library's isn't listed.
+  designs, and instances inside it that place the library's other designs point at their new names, the ones an instance
+  fills its slots with included (PAR-966). A project design with the same id wins, and the library's isn't listed.
 - **They aren't the project's.** They don't show on the canvas or in the Layers panel, and Save never writes them; they
   change when the library does. A design that places one draws it the way it draws the project's own instances.
 - **Search** finds them by name, as it does components.
@@ -4549,8 +4567,9 @@ puts them on the library (`LibraryInfo.designs`); `DesignStore` in `apps/desktop
 adds them to the designs instances can place (`getComponentLibrary`); `componentSources` in
 `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`.
 
-Tests: `packages/core/src/library.test.ts` (1: component designs named by the library, their instances following,
-screens left out). `packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
+Tests: `packages/core/src/library.test.ts` (2: component designs named by the library, their instances following,
+screens left out; and the instances another instance fills its slots with named by the library too, PAR-966).
+`packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
 `apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
 entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
 on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A frame shows its last picture, at its size, while it's captured again after the project's code changes, rather than a placeholder",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

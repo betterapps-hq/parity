@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

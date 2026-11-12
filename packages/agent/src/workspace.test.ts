@@ -310,6 +310,63 @@ Print(JSON.stringify([at("profile/person").args, at("profile/person/title").text
   })
 })
 
+describe("Get reading the layers an instance fills its slots with (PAR-966)", () => {
+  const panel: ContainerSpec = {
+    id: "panel",
+    name: "Panel",
+    kind: "component",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "panel",
+      children: [{ type: "layout", id: "body", slot: "content", children: [] }]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  const page: ContainerSpec = {
+    id: "page",
+    name: "Page",
+    position: { x: 600, y: 0 },
+    root: {
+      type: "layout",
+      id: "root",
+      children: [
+        {
+          type: "instance",
+          id: "copy",
+          design: "panel",
+          slots: {
+            content: [{ type: "layout", id: "fill", children: [{ type: "text", id: "status", text: "Saving" }] }]
+          }
+        }
+      ]
+    },
+    states: [
+      { id: "default", name: "Default" },
+      { id: "done", name: "Done", overrides: { status: { text: "Saved" } } }
+    ]
+  }
+
+  it("reads them as the state draws them, on the instance they fill", async () => {
+    const result = await read(
+      [panel, page],
+      `Print(JSON.stringify(Get("page/copy", { state: "done" }).slots.content[0].children))`
+    )
+
+    expect(result).toEqual([{ type: "text", id: "status", text: "Saved" }])
+  })
+
+  it("leaves them out past the depth asked for, as it does a layout's children", async () => {
+    const result = await read(
+      [panel, page],
+      `Print(JSON.stringify([Get("page", { depth: 1 }).children[0].slots, Get("page", { depth: 2 }).children[0].slots.content[0].children]))`
+    )
+
+    expect(result).toEqual([{ content: ["…"] }, ["…"]])
+  })
+})
+
 describe("states changing what's inside an instance", () => {
   /** The fixture's profile screen, its instance named so a change can reach it by name. */
   function designs(): ContainerSpec[] {

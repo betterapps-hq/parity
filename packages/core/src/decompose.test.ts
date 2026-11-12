@@ -60,6 +60,40 @@ describe("findRepeats", () => {
   })
 })
 
+describe("findRepeats among instances filling a slot (PAR-966)", () => {
+  const filled = (key: string, ...lines: string[]): DesignNode => ({
+    type: "instance",
+    id: `card-${key}`,
+    design: "card",
+    slots: { content: lines.map((line, index) => ({ type: "text", id: `${key}-${index}`, text: line })) }
+  })
+
+  it("counts what fills the slots as structure, and finds what differs between fills alike", () => {
+    const root: DesignNode = {
+      type: "layout",
+      id: "page",
+      children: [filled("a", "Plan", "Free"), filled("b", "Seats", "Three"), filled("c", "Usage", "Low", "This month")]
+    }
+
+    const candidates = findRepeats(root)
+    expect(candidates.map((candidate) => candidate.nodes)).toEqual([["card-a", "card-b"]])
+    expect(candidates[0]?.params.map((param) => param.values)).toEqual([
+      ["Plan", "Seats"],
+      ["Free", "Three"]
+    ])
+  })
+
+  it("doesn't read past the end of a shorter fill", () => {
+    const root: DesignNode = {
+      type: "layout",
+      id: "page",
+      children: [filled("a", "Usage", "Low", "This month"), filled("b", "Plan", "Free")]
+    }
+
+    expect(findRepeats(root)).toEqual([])
+  })
+})
+
 describe("extractComponent", () => {
   const options = {
     id: "member-row",

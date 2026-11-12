@@ -142,36 +142,56 @@ export function mapNode(
     return next
   }
 
-  const visit = (node: DesignNode): DesignNode | undefined => {
-    if (node.id === id) {
-      return update(node)
-    }
-
-    if (node.type === "layout") {
-      const children = mapChildren(node.children, visit)
-
-      return children === node.children ? node : { ...node, children }
-    }
-
-    if ((node.type === "component" || node.type === "instance") && node.slots) {
-      let changed = false
-      const slots: Record<string, DesignNode[]> = {}
-
-      for (const [slot, nodes] of Object.entries(node.slots)) {
-        slots[slot] = mapChildren(nodes, visit)
-        changed ||= slots[slot] !== nodes
-      }
-
-      return changed ? { ...node, slots } : node
-    }
-
-    return node
-  }
+  const visit = (node: DesignNode): DesignNode | undefined =>
+    node.id === id ? update(node) : mapChildLists(node, (nodes) => mapList(nodes, visit))
 
   return visit(root)!
 }
 
-function mapChildren(nodes: DesignNode[], visit: (node: DesignNode) => DesignNode | undefined): DesignNode[] {
+/**
+ * Rebuilds a tree: every node replaced by what `update` returns for it, a node before the nodes it holds, which are the
+ * ones its replacement holds. Returns the same root when nothing changed.
+ */
+export function mapNodes(root: DesignNode, update: (node: DesignNode) => DesignNode): DesignNode {
+  return mapChildLists(update(root), (nodes) => mapList(nodes, (child) => mapNodes(child, update)))
+}
+
+/**
+ * A node with each list of nodes it holds replaced by what `each` returns for it: a layout's children, a code
+ * component's slots, and the layers an instance fills its component's slots with, by slot. With `childEntries`, which
+ * reads them, it's where a node is known to hold nodes, so a rebuild goes through it rather than by a node's type.
+ * Returns the same node when every list comes back as it was.
+ */
+export function mapChildLists(
+  node: DesignNode,
+  each: (nodes: DesignNode[], slot: string | undefined) => DesignNode[]
+): DesignNode {
+  if (node.type === "layout") {
+    const children = each(node.children, undefined)
+
+    return children === node.children ? node : { ...node, children }
+  }
+
+  if ((node.type === "component" || node.type === "instance") && node.slots) {
+    let changed = false
+    const slots: Record<string, DesignNode[]> = {}
+
+    for (const [slot, nodes] of Object.entries(node.slots)) {
+      slots[slot] = each(nodes, slot)
+      changed ||= slots[slot] !== nodes
+    }
+
+    return changed ? { ...node, slots } : node
+  }
+
+  return node
+}
+
+/**
+ * A list with each node replaced by what `visit` returns, or left out where it returns none. The same list when nothing
+ * changed.
+ */
+function mapList(nodes: DesignNode[], visit: (node: DesignNode) => DesignNode | undefined): DesignNode[] {
   let changed = false
   const next: DesignNode[] = []
 
@@ -303,27 +323,19 @@ export function generateId(taken: ReadonlySet<string>, length = 5): string {
 
 /** Gives `node` and everything in it fresh ids, so a copy can sit next to its original. */
 export function withFreshIds(node: DesignNode, taken: Set<string>): DesignNode {
-  const id = generateId(taken)
-  taken.add(id)
+  return mapNodes(node, (current) => {
+    const id = generateId(taken)
+    taken.add(id)
 
-  if (node.type === "layout") {
-    // A copy is a plain layout, keeping the slot's placeholder content: a component has one slot by each name.
-    const { slot: _slot, ...layout } = node
+    if (current.type === "layout") {
+      // A copy is a plain layout, keeping the slot's placeholder content: a component has one slot by each name.
+      const { slot: _slot, ...layout } = current
 
-    return { ...layout, id, children: node.children.map((child) => withFreshIds(child, taken)) }
-  }
-
-  if ((node.type === "component" || node.type === "instance") && node.slots) {
-    const slots: Record<string, DesignNode[]> = {}
-
-    for (const [slot, nodes] of Object.entries(node.slots)) {
-      slots[slot] = nodes.map((child) => withFreshIds(child, taken))
+      return { ...layout, id }
     }
 
-    return { ...node, id, slots }
-  }
-
-  return { ...node, id }
+    return { ...current, id }
+  })
 }
 
 // States ---------------------------------------------------------------------------------------------------------------

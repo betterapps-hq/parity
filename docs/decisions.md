@@ -7837,6 +7837,33 @@ the old pictures, "that's the point of the cache", with the screens' sizes. My c
 - **Naming bitmaps by only what each frame draws is left for its own issue.** It would turn most of these misses into
   hits, where this only hides them.
 
+## One function maps every node (PAR-966)
+
+Core had `walkNodes` and `childEntries` to visit a tree but nothing to rebuild one, so each caller descended by a node's
+type, and seven of them checked `type === "component"` and stopped at an instance. The layers an instance fills its
+slots with (PAR-84) were skipped. My calls:
+
+- **`mapChildLists` is where a node is known to hold nodes when a tree is rebuilt,** and `childEntries` where it's read:
+  a layout's children, a code component's slots, an instance's filled slots. `mapNodes` rebuilds a whole tree on it, a
+  node before what it holds, and `mapNode`, `withFreshIds`, Detach, the clipboard's `asShown` and `fitBindings`,
+  `libraryDesigns` and the composition example's numbering all go through it. They sit in `edit.ts` beside `mapNode` and
+  `childEntries`; `walkNodes` stays in `document.ts`, which `edit.ts` imports.
+- **What isn't a node tree reads `childEntries` instead.** `structure` in `decompose.ts` makes a string to compare, and
+  the agent's `elide` makes a tree that holds `"…"`, so neither maps nodes to nodes. Both now ask `childEntries` where
+  the layers are rather than checking the node's type.
+- **Five of the seven were wrong, each shown by a test that failed first.** A copy left an instance's fill as the base
+  state has it; a paste kept the fill's bindings to params the design lacks; a library's design left an instance in a
+  fill pointing at `settings-row` rather than `nova/settings-row`, which the app drew as a missing design; Detach left a
+  nested instance's fill bound, with the component's ids, so detaching two copies gave one design the same id twice; and
+  an agent's `Get` in a state read the fill as stored and ignored `depth` for it.
+- **`findRepeats` was wrong in a way the review didn't name.** It took two instances of one component for the same part
+  whatever filled their slots, then read the values that differ by position, so a shorter fill after a longer one threw
+  a `TypeError`. A fill now counts as structure.
+- **The composition example's `numbered` was never wrong.** It's built from a code component's sample, which has no
+  instances. It moved onto `mapNodes` so no walker is left that would skip one.
+- **`elide` keeps one difference:** past the depth a layout with nothing in it reads as `[]`, and a slot as `["…"]`
+  whatever it holds. That's how code components' slots already read, and changing it belongs with PAR-974.
+
 ## A frame's bitmap is current while the files it read hash the same (PAR-994)
 
 Kept bitmaps were named by a fingerprint of the whole project, every file's path, size and modification time, so a
