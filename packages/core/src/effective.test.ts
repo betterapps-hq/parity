@@ -1,4 +1,4 @@
-import { spacing } from "@parity-app/style"
+import { spacing } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import { findNode, nodeOnBoard } from "./edit.ts"

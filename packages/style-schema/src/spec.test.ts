@@ -5,7 +5,7 @@ import { z } from "zod"
 
 // Writes spec.json, the part of the ledger that comes from spec data: every property Chromium draws, with its value
 // grammar from the W3C's specs (@webref/css) and its Baseline status (web-features), and the grammar of every value
-// type and other property those grammars name. Run `vp test run packages/style/src/spec.test.ts -u` after updating either package, or
+// type and other property those grammars name. Run `vp test run packages/style-schema/src/spec.test.ts -u` after updating either package, or
 // after Electron moves to a newer Chromium, and place what joins the list in placements.ts.
 
 /** The Chromium that frames render in, which is Electron's. */

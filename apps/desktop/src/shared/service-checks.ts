@@ -55,7 +55,7 @@ const projectPicture = z.object({
 
 const project = z.object({ projectId: z.string() })
 
-/** A declaration a frame asks the project's classes for, as `@parity-app/style` has them. */
+/** A declaration a frame asks the project's classes for, as `@parity-app/style-schema` has them. */
 const cssDeclaration = z.object({
   property: z.string(),
   value: z.string(),

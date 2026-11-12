@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity-app/style"
+import type { NodeStyle } from "@parity-app/style-schema"
 import type { ContainerSpec, DesignNode, NodePatch, PatchUnset, PropValues, StateSpec } from "./document.ts"
 import { alternativeLimit, closest, CodedError } from "./errors.ts"
 import { uniqueId } from "./modes.ts"

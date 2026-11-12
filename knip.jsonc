@@ -39,7 +39,7 @@
         "package-manager-detector",
         "semver",
         "unconfig",
-        // Imported by @parity-app/style the same way, to match a CSS value against its property's grammar.
+        // Imported by @parity-app/style-schema the same way, to match a CSS value against its property's grammar.
         "css-tree",
         // Buildkit's Storybook config adds these addons by path, from its own dependencies; knip's Storybook plugin
         // counts them as the app's.

@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import { type CssDeclaration, declarations, type NodeStyle } from "@parity-app/style"
+import { type CssDeclaration, declarations, type NodeStyle } from "@parity-app/style-schema"
 import { beforeAll, describe, expect, it } from "vite-plus/test"
 import { loadDesignSystem } from "./design-system.ts"
 import { type DesignSystems, tailwindPrinter } from "./printer.ts"

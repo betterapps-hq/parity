@@ -353,6 +353,69 @@ Tests:
 Gaps: the frame rate is measured by `pnpm perf`, not by a test. Wheel zooming over a layer in the real window was
 checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the canvas.
 
+### One reading of a frame for every gesture (PAR-967)
+
+Whatever the canvas measures in a frame comes from one place: the outlines' sizes, resizing, dragging and nudging a
+layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes and the
+corners of an agent's scan. Frame skeletons still work theirs out (PAR-996). How many screen pixels make one of the
+design's had been worked out three ways in thirteen places: the camera's zoom times the frame's own scale, an element's
+drawn width over its offset width, and the frame's drawn width over the width it was given. Nothing checked they agreed,
+and dragging an absolutely placed layer took its scale from the camera and its insets from the page, which agree only
+once tldraw has drawn the camera's latest move.
+
+- **The scale is read from where the frame is drawn,** its width on screen over its width as laid out, so it always
+  agrees with the boxes beside it, whatever the camera, a companion mode's smaller frame or anything else multiplies
+  into it. No gesture asks the camera for it.
+- **A transformed layer has its own scale.** Its border, padding and text are drawn at the frame's scale times its
+  transform, so the text editor sizes its font, and padding handles their bars, from that. A layer turned on its side
+  has no one scale, and the frame's stands in.
+- **Insets are counted in the containing block's pixels,** so a badge in a component drawn a quarter bigger still gives
+  the insets its style writes. A layer with no positioned element around it in the design counts from the frame's own
+  outline, outside the frame, which is measured at the frame's scale, so its insets are still the design's in a
+  companion mode's smaller frame.
+- **Nothing is read until it's asked for, and nothing is kept.** A gesture reads the frame when it begins, and the
+  overlay reads only what it draws, so nothing is cached in the page's units to go stale while the camera moves
+  (PAR-653).
+- **Where a frame draws a border a fraction of a pixel wide,** as a companion frame at two fifths does, Chrome rounds it
+  to whole screen pixels, so the inside of that border is wider than the design says. Insets are read from what's drawn,
+  so an absolutely placed layer moves from where it's seen.
+
+Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` reads a frame's host (its `scale`, `rect`,
+`node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
+`parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
+frame's, and `areaSpace` takes screen pixels to the overlay's. `canvas/layer-measure.ts` turns that into what
+`@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`, `snapScene` and `spacingMeasure`. The host's
+`data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are in decisions.md, One reading of a frame for
+every gesture.
+
+Tests:
+
+- `canvas/frame-geometry-drawn.test.ts` (124), in Chrome: a frame inside a layer the camera scales and pans, as tldraw's
+  is, at zooms from 5% to 260%, by itself and at half its own size. At each, the frame's scale is the zoom times its
+  own, its box is 832 of its pixels wide and counted from the area's corner on the overlay, a layer's box, size, border,
+  padding and the boxes inside them come out in the design's pixels, an absolutely placed layer's insets are what its
+  style says, a layer drawn a quarter bigger has that scale and a badge in it its insets in the layer's pixels, a layer
+  on its side takes the frame's scale, text in a line reads its own, and a layer the frame doesn't draw has nothing. A
+  frame read again after the camera moves gives the new scale and boxes; a frame that isn't drawn has a scale of 1; a
+  frame at two fifths, whose borders Chrome rounds, gives insets from where they're drawn; and a layer whose containing
+  block is the outline around a half-size frame gives the design's insets, where reading that outline at its own scale
+  gave half of them.
+- `canvas/frame-geometry.test.ts` (15), from numbers: the scale from two sizes, by the longer side, at any zoom times a
+  frame's scale, and none for a box that isn't drawn, is turned or stretched; a box inside its sides, never inside out;
+  insets between two boxes at any scale; between screen pixels and the frame's; and the overlay's pixels.
+- `canvas/layer-measure.test.ts` (10), from a frame written out as plain boxes, at four scales: an absolutely placed
+  layer's sides in half steps; what it snaps to, leaving out a sibling that isn't drawn; the same steps dragged and
+  snapped at every scale; what resizing starts from, with and without insets and with no parent; the same steps resized
+  at every scale; and a layout's padding and gap handles at their own scale, with a child placed absolutely kept out of
+  the flow.
+
+Checked in the app on 2026-11-12 with `scripts/drive.ts` at 25%, 40%, 50%, 100% and 175%: Calendar's Review slot showed
+634 × 64 at each, with its outline on it to a hundredth of a pixel, dragged 12 and 24 of the design's pixels to left 3,
+right -3 and top 46, nudged to top 40.25, resized 16 pixels taller to height 20; Dashboard's Users card showed 227.8 ×
+140.7 and resized 40 narrower to width 47; Alt's redlines read 32px at 60% and 130%; dragged in the half-size Desktop
+Dark frame, the slot moved 6 steps for 24 of the design's pixels; the text editor sat on the day's title with its font
+at the zoom's size; and through a wheel zoom with the slot selected its outline stayed within 0.02 px.
+
 ### Distance labels beside the line (PAR-558)
 
 Holding Alt over a layer, or snapping one as it's moved or resized, draws the distances to what it measures against as
@@ -458,10 +521,11 @@ under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entrie
 `actions.ts`, and opens again on a right-click outside it (`reopensOnCanvas`, from `onOpenChange`). Paste here is
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
 through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
-frame, and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys
-an open menu keeps is `inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in
-`chrome/layers-menu.ts`, which reuses `canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a
-right-click on a row selects; `chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
+frame, with the frame's scale and the inside of the border from `canvas/frame-geometry.ts` (PAR-967), and `pasteHere` in
+`packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys an open menu keeps is
+`inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in `chrome/layers-menu.ts`, which reuses
+`canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a right-click on a row selects;
+`chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
 
 Tests:
 
@@ -1087,15 +1151,17 @@ This is the same rule nudging uses, one function for both. Code: `packages/edito
 (`@parity-app/editor`): `shiftInsets` moves the insets, and `absoluteDrag` follows one drag, taking the layer's style as
 the board shows it, where its sides are drawn and what it snaps to, and giving the insets for each pointer move, in half
 steps or, where it snapped, to the half pixel. `apps/desktop/src/renderer/canvas/layer-drag.ts` (`followAbsolute`)
-measures those, where the sides are drawn with `frameDrawn` (`canvas/nudge.ts`), and writes each move in the drag's
-gesture, one undo step (PAR-441), taking them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s
-`followPress`) on Escape or when the layer comes back to where it began.
+measures those from one reading of the frame (`frameGeometry`, PAR-967), its scale and where the sides are drawn
+(`insetSteps` in `canvas/layer-measure.ts`), and writes each move in the drag's gesture, one undo step (PAR-441), taking
+them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s `followPress`) on Escape or when the layer
+comes back to where it began.
 
 Tests: `packages/editor/src/move-resize.test.ts`, moving: by the side it's placed from, both sides of a stretched layer
 (the Review slot), negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn
 (a negative side with a token on the other), and an axis with a token that isn't drawn staying put; and dragging the
 Review slot, in half steps where nothing is near, exactly where its bottom locks to Lunch's top, 8.25 steps to a line
-off the scale, and by the pointer when it isn't drawn. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2) drags
+off the scale, and by the pointer when it isn't drawn. `canvas/layer-measure.test.ts`: the same steps dragged and
+snapped from what a frame measured at four scales. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2) drags
 Calendar's Review slot 24px right to left 6 and right -6, and, with left -2 and both right and top set to the `spacing`
 token, 16px right with Ctrl held to left 2 and right -3, with top still `spacing` and the width unchanged. Moving live
 and Escape are covered under "Snapping layers while moving and resizing".
@@ -1111,12 +1177,12 @@ past its parent, so the layer's style writes `width: auto` (or `height: auto`) o
 keeps it at that size. Layouts and text span between their insets already, and an image or a video keeps the size of its
 picture unless it's given one.
 
-Code: `stretchBetweenEdges` in `packages/style/src/declare.ts`, which `packages/core/src/render.ts` draws as the
+Code: `stretchBetweenEdges` in `packages/style-schema/src/declare.ts`, which `packages/core/src/render.ts` draws as the
 component's inline style, over its own.
 
-Tests: `packages/style/src/declare.test.ts`, declarations: a component placed against all four sides writing an auto
-width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose own
-style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
+Tests: `packages/style-schema/src/declare.test.ts`, declarations: a component placed against all four sides writing an
+auto width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose
+own style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
 
 Gaps: none known. Checked in an isolated copy of the app on 2026-11-11: a Separator placed at left 14, right 0 in an
 80-step layout was drawn from 56px in to the layout's right edge, 264px wide, where it had run past it.
@@ -1194,6 +1260,8 @@ Tests:
   reset, and no entry kept for a viewport that takes its own size. With the shared fixture's card (PAR-464),
   `resizeStart` reads its layout as the row its Inline option makes it, and the layer's style in a viewport and state,
   the Compact state's gap over the mobile patch.
+- `canvas/layer-measure.test.ts`: what resizing starts from, its box, its parent's content box and, placed absolutely,
+  its sides in steps, from a frame written out as boxes, and the same steps resized at four scales (PAR-967).
 - `canvas/ResizeHandles.test.ts`, in Chrome: the hint opens on hover, closes on press and stays closed through a drag
   into the hint itself and after release (this fails as the handles were before), opens again on the next hover, and a
   double-click still resets.
@@ -1292,10 +1360,11 @@ the bars, their hatching (`Hatching`, one shape per color), labels and sliders a
 `sidesHeld` reading the keys, and each bar's hint through `chrome/Hint.tsx` with `passThrough`, which takes the hint out
 of hit testing (Base UI's `disableHoverablePopup`); `canvas/spacing-colors.ts` is the one place the colors and hatching
 are defined (`spacingColors` for padding, gaps and margin, `spacingChip` pairing a value's chip through `chipFor`,
-`spacingHatch`); `canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`)
-and writes each edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them
-for a single selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys
-are `gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
+`spacingHatch`); `canvas/spacing-edit.ts` measures a layout (`measureSpacing`, through `frameGeometry` and
+`spacingMeasure` in `canvas/layer-measure.ts`, PAR-967), lists its length tokens (`lengthTokens`) and writes each edit
+in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single selected
+layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are `gestures` in
+`chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
 
 Tests:
 
@@ -1323,6 +1392,8 @@ Tests:
   colors; and every chip over the canvas, padding's and gaps' included, at 4.5:1 or better, so a color changed in
   `spacing-colors.ts` without a safe chip fails here.
 - `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
+- `canvas/layer-measure.test.ts`: a layout's border and padding drawn at its own scale in the overlay's pixels, what
+  they're written as kept, and a child placed absolutely covered but out of the flow (PAR-967).
 
 Gaps: there's no end-to-end test yet; `moving.e2e.ts` would take the drags above. Checked in the app on 2026-11-05, on a
 copy of the example on its own ports, with the pointer and keyboard over the DevTools protocol: on Content at 100%, the
@@ -1522,11 +1593,11 @@ marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `packages/e
 them: `absoluteDrag` moves the layer exactly where it locked, and `layerResize` passes a resize's locked edges to
 `resizeGesture`, which `resizeInsets` takes exactly; both give back where it locked.
 `apps/desktop/src/renderer/canvas/layer-snap.ts` (`LayerSnapping`) measures the boxes in the frame when the gesture
-begins, the parent's as the layer's `offsetParent`, which is its containing block, and shows where the layer locked, the
-guides and marks as tldraw's snap indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture
-clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in
-and show what comes back. Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way
-they end.
+begins (`snapScene` in `canvas/layer-measure.ts`, from `frameGeometry`, PAR-967), the parent's as the layer's
+`offsetParent`, which is its containing block, and shows where the layer locked, the guides and marks as tldraw's snap
+indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture clears them when it ends.
+`canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in and show what comes back.
+Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way they end.
 
 Tests:
 
@@ -1544,6 +1615,8 @@ Tests:
   layer snapping to the inside of its parent's border, in the frame's own pixels; a badge in a transformed component's
   slot snapping to the component's box; and one in a slot of a component that isn't positioned snapping to the root its
   insets count from, not to the component's edge.
+- `canvas/layer-measure.test.ts`: what a layer snaps to from a frame written out as boxes, at four scales, leaving out a
+  sibling that isn't drawn, and nothing for a layer without a containing block (PAR-967).
 - `canvas/gesture.test.ts`: how a gesture ends, under "Cursors and Escape during a gesture", above.
 - `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
   marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
@@ -2167,10 +2240,11 @@ Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`):
 it's given, and `nudgedPosition` for designs and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has
 `nudgeSelection`, which nudges what's selected in the store, and `frameDrawn`, which reads a layout's flow, through
 `@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s `flowingBoxes`, and a layer's drawn insets
-from its frame. Then `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions),
-`chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which
-passes the key event to the action and keeps the other arrows from tldraw. A run's gesture is `runGesture` in
-`nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's `selectionKey` (`selection.ts`).
+from its frame (`frameGeometry`'s `insets`, in half steps by `insetSteps`, PAR-967). Then `chrome/commands.ts`
+(`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the
+arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps
+the other arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed
+by the selection's `selectionKey` (`selection.ts`).
 
 Tests:
 
@@ -3359,16 +3433,16 @@ it, and an entry can be dragged to another place.
   duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
   forms.
 
-Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style/src/motion.ts`, with
+Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style-schema/src/motion.ts`, with
 `NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
 `packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
-Tests: `packages/style/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables, a
-curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, and
-what the schema refuses. `packages/style/src/declare.test.ts`: the `transition` declaration, leaving out a hidden entry.
-`packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
+a curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema,
+and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving out a
+hidden entry. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
@@ -3704,7 +3778,8 @@ Code: what the editor edits, what it selects, the modes and switching between th
 in one state, `wordAt`, `openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a
 switch writes and a reset clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The
 editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the
-text's own ranges, measures the text each frame, and handles the keys. The double-click passes its point through
+text's own ranges, measures the text each frame, its content box and its own scale through `frameGeometry`
+(`canvas/frame-geometry.ts`, PAR-967), and handles the keys. The double-click passes its point through
 `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing control is `TextResizing` in
 `chrome/StyleSections.tsx`, whose edit is `textSizingEdit` in `packages/editor/src/style-editing.ts`, rounding each
 layer's measure up with `stepUp`. The agent's skill says how text sizes in `packages/cli/skills/document.md`.
@@ -3726,7 +3801,7 @@ Tests:
 - `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
   whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
   doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
-  and `fill` in `packages/style/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
+  and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -3763,11 +3838,11 @@ which also lets a table cell or a hugging layout narrow to fit, or `break-word`,
 on a line of its own. Set on a layout, the text inside takes it. Unset, a long word runs out of its box. The Text
 section has no control for it yet; agents set it.
 
-Code: `text` (with `boxKeys`) and `type` in `packages/style/src/declare.ts`, the `overflowWrap` key in
-`packages/style/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's tag is
-inline.
+Code: `text` (with `boxKeys`) and `type` in `packages/style-schema/src/declare.ts`, the `overflowWrap` key in
+`packages/style-schema/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's
+tag is inline.
 
-Tests: `packages/style/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
+Tests: `packages/style-schema/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
 alignment, drawn as a block; several lines keeping the box that clamps them; inline text with nothing that needs a box
 staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: in a component's slot, a `span` aligned
 to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
@@ -4334,10 +4409,10 @@ panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name them
 project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
 (PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
 `valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
-and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style` as it runs, which checks the
-value against its property's grammar without a browser (PAR-940), then asks the window's browser once the snippet ends.
-The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came from, with Save
-in place of Apply.
+and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style-schema` as it runs, which
+checks the value against its property's grammar without a browser (PAR-940), then asks the window's browser once the
+snippet ends. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came
+from, with Save in place of Apply.
 
 Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
 left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a
@@ -6332,7 +6407,7 @@ container query, a `group-hover:` rule.
   (`prepareCanvasCss`): `rem` and viewport units measure the frame, a width media query asks the frame's width, and a
   root-relative `url()` is the project's.
 
-Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style`'s
+Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style-schema`'s
 `declarations`, and marks a layout whose child is Absolute (`anchors`). `packages/core/src/frame-rules.ts` has
 `frameRules` (a tree's rules, through `cssPrinter`), `previewRules`, `withClasses` and `writeClasses`.
 `apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and one for a preview, after the
@@ -6351,8 +6426,8 @@ Tests:
   `revert-layer` first for what it takes away; classes put on the elements a framework wrote them for; and classes
   written one declaration at a time, compiled together with the ones the frames already have.
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
-- `packages/style/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a child
-  is placed in is `relative`; an Absolute one stays Absolute.
+- `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
+  child is placed in is `relative`; an Absolute one stays Absolute.
 - `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
