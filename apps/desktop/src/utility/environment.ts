@@ -32,6 +32,8 @@ const serviceEnvironment = z.object({
   PARITY_PICTURE_DIR: z.string().optional(),
   /** The list of projects open when the service last ran (see reopening.ts). */
   PARITY_REOPEN_FILE: z.string().optional(),
+  /** Where projects' unsaved changes are kept, in case Parity closes before they're saved (see recovery.ts). */
+  PARITY_RECOVERY_DIR: z.string().optional(),
   /** Portless's state folder, when it isn't `~/.portless` (see portless.ts). */
   PORTLESS_STATE_DIR: z.string().optional(),
   /**

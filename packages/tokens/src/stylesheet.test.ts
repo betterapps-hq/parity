@@ -63,59 +63,35 @@ describe("setCustomProperty", () => {
 
 describe("writeTokenChanges", () => {
   it("writes a semantic token into the root, and a theme's value into its class", () => {
-    const next = writeTokenChanges(
-      source,
-      [
-        { name: "primary", theme: "default", value: "red" },
-        { name: "primary", theme: "dark", value: "blue" },
-        { name: "ring", theme: "dark", value: "green" }
-      ],
-      new Set()
-    )
+    const next = writeTokenChanges(source, [
+      { name: "primary", theme: "default", value: "red" },
+      { name: "primary", theme: "dark", value: "blue" },
+      { name: "ring", theme: "dark", value: "green" }
+    ])
 
     expect(next).toContain("--primary: red; /* brand */")
     expect(next).toContain(".dark {\n  --primary: blue;\n  --ring: green;\n}")
   })
 
-  it("writes a theme scale token into the @theme block that declares it, else a new @theme block", () => {
-    const themeNames = new Set(["font-sans", "spacing"])
-
-    const next = writeTokenChanges(
-      source,
-      [
-        { name: "font-sans", theme: "default", value: "Inter, sans-serif" },
-        { name: "spacing", theme: "default", value: "0.3rem" }
-      ],
-      themeNames
-    )
-
-    expect(next).toContain("@theme inline {\n  --font-sans: Inter, sans-serif;")
-    expect(next).toMatch(/\n@theme \{\n {2}--spacing: 0\.3rem;\n\}\n$/)
-  })
-
-  it("adds a semantic token the stylesheet doesn't declare to the root", () => {
-    const next = writeTokenChanges(source, [{ name: "accent", theme: "default", value: "pink" }], new Set())
+  it("adds a token the stylesheet doesn't declare to the root, whatever its name", () => {
+    const next = writeTokenChanges(source, [{ name: "accent", theme: "default", value: "pink" }])
     expect(next).toContain("--background: oklch(1 0 0);\n  --accent: pink;\n}")
   })
 
   it("writes a theme into the block the stylesheet gives it, by attribute as much as by class", () => {
     const css = ':root {\n  --c: #fff;\n}\n\n[data-theme="dark"] {\n  --c: #000;\n}\n'
 
-    const next = writeTokenChanges(
-      css,
-      [
-        { name: "c", theme: "dark", value: "#111" },
-        { name: "d", theme: "dark", value: "#222" }
-      ],
-      new Set()
-    )
+    const next = writeTokenChanges(css, [
+      { name: "c", theme: "dark", value: "#111" },
+      { name: "d", theme: "dark", value: "#222" }
+    ])
 
     expect(next).toBe(':root {\n  --c: #fff;\n}\n\n[data-theme="dark"] {\n  --c: #111;\n  --d: #222;\n}\n')
   })
 
   it("leaves a root inside a media query alone when writing the default", () => {
     const css = "@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: #fff;\n}\n"
-    const next = writeTokenChanges(css, [{ name: "c", theme: "default", value: "red" }], new Set())
+    const next = writeTokenChanges(css, [{ name: "c", theme: "default", value: "red" }])
     expect(next).toBe("@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: red;\n}\n")
   })
 
@@ -123,17 +99,17 @@ describe("writeTokenChanges", () => {
     const css =
       ":root {\n  --c: #fff;\n  --d: 1px;\n}\n\n@media (prefers-color-scheme: dark) {\n  :root {\n    --c: #000;\n  }\n}\n"
 
-    const edited = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())
+    const edited = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }])
     expect(edited).toBe(css.replace("--c: #000", "--c: red"))
-    const added = writeTokenChanges(css, [{ name: "d", theme: "dark", value: "2px" }], new Set())
+    const added = writeTokenChanges(css, [{ name: "d", theme: "dark", value: "2px" }])
     expect(added).toBe(css.replace("--c: #000;", "--c: #000;\n    --d: 2px;"))
     expect(extractTokens(added).find((token) => token.name === "d")?.values).toEqual({ default: "1px", dark: "2px" })
-    expect(writeTokenChanges(added, [{ name: "d", theme: "dark", value: undefined }], new Set())).toBe(css)
+    expect(writeTokenChanges(added, [{ name: "d", theme: "dark", value: undefined }])).toBe(css)
   })
 
   it("adds a new default value to the root under no condition, not to a colour-scheme block's root", () => {
     const css = "@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: #fff;\n}\n"
-    const next = writeTokenChanges(css, [{ name: "e", theme: "default", value: "1px" }], new Set())
+    const next = writeTokenChanges(css, [{ name: "e", theme: "default", value: "1px" }])
     expect(next).toBe(
       "@media (prefers-color-scheme: dark) {\n  :root { --c: #000; }\n}\n:root {\n  --c: #fff;\n  --e: 1px;\n}\n"
     )
@@ -141,7 +117,7 @@ describe("writeTokenChanges", () => {
 
   it("writes every block that declares the theme's value, so a later one doesn't win back after a save", () => {
     const css = ':root { --c: #fff; }\n.dark { --c: #111; }\n[data-theme="dark"] { --c: #222; }\n'
-    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }], new Set())
+    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: "red" }])
     expect(next).toBe(':root { --c: #fff; }\n.dark { --c: red; }\n[data-theme="dark"] { --c: red; }\n')
     expect(extractTokens(next).find((token) => token.name === "c")?.values).toEqual({ default: "#fff", dark: "red" })
   })
@@ -149,39 +125,29 @@ describe("writeTokenChanges", () => {
 
 describe("writeTokenChanges without a value", () => {
   it("takes a value back out of the block it was added to, leaving the stylesheet as it was", () => {
-    const ring = writeTokenChanges(source, [{ name: "ring", theme: "dark", value: "green" }], new Set())
+    const ring = writeTokenChanges(source, [{ name: "ring", theme: "dark", value: "green" }])
     expect(ring).toContain("--ring: green;")
-    expect(writeTokenChanges(ring, [{ name: "ring", theme: "dark", value: undefined }], new Set())).toBe(source)
+    expect(writeTokenChanges(ring, [{ name: "ring", theme: "dark", value: undefined }])).toBe(source)
   })
 
   it("takes out a block it leaves empty, as when the value was the first its theme had", () => {
     const css = ":root {\n  --radius: 0.5rem;\n}\n"
-    const dark = writeTokenChanges(css, [{ name: "radius", theme: "dark", value: "1rem" }], new Set())
+    const dark = writeTokenChanges(css, [{ name: "radius", theme: "dark", value: "1rem" }])
     expect(dark).toBe(":root {\n  --radius: 0.5rem;\n}\n\n.dark {\n  --radius: 1rem;\n}\n")
-    expect(writeTokenChanges(dark, [{ name: "radius", theme: "dark", value: undefined }], new Set())).toBe(css)
-
-    const themeNames = new Set(["spacing"])
-    const spacing = writeTokenChanges(source, [{ name: "spacing", theme: "default", value: "0.3rem" }], themeNames)
-    expect(writeTokenChanges(spacing, [{ name: "spacing", theme: "default", value: undefined }], themeNames)).toBe(
-      source
-    )
+    expect(writeTokenChanges(dark, [{ name: "radius", theme: "dark", value: undefined }])).toBe(css)
 
     const between = "a { color: red; }\n\n.dark {\n  --c: 1;\n}\n\nb { color: blue; }\n"
-    const left = writeTokenChanges(between, [{ name: "c", theme: "dark", value: undefined }], new Set())
+    const left = writeTokenChanges(between, [{ name: "c", theme: "dark", value: undefined }])
     expect(left).toBe("a { color: red; }\n\nb { color: blue; }\n")
 
-    const inline = writeTokenChanges(
-      "a {} .dark { --c: 1 } b {}",
-      [{ name: "c", theme: "dark", value: undefined }],
-      new Set()
-    )
+    const inline = writeTokenChanges("a {} .dark { --c: 1 } b {}", [{ name: "c", theme: "dark", value: undefined }])
 
     expect(inline).toBe("a {} b {}")
   })
 
   it("takes the declaration out of every block of the theme, keeping the rest of each", () => {
     const css = ':root { --c: #fff; }\n.dark { --a: 1; --c: 2; }\n[data-theme="dark"] {\n  --c: 3;\n  --d: 4;\n}\n'
-    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: undefined }], new Set())
+    const next = writeTokenChanges(css, [{ name: "c", theme: "dark", value: undefined }])
     expect(next).toBe(':root { --c: #fff; }\n.dark { --a: 1; }\n[data-theme="dark"] {\n  --d: 4;\n}\n')
   })
 
@@ -190,12 +156,12 @@ describe("writeTokenChanges without a value", () => {
       "@media (prefers-color-scheme: dark) {\n  :root { --radius: 9px; }\n}\n" +
       ":root {\n  --radius-lg: 1rem;\n  @media (x) { --radius: 9px; }\n  --radius: 2px;\n}\n"
 
-    const next = writeTokenChanges(css, [{ name: "radius", theme: "default", value: undefined }], new Set())
+    const next = writeTokenChanges(css, [{ name: "radius", theme: "default", value: undefined }])
     expect(next).toBe(
       "@media (prefers-color-scheme: dark) {\n  :root { --radius: 9px; }\n}\n" +
         ":root {\n  --radius-lg: 1rem;\n  @media (x) { --radius: 9px; }\n}\n"
     )
-    expect(writeTokenChanges(next, [{ name: "radius", theme: "default", value: undefined }], new Set())).toBe(next)
+    expect(writeTokenChanges(next, [{ name: "radius", theme: "default", value: undefined }])).toBe(next)
   })
 })
 

@@ -15,15 +15,21 @@ import {
 } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
 import { unrecordedShadow } from "./shadow.ts"
+import scrollbarCss from "./scrollbars.css?raw"
 
 export interface FrameEnvironment {
   classNames: string[]
   attributes: Record<string, string>
   /** The window the frame stands for, which the project's `vw` and `vh` measure. */
   viewport?: FrameViewport
+  /** The frame stands for a phone or a tablet, whose browser draws thin scrollbars (core's `isTouchMode`). */
+  touch?: boolean
+  /** Stylesheets the frame adopts after the project's own, such as the classes Parity writes for its layers. */
+  sheets?: readonly CSSStyleSheet[]
 }
 
 let rootSheet: CSSStyleSheet | undefined
+let touchSheet: CSSStyleSheet | undefined
 
 /** The custom properties a frame's root sets to `initial`: every one Parity's page has given a frame's host to inherit. */
 const resetNames = new Set<string>()
@@ -51,8 +57,8 @@ export const emptyLayoutSize = 24
  * A layout with nothing in it would draw nothing, where it can't be seen, selected or dropped into, so on the canvas it
  * takes at least `emptyLayoutSize` along each axis its content would size, dashed. Along an axis the design sizes it
  * keeps that size (see core's `emptyLayoutAttribute`). The least size has to be important to beat the `min-width: 0`
- * every layout is drawn with. It's found by the attribute core puts on empty layouts, not by `:empty`: that pseudo-class
- * in this sheet, shared by every frame, kept closed projects' frames in memory (PAR-193).
+ * a layout that fills is drawn with. It's found by the attribute core puts on empty layouts, not by `:empty`: that
+ * pseudo-class in this sheet, shared by every frame, kept closed projects' frames in memory (PAR-193).
  *
  * The root is also the size container the project's (rewritten) media queries ask, so they respond to the frame's
  * width. A container lays out on its own, as a page's root does, and fixed elements place themselves in it, as in a
@@ -103,6 +109,24 @@ function frameRootSheet(): CSSStyleSheet {
   rootSheet.replaceSync(frameRootCss())
 
   return rootSheet
+}
+
+/**
+ * A phone's or a tablet's browser draws thin scrollbars, where a desktop browser takes 15px of the layout for its own,
+ * so frames that stand for one take Parity's own thin scrollbars (scrollbars.css), which take 6px (PAR-900). Parity's
+ * page's rules don't reach into a frame, and a desktop frame keeps the browser's. They're in a layer after the frame's
+ * root, so any scrollbar rule of the project's wins, in a layer or not, and Chromium skips them on an element that sets
+ * `scrollbar-width` or `scrollbar-color`.
+ */
+function frameTouchSheet(): CSSStyleSheet {
+  if (!touchSheet) {
+    touchSheet = new CSSStyleSheet()
+    touchSheet.replaceSync(`@layer canvas-frame-scrollbars {
+${scrollbarCss}
+}`)
+  }
+
+  return touchSheet
 }
 
 /**
@@ -163,7 +187,18 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   rewriteAddedRules()
   const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
-  shadow.adoptedStyleSheets = [frameRootSheet(), sheet]
+  const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "" }
+  frameSheets.set(host, own)
+  // The project's styles, then the classes Parity writes for its layers, then the frame's own rules, with a style
+  // edit's preview last, so each wins over the ones before it where they rank the same.
+  shadow.adoptedStyleSheets = [
+    frameRootSheet(),
+    ...(environment.touch ? [frameTouchSheet()] : []),
+    sheet,
+    ...(environment.sheets ?? []),
+    own.rules,
+    own.preview
+  ]
   keepOutInherited(host)
 
   if (environment.viewport) {
@@ -187,6 +222,49 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   shadow.replaceChildren(body)
 
   return target
+}
+
+/** A frame's own stylesheets, and the text each shows, so the same text isn't parsed again. */
+interface FrameSheets {
+  /** The rules the frame's elements are drawn from. */
+  rules: CSSStyleSheet
+  /** A style edit shown before it's made, over the rules. */
+  preview: CSSStyleSheet
+  shown: string
+  previewed: string
+}
+
+/** Each frame's own stylesheets, by its host element. */
+const frameSheets = new WeakMap<Element, FrameSheets>()
+
+/**
+ * Draws a frame's elements from `css`: the rules of the tree it shows (core's `frameRules`), prepared for a frame as
+ * the project's CSS is. A style edit previewed over the rules before is taken away, since the tree that carries the
+ * edit draws it now. A host that isn't a frame yet draws nothing.
+ */
+export function showFrameRules(host: Element, css: string): void {
+  const sheets = frameSheets.get(host)
+
+  if (!sheets) {
+    return
+  }
+
+  if (sheets.shown !== css) {
+    sheets.rules.replaceSync(css)
+    sheets.shown = css
+  }
+
+  previewFrameRules(host, "")
+}
+
+/** Lays `css` over a frame's rules, as a style edit's preview (core's `previewRules`), in place of the one before. */
+export function previewFrameRules(host: Element, css: string): void {
+  const sheets = frameSheets.get(host)
+
+  if (sheets && sheets.previewed !== css) {
+    sheets.preview.replaceSync(css)
+    sheets.previewed = css
+  }
 }
 
 /** Sizes the window a frame stands for: the project's viewport units measure it. */

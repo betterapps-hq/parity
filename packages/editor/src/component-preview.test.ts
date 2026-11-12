@@ -56,7 +56,11 @@ describe("componentPreviewTree", () => {
     expect(root).toMatchObject({
       kind: "element",
       nodeId: previewRootId,
-      style: { width: "max-content", maxWidth: `${previewFrameWidth}px`, padding: "8px" }
+      declarations: expect.arrayContaining([
+        { property: "width", value: "max-content" },
+        { property: "max-width", value: `${previewFrameWidth}px` },
+        { property: "padding", value: "8px" }
+      ])
     })
     expect(root?.kind === "element" && root.children).toEqual([
       expect.objectContaining({ kind: "component", component: "Badge", props: { children: "Badge" } })

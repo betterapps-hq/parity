@@ -31,7 +31,7 @@ export type { OperationError } from "./errors.ts"
 
 export type { Edit, ExecResponse, Screenshot } from "./execute.ts"
 
-import type { ConsoleResponse, TokensResponse } from "./operations.ts"
+import type { ConsoleResponse, Send, TokensResponse } from "./operations.ts"
 
 export type { ConsoleResponse, TabsResponse, TokensResponse } from "./operations.ts"
 
@@ -134,7 +134,24 @@ export type Routing = "tab" | "tab-or-any" | "open" | "copies"
  * in `@parity-app/agent/routing`, and returns its answer once `reply` has checked it. Fails with a clear message, and a
  * code, when no copy is running, none has the project, or the call fails: the app's own code when it gives one.
  */
-export async function call<M extends AgentMethod>(
+export function call<M extends AgentMethod>(
+  method: M,
+  given: AgentMethods[M]["params"],
+  routing: Routing
+): Promise<AgentMethods[M]["result"]> {
+  return callFrom(undefined, method, given, routing)
+}
+
+/**
+ * `call`, for one of the session's subagents (PAR-960). An MCP session's subagents share its connection, so a call
+ * says which of them it's from, and the canvas gives each a cursor of its own. Without a name it's `call`.
+ */
+export function callAs(subagent: string | undefined): Send {
+  return (method, given, routing) => callFrom(subagent, method, given, routing)
+}
+
+async function callFrom<M extends AgentMethod>(
+  subagent: string | undefined,
   method: M,
   given: AgentMethods[M]["params"],
   routing: Routing
@@ -158,7 +175,7 @@ export async function call<M extends AgentMethod>(
     throw unknownReference("unknown_tab", target.message, tab ?? "", ids, "tab")
   }
 
-  return send(target.copy.entry, method, target.tab ? { ...given, tab: target.tab.id } : given)
+  return send(target.copy.entry, method, target.tab ? { ...given, tab: target.tab.id } : given, undefined, subagent)
 }
 
 /** The fields of a call's params that say where it goes: the tab it names, and the project it opens. */
@@ -263,12 +280,22 @@ async function send<M extends AgentMethod>(
   entry: CopyEntry,
   method: M,
   params: AgentMethods[M]["params"],
-  timeout?: number
+  timeout?: number,
+  subagent?: string
 ): Promise<AgentMethods[M]["result"]> {
   const init: RequestInit = {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
-    body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient, transport })
+    // A subagent that isn't named is left out, as JSON leaves out what's undefined.
+    body: JSON.stringify({
+      method,
+      params,
+      agent: caller,
+      agentId: callerId,
+      client: callerClient,
+      subagent,
+      transport
+    })
   }
 
   const limit = timeout === undefined ? undefined : waitLimit(timeout)
@@ -360,10 +387,13 @@ export function describeExec(result: ExecResponse): string {
     lines.push("", "Output:", ...result.output)
   }
 
-  const created = Object.entries(result.created)
+  // A quiet result has no named nodes, so it lists just the designs created (PAR-909).
+  const [heading, created] = result.created
+    ? ["Created:", Object.entries(result.created)]
+    : ["Designs created:", Object.entries(result.createdDesigns ?? {})]
 
   if (created.length > 0) {
-    lines.push("", "Created:", ...created.map(([name, id]) => `  ${name} = ${id}`))
+    lines.push("", heading, ...created.map(([name, id]) => `  ${name} = ${id}`))
   }
 
   lines.push(...describeWarnings(result))

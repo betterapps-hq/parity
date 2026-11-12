@@ -47,6 +47,7 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             take) and what each design shows; a design adds its frames' sizes
   parity exec [file] --label "Do x"         run a snippet (from a file, or stdin) as one undoable step
        [--edit-id id --edits '[{"find":"a","replace":"b"}]']   retry a failed snippet with edits
+       [--quiet]                            leave out the named nodes created; designs created are still listed
   parity screenshot <design> [--state s|all] [--mode m|shown|all] [--scale 2] [--sheet] [--tab t]
                                             render a design offscreen and save each frame as a PNG; --sheet saves
                                             one labeled image of every frame instead
@@ -136,7 +137,7 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             component's --prop, as one undoable edit, saving the file when the
                                             source's link doesn't last;
                                             Parity tells the source it was used. Exits with 1 when it wasn't placed
-  parity open <folder>                      open a project in a new tab
+  parity open <folder>                      open a project in a new tab, or detect an open one again
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
 
@@ -157,6 +158,7 @@ const { positionals, values } = parseArgs({
     mode: { type: "string", multiple: true },
     scale: { type: "string" },
     json: { type: "boolean" },
+    quiet: { type: "boolean" },
     record: { type: "boolean" },
     sheet: { type: "boolean" },
     clear: { type: "boolean" },
@@ -293,7 +295,10 @@ async function main(): Promise<void> {
         throw invalidInput("edits", "edits must be JSON: a list of {find, replace}")
       }
 
-      const result = await executeOperation.run({ tab: values.tab, label: values.label, code, editId, edits }, call)
+      const result = await executeOperation.run(
+        { tab: values.tab, label: values.label, code, editId, edits, quiet: values.quiet },
+        call
+      )
 
       if (values.json) {
         print(executeOperation.structured(result))

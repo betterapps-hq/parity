@@ -1,28 +1,19 @@
-import { readFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
-import { pathToFileURL } from "node:url"
 import type { StylesAdapter, ThemeVariable } from "@parity-app/core"
-import { findPackage, packageEntry } from "@parity-app/project"
-
-interface TailwindNode {
-  __unstable__loadDesignSystem(
-    css: string,
-    options: { base: string }
-  ): Promise<{ theme: { entries(): Iterable<[string, { value: string }]> } }>
-}
+import { loadDesignSystem } from "./design-system.ts"
+import { tailwindPrinter } from "./printer.ts"
+import { writeTailwindTokens } from "./tokens.ts"
 
 /**
  * Tailwind CSS v4. The theme comes from the project's own Tailwind (through `@tailwindcss/node`, which its Vite or
- * PostCSS plugin installs), so plugins, `@theme` blocks and imported presets all count.
+ * PostCSS plugin installs), so plugins, `@theme` blocks and imported presets all count, and classes are written and read
+ * by what they compile to there. Token values are written into `@theme` where Tailwind makes a utility from them.
  */
 export const tailwindStyles: StylesAdapter = {
   id: "tailwind",
   name: "Tailwind CSS",
   detect: (source) => /@import\s+["']tailwindcss["']|@tailwind\s+(?:base|utilities)/.test(source),
   async loadTheme(root, stylesheet) {
-    const path = join(root, stylesheet)
-    const tailwind = await loadTailwindNode(root)
-    const system = await tailwind.__unstable__loadDesignSystem(await readFile(path, "utf8"), { base: dirname(path) })
+    const system = await loadDesignSystem(root, stylesheet)
     const variables: ThemeVariable[] = []
 
     for (const [name, { value }] of system.theme.entries()) {
@@ -32,25 +23,14 @@ export const tailwindStyles: StylesAdapter = {
     }
 
     return variables
-  }
-}
+  },
+  async loadPrinter(root, stylesheet) {
+    const [compiles, spells] = await Promise.all([
+      loadDesignSystem(root, stylesheet),
+      loadDesignSystem(root, stylesheet)
+    ])
 
-/**
- * The project's own `@tailwindcss/node`, found as Node would find it from the project, never through NODE_PATH, which
- * pnpm's bin shims point at Parity's own copy.
- */
-async function loadTailwindNode(root: string): Promise<TailwindNode> {
-  // `@tailwindcss/node` is usually a dependency of the project's Tailwind plugin rather than of the project itself.
-  for (const via of [undefined, "@tailwindcss/vite", "@tailwindcss/postcss", "@tailwindcss/cli"]) {
-    const from = via ? (await findPackage(root, via))?.dir : root
-    const tailwind = from && (await findPackage(from, "@tailwindcss/node"))
-    const entry = tailwind && packageEntry(tailwind, "runtime")
-
-    if (entry) {
-      // A dynamic import is untyped; this is the project's own copy of the package `TailwindNode` describes.
-      return await import(pathToFileURL(entry).href)
-    }
-  }
-
-  throw new Error(`Tailwind's @tailwindcss/node is not installed in ${root}`)
+    return tailwindPrinter({ compiles, spells })
+  },
+  writeTokens: writeTailwindTokens
 }

@@ -145,11 +145,14 @@ beforeAll(async () => {
     format: "iife",
     globalName: "frame",
     platform: "browser",
+    // frame.ts reads scrollbars.css as text, as Vite's `?raw` gives it.
+    loader: { ".css": "text" },
     // React's production build, as frames run it (see builder-vite's productionDependencies).
     define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
 
-  browser = await chromium.launch({ channel: "chrome", headless: true })
+  // Headless Chrome hides scrollbars unless asked not to; Parity's windows draw them.
+  browser = await chromium.launch({ channel: "chrome", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] })
   page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -169,11 +172,11 @@ beforeAll(async () => {
     })
   )
   // Inside the canvas, text is 12px with an 18px line height, in its own font and color scheme, and unselectable. Parity
-  // defines shadcn's variables, from its stylesheet and inline, as tldraw sets its zoom.
+  // defines shadcn's variables, from its stylesheet and inline, as tldraw sets its zoom. Its page never scrolls.
   await page.route("http://parity.test/", (route) =>
     route.fulfill({
       contentType: "text/html",
-      body: `<style>:root { --background: red; --border: 3px }</style>
+      body: `<style>:root { --background: red; --border: 3px; overflow: hidden }</style>
         <div style="font: 12px/18px monospace; letter-spacing: 1px; color: red; color-scheme: dark;
         user-select: none; pointer-events: none; --tl-zoom: 2; --frame-height: 40px"><div id="host"></div></div><iframe></iframe><div id="frames"></div>
         <script src="http://project.test/frame.js"></script><script src="http://parity.test/parity.js"></script>`
@@ -202,10 +205,19 @@ declare const frame: typeof frameModule & {
 /** The handles of the frames "a frame's window" mounts, by id, which it keeps on the page's window. */
 declare const handles: Record<string, MountHandle>
 
-/** Prepares the frame at `#host` with a project's stylesheet, a 390 by 844 window, and HTML in place of a design. */
-function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Record<string, string> = {}) {
+/**
+ * Prepares the frame at `#host` with a project's stylesheet, a 390 by 844 window, and HTML in place of a design. It
+ * stands for a desktop's window unless `touch` says a phone's or a tablet's.
+ */
+function frameWith(
+  projectCss: string,
+  html = "",
+  hostStyle = "",
+  attributes: Record<string, string> = {},
+  touch = false
+) {
   return page.evaluate(
-    ({ projectCss, html, hostStyle, attributes }) => {
+    ({ projectCss, html, hostStyle, attributes, touch }) => {
       const host = document.createElement("div")
       document.querySelector("#host")!.replaceWith(host)
       host.id = "host"
@@ -216,12 +228,13 @@ function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Re
       const target = frame.prepareFrame(host, sheet, {
         classNames: [],
         attributes,
-        viewport: { width: 390, height: 844 }
+        viewport: { width: 390, height: 844 },
+        touch
       })
 
       target.innerHTML = html
     },
-    { projectCss, html, hostStyle, attributes }
+    { projectCss, html, hostStyle, attributes, touch }
   )
 }
 
@@ -718,6 +731,35 @@ describe("a frame's window", () => {
     })
     expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", resizes: "0" })
     expect(errors).toEqual([])
+  })
+})
+
+describe("a frame's scrollbars (PAR-900)", () => {
+  const scroller = `<div class="scroller" style="width: 200px; height: 80px; overflow: scroll"><div style="height: 300px"></div></div>`
+
+  /** How much room the scroller in the frame at `#host` gives its scrollbars, across and down. */
+  async function gutters(projectCss: string, touch: boolean) {
+    await frameWith(projectCss, scroller, "", {}, touch)
+
+    return page.evaluate(() => {
+      const element = document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>(".scroller")!
+
+      return { across: element.offsetWidth - element.clientWidth, down: element.offsetHeight - element.clientHeight }
+    })
+  }
+
+  it("are Parity's thin ones in a phone's or a tablet's frame, and the browser's in a desktop's", async () => {
+    const desktop = await gutters("", false)
+    expect(desktop.across).toBeGreaterThan(6)
+    expect(desktop.down).toBe(desktop.across)
+    expect(await gutters("", true)).toEqual({ across: 6, down: 6 })
+  })
+
+  it("are the project's own where it styles them, in a layer or not", async () => {
+    const wide = ".scroller::-webkit-scrollbar { width: 12px; height: 12px }"
+    expect(await gutters(wide, true)).toEqual({ across: 12, down: 12 })
+    expect(await gutters(`@layer components { ${wide} }`, true)).toEqual({ across: 12, down: 12 })
+    expect(await gutters(".scroller { scrollbar-width: none }", true)).toEqual({ across: 0, down: 0 })
   })
 })
 

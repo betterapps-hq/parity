@@ -47,8 +47,11 @@ import {
   mergeAgentChanges,
   type Picked,
   type ReferenceAdded,
+  type RecoveryCopy,
+  recoveryCopy,
   reloadFile,
   reorderDesign,
+  restoreRecovery,
   replaceDocuments,
   revertTo,
   type SaveState,
@@ -472,6 +475,16 @@ export class DesignStore {
     if (failure) {
       throw new Error(failure)
     }
+  }
+
+  /** What's unsaved now, to keep in case Parity closes before it's saved (PAR-905), or nothing when all is saved. */
+  recoveryCopy(keptAt = Date.now()): RecoveryCopy | undefined {
+    return recoveryCopy(this.state, keptAt)
+  }
+
+  /** Puts a recovery copy's changes back as one undoable step, unsaved, saving them a moment later with autosave on. */
+  restoreRecovery(copy: RecoveryCopy): void {
+    this.take(restoreRecovery(this.state, copy))
   }
 
   /** The documents, modes and component list corrections as one project file, as Save a copy writes it. */

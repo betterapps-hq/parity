@@ -19,7 +19,7 @@ import {
   serviceRestarts
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
-import { type Span, telemetryFileName } from "@parity-app/telemetry"
+import { outputTail, type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -28,9 +28,11 @@ import {
   ipcMain,
   Menu,
   MessageChannelMain,
+  type NativeImage,
   nativeTheme,
   net,
   protocol,
+  type Rectangle,
   safeStorage,
   screen,
   shell,
@@ -71,6 +73,7 @@ import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } fr
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { retryingCapture } from "./capture-retry.ts"
 import { cliTarget, installCli, refreshCli } from "./cli-command.ts"
 import { copiedFiles, rawFormat } from "./clipboard-files.ts"
 import { openInEditor } from "./code-editor.ts"
@@ -94,15 +97,18 @@ import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
   agentCalled,
   applyTelemetry,
+  crashSigns,
   keepFailedFrame,
   personActed,
   recordForwarded,
   scrubber,
+  serviceCrashed,
   serviceExited,
   serviceStarted,
   startEvents,
   startTelemetry,
   quitCancelled,
+  watchWindowGone,
   watchWindowHangs
 } from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
@@ -295,13 +301,16 @@ function startService(): UtilityProcess {
 
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
-    stdio: "inherit",
+    // Piped, not inherited, so a crash is reported with what it printed. It's still passed on to main's own output.
+    stdio: "pipe",
     env: {
       // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
       ...withoutKeys(process.env),
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
       PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
+      // Projects' unsaved changes, kept outside the projects, so a crash or forced quit doesn't lose them (PAR-905).
+      PARITY_RECOVERY_DIR: join(app.getPath("userData"), "recovery"),
       // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes them
       // into a project.
       PARITY_BITMAP_DIR: bitmapFolder(),
@@ -375,6 +384,18 @@ function startService(): UtilityProcess {
     around: handleInSpan
   })
 
+  const output = outputTail()
+
+  for (const [stream, out] of [
+    [child.stdout, process.stdout],
+    [child.stderr, process.stderr]
+  ] as const) {
+    stream?.on("data", (chunk: Buffer) => {
+      out.write(chunk)
+      output.add(chunk.toString())
+    })
+  }
+
   channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
   serviceChannels.set(child, channel)
   child.once("spawn", () => appLife.mark("serviceReady"))
@@ -397,6 +418,12 @@ function startService(): UtilityProcess {
     // so the path it was given is named (PAR-489).
     const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
     console.error(`Project service exited with code ${code}${missing}`)
+    serviceCrashed({
+      exitCode: code,
+      output: output.text(),
+      expected: quitting,
+      missing: missing ? serviceEntry : undefined
+    })
 
     // A crashed service is started again through the same path a code change takes, so open windows reconnect without
     // reloading. A service that starts first, such as one a window's load starts, cancels it (PAR-788).
@@ -492,8 +519,11 @@ function createWindow(): void {
   })
 
   watchWindowHangs(window, "window", "renderer", () => appLife.windowHung())
+  watchWindowGone(window, "renderer")
   appLife.mark("windowShown")
   window.once("ready-to-show", () => appLife.mark("firstPaint"))
+  // A window minimized before it paints isn't painted until it's restored (PAR-831).
+  window.once("minimize", () => appLife.interrupted())
   // A key pressed in the window is the person's, so what follows is tagged as theirs, not an agent's (PAR-630).
   window.webContents.on("before-input-event", () => personActed())
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
@@ -955,6 +985,7 @@ const reports = createReports({
   flushLogs: events.flushLogs,
   sessionId: events.run.sessionId,
   offerCrash: offersCrashReports(telemetryStart.environment),
+  crashSigns: crashSigns(),
   telemetry: events.telemetry,
   level: () => telemetrySetting.get().level
 })
@@ -1303,6 +1334,7 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
     })
 
     watchWindowHangs(window, "offscreen renderer", "render", () => appLife.windowHung())
+    watchWindowGone(window, "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
     recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }
@@ -1312,6 +1344,20 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
   const { window, loaded } = render
 
   return loaded.then(() => window)
+}
+
+/**
+ * The part of an offscreen window in `box`, taken again once the window has painted when Chromium had no frame to copy
+ * (PAR-880).
+ */
+function captureWindow(window: BrowserWindow, box: Rectangle): Promise<NativeImage> {
+  return retryingCapture(
+    () => window.webContents.capturePage(box),
+    async () => {
+      window.webContents.invalidate()
+      await callPage(window, "window.canvasSettle()", () => undefined)
+    }
+  )
 }
 
 /**
@@ -1344,7 +1390,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
       return { frame }
     }
 
-    const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
+    const image = await captureWindow(window, { x: 0, y: 0, width, height })
 
     // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
     // (PAR-525).
@@ -1379,7 +1425,7 @@ async function renderPreview(
       return { frame: drawn }
     }
 
-    const image = await window.webContents.capturePage(deviceBox(box, job.scale))
+    const image = await captureWindow(window, deviceBox(box, job.scale))
     const { width, height } = image.getSize()
 
     if (drawsNothing(image.toBitmap())) {

@@ -4,6 +4,7 @@ import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
 import { replies } from "@parity-app/agent/contracts"
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
 import {
@@ -29,6 +30,14 @@ const success: ExecReply = {
 const structuredSuccess = structuredExec(execResponse(success))
 const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
+
+/** The MCP server's listed tools, as far as these tests read them: each one's name and its input's properties. */
+const listedTools = z.array(
+  z.looseObject({
+    name: z.string(),
+    inputSchema: z.looseObject({ properties: z.record(z.string(), z.unknown()).optional() })
+  })
+)
 
 /** What reaches the app: the request, with the tab the CLI routed it to. */
 function expectRequests(params: JsonObject) {
@@ -59,6 +68,45 @@ describe("execute transport contract", processTests, () => {
       { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two", transport: "cli" }
     ])
   })
+  it("sends the subagent an MCP call names beside the session's caller, apart from the operation's params", async () => {
+    fixture.response = { result: emptyState(fixtureTab) }
+    const header = await mcp({ subagent: " Header pass " }, "get_app_state")
+    const blank = await mcp({ subagent: "  " }, "get_app_state")
+    const number = await mcp({ subagent: 3 }, "get_app_state")
+    const unnamed = await mcp({}, "get_app_state")
+
+    for (const protocol of [header, blank, number, unnamed]) {
+      expect(toolReply(protocol.stdout)?.result?.isError).toBe(false)
+    }
+
+    // Each is its own MCP session, with the caller's name and a session id; only the first names a subagent, and a
+    // name that's blank or isn't text is left out rather than refused.
+    const session = { method: "state", params: { tab: fixtureTab.id }, agent: "Contract Caller", transport: "mcp" }
+    expect(requests).toEqual([
+      expect.objectContaining({ ...session, subagent: "Header pass" }),
+      expect.objectContaining(session),
+      expect.objectContaining(session),
+      expect.objectContaining(session)
+    ])
+    expect(requests.filter((request) => "subagent" in request)).toHaveLength(1)
+  })
+
+  it("takes a subagent on every MCP tool that reaches the app, and on none that answers alone", async () => {
+    const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
+    const tools = listedTools.parse(toolReply(result.stdout)?.result?.tools)
+    const takes = (name: string) => tools.find((tool) => tool.name === name)?.inputSchema.properties?.subagent
+    const alone = ["get_logs", "read_skill"]
+
+    for (const tool of tools) {
+      expect([tool.name, takes(tool.name)]).toEqual([
+        tool.name,
+        alone.includes(tool.name) ? undefined : { type: "string" }
+      ])
+    }
+
+    expect(tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([...alone, "get_app_state", "execute"]))
+  })
+
   it("publishes execute defaults and patch constraints through MCP discovery", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     expect(toolReply(result.stdout)).toEqual(
@@ -177,6 +225,64 @@ describe("execute transport contract", processTests, () => {
     })
     expect(toolReply(protocol.stdout)).toEqual(
       expect.objectContaining({ result: expect.objectContaining({ structuredContent: JSON.parse(cli.stdout) }) })
+    )
+  })
+
+  it("leaves the named nodes out of a quiet result in both adapters, keeping the designs created (PAR-909)", async () => {
+    const built: ExecReply = {
+      ...success,
+      created: { Plans: "plans-id", Page: "page-id", Title: "title-id" },
+      createdDesigns: { Plans: "plans-id" }
+    }
+
+    fixture.response = { result: built }
+    const code = 'CreateDesign({ name: "Plans" })'
+
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec", "--quiet"], code),
+      run(["exec", "--quiet", "--json"], code),
+      mcp({ input: code, quiet: true })
+    ])
+
+    // Quiet shapes the answer, so the app is never sent it.
+    for (const request of requests) {
+      expect(request).toEqual(expect.objectContaining({ params: { tab: fixtureTab.id, code, label: "Edit designs" } }))
+    }
+
+    expect(cli.code).toBe(0)
+    expect(cli.stdout).toContain("Designs created:\n  Plans = plans-id")
+    expect(cli.stdout).not.toContain("title-id")
+    expect(cli.stdout).toContain("Example warning")
+    const { created: _created, ...quiet } = structuredExec(execResponse(built))
+    expect(JSON.parse(json.stdout)).toEqual(quiet)
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          content: [{ type: "text", text: cli.stdout.trim() }, expect.objectContaining({ type: "image" })],
+          structuredContent: quiet
+        })
+      })
+    )
+  })
+
+  it("lists every named node without quiet, and refuses a quiet that isn't a boolean", async () => {
+    fixture.response = {
+      result: { ...success, created: { Plans: "plans-id", Title: "title-id" }, createdDesigns: { Plans: "plans-id" } }
+    }
+
+    const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)", quiet: "yes" })])
+
+    expect(cli.stdout).toContain("Created:\n  Plans = plans-id\n  Title = title-id")
+    expect(cli.stdout).not.toContain("Designs created:")
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          structuredContent: {
+            error: { code: "invalid_input", message: "quiet must be a boolean", retryable: false, path: "/quiet" }
+          },
+          isError: true
+        })
+      })
     )
   })
 

@@ -11,7 +11,7 @@ import {
 } from "@parity-app/editor"
 import { z } from "zod"
 import { type TokenFilter } from "./arguments.ts"
-import { callerIdentity } from "./caller.ts"
+import { callerIdentity, presenceIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
 import { activeTab, type CopyReport, matchTab } from "./routing.ts"
@@ -121,6 +121,8 @@ export interface Caller {
   id: string
   /** The program it calls through, such as `claude-code`, which MCP clients name (PAR-630). */
   client?: string
+  /** Its own name, when it's one of the subagents a session runs at once and says so (PAR-960). */
+  subagent?: string
 }
 
 /**
@@ -356,8 +358,8 @@ export async function answerRequest(
   /** Told who's calling, when the caller says, so telemetry can tag what follows (PAR-630). */
   called?: (caller: Caller) => void
 ): Promise<Answer<AgentMethod>> {
-  const { method, params, agent, agentId, client } = readRequest(rpcRequest, body)
-  const caller = callerIdentity({ agent, agentId, client })
+  const { method, params, agent, agentId, client, subagent } = readRequest(rpcRequest, body)
+  const caller = callerIdentity({ agent, agentId, client, subagent })
 
   if (caller) {
     called?.(caller)
@@ -391,7 +393,7 @@ export async function dispatch(
     (tab: string): AgentHooks["presence"] =>
     (events) =>
       host.presence(
-        events.map((event) => (caller ? { tab, agent: caller.name, agentId: caller.id, ...event } : { tab, ...event }))
+        events.map((event) => (caller ? { tab, ...presenceIdentity(caller), ...event } : { tab, ...event }))
       )
 
   // SAFETY: `request` is what `method`'s own schema read, so it's the params `methods[method]` takes; TypeScript can't
@@ -735,10 +737,17 @@ async function exec(
   request: ExecRequest,
   caller?: Caller
 ): Promise<Answer<"exec">> {
-  // What changed is for the editor and for placing, not the agent's answer.
-  const { changes: _changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
+  // What changed is for the editor and for placing, not the agent's answer, which names just the designs it created.
+  const { changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
 
-  return answer
+  return { ...answer, createdDesigns: createdDesigns(changes) }
+}
+
+/** The designs a call created, by name: those the change set adds rather than changes. */
+function createdDesigns(changes: AgentChangeSet): Record<string, string> {
+  return Object.fromEntries(
+    changes.designs.flatMap(({ base, after }) => (base === null && after ? [[after.name, after.id]] : []))
+  )
 }
 
 async function execIn(

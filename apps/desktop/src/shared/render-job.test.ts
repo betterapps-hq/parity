@@ -1,5 +1,12 @@
 import { execute, type FrameRequest } from "@parity-app/agent"
-import { type ContainerSpec, frameGeometry, type ModeSettings, parseInput, resolveModes } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  defaultModeSettings,
+  frameGeometry,
+  type ModeSettings,
+  parseInput,
+  resolveModes
+} from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { RenderJob } from "./protocol.ts"
 import {
@@ -116,6 +123,12 @@ describe("renderJobMode", () => {
     const request = await agentRequest(container)
     expect(request).toMatchObject({ height: 600, viewport: { width: 1280, height: 600 } })
   })
+
+  it("marks a phone's or a tablet's mode as touch, so its offscreen frame takes thin scrollbars (PAR-900)", () => {
+    const [desktop, , tablet, mobile] = resolveModes(defaultModeSettings)
+    const touch = [desktop!, tablet!, mobile!].map((each) => renderJobMode(each, frameGeometry(design(), each)).touch)
+    expect(touch).toEqual([undefined, true, true])
+  })
 })
 
 describe("drawnComponents", () => {
@@ -192,7 +205,7 @@ describe("renderJob", () => {
   })
 
   it("draws empty layouts as the code does unless the job stands in for a canvas frame (PAR-888)", () => {
-    const empty = { kind: "element", nodeId: "gap", tag: "div", style: {}, children: [] }
+    const empty = { kind: "element", nodeId: "gap", tag: "div", declarations: [], children: [] }
     const tree = [{ ...empty, attributes: { "data-canvas-empty-layout": "width height" } }]
     expect(renderJob(guest, { ...drawsText, tree }).tree).toEqual([empty])
     expect(renderJob(guest, { ...drawsText, tree, canvas: true }).tree).toEqual(tree)
@@ -212,6 +225,8 @@ describe("renderJob", () => {
       }
     )
 
+    // A phone's frame takes thin scrollbars (PAR-900).
+    job.mode.touch = true
     expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
     expect(parseInput(storedJobs, JSON.stringify([job]))).toEqual([job])
     expect(
@@ -260,6 +275,7 @@ describe("a job's names", () => {
       { ...job, mode: { ...job.mode, classNames: ["dark"] } },
       { ...job, mode: { ...job.mode, width: 321 } },
       { ...job, mode: { ...job.mode, viewport: { width: 320, height: 640 } } },
+      { ...job, mode: { ...job.mode, touch: true } },
       { ...job, scale: 0.5 }
     ]
 

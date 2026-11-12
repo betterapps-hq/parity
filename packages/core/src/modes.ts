@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { deviceKinds } from "./devices.ts"
+import { type DeviceKind, deviceForWidth, deviceKinds } from "./devices.ts"
 import type { ContainerSpec } from "./document.ts"
 import { fileObject, finiteNumber, parserFor } from "./schema.ts"
 
@@ -151,6 +151,20 @@ export function resolveMode(settings: ModeSettings, mode: ModeSpec): ResolvedMod
  */
 export function modeGlobals(mode: Pick<ResolvedMode, "options">): Record<string, string> {
   return Object.fromEntries(mode.options.map(({ variable, option }) => [variable.id, option.id]))
+}
+
+/** The kind of device a mode's window stands for: its viewport's, or else the one its width suggests. */
+export function modeDevice(mode: Pick<ResolvedMode, "options" | "width">): DeviceKind {
+  const viewport = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
+
+  return viewport?.device ?? deviceForWidth(mode.width)
+}
+
+/** Whether a mode stands for a touch screen, a phone's or a tablet's, whose browser draws thin scrollbars. */
+export function isTouchMode(mode: Pick<ResolvedMode, "options" | "width">): boolean {
+  const device = modeDevice(mode)
+
+  return device === "phone" || device === "tablet"
 }
 
 /** The modes a design shows, and every mode the project has. */

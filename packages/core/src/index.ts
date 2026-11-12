@@ -28,6 +28,8 @@ export * from "./errors.ts"
 
 export * from "./fields.ts"
 
+export * from "./frame-rules.ts"
+
 export * from "./grouping.ts"
 
 export * from "./guest-changes.ts"

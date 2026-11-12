@@ -2,6 +2,256 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 08:08:09 GMT",
+      "version": "0.68.3",
+      "tag": "@parity-app/desktop_v0.68.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "73084b479a2dfdd45e9eef95b0007beefbf31693",
+            "comment": "An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 07:49:23 GMT",
+      "version": "0.68.2",
+      "tag": "@parity-app/desktop_v0.68.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "228e3cdb3064d435b7630a3bd905bf73960ca2de",
+            "comment": "A frame in a Tailwind project no longer loses classes when it asks for more before the last ask is answered, which could put a layer in the wrong place."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7c14d636e910b72f54393b710c07c804fb51be4b",
+            "comment": "A frame shows its last picture, at its size, while it's captured again after the project's code changes, rather than a placeholder"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 07:22:15 GMT",
+      "version": "0.68.1",
+      "tag": "@parity-app/desktop_v0.68.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7dfe775b6c6056f757b6b3608b99f30866f786ae",
+            "comment": "Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "47c6da3f08643df36e9943595276e3a8e3a51fe2",
+            "comment": "Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:54:28 GMT",
+      "version": "0.68.0",
+      "tag": "@parity-app/desktop_v0.68.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "22637499fd40c33f85b748efc0cc11227a34e4af",
+            "comment": "Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:19:08 GMT",
+      "version": "0.67.0",
+      "tag": "@parity-app/desktop_v0.67.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b1e205d84bfe03cc38935d761218957e7d943667",
+            "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "813b4f59d974e40062bd743eaa76f79703b0ea24",
+            "comment": "Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame to copy"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2f195d6458b86b936a08882caff1a50493e827d3",
+            "comment": "Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports electron-updater's error code"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b853ed3bb3fdc8472e0d3de85bb52ec10294792f",
+            "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e217bce57fc9396e90021bd766041447e212a78e",
+            "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c27fe3a0fb7525786a06b3a2241808a6776d9ab4",
+            "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "49bc4fa69c015b3205a875ce89ee61f546becf21",
+            "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 04:24:53 GMT",
+      "version": "0.66.0",
+      "tag": "@parity-app/desktop_v0.66.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5c5b1ba4d6d7a74663300c8ef431c4929e30e875",
+            "comment": "Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and result, and every type they name, with their doc comments"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "48e4559704bdaa06c614ff6b471edf140d01cc5b",
+            "comment": "Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "09961c3a3ee4663830d34f9c9e80eff5b3559baf",
+            "comment": "Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a layout is relative only when a child is placed in it"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 04:02:26 GMT",
+      "version": "0.65.0",
+      "tag": "@parity-app/desktop_v0.65.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0d3f13e42602272b668ee9f21374db9e1ecb2eeb",
+            "comment": "Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take overrides"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "48261bcd8e27a18d85f5f7e555fa57daef8b0608",
+            "comment": "Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take role, id and aria-* props on their elements."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "803709527c8f576be6ad842fa32c1aa74e0ad07e",
+            "comment": "Undo this branch's status bar change; nothing ships"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "227c91f1afead13c9f7000f6b4e5fc56297cd944",
+            "comment": "Print style declarations as plain CSS rules and read them back; nothing in the app calls it yet"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "28e3ae97ad57472edee28a4bc4e00f4b1f322fad",
+            "comment": "Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it settles"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 03:17:27 GMT",
+      "version": "0.64.0",
+      "tag": "@parity-app/desktop_v0.64.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1726ec985e2fdd10929b7a220a63a11e7422941c",
+            "comment": "parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it created (PAR-909)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7a697a050d46dd1d83b357b6b310d3bc151e7fef",
+            "comment": "Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style breaks long words; an absolutely placed component with left and right stretches between them"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c0d9c1441c6ec1c4a78aa7dda6592b3687791779",
+            "comment": "Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out (PAR-904)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cfac23a00ec6aeedefe4b39484ac4db796fe414a",
+            "comment": "Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas and offscreen"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0e1593849445afcec54342b40cb624e6438f9dd6",
+            "comment": "Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ed01b5b1f93009f40d21b910e33401159311d3d8",
+            "comment": "A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query wins over app state; its text and props stay under them (PAR-902)."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c14e7816517215f9d1167f69237c28ce1a68c711",
+            "comment": "Print style declarations as Tailwind classes and read classes back; nothing in the app calls it yet"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 02:22:04 GMT",
       "version": "0.63.0",
       "tag": "@parity-app/desktop_v0.63.0",

@@ -319,7 +319,8 @@ export const skillRequest = fields({ path: text("path", "Skill file to read.").d
 
 /**
  * What the CLI posts to the app's `/rpc` endpoint, as JSON text (PAR-598): the method, its params, who's calling when
- * the CLI or MCP knows, and whether it came through the CLI or MCP. The app checks the params with the method's own
+ * the CLI or MCP knows, which of a session's subagents when it says (PAR-960), and whether it came through the CLI or
+ * MCP. The app checks the params with the method's own
  * schema in `requests`, and reads the caller and transport leniently, since they're only shown on the canvas and
  * recorded in telemetry (PAR-641).
  */
@@ -331,6 +332,7 @@ export const rpcRequest = jsonText(
       agent: z.unknown().optional(),
       agentId: z.unknown().optional(),
       client: z.unknown().optional(),
+      subagent: z.unknown().optional(),
       transport: z.unknown().optional()
     },
     "The request must be a JSON object"
@@ -566,6 +568,10 @@ const execReply = z.looseObject({
   details: z.unknown().optional(),
   editId: z.string().optional(),
   created: z.record(z.string(), z.string()).describe("Names of designs and nodes created, mapped to their ids."),
+  createdDesigns: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("Names of the designs created, mapped to their ids. Missing from a copy older than PAR-909."),
   discarded: z
     .array(discarded)
     .optional()

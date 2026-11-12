@@ -39,14 +39,15 @@ CLI.
 | `development` | `pnpm dev`, agents' drives through `drive.ts`, and the CLI from a checkout |
 | `ci`          | Anything run where `CI` is set, whatever the build                         |
 | `preview`     | A pull request's preview installer, and the CLI from pkg.pr.new            |
-| `release`     | The app the release workflow published, and the CLI `npm publish` made     |
+| `beta`        | The app the release workflow published, and the CLI `npm publish` made     |
 | `production`  | A published app or CLI that's been promoted to everyone                    |
 
-Until 2026-11-09, `preview` and `release` were one environment, `tester` (PAR-778). Events from before then keep it.
+Until 2026-11-09, `preview` and `beta` were one environment, `tester` (PAR-778). Until 2026-11-12, `beta` was named
+`release`, which read as the same thing as `production` (PAR-950). Events from before then keep their old names.
 
 `production` is the app's GitHub release once it's no longer a pre-release (PAR-779). Promotion doesn't rebuild the app,
 so it learns it was promoted from GitHub: it asks as it starts, saves the answer in `installed-build.json`, and reports
-`production` from its next start. The first start of a newly promoted version reports `release`. v0.45.1 was the first
+`production` from its next start. The first start of a newly promoted version reports `beta`. v0.45.1 was the first
 promoted build, and its first `production` session reached Sentry on 2026-11-09.
 
 The CLI's `production` is a version that's been npm's `latest` (PAR-799). Every merge publishes the CLI to `next`, and
@@ -65,15 +66,15 @@ for 7 days; [telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) say
 Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
 source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
-| Build                                   | Release                 | Source maps                                                       |
-| --------------------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| Published app (`release`, `production`) | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Source maps, once it's public      |
-| Preview installers (`preview`)          | The commit's full hash  | Uploaded by `preview.yml`'s Source maps                           |
-| CI's app (`ci`)                         | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build |
-| `pnpm dev` (`development`)              | The commit's full hash  | Read locally: stacks are resolved before they're sent             |
-| Published CLI (`release`, `production`) | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
-| CLI preview on pkg.pr.new (`preview`)   | The commit's full hash  | Not uploaded                                                      |
-| CLI from a checkout (`development`)     | The commit's full hash  | Not uploaded                                                      |
+| Build                                 | Release                 | Source maps                                                       |
+| ------------------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| Published app (`beta`, `production`)  | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Source maps, once it's public      |
+| Preview installers (`preview`)        | The commit's full hash  | Uploaded by `preview.yml`'s Source maps                           |
+| CI's app (`ci`)                       | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build |
+| `pnpm dev` (`development`)            | The commit's full hash  | Read locally: stacks are resolved before they're sent             |
+| Published CLI (`beta`, `production`)  | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
+| CLI preview on pkg.pr.new (`preview`) | The commit's full hash  | Not uploaded                                                      |
+| CLI from a checkout (`development`)   | The commit's full hash  | Not uploaded                                                      |
 
 - **`pnpm build`** writes hidden source maps for main, the preload script, the service, its workers and the windows.
   **The CLI's `vp pack`** writes them for its bundles. Both then run `separateSourceMaps` in
@@ -128,21 +129,30 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 
 ## Alerts
 
-Four alerts file Linear bugs with Linear's "Create a Linear issue": team Parity, project Parity, status Todo, label Bug.
-Three file with no priority, and "Email critical monitor breaches" files at Urgent and emails too. The calls behind them
+Six alerts file Linear bugs with Linear's "Create a Linear issue": team Parity, project Parity, status Todo, label Bug.
+Five file with no priority, and "Email critical monitor breaches" files at Urgent and emails too. The calls behind them
 are in [decisions.md](decisions.md#sentry-files-linear-bugs-par-622) and
 [decisions.md](decisions.md#sentry-watches-agent-failures-and-crash-free-sessions-par-643).
 
-| Alert                                                                                               | Fires on                                   | For                                                 | At most        |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------- | -------------- |
-| [File new issues and regressions in Linear](https://better-apps.sentry.io/monitors/alerts/6301645/) | A new issue, or a resolved one coming back | Every issue but user feedback, from desktop and CLI | Once in 30 min |
-| [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)              | A new issue                                | User feedback, from desktop and CLI                 | Every time     |
-| [File monitor breaches in Linear](https://better-apps.sentry.io/monitors/alerts/6310188/)           | A monitor's issue opening, or coming back  | The metric monitors below that are connected to it  | Once in 30 min |
-| [Email critical monitor breaches](https://better-apps.sentry.io/monitors/alerts/6318452/)           | A monitor's issue at High priority or more | The metric monitors below, in `production`          | Once in 30 min |
+| Alert                                                                                                           | Fires on                                                    | For                                                 | At most        |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------- | -------------- |
+| [File new issues and regressions in Linear: production](https://better-apps.sentry.io/monitors/alerts/6301645/) | An issue new in `production`, or a resolved one coming back | Every issue but user feedback, from desktop and CLI | Once in 30 min |
+| [File new issues and regressions in Linear: beta](https://better-apps.sentry.io/monitors/alerts/6331408/)       | An issue new in `beta`, or a resolved one coming back       | The same                                            | Once in 30 min |
+| [File new issues and regressions in Linear: preview](https://better-apps.sentry.io/monitors/alerts/6331407/)    | An issue new in `preview`, or a resolved one coming back    | The same                                            | Once in 30 min |
+| [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)                          | A new issue                                                 | User feedback, from desktop and CLI                 | Every time     |
+| [File monitor breaches in Linear](https://better-apps.sentry.io/monitors/alerts/6310188/)                       | A monitor's issue opening, or coming back                   | The metric monitors below that are connected to it  | Once in 30 min |
+| [Email critical monitor breaches](https://better-apps.sentry.io/monitors/alerts/6318452/)                       | A monitor's issue at High priority or more                  | The metric monitors below, in `production`          | Once in 30 min |
 
 "Email critical monitor breaches" emails `admin@betterapps.io` and files the issue in Linear with the same settings as
 the others but at Urgent. It fires on every event of a monitor's issue whose priority is High or more, so it catches a
 monitor that opens at its critical level and one that climbs to it from its warning level.
+
+**New issues are filed from builds people run, one alert for each environment (PAR-950).** `development` and `ci` aren't
+filed: an error there is a change still being made, or a check that already fails its pull request, and filing them made
+bugs out of a half-saved file and a branch's failed CI run (PAR-951, PAR-950). Their events still reach Sentry. Each
+alert has its own environment because Sentry counts an issue as new once per environment only for an alert scoped to
+one. An issue first seen while developing is still filed once it reaches `preview`, `beta` or `production`, and a bug
+that reaches `production` after `beta` is filed again, since reaching everyone is worth its own bug.
 
 ### Metric monitors
 
@@ -159,7 +169,7 @@ priority, and Critical is Sentry's High, which also emails and files at Urgent.
 | Monitor                                                                                         | Watches                                                      | Window | High      | Critical  |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------ | --------- | --------- |
 | [Crash-free sessions under 99% in production](https://better-apps.sentry.io/monitors/10905109/) | Releases: `crash_free_rate(session)`                         | 1 h    | Under 99% | Under 97% |
-| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/)                 | Spans: `failure_rate()` of `span.op:agent.called`            | 1 h    | Over 5%   | Over 20%  |
+| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/)                 | Spans: `failure_rate()` of `span.op:agent.called`, Parity's¹ | 1 h    | Over 5%   | Over 20%  |
 | [Saves failing](https://better-apps.sentry.io/monitors/10905110/)                               | Logs: `count()` of `message:document.saveFailed`             | 1 h    | 1         | 3         |
 | [Project opens failing](https://better-apps.sentry.io/monitors/10905111/)                       | Logs: `count()` of `message:project.openFailed`              | 1 h    | 5         |           |
 | [Render windows crashing](https://better-apps.sentry.io/monitors/10905113/)                     | Spans: `count()` of `span.op:frame.rendered failure:crashed` | 1 h    | 5         |           |
@@ -181,6 +191,12 @@ A count monitor fires at its number or more and resolves below it. The others fi
 they're back. Log attributes are queried as `tags[durationMs,number]` and `tags[firstPaintMs,number]`, since Sentry
 reads them as strings otherwise.
 
+¹ Failing agent calls count only failures that are Parity's (PAR-873). The query leaves out the codes that mean the
+agent asked for something wrong: `invalid_input`, `unknown_tab`, `unknown_design`, `unknown_node`,
+`ambiguous_reference`, `unknown_state`, `unknown_mode`, `unknown_viewport`, `unknown_component`, `unknown_icon_set`,
+`unknown_edit_id`, `unknown_image`, `image_in_use` and `execution_failed`, a snippet that threw. Every failure in its
+first two weeks was one of those. The dashboards' "Agent error codes by operation" still shows them.
+
 What a filed issue carries:
 
 - **The title is the Sentry issue's.** For user feedback, Sentry writes a short summary of the message.
@@ -197,6 +213,9 @@ What a filed issue carries:
   (PAR-879):
   - **Main hangs:** the watchdog's `main-stopped-answering`, in `mainHangEvent`. Each event still names the frame main
     was caught on.
+  - **Main blocked:** main's own report once a hang ends, "Main was blocked for …", as `main-was-blocked`, in
+    `watchMainLoop` and for the hangs an earlier run left open. Each build's line in `telemetry.ts` had been its own
+    issue (PAR-673).
   - **`UnknownVizError`:** `capturePage` failing to draw, as `unknown-viz-error`, set by `withGrouping` in main's
     `beforeSend`.
 
@@ -273,6 +292,8 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 12. Made the on-call [metric monitors](#metric-monitors) and "Email critical monitor breaches" on 2026-11-09, through
     Sentry's API from a signed-in browser, and turned "Agent calls failing over 5%" on again, scoped to `production`
     with a Critical level over 20% (PAR-779, PAR-714).
+13. Narrowed "Agent calls failing over 5%" to Parity's failures, leaving out the agent's own error codes, with Sentry's
+    MCP server on 2026-11-12 (PAR-873).
 
 PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
 dashboards.

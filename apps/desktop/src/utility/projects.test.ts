@@ -94,7 +94,8 @@ function fakeBuilder() {
         return Promise.resolve()
       },
       setComponents: () => undefined,
-      usage: () => Promise.resolve(undefined)
+      usage: () => Promise.resolve(undefined),
+      loadedFiles: () => Promise.resolve(undefined)
     }
 
     if (!hooks.noRestyle) {

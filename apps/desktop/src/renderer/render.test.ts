@@ -93,6 +93,8 @@ beforeAll(async () => {
     write: false,
     format: "iife",
     platform: "browser",
+    // frame.ts reads scrollbars.css as text, as Vite's `?raw` gives it.
+    loader: { ".css": "text" },
     define: { "process.env.NODE_ENV": '"production"' }
   })
 
@@ -131,7 +133,7 @@ afterAll(async () => {
 })
 
 /** Draws a job as the main process does: the frame, the window the guest was mounted in, and how tall `100vh` is. */
-async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewport">, tree: unknown[] = []) {
+async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewport" | "touch">, tree: unknown[] = []) {
   const job: RenderJob = {
     projectId: "app",
     guestUrl: "http://parity.test/guest.js",
@@ -172,7 +174,7 @@ describe("canvasRender", () => {
   })
 
   it("never scrolls, so text reaching past the frame puts no scrollbar in its capture (PAR-520)", async () => {
-    const separator = { kind: "element", nodeId: "Separator", tag: "div", style: {}, children: [] }
+    const separator = { kind: "element", nodeId: "Separator", tag: "div", declarations: [], children: [] }
     const { frame } = await render({ width: 400, viewport: { width: 400, height: 800 } }, [separator])
     // The frame is the part and the body's margin; the part's name runs below it.
     expect(frame.height).toBeLessThan(20)
@@ -192,6 +194,24 @@ describe("canvasRender", () => {
       await page.setViewportSize({ width: 1280, height: 800 })
     }
   })
+
+  it("gives a phone's or a tablet's frame Parity's thin scrollbars, and a desktop's the browser's (PAR-900)", async () => {
+    /** How much room a scrolling element in the drawn frame gives its scrollbar. */
+    async function gutter(touch?: true) {
+      await render({ width: 390, viewport: { width: 390, height: 844 }, ...(touch && { touch }) })
+
+      return page.evaluate(() => {
+        const scroller = document.createElement("div")
+        scroller.style.cssText = "width: 200px; height: 80px; overflow: scroll"
+        document.querySelector("div")!.shadowRoot!.firstElementChild!.append(scroller)
+
+        return scroller.offsetWidth - scroller.clientWidth
+      })
+    }
+
+    expect(await gutter(true)).toBe(6)
+    expect(await gutter()).toBeGreaterThan(6)
+  })
 })
 
 /** Draws the portal guest's component as a preview job does, or as any other job when `inline` is off. */
@@ -200,7 +220,7 @@ async function renderPortal(inline: boolean) {
     projectId: "portals",
     guestUrl: "http://parity.test/portal-guest.js",
     theme: [],
-    tree: [{ kind: "element", nodeId: "preview", tag: "div", style: {}, children: [] }],
+    tree: [{ kind: "element", nodeId: "preview", tag: "div", declarations: [], children: [] }],
     mode: { width: 656, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
     scale: 1
   }

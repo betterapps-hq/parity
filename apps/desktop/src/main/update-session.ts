@@ -1,4 +1,5 @@
 import { type UpdateEvent, type UpdateState, updateState } from "@parity-app/core"
+import { z } from "zod"
 
 export interface UpdateDriver {
   check: (beta: boolean) => Promise<string | undefined>
@@ -120,7 +121,21 @@ export class UpdateSession {
   fail(cause: unknown): void {
     const failed = this.state.phase === "installing" ? this.installationFailed : undefined
     this.installationFailed = undefined
-    this.send({ type: "error", message: cause instanceof Error ? cause.message : String(cause) })
+    this.send({ type: "error", ...updateFailure(cause) })
     failed?.()
   }
+}
+
+/** electron-updater's errors carry a code, such as `ERR_UPDATER_CHANNEL_FILE_NOT_FOUND`. */
+const updaterCode = z.object({ code: z.string() })
+
+/**
+ * What an update failure records: the message's first line and electron-updater's error code. Its messages go on to
+ * HTTP headers, a stack and sometimes a whole feed, which Sentry redacted whole, code and all, in PAR-825.
+ */
+export function updateFailure(cause: unknown): { message: string; code?: string } {
+  const message = (cause instanceof Error ? cause.message : String(cause)).split("\n", 1)[0]?.trim() ?? ""
+  const code = updaterCode.safeParse(cause).data?.code
+
+  return code ? { message, code } : { message }
 }

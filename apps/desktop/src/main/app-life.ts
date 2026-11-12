@@ -10,7 +10,7 @@ import {
   type UpdatePhase,
   updateRecord
 } from "@parity-app/telemetry"
-import { app } from "electron"
+import { app, powerMonitor } from "electron"
 
 /** Whether a window's event is `project.loaded`, and whether its project was restored, or nothing when it isn't. */
 function projectLoadedOf(envelope: Envelope): { restored: boolean } | undefined {
@@ -42,6 +42,17 @@ export function recordAppLife(telemetry: Telemetry<typeof registeredEvents>, rea
 
   setInterval(() => void recordMemory("interval"), memoryEveryMs).unref()
 
+  // A locked screen or a sleeping computer leaves the window unpainted, so startup isn't timed through one (PAR-831).
+  const interrupt = () => void startup("interrupted", performance.now())
+  void app.whenReady().then(() => {
+    if (powerMonitor.getSystemIdleState(1) === "locked") {
+      interrupt()
+    }
+
+    powerMonitor.on("lock-screen", interrupt)
+    powerMonitor.on("suspend", interrupt)
+  })
+
   app.on("window-all-closed", () => (lastWindowClosed = true))
   // Before the local copy is written as the app quits, so it's in it.
   app.prependListener("will-quit", () => {
@@ -67,6 +78,10 @@ export function recordAppLife(telemetry: Telemetry<typeof registeredEvents>, rea
       } else if (record) {
         telemetry.track(record.name, record.attributes)
       }
+    },
+    /** Stops timing startup because the window is out of sight, as when it's minimized before it paints. */
+    interrupted(): void {
+      interrupt()
     },
     /** Marks the first project shown when a window's event says a project is ready to draw. */
     forwarded(envelope: Envelope): void {

@@ -1,4 +1,4 @@
-import type { Token, TokenChange, TokenWrite } from "@parity-app/tokens"
+import { type Token, type TokenChange, type TokenWrite, withTokenChanges } from "@parity-app/tokens"
 
 export type { TokenChange, TokenWrite }
 
@@ -118,27 +118,10 @@ export function sameTokenValues(current: TokenEdits, saved: TokenEdits): boolean
   return tokenWrites(current, saved).length === 0
 }
 
-/** The project's tokens with these edits applied, as the Tokens panel lists them. */
+/**
+ * The project's tokens with these edits applied, as the Tokens panel lists them. An edit to a token the project doesn't
+ * have adds it to the list, so a token an agent's `SetTokens` added shows, and can be used, before it's saved.
+ */
 export function tokensWithEdits(tokens: readonly Token[], edits: TokenEdits): Token[] {
-  if (edits.size === 0) {
-    return [...tokens]
-  }
-
-  const byName = Map.groupBy(edits.values(), (edit) => edit.name)
-
-  return tokens.map((token) => {
-    const mine = byName.get(token.name)
-
-    if (!mine) {
-      return token
-    }
-
-    const values = { ...token.values }
-
-    for (const edit of mine) {
-      values[edit.theme] = edit.value
-    }
-
-    return { ...token, values }
-  })
+  return withTokenChanges(tokens, [...edits.values()])
 }

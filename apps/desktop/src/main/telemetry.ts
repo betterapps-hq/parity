@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Worker } from "node:worker_threads"
 import { CodedError } from "@parity-app/core"
@@ -7,8 +7,10 @@ import {
   crashLog,
   createDriverTracker,
   isCrash,
+  type CrashSigns,
+  crashedRendererReasons,
   isEarlierCrash,
-  lastRunCrash,
+  lastUnfinishedRun,
   recentLog,
   driverTags,
   createTelemetry,
@@ -17,12 +19,14 @@ import {
   hangThresholdMs,
   lagCheck,
   leftoverHangs,
+  MAIN_BLOCKED_FINGERPRINT,
   type OpenHangs,
   openHangsSchema,
   openHangsFile,
   openHangsOwner,
   openHangsRun,
   registeredEvents,
+  serviceCrash,
   serviceExit,
   isSpanEnvelope,
   type ResolvedTelemetry,
@@ -95,7 +99,7 @@ function crashLogFile(
   let text = recent.text(Date.now())
 
   if (isEarlierCrash(event)) {
-    const crashed = lastRunCrash(readLogEvents(join(app.getPath("userData"), "logs")), sessionId ?? "")
+    const crashed = lastUnfinishedRun(readLogEvents(join(app.getPath("userData"), "logs")), sessionId ?? "")
     text = crashed ? crashLog(crashed.events, Date.parse(crashed.time)) : ""
   }
 
@@ -202,6 +206,8 @@ export function startTelemetry(
   // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
   const scrubbing = sentryScrubbing(scrubber, Sentry, { errorsOnly: sending.errorsOnly })
   runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
+  // Before Sentry starts, since it sends the minidumps it finds and deletes them.
+  earlierMinidumps = minidumpTimes()
   Sentry.init({
     dsn,
     environment,
@@ -215,6 +221,12 @@ export function startTelemetry(
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
     beforeSend: (event, hint) =>
       reportGate.drop(event, () => {
+        // The service, Parity's only utility process that exits with a code, reports its own exits with what it printed,
+        // so Sentry's own report of it, which says nothing more, is dropped (PAR-950).
+        if (event.message === utilityExited) {
+          return null
+        }
+
         // An error about the frame that last failed to draw offscreen carries its picture, while it's recent (PAR-812).
         const frame = failedFrameFor(lastFailedFrame, event, Date.now())
 
@@ -545,6 +557,12 @@ function startHangWatch(folder: string): void {
 
   for (const file of exitedRunsHangs(folder)) {
     const kept = readOpenHangs(file)
+    const keptAt = modifiedAt(file)
+
+    if (keptAt !== undefined) {
+      earlierOpenHangs.push(keptAt)
+    }
+
     // Reported under the release that hung, not this run's, which may be an update (PAR-804).
     const run = openHangsRun(kept)
 
@@ -561,6 +579,7 @@ function startHangWatch(folder: string): void {
         level: "warning",
         tags: { hang: leftover.name === "main.blocked" ? "main" : "window" },
         extra: { ...leftover.attributes },
+        ...(leftover.name === "main.blocked" && { fingerprint: [MAIN_BLOCKED_FINGERPRINT] }),
         ...run
       })
 
@@ -613,6 +632,61 @@ function exitedRunsHangs(folder: string): string[] {
       return owner !== undefined && owner !== process.pid && !running(owner)
     })
     .map((name) => join(folder, name))
+}
+
+/** When Crashpad wrote each minidump still waiting to be sent, read as the app starts, before Sentry sends them. */
+let earlierMinidumps: number[] = []
+
+/** When each hang an earlier run left open was last kept, read as the hang watch starts and reports them. */
+const earlierOpenHangs: number[] = []
+
+/**
+ * What earlier runs left that says one crashed rather than being stopped (PAR-956): the minidumps waiting as the app
+ * started, and the hangs still open as they exited.
+ */
+export function crashSigns(): CrashSigns {
+  return { minidumps: earlierMinidumps, openHangs: earlierOpenHangs }
+}
+
+/** When each minidump in Crashpad's folders was written, where Sentry looks for them, in milliseconds since 1970. */
+function minidumpTimes(): number[] {
+  const folder = app.getPath("crashDumps")
+  const folders = [join(folder, process.platform === "win32" ? "reports" : "completed"), join(folder, "pending")]
+
+  return folders.flatMap((each) => {
+    let names: string[]
+
+    try {
+      names = readdirSync(each)
+    } catch {
+      return []
+    }
+
+    return names.filter((name) => name.endsWith(".dmp")).flatMap((name) => modifiedAt(join(each, name)) ?? [])
+  })
+}
+
+/** When a file was last written, in milliseconds since 1970, or nothing when it can't be read. */
+function modifiedAt(file: string): number | undefined {
+  try {
+    return statSync(file).mtimeMs
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Records a window's renderer going, as `window.gone`, when it crashed or exited abnormally rather than closing. The
+ * editor's makes the next start offer a crash report (PAR-956).
+ */
+export function watchWindowGone(window: BrowserWindow, kind: "renderer" | "render"): void {
+  window.webContents.on("render-process-gone", (_event, details) => {
+    const reason = crashedRendererReasons.find((each) => each === details.reason)
+
+    if (reason) {
+      recorded?.track("window.gone", { window: kind, reason })
+    }
+  })
 }
 
 /** Whether a process is running: signal 0 checks without sending anything, and one we may not signal still runs. */
@@ -678,6 +752,26 @@ export function serviceExited(exit: { exitCode: number; ranMs: number; replaced:
   }
 }
 
+/** What Sentry's child process integration reports for a utility process that exited with an error code. */
+const utilityExited = "'Utility' process exited with 'abnormal-exit'"
+
+/**
+ * Reports a project service that exited unexpectedly as an error named by what it printed, with its last 50 lines of
+ * output, so Linear's bug says what went wrong (PAR-950). Expected exits report nothing.
+ */
+export function serviceCrashed(exit: Parameters<typeof serviceCrash>[0]): void {
+  const crash = serviceCrash(exit)
+
+  if (crash) {
+    Sentry.captureMessage(crash.message, {
+      level: "error",
+      fingerprint: crash.fingerprint,
+      tags: { process: "service" },
+      contexts: { service: { exitCode: exit.exitCode, output: crash.output } }
+    })
+  }
+}
+
 /** Notes the service starting, or being replaced by a fresh one, for the events that follow. */
 export function serviceStarted(restarted: boolean): void {
   Sentry.addBreadcrumb({
@@ -723,7 +817,8 @@ function watchMainLoop(): void {
       Sentry.captureMessage(`Main was blocked for ${(stuckMs / 1000).toFixed(1)}s`, {
         level: "warning",
         tags: { hang: "main" },
-        extra: where === undefined ? { stuckMs } : { stuckMs, where }
+        extra: where === undefined ? { stuckMs } : { stuckMs, where },
+        fingerprint: [MAIN_BLOCKED_FINGERPRINT]
       })
       recorded?.track(
         "main.blocked",

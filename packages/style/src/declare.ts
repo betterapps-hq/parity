@@ -1,16 +1,11 @@
+import type { CssDeclaration } from "./adapter.ts"
 import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
 import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
 import { transitionCss } from "./motion.ts"
 import { fillCss } from "./paint.ts"
 
-/** One CSS declaration a style comes to. */
-export interface Declaration {
-  /** As CSS spells it: `background-color`, `align-self`. */
-  property: string
-  /** As CSS reads it: `var(--primary)`, `calc(var(--spacing) * 4)`. */
-  value: string
-  /** The state, viewport or theme it applies in. Unset, it always applies. */
-  when?: { state?: string; viewport?: string; theme?: string }
+/** One CSS declaration a style comes to, with the key that wrote it. */
+export interface Declaration extends CssDeclaration {
   /**
    * The key that wrote it. What a kind of layer draws before any key is set, such as a layout's `display: flex`, is
    * from the key that would change it.
@@ -34,6 +29,11 @@ export interface StyleContext {
    * a component's slot.
    */
   inline?: boolean
+  /**
+   * One of the layer's children is placed against its edges (Absolute), so the layer is the box it's placed in: it's
+   * drawn `relative`, unless its own placement already makes it that box.
+   */
+  anchors?: boolean
 }
 
 /**
@@ -43,10 +43,10 @@ export interface StyleContext {
 export function declarations(style: NodeStyle, context: StyleContext): Declaration[] {
   const css = new Sheet()
 
+  // A layer is drawn with what its code would write and no more (PAR-942): a layout isn't `relative` unless a child is
+  // placed in it, and can't shrink below its content unless it fills, which writes its own `min-width: 0`.
   if (context.kind === "layout") {
     css.set("display", style.display === "grid" ? "grid" : "flex", "display")
-    css.set("position", "relative", "position")
-    css.set("min-width", "0", "minWidth")
   } else if (context.kind === "text") {
     css.set("margin", "0", "margin")
   }
@@ -233,7 +233,7 @@ function surface(css: Sheet, style: NodeStyle): void {
  * What applies to any node, including a component's root: its size and place in the parent's layout, opacity, and
  * type, which the text inside inherits.
  */
-function box(css: Sheet, style: NodeStyle, { kind, parent }: StyleContext): void {
+function box(css: Sheet, style: NodeStyle, { kind, parent, anchors }: StyleContext): void {
   if (style.grow) {
     fill(css, parent === "column" ? "height" : "width", parent ?? "row", "grow")
   }
@@ -279,6 +279,8 @@ function box(css: Sheet, style: NodeStyle, { kind, parent }: StyleContext): void
     }
 
     stretchBetweenEdges(css, style, kind)
+  } else if (anchors) {
+    css.set("position", "relative", "position")
   }
 
   // Every node is a flex or grid item, where z-index applies without a position.

@@ -3,6 +3,7 @@ import type { ReportSent } from "@parity-app/agent"
 import { CodedError } from "@parity-app/core"
 import {
   type Crash,
+  type CrashSigns,
   diagnosticFiles,
   type LoggedEvent,
   lastRunCrash,
@@ -21,7 +22,8 @@ import { scrubber, whileSendingReport } from "./telemetry.ts"
 /**
  * Help > Report a problem (PAR-635): a Sentry user feedback with what the person wrote, a screenshot of the window, the
  * last hour of the local copy, the versions and the open projects, tied to the window's replay and trace. Sentry files
- * it in Linear. When the last run crashed, the window offers the same report as it starts, with the crash.
+ * it in Linear. When the last run crashed, the window offers the same report as it starts, with the crash. A run that
+ * an agent, the CLI or a force-quit stopped didn't crash, so nothing is offered after it (PAR-956).
  *
  * Agents send the same report with `parity report` and MCP's `report_problem` (PAR-646), through the project service:
  * tied to their call's trace, tagged with what it's about, and with the frames of the design they name.
@@ -80,7 +82,7 @@ export interface Reports {
 
 /** Whether a crash on the last run is offered: only in installed builds, where people run Parity, not agents or CI. */
 export function offersCrashReports(environment: string): boolean {
-  return environment === "preview" || environment === "release" || environment === "production"
+  return environment === "preview" || environment === "beta" || environment === "production"
 }
 
 export function createReports({
@@ -88,6 +90,7 @@ export function createReports({
   flushLogs,
   sessionId,
   offerCrash,
+  crashSigns,
   telemetry,
   level
 }: {
@@ -97,13 +100,15 @@ export function createReports({
   /** This run's, which isn't the last one. */
   sessionId: string
   offerCrash: boolean
+  /** What earlier runs left that tells a crash from a run that was stopped, as an agent stops it (PAR-956). */
+  crashSigns: CrashSigns
   telemetry: Telemetry<typeof registeredEvents>
   /** This run's Telemetry level, which the person can change while it runs. */
   level: () => TelemetryLevel
 }): Reports {
   const screenshots = new WeakMap<BrowserWindow, Electron.NativeImage>()
   // Read once, as the app starts, before this run's own events could be mistaken for it.
-  let crash: Crash | undefined = offerCrash ? lastRunCrash(readEvents(), sessionId) : undefined
+  let crash: Crash | undefined = offerCrash ? lastRunCrash(readEvents(), sessionId, crashSigns) : undefined
   let offered = false
 
   /** The last hour of the local copy, the versions and the open projects, with the crash when one goes with them. */

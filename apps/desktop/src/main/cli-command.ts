@@ -39,7 +39,7 @@ function checkoutCli(): string {
   throw new Error("The CLI's source isn't in a folder above the app")
 }
 
-/** Help > Install the parity command (PAR-906): writes the launchers and makes sure their folder is on PATH. */
+/** Help > Install the Parity CLI (PAR-906): writes the launchers and makes sure their folder is on PATH. */
 export async function installCli(target: CliTarget): Promise<CliInstall> {
   const folder = cliFolder({ platform: target.platform, env: process.env, home: homedir() })
   const launchers = cliLaunchers(target)

@@ -22,16 +22,27 @@ import type {
   LeftOutExport,
   ModesChange,
   ThemeVariable,
-  UpdateState
+  UpdateState,
+  WrittenClasses
 } from "@parity-app/core"
-import type { CodeReference, EditStatus, ExportSize, ImageFile, ReferenceAdded } from "@parity-app/editor"
+import type { CodeReference, EditStatus, ExportSize, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import type { CssDeclaration } from "@parity-app/style"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+
+/**
+ * What a project's styling framework wrote for the declarations its frames draw layers with (PAR-942): each one's
+ * classes, and the CSS of those and of the classes the frames already had.
+ */
+export interface FrameClassesWritten extends WrittenClasses {
+  /** Whether the project has a styling framework that writes classes. Without one, its frames draw from rules alone. */
+  supported: boolean
+}
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -80,6 +91,13 @@ export interface ServiceMethods {
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
   "library.importStyles": { params: { projectId: string; library: string }; result: ProjectEditResult | undefined }
   "document.save": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
+  /**
+   * Keeps a recovery copy of the project's unsaved changes in Parity's app data, or removes it when there's none, so a
+   * crash or a forced quit doesn't lose them (PAR-905).
+   */
+  "recovery.keep": { params: { projectId: string; copy?: RecoveryCopy }; result: undefined }
+  /** The recovery copy kept for the project when Parity last closed with its changes unsaved, if there is one. */
+  "recovery.read": { params: { projectId: string }; result: RecoveryCopy | undefined }
   /**
    * Saves an image pasted onto the canvas into the project's public folder, where the dev server serves it. `data` is
    * the file, base64 encoded; `type` its media type. No edit when the same image was saved before.
@@ -163,7 +181,8 @@ export interface ServiceMethods {
    * the window's thread (PAR-759). `height` is the frame's height as it was captured, in its own CSS pixels, which a
    * frame that hasn't drawn yet takes while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number }[] } }
+  /** Each job's kept bitmap and its frame's height, `stale` when it's the frame's latest from other code (PAR-993). */
+  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number; stale?: true }[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**
@@ -202,6 +221,15 @@ export interface ServiceMethods {
   }
   /** Writes token values back to the project's stylesheets, taking out those without a value. */
   "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
+  /**
+   * The classes the project's styling framework writes for each declaration, by its own compiler, for frames to draw
+   * layers with (PAR-942). `written` are the classes the window's frames already have, compiled again with the new
+   * ones, so the window's stylesheet of classes is whole whether or not the service was started again since.
+   */
+  "styles.classes": {
+    params: { projectId: string; declarations: CssDeclaration[]; written: string[] }
+    result: FrameClassesWritten
+  }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.
@@ -419,7 +447,7 @@ export interface ProblemReportRequest {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 /** A file copied in Explorer or Finder, with its bytes unless it's too large for any type Parity takes. */
-/** Where Help > Install the parity command put it (PAR-906). */
+/** Where Help > Install the Parity CLI put it (PAR-906). */
 export interface CliInstall {
   folder: string
   /** Whether a terminal finds the folder on PATH; on Linux, `~/.local/bin` is only there when the person's shell adds it. */
@@ -611,6 +639,8 @@ export interface RenderJob {
     attributes: Record<string, string>
     /** The mode's options by variable, for decorators. */
     globals?: Record<string, string>
+    /** The mode stands for a phone or a tablet, whose frames take thin scrollbars (core's `isTouchMode`). */
+    touch?: true
   }
   scale: number
   /** Also check the frame with axe-core. */

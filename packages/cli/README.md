@@ -9,8 +9,8 @@ and serves all of this as MCP tools.
 
 ## Install
 
-With the Parity app, choose **Help > Install the parity command**. It puts a `parity` command on your PATH that runs the
-CLI shipped inside the app, so it's always the app's version and needs no Node.
+With the Parity app, choose **Help > Install the Parity CLI**. It puts a `parity` command on your PATH that runs the CLI
+shipped inside the app, so it's always the app's version and needs no Node.
 
 Without the app, as in CI, it needs Node 24. Install it to get the `parity` command:
 
@@ -55,7 +55,7 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity components`          | The components designs can use, by library.                                                     |
 | `parity props <Component>`   | A component's props, read from its source.                                                      |
 | `parity lib [package]`       | Writes a `.lib.par` describing a library's components, tokens and icons, or the app's.          |
-| `parity open <folder>`       | Opens a project in a new tab.                                                                   |
+| `parity open <folder>`       | Opens a project in a new tab, or detects an open one again when its setup changed.              |
 | `parity skill [file]`        | Prints the skill that teaches an agent to design with Parity.                                   |
 | `parity mcp`                 | Serves these commands as MCP tools on stdio.                                                    |
 
@@ -83,12 +83,16 @@ Then have the agent read the skill first, with the `read_skill` tool or `parity 
 ## Execute contract
 
 CLI `exec` and MCP `execute` share one operation. CLI file/stdin becomes MCP's `input`; `--label` becomes `description`;
-`--tab`, `--edit-id` and parsed `--edits` have the same meaning in both. The default task label is `Edit designs`, and
-an omitted tab uses the open project the current folder is in, else the active tab.
+`--tab`, `--edit-id`, `--quiet` and parsed `--edits` have the same meaning in both. The default task label is
+`Edit designs`, and an omitted tab uses the open project the current folder is in, else the active tab.
 
 Send a nonblank snippet or a failed call's `editId`, not both. Retry patches need a nonempty `find`, a string `replace`
 (which can be empty), and optional boolean `all`; omitted patches default to an empty list. Invalid requests are
 rejected before reaching the desktop. Caller identity and session IDs travel separately from operation inputs.
+
+The result names every node the snippet created with a `name`, under "Created" and in `created`. `quiet` leaves those
+out, in the text and the structured result, and lists just the designs created, under "Designs created" and in
+`createdDesigns`. It changes only the answer, so the CLI and MCP server read it and never send it to the desktop.
 
 CLI failures exit with 1; MCP failures set `isError` and include the same failure and retry details, as the structured
 `error` below. CLI `--json` omits screenshot image data; MCP returns image content blocks.
@@ -198,3 +202,8 @@ callers sharing a display name. `--label` names the task separately.
 For MCP, Parity uses the client's declared `clientInfo.title`, then `clientInfo.name`, then `Agent` if neither is
 nonblank. Names are trimmed and otherwise preserved; no list of known agents or tool environment detection is needed.
 These display names are self-reported, not authentication.
+
+An MCP session's subagents share its connection, so they share its cursor unless each says who it is. Every MCP tool
+that reaches the app takes an optional `subagent`, a short name the subagent gives itself and passes on each call. A
+call that names one shows as `Header (Claude Code)` with a cursor of its own; a call that names none shows as the
+session.

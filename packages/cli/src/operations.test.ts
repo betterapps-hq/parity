@@ -1050,14 +1050,13 @@ describe("remaining transport contracts", processTests, () => {
       })
     )
 
+    // Each is its contract's schema, with the subagent a call can name beside its fields (PAR-960).
     for (const entry of cases) {
+      const contract = operations[entry.method].inputSchema
+      const inputSchema = { ...contract, properties: { ...contract.properties, subagent: { type: "string" } } }
       expect(toolReply(protocol.stdout)).toEqual(
         expect.objectContaining({
-          result: {
-            tools: expect.arrayContaining([
-              expect.objectContaining({ name: entry.tool, inputSchema: operations[entry.method].inputSchema })
-            ])
-          }
+          result: { tools: expect.arrayContaining([expect.objectContaining({ name: entry.tool, inputSchema })]) }
         })
       )
     }
@@ -1134,8 +1133,9 @@ describe("remaining transport contracts", processTests, () => {
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
     // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
     // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889),
-    // 20.2 KB with get_tokens' nearest (PAR-833), so 21 KB.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(21 * 1024)
+    // 20.2 KB with get_tokens' nearest (PAR-833), 21.1 KB with a bare subagent on each tool that reaches the app
+    // (PAR-960), so 21.5 KB.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(21.5 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {

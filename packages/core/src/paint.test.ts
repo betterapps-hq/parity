@@ -103,6 +103,17 @@ describe("fillCss", () => {
       "desktop"
     )
 
-    expect(hero).toMatchObject({ kind: "element", style: fillCss(stack) })
+    if (hero?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
+    // The fill's CSS, each property as CSS names it: `backgroundColor` as `background-color`.
+    const fill = Object.entries(fillCss(stack)).map(([name, value]) => ({
+      property: name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`),
+      value
+    }))
+
+    expect(fill).toHaveLength(5)
+    expect(hero.declarations).toEqual(expect.arrayContaining(fill))
   })
 })

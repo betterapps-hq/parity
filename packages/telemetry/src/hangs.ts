@@ -276,11 +276,44 @@ export function debugImages(table: Readonly<Record<string, string>>, appRoot: st
   return images
 }
 
+/** The title of main's hang: where it was stuck, or, when it was stuck outside JavaScript, where it resumed. */
+function hangTitle(stuck: StuckIn, where: string | undefined): string {
+  if (!where) {
+    return "Main stopped answering"
+  }
+
+  return stuck === "javascript"
+    ? `Main stopped answering in ${where}`
+    : `Main stopped answering outside JavaScript, then resumed in ${where}`
+}
+
 /**
  * Every main hang's Sentry fingerprint. Grouped by stack, each hang caught on another frame became its own issue, and
  * Sentry's alert filed each in Linear as a new bug (PAR-879). Each event still carries the frame it was caught on.
  */
 export const MAIN_HANG_FINGERPRINT = "main-stopped-answering"
+
+/**
+ * The fingerprint of main's own report once a hang ends, "Main was blocked for …". Grouped by stack, each build's line
+ * in `telemetry.ts` became its own issue (PAR-673).
+ */
+export const MAIN_BLOCKED_FINGERPRINT = "main-was-blocked"
+
+/**
+ * How soon main pauses for the inspector when it's running JavaScript, in milliseconds. A pause lands at the next
+ * function call or loop, within a few milliseconds even under load (5 to 30 measured). Main stuck in native code, or
+ * idle while Chromium's own work holds its thread, can't pause until it runs JavaScript again, so a later pause is
+ * where it resumed, not where it was stuck (PAR-890).
+ */
+export const pausesInJavaScriptMs = 100
+
+/** Where main was stuck: running JavaScript, or outside it, in native code or the event loop's own work. */
+export type StuckIn = "javascript" | "native"
+
+/** Where main was stuck by how long it took to pause, if it paused at all before the watchdog gave up. */
+export function stuckIn(pausedAfterMs: number | undefined): StuckIn {
+  return pausedAfterMs !== undefined && pausedAfterMs < pausesInJavaScriptMs ? "javascript" : "native"
+}
 
 /** The Sentry message the watchdog sends as main's hang passes the threshold, tagged as main's own hangs are. */
 export function mainHangEvent({
@@ -295,17 +328,22 @@ export function mainHangEvent({
   eventId: string
   /** Seconds since 1970, as Sentry's timestamps are. */
   now: number
-  /** Main's stack, if the watchdog could take it, with the bundles' debug IDs. */
-  stack?: { frames: StackFrame[]; images: DebugImage[] } | undefined
+  /**
+   * Main's stack, if the watchdog could take it, with the bundles' debug IDs and how long main took to pause, which
+   * says whether the stack is where it was stuck or where it resumed.
+   */
+  stack?: { frames: StackFrame[]; images: DebugImage[]; pausedAfterMs: number } | undefined
 }): WatchdogEvent {
+  const stuck = stuckIn(stack?.pausedAfterMs)
+
   const event: WatchdogEvent = {
     event_id: eventId,
     timestamp: now,
     platform: "node",
     level: "warning",
     message: "Main stopped answering",
-    tags: { ...scope.tags, process: "main", hang: "main" },
-    extra: { stuckMs },
+    tags: { ...scope.tags, process: "main", hang: "main", stuck_in: stuck },
+    extra: stack ? { stuckMs, pausedAfterMs: stack.pausedAfterMs } : { stuckMs },
     fingerprint: [MAIN_HANG_FINGERPRINT]
   }
 
@@ -331,7 +369,7 @@ export function mainHangEvent({
       values: [
         {
           type: "ApplicationNotResponding",
-          value: where ? `Main stopped answering in ${where}` : "Main stopped answering",
+          value: hangTitle(stuck, where),
           stacktrace: { frames: stack.frames },
           mechanism: { type: "hang_watchdog", handled: true }
         }

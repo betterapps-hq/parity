@@ -66,6 +66,56 @@ function card(variants: Record<string, string> = {}): ContainerSpec {
   return { ...found, view: { variants } }
 }
 
+/**
+ * A welcome banner placing a panel, whose content slot it fills with a layout holding a heading bound to its own
+ * `greeting` param. Its Compact state closes the fill's gap and rewords the note beside the heading.
+ */
+function welcome(): ContainerSpec {
+  return {
+    id: "welcome",
+    name: "Welcome",
+    kind: "component",
+    position: { x: 0, y: 0 },
+    params: { greeting: { type: "text", default: "Welcome back" } },
+    root: {
+      type: "layout",
+      id: "root",
+      children: [
+        {
+          type: "instance",
+          id: "panel",
+          design: "panel",
+          slots: {
+            content: [
+              {
+                type: "layout",
+                id: "fill",
+                style: { gap: 2 },
+                children: [
+                  { type: "text", id: "fill-heading", text: "Heading", bind: { text: "greeting" } },
+                  text("fill-note")
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    states: [
+      { id: "default", name: "Default" },
+      {
+        id: "compact",
+        name: "Compact",
+        overrides: { fill: { style: { gap: 1 } }, "fill-note": { text: "Signed in" } }
+      }
+    ]
+  }
+}
+
+/** What an instance fills `slot` with, or nothing when the node isn't an instance filling it. */
+const fillOf = (node: DesignNode | undefined, slot: string) =>
+  node?.type === "instance" ? node.slots?.[slot] : undefined
+
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)
 
@@ -203,6 +253,22 @@ describe("copying layers", () => {
     expect(title).toMatchObject({ text: "Card title", bind: { text: "title" } })
     expect(meta).toMatchObject({ text: "Today", hidden: true })
   })
+
+  it("copies the layers an instance fills its slots with as the state shows them too (PAR-966)", () => {
+    const payload = copyLayers(welcome(), ["panel"], welcome().states[1])
+    const [panel] = payload?.kind === "layers" ? payload.nodes : []
+    expect(fillOf(panel, "content")).toEqual([
+      {
+        type: "layout",
+        id: "fill",
+        style: { gap: 1 },
+        children: [
+          { type: "text", id: "fill-heading", text: "Welcome back", bind: { text: "greeting" } },
+          { type: "text", id: "fill-note", text: "Signed in" }
+        ]
+      }
+    ])
+  })
 })
 
 describe("pasting a bound layer", () => {
@@ -243,6 +309,30 @@ describe("pasting a bound layer", () => {
     const destination: ContainerSpec = { ...form(), params: { label: { type: "text" } } }
     const fitted = fitBindings(node, destination)
     expect(fitted.type === "layout" && fitted.children[0]?.bind).toEqual({ props: { children: "label" } })
+  })
+
+  /** The heading in the layout an instance fills its content slot with. */
+  const fillHeading = (node: DesignNode | undefined) => {
+    const [fill] = fillOf(node, "content") ?? []
+
+    return fill?.type === "layout" ? fill.children[0] : undefined
+  }
+
+  it("fits the bindings of the layers an instance fills its slots with (PAR-966)", () => {
+    const panel = findNode(welcome().root, "panel")!
+    expect(fillHeading(fitBindings(panel, form()))).toEqual({ type: "text", id: "fill-heading", text: "Heading" })
+
+    const destination: ContainerSpec = { ...form(), params: { greeting: { type: "text", default: "Hello" } } }
+    expect(fillHeading(fitBindings(panel, destination))).toMatchObject({ bind: { text: "greeting" } })
+  })
+
+  it("pastes an instance's fill showing what it showed, unbound in a design without the param (PAR-966)", () => {
+    const payload = copyLayers(welcome(), ["panel"], welcome().states[0])
+    const nodes = payload?.kind === "layers" ? payload.nodes : []
+    const { container, copies } = pasteLayers(form(), { parent: "root" }, nodes)
+    const heading = fillHeading(findNode(container.root, copies[0]!))
+    expect(heading).toMatchObject({ type: "text", text: "Welcome back" })
+    expect(heading).not.toHaveProperty("bind")
   })
 })
 
@@ -369,7 +459,7 @@ describe("copying and pasting style", () => {
 
   it("copies a layer's look with the variant options the board shows and the frame's viewport", () => {
     const inline = card({ layout: "inline" })
-    expect(styleOf(inline, "body", inline.states[0]!, "mobile")).toEqual({ direction: "row", gap: 6, padding: 2 })
+    expect(styleOf(inline, "body", inline.states[0]!, "mobile")).toEqual({ direction: "row", gap: 2, padding: 2 })
     expect(styleOf(card(), "body", inline.states[0]!, "desktop")).toEqual({ direction: "column", gap: 4, padding: 4 })
   })
 
