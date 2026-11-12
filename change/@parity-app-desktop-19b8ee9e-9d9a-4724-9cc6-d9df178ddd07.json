@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color token",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

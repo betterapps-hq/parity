@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
