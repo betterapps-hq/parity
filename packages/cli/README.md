@@ -64,15 +64,19 @@ script.
 
 ## With an agent
 
-Add the MCP server to your agent's configuration:
+Add the MCP server to your agent's configuration. It's the quickest way for an agent to reach Parity: the server starts
+once, and each call then takes only as long as the app's own work.
 
 ```json
 {
   "mcpServers": {
-    "parity": { "command": "npx", "args": ["-y", "@parity-app/cli", "mcp"] }
+    "parity": { "command": "parity", "args": ["mcp"] }
   }
 }
 ```
+
+Without the installed command, use `"command": "npx", "args": ["-y", "@parity-app/cli", "mcp"]`, which pays npx's
+start-up once per session rather than once per call.
 
 Then have the agent read the skill first, with the `read_skill` tool or `parity skill`.
 

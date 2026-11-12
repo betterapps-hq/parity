@@ -27,8 +27,10 @@ The same tools are MCP tools and `parity` commands in a terminal. They act on a 
 the active tab of the Parity window they used last. When the person says "this" or "what I've selected" without naming a
 project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the selection.
 
-In a terminal, run `parity`, not `npx @parity-app/cli`: npx spends 1–2 seconds finding the package on every call. When
-`parity` isn't found, ask the person to choose Help > Install the parity command in Parity, then use a new terminal.
+Use the MCP tools when you have them: the server starts once, and each call then costs only the app's own work. In a
+terminal, run `parity`, not `npx @parity-app/cli`: npx spends 1–2 seconds finding the package on every call. When
+`parity` isn't found and you have no Parity MCP tools, ask the person to choose Help > Install the parity command in
+Parity, then use a new terminal.
 
 | MCP                   | CLI                                             | What it does                                                                                                                                                                                                            |
 | --------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

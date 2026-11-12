@@ -7354,7 +7354,9 @@ CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Pri
 - **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
   bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
   the CLI and its sender load in Parity's Electron.
-- **The skill tells agents to run `parity`, never npx per call,** and to ask for the menu item when it isn't found.
+- **The skill sends agents to the MCP tools first, then `parity`, never npx per call** (your call, 2026-11-11: without
+  the CLI, push to MCP). An agent with neither asks for the menu item. The README's MCP configuration runs `parity mcp`,
+  with npx as the fallback, which pays its start-up once per session.
 - **No daemon.** The CLI already talks straight to the app, which answers in about 10 ms; what costs is starting a
   process, which a client of a daemon still pays. MCP stays the fastest route for agents that have it.
 
