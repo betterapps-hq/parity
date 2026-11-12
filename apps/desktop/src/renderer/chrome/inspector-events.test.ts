@@ -49,16 +49,20 @@ describe("changedFields", () => {
       id: "badge",
       component: "Badge",
       props: { variant: "outline" },
-      style: { padding: [2, 2] }
+      style: { padding: [{ step: 2 }, { step: 2 }] }
     }
 
     expect(
-      changedFields(node, { props: { variant: "solid", size: "sm" }, style: { padding: [3, 3] }, hidden: true })
+      changedFields(node, {
+        props: { variant: "solid", size: "sm" },
+        style: { padding: [{ step: 3 }, { step: 3 }] },
+        hidden: true
+      })
     ).toEqual([
       { field: "hidden", from: false, to: true },
       { field: "props.variant", from: "outline", to: "solid" },
       { field: "props.size", from: undefined, to: "sm" },
-      { field: "style.padding", from: [2, 2], to: [3, 3] }
+      { field: "style.padding", from: [{ step: 2 }, { step: 2 }], to: [{ step: 3 }, { step: 3 }] }
     ])
   })
 })
@@ -78,7 +82,7 @@ describe("rowChanged", () => {
     const node: LayoutNode = { type: "layout", id, children: [] }
 
     if (gap !== undefined) {
-      node.style = { gap }
+      node.style = { gap: { step: gap } }
     }
 
     return node
@@ -170,7 +174,7 @@ describe("a component prop previewed by being made", () => {
     }
 
     const store = new DesignStore(
-      [{ path: "app.par", document: { version: 3, containers: [home] } }],
+      [{ path: "app.par", document: { version: 4, containers: [home] } }],
       defaultModeSettings,
       "app.par",
       { saveDocument: async () => undefined, autosave: () => false }
@@ -253,7 +257,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
     }
 
     const store = new DesignStore(
-      [{ path: "app.par", document: { version: 3, containers: [card] } }],
+      [{ path: "app.par", document: { version: 4, containers: [card] } }],
       defaultModeSettings,
       "app.par",
       { saveDocument: async () => undefined, autosave: () => false }

@@ -23,7 +23,11 @@ describe("a layer as the board shows it", () => {
     const card = designs.find((design) => design.id === "card")!
     expect(shownNode(card, "title")).toMatchObject({ text: "Card title", bind: { text: "title" } })
     const inline = { ...card, view: { variants: { layout: "inline" } } }
-    expect(shownNode(inline, "body", { viewport: "mobile" })?.style).toEqual({ direction: "row", gap: 2, padding: 2 })
+    expect(shownNode(inline, "body", { viewport: "mobile" })?.style).toEqual({
+      flexDirection: "row",
+      gap: { step: 2 },
+      padding: { step: 2 }
+    })
     expect(shownNode(card, "meta", { viewport: "mobile" })?.hidden).toBe(true)
   })
 

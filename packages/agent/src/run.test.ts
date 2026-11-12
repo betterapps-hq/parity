@@ -37,7 +37,7 @@ function snapshot(): AgentSnapshot {
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [
             {
               id: "signup",
@@ -188,23 +188,26 @@ Print(Get("page", {depth: 1}).children.length)`
     const result = await execute(
       {
         label: "Animate the button",
-        code: `Update("submit", {style: {transitions: [{property: "colors", duration: 200, easing: "ease-out"}]}})
-AddState("signup", {name: "Pressed", changes: {Submit: {style: {transitions: [{property: "transform", easing: {spring: {duration: 400, bounce: 0.3}}}]}}}})
-Print(JSON.stringify(Get("submit").style.transitions))
-Print(Get("submit", {state: "pressed"}).style.transitions[0].easing.spring.duration)
-Update("submit", {style: {transitions: null}}, {state: "pressed"})`
+        code: `Update("submit", {style: {transition: [{property: "colors", duration: {step: 200}, easing: {keyword: "ease-out"}}]}})
+AddState("signup", {name: "Pressed", changes: {Submit: {style: {transition: [{property: "transform", easing: {spring: {duration: 400, bounce: 0.3}}}]}}}})
+Print(JSON.stringify(Get("submit").style.transition))
+Print(Get("submit", {state: "pressed"}).style.transition[0].easing.spring.duration)
+Update("submit", {style: {transition: null}}, {state: "pressed"})`
       },
       snapshot(),
       hooks()
     )
 
     expect(result.error).toBeUndefined()
-    expect(result.output).toEqual(['[{"property":"colors","duration":200,"easing":"ease-out"}]', "400"])
-    const container = result.changes.designs[0]!.after!
-    expect(findNode(container.root, "submit")?.style?.transitions).toEqual([
-      { property: "colors", duration: 200, easing: "ease-out" }
+    expect(result.output).toEqual([
+      '[{"property":"colors","duration":{"step":200},"easing":{"keyword":"ease-out"}}]',
+      "400"
     ])
-    expect(container.states![1]?.overrides?.submit?.style?.transitions).toBeUndefined()
+    const container = result.changes.designs[0]!.after!
+    expect(findNode(container.root, "submit")?.style?.transition).toEqual([
+      { property: "colors", duration: { step: 200 }, easing: { keyword: "ease-out" } }
+    ])
+    expect(container.states![1]?.overrides?.submit?.style?.transition).toBeUndefined()
   })
 
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
@@ -332,7 +335,7 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
     const result = await execute(
       {
         label: "New screen",
-        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {background: "background"}, children: [{type: "text", text: "Plans", style: {size: "text-2xl"}}]}})
+        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {fills: [{type: "solid", color: {token: "background"}}]}, children: [{type: "text", text: "Plans", style: {fontSize: {token: "text-2xl"}}}]}})
 Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       },
       snapshot(),
@@ -357,7 +360,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
 
     const read = {
       ...base,
-      documents: [{ path: "app.par", document: { version: 3 as const, containers: [signup, other] } }]
+      documents: [{ path: "app.par", document: { version: 4 as const, containers: [signup, other] } }]
     }
 
     const result = await execute(
@@ -594,44 +597,44 @@ Print(JSON.stringify(Overlaps()))`
     const result = await execute(
       {
         label: "Off system",
-        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {background: "hotpink"}})`
+        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {fills: [{type: "solid", color: {token: "hotpink"}}]}})`
       },
       snapshot(),
       hooks()
     )
 
     expect(result.warnings.join("\n")).toContain(`"Carousel" isn't one of the project's components`)
-    expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
+    expect(result.warnings.join("\n")).toContain(`fills "hotpink" isn't a token`)
   })
 
   it("fills a layer with a stack of paints, reads it back, and checks each paint's tokens (PAR-931)", async () => {
     const stack = [
       {
-        kind: "linear",
+        type: "linear",
         angle: 90,
         stops: [
-          { color: "primary", position: 0 },
-          { color: "nope", position: 100 }
+          { color: { token: "primary" }, position: 0 },
+          { color: { token: "nope" }, position: 100 }
         ]
       },
-      { kind: "image", src: "/images/hero.jpg", fit: "fill" },
-      { kind: "solid", color: "background", alpha: 80 }
+      { type: "image", src: "/images/hero.jpg", fit: "fill" },
+      { type: "solid", color: { token: "background", alpha: { step: 80 } } }
     ]
 
     const result = await execute(
       {
         label: "Hero fill",
-        code: `Update("page", {style: {background: ${JSON.stringify(stack)}}})
-Print(JSON.stringify(Get("page").style.background))`
+        code: `Update("page", {style: {fills: ${JSON.stringify(stack)}}})
+Print(JSON.stringify(Get("page").style.fills))`
       },
       snapshot(),
       hooks()
     )
 
     expect(JSON.parse(result.output[0]!)).toEqual(stack)
-    expect(findNode(result.changes.designs[0]!.after!.root, "page")?.style?.background).toEqual(stack)
-    expect(result.warnings.join("\n")).toContain(`background "nope" isn't a token`)
-    expect(result.warnings.join("\n")).not.toContain(`background "primary"`)
+    expect(findNode(result.changes.designs[0]!.after!.root, "page")?.style?.fills).toEqual(stack)
+    expect(result.warnings.join("\n")).toContain(`fills "nope" isn't a token`)
+    expect(result.warnings.join("\n")).not.toContain(`fills "primary"`)
   })
 
   it("lists radius-full with the radius tokens and takes it without a warning (PAR-458)", async () => {
@@ -640,8 +643,8 @@ Print(JSON.stringify(Get("page").style.background))`
         label: "Pill",
         code: [
           `Print(JSON.stringify(GetTokens({ category: "radius" })))`,
-          `Update("submit", {style: {radius: "radius-full"}})`,
-          `Update("title", {style: {background: "radius-full"}})`
+          `Update("submit", {style: {borderRadius: {token: "radius-full"}}})`,
+          `Update("title", {style: {fills: [{type: "solid", color: {token: "radius-full"}}]}})`
         ].join("\n")
       },
       snapshot(),
@@ -651,9 +654,9 @@ Print(JSON.stringify(Get("page").style.background))`
     expect(JSON.parse(result.output[0]!)).toEqual([
       { name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }
     ])
-    expect(result.warnings.join("\n")).not.toContain(`radius "radius-full"`)
+    expect(result.warnings.join("\n")).not.toContain(`borderRadius "radius-full"`)
     // A keyword is a radius only: as a color it's still not a token.
-    expect(result.warnings.join("\n")).toContain(`background "radius-full" isn't a token`)
+    expect(result.warnings.join("\n")).toContain(`fills "radius-full" isn't a token`)
   })
 
   it("lists a project's own --radius-full as its token, not the keyword", async () => {
@@ -1254,9 +1257,9 @@ describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
       {
         label: "Page titles",
         code: [
-          `Update("title", {style: {size: "text-display"}})`,
+          `Update("title", {style: {fontSize: {token: "text-display"}}})`,
           `SetTokens({ "text-display": "4rem", "shadow-popup": { default: "0 8px 24px black", dark: "none" } })`,
-          `Update("page", {style: {shadow: "shadow-popup"}})`,
+          `Update("page", {style: {boxShadow: [{type: "drop", token: "shadow-popup"}]}})`,
           `Print(JSON.stringify(GetTokens({ search: "text-display" })))`,
           `Print(JSON.stringify(GetTokens({ category: "shadow" })))`
         ].join("\n")
@@ -1294,12 +1297,12 @@ describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
 
   it("warns about the name until a call adds it, saying how", async () => {
     const before = await execute(
-      { label: "Page titles", code: `Update("title", {style: {size: "text-display"}})` },
+      { label: "Page titles", code: `Update("title", {style: {fontSize: {token: "text-display"}}})` },
       snapshot(),
       hooks()
     )
 
-    expect(before.warnings.join("\n")).toContain(`size "text-display" isn't a token`)
+    expect(before.warnings.join("\n")).toContain(`fontSize "text-display" isn't a token`)
     expect(before.warnings.join("\n")).toContain(`add text-display with SetTokens`)
   })
 
@@ -1549,7 +1552,7 @@ Insert("dashboard/Toolbar", {
       {
         ...base,
         iconSets: [lucide],
-        documents: [{ path: "app.par", document: { version: 3, containers: [signup, dashboard] } }]
+        documents: [{ path: "app.par", document: { version: 4, containers: [signup, dashboard] } }]
       },
       withIcons()
     )
@@ -1613,7 +1616,7 @@ describe("warning groups", () => {
 }
 Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
 Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
-Update("submit", { style: { background: "hotpink" } })
+Update("submit", { style: { fills: [{ type: "solid", color: { token: "hotpink" } }] } })
 await Screenshot("signup")`
       },
       base,
@@ -2048,7 +2051,7 @@ await Problems("signup", { state: "all", mode: "all" })`
     { code: `Insert("page", { type: "text", text: 1 })`, field: "node/text", message: "expected a string" },
     { code: `Insert("page", { type: "text", text: "Hi" }, { index: -1 })`, field: "index", message: "at least 0" },
     { code: `Insert(document, { type: "layout" }, { kind: "page" })`, field: "kind", message: "expected one of" },
-    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "a number or a string" },
+    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "expected { step }, { token }" },
     { code: `Update("title", { width: 3 })`, field: "width", message: "use Replace, Move or Responsive" },
     { code: `Update("title", { text: "Hi" }, { state: 1 })`, field: "state", message: "expected a string" },
     { code: `Replace("title", "text")`, field: "node", message: "expected an object" },
@@ -2087,18 +2090,18 @@ await Problems("signup", { state: "all", mode: "all" })`
     const result = await execute(
       {
         label: "Order",
-        code: `Update("title", { style: { zIndex: 10 } })
-Print(Get("title").style.zIndex)`
+        code: `Update("title", { style: { zIndex: { step: 10 } } })
+Print(Get("title").style.zIndex.step)`
       },
       snapshot(),
       hooks()
     )
 
     expect(result.output).toEqual(["10"])
-    expect(findNode(result.changes.designs[0]!.after!.root, "title")).toMatchObject({ style: { zIndex: 10 } })
+    expect(findNode(result.changes.designs[0]!.after!.root, "title")).toMatchObject({ style: { zIndex: { step: 10 } } })
 
     const refused = await execute(
-      { label: "Order", code: `Update("title", { style: { zIndex: 1.5 } })` },
+      { label: "Order", code: `Update("title", { style: { zIndex: { step: 1.5 } } })` },
       snapshot(),
       hooks()
     )
@@ -2110,13 +2113,13 @@ Print(Get("title").style.zIndex)`
   it("still reads null as taking a value away", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.root = { ...layoutRoot(signup), responsive: { mobile: { style: { gap: 2 } } } }
+    signup.root = { ...layoutRoot(signup), responsive: { mobile: { style: { gap: { step: 2 } } } } }
 
     const result = await execute(
       {
         label: "Clear",
-        code: `Update("title", { name: null, style: { size: "text-2xl" } })
-Update("title", { style: { size: null } })
+        code: `Update("title", { name: null, style: { fontSize: { token: "text-2xl" } } })
+Update("title", { style: { fontSize: null } })
 Responsive("page", "mobile", null)
 AddState("signup", { name: "Error", changes: { title: { text: "Try again" } } })
 UpdateState("signup", "error", { changes: { title: null } })`
@@ -2139,7 +2142,7 @@ describe("Replace", () => {
     const read = snapshot()
     const [design] = read.documents[0]!.document.containers
     const page = layoutRoot(design)
-    page.responsive = { mobile: { style: { gap: 2 } } }
+    page.responsive = { mobile: { style: { gap: { step: 2 } } } }
     page.children[0]!.responsive = { mobile: { hidden: true }, tablet: { text: "Sign up" } }
     design!.states = [
       ...designStates(design!),
@@ -2179,7 +2182,7 @@ describe("Replace", () => {
     ])
     const after = result.changes.designs[0]!.after!
     expect(after.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
-    expect(after.root.responsive).toEqual({ mobile: { style: { gap: 2 } } })
+    expect(after.root.responsive).toEqual({ mobile: { style: { gap: { step: 2 } } } })
   })
 
   it("reports every node's patches when it replaces the root, which clears the states", async () => {

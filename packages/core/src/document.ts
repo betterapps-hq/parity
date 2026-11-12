@@ -1,7 +1,7 @@
 import { nodeStyle, styleKey } from "@parity-app/style-schema"
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
-import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
+import { type DataParser, fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
 import { sampleProps } from "./values/grammar.ts"
 
@@ -689,7 +689,7 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
 
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
 export const canvasDocument = fileObject({
-  version: z.literal(3),
+  version: z.literal(4),
   containers: z.array(containerSpec),
   /** The project's modes. Unset means the defaults. */
   modes: modeSettings.optional(),
@@ -720,10 +720,10 @@ export const canvasDocument = fileObject({
 export type CanvasDocument = z.infer<typeof canvasDocument>
 
 /** Reads a project file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export const parseCanvasDocument = parserFor(canvasDocument)
+export const parseCanvasDocument: DataParser<CanvasDocument> = parserFor(canvasDocument)
 
 /** Validates one node tree on its own, as agents insert them. `path` is where it sits, for the error's pointer. */
-export const parseDesignNode = parserFor(nodeTree)
+export const parseDesignNode: DataParser<DesignNode> = parserFor(nodeTree)
 
 /** Validates a state's or viewport's patch on its own. `path` is where it sits, for the error's pointer. */
 export const parseNodePatch = parserFor(nodePatch)

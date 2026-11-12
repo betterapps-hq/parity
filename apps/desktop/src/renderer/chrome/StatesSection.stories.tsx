@@ -64,7 +64,7 @@ export const StateWithStyleChanges: Story = {
     showing("Stat card", "loading", (key) =>
       example().store.updateContainer(key, "Change style", (container) =>
         editNode(container, "loading", container.root.id, {
-          style: { foreground: "primary", weight: 700, textAlign: "start" }
+          style: { color: { token: "primary" }, fontWeight: { value: 700 }, textAlign: "start" }
         })
       )
     )

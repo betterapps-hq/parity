@@ -19,10 +19,33 @@ describe("pickMainDocument", () => {
 
 describe("readDesigns", () => {
   it("reads a .par as its designs, and a .lib.par's designs from its canvas", () => {
-    const canvas = { version: 3, containers: [] }
+    const canvas = { version: 4, containers: [] }
     expect(readDesigns("shop.par", JSON.stringify(canvas))).toEqual(canvas)
-    const library = { version: 3, name: "Nova", canvas }
+    const library = { version: 4, name: "Nova", canvas }
     expect(readDesigns("nova.lib.par", JSON.stringify(library))).toEqual(canvas)
+  })
+
+  // A file that can't be read stops the project opening, so the error names the file and says what's wrong (PAR-1011).
+  it("names the file and the value that doesn't match the format", () => {
+    const screen = {
+      id: "home",
+      name: "Home",
+      kind: "screen",
+      position: { x: 0, y: 0 },
+      states: [{ id: "default", name: "Default" }],
+      root: { type: "layout", id: "root", children: [] }
+    }
+
+    expect(() => readDesigns("shop.par", JSON.stringify({ version: 4, containers: [screen] }))).toThrow(
+      /^shop\.par doesn't match the design file format:\n\/containers\/0\/states: only a component has states/
+    )
+    expect(() => readDesigns("nova.lib.par", JSON.stringify({ version: 4, canvas: {} }))).toThrow(
+      /^nova\.lib\.par doesn't match the library file format:\n\//
+    )
+  })
+
+  it("names the file that isn't JSON", () => {
+    expect(() => readDesigns("shop.par", '{ "version": 4, }')).toThrow(/^shop\.par isn't valid JSON:\n/)
   })
 })
 

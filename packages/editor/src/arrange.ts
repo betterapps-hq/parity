@@ -156,8 +156,8 @@ export function wrapInLayout(
 
   const style: NodeStyle = {}
 
-  if (parentStyle?.direction === "row") {
-    style.direction = "row"
+  if (parentStyle?.flexDirection === "row") {
+    style.flexDirection = "row"
   }
 
   if (parentStyle?.gap !== undefined) {
@@ -249,12 +249,12 @@ export function alignInLayouts(
       continue
     }
 
-    const row = boardReader(next, { state, viewport })(parent).style?.direction === "row"
+    const row = boardReader(next, { state, viewport })(parent).style?.flexDirection === "row"
     // A column's cross axis is horizontal; a row's is vertical.
     const crossAxis = row ? !horizontal : horizontal
     next = crossAxis
-      ? editNode(next, boardTarget(next, state.id), id, { style: { self: position } })
-      : editNode(next, boardTarget(next, state.id), parent.id, { style: { justify: position } })
+      ? editNode(next, boardTarget(next, state.id), id, { style: { alignSelf: position } })
+      : editNode(next, boardTarget(next, state.id), parent.id, { style: { justifyContent: position } })
   }
 
   return next

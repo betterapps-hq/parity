@@ -19,7 +19,7 @@ function setup() {
   }
 
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

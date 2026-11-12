@@ -88,7 +88,7 @@ export function moveDesign(container: ContainerSpec, position: { x: number; y: n
 
 /** A design added to a file, which is created when it doesn't exist yet. */
 export function addDesign(snapshot: DesignSnapshot, path: string, container: ContainerSpec): DesignSnapshot {
-  const document = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+  const document = snapshot.documents.get(path) ?? { version: 4, containers: [] }
   const next = { ...document, containers: [...document.containers, container] }
 
   return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
@@ -147,7 +147,7 @@ export function deleteDesign(snapshot: DesignSnapshot, design: DesignRef): Desig
 
 /** A text note added to a file, which is created when it doesn't exist yet. */
 export function addNote(snapshot: DesignSnapshot, path: string, note: NoteSpec): DesignSnapshot {
-  const document = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+  const document = snapshot.documents.get(path) ?? { version: 4, containers: [] }
   const next = { ...document, notes: [...(document.notes ?? []), note] }
 
   return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }

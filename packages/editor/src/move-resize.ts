@@ -4,9 +4,11 @@ import {
   type ContainerSpec,
   type DesignNode,
   editNode,
+  type FieldLength,
   type FrameSize,
   frameSize,
-  type Length,
+  lengthField,
+  lengthSteps,
   locateNode,
   moveNode,
   type NodeChange,
@@ -17,7 +19,6 @@ import {
 import type { Flow, Point, Rect } from "./drop-slot.ts"
 import { withFrameSize } from "./frames.ts"
 import type { Edge } from "./handles.ts"
-import { lengthSteps } from "./lengths.ts"
 import { type BoardView, boardReader } from "./shown.ts"
 import {
   type LayerSnapped,
@@ -81,16 +82,31 @@ export interface InsetShift {
   blocked?: Side
 }
 
+/** Insets in steps as a style holds them. */
+function insetStyle(steps: SideSteps): NodeStyle {
+  const style: NodeStyle = {}
+
+  for (const side of ["top", "right", "bottom", "left"] as const) {
+    const at = steps[side]
+
+    if (at !== undefined) {
+      style[side] = { step: at }
+    }
+  }
+
+  return style
+}
+
 /** The sides along each axis: the one a layer is placed from by default first. */
 const sides = { x: ["left", "right"], y: ["top", "bottom"] } as const
 
 /**
  * The insets that move an absolutely placed layer `dx` and `dy` steps of the spacing scale, as dragging and nudging it
  * do. Along each axis it moves by the side it's placed from (the left or top, unless only the right or bottom is set),
- * or by both when it's stretched between them, so it keeps its size. Each side moves from where it is: its number,
- * negative too, or, for a length token or a side left unset, where `drawn` says it's drawn. Without `drawn`, an unset
- * side counts from 0 and an axis with a token stays, named by `blocked`. An axis it doesn't move along keeps what's
- * written, tokens included.
+ * or by both when it's stretched between them, so it keeps its size. Each side moves from where it is: its steps,
+ * negative too, or, for a side left unset or one with no steps (a length token, or a length written out such as `50%`,
+ * `auto` or `calc(…)`), where `drawn` says it's drawn. Without `drawn`, an unset side counts from 0 and an axis with a
+ * side that has no steps stays, named by `blocked`. An axis it doesn't move along keeps what's written, tokens included.
  */
 export function shiftInsets(style: NodeStyle, dx: number, dy: number, drawn?: DrawnSteps): InsetShift {
   const change: SideSteps = {}
@@ -116,10 +132,10 @@ export function shiftInsets(style: NodeStyle, dx: number, dy: number, drawn?: Dr
       return lengthSteps(value) ?? drawn?.[side] ?? (value === undefined ? 0 : undefined)
     }
 
-    const token = placed.find((side) => at(side) === undefined)
+    const unmoved = placed.find((side) => at(side) === undefined)
 
-    if (token) {
-      blocked ??= token
+    if (unmoved) {
+      blocked ??= unmoved
       continue
     }
 
@@ -179,7 +195,7 @@ export function resizeInsets(
     const from = lengthSteps(value) ?? drawn[side]
     const to = inset(from + by)
 
-    return to === from ? {} : { [side]: to }
+    return to === from ? {} : insetStyle({ [side]: to })
   }
 
   if (centre) {
@@ -273,7 +289,7 @@ export function absoluteDrag(start: AbsoluteDragStart): (move: DragMove) => Laye
         ? halfPixels((snapped.box[axis] - from[axis]) / unit, unit)
         : halfSteps(free[axis] / unit)
 
-    const moved: LayerMoved = { change: shiftInsets(style, along("x"), along("y"), drawn).change }
+    const moved: LayerMoved = { change: insetStyle(shiftInsets(style, along("x"), along("y"), drawn).change) }
 
     if (snapped) {
       moved.snapped = snapped
@@ -309,7 +325,7 @@ export function resizeStart(
     return { style }
   }
 
-  return { style, parentDirection: read(parent).style?.direction ?? "column" }
+  return { style, parentDirection: read(parent).style?.flexDirection ?? "column" }
 }
 
 export interface ResizeStart {
@@ -418,7 +434,7 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
         )
 
         if (result.size !== undefined) {
-          style[size] = result.size
+          style[size] = { step: result.size }
         }
 
         Object.assign(style, result.insets)
@@ -443,7 +459,9 @@ export function resizeGesture(start: ResizeStart): (move: ResizeMove) => NodeSty
       const by = (size === "width" ? dx : dy) * (flipped ? -1 : 1)
       const drawnSize = size === "width" ? rect.right - rect.left : rect.bottom - rect.top
       const fills = armed[size] && gap[size] < fillDistance && !shift && !centre
-      style[size] = fills ? "fill" : Math.max(0, Math.round((drawnSize + (centre ? 2 : 1) * by) / scale / unit))
+      style[size] = fills
+        ? { size: "fill" }
+        : { step: Math.max(0, Math.round((drawnSize + (centre ? 2 : 1) * by) / scale / unit)) }
     }
 
     return style
@@ -528,7 +546,7 @@ export function layerSizeReset(
   layer?: { style: NodeStyle; parentDirection?: "row" | "column" }
 ): StyleChange {
   const axes = edgeAxes(edge)
-  const size = fill ? "fill" : "hug"
+  const size = { size: fill ? "fill" : "hug" } as const
   const takesGrow = layer?.style.grow === true && (layer.parentDirection === "column" ? axes.height : axes.width)
 
   const change: StyleChange = {}
@@ -717,10 +735,10 @@ export function modelFlow(parent: DesignNode): Flow {
   const style = parent.style ?? {}
 
   if (style.display === "grid") {
-    return { direction: "row", wraps: true, ...forward, stride: style.columns ?? 2 }
+    return { direction: "row", wraps: true, ...forward, stride: style.gridTemplateColumns?.length ?? 2 }
   }
 
-  return { direction: style.direction === "row" ? "row" : "column", wraps: style.wrap === true, ...forward }
+  return { direction: style.flexDirection === "row" ? "row" : "column", wraps: style.flexWrap === "wrap", ...forward }
 }
 
 /**
@@ -813,10 +831,13 @@ export function nudgedPosition(position: Point, arrow: Arrow, big: boolean): Poi
   return { x: Math.round(position.x + by.x), y: Math.round(position.y + by.y) }
 }
 
-/** What arrows do to a design's layers: the design changed, and the side of a layer that couldn't move, if any. */
+/**
+ * What arrows do to a design's layers: the design changed, and the side of a layer that couldn't move, if any, with the
+ * length that kept it, as a field shows it: its token's name, or as it's written.
+ */
 export interface LayersNudge {
   container: ContainerSpec
-  blocked?: { layer: string; side: Side; token: Length }
+  blocked?: { layer: string; side: Side; token: FieldLength }
 }
 
 /** What nudging reads from the frame a selection was picked in. Each says nothing when the layer isn't drawn. */
@@ -862,7 +883,7 @@ export function nudgeLayers(
     const shift = shiftInsets(style, by.x / unit, by.y / unit, drawn.insets(node.id))
 
     if (shift.blocked) {
-      blocked ??= { layer: node.id, side: shift.blocked, token: style[shift.blocked]! }
+      blocked ??= { layer: node.id, side: shift.blocked, token: lengthField(style[shift.blocked])! }
     }
 
     if (Object.keys(shift.change).length > 0) {
@@ -877,7 +898,7 @@ export function nudgeLayers(
         }
       }
 
-      next = editNode(next, boardTarget(next, state.id), node.id, { style: change })
+      next = editNode(next, boardTarget(next, state.id), node.id, { style: insetStyle(change) })
     }
   }
 

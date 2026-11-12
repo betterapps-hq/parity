@@ -13,17 +13,16 @@ import {
   resolveModes
 } from "@parity-app/core"
 
-/** A project file as the project service reads it: its designs, or why it couldn't be read. */
+/** A project file as the project service reads it, with its designs. */
 export interface OpenedFile {
   path: string
-  document?: CanvasDocument
-  error?: string
+  document: CanvasDocument
 }
 
 /**
  * The designs a project opens with: its files' own, or, when it has no project file yet, the main one holding a Home
- * screen (see `homeScreen`). A file that couldn't be read still counts, so a broken file is never written over. The Home
- * screen is opened as if the file held it, so nothing is written until the person changes something.
+ * screen (see `homeScreen`). The Home screen is opened as if the file held it, so nothing is written until the person
+ * changes something.
  */
 export function openingDesigns(
   files: readonly OpenedFile[],
@@ -32,10 +31,10 @@ export function openingDesigns(
   modes: ModeSettings
 ): { path: string; document: CanvasDocument }[] {
   if (files.length === 0) {
-    return [{ path: mainPath, document: { version: 3, containers: [homeScreen(components, modes)] } }]
+    return [{ path: mainPath, document: { version: 4, containers: [homeScreen(components, modes)] } }]
   }
 
-  return files.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
+  return [...files]
 }
 
 /**
@@ -52,7 +51,13 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
 
   const content: DesignNode = component
     ? { type: "component", id: generateId(ids), component }
-    : { type: "text", id: generateId(ids), tag: "h1", text: "Home", style: { size: "text-2xl", weight: 600 } }
+    : {
+        type: "text",
+        id: generateId(ids),
+        tag: "h1",
+        text: "Home",
+        style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+      }
 
   const beside = besideMode(modes)
 
@@ -66,8 +71,13 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
       id: rootId,
       name: "Page",
       style: component
-        ? { background: "background", foreground: "foreground" }
-        : { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
+        ? { fills: [{ type: "solid", color: { token: "background" } }], color: { token: "foreground" } }
+        : {
+            padding: [{ step: 10 }, { step: 12 }],
+            gap: { step: 6 },
+            fills: [{ type: "solid", color: { token: "background" } }],
+            color: { token: "foreground" }
+          },
       children: [content]
     }
   }

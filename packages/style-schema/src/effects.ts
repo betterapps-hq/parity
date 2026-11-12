@@ -1,42 +1,9 @@
-import {
-  type EffectColor,
-  type Filter,
-  type FilterAdjustment,
-  filterAdjustments,
-  isNamedLength,
-  type Length,
-  type Move,
-  type NodeStyle,
-  type Shadow,
-  type Transform
-} from "./model.ts"
+import { type Filter, type FilterAdjustment, filterAdjustments, type NodeStyle, type Shadow } from "./model.ts"
+import { colorCss } from "./paint.ts"
+import { namedCss, spacing, token } from "./value.ts"
 
 // The CSS of a layer's effects (PAR-933): its shadow stack, its filters and those behind it, and its transform.
 // declare.ts writes them as the layer's declarations.
-
-/** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */
-export function spacing(value: Length): string {
-  if (isNamedLength(value)) {
-    return token(value)
-  }
-
-  return value === 0 ? "0" : `calc(var(--spacing) * ${value})`
-}
-
-/** A reference to one of the project's custom properties. */
-export function token(name: string): string {
-  return `var(--${name})`
-}
-
-/**
- * A color token, or a plain color (`#2563eb`, `oklch(…)`) as written, which lint warns about, mixed toward transparent
- * when it has an alpha.
- */
-function effectColorCss({ color, alpha }: EffectColor): string {
-  const base = /^#|^oklch\(/i.test(color) ? color : token(color)
-
-  return alpha === undefined ? base : `color-mix(in oklab, ${base} ${alpha}%, transparent)`
-}
 
 const px = (value: number) => (value === 0 ? "0" : `${value}px`)
 
@@ -49,26 +16,18 @@ function shadowLayerCss(entry: Shadow): string {
     return token(entry.token)
   }
 
-  if (entry.kind === "ring") {
-    return `${entry.inset ? "inset " : ""}0 0 0 ${px(entry.width)} ${effectColorCss(entry.color)}`
+  if (entry.type === "ring") {
+    return `${entry.inset ? "inset " : ""}0 0 0 ${px(entry.width)} ${colorCss(entry.color)}`
   }
 
   const numbers = [entry.x, entry.y, entry.blur, entry.spread].map(px).join(" ")
 
-  return `${entry.kind === "inner" ? "inset " : ""}${numbers} ${effectColorCss(entry.color)}`
+  return `${entry.type === "inner" ? "inset " : ""}${numbers} ${colorCss(entry.color)}`
 }
 
-/** A layer's `box-shadow`: one token, or the stack's shadows that are on, top first, as CSS lists them. */
-export function shadowCss(value: NodeStyle["shadow"]): string | undefined {
-  if (value === undefined || value === "") {
-    return undefined
-  }
-
-  if (!Array.isArray(value)) {
-    return token(value)
-  }
-
-  const layers = value.filter((entry) => !entry.off).map(shadowLayerCss)
+/** A layer's `box-shadow`: the stack's shadows that are on, top first, as CSS lists them. */
+export function shadowCss(value: NodeStyle["boxShadow"]): string | undefined {
+  const layers = (value ?? []).filter((entry) => !entry.off).map(shadowLayerCss)
 
   return layers.length > 0 ? layers.join(", ") : undefined
 }
@@ -101,17 +60,17 @@ function dropShadowCss(entry: Shadow): string | undefined {
     return `drop-shadow(${token(entry.token)})`
   }
 
-  if (entry.kind === "ring") {
+  if (entry.type === "ring") {
     return undefined
   }
 
-  return `drop-shadow(${[entry.x, entry.y, entry.blur].map(px).join(" ")} ${effectColorCss(entry.color)})`
+  return `drop-shadow(${[entry.x, entry.y, entry.blur].map(px).join(" ")} ${colorCss(entry.color)})`
 }
 
 function filterFunctions(entry: Filter): string[] {
-  switch (entry.kind) {
+  switch (entry.type) {
     case "blur":
-      return [`blur(${token(entry.value)})`]
+      return [`blur(${namedCss(entry.value)})`]
     case "adjust":
       return filterAdjustments.flatMap((key) => {
         const value = entry.values[key]
@@ -133,10 +92,6 @@ export function filterCss(entries: readonly Filter[] | undefined): string | unde
   return functions.length > 0 ? functions.join(" ") : undefined
 }
 
-function moveCss(value: Move): string {
-  return value instanceof Object ? `${value.percent}%` : spacing(value)
-}
-
 /** A transform's CSS, by property as CSS spells it. */
 export interface TransformCss {
   translate?: string
@@ -146,40 +101,37 @@ export interface TransformCss {
   "transform-origin"?: string
 }
 
+/** The keys that hold a layer's transform, each named after the CSS property it writes. */
+export type TransformStyle = Pick<NodeStyle, "translate" | "rotate" | "scale" | "transform" | "transformOrigin">
+
 /**
- * A transform as CSS's `translate`, `rotate` and `scale`, which apply in that order whatever the order they're set,
- * with skew in `transform`, which applies after them, and the origin.
+ * A layer's transform as CSS's `translate`, `rotate` and `scale`, which apply in that order whatever the order they're
+ * set, with skew in `transform`, which applies after them, and the origin.
  */
-export function transformCss(value: Transform | undefined): TransformCss {
+export function transformCss(style: TransformStyle): TransformCss {
   const css: TransformCss = {}
+  const { translate, rotate, scale, transform, transformOrigin } = style
 
-  if (!value) {
-    return css
+  if (translate && (translate.x !== undefined || translate.y !== undefined)) {
+    css.translate = `${spacing(translate.x ?? { step: 0 })} ${spacing(translate.y ?? { step: 0 })}`
   }
 
-  if (value.x !== undefined || value.y !== undefined) {
-    css.translate = `${moveCss(value.x ?? 0)} ${moveCss(value.y ?? 0)}`
+  if (rotate !== undefined) {
+    css.rotate = `${rotate}deg`
   }
 
-  if (value.rotate !== undefined) {
-    css.rotate = `${value.rotate}deg`
+  if (scale && (scale.x !== undefined || scale.y !== undefined)) {
+    css.scale = `${(scale.x ?? 100) / 100} ${(scale.y ?? 100) / 100}`
   }
 
-  if (value.scaleX !== undefined || value.scaleY !== undefined) {
-    css.scale = `${(value.scaleX ?? 100) / 100} ${(value.scaleY ?? 100) / 100}`
+  const functions = (transform ?? []).filter((entry) => !entry.off).map((entry) => `${entry.type}(${entry.value}deg)`)
+
+  if (functions.length > 0) {
+    css.transform = functions.join(" ")
   }
 
-  const skew = [
-    value.skewX === undefined ? undefined : `skewX(${value.skewX}deg)`,
-    value.skewY === undefined ? undefined : `skewY(${value.skewY}deg)`
-  ].filter(Boolean)
-
-  if (skew.length > 0) {
-    css.transform = skew.join(" ")
-  }
-
-  if (value.origin) {
-    css["transform-origin"] = `${value.origin.x}% ${value.origin.y}%`
+  if (transformOrigin) {
+    css["transform-origin"] = `${transformOrigin.x}% ${transformOrigin.y}%`
   }
 
   return css

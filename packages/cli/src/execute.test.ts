@@ -439,7 +439,7 @@ describe("execute transport contract", processTests, () => {
       tokens: [],
       theme: [],
       modes: defaultModeSettings,
-      documents: [{ path: "app.par", document: { version: 3, containers: [signup] } }],
+      documents: [{ path: "app.par", document: { version: 4, containers: [signup] } }],
       libraryDesigns: [],
       tokenOverrides: [],
       mainDocument: "app.par",

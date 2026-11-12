@@ -1,8 +1,50 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 09:40:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 12:29:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.57.0
+
+Thu, 12 Nov 2026 12:29:28 GMT
+
+### Minor changes
+
+- Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)
+  (ajcraswell@gmail.com)
+
+## 0.56.1
+
+Thu, 12 Nov 2026 12:10:47 GMT
+
+### Patches
+
+- Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels
+  (ajcraswell@gmail.com)
+
+## 0.56.0
+
+Thu, 12 Nov 2026 11:51:18 GMT
+
+### Minor changes
+
+- Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize,
+  fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: "primary" }, {
+  size: "fill" }). A version 3 file no longer opens (ajcraswell@gmail.com)
+
+### Patches
+
+- A search that needs someone signed in to Parity is no longer a failure: agents carry on without the source
+  (ajcraswell@gmail.com)
+
+## 0.55.0
+
+Thu, 12 Nov 2026 10:56:22 GMT
+
+### Minor changes
+
+- States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs()
+  lists states for components alone (ajcraswell@gmail.com)
 
 ## 0.54.0
 

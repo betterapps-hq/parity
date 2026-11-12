@@ -2,6 +2,72 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 12:29:14 GMT",
+      "version": "0.72.0",
+      "tag": "@parity-app/desktop_v0.72.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b897319e647682322827005a7fe26079e1964ded",
+            "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:10:21 GMT",
+      "version": "0.71.1",
+      "tag": "@parity-app/desktop_v0.71.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0a3e44222eda2d7eb68ba9630462bc63c7d8da22",
+            "comment": "Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 11:51:21 GMT",
+      "version": "0.71.0",
+      "tag": "@parity-app/desktop_v0.71.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a5016c0ce76c1a73cbdc3c66de8df44e02ebdb52",
+            "comment": "Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aa05d0d08107779a10f37d601177d1621b3e03bc",
+            "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 10:56:04 GMT",
+      "version": "0.70.1",
+      "tag": "@parity-app/desktop_v0.70.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "26271bad2dcaac715877aaeab522f4eef2d120a1",
+            "comment": "Every menu, the keys, search and the toolbar now agree on whether a command can run and what it's called; File > Export selected runs the same export as Ctrl+Shift+E."
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 10:38:14 GMT",
       "version": "0.70.0",
       "tag": "@parity-app/desktop_v0.70.0",

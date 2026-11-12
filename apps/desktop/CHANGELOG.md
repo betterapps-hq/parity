@@ -1,8 +1,47 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 10:38:14 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 12:29:14 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.72.0
+
+Thu, 12 Nov 2026 12:29:14 GMT
+
+### Minor changes
+
+- Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)
+  (ajcraswell@gmail.com)
+
+## 0.71.1
+
+Thu, 12 Nov 2026 12:10:21 GMT
+
+### Patches
+
+- Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels
+  (ajcraswell@gmail.com)
+
+## 0.71.0
+
+Thu, 12 Nov 2026 11:51:21 GMT
+
+### Minor changes
+
+- Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in
+  (ajcraswell@gmail.com)
+- Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize,
+  fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: "primary" }, {
+  size: "fill" }). A version 3 file no longer opens (ajcraswell@gmail.com)
+
+## 0.70.1
+
+Thu, 12 Nov 2026 10:56:04 GMT
+
+### Patches
+
+- Every menu, the keys, search and the toolbar now agree on whether a command can run and what it's called; File >
+  Export selected runs the same export as Ctrl+Shift+E. (ajcraswell@gmail.com)
 
 ## 0.70.0
 

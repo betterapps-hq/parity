@@ -23,7 +23,7 @@ import { holdWhileZooming } from "../replay.ts"
 import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
-import { bitmapScale } from "./frame-bitmaps.ts"
+import { isFarZoom } from "./frame-bitmaps.ts"
 import { hiddenSleepMs } from "./frame-sleep.ts"
 import { CameraGestures, countFrames, type GestureEnded, recordGesture } from "./gesture.ts"
 import { designColor, kindColors } from "./kinds.tsx"
@@ -233,15 +233,16 @@ const restingFar = new WeakMap<Editor, Atom<boolean>>()
 /**
  * Whether the camera has come to rest zoomed far enough out for frames to show their bitmaps. Frames showing theirs
  * then sleep (see frame-sleep.ts). It goes by the zoom once it's settled, so a zoom passing through doesn't put a
- * project's frames to sleep, and wake them, as it goes.
+ * project's frames to sleep, and wake them, as it goes; but it ends as soon as the zoom itself is back in, so frames in
+ * view swap their bitmaps for their designs while a zoom in is still going (PAR-955).
  */
 export function isRestingFar(editor: Editor): boolean {
   return restingFar.get(editor)?.get() ?? false
 }
 
 /**
- * Marks the canvas while it's zoomed far out: `data-far` once frames are drawn no larger than their bitmaps, so boards
- * show those instead (see frame-bitmaps.ts), and `data-tiny` below about 5%, where boards and frames drop their
+ * Marks the canvas while it's zoomed far out: `data-far` from `farZoom`, so boards show frames' bitmaps instead (see
+ * frame-bitmaps.ts), and `data-tiny` below about 5% of the screen's own pixels, where boards and frames drop their
  * shadows. Each mark lasts a little past its line zooming back in, so a camera resting near one doesn't flip.
  */
 function markZoomedOut(editor: Editor): () => void {
@@ -252,18 +253,15 @@ function markZoomedOut(editor: Editor): () => void {
   }
 
   const marks = [
-    ["data-far", bitmapScale],
-    ["data-tiny", 0.05]
+    ["data-far", isFarZoom],
+    ["data-tiny", (zoom: number, was: boolean) => zoom * window.devicePixelRatio <= (was ? 0.05 * 1.15 : 0.05)]
   ] as const
 
-  const far = (zoom: number, before: boolean) =>
-    zoom * window.devicePixelRatio <= (before ? bitmapScale * 1.15 : bitmapScale)
-
   const stop = react("zoomed out", () => {
-    const drawn = editor.getZoomLevel() * window.devicePixelRatio
+    const zoom = editor.getZoomLevel()
 
-    for (const [mark, line] of marks) {
-      const on = drawn <= (area.hasAttribute(mark) ? line * 1.15 : line)
+    for (const [mark, past] of marks) {
+      const on = past(zoom, area.hasAttribute(mark))
 
       if (area.hasAttribute(mark) !== on) {
         area.toggleAttribute(mark, on)
@@ -271,11 +269,14 @@ function markZoomedOut(editor: Editor): () => void {
     }
   })
 
-  const resting = atom("resting far", far(editor.getEfficientZoomLevel(), false))
+  const resting = atom("resting far", isFarZoom(editor.getEfficientZoomLevel(), false))
   restingFar.set(editor, resting)
 
+  // One signal for every board, which changes only crossing the line: a board reading the zoom itself would be checked
+  // again on every frame of a zoom.
   const stopResting = react("resting far", () => {
-    resting.set(far(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture()))
+    const settled = isFarZoom(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture())
+    resting.set(settled && isFarZoom(editor.getZoomLevel(), true))
   })
 
   const stopRecording = recordRestedFar(editor, area, resting)

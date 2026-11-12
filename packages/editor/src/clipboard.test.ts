@@ -31,13 +31,13 @@ function form(): ContainerSpec {
     root: {
       type: "layout",
       id: "root",
-      style: { gap: 2 },
+      style: { gap: { step: 2 } },
       children: [
         text("heading"),
         {
           type: "layout",
           id: "fields",
-          style: { direction: "row", gap: 3, padding: 1 },
+          style: { flexDirection: "row", gap: { step: 3 }, padding: { step: 1 } },
           children: [text("email"), text("password")]
         },
         { type: "component", id: "card", component: "ui/Card", slots: { children: [text("card-title")] } }
@@ -51,7 +51,7 @@ function form(): ContainerSpec {
         overrides: {
           email: { text: "Enter your email" },
           "card-title": { text: "Couldn't sign in" },
-          fields: { style: { gap: 1 } }
+          fields: { style: { gap: { step: 1 } } }
         }
       }
     ]
@@ -91,7 +91,7 @@ function welcome(): ContainerSpec {
               {
                 type: "layout",
                 id: "fill",
-                style: { gap: 2 },
+                style: { gap: { step: 2 } },
                 children: [
                   { type: "text", id: "fill-heading", text: "Heading", bind: { text: "greeting" } },
                   text("fill-note")
@@ -107,7 +107,7 @@ function welcome(): ContainerSpec {
       {
         id: "compact",
         name: "Compact",
-        overrides: { fill: { style: { gap: 1 } }, "fill-note": { text: "Signed in" } }
+        overrides: { fill: { style: { gap: { step: 1 } } }, "fill-note": { text: "Signed in" } }
       }
     ]
   }
@@ -225,7 +225,7 @@ describe("copying layers", () => {
         {
           type: "layout",
           id: "fields",
-          style: { direction: "row", gap: 1, padding: 1 },
+          style: { flexDirection: "row", gap: { step: 1 }, padding: { step: 1 } },
           children: [{ type: "text", id: "email", text: "Enter your email" }, text("password")]
         },
         {
@@ -247,7 +247,7 @@ describe("copying layers", () => {
     const payload = copyLayers(inline, ["body"], inline.states![1], "mobile")
     const [body] = payload?.kind === "layers" ? payload.nodes : []
     // The Inline option's row, the Compact state's gap over it, and the mobile padding.
-    expect(body?.style).toEqual({ direction: "row", gap: 2, padding: 2 })
+    expect(body?.style).toEqual({ flexDirection: "row", gap: { step: 2 }, padding: { step: 2 } })
     const copy = body?.type === "layout" ? body.children[1] : undefined
     const [title, meta] = copy?.type === "layout" ? copy.children : []
     // The title shows its param's default, still bound to it; the meta is hidden on mobile.
@@ -262,7 +262,7 @@ describe("copying layers", () => {
       {
         type: "layout",
         id: "fill",
-        style: { gap: 1 },
+        style: { gap: { step: 1 } },
         children: [
           { type: "text", id: "fill-heading", text: "Welcome back", bind: { text: "greeting" } },
           { type: "text", id: "fill-note", text: "Signed in" }
@@ -453,45 +453,57 @@ describe("pasting notes", () => {
 
 describe("copying and pasting style", () => {
   it("copies a layer's look as the state shows it", () => {
-    expect(styleOf(form(), "fields", error)).toEqual({ direction: "row", gap: 1, padding: 1 })
+    expect(styleOf(form(), "fields", error)).toEqual({ flexDirection: "row", gap: { step: 1 }, padding: { step: 1 } })
     expect(styleOf(form(), "heading", base)).toEqual({})
     expect(styleOf(form(), "missing", base)).toBeUndefined()
   })
 
   it("copies a layer's look with the variant options the board shows and the frame's viewport", () => {
     const inline = card({ layout: "inline" })
-    expect(styleOf(inline, "body", inline.states![0]!, "mobile")).toEqual({ direction: "row", gap: 2, padding: 2 })
-    expect(styleOf(card(), "body", inline.states![0]!, "desktop")).toEqual({ direction: "column", gap: 4, padding: 4 })
+    expect(styleOf(inline, "body", inline.states![0]!, "mobile")).toEqual({
+      flexDirection: "row",
+      gap: { step: 2 },
+      padding: { step: 2 }
+    })
+    expect(styleOf(card(), "body", inline.states![0]!, "desktop")).toEqual({
+      flexDirection: "column",
+      gap: { step: 4 },
+      padding: { step: 4 }
+    })
   })
 
   it("gives each layer the copied style in place of its own", () => {
-    const container = applyStyle(form(), ["fields", "heading"], base, { gap: 5 })
-    expect(findNode(container.root, "fields")?.style).toEqual({ gap: 5 })
-    expect(findNode(container.root, "heading")?.style).toEqual({ gap: 5 })
+    const container = applyStyle(form(), ["fields", "heading"], base, { gap: { step: 5 } })
+    expect(findNode(container.root, "fields")?.style).toEqual({ gap: { step: 5 } })
+    expect(findNode(container.root, "heading")?.style).toEqual({ gap: { step: 5 } })
   })
 
   it("saves it as the state's changes in a state other than the base", () => {
-    const container = applyStyle(form(), ["fields"], error, { padding: 4 })
+    const container = applyStyle(form(), ["fields"], error, { padding: { step: 4 } })
     const fields = findNode(container.root, "fields")!
-    expect(fields.style).toEqual({ direction: "row", gap: 3, padding: 1 })
-    expect(nodeInState(fields, container.states![1]).style).toMatchObject({ padding: 4 })
+    expect(fields.style).toEqual({ flexDirection: "row", gap: { step: 3 }, padding: { step: 1 } })
+    expect(nodeInState(fields, container.states![1]).style).toMatchObject({ padding: { step: 4 } })
   })
 
   it("leaves only the copied style in a state other than the base, taking away what the design sets", () => {
-    const container = applyStyle(form(), ["fields"], error, { padding: 4 })
+    const container = applyStyle(form(), ["fields"], error, { padding: { step: 4 } })
     const fields = findNode(container.root, "fields")!
-    expect(nodeInState(fields, container.states![1]).style).toEqual({ padding: 4 })
-    // The state keeps it as its changes: the padding, and the design's direction and gap taken away.
+    expect(nodeInState(fields, container.states![1]).style).toEqual({ padding: { step: 4 } })
+    // The state keeps it as its changes: the padding, and the design's flex direction and gap taken away.
     expect(container.states![1]!.overrides?.fields).toEqual({
-      style: { padding: 4 },
-      unset: { style: ["direction", "gap"] }
+      style: { padding: { step: 4 } },
+      unset: { style: ["flexDirection", "gap"] }
     })
-    expect(nodeInState(fields, container.states![0]).style).toEqual({ direction: "row", gap: 3, padding: 1 })
+    expect(nodeInState(fields, container.states![0]).style).toEqual({
+      flexDirection: "row",
+      gap: { step: 3 },
+      padding: { step: 1 }
+    })
   })
 
   it("takes away nothing the design doesn't set, pasted in a state", () => {
-    const container = applyStyle(form(), ["heading"], error, { padding: 2 })
-    expect(container.states![1]!.overrides?.heading).toEqual({ style: { padding: 2 } })
+    const container = applyStyle(form(), ["heading"], error, { padding: { step: 2 } })
+    expect(container.states![1]!.overrides?.heading).toEqual({ style: { padding: { step: 2 } } })
   })
 })
 

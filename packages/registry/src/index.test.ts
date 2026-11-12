@@ -12,7 +12,7 @@ beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "parity-registry-"))
 
   const file = (version: string, range: string) => ({
-    version: 3,
+    version: 4,
     id: "mui",
     name: "Material UI",
     package: { name: "@mui/material", version, range }
@@ -20,7 +20,7 @@ beforeAll(async () => {
 
   await writeFile(join(dir, "mui.lib.par"), JSON.stringify(file("9.5.0", "^9.0.0")))
   await writeFile(join(dir, "mui-7.lib.par"), JSON.stringify(file("7.3.4", "^7.0.0")))
-  await writeFile(join(dir, "broken.lib.par"), JSON.stringify({ version: 3, name: "No package" }))
+  await writeFile(join(dir, "broken.lib.par"), JSON.stringify({ version: 4, name: "No package" }))
 })
 
 afterAll(() => rm(dir, { recursive: true, force: true }))
@@ -61,7 +61,7 @@ describe("newestEntries", () => {
 
     // JSON.stringify leaves `edits` out when it's undefined.
     const file = (version: string, edits?: string) => ({
-      version: 3,
+      version: 4,
       id: "mui",
       name: `Material UI ${version}`,
       package: { name: "@mui/material", version },
@@ -91,7 +91,7 @@ describe("newestEntries", () => {
 describe("withEdits", () => {
   it("reports edits for exports the file doesn't have, and fails on edits it can't read", async () => {
     const manifest = {
-      version: 3 as const,
+      version: 4 as const,
       name: "Acme",
       components: { list: { Button: { as: "function" as const } } }
     }

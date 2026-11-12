@@ -120,7 +120,7 @@ function unsizedAxes(style: NodeStyle): Axis[] {
     const size = style[axis]
     const least = axis === "width" ? style.minWidth : style.minHeight
 
-    return (size === undefined || size === "hug" || size === "fill") && least === undefined
+    return (size === undefined || "size" in size) && least === undefined
   })
 }
 
@@ -684,7 +684,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 
     switch (shown.type) {
       case "layout": {
-        const direction = style.direction ?? "column"
+        const direction = style.flexDirection ?? "column"
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
         const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
 

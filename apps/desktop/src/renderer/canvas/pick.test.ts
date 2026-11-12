@@ -262,7 +262,7 @@ describe("Enter", () => {
   }
 
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [dashboard, stat] } }],
+    [{ path: "app.par", document: { version: 4, containers: [dashboard, stat] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

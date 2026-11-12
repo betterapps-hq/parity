@@ -34,7 +34,7 @@ function reference(id: string, change: Partial<ReferenceSpec> = {}): ReferenceSp
   }
 }
 
-const empty: CanvasDocument = { version: 3, containers: [] }
+const empty: CanvasDocument = { version: 4, containers: [] }
 
 describe("references in a project file", () => {
   it("are kept beside notes and read back from the file", () => {
@@ -50,7 +50,7 @@ describe("references in a project file", () => {
       reference("a")
     ])
 
-    expect(added.documents.get("new.par")).toEqual({ version: 3, containers: [], references: [reference("a")] })
+    expect(added.documents.get("new.par")).toEqual({ version: 4, containers: [], references: [reference("a")] })
   })
 
   it("change a note or a place, and go when the change takes them out", () => {

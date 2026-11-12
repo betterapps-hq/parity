@@ -1,4 +1,3 @@
-import { isAbsolute, relative, resolve } from "node:path"
 import type { ComponentList } from "@parity-app/code"
 import {
   type CanvasDocument,
@@ -17,6 +16,7 @@ import {
   type ThemeVariable
 } from "@parity-app/core"
 import type { DiscoveredProject } from "./index.ts"
+import { insideProject } from "./inside-project.ts"
 
 /** An open project, as the windows are told about it. */
 export interface ProjectInfo {
@@ -56,11 +56,10 @@ export interface ProjectInfo {
   modes: { settings: ModeSettings; custom: boolean }
 }
 
-/** A design file, or the reason it couldn't be read. */
+/** A design file and its designs. */
 export interface DocumentEntry {
   path: string
-  document?: CanvasDocument
-  error?: string
+  document: CanvasDocument
 }
 
 /** What's told about an open project apart from its component list, which changes as it's open. */
@@ -83,7 +82,7 @@ export interface OpenedProject {
 /** The project as the windows are first told about it, with the modes its main project file sets, if any. */
 export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
   const { config } = opened
-  const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document?.modes
+  const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document.modes
 
   return {
     id: opened.root,
@@ -139,28 +138,39 @@ export function pickMainDocument(documents: string[], name: string): string {
   return `${slug || "project"}.par`
 }
 
-/** A project file's designs: a `.par` is them, and a library's `.lib.par` keeps them in its `canvas`. */
-export function readDesigns(path: string, text: string): CanvasDocument {
-  const value: unknown = JSON.parse(text)
-
-  return path.endsWith(libraryManifestExtension)
-    ? libraryCanvas(parseLibraryManifest(value))
-    : parseCanvasDocument(value)
-}
-
 /**
- * Where a project file saved at `path` goes: the absolute file, when it's a `.par` inside the root. A sibling folder
- * whose name starts with the root's, as `D:\shop-old` for `D:\shop`, isn't inside it.
+ * A project file's designs: a `.par` is them, and a library's `.lib.par` keeps them in its `canvas`. A file that isn't
+ * JSON, or that doesn't match its format, throws an error naming the file, which stops the project opening (PAR-1011).
  */
-export function documentTarget(root: string, path: string): string | undefined {
-  if (!path.endsWith(".par")) {
-    return undefined
+export function readDesigns(path: string, text: string): CanvasDocument {
+  let value: unknown
+
+  try {
+    value = JSON.parse(text)
+  } catch (error) {
+    throw new Error(`${path} isn't valid JSON:\n${reason(error)}`, { cause: error })
   }
 
-  const target = resolve(root, path)
-  const inside = relative(root, target)
+  const library = path.endsWith(libraryManifestExtension)
 
-  return inside && !inside.startsWith("..") && !isAbsolute(inside) ? target : undefined
+  try {
+    return library ? libraryCanvas(parseLibraryManifest(value)) : parseCanvasDocument(value)
+  } catch (error) {
+    const format = library ? "library" : "design"
+
+    throw new Error(`${path} doesn't match the ${format} file format:\n${reason(error)}`, { cause: error })
+  }
+}
+
+/** A thrown value's message. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript can throw anything
+function reason(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+/** Where a project file saved at `path` goes: the absolute file, when it's a `.par` inside the root. */
+export function documentTarget(root: string, path: string): string | undefined {
+  return path.endsWith(".par") ? insideProject(root, path) : undefined
 }
 
 /**

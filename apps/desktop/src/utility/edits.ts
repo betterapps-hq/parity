@@ -1,18 +1,19 @@
 import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
-import { dirname, resolve, sep } from "node:path"
+import { readFile } from "node:fs/promises"
 import { isText } from "@parity-app/core/values/evaluate"
 import {
   diffFile,
   type FileChange,
   type FileContent,
   type FileEdit,
+  insideProject,
   planEdit,
   type ProjectEdit,
   reverseEdit
 } from "@parity-app/project"
 import type { ProjectEditResult } from "../shared/protocol.ts"
+import { removeProjectFile, writeProjectFile } from "./project-files.ts"
 
 /** What an edit needs of an open project: where it is, and what its files last held as the service wrote them. */
 export interface EditedProject {
@@ -29,10 +30,13 @@ const kept = { edits: 50, bytes: 64 * 1024 * 1024 }
  */
 const history = new Map<string, { id: string; label: string; changes: FileChange[] }[]>()
 
-/** Each project's edits run one at a time, so one never plans from files another is partway through writing. */
+/**
+ * Each project's edits and saves run one at a time, so one never plans from files another is partway through writing,
+ * and two saves of a file land in the order they were made.
+ */
 const queues = new Map<string, Promise<unknown>>()
 
-function queued<T>(project: EditedProject, task: () => Promise<T>): Promise<T> {
+export function queued<T>(project: EditedProject, task: () => Promise<T>): Promise<T> {
   const run = (queues.get(project.info.id) ?? Promise.resolve()).then(task, task)
   queues.set(
     project.info.id,
@@ -97,7 +101,11 @@ async function apply(project: EditedProject, edit: ProjectEdit): Promise<FileCha
       continue
     }
 
-    const target = inside(root, file.path)
+    const target = insideProject(root, file.path)
+
+    if (!target) {
+      throw new Error(`${file.path} is outside the project`)
+    }
 
     if (!existsSync(target)) {
       current.set(file.path, undefined)
@@ -107,22 +115,22 @@ async function apply(project: EditedProject, edit: ProjectEdit): Promise<FileCha
   }
 
   const changes = planEdit(edit, current)
-  // Each change is noted before its write, so one that fails partway is put back too, with what the watcher knew of it.
+  // Each file is written whole or not at all, so only those that landed are put back, with what the watcher knew.
   const written: { change: FileChange; known: string | undefined }[] = []
 
   try {
     for (const change of changes) {
-      written.push({ change, known: project.known.get(change.path) })
+      const known = project.known.get(change.path)
+      await write(root, change.path, change.after)
+      written.push({ change, known })
 
       if (isText(change.after)) {
         project.known.set(change.path, change.after)
       }
-
-      await write(inside(root, change.path), change.after)
     }
   } catch (error) {
     for (const { change, known } of written.reverse()) {
-      await write(inside(root, change.path), change.before).catch(() => undefined)
+      await write(root, change.path, change.before).catch(() => undefined)
 
       if (known === undefined) {
         project.known.delete(change.path)
@@ -145,26 +153,8 @@ function isTextEdit(file: FileEdit): boolean {
   return isText(file.kind === "delete" ? file.expected : file.content)
 }
 
-/** A path from the project's root as a path on disk, refusing one that leads outside the project. */
-function inside(root: string, path: string): string {
-  const target = resolve(root, path)
-
-  if (!target.startsWith(resolve(root) + sep)) {
-    throw new Error(`${path} is outside the project`)
-  }
-
-  return target
-}
-
-async function write(target: string, content: FileContent | undefined): Promise<void> {
-  if (content === undefined) {
-    await rm(target, { force: true })
-
-    return
-  }
-
-  await mkdir(dirname(target), { recursive: true })
-  await writeFile(target, content)
+async function write(root: string, path: string, content: FileContent | undefined): Promise<void> {
+  await (content === undefined ? removeProjectFile(root, path) : writeProjectFile(root, path, content))
 }
 
 function result(id: string, label: string, changes: FileChange[]): ProjectEditResult {

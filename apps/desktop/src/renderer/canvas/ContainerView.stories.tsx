@@ -96,7 +96,7 @@ function addFrames(): void {
               type: "text" as const,
               tag: "h2" as const,
               text: "Pricing ideas",
-              style: { size: "text-xl", weight: 600 }
+              style: { fontSize: { token: "text-xl" }, fontWeight: { value: 600 } }
             },
             { id: "fp-body", type: "text" as const, text: "Three tiers, yearly discount up front?" },
             { id: "fp-cta", type: "component" as const, component: "Button", props: { children: "Compare plans" } }
@@ -168,7 +168,7 @@ export const MissingComponents: Story = onCanvas(["Gallery"], () => {
     root: {
       id: "story-gallery-page",
       type: "layout",
-      style: { padding: 32, gap: 16 },
+      style: { padding: { step: 32 }, gap: { step: 16 } },
       children: [
         { id: "story-gallery-title", type: "text", tag: "h1", text: "Gallery" },
         { id: "story-gallery-carousel", type: "component", component: "Carousel", props: { items: 6 } },
@@ -198,7 +198,7 @@ export const FailingLayer: Story = onCanvas(
         id: "story-team-page",
         type: "layout",
         name: "Page",
-        style: { padding: 32, gap: 16 },
+        style: { padding: { step: 32 }, gap: { step: 16 } },
         children: [
           { id: "story-team-title", type: "text", tag: "h1", text: "Team settings" },
           { id: "story-team-tabs", type: "component", name: "Sections", component: "TabsList" },

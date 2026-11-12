@@ -1,6 +1,19 @@
 /* oxlint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex -- the canvas takes keys and the boxes stand in for the canvas's layers, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
 import { Kbd, KbdGroup } from "@buildkitgg/shadcn-baseui-kit"
-import { childNodes, type DesignNode, fillCss, type Length, type NodeStyle } from "@parity-app/core"
+import {
+  childNodes,
+  type Color,
+  colorCss,
+  type DesignNode,
+  fillCss,
+  isFill,
+  lengthSteps,
+  lengthToken,
+  type Named,
+  type NodeStyle,
+  type Size,
+  fontWeightNumber
+} from "@parity-app/core"
 import { selectedNodes, type Selection, sidesOf } from "@parity-app/editor"
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -8,7 +21,6 @@ import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../../
 import { containerModes } from "../../canvas/view.ts"
 import { actions } from "../../chrome/actions.ts"
 import { formatKeys } from "../../chrome/keys.ts"
-import { numberValue } from "../../chrome/prop-values.ts"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { useHover, useSelection } from "../../selection.ts"
@@ -79,14 +91,14 @@ function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Sel
   const { primary } = containerModes(settings, container)
   const width = container.frames?.[primary.viewport]?.width ?? primary.width
   const scale = Math.min(1, sketchWidth / width)
-  const px = (length: Length | undefined) => (fixedLength(length) ?? 0) * spacingUnit(tokens) * scale
+  const px = (length: Size | undefined) => (lengthSteps(length) ?? 0) * spacingUnit(tokens) * scale
   // A component at the root, such as a Card, draws its own padding and gap, which the sketch stands in for with Card's.
-  const drawsOwn: NodeStyle = root.type === "component" ? { padding: [6, 0], gap: 6 } : {}
+  const drawsOwn: NodeStyle = root.type === "component" ? { padding: [{ step: 6 }, { step: 0 }], gap: { step: 6 } } : {}
   const style: NodeStyle = { ...drawsOwn, ...root.style }
   const color = designColor(container.kind)
   const picked = selected.design === key ? selectedNodes(selected).filter((id) => id !== root.id) : []
   const containerSelected = selected.design === key && picked.length === 0
-  const padding = (sidesOf(style.padding) ?? [0, 0, 0, 0]).map(px)
+  const padding = sidesOf(style.padding)?.map(px) ?? [0, 0, 0, 0]
   const outline = outlineFor(color, containerSelected, hover?.design === key && !hover.node)
 
   return (
@@ -114,13 +126,13 @@ function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Sel
         style={{
           width: width * scale,
           minHeight: px(style.minHeight) || 120,
-          flexDirection: style.direction === "row" ? "row" : "column",
+          flexDirection: style.flexDirection === "row" ? "row" : "column",
           gap: px(style.gap),
           padding: padding.map((side) => `${side}px`).join(" "),
-          alignItems: flexAlign(style.align),
-          justifyContent: flexJustify(style.justify),
-          ...(style.background ? fillCss(style.background) : { background: "var(--background)" }),
-          color: token(style.foreground, "var(--foreground)"),
+          alignItems: flexAlign(style.alignItems),
+          justifyContent: flexJustify(style.justifyContent),
+          ...(style.fills ? fillCss(style.fills) : { background: "var(--background)" }),
+          color: sketchColor(style.color, "var(--foreground)"),
           outline: outline || "1px solid var(--border)",
           outlineOffset: 0
         }}
@@ -153,7 +165,7 @@ function LayerSketch({
 }: {
   node: DesignNode
   scale: number
-  px: (length: Length | undefined) => number
+  px: (length: Size | undefined) => number
   selected: boolean
   hovered: boolean
   onSelect: () => void
@@ -164,16 +176,16 @@ function LayerSketch({
   const color = nodeColor(node)
   let width: CSSProperties["width"]
 
-  if (style.width === "fill") {
+  if (isFill(style.width)) {
     width = "100%"
-  } else if (fixedLength(style.width) !== undefined) {
+  } else if (lengthSteps(style.width) !== undefined) {
     width = px(style.width)
   }
 
   const sized: CSSProperties = {
     width,
-    maxWidth: fixedLength(style.maxWidth) === undefined ? undefined : px(style.maxWidth),
-    flexGrow: style.width === "fill" || style.grow ? 1 : undefined,
+    maxWidth: lengthSteps(style.maxWidth) === undefined ? undefined : px(style.maxWidth),
+    flexGrow: isFill(style.width) || style.grow ? 1 : undefined,
     outline: outlineFor(color, selected, hovered) || undefined,
     outlineOffset: 1
   }
@@ -190,10 +202,10 @@ function LayerSketch({
         className="line-clamp-3 cursor-default rounded-[1px]"
         style={{
           ...sized,
-          fontSize: Math.min(22, Math.max(10, textSize(style.size) * scale * 1.6)),
-          fontWeight: style.weight,
+          fontSize: Math.min(22, Math.max(10, textSize(style.fontSize) * scale * 1.6)),
+          fontWeight: fontWeightNumber(style.fontWeight),
           textAlign: style.textAlign,
-          color: token(style.foreground, "inherit")
+          color: sketchColor(style.color, "inherit")
         }}
       >
         {node.text}
@@ -338,17 +350,8 @@ function descendants(node: DesignNode): number {
 }
 
 /** A color token as the chrome's own variable of that name, so the sketch follows the app's theme; else as written. */
-function token(value: string | undefined, fallback: string): string {
-  if (value === undefined) {
-    return fallback
-  }
-
-  return /^[a-z][a-z0-9-]*$/.test(value) ? `var(--${value})` : value
-}
-
-/** A length in spacing steps, or undefined when it names a token, fills or hugs. */
-function fixedLength(length: Length | undefined): number | undefined {
-  return numberValue.safeParse(length).data
+function sketchColor(value: Color | undefined, fallback: string): string {
+  return value === undefined ? fallback : colorCss(value)
 }
 
 const textSizes = new Map([
@@ -362,11 +365,11 @@ const textSizes = new Map([
   ["text-4xl", 36]
 ])
 
-function textSize(size: string | undefined): number {
-  return (size && textSizes.get(size)) || 16
+function textSize(size: Named | undefined): number {
+  return textSizes.get(lengthToken(size) ?? "") ?? 16
 }
 
-function flexAlign(align: NodeStyle["align"]): CSSProperties["alignItems"] {
+function flexAlign(align: NodeStyle["alignItems"]): CSSProperties["alignItems"] {
   if (align === "start") {
     return "flex-start"
   }
@@ -378,17 +381,13 @@ function flexAlign(align: NodeStyle["align"]): CSSProperties["alignItems"] {
   return align ?? "stretch"
 }
 
-function flexJustify(justify: NodeStyle["justify"]): CSSProperties["justifyContent"] {
+function flexJustify(justify: NodeStyle["justifyContent"]): CSSProperties["justifyContent"] {
   if (justify === "start") {
     return "flex-start"
   }
 
   if (justify === "end") {
     return "flex-end"
-  }
-
-  if (justify === "between" || justify === "around" || justify === "evenly") {
-    return `space-${justify}`
   }
 
   return justify ?? "flex-start"

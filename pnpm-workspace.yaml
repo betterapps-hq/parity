@@ -30,6 +30,8 @@ minimumReleaseAgeExclude:
   - "@cloudflare/vite-plugin@1.69.0"
   - miniflare@5.20261110.1-beta
   - wrangler@4.160.1
+  - "@better-apps/identity-workos@0.1.0"
+  - better-apps@0.1.0
 verifyDepsBeforeRun: error
 # pnpm shortens node_modules/.pnpm's folder names to 60 characters on Windows and 120 elsewhere. The same length on every
 # system keeps the source maps' paths, and so each bundle's Sentry debug ID, the same, so maps built on Ubuntu match

@@ -138,7 +138,7 @@ Print(JSON.stringify(Object.fromEntries(ids.filter((id) => known.has(id)).map((i
       `for (const design of Designs().filter((d) => d.name === ${JSON.stringify(design)})) DeleteDesign(design.id)
 const spot = FindEmptySpace({ width: 1280, height: 2000 })
 const id = CreateDesign({ name: ${JSON.stringify(design)}, x: spot.x, y: spot.y })
-const grid = Insert(id, { type: "layout", name: "Grid", style: { direction: "row", wrap: true, gap: 4, padding: 4 }, children: [] })
+const grid = Insert(id, { type: "layout", name: "Grid", style: { flexDirection: "row", flexWrap: "wrap", gap: { step: 4 }, padding: { step: 4 } }, children: [] })
 for (const node of ${JSON.stringify(nodes)}) Insert(grid, node)
 Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`,
       replies.problems.shape.problems

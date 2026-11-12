@@ -15,11 +15,23 @@ import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
 import { failedRender } from "./frames-on-screen.ts"
 
-/**
- * How much smaller than a frame its bitmap is. Zoomed out until a frame is drawn no larger than that, the canvas shows
- * the bitmap in its place, which looks the same and costs a fraction of a whole screen's elements to draw.
- */
+/** How much smaller than a frame its bitmap is, so it's sharp wherever the canvas shows it (see `farZoom`). */
 export const bitmapScale = 0.25
+
+/**
+ * The zoom from which the canvas shows frames' bitmaps in their place, the same on every screen: 10%, about where a
+ * design's details stop showing (PAR-954). A bitmap looks the same there, and costs a fraction of a whole screen's
+ * elements to draw. At a quarter of the frame's size, it's sharp at this zoom on screens up to 2.5x.
+ */
+export const farZoom = 0.1
+
+/**
+ * Whether a zoom is far out, showing bitmaps. A canvas that `was` far stays so until a little past the line zooming back
+ * in, so a camera resting on it doesn't flip.
+ */
+export function isFarZoom(zoom: number, was: boolean): boolean {
+  return zoom <= (was ? farZoom * 1.15 : farZoom)
+}
 
 /** How long a frame stays the same before it's captured, so editing doesn't capture every step. */
 const settleMs = 1000
@@ -165,12 +177,14 @@ export interface FrameBitmap {
  * frame has stayed the same for a moment. `measure` gives the live frame's height as it's drawn when it's captured, which
  * is kept with the bitmap; nothing while it isn't drawn. `holding` says whether the frame is holding off drawing its
  * design for the bitmap (`useFirstDrawWaits`): then nothing is being edited, so what it first shows is captured without
- * the wait (PAR-525).
+ * the wait (PAR-525). `rank` says how near the frame is to the middle of the view, so frames in view are captured first
+ * (`useFrameView`, PAR-955).
  */
 export function useFrameBitmap(
   { key, job }: FrameShows,
   measure?: () => number | undefined,
-  holding?: () => boolean
+  holding?: () => boolean,
+  rank?: () => number
 ): FrameBitmap {
   const [shown, setShown] = useState<ShownBitmap>()
   // The key whose capture failed, until a later try gives its bitmap.
@@ -180,13 +194,15 @@ export function useFrameBitmap(
   const latest = useRef(job)
   const measured = useRef(measure)
   const held = useRef(holding)
+  const ranked = useRef(rank)
   // What the frame showed first, which no edit led to.
   const first = useRef(key)
   useEffect(() => {
     latest.current = job
     measured.current = measure
     held.current = holding
-  }, [job, measure, holding])
+    ranked.current = rank
+  }, [job, measure, holding, rank])
 
   useEffect(() => {
     let current = true
@@ -207,7 +223,12 @@ export function useFrameBitmap(
     // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
     // the frame without a bitmap for good.
     const take = (attempt: number) =>
-      void capture(key, latest.current, () => measured.current?.()).then((src) => {
+      void capture(
+        key,
+        latest.current,
+        () => measured.current?.(),
+        () => ranked.current?.() ?? Number.POSITIVE_INFINITY
+      ).then((src) => {
         if (!current) {
           return
         }
@@ -511,12 +532,14 @@ function forgetOldest(): void {
 /**
  * The bitmap of a frame, taken offscreen, as many at once as there are offscreen windows. `measure` gives the live
  * frame's height just before it's taken, which is kept with it: the offscreen window lays the frame out at the bitmap's
- * small zoom, where text rounds to other heights, so its own measure can be a few pixels out.
+ * small zoom, where text rounds to other heights, so its own measure can be a few pixels out. `rank` puts it in line,
+ * lowest first, as `turns` reads it: frames nearest the middle of the view are taken first.
  */
 export function capture(
   key: string,
   job: RenderJob,
-  measure?: () => number | undefined
+  measure?: () => number | undefined,
+  rank?: () => number
 ): Promise<string | undefined | typeof failed> {
   const known = bitmaps.get(key)
 
@@ -553,7 +576,7 @@ export function capture(
     }
 
     return taken.src
-  })
+  }, rank)
 
   const settled = taking.catch((cause: unknown): typeof failed => {
     if (bitmaps.get(key) === settled) {

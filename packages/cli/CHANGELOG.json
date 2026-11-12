@@ -2,6 +2,74 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 12:29:28 GMT",
+      "version": "0.57.0",
+      "tag": "@parity-app/cli_v0.57.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b897319e647682322827005a7fe26079e1964ded",
+            "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:10:47 GMT",
+      "version": "0.56.1",
+      "tag": "@parity-app/cli_v0.56.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0a3e44222eda2d7eb68ba9630462bc63c7d8da22",
+            "comment": "Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 11:51:18 GMT",
+      "version": "0.56.0",
+      "tag": "@parity-app/cli_v0.56.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa05d0d08107779a10f37d601177d1621b3e03bc",
+            "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a5016c0ce76c1a73cbdc3c66de8df44e02ebdb52",
+            "comment": "A search that needs someone signed in to Parity is no longer a failure: agents carry on without the source"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 10:56:22 GMT",
+      "version": "0.55.0",
+      "tag": "@parity-app/cli_v0.55.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5aabfd198fbe462351e38e3079dfb8974df453dc",
+            "comment": "States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs() lists states for components alone"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 09:40:43 GMT",
       "version": "0.54.0",
       "tag": "@parity-app/cli_v0.54.0",
