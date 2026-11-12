@@ -9,16 +9,19 @@ and serves all of this as MCP tools.
 
 ## Install
 
-It needs Node 24. Run it without installing:
+With the Parity app, choose **Help > Install the parity command**. It puts a `parity` command on your PATH that runs the
+CLI shipped inside the app, so it's always the app's version and needs no Node.
 
-```sh
-npx @parity-app/cli --help
-```
-
-or install it to get the `parity` command:
+Without the app, as in CI, it needs Node 24. Install it to get the `parity` command:
 
 ```sh
 npm install --global @parity-app/cli
+```
+
+or run it without installing, which spends a second or two finding the package on every call:
+
+```sh
+npx @parity-app/cli --help
 ```
 
 That's the version released to everyone, npm's `latest`. Every change to Parity is published to `next` first, for

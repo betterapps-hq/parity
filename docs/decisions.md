@@ -7335,3 +7335,29 @@ project that switches its dark theme by attribute on the root still drew light v
 
 Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
 a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
+
+## The app installs its own `parity` command (PAR-906)
+
+Agents ran the CLI as `npx -y @parity-app/cli@0.31.0 …`, and each call spent most of its time in npx. Measured on
+Windows with the app running: npx resolving the cached package took 1.2–2.8 s, Node starting 0.1–0.25 s, loading the
+CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Print(1)` 0.45–0.7 s. Your call on
+2026-11-11: a menu item installs the command, as Pen's does. My calls:
+
+- **The command runs the CLI shipped inside the app, with the app's Electron as Node,** as VS Code's `code` does. It's
+  always the app's version, so nothing keeps it in step, and it needs no Node or npm. Electron as Node started the CLI
+  about 0.1 s slower than Node itself, and `--prefer-offline` and Node's compile cache didn't speed up npx or loading.
+  Pen's item only opens a docs page.
+- **Help > Install the parity command** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity`
+  shell script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on
+  macOS, asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers
+  it wrote, which carry a marker line, so moving the app keeps the command working.
+- **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
+  bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
+  the CLI and its sender load in Parity's Electron.
+- **The skill tells agents to run `parity`, never npx per call,** and to ask for the menu item when it isn't found.
+- **No daemon.** The CLI already talks straight to the app, which answers in about 10 ms; what costs is starting a
+  process, which a client of a daemon still pays. MCP stays the fastest route for agents that have it.
+
+After, with the same app and tab (medians of 5, the machine busy with other sessions): `tabs` went from 2.0 s through
+npx to 0.39 s through the Git Bash launcher and 0.37 s through `parity.cmd`; `exec` of `Print(1)` from 2.45 s to 0.74 s,
+most of which is now the app running the snippet.

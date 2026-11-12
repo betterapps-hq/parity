@@ -11,6 +11,8 @@ asarUnpack:
   - "*.cjs"
   - libraries/**/*
   - in-app.json
+  # The CLI the parity command runs, with Electron as Node (PAR-906).
+  - cli/**/*
 npmRebuild: false
 files:
   - "**/*"

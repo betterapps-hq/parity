@@ -24,6 +24,8 @@ export const ipc = {
   /** The file copied in Explorer or Finder, which the window's own clipboard can't read (PAR-841). */
   copiedFiles: "canvas:copied-files",
   openInEditor: "canvas:open-in-editor",
+  /** Help > Install the parity command (PAR-906). */
+  installCli: "canvas:install-cli",
   quit: "canvas:quit",
   toggleDevTools: "canvas:toggle-dev-tools",
   setTheme: "canvas:set-theme",

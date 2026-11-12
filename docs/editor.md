@@ -5687,6 +5687,30 @@ the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The C
 zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, from a
 fallback, sending, sent and failed, with Send moving from one to the next.
 
+### Install the parity command (PAR-906)
+
+Help > Install the parity command puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
+with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
+second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
+and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
+failure says what went wrong.
+
+- **Windows:** `parity.cmd`, for PowerShell and Command Prompt, and a `parity` shell script, for Git Bash, in
+  `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH, kept as written so variables in it stay variables.
+  Running apps are told PATH changed, so a terminal opened next has it.
+- **macOS:** `/usr/local/bin/parity`, asking for an administrator when that folder can't be written, as VS Code's
+  command does.
+- **Linux:** `~/.local/bin/parity`. An AppImage mounts somewhere new each run, so its launcher finds the CLI beside the
+  executable Node runs as.
+- **Each installed app's start rewrites launchers it wrote** that point somewhere else, so moving or reinstalling it
+  keeps the command working. A file without Parity's marker line is left alone. In development the command runs the
+  checkout's CLI source, and starting isn't rewriting it.
+
+The build ships the CLI npm publishes in `cli/` beside the service, its packages with the service's, and fails unless it
+runs in Parity's Electron (`scripts/build.ts`). `@parity-app/core`'s `cli-command.test.ts` covers the folders, the
+launchers' text and quoting, and adding the folder to PATH. Writing the files and PATH (`main/cli-command.ts`) was tried
+by hand on Windows; macOS and Linux weren't tried.
+
 ### What the inspector's changes record (PAR-640, PAR-713, PAR-728)
 
 Each change made in the inspector or the Tokens panel is recorded once, as `inspector.changed`, with the field, the
