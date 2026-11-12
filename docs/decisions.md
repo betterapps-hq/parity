@@ -6485,6 +6485,30 @@ My calls:
   impersonated refresh token never goes to `safeStorage`, and the support person's own session isn't kept aside.
 - **Telemetry tags every event in it** with `impersonated: true` and the support person's email.
 
+## An installed copy needs you signed in (PAR-1008)
+
+Your calls, on 2026-11-12: you must sign in when the app opens, the sign-in screen loses "Open a folder on this computer
+without signing in", and "Parity never sees your password" sits at its foot in that link's place. This replaces "Signing
+in is optional".
+
+My calls:
+
+- **Only an installed copy requires it.** A copy run from source asks nobody, so agents, `pnpm perf` and the end-to-end
+  tests work without an account, and `PARITY_REQUIRE_SIGN_IN=1` makes one ask, to try it.
+- **The screen covers what's open and changes nothing under it.** Open projects and unsaved changes stay as they are, as
+  with Session ended. The title bar and its menus still show, so a project opened from the File menu opens behind the
+  screen.
+- **A session that ends with another account still signed in** moves you to that account and says so in the dialog, as
+  before. Only with nobody left does the screen show.
+- **Tests start signed in as a stand-in,** from `PARITY_SIGNED_IN_AS`, with no tokens and without WorkOS, so no real
+  account or token is in CI. A built copy takes one too, since the checks that install and update a build have to get
+  past the screen; it's no way round signing in for anything that matters, since a stand-in has no token and Parity's
+  service checks every request.
+- **A first launch with no connection stays on the screen,** since there's no way to sign in without one. Someone who
+  signed in before stays signed in offline, as before.
+- **It ships after signing in is proven in an installed build** (PAR-651), since nothing gets past the screen without
+  it.
+
 ## The Design panel's calls (PAR-652)
 
 [design-options.md](proposals/design-options.md) asked ten calls about how the Design panel covers CSS. Call 1 is above,
@@ -8140,27 +8164,3 @@ and the canvas and Layers menus all read it through `commandsFor` in `chrome/act
   exported the selection at the Export section's sizes. The menu now does what they do, and only Export all writes every
   state and mode. Export all, Snap, Performance stats, Clear bitmap cache and About still have no command, so they
   aren't recorded, as before.
-
-## An installed copy needs you signed in (PAR-1008)
-
-Your calls, on 2026-11-12: you must sign in when the app opens, the sign-in screen loses "Open a folder on this computer
-without signing in", and "Parity never sees your password" sits at its foot in that link's place. This replaces "Signing
-in is optional".
-
-My calls:
-
-- **Only an installed copy requires it.** A copy run from source asks nobody, so agents, `pnpm perf` and the end-to-end
-  tests work without an account, and `PARITY_REQUIRE_SIGN_IN=1` makes one ask, to try it.
-- **The screen covers what's open and changes nothing under it.** Open projects and unsaved changes stay as they are, as
-  with Session ended. The title bar and its menus still show, so a project opened from the File menu opens behind the
-  screen.
-- **A session that ends with another account still signed in** moves you to that account and says so in the dialog, as
-  before. Only with nobody left does the screen show.
-- **Tests start signed in as a stand-in,** from `PARITY_SIGNED_IN_AS`, with no tokens and without WorkOS, so no real
-  account or token is in CI. A built copy takes one too, since the checks that install and update a build have to get
-  past the screen; it's no way round signing in for anything that matters, since a stand-in has no token and Parity's
-  service checks every request.
-- **A first launch with no connection stays on the screen,** since there's no way to sign in without one. Someone who
-  signed in before stays signed in offline, as before.
-- **It ships after signing in is proven in an installed build** (PAR-651), since nothing gets past the screen without
-  it.
