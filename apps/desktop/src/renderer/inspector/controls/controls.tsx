@@ -63,7 +63,9 @@ import {
 } from "./field-parts.tsx"
 import { CornerGlyph, EachToggle, Field, nameMenuButton, SectionButton } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
+import { ClipContentField } from "./keyword-sets.tsx"
 import { RemoveButton } from "./list-parts.tsx"
+import { OpacityRow } from "./opacity-blend.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber, sideRules, type Sides } from "./sides-writes.ts"
 import { FourSidesField } from "./sides.tsx"
@@ -603,7 +605,7 @@ function readRatio(text: string): string | undefined {
 
 /**
  * The ratio, typed, with its name after it (Video) and the named ratios in its unit's menu. A ratio it can't read
- * stays, with the reason under it; Enter keeps it, and Escape puts the ratio back; leaving does too, and says why.
+ * stays, with the reason under it; Enter or leaving keeps it, and Escape puts the ratio back.
  */
 export function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
   const name = namedRatios.find((option) => option.value === aspect)?.name
@@ -666,8 +668,9 @@ const cornersAsLaidOut = [0, 1, 3, 2] as const
 type CornerRadii = [Radius?, Radius?, Radius?, Radius?]
 
 /**
- * Appearance's Radius, as the simpler fields lay it out (PAR-186): one field under its name, and each corner, laid out
- * where it is, once Each corner at the end of the name's row is pressed. It opens pressed when the corners differ.
+ * Appearance: Opacity beside Blend mode, then Radius, then Clip content. Radius is as the simpler fields lay it out
+ * (PAR-186): one field under its name, and each corner, laid out where it is, once Each corner at the end of the name's
+ * row is pressed. It opens pressed when the corners differ.
  * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
  * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
  */
@@ -682,6 +685,15 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-2.5">
+        <Field label="Opacity">
+          <OpacityRow
+            opacity={draft.opacity}
+            blend={draft.blend}
+            onOpacity={(opacity) => set({ opacity })}
+            onBlend={(blend) => set({ blend })}
+            onPreviewBlend={() => undefined}
+          />
+        </Field>
         <Field
           label="Radius"
           changed={changed !== undefined}
@@ -738,6 +750,9 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
               onChange={(radius) => set({ radius })}
             />
           )}
+        </Field>
+        <Field label="Clip content">
+          <ClipContentField value={draft.clip} onChange={(clip) => set({ clip })} />
         </Field>
       </div>
     </PanelSection>
@@ -1610,7 +1625,7 @@ function FrameHeightField({
  *
  * In a narrow field (`narrow`, under about 96px, as sides are), what it comes to is in its hint. Input it can't read
  * stays, outlined in the error color with a mark in the status slot and the reason under the row; Enter keeps it, and
- * Escape puts the value back; leaving does too, and says why.
+ * Escape puts the value back; leaving keeps it too.
  */
 export function Num({
   label,

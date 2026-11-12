@@ -12,7 +12,7 @@ const unmeasured: Stage = { parent: { width: 0, height: 0 }, size: { width: 0, h
  * Position, the approved section (PAR-186) as Storybook has it: Placement beside Layer order, Auto while unset, then the
  * inset box for a layer out of the layout, each side pinned at its inset or unpinned, clicked to pin it at its distance
  * from the parent's edge. It edits the layers' `NodeStyle`, which holds In layout, Absolute and a layer order (PAR-925);
- * Fixed, Sticky and Relative, centering and Scale are disabled until it holds them (PAR-924).
+ * Fixed, Sticky and Relative, centering and Scale aren't saved until it holds them (PAR-924).
  */
 export function PositionSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection

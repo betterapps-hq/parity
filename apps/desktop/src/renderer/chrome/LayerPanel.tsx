@@ -31,7 +31,7 @@ import {
   targetPatches
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
-import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
+import { BookOpen, Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
@@ -42,7 +42,7 @@ import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
-import { StoresContext, storesNothing } from "../inspector/controls/field-parts.tsx"
+import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
@@ -51,7 +51,7 @@ import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldWithProp } from "./field-prop.tsx"
-import { ChoiceInput, Field, PanelSelectContent, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
+import { ChoiceInput, Field, PanelSelectContent, SwitchInput, TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
   fieldName,
@@ -69,7 +69,7 @@ import { layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
-import { type PropValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
+import { booleanValue, numberValue, plainText, type PropValue, readPropValue, textValue } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
@@ -185,9 +185,20 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           }
           kind={kind.label}
           detail={kind.description}
+          action={
+            <VisibleToggle
+              entry={entry}
+              nodeId={nodeId}
+              node={node}
+              override={override}
+              change={change}
+              reset={reset}
+            />
+          }
         />
         <StateTarget entry={entry} state={state} target={target} />
-        {location.ancestors.length > 0 && location.node.type !== "instance" && (
+        {/* A component or an instance is already one, so it has no Make component. */}
+        {location.ancestors.length > 0 && location.node.type !== "instance" && location.node.type !== "component" && (
           <MakeComponent
             entry={entry}
             nodeId={nodeId}
@@ -303,6 +314,17 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           }
           kind={kind.label}
           detail={kind.description}
+          action={
+            <VisibleToggle
+              entry={entry}
+              nodeId={path}
+              node={node}
+              override={override}
+              change={change}
+              reset={reset}
+              inner
+            />
+          }
         />
         {editsDesign(container, target) ? (
           <div
@@ -422,31 +444,17 @@ function LayerSections({
   return (
     <>
       {node.type === "text" && (
-        <StoresContext value={storesNothing}>
-          <ContentSection
-            text={node.text}
-            tag={undefined}
-            onText={(text) => change("Edit text", { text })}
-            onTag={() => undefined}
-            textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
-            aroundText={(field) => withProp("text", field)}
-          />
-        </StoresContext>
+        <ContentSection
+          text={node.text}
+          tag={undefined}
+          onText={(text) => change("Edit text", { text })}
+          onTag={() => undefined}
+          textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
+          aroundText={(field) => withProp("text", field)}
+        />
       )}
 
       {(node.type === "image" || node.type === "video") && !inner && <MediaSection entry={entry} node={node} />}
-
-      <PanelSection title="Visibility">
-        <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
-          {withProp(
-            "visible",
-            <SwitchInput
-              value={!node.hidden}
-              onChange={(visible) => change("Toggle visibility", { hidden: !visible })}
-            />
-          )}
-        </Field>
-      </PanelSection>
 
       {node.type === "component" && (
         <PropsSection
@@ -490,6 +498,74 @@ function LayerSections({
 
       <ExportSection targets={[{ design: entry.key, node: nodeId, name }]} label={`Export ${name}`} />
     </>
+  )
+}
+
+/**
+ * Whether the layer shows, as the eye at the end of its name's row, crossed out while it's hidden, as Layers draws it.
+ * Changed in the state being edited, it's in the change color with a reset arrow before it. A component design's own
+ * layer can use one of the component's props for it instead, with the button beside it.
+ */
+function VisibleToggle({
+  entry,
+  nodeId,
+  node,
+  override,
+  change,
+  reset,
+  inner = false
+}: {
+  entry: ContainerEntry
+  nodeId: string
+  node: DesignNode
+  override: NodePatch | undefined
+  change: LayerChange
+  reset: (field?: PatchField) => void
+  inner?: boolean
+}) {
+  const changed = override?.hidden !== undefined
+  const label = node.hidden ? "Show layer" : "Hide layer"
+
+  const eye = (
+    <Hint label={label}>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-7 text-muted-foreground"
+        style={changed ? { color: kindColors.agent } : undefined}
+        aria-label={label}
+        onClick={() => change("Toggle visibility", { hidden: !node.hidden })}
+      >
+        {node.hidden ? <EyeOff /> : <Eye />}
+      </Button>
+    </Hint>
+  )
+
+  const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
+
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      {changed && (
+        <Hint label="Reset whether it shows">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-6 text-muted-foreground"
+            aria-label="Reset whether it shows"
+            onClick={() => reset({ kind: "hidden" })}
+          >
+            <RotateCcw />
+          </Button>
+        </Hint>
+      )}
+      {usesProps ? (
+        <FieldWithProp entry={entry} nodeId={nodeId} field="visible" bound={node.bind?.visible}>
+          {eye}
+        </FieldWithProp>
+      ) : (
+        eye
+      )}
+    </div>
   )
 }
 
@@ -566,8 +642,8 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
 }
 
 /**
- * An instance of a component design: which component, its variants and params, and, for one of the design's own
- * instances (`own`), its state, its overrides, and swapping or detaching it.
+ * An instance of a component design: which component, its state and its props, and, for one of the design's own
+ * instances (`own`), its overrides, and swapping or detaching it, drawn as the approved Component instance section.
  */
 function InstanceSection({
   entry,
@@ -599,16 +675,12 @@ function InstanceSection({
 
   if (!design) {
     return (
-      <PanelSection title="Instance">
-        <p className="type-message px-1 text-destructive">
-          The component &quot;{node.design}&quot; doesn&apos;t exist.
-        </p>
+      <PanelSection title="Component instance">
+        <p className="type-message text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
       </PanelSection>
     )
   }
 
-  const params = Object.entries(design.params ?? {})
-  const overrides = own ? overrideCount(own) : 0
   const library = projectLibrary(store)
 
   // The instance's own field, as the design has it, to record what a change to it did.
@@ -622,188 +694,140 @@ function InstanceSection({
     }
   })
 
-  const push = () => component && pushAndRecord(store, entry.key, component.key, node.id)
+  const setState = (state: string | undefined) =>
+    updateAndRecord(
+      store,
+      entry.key,
+      "Change instance state",
+      (container) => ({
+        ...container,
+        root: mapNode(container.root, node.id, (current) => {
+          if (current.type !== "instance") {
+            return current
+          }
 
-  // Another component this copy could become: not the design it's in, which can't contain itself.
-  const swappable = entries.filter(
-    (candidate) => candidate.container.kind === "component" && candidate.container.id !== entry.container.id
-  )
+          const next = { ...current }
+
+          if (state) {
+            next.state = state
+          } else {
+            delete next.state
+          }
+
+          return next
+        })
+      }),
+      instanceField("state")
+    )
+
+  const menu = own && {
+    overrides: overrideCount(own),
+    // Another component this copy could become: not the design it's in, which can't contain itself.
+    swappable: entries
+      .filter(
+        (candidate) =>
+          candidate.container.kind === "component" &&
+          candidate.container.id !== entry.container.id &&
+          candidate.container.id !== node.design
+      )
+      .map((candidate) => ({ id: candidate.container.id, name: candidate.container.name })),
+    onSwap: (id: string) =>
+      updateAndRecord(
+        store,
+        entry.key,
+        "Swap instance",
+        (container) => swapInstance(container, node.id, id, library),
+        instanceField("design")
+      ),
+    onResetOverrides: () =>
+      updateAndRecord(store, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
+        field: "overrides",
+        layers: [node.id],
+        read: (container) => {
+          const instance = findNode(container.root, node.id)
+
+          return instance?.type === "instance" ? instance.overrides : undefined
+        }
+      }),
+    onPush: component && (() => pushAndRecord(store, entry.key, component.key, node.id)),
+    onDetach: () => detachAndRecord(store, entry.key, node.id)
+  }
 
   return (
-    <PanelSection
-      title="Instance"
-      action={
-        component ? (
-          <Hint label={`Go to ${design.name}`} wait>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                selection.set({ design: component.key })
-                revealSelection(session)
-              }}
-            >
-              <Diamond style={{ color: kindColors.component }} /> {design.name}
-            </Button>
-          </Hint>
-        ) : (
-          <Hint label={`Linked to ${design.name} in ${from?.name ?? "a library"}, which changes it`} wait>
-            <span className="flex h-6 items-center gap-1.5 px-2 text-xs text-muted-foreground">
-              <Diamond className="size-3.5" style={{ color: kindColors.component }} /> {design.name}
-            </span>
-          </Hint>
-        )
+    <InstanceControls
+      component={design.name}
+      onGoTo={
+        component &&
+        (() => {
+          selection.set({ design: component.key })
+          revealSelection(session)
+        })
       }
+      linked={from?.name}
+      // Only a design's own instance picks its state; a nested one shows its component's.
+      states={own ? design.states.map((state) => ({ id: state.id, name: state.name })) : []}
+      state={own?.state}
+      props={instanceRows(design.params ?? {}, node.args ?? {})}
+      changed={changed}
+      onResetProp={onReset}
+      onState={setState}
+      onChange={(name, value) => onChange(name, value)}
+      menu={menu}
+      note={own && <BaseDesignNote entry={entry} what="Its state, Reset overrides, Swap and Detach" />}
     >
-      {own && <BaseDesignNote entry={entry} what="Its state, Reset all, Swap and Detach" />}
-      <div className="flex flex-col gap-1">
-        {own && (
-          <Field label="State">
-            <ChoiceInput
-              value={own.state}
-              options={design.states.slice(1).map((state) => ({ value: state.id, label: state.name }))}
-              placeholder={design.states[0]!.name}
-              onChange={(state) =>
-                updateAndRecord(
-                  store,
-                  entry.key,
-                  "Change instance state",
-                  (container) => ({
-                    ...container,
-                    root: mapNode(container.root, node.id, (current) => {
-                      if (current.type !== "instance") {
-                        return current
-                      }
-
-                      const next = { ...current }
-
-                      if (state) {
-                        next.state = state
-                      } else {
-                        delete next.state
-                      }
-
-                      return next
-                    })
-                  }),
-                  instanceField("state")
-                )
-              }
-            />
-          </Field>
-        )}
-        {params.map(([name, param]) =>
-          param.type === "variant" ? (
-            <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
-              <ChoiceInput
-                value={textValue.safeParse(node.args?.[name]).data}
-                options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
-                placeholder={
-                  param.options?.find((option) => option.id === param.default)?.name ?? param.options?.[0]?.name
-                }
-                onChange={(value) => onChange(name, value)}
-              />
-            </Field>
-          ) : (
-            <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
-              <ValueInput
-                value={readPropValue(node.args?.[name] ?? param.default)}
-                kind={valueKind(readPropValue(node.args?.[name] ?? param.default), param.type)}
-                onCommit={(value) => onChange(name, value)}
-              />
-            </Field>
-          )
-        )}
-        {own && <InstanceSlotFields entry={entry} instance={own} />}
-      </div>
-      {own && (
-        <div className="mt-3 flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="flex-1 text-muted-foreground">
-              {overrides === 0
-                ? "No overrides: it matches the component."
-                : `${overrides} override${overrides === 1 ? "" : "s"} inside`}
-            </span>
-            {overrides > 0 && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={() =>
-                    updateAndRecord(
-                      store,
-                      entry.key,
-                      "Reset overrides",
-                      (container) => resetInstance(container, node.id),
-                      {
-                        field: "overrides",
-                        layers: [node.id],
-                        read: (container) => {
-                          const instance = findNode(container.root, node.id)
-
-                          return instance?.type === "instance" ? instance.overrides : undefined
-                        }
-                      }
-                    )
-                  }
-                >
-                  Reset all
-                </Button>
-                {component && (
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={push}>
-                    Push to main
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-          <div className="flex gap-1.5">
-            <Select<string>
-              value={null}
-              onValueChange={(design) => {
-                if (!design) {
-                  return
-                }
-
-                updateAndRecord(
-                  store,
-                  entry.key,
-                  "Swap instance",
-                  (container) => swapInstance(container, node.id, design, library),
-                  instanceField("design")
-                )
-              }}
-            >
-              <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
-                <SelectValue placeholder="Swap component" />
-              </SelectTrigger>
-              <PanelSelectContent>
-                {swappable
-                  .filter((candidate) => candidate.container.id !== node.design)
-                  .map((candidate) => (
-                    <SelectItem key={candidate.key} value={candidate.container.id}>
-                      {candidate.container.name}
-                    </SelectItem>
-                  ))}
-              </PanelSelectContent>
-            </Select>
-            <Hint label="Turn this copy into plain layers, no longer linked to the component" wait>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => detachAndRecord(store, entry.key, node.id)}
-              >
-                <Unlink /> Detach
-              </Button>
-            </Hint>
-          </div>
-        </div>
-      )}
-    </PanelSection>
+      {own && <InstanceSlotFields entry={entry} instance={own} />}
+    </InstanceControls>
   )
+}
+
+/**
+ * A component design's params as an instance's prop rows, with what the instance gives each: a variant offers its
+ * options with its default first, and the rest take the value their type says, with the default shown faintly.
+ */
+function instanceRows(
+  params: NonNullable<ContainerSpec["params"]>,
+  args: NonNullable<InstanceNode["args"]>
+): PropRow[] {
+  return Object.entries(params).map(([name, param]): PropRow => {
+    const held = readPropValue(args[name])
+    const fallback = readPropValue(param.default)
+
+    if (param.type === "variant") {
+      const options = (param.options ?? []).map((option) => ({ id: option.id, name: option.name }))
+
+      return {
+        name,
+        type: "variant",
+        value: textValue.safeParse(held).data,
+        default: textValue.safeParse(param.default).data ?? options[0]?.id,
+        options
+      }
+    }
+
+    if (param.type === "boolean") {
+      return { name, type: "boolean", value: booleanValue.safeParse(held ?? fallback).data ?? false }
+    }
+
+    if (param.type === "number") {
+      return {
+        name,
+        type: "number",
+        value: numberValue.safeParse(held).data,
+        default: numberValue.safeParse(fallback).data
+      }
+    }
+
+    if (param.type === "text") {
+      return {
+        name,
+        type: "text",
+        value: held === undefined ? undefined : plainText(held),
+        default: fallback === undefined ? undefined : plainText(fallback)
+      }
+    }
+
+    return { name, type: "value", value: held, default: fallback, loose: true }
+  })
 }
 
 /** Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. */

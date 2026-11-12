@@ -4,6 +4,8 @@
  */
 import { numberValue, textValue } from "../../chrome/prop-values.ts"
 import type { Side, Sides } from "./sides-writes.ts"
+import type { BlendMode } from "./text-data.ts"
+import type { KeywordValue, Opacity } from "./text-writes.ts"
 
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
@@ -158,6 +160,10 @@ export interface Draft {
   strokePosition?: "inside" | "center" | "outside"
   /** The corners' shape (`corner-shape`), which only Chromium draws; others draw round corners. */
   cornerStyle?: string
+  opacity?: Opacity
+  blend?: BlendMode
+  /** Clip content: Clip (`overflow-clip`) or Scroll when needed (`overflow-auto`). */
+  clip?: KeywordValue
   blur?: Length
   backdropBlur?: Length
   aspect?: string

@@ -24,7 +24,7 @@ function oneWidth(sides: Sides | undefined): number | undefined {
 /**
  * Stroke, the approved section (PAR-186) as Storybook has it: + adds the project's usual stroke, `border-border` at
  * 1px, and − takes it off; then its color, its width, and its position. It edits the layers' `NodeStyle`, which holds a
- * color token and one width in pixels. The color's opacity, a width for each side and the position are disabled until
+ * color token and one width in pixels. The color's opacity, a width for each side and the position aren't saved until
  * `NodeStyle` holds them (PAR-932).
  */
 export function StrokeSection({ editor, edit }: SectionProps) {

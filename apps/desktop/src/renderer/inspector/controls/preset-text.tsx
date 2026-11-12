@@ -2,6 +2,7 @@ import { ALargeSmall, CaseSensitive, ChevronRight, Lock, MoveHorizontal, MoveVer
 import { type ReactNode, useContext, useEffect, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { ColorInput } from "./color-picker.tsx"
 import {
   MessageLine,
   type Reading,
@@ -47,12 +48,13 @@ import { findFont, projectFonts } from "./text-data.ts"
 import type { FieldToken, TokenSetName } from "./tokens.ts"
 
 /*
- * Typography, with its preset on the simpler fields (PAR-186, call 6): the section's first row, Preset, picks one, and the
- * rows it sets fold into a summary under it, marked with a lock. Opened, they're locked to the preset's values, each
- * with Unlock at the end of its name's row; an unlocked row changed on the layer overrides the preset there, in the
- * override color with a reset arrow, stays shown while the summary is closed, and puts a dot on the preset's pill.
- * Detach is the button over the preset field's end, as on every token's pill. A layer with no preset whose type
- * matches one, or nearly does, says so under the row, with Use. Rows the preset doesn't set stay ordinary rows.
+ * Typography, with its preset on the simpler fields (PAR-186, call 6), and the text's color last. The section's first
+ * row, Preset, picks a preset, and the rows it sets fold into a summary under it, marked with a lock. Opened, they're
+ * locked to the preset's values, each with Unlock at the end of its name's row; an unlocked row changed on the layer
+ * overrides the preset there, in the override color with a reset arrow, stays shown while the summary is closed, and
+ * puts a dot on the preset's pill. Detach is the button over the preset field's end, as on every token's pill. A layer
+ * with no preset whose type matches one, or nearly does, says so under the row, with Use. Rows the preset doesn't set
+ * stay ordinary rows.
  */
 
 /** Each row's half of the section's grid: Font across, then Size beside Weight and Line height beside Letter spacing. */
@@ -62,6 +64,8 @@ export function PresetTextSection({
   layer,
   inheritsFrom,
   onChange,
+  color,
+  onColor,
   initiallyOpen = false,
   initiallyUnlocked = []
 }: {
@@ -69,6 +73,9 @@ export function PresetTextSection({
   /** The layer its font is inherited from, as Font's placeholder says. */
   inheritsFrom: string
   onChange: (layer: PresetLayer) => void
+  /** The text's color, a color token's name; a text layer's Fill colors what's behind it. */
+  color: string | undefined
+  onColor: (color: string | undefined) => void
   /** Starts with the summary open, its rows shown. */
   initiallyOpen?: boolean
   /** Rows that start unlocked. */
@@ -169,6 +176,9 @@ export function PresetTextSection({
           {preset && <Summary preset={preset} open={open} onOpenChange={setOpen} />}
           {presetRows.map(row)}
           {ordinaryRows.map(row)}
+          <Field label="Color">
+            <ColorInput label="Text color" value={color} alpha={undefined} alphaPart="alpha" onChange={onColor} />
+          </Field>
         </FieldGrid>
       </div>
     </PanelSection>

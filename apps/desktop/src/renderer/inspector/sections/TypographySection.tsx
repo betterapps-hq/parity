@@ -6,9 +6,9 @@ import type { SectionProps } from "./section-edits.ts"
 
 /**
  * Typography, the approved section (PAR-186, call 6) as Storybook has it: Preset, then Font, Size, Weight with italic,
- * Line height and Letter spacing. On a layout, a component or an instance, the text inside inherits it. It edits the
+ * Line height, Letter spacing and Color. On a layout, a component or an instance, the text inside inherits it. It edits the
  * layers' `NodeStyle`, which holds type as the project's tokens, so a value of its own lands on the nearest token. The
- * preset is disabled until `NodeStyle` holds one (PAR-930).
+ * preset isn't saved until `NodeStyle` holds one (PAR-930).
  */
 export function TypographySection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
@@ -33,6 +33,11 @@ export function TypographySection({ editor, edit }: SectionProps) {
 
   // Each row changed on the layer is its own edit of the style.
   const onChange = (next: PresetLayer) => {
+    // A preset picked, used or detached isn't held yet, so it mustn't clear the rows it would set.
+    if (next.preset !== layer.preset) {
+      return
+    }
+
     if (differs(next, "font")) {
       edit("font", { font: fontOf(next.own.font) }, "Change font")
     }
@@ -62,5 +67,13 @@ export function TypographySection({ editor, edit }: SectionProps) {
     }
   }
 
-  return <PresetTextSection layer={layer} inheritsFrom="its parent" onChange={onChange} />
+  return (
+    <PresetTextSection
+      layer={layer}
+      inheritsFrom="its parent"
+      onChange={onChange}
+      color={style.foreground}
+      onColor={(foreground) => edit("textColor", { foreground }, "Change text color")}
+    />
+  )
 }

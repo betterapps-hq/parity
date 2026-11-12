@@ -99,7 +99,7 @@ async function mediaFields(canvasElement: HTMLElement) {
     "Four people around a laptop, planning a launch"
   )
   await expect(panel.getByRole("combobox", { name: "Fit" })).toHaveTextContent("Contain, shown whole")
-  await expect(panel.getByRole("switch", { name: "Visible" })).toBeChecked()
+  await expect(panel.getByRole("button", { name: "Hide layer" })).toBeVisible()
 
   return panel
 }

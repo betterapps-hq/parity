@@ -393,22 +393,44 @@ export function IconSegments<V extends string>({
 export function SwitchRow({
   label,
   detail,
+  changed = false,
+  onReset,
   checked,
   onCheckedChange
 }: {
   label: string
   /** What it does, in the switch's hint. */
   detail?: string
+  /** Changed in the state being edited: its name in the agent color, and the reset arrow after the switch. */
+  changed?: boolean
+  onReset?: () => void
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
+  const firstState = useContext(FirstStateName)
+
   return (
-    <label className="col-span-2 flex h-5 min-w-0 cursor-pointer items-center justify-between gap-2">
-      <span className="truncate text-xs text-muted-foreground">{label}</span>
-      <Hint label={label} detail={detail}>
-        <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
-      </Hint>
-    </label>
+    <div className="col-span-2 flex h-5 min-w-0 items-center justify-between gap-2">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2">
+        <span
+          className="truncate text-xs text-muted-foreground"
+          style={changed ? { color: kindColors.agent } : undefined}
+        >
+          {label}
+          {changed && <span className="sr-only">, changed in this state</span>}
+        </span>
+        <Hint label={label} detail={detail}>
+          <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
+        </Hint>
+      </label>
+      {changed && onReset && (
+        <Hint label={`Reset to ${firstState}`}>
+          <button type="button" onClick={onReset} className={nameButton} aria-label={`Reset ${label} to ${firstState}`}>
+            <RotateCcw className="size-3" />
+          </button>
+        </Hint>
+      )}
+    </div>
   )
 }
 

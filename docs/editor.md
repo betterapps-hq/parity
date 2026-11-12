@@ -3051,10 +3051,10 @@ placed layer's insets. A grid's Cols and Rows are whole numbers. A component's n
   Tab or clicking away makes it too. The preview stays until the change draws over it, so the canvas doesn't flick back.
   Escape takes the preview back, puts the value back and leaves the field.
 - **Input it can't read stays** as typed, with the field marked and the reason under its row:
-  `Can't read "abc": type a number, px, rem or %`, `"em" isn't a unit Width takes`,
-  `Opacity takes a percentage, not px`, `Something's missing after "+"`, `A bracket isn't closed`,
-  `Put an operator between 16 and 4`, `Can't divide by zero`. Nothing is made and the canvas goes back to the value. It
-  stays when the field loses focus, until it's typed in again or Escape.
+  `"abc" isn't a valid number`, `"em" isn't a unit Width takes`, `Opacity takes a percentage, not px`,
+  `Something's missing after "+"`, `A bracket isn't closed`, `Put an operator between 16 and 4`, `Can't divide by zero`.
+  Nothing is made and the canvas goes back to the value. It stays when the field loses focus, until it's typed in again
+  or Escape.
 - **A value changing underneath** (an agent's edit, an undo, a resize on the canvas) doesn't touch what's being typed:
   it shows over the value until it's made or reverted. With nothing typed, the field follows the value. Selecting
   another layer, or another set of layers, starts the fields afresh.
@@ -3155,34 +3155,63 @@ lengths to a row, can still clip a value in an inspector narrower than its usual
 
 The Design tab's style sections are the sections settled in Storybook (PAR-186), from
 `apps/desktop/src/renderer/inspector/controls`, drawn as their stories draw them. They edit the selected layers'
-`NodeStyle` through the style editor. A control for something `NodeStyle` can't hold yet is there but disabled and
-dimmed, so each section matches its story; PAR-924 to PAR-935 turn them on as the document learns to hold them.
+`NodeStyle` through the style editor. A control for something `NodeStyle` can't hold yet is there and works as its story
+does, but what's set in it isn't saved; PAR-924 to PAR-935 save them as the document learns to hold them. Picking a
+preset changes nothing, so it can't clear the rows it would set.
 
-- **Layout:** the alignment box, with Type (vertical, horizontal, wrap or grid) and Gap beside it, and a grid's Columns
-  and Rows under them as counts, Rows Auto when unset, as many as the layer's children need. A spread (between, around,
-  evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Disabled: Reverse direction, Lines for
-  wrapped lines, lining up text baselines, Fill gaps, a grid's track sizes, Each column and Each row, and Fit.
-- **Size:** W and H on one line, with the Sizing menu: Hug, Fill where the layer can fill, and Min and Max to add, each
-  a row of its own. Disabled: the aspect lock.
-- **Spacing:** the box model, padding inside margin, or padding alone for a design's root. Editing a side changes only
-  that side of each selected layer.
+The panel reads from what the layer is to how it looks: the header, Content for a text layer, Position, Size, Layout,
+Typography, Appearance, Fill, Stroke, Effects and Motion, then Export. `PanelGroup` draws a section that holds others,
+each whole under its own quieter title: Position holds Transform, Size holds Spacing, and Effects holds Filters. A held
+section with the group's own title leads it without a title of its own, and its action goes on the group's title row.
+
+- **Header:** the layer's kind and name, an instance's kind being Component instance, with an eye at the end of the
+  name's row that hides or shows it, crossed out while hidden. Changed in a state, the eye is in the change color with a
+  reset arrow before it. In a component design, the button beside it uses one of the component's props for whether the
+  layer shows. Visibility has no section. Make component is under it for any layer inside a design but a component or an
+  instance, which already is one.
+- **Component instance** (an instance of one of the project's component designs, or a library's): the component's name
+  in the title row, which goes to it, or for a library's says where it's linked from, and beside it, for one of the
+  design's own instances, the menu with Swap component, Reset overrides with how many there are, Push to main where the
+  component is the project's, and Detach. Then State, which isn't a prop, and the props under a quiet Props heading.
+- **Props rows**, the instance's and a code component's (`Button props`) alike: each prop's name with a capital first
+  letter, above its control. Text wraps and grows in a box with a handle; a number takes maths, steps, scrubs, previews
+  on the canvas while it's typed (PAR-203), and says why it can't read what's typed; on or off is a switch row; options
+  are a select with the default first; an object or a list is JSON a key to a line, read when it's left, and a prop
+  whose type isn't known takes any value. An unset prop is empty with its default shown faintly, and choosing the
+  default, or clearing the field, unsets it again. A code component's pass-through attributes have a remove button at
+  the end of their name's row.
+- **Content** (text layers only): the words, which wrap and grow in their field, with a handle to drag it taller. Enter
+  or leaving makes the edit, Shift+Enter starts a line, and Escape puts the words back. In a component design, the
+  button beside it uses one of the component's props for the text. Then Tag. Not saved: Tag. A component whose only
+  content is text has no Label field: its text is edited in place on the canvas.
 - **Position:** Placement, in its layout or absolute, beside Layer order, always shown and Auto while unset, and an
   absolutely placed layer's inset box. Insets are measured in whole pixels from the layer's containing block, inside its
-  border, as nudging measures them. Disabled: Fixed, Sticky, Relative, centering and Scale.
-- **Appearance:** Radius from the project's radius tokens. Disabled: Corner shape and Each corner.
+  border, as nudging measures them. Then Transform, which + adds. A design's root has no Position, so no Transform. Not
+  saved: Fixed, Sticky, Relative, centering and Scale.
+- **Size:** W and H on one line, with the Sizing menu: Hug, Fill where the layer can fill, and Min and Max to add, each
+  a row of its own. Then Spacing, the box model, padding inside margin, or padding alone for a design's root, which has
+  nothing around it to push away. Editing a side changes only that side of each selected layer. Not saved: the aspect
+  lock.
+- **Layout:** the alignment box, with Type (vertical, horizontal, wrap or grid) and Gap beside it, and a grid's Columns
+  and Rows under them as counts, Rows Auto when unset, as many as the layer's children need. A spread (between, around,
+  evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Not saved: Reverse direction, Lines
+  for wrapped lines, lining up text baselines, Fill gaps, a grid's track sizes, Each column and Each row, and Fit.
 - **Typography** (on text, and on a layout, a component or an instance, whose text inherits it): Preset, then Font,
-  Size, Weight with italic, Line height and Letter spacing, from the project's type tokens. Disabled: Preset, and the
-  closest preset it would offer isn't shown.
-- **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Disabled: the color's
+  Size, Weight with italic, Line height and Letter spacing, from the project's type tokens, and the text's Color. A
+  layer with type of its own and no preset is offered the preset it matches, or the nearest within three steps summed
+  over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
+  spacing). A layer that sets no type of its own is offered none. Not saved: Preset, and the color's opacity.
+- **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content. Not saved: Blend
+  mode, Corner shape, Each corner and Scroll always.
+- **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
   opacity, Each side and Position.
+- **Effects:** the Shadow list, then Filters.
 
-A text layer also gets **Content**, above Visibility, with its words and its Tag. The words wrap and the field grows
-with them, and its handle drags it taller. Enter or leaving makes the edit, Shift+Enter starts a line, and Escape puts
-the words back. In a component design, the button beside it uses one of the component's props for the text. Disabled:
-Tag. A component whose only content is text no longer shows a Label field: its text is edited in place on the canvas.
+Size's Hug and Spacing's middle show the layer's size as it's drawn, read again whenever its frame draws it, so a layer
+picked before its frame drew shows its size once it has.
 
-Opacity, Clip content, text color, align and case left the panel with PAR-923, since no approved section holds them.
-Section headings line up with their fields' names (`PanelSection` lost its title's 4px indent).
+Every section has a divider under it but the last; Fill's is on the wrapper that takes dropped images. Section headings
+line up with their fields' names (`PanelSection` lost its title's 4px indent).
 
 Layer order (PAR-925) has no section of its own: the table lists it with Position, for the same layers, and it draws
 inside Position. Fill (PAR-931) and Effects (PAR-933) make their edits through the style editor as each comes, so they
@@ -3200,8 +3229,9 @@ How the controls work with the document:
   field. Escape puts the value back while something is typed. With nothing typed, it leaves the field, so the next Undo
   goes to the document. A run of Up and Down presses is one undo step (PAR-441). Dragging a label or a field's letter
   scrubs: the canvas previews while dragging, and the release makes one undo step.
-- **Input it can't read** stays, with the field marked and the reason under it, such as "Enter a length, Hug or Fill".
-  The field points to the reason (`aria-describedby`).
+- **Input it can't read** stays, with the field marked and the reason under it in red, such as "Enter a length, Hug or
+  Fill" or `"abc" isn't a valid number`, whether Enter is pressed or the field is left. The field points to the reason
+  (`aria-describedby`).
 - **Several layers.** A value that differs shows Mixed as the field's placeholder, and what's typed gives every layer
   the same value.
 
@@ -3212,15 +3242,22 @@ but not in the field until it's made.
 Code: `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, from
 `inspector/sections/`, one file per section. `useSectionEdits` in `inspector/sections/section-edits.ts` sends a
 control's change to the canvas preview, to a run of presses (`GestureRun`) or to the document, through
-`LiveEditsContext` in `inspector/controls/field-parts.tsx`. `StoresContext` and `Unstored` there disable what the
-document can't hold yet: the stories store everything, and `StyleSections` stores none of it. `projectTokenSets` in
-`inspector/token-sets.ts` turns the project's tokens into the controls' sets, given through `ProjectTokens`.
-`inspector/style-values.ts` reads a style's values as the controls show them, and writes the controls' values back as
-the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an absolutely placed layer, through the style
-editor's `place`.
+`LiveEditsContext` in `inspector/controls/field-parts.tsx`. `StoresContext` and `Unstored` there can mark what the
+document can't hold yet; nothing provides them in the panel, so nothing is disabled. `useDrawnBox` in
+`chrome/style-editor.ts` draws the panel again when the selected layer's drawn size changes. The Component instance
+section and the props rows are `InstanceSection` and `PropRows` in `inspector/controls/instance-section.tsx`, with their
+stories in `Instance.stories.tsx`; `chrome/LayerPanel.tsx` gives an instance's params as rows (`instanceRows`) and
+`chrome/PropsSection.tsx` a code component's. The preset offered is `closestPreset` in
+`inspector/controls/preset-data.ts`. `projectTokenSets` in `inspector/token-sets.ts` turns the project's tokens into the
+controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's values as the controls show
+them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an
+absolutely placed layer, through the style editor's `place`.
 
 Tests:
 
+- `apps/desktop/src/renderer/inspector/controls/preset-data.test.ts` (5): no preset offered to a layer with no type of
+  its own or with a preset; the preset matched in every row it sets; the nearest over every row, with the rows that
+  differ; and none when every preset is more than three steps away.
 - `apps/desktop/src/renderer/inspector/style-values.test.ts` (12): steps shown as pixels and written back, off the scale
   too; Auto and percentages left out; Fill and Hug kept; padding changing only the sides an edit reached, each layer
   keeping its other sides; a radius, text size, line height and letter spacing landing on the nearest token; a weight
@@ -3358,12 +3395,14 @@ the text-only controls.
 One table lists every section, and every control only some layers get, with what it needs, in the order the panel shows
 them. It's the agreed table in [proposals/design-panel-sections.md](proposals/design-panel-sections.md):
 
-- Frame size (`frame`); Position and Layer order (not `root`); Size (not `frame`), with Fill in its menu (`inFlex`,
-  `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Layout (`box`); Spacing, with
-  Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
-  Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
+- Frame size (`frame`); Position, Layer order and Transform (not `root`); Size (not `frame`), with Fill in its menu
+  (`inFlex`, `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Spacing, with Margin
+  (not `root`); Layout (`box`); Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`);
+  Appearance; Fill, Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is drawn as Typography, on text and on what its text inherits from. A text layer's tag is in its
   Content section, outside the style sections.
+- Transform is a section of its own in the table, for every layer but a design's root, drawn inside Position. Spacing is
+  drawn inside Size and Filters inside Effects.
 - Grid placement and Raw CSS aren't built yet, so they show nothing. A frame's Frame size is today's Size, whose width
   and height are the frame's. Since PAR-923 the panel draws only approved controls, so Align self, Span, Resizing and
   Max lines, which have none yet, aren't drawn though the table still lists them.

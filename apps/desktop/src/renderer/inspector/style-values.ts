@@ -3,7 +3,7 @@ import { sidesOf, tidySides } from "@parity-app/editor"
 import { numberValue } from "../chrome/prop-values.ts"
 import { isLengthToken, isTokenSize, type Radius, type Size as ControlSize } from "./controls/data.ts"
 import type { Side, Sides } from "./controls/sides-writes.ts"
-import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from "./controls/text-writes.ts"
+import type { FontSize, FontValue, LetterSpacing, LineHeight, Opacity, WeightValue } from "./controls/text-writes.ts"
 import type { LeadingToken, LengthToken, SizeToken, TrackingToken, WeightToken } from "./controls/tokens.ts"
 
 /*
@@ -145,6 +145,14 @@ export function radiusOf(value: Radius | undefined, tokens: readonly LengthToken
     ? nearestName(tokens, (token) => token.px, value.px)
     : nearestName(tokens, (token) => token.px, 9999)
 }
+
+/** Opacity as its field shows it: a percentage of its own. */
+export const opacityShown = (opacity: number | undefined): Opacity | undefined =>
+  opacity === undefined ? undefined : { percent: opacity }
+
+/** Opacity as the style holds it: a percentage. The project's opacity tokens aren't offered yet. */
+export const opacityOf = (value: Opacity | undefined): number | undefined =>
+  value !== undefined && "percent" in value ? value.percent : undefined
 
 /** A keyword from a set as the style holds it, where it's one the style takes; a custom keyword it can't hold. */
 export function optionOf<T extends string>(

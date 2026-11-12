@@ -293,15 +293,33 @@ export function viewportsOf(preset: TypePreset | undefined, field: TypeField): s
   return `${words(base)} on Mobile, ${words(wider)} from ${preset.wider.viewport}`
 }
 
-/** A preset the layer's type matches, or nearly does (its size within 2px), and the rows that differ. */
+/** A preset the layer's type matches, or comes near (see `closestPreset`), and the rows that differ. */
 export interface PresetMatch {
   preset: TypePreset
   differs: TypeField[]
 }
 
-/** For a layer with no preset: the preset its type matches in every row it sets, else the nearest by size. */
+/**
+ * How far apart two values of a row are, in steps a designer would take: a font that differs is one, and so is each
+ * 4px of size or line height, 100 of weight, and 0.025em of letter spacing, the gap between Normal and Tight.
+ */
+const rowSteps: Record<Exclude<TypeField, "font">, number> = {
+  size: 4,
+  weight: 100,
+  lineHeight: 4,
+  letterSpacing: 0.025
+}
+
+/** The furthest a preset can be, in those steps summed over the rows it sets, and still be offered as near. */
+const nearSteps = 3
+
+/**
+ * For a layer with no preset: the preset its type matches in every row the preset sets, or else the nearest, by the
+ * steps between its rows and the preset's summed over the rows the preset sets, when that's within `nearSteps`. A layer
+ * that sets no type of its own is offered none: it has the type it inherits, which isn't a choice to match.
+ */
 export function closestPreset(layer: PresetLayer): PresetMatch | undefined {
-  if (layer.preset !== undefined) {
+  if (layer.preset !== undefined || typeFields.every(({ field }) => layer.own[field] === undefined)) {
     return undefined
   }
 
@@ -310,22 +328,24 @@ export function closestPreset(layer: PresetLayer): PresetMatch | undefined {
   const matches = typePresets.map((preset) => {
     const theirs = measured(presetType(preset))
 
-    const differs = coveredBy(preset).filter((field) =>
-      field === "font" ? theirs.font !== mine.font : Math.abs(theirs[field] - mine[field]) > 0.001
-    )
+    const steps = coveredBy(preset).map((field) => ({
+      field,
+      steps:
+        field === "font" ? Number(theirs.font !== mine.font) : Math.abs(theirs[field] - mine[field]) / rowSteps[field]
+    }))
 
-    return { preset, differs, sizeOff: Math.abs(theirs.size - mine.size) }
+    return {
+      preset,
+      differs: steps.filter((row) => row.steps > 0.001).map((row) => row.field),
+      steps: steps.reduce((sum, row) => sum + row.steps, 0)
+    }
   })
 
-  const exact = matches.find((match) => match.differs.length === 0)
+  const nearest = matches
+    .filter((match) => match.steps <= nearSteps)
+    .sort((a, b) => a.steps - b.steps || a.differs.length - b.differs.length)[0]
 
-  if (exact) {
-    return { preset: exact.preset, differs: [] }
-  }
-
-  const near = matches.filter((match) => match.sizeOff <= 2).sort((a, b) => a.sizeOff - b.sizeOff)[0]
-
-  return near && { preset: near.preset, differs: near.differs }
+  return nearest && { preset: nearest.preset, differs: nearest.differs }
 }
 
 /** Words for a row's value, as the locked row and Use's hint say it. */

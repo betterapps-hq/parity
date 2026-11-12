@@ -22,16 +22,19 @@ export function SelectionHeading({
   color,
   kind,
   detail,
-  name
+  name,
+  action
 }: {
   icon: ReactNode
   /** Its kind's selection color, from `kindColors`; the icon and kind take its text step (`textFor`). */
   color: string
-  /** A word or two, as "Screen", "Text" or "Instance". */
+  /** A word or two, as "Screen", "Text" or "Component instance". */
   kind: string
   detail?: string
   /** Its name, as a field to rename it or as text. */
   name: ReactNode
+  /** What sits at the end of the name's row, as a layer's eye. */
+  action?: ReactNode
 }) {
   const more = detail && detail !== kind ? detail : undefined
 
@@ -49,7 +52,10 @@ export function SelectionHeading({
           {more && <span className="sr-only">{more}</span>}
         </p>
       </Hint>
-      <div className="mt-1 flex h-7 items-center">{name}</div>
+      <div className="mt-1 flex h-7 items-center gap-1">
+        <div className="flex min-w-0 flex-1 items-center">{name}</div>
+        {action}
+      </div>
     </>
   )
 }
