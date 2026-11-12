@@ -1,7 +1,6 @@
 import { boardTarget, editNode, isNamedLength, type Length, type NodeStyle } from "@parity-app/core"
 import {
   type LengthToken,
-  type PaddingSide,
   paddingSides,
   pickedSpacing,
   resizeStart,
@@ -9,7 +8,6 @@ import {
   type SpacingEditStart,
   spacingDrag,
   type SpacingHandle,
-  type SpacingLayout,
   sidesOf,
   spacingStep,
   typedSpacing
@@ -19,7 +17,9 @@ import type { PointerEvent as ReactPointerEvent } from "react"
 import { px } from "../lengths.ts"
 import { resolveTokenValue, spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
+import type { AreaSpace, FrameGeometry } from "./frame-geometry.ts"
 import { followPress, gestures } from "./gesture.ts"
+import { type SpacingMeasure, spacingMeasure } from "./layer-measure.ts"
 import { sidesHeld, type SpacingKeys } from "./SpacingHandles.tsx"
 
 /**
@@ -36,46 +36,18 @@ export interface SpacingTarget {
   node: string
 }
 
-/** A selected layout measured for its handles. */
-export interface SpacingMeasure {
-  /** In the overlay's pixels. */
-  layout: SpacingLayout
-  /** What its padding and gap draw at, in its own pixels. */
-  drawn: { padding: Record<PaddingSide, number>; gap: number }
-  /** Screen pixels per layout pixel. */
-  scale: number
-}
-
 /**
- * Measures a laid out element and its children that are drawn in the flow, with `toOverlay` taking screen pixels to
- * the overlay's. Its children run along a single line when it's a flex box that doesn't wrap; a grid or a wrap has
- * gaps in two directions, which have no handles yet.
+ * Measures a laid out element in its frame and its children that are drawn (see `spacingMeasure`). Its children run
+ * along a single line when it's a flex box that doesn't wrap; a grid or a wrap has gaps in two directions, which have
+ * no handles yet.
  */
 export function measureSpacing(
+  frame: FrameGeometry,
   element: HTMLElement,
   children: readonly (HTMLElement | undefined)[],
-  toOverlay: (rect: DOMRect) => { left: number; top: number; right: number; bottom: number }
+  space: AreaSpace
 ): SpacingMeasure {
-  const rect = element.getBoundingClientRect()
   const style = getComputedStyle(element)
-  const scale = rect.width / Math.max(1, element.offsetWidth)
-  const own = (name: string) => parseFloat(style.getPropertyValue(name)) || 0
-
-  const sides = (prefix: string, suffix = ""): Record<PaddingSide, number> => ({
-    top: own(`${prefix}-top${suffix}`),
-    right: own(`${prefix}-right${suffix}`),
-    bottom: own(`${prefix}-bottom${suffix}`),
-    left: own(`${prefix}-left${suffix}`)
-  })
-
-  const scaled = (values: Record<PaddingSide, number>) =>
-    // SAFETY: the entries are the four sides of `values`, each kept.
-    Object.fromEntries(Object.entries(values).map(([side, value]) => [side, value * scale])) as Record<
-      PaddingSide,
-      number
-    >
-
-  const padding = sides("padding")
   const row = style.flexDirection.startsWith("row")
 
   const drawn = children.flatMap((child) => {
@@ -83,27 +55,23 @@ export function measureSpacing(
       return []
     }
 
-    const box = child.getBoundingClientRect()
+    const box = frame.element(child).borderBox
 
-    return box.width > 0 || box.height > 0
-      ? [{ box: toOverlay(box), flows: getComputedStyle(child).position !== "absolute" }]
+    return box.right > box.left || box.bottom > box.top
+      ? [{ box, flows: getComputedStyle(child).position !== "absolute" }]
       : []
   })
 
-  return {
-    layout: {
-      rect: toOverlay(rect),
-      border: scaled(sides("border", "-width")),
-      padding: scaled(padding),
-      children: drawn.flatMap((child) => (child.flows ? [child.box] : [])),
-      // No handle covers a child, so a click on one selects it, those placed absolutely too.
-      covered: drawn.map((child) => child.box),
+  return spacingMeasure(
+    frame.element(element),
+    drawn,
+    {
       direction: row ? "row" : "column",
-      oneLine: style.display.includes("flex") && style.flexWrap === "nowrap"
+      oneLine: style.display.includes("flex") && style.flexWrap === "nowrap",
+      gap: parseFloat(style.getPropertyValue(row ? "column-gap" : "row-gap")) || 0
     },
-    drawn: { padding, gap: own(row ? "column-gap" : "row-gap") },
-    scale
-  }
+    space
+  )
 }
 
 /**

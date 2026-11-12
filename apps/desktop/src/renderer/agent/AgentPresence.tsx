@@ -2,6 +2,7 @@ import { LoaderCircle, Sparkles } from "lucide-react"
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { areaSpace } from "../canvas/frame-geometry.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { type AgentPalette, agentColors, agentPalettes } from "./agent-colors.ts"
 import { ActionIcon, AgentBadge, AgentPointer } from "./AgentPointer.tsx"
@@ -528,11 +529,7 @@ function locate(area: HTMLElement, event: PresenceEvent): Target | undefined {
     return undefined
   }
 
-  const relative = (rect: DOMRect): Box => {
-    const areaRect = area.getBoundingClientRect()
-
-    return { x: rect.left - areaRect.left, y: rect.top - areaRect.top, w: rect.width, h: rect.height }
-  }
+  const relative = (rect: DOMRect): Box => areaSpace(area).box(rect)
 
   let last = relative(element.getBoundingClientRect())
   const { width, height } = area.getBoundingClientRect()

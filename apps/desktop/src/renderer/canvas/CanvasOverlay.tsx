@@ -36,11 +36,11 @@ import { useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
+import { type AreaSpace, areaSpace, type Box, frameGeometry, frameSize } from "./frame-geometry.ts"
 import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
 import { followPress, gestures } from "./gesture.ts"
 import {
   frameAt,
-  frameScale,
   type Hit,
   hitInFrame,
   hitTest,
@@ -52,10 +52,10 @@ import {
 } from "./hit.ts"
 import { chipColors, chipFor, designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
 import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
+import { resizeBoxes, type SpacingMeasure } from "./layer-measure.ts"
 import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
 import { addFrameOfText } from "./new-screen.ts"
-import { frameDrawn } from "./nudge.ts"
 import { placeAtPoint } from "./paste-here.ts"
 import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
 import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
@@ -65,7 +65,6 @@ import {
   measureSpacing,
   pickSpacing,
   pressSpacing,
-  type SpacingMeasure,
   type SpacingTarget,
   spacingValue,
   stepSpacing,
@@ -74,13 +73,6 @@ import {
 } from "./spacing-edit.ts"
 import { spacingKey, SpacingHandles } from "./SpacingHandles.tsx"
 import { TextEditor } from "./TextEditor.tsx"
-
-interface Box {
-  x: number
-  y: number
-  w: number
-  h: number
-}
 
 /** Resize handles around a selected layer, or around each frame of a selected design. */
 interface Handles {
@@ -786,14 +778,15 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
 
   const current = selection.get()
   const hover = selection.getHover()
-  const areaRect = area.getBoundingClientRect()
+  const space = areaSpace(area)
+  const toBox = space.box
 
-  const toBox = (rect: DOMRect): Box => ({
-    x: rect.left - areaRect.left,
-    y: rect.top - areaRect.top,
-    w: rect.width,
-    h: rect.height
-  })
+  // A box on screen as its size in the design's pixels, in the frame that draws it.
+  const sizeIn = (host: HTMLElement, rect: DOMRect) => {
+    const { width, height } = frameSize(frameGeometry(host), rect)
+
+    return `${formatPx(width)} × ${formatPx(height)}`
+  }
 
   const model: Model = { outlines: [], redlines: [], handles: [] }
   const entry = current.design ? store.getEntry(current.design) : undefined
@@ -843,11 +836,10 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         continue
       }
 
-      const scale = editor.getZoomLevel() * frameScale(host)
       model.label = {
         box: toBox(rect),
         name: node ? layerLabel(node, store.getEntries(), store.getComponentLibrary(), session.info.libraries) : id,
-        size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`,
+        size: sizeIn(host, rect),
         color
       }
 
@@ -874,8 +866,8 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     const top = Math.min(...pickedRects.map((rect) => rect.top))
     const right = Math.max(...pickedRects.map((rect) => rect.right))
     const bottom = Math.max(...pickedRects.map((rect) => rect.bottom))
-    const box = { x: left - areaRect.left, y: top - areaRect.top, w: right - left, h: bottom - top }
-    const scale = editor.getZoomLevel() * frameScale(picked)
+    const around = new DOMRect(left, top, right - left, bottom - top)
+    const box = toBox(around)
     model.outlines.push({ key: "union", box, color: kindColors.layer, dashed: false, thick: false })
 
     // Resized together by handles on that box, unless one is inside an instance, which keeps the component's size.
@@ -896,7 +888,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     model.label = {
       box,
       name: `${layers.length} layers`,
-      size: `${formatPx((right - left) / scale)} × ${formatPx((bottom - top) / scale)}`,
+      size: sizeIn(picked, around),
       color: kindColors.layer,
       counted: true
     }
@@ -913,11 +905,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
 
     if (host) {
       const rect = host.getBoundingClientRect()
-      const scale = editor.getZoomLevel() * frameScale(host)
-      model.frameSize = {
-        box: toBox(rect),
-        size: `${formatPx(rect.width / scale)} × ${formatPx(rect.height / scale)}`
-      }
+      model.frameSize = { box: toBox(rect), size: sizeIn(host, rect) }
     }
   }
 
@@ -967,16 +955,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
       const { rect } = target
       const color = isInnerPath(hover.node) ? kindColors.component : nodeColor(node)
       model.outlines.push({ key: "hover", box: toBox(rect), color, dashed: false, thick: false })
-      const scale = editor.getZoomLevel() * frameScale(target.host)
       const unit = spacingUnit(session.tokens.get())
-
-      const toArea = (line: Redline): Redline => ({
-        ...line,
-        x1: line.x1 - areaRect.left,
-        x2: line.x2 - areaRect.left,
-        y1: line.y1 - areaRect.top,
-        y2: line.y2 - areaRect.top
-      })
 
       // Measured from the selected layer as the hovered frame draws it.
       let from: DOMRect | undefined
@@ -988,14 +967,14 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
       }
 
       if (alt && from) {
-        model.redlines = redlines(from, rect, scale, unit).map(toArea)
+        model.redlines = redlines(from, rect, frameGeometry(target.host).scale, unit, space)
       } else if (alt && !selectedRect && hoverEntry) {
         // Nothing selected to measure from: Alt shows the hovered layer's distances to the edges of its parent.
         const parent = locateNode(hoverEntry.container.root, hover.node)?.ancestors.at(-1)
         const parentRect = parent && nodeBox(target.host, parent.id)
 
         if (parentRect) {
-          model.redlines = redlines(rect, parentRect, scale, unit).map(toArea)
+          model.redlines = redlines(rect, parentRect, frameGeometry(target.host).scale, unit, space)
         }
       }
     }
@@ -1007,16 +986,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   if (snapped.length > 0) {
     const unit = spacingUnit(session.tokens.get())
     model.redlines = snapped.flatMap(({ from, to, length }) =>
-      Math.hypot(to.x - from.x, to.y - from.y) < 0.5
-        ? []
-        : [
-            redline(
-              { x: from.x - areaRect.left, y: from.y - areaRect.top },
-              { x: to.x - areaRect.left, y: to.y - areaRect.top },
-              length,
-              unit
-            )
-          ]
+      Math.hypot(to.x - from.x, to.y - from.y) < 0.5 ? [] : [redline(space.point(from), space.point(to), length, unit)]
     )
   }
 
@@ -1039,18 +1009,13 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
           state: picked.dataset.state ?? "",
           node: single
         },
-        measure: measureSpacing(element, children, (rect) => ({
-          left: rect.left - areaRect.left,
-          top: rect.top - areaRect.top,
-          right: rect.right - areaRect.left,
-          bottom: rect.bottom - areaRect.top
-        }))
+        measure: measureSpacing(frameGeometry(picked), element, children, space)
       }
     }
   }
 
   if (getPreferences().layoutGrid) {
-    model.columns = layoutColumns(area, editor.getZoomLevel(), toBox)
+    model.columns = layoutColumns(area, toBox)
   }
 
   return model
@@ -1060,7 +1025,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
  * Column grids, sized for each frame's width the way most design systems lay pages out: 4 columns on phones, 8 on
  * tablets, 12 on wider screens, with margins and gutters growing to match.
  */
-function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) => Box): { key: string; box: Box }[] {
+function layoutColumns(area: HTMLElement, toBox: (rect: DOMRect) => Box): { key: string; box: Box }[] {
   const columns: { key: string; box: Box }[] = []
   const view = area.getBoundingClientRect()
 
@@ -1071,7 +1036,7 @@ function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) =
       continue
     }
 
-    const scale = zoom * frameScale(host)
+    const { scale } = frameGeometry(host)
     const width = rect.width / scale
     let grid = { count: 12, margin: 32, gutter: 24 }
 
@@ -1101,12 +1066,11 @@ function layoutColumns(area: HTMLElement, zoom: number, toBox: (rect: DOMRect) =
 
 /**
  * Distances between the selected box and another, Figma style: to each edge of a box that contains it (padding),
- * otherwise the gaps between them on each axis.
+ * otherwise the gaps between them on each axis. The boxes are on screen, the lines in the overlay's pixels, and each
+ * length in the design's, at `scale` screen pixels to one of them.
  */
-export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number): Redline[] {
-  const box = (rect: DOMRect) => ({ x: rect.left, y: rect.top, w: rect.width, h: rect.height })
-
-  return distancesBetween(box(a), box(b)).flatMap(({ from, to, length }) =>
+export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number, space: AreaSpace): Redline[] {
+  return distancesBetween(space.box(a), space.box(b)).flatMap(({ from, to, length }) =>
     length < 0.5 ? [] : [redline(from, to, length / scale, unit)]
   )
 }
@@ -1141,7 +1105,9 @@ function startResize(
     return
   }
 
-  const scale = editor.getZoomLevel() * frameScale(host)
+  // The frame as it's drawn when the drag begins: its scale and every box are read from the same place.
+  const drawn = frameGeometry(host)
+  const { scale } = drawn
   const start = { clientX: event.clientX, clientY: event.clientY }
 
   const pointer = (moveEvent: PointerEvent) => ({
@@ -1158,7 +1124,7 @@ function startResize(
       return
     }
 
-    const resize = frameResize({ design: entry.container, mode, edge, rect: host.getBoundingClientRect(), scale })
+    const resize = frameResize({ design: entry.container, mode, edge, rect: drawn.rect, scale })
     const label = entry.container.kind === "frame" ? "Resize frame" : "Resize preview"
     followPress(gestures.resize, store, start, {
       design: entry.key,
@@ -1188,11 +1154,11 @@ function startResize(
   }
 
   const layer = handles.node
-  const element = layer ? findNodeElement(host, layer) : undefined
-  const rect = layer ? nodeBox(host, layer) : undefined
   const frame = store.editFrame(handles)
+  // A layer that draws only text has a box and no element, and isn't resized.
+  const measured = layer && findNodeElement(host, layer) ? drawn.node(layer) : undefined
 
-  if (!layer || !element || !rect || !frame) {
+  if (!layer || !measured || !frame) {
     return
   }
 
@@ -1206,24 +1172,10 @@ function startResize(
 
   const unit = spacingUnit(tokens.get())
 
+  const boxes = resizeBoxes(measured, shown.style.position === "absolute", unit)
   // An absolutely placed layer resizes by its insets, from where its sides are drawn, and its dragged edges snap.
-  const drawn =
-    shown.style.position === "absolute"
-      ? frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit).insets(layer)
-      : undefined
-
-  const snapping = drawn ? LayerSnapping.measure(editor, host, entry.container, layer, scale) : undefined
-
-  const resize = layerResize({
-    edge,
-    layer: shown,
-    rect,
-    inner: contentBox(element.parentElement, scale),
-    scale,
-    unit,
-    drawn,
-    snapping
-  })
+  const snapping = boxes.drawn ? LayerSnapping.measure(editor, drawn, entry.container, layer) : undefined
+  const resize = layerResize({ edge, layer: shown, ...boxes, scale, unit, snapping })
 
   followPress(gestures.resize, store, start, {
     design: entry.key,
@@ -1284,33 +1236,21 @@ function resizeLayers(
     return
   }
 
-  const scale = editor.getZoomLevel() * frameScale(host)
+  const drawn = frameGeometry(host)
+  const { scale } = drawn
   const unit = spacingUnit(tokens.get())
-  const drawn = frameDrawn(area, handles.design, { mode: handles.mode, state: handles.state }, unit)
 
   const starts = layers.flatMap((id) => {
-    const element = findNodeElement(host, id)
-    const rect = nodeBox(host, id)
     const shown = resizeStart(entry.container, id, { state: frame.state, viewport: frame.viewport })
+    const measured = shown && findNodeElement(host, id) ? drawn.node(id) : undefined
 
-    if (!element || !rect || !shown) {
+    if (!shown || !measured) {
       return []
     }
 
-    return [
-      {
-        id,
-        start: {
-          edge,
-          layer: shown,
-          rect,
-          inner: contentBox(element.parentElement, scale),
-          scale,
-          unit,
-          drawn: shown.style.position === "absolute" ? drawn.insets(id) : undefined
-        }
-      }
-    ]
+    const boxes = resizeBoxes(measured, shown.style.position === "absolute", unit)
+
+    return [{ id, start: { edge, layer: shown, ...boxes, scale, unit } }]
   })
 
   if (starts.length === 0) {
@@ -1410,24 +1350,6 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge, fill =
       return editNode(next, boardTarget(next, frame.state.id), layer, { style: layerSizeReset(edge, fill, shown) })
     }, container)
   )
-}
-
-/** The box a parent lays its children out in, inside its padding and border, in screen pixels. */
-function contentBox(parent: HTMLElement | null, scale: number) {
-  if (!parent) {
-    return undefined
-  }
-
-  const rect = parent.getBoundingClientRect()
-  const style = getComputedStyle(parent)
-  const side = (name: string) => (parseFloat(style.getPropertyValue(name)) || 0) * scale
-
-  return {
-    left: rect.left + side("padding-left") + side("border-left-width"),
-    right: rect.right - side("padding-right") - side("border-right-width"),
-    top: rect.top + side("padding-top") + side("border-top-width"),
-    bottom: rect.bottom - side("padding-bottom") - side("border-bottom-width")
-  }
 }
 
 /**
