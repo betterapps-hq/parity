@@ -101,9 +101,17 @@ it("spec.json is what the spec data gives", async () => {
 
   const types: Record<string, string> = {}
 
-  for (const { name, syntax } of [...css.types, ...css.functions].toSorted((a, b) => a.name.localeCompare(b.name))) {
+  // Sorted by code unit, as `toSorted()` does by default, so the file is the same on every machine: `localeCompare`
+  // orders punctuation by the machine's locale data.
+  const named = new Map(
+    [...css.types, ...css.functions].map(({ name, syntax }) => [name.replaceAll(/^<|>$/g, ""), syntax])
+  )
+
+  for (const name of [...named.keys()].toSorted()) {
+    const syntax = named.get(name)
+
     if (syntax !== undefined) {
-      types[name.replaceAll(/^<|>$/g, "")] = syntax
+      types[name] = syntax
     }
   }
 
@@ -122,7 +130,12 @@ it("spec.json is what the spec data gives", async () => {
     }
   }
 
-  const sorted = Object.fromEntries(Object.entries(referenced).toSorted(([a], [b]) => a.localeCompare(b)))
+  const sorted = Object.fromEntries(
+    Object.keys(referenced)
+      .toSorted()
+      .map((name) => [name, referenced[name]])
+  )
+
   const spec = { chromium, properties, referenced: sorted, types }
 
   await expect(`${JSON.stringify(spec, null, 2)}\n`).toMatchFileSnapshot("./spec.json")
