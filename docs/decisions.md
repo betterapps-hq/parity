@@ -2735,8 +2735,9 @@ the Repository, CI and releases stream in Linear.
     updates it, Linux updates it, and macOS only packages. Every installer target still has to build before a merge.
     `app-windows` uploads the source maps, and `CI passes` waits on every job.
   - The app jobs cache only Electron's downloads, keyed on the app's `package.json`, and skip the fixtures.
-  - On Windows, ci-verify's `dev-drive` input runs the job from a copy of the checkout on a trusted ReFS Dev Drive, with
-    TEMP and pnpm's store on it, which is faster with many small files.
+  - On Windows, ci-verify runs each job from a copy of the checkout on a trusted ReFS Dev Drive, with TEMP and pnpm's
+    store on it, which is faster with many small files. Its `dev-drive` input is on by default for every repository, as
+    you asked, since Parity was the only caller running it on Windows.
   - `try-update.ts` builds its two installers with `store` compression, since neither leaves the runner. Compressing
     each took about a minute on Windows.
 - **Parity's checks are Vite+ tasks, so Vite Task replays one whose inputs haven't changed (PAR-405).** My calls:

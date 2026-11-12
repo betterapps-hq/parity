@@ -11,13 +11,11 @@ permissions:
 jobs:
   # pnpm verify on each system, through the shared template, and the CLI's packed tarball installed in an empty folder
   # (PAR-13). What only one system checks runs beside it, in a job per system below (PAR-1010). A newer push to the
-  # same branch or pull request cancels the run before it. On Windows it runs from a Dev Drive, which is faster with
-  # many small files.
+  # same branch or pull request cancels the run before it. On Windows the template runs it from a Dev Drive.
   verify:
     uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
-      dev-drive: true
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
       # node_modules come back from the cache while their lockfiles are unchanged, and npm ci would delete them, so
       # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
@@ -67,7 +65,6 @@ jobs:
       os: '["windows-latest"]'
       # A group of its own, so it never cancels verify's run on the same system.
       concurrency-key: app-${{ github.ref }}
-      dev-drive: true
       prepare: |
         # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
         # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
