@@ -3973,11 +3973,11 @@ An instance fills its component's slots with layers of the design it sits in, sh
 A slot it leaves empty shows the placeholder.
 
 - **The instance's panel** lists each slot after its params, as a prop: the Slot tile and its name with a capital first
-  letter, over its Slot picker: the layer that fills it as a chip, by the name Layers gives it, or an empty box.
-  Clicking the chip selects the layer, so it can be renamed, and its × clears the slot, deleting the layer. Resting on
-  one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by itself so a large
-  component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a dashed edge.
-  Clicking the box selects the slot.
+  letter, over its Slot picker: the layer that fills it as a chip, with its kind's icon and the name Layers gives it, or
+  an empty box. Clicking the chip selects the layer, so it can be renamed, and its × clears the slot, deleting the
+  layer. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
+  itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
+  dashed edge. Clicking the box selects the slot.
 - **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and

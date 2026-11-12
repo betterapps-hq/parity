@@ -4,7 +4,7 @@ import { slotPreviewTree } from "@parity-app/editor"
 import { ArrowLeft, SquareDashed } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
-import { kindColors, layerLabel } from "../canvas/kinds.tsx"
+import { kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
 import { treePreviewJob, useOneOffPreview } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
@@ -183,7 +183,20 @@ function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: I
       <SlotCard slot={slot} card={card}>
         <SlotPickerField
           label={shownName(slot.name)}
-          layer={layer && { id: layer.id, name: name ?? "" }}
+          layer={
+            layer && {
+              id: layer.id,
+              name: name ?? "",
+              icon: (
+                <NodeIcon
+                  node={layer}
+                  libraries={session.info.libraries}
+                  className="size-3 shrink-0"
+                  style={{ color: nodeColor(layer) }}
+                />
+              )
+            }
+          }
           onClear={() => clear(slot)}
           onSelectLayer={select}
           aria-describedby={card.open ? card.id : undefined}

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { Rows3 } from "lucide-react"
 import { useState } from "react"
 import { expect, fn, userEvent, within } from "storybook/test"
 import { Changed as MarkChanged } from "./field-parts.tsx"
@@ -44,7 +45,7 @@ export const Empty: Story = {}
 
 /** Filled: its layer as a chip. Clicking it selects the layer; the × clears the slot. */
 export const Filled: Story = {
-  args: { layer: { id: "list", name: "Feature list" } },
+  args: { layer: { id: "list", name: "Feature list", icon: <Rows3 className="size-3 shrink-0" /> } },
   play: async ({ args, canvasElement }) => {
     const box = within(canvasElement)
     await userEvent.click(box.getByText("Feature list"))
@@ -58,12 +59,18 @@ export const Filled: Story = {
 
 /** A name too long for the box truncates. */
 export const LongName: Story = {
-  args: { layer: { id: "list", name: "Everything included in the Business plan, listed" } }
+  args: {
+    layer: {
+      id: "list",
+      name: "Everything included in the Business plan, listed",
+      icon: <Rows3 className="size-3 shrink-0" />
+    }
+  }
 }
 
 /** Filled differently in the state being edited: the box has the change dot. */
 export const Changed: Story = {
-  args: { layer: { id: "list", name: "Feature list" } },
+  args: { layer: { id: "list", name: "Feature list", icon: <Rows3 className="size-3 shrink-0" /> } },
   decorators: [
     (Story) => (
       <MarkChanged>

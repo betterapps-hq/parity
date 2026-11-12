@@ -1,15 +1,18 @@
 import { Combobox, ComboboxChip, ComboboxChips } from "@buildkitgg/shadcn-baseui-kit"
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { ChangeMark, useChanged } from "./field-parts.tsx"
 
 /** The layer filling a slot, by the name Layers gives it. */
 export interface SlotLayer {
   id: string
   name: string
+  /** Its kind's icon, as Layers draws it. */
+  icon?: ReactNode
 }
 
 /**
- * What fills one of an instance's slots, on the kit's Combobox chips, as class names are: its one layer as a chip, whose
+ * What fills one of an instance's slots, on the kit's Combobox chips, as class names are: its one layer as a chip, with its
+ * kind's icon, whose
  * × clears the slot and whose click selects the layer, so it can be renamed; an empty box while the placeholder shows.
  * The box takes the props of what it sits in, as a hover card's trigger, and draws the change mark where the value's
  * changed (PAR-1020).
@@ -59,6 +62,7 @@ export function SlotPickerField({
               }
             }}
           >
+            {layer.icon}
             <span className="truncate">{layer.name}</span>
           </ComboboxChip>
         )}
