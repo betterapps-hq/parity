@@ -6,7 +6,7 @@ const card = (key: string, title: string): DesignNode => ({
   type: "layout",
   id: `card-${key}`,
   children: [
-    { type: "text", id: `${key}-title`, text: title, style: { weight: 600 } },
+    { type: "text", id: `${key}-title`, text: title, style: { fontWeight: { value: 600 } } },
     { type: "text", id: `${key}-body`, text: "Details" }
   ]
 })
@@ -16,22 +16,20 @@ const projects: ContainerSpec = {
   id: "projects",
   name: "Projects",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "page", children: [card("a", "Atlas"), card("b", "Beacon")] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "page", children: [card("a", "Atlas"), card("b", "Beacon")] }
 }
 
 const settings: ContainerSpec = {
   id: "settings",
   name: "Settings",
   position: { x: 1600, y: 0 },
-  root: { type: "layout", id: "settings-page", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "settings-page", children: [] }
 }
 
 const documents = (): Map<string, CanvasDocument> =>
   new Map([
-    ["screens/projects.par", { version: 3, containers: [projects] }],
-    ["canvas.par", { version: 3, containers: [settings] }]
+    ["screens/projects.par", { version: 4, containers: [projects] }],
+    ["canvas.par", { version: 4, containers: [settings] }]
   ])
 
 const options = { name: "Project card", into: "canvas.par", position: { x: 0, y: -640 }, viewports: ["desktop"] }
@@ -57,7 +55,7 @@ describe("making a component", () => {
 
   it("gives it an id no design has, and the params the names asked for", () => {
     const taken = documents()
-    taken.set("canvas.par", { version: 3, containers: [settings, { ...settings, id: "project-card" }] })
+    taken.set("canvas.par", { version: 4, containers: [settings, { ...settings, id: "project-card" }] })
 
     const made = makeComponent(taken, { path: "screens/projects.par", id: "projects" }, ["card-a", "card-b"], {
       ...options,
@@ -76,7 +74,7 @@ describe("making a component", () => {
     })
 
     expect(made.documents.get("new.par")).toEqual({
-      version: 3,
+      version: 4,
       containers: [expect.objectContaining({ id: "project-card" })]
     })
   })

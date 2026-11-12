@@ -1,7 +1,16 @@
-import { applyFieldInput, type FieldRules, type Length, type NodeStyle, readFieldInput } from "@parity-app/core"
+import {
+  applyFieldInput,
+  type FieldLength,
+  fieldLength,
+  type FieldRules,
+  isNamedLength,
+  type Length,
+  lengthToken,
+  type NodeStyle,
+  readFieldInput
+} from "@parity-app/core"
 import type { Rect } from "./drop-slot.ts"
 import type { HandleBox } from "./handles.ts"
-import { lengthSteps, lengthToken } from "./lengths.ts"
 import { dragThreshold } from "./move-resize.ts"
 import { sidesOf, tidySides } from "./style-editing.ts"
 
@@ -307,7 +316,7 @@ export interface SpacingEdit {
   sides?: PaddingSide[]
 }
 
-/** What one side, or the gap, is now: a number of steps, or a token's name. */
+/** What one side, or the gap, is now, as it's stored. */
 function lengthAt(style: NodeStyle, handle: SpacingEditStart["handle"]): Length | undefined {
   if (handle.kind === "gap") {
     return style.gap
@@ -316,14 +325,19 @@ function lengthAt(style: NodeStyle, handle: SpacingEditStart["handle"]): Length 
   return sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
 }
 
-/** The token a value keeps, when it started bound to one and lands on a token's value: its own first. */
+/**
+ * The token a value keeps, when it started bound to one and lands on a token's value: its own first. A length written
+ * out (`10px`, `auto`, `clamp(…)`) names no token, so it goes to steps from what's drawn, as an unbound value does.
+ */
 function keptToken(start: Length | undefined, px: number, tokens: readonly LengthToken[]): string | undefined {
-  if (lengthToken(start) === undefined) {
+  const bound = lengthToken(start)
+
+  if (bound === undefined) {
     return undefined
   }
 
   const near = (token: LengthToken) => Math.abs(token.px - px) < 0.01
-  const own = tokens.find((token) => token.name === start)
+  const own = tokens.find((token) => token.name === bound)
 
   if (own && near(own)) {
     return own.name
@@ -332,17 +346,25 @@ function keptToken(start: Length | undefined, px: number, tokens: readonly Lengt
   return tokens.find(near)?.name
 }
 
-/** The style a padding or gap handle writes for a value, in layout pixels, from the sides it changes. */
-function writeValue(start: SpacingEditStart, value: Length, sides: readonly PaddingSide[]): SpacingEdit["change"] {
+/** The style a padding or gap handle writes for a value, steps or a token's name, on the sides it changes. */
+function writeValue(start: SpacingEditStart, value: FieldLength, sides: readonly PaddingSide[]): SpacingEdit["change"] {
+  const written = fieldLength(value)
+
   if (start.handle.kind === "gap") {
-    return { gap: value }
+    return { gap: written }
   }
 
-  const [top, right, bottom, left] = sidesOf(start.style.padding) ?? [0, 0, 0, 0]
+  const [top, right, bottom, left] = sidesOf(start.style.padding) ?? [
+    { step: 0 },
+    { step: 0 },
+    { step: 0 },
+    { step: 0 }
+  ]
+
   const next: [Length, Length, Length, Length] = [top, right, bottom, left]
 
   for (const side of sides) {
-    next[paddingSides.indexOf(side)] = value
+    next[paddingSides.indexOf(side)] = written
   }
 
   return { padding: tidySides(next) }
@@ -450,10 +472,10 @@ export function typedSpacing(start: SpacingEditStart, text: string, held: SidesH
  * A value picked from the list beside the box a value is typed in: a length token by name, or a number of steps of the
  * spacing scale. The sides it changes follow what was held when the handle was clicked.
  */
-export function pickedSpacing(start: SpacingEditStart, value: Length, held: SidesHeld): SpacingEdit {
-  const token = lengthToken(value)
+export function pickedSpacing(start: SpacingEditStart, value: FieldLength, held: SidesHeld): SpacingEdit {
+  const token = isNamedLength(value) ? value : undefined
   const named = start.tokens.find((each) => each.name === token)
-  const px = token === undefined ? (lengthSteps(value) ?? 0) * start.unit : (named?.px ?? 0)
+  const px = isNamedLength(value) ? (named?.px ?? 0) : value * start.unit
   const sides = start.handle.kind === "padding" ? changedSides(start.handle.side, held) : undefined
 
   return spacingEdit(writeValue(start, value, sides ?? []), px, token, sides)

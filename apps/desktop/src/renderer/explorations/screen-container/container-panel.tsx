@@ -16,6 +16,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardTarget,
+  designStates,
   editNode,
   editsDesign,
   findRepeats,
@@ -117,7 +118,7 @@ export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
       <ContainerHeader entry={entry} />
       <RootSections entry={entry} />
       {component && <ParamsSection entry={entry} />}
-      <StatesSection entry={entry} />
+      {component && <StatesSection entry={entry} />}
       <ModesSection entry={entry} />
       {!component && <RepeatedPartsSection entry={entry} />}
     </>
@@ -191,7 +192,7 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
         </Hint>
       </div>
       {/* Says where the root's edits go, once there's somewhere else for them to go. */}
-      {(container.states.length > 1 || variants) && (
+      {(designStates(container).length > 1 || variants) && (
         <EditingBar entry={entry} state={editingState(container, selected.state)} />
       )}
     </div>
@@ -214,7 +215,7 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
 
   if (base) {
     changes = "changes every state"
-  } else if (variant && state.id === entry.container.states[0]!.id) {
+  } else if (variant && state.id === designStates(entry.container)[0]!.id) {
     changes = `changes only the ${variant.name} variant`
   }
 
@@ -229,14 +230,14 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
       <Select
-        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
+        items={designStates(entry.container).map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
           if (!id) {
             return
           }
 
-          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          const name = designStates(entry.container).find((candidate) => candidate.id === id)?.name ?? id
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
@@ -249,7 +250,7 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {entry.container.states.map((candidate) => (
+          {designStates(entry.container).map((candidate) => (
             <SelectItem key={candidate.id} value={candidate.id}>
               {candidate.name}
             </SelectItem>

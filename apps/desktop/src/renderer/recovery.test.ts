@@ -8,8 +8,7 @@ const home: ContainerSpec = {
   id: "home",
   name: "Home",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "root", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [] }
 }
 
 beforeEach(() => vi.useFakeTimers())
@@ -19,7 +18,7 @@ afterEach(() => vi.useRealTimers())
 /** A project open with nothing unsaved, a keeper for it, and what the keeper was asked to keep, `undefined` for removed. */
 function setup() {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     {

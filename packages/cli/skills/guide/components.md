@@ -40,9 +40,11 @@ its params from what differs, and replaces each occurrence with an instance carr
   with `AddParam`, `UpdateParam` and `DeleteParam`.
 - Give params names that say what they are (`name`, `email`, `role`), not where they are.
 - An instance's values are its `args`. Change them with `Update(instance, { args: { role: "Admin" } })`.
-- A component design can have states too, such as a row that's loading. An instance's `state` picks which one it shows.
-- A component design can have variants: choices each instance makes, like a size or a tone. Each option patches the
-  design the way a state does, and an instance picks one in its `args`: `Update(row, { args: { density: "compact" } })`.
+- Only a component design has states, such as a row that's loading. They test the component on its own board; an
+  instance always shows the base state.
+- A component design can have variants: choices each instance makes, like a size, a tone or whether a table has rows.
+  Each option patches the design the way a state does, and an instance picks one in its `args`:
+  `Update(row, { args: { density: "compact" } })`. Use a variant when a screen needs a copy to look another way.
 - An instance can override what's inside it, such as one copy's title or a hidden badge. `Get` shows these as the
   instance's `overrides`. `Insert` and `Replace` take an instance with `overrides`; `Update` doesn't change them. When
   copies differ in the same field, give the component design a param for it instead.

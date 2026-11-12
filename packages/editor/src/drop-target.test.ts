@@ -33,7 +33,12 @@ function board(kind: "instance" | "layout"): DesignNode {
     type: "layout",
     id: "root",
     children: [
-      { type: "layout", id: "stats", style: { display: "grid", columns: 4 }, children: cards.map(card) },
+      {
+        type: "layout",
+        id: "stats",
+        style: { display: "grid", gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }, { fr: 1 }] },
+        children: cards.map(card)
+      },
       { type: "layout", id: "panel", children: [{ type: "text", id: "panel-label", text: "Panel" }] }
     ]
   }

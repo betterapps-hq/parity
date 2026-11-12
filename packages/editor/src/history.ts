@@ -458,7 +458,7 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
   const detection = main?.detection
   const sources = main?.sources
 
-  const merged: CanvasDocument = { version: 3, containers: all.flatMap((document) => document.containers) }
+  const merged: CanvasDocument = { version: 4, containers: all.flatMap((document) => document.containers) }
 
   if (notes.length > 0) {
     merged.notes = notes
@@ -638,7 +638,7 @@ function fileContent(
     return undefined
   }
 
-  const base = document ?? { version: 3, containers: [] }
+  const base = document ?? { version: 4, containers: [] }
 
   return custom ? { ...base, modes } : base
 }

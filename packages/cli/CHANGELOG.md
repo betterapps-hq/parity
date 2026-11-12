@@ -1,8 +1,31 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 08:08:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 10:56:22 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.55.0
+
+Thu, 12 Nov 2026 10:56:22 GMT
+
+### Minor changes
+
+- States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs()
+  lists states for components alone (ajcraswell@gmail.com)
+
+## 0.54.0
+
+Thu, 12 Nov 2026 09:40:43 GMT
+
+### Minor changes
+
+- Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or
+  an edit to one component no longer recaptures every frame (ajcraswell@gmail.com)
+
+### Patches
+
+- Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right
+  values and extract cleanly (PAR-998) (ajcraswell@gmail.com)
 
 ## 0.53.2
 

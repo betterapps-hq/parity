@@ -1,4 +1,4 @@
-import type { Paint } from "@parity-app/core"
+import { type Paint, solidFill } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { PaintEntry } from "./controls/lists-data.ts"
 import { gradientToken } from "./controls/tokens.ts"
@@ -15,19 +15,19 @@ const brand = gradientToken("gradient-brand", {
 
 const stack: Paint[] = [
   {
-    kind: "conic",
+    type: "conic",
     angle: 30,
     center: [20, 80],
     repeat: true,
     interpolation: "oklch",
     stops: [
-      { color: "primary", position: 0, hint: 40 },
-      { color: "muted", alpha: 50, position: 100 }
+      { color: { token: "primary" }, position: 0, hint: 40 },
+      { color: { token: "muted", alpha: { step: 50 } }, position: 100 }
     ]
   },
-  { kind: "gradient", token: "gradient-brand" },
-  { kind: "image", src: "/images/hero.jpg", fit: "crop", scale: 120, position: [0, 100] },
-  { kind: "solid", color: "card", hidden: true }
+  { type: "gradient", token: "gradient-brand" },
+  { type: "image", src: "/images/hero.jpg", fit: "crop", scale: 120, position: [0, 100] },
+  { type: "solid", color: { token: "card" }, off: true }
 ]
 
 describe("a fill in the Paint stack control", () => {
@@ -35,12 +35,32 @@ describe("a fill in the Paint stack control", () => {
     expect(paintsFromEntries(entriesFromFill(stack, [brand]))).toEqual(structuredClone(stack))
   })
 
-  it("is one solid entry for one color token, as files before paint stacks hold it", () => {
-    expect(entriesFromFill("card", [])).toEqual([{ id: "fill-0", paint: { kind: "solid", color: "card" } }])
+  it("is one solid entry for one color token, and none for no fills", () => {
+    expect(entriesFromFill(solidFill("card"), [])).toEqual([{ id: "fill-0", paint: { kind: "solid", color: "card" } }])
     expect(entriesFromFill(undefined, [])).toEqual([])
   })
 
-  it("draws a conic gradient as the control's angular one, a gradient token with its stops, and hidden as off", () => {
+  it("shows a color written out as its text, and stores one typed as a value", () => {
+    const fills: Paint[] = [{ type: "solid", color: { value: "#2563eb", alpha: { step: 40 } } }]
+    const entries = entriesFromFill(fills, [])
+
+    expect(entries[0]?.paint).toEqual({ kind: "solid", color: "#2563eb", alpha: 40 })
+    expect(paintsFromEntries(entries)).toEqual(fills)
+  })
+
+  it("keeps a color no field edits in the form it was stored, when another paint changes", () => {
+    const fills: Paint[] = [
+      { type: "solid", color: { keyword: "currentColor" } },
+      { type: "solid", color: { token: "card", alpha: { token: "opacity-muted" } } }
+    ]
+
+    const [first, second] = entriesFromFill(fills, [])
+    const edited = [{ ...first!, off: true }, second!]
+
+    expect(paintsFromEntries(edited, fills)).toEqual([{ ...fills[0], off: true }, fills[1]])
+  })
+
+  it("draws a conic gradient as the control's angular one, a gradient token with its stops, and one that's off", () => {
     const [conic, token, , solid] = entriesFromFill(stack, [brand])
     expect(conic?.paint).toMatchObject({ kind: "angular", angle: 30 })
     expect(token?.paint).toMatchObject({ kind: "linear", token: "gradient-brand", stops: brand.paint.stops })
@@ -57,8 +77,8 @@ describe("a fill in the Paint stack control", () => {
 
     const changed = entriesFromFill(
       [
-        { kind: "solid", color: "primary" },
-        { kind: "solid", color: "muted" }
+        { type: "solid", color: { token: "primary" } },
+        { type: "solid", color: { token: "muted" } }
       ],
       [],
       previous
@@ -69,7 +89,7 @@ describe("a fill in the Paint stack control", () => {
   })
 
   it("keeps a gradient's own stops once they're edited away from its token", () => {
-    const [entry] = entriesFromFill([{ kind: "gradient", token: "gradient-brand" }], [brand])
+    const [entry] = entriesFromFill([{ type: "gradient", token: "gradient-brand" }], [brand])
 
     if (entry?.paint.kind !== "linear") {
       throw new Error("expected a linear gradient")
@@ -78,11 +98,11 @@ describe("a fill in the Paint stack control", () => {
     const { token: _token, ...own } = entry.paint
     expect(paintsFromEntries([{ ...entry, paint: own }])).toEqual([
       {
-        kind: "linear",
+        type: "linear",
         angle: 90,
         stops: [
-          { color: "blue-500", position: 0 },
-          { color: "teal-600", position: 100 }
+          { color: { token: "blue-500" }, position: 0 },
+          { color: { token: "teal-600" }, position: 100 }
         ]
       }
     ])

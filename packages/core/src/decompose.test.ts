@@ -10,7 +10,7 @@ const row = (key: string, name: string, role: string, variant: string, away = fa
   component: "TableRow",
   slots: {
     children: [
-      { type: "text", id: `${key}-name`, text: name, style: { weight: 500 } },
+      { type: "text", id: `${key}-name`, text: name, style: { fontWeight: { value: 500 } } },
       { type: "component", id: `${key}-badge`, name: "Role", component: "Badge", props: { variant, children: role } },
       { type: "text", id: `${key}-away`, text: "Away", hidden: !away, responsive: { mobile: { hidden: true } } }
     ]
@@ -161,7 +161,7 @@ describe("extractComponent", () => {
     })
     // The Without Sam state still hides Sam's row, now an instance.
     const library = componentLibrary([component])
-    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states[1], "desktop", library))
+    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states![1], "desktop", library))
     expect(rendered).not.toContain("Sam")
     expect(rendered).toContain('"nodeId":"row-j/')
   })
@@ -169,7 +169,7 @@ describe("extractComponent", () => {
   it("refuses when a state changes something inside the part", () => {
     const changed: ContainerSpec = {
       ...design,
-      states: [...design.states, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
+      states: [...design.states!, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
     }
 
     expect(() => extractComponent(changed, ["row-a", "row-j", "row-s"], options)).toThrow("Renamed state changes")
@@ -224,7 +224,7 @@ describe("extractComponent", () => {
           type: "variant",
           options: [
             { id: "plain", name: "Plain" },
-            { id: "bold", name: "Bold", overrides: { "a-name": { style: { weight: 700 } } } }
+            { id: "bold", name: "Bold", overrides: { "a-name": { style: { fontWeight: { value: 700 } } } } }
           ]
         }
       }

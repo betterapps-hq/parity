@@ -6,7 +6,8 @@ import {
   effectiveTree,
   type RenderNode,
   resolveDesign,
-  spacing
+  spacing,
+  fontWeightNumber
 } from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { jsonValue, type JsonValue } from "@parity-app/core/schema"
@@ -29,7 +30,7 @@ function snapshot(containers: ContainerSpec[]): AgentSnapshot {
     tokens: [],
     theme: [],
     modes: defaultModeSettings,
-    documents: [{ path: "app.par", document: { version: 3, containers } }],
+    documents: [{ path: "app.par", document: { version: 4, containers } }],
     mainDocument: "app.par",
     libraryDesigns: [],
     tokenOverrides: [],
@@ -124,7 +125,7 @@ function readOutline(tree: EffectiveTree, reads: Map<string, DesignNode>): Outli
   const outline: Outline = { id: tree.path, children: tree.children.flatMap((child) => readOutline(child, reads)) }
 
   if (node.type === "layout") {
-    outline.direction = style.direction ?? "column"
+    outline.direction = style.flexDirection ?? "column"
   }
 
   if (style.gap !== undefined) {
@@ -135,8 +136,8 @@ function readOutline(tree: EffectiveTree, reads: Map<string, DesignNode>): Outli
     outline.text = node.text
   }
 
-  if (style.weight !== undefined) {
-    outline.weight = String(style.weight)
+  if (style.fontWeight !== undefined) {
+    outline.weight = String(fontWeightNumber(style.fontWeight))
   }
 
   return [outline]
@@ -173,7 +174,7 @@ describe("Get in a state and mode", () => {
       it(`reads what resolveDesign draws: ${name}, ${viewport}`, async () => {
         const shown = { ...design, view: variants ? { ...design.view, variants } : { ...design.view } }
         const containers = designs.map((candidate) => (candidate.id === design.id ? shown : candidate))
-        const context = { state: state ?? design.states[0], variants, viewport, library }
+        const context = { state: state ?? design.states![0], variants, viewport, library }
         const tree = effectiveTree(design, design.root.id, context)
 
         if (!tree) {
@@ -233,7 +234,7 @@ Print(JSON.stringify({ design: Get("${design.id}", options), layers: ${JSON.stri
     },
     states: [
       { id: "base", name: "Base" },
-      { id: "quiet", name: "Quiet", overrides: { frame: { style: { gap: 2 } } } }
+      { id: "quiet", name: "Quiet", overrides: { frame: { style: { gap: { step: 2 } } } } }
     ]
   }
 
@@ -320,13 +321,13 @@ describe("Get reading the layers an instance fills its slots with (PAR-966)", ()
       type: "layout",
       id: "panel",
       children: [{ type: "layout", id: "body", slot: "content", children: [] }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const page: ContainerSpec = {
     id: "page",
     name: "Page",
+    kind: "component",
     position: { x: 600, y: 0 },
     root: {
       type: "layout",
@@ -432,7 +433,7 @@ Print(JSON.stringify([at("profile/person/title", id).text, at("profile/person", 
       designs(),
       `${shown}
 UpdateState("profile", "selected", { changes: { "person/avatar/circle": null } })
-Print(JSON.stringify([at("profile/person/avatar/circle", "selected").style.background, at("profile/person/title", "selected").text]))`
+Print(JSON.stringify([at("profile/person/avatar/circle", "selected").style.fills[0].color.token, at("profile/person/title", "selected").text]))`
     )
 
     expect(result).toEqual(["primary", "Selected"])
@@ -443,11 +444,11 @@ Print(JSON.stringify([at("profile/person/avatar/circle", "selected").style.backg
       designs(),
       `${shown}
 Update("profile/person/meta", { text: "Picked" }, { state: "selected" })
-Update("profile/Person/Avatar/initials", { style: { weight: 400 } })
+Update("profile/Person/Avatar/initials", { style: { fontWeight: { value: 400 } } })
 Print(JSON.stringify([at("profile/person/meta", "selected").text, at("profile/person/meta", "base").text, Get("profile/person").overrides["avatar/initials"]]))`
     )
 
-    expect(result).toEqual(["Picked", "Joined 1843", { text: "AL", style: { weight: 400 } }])
+    expect(result).toEqual(["Picked", "Joined 1843", { text: "AL", style: { fontWeight: { value: 400 } } }])
   })
 
   it("refuses a path that doesn't lead inside an instance", async () => {
@@ -479,13 +480,13 @@ describe("a state keeping a change equal to what's under it (PAR-882)", () => {
     const result = await read(
       structuredClone(effectiveFixture.designs),
       `${stored}
-const id = AddState("profile", { name: "Pinned", changes: { heading: { text: "Profile" }, page: { style: { gap: 4 } }, "person/meta": { text: "Joined 1843", hidden: false } } })
+const id = AddState("profile", { name: "Pinned", changes: { heading: { text: "Profile" }, page: { style: { gap: { step: 4 } } }, "person/meta": { text: "Joined 1843", hidden: false } } })
 Print(JSON.stringify(overrides(id)))`
     )
 
     expect(result).toEqual({
       heading: { text: "Profile" },
-      page: { style: { gap: 4 } },
+      page: { style: { gap: { step: 4 } } },
       "person/meta": { text: "Joined 1843", hidden: false }
     })
   })
@@ -494,8 +495,8 @@ Print(JSON.stringify(overrides(id)))`
     const result = await read(
       structuredClone(effectiveFixture.designs),
       `${stored}
-Update("profile/heading", { text: "Profile", style: { weight: 700 } }, { state: "selected" })
-Update("profile/heading", { style: { weight: null } }, { state: "selected" })
+Update("profile/heading", { text: "Profile", style: { fontWeight: { value: 700 } } }, { state: "selected" })
+Update("profile/heading", { style: { fontWeight: null } }, { state: "selected" })
 Print(JSON.stringify(overrides("selected").heading))`
     )
 
@@ -507,7 +508,7 @@ describe("Responsive merging with a viewport's earlier patch (PAR-884)", () => {
   it("merges style and props key by key, and null takes one key away", async () => {
     const result = await read(
       structuredClone(effectiveFixture.designs),
-      `Responsive("profile/page", "mobile", { style: { gap: 2 } })
+      `Responsive("profile/page", "mobile", { style: { gap: { step: 2 } } })
 const merged = Get("profile/page").responsive.mobile
 Responsive("profile/person", "mobile", { props: { title: "Ada" } })
 Responsive("profile/page", "mobile", { style: { padding: null }, hidden: true })
@@ -516,8 +517,8 @@ Print(JSON.stringify([merged, Get("profile/page").responsive.mobile, Get("profil
     )
 
     expect(result).toEqual([
-      { style: { padding: 4, gap: 2 } },
-      { style: { gap: 2 } },
+      { style: { padding: { step: 4 }, gap: { step: 2 } } },
+      { style: { gap: { step: 2 } } },
       { props: { layout: "stacked", title: "Ada" } }
     ])
   })
@@ -569,8 +570,9 @@ describe("Update taking a value away in a state", () => {
   const card: ContainerSpec = {
     id: "card",
     name: "Card",
+    kind: "component",
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "body", style: { gap: 2, padding: 3 }, children: [] },
+    root: { type: "layout", id: "body", style: { gap: { step: 2 }, padding: { step: 3 } }, children: [] },
     states: [
       { id: "base", name: "Base" },
       { id: "plain", name: "Plain" }
@@ -584,7 +586,7 @@ describe("Update taking a value away in a state", () => {
 Print(JSON.stringify([Get("card/body", { state: "plain" }).style, Get("card/body").style]))`
     )
 
-    expect(result).toEqual([{ padding: 3 }, { gap: 2, padding: 3 }])
+    expect(result).toEqual([{ padding: { step: 3 } }, { gap: { step: 2 }, padding: { step: 3 } }])
   })
 
   it("refuses a style key it doesn't know", async () => {
@@ -602,6 +604,7 @@ describe("Accessibility props on layout and text layers (PAR-913)", () => {
   const cell: ContainerSpec = {
     id: "cell",
     name: "Cell",
+    kind: "component",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "row", children: [{ type: "text", id: "dash", tag: "span", text: "–" }] },
     states: [
@@ -651,10 +654,9 @@ describe("Update taking a prop away with null, and paths that can't be right (PA
     root: {
       type: "layout",
       id: "body",
-      style: { gap: 2, padding: 3 },
+      style: { gap: { step: 2 }, padding: { step: 3 } },
       children: [{ type: "component", id: "head", component: "TableHead", props: { "aria-sort": "ascending" } }]
-    },
-    states: [{ id: "base", name: "Base" }]
+    }
   }
 
   function withTableHead(): AgentSnapshot {
@@ -686,7 +688,7 @@ Print(JSON.stringify([Get("table/head").props ?? {}, Get("table/body").style]))`
     )
 
     expect(result.error).toBeUndefined()
-    expect(JSON.parse(result.output.at(-1)!)).toEqual([{}, { padding: 3 }])
+    expect(JSON.parse(result.output.at(-1)!)).toEqual([{}, { padding: { step: 3 } }])
     expect(result.warnings.join("\n")).not.toContain("aria-sort")
   })
 

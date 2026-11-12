@@ -1,4 +1,4 @@
-import { addVariant, type ContainerSpec, type DesignNode, editNode, setSlot } from "@parity-app/core"
+import { addVariant, type ContainerSpec, type DesignNode, designStates, editNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
@@ -414,7 +414,7 @@ export const HiddenByAVariant: Story = {
 
         const hidden = editNode(
           added,
-          { state: added.states[0]!.id, variant: { param: "density", option: compact } },
+          { state: designStates(added)[0]!.id, variant: { param: "density", option: compact } },
           feature,
           {
             hidden: true
@@ -722,7 +722,7 @@ function largeScreen(taken: string[]): ContainerSpec {
       type: "layout",
       id: `large-${section + 1}-${index + 1}`,
       name: `Row ${section + 1}.${index + 1}`,
-      style: { direction: "row" },
+      style: { flexDirection: "row" },
       children: [
         text(`large-${section + 1}-${index + 1}-title`, `Title ${section + 1}.${index + 1}`),
         text(`large-${section + 1}-${index + 1}-detail`, `Detail ${section + 1}.${index + 1}`),

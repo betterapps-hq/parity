@@ -27,13 +27,13 @@ const container = {
       {
         type: "layout",
         id: "stats",
-        style: { display: "grid", columns: 4 },
+        style: { display: "grid", gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }, { fr: 1 }] },
         children: ["revenue", "users", "hidden", "issues", "uptime"].map((id) => ({ type: "text", id, text: id }))
       },
       {
         type: "layout",
         id: "events",
-        style: { position: "absolute", top: 50, left: 4 },
+        style: { position: "absolute", top: { step: 50 }, left: { step: 4 } },
         children: [{ type: "text", id: "review", text: "Review" }]
       },
       {
@@ -46,8 +46,7 @@ const container = {
         }
       }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const card = { type: "text", id: "pasted", text: "Pasted" }
@@ -137,7 +136,7 @@ function pasteAt(chain: string[], point: { x: number; y: number }) {
       // @ts-expect-error The bundle's global.
       const measured = here.measureHere(hit, screen, 4)
       // @ts-expect-error The bundle's global.
-      const pasted = here.pasteHere(container, [card], measured, container.states[0])
+      const pasted = here.pasteHere(container, [card], measured, { id: "default", name: "Default" })
       const parent = find(pasted.container.root, measured.layout)
       const siblings = (measured.slot ? parent?.slots?.[measured.slot] : parent?.children) ?? []
 
@@ -173,7 +172,7 @@ describe("paste here, measured in a frame", () => {
     const result = await pasteAt(["root", "events"], { x: 16 + 96, y: 200 + 64 })
     expect(result.layout).toBe("events")
     expect(result.order).toEqual(["review", "pasted"])
-    expect(result.style).toEqual({ position: "absolute", left: 23, top: 15 })
+    expect(result.style).toEqual({ position: "absolute", left: { step: 23 }, top: { step: 15 } })
   })
 
   it("measures the deepest of the design's own layouts under the pointer", async () => {

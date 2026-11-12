@@ -1,3 +1,4 @@
+import { lengthSteps } from "@parity-app/core"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, center } from "./app.ts"
 
@@ -108,8 +109,7 @@ describe("Tab from a design's title", () => {
       })
 
     expect(await focused()).toEqual({ label: "Members", title: true, board: null, canvas: true })
-    await app.page.keyboard.press("Tab")
-    expect(await focused()).toEqual({ label: "State", title: true, board: null, canvas: true })
+    // A screen has no states, so its title has no State menu: Modes comes next.
     await app.page.keyboard.press("Tab")
     expect(await focused()).toMatchObject({ label: expect.stringMatching(/^Modes/), title: true })
     // On past the canvas: Members' mode caption, which Enter selects as a person would click it, then out, never to
@@ -172,7 +172,12 @@ describe("nudging", () => {
     await expect
       .poll(() => app.style("Calendar", planning))
       // 11px and 1px, in steps of the example's 4px spacing unit.
-      .toMatchObject({ top: Number(was.top) + 2.75, left: 0.25, right: -0.25, height: was.height })
+      .toMatchObject({
+        top: { step: lengthSteps(was.top)! + 2.75 },
+        left: { step: 0.25 },
+        right: { step: -0.25 },
+        height: was.height
+      })
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => app.style("Calendar", planning)).toEqual(was)
   })
@@ -255,11 +260,11 @@ describe("next and previous design", () => {
   })
 
   it("goes round from the last design to the first, components first", async () => {
-    // Members is the last screen the project lists, and Member row its first component.
+    // Members is the last screen the project lists, and Button its first component.
     await app.show("Members", 0.5)
     await app.selectDesign("Members")
     await app.page.keyboard.press("n")
-    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Member row"))
+    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Button"))
     await app.page.keyboard.press("Shift+N")
     await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Members"))
   })
@@ -335,7 +340,12 @@ describe("paste over selection and paste to replace", () => {
     const copy = (await app.selection()).node!
     const after = await app.children("Calendar", events)
     expect(after[after.indexOf(planning) + 1]).toBe(copy)
-    expect(await app.style("Calendar", copy)).toMatchObject({ position: "absolute", top: 16, left: 0, right: 0 })
+    expect(await app.style("Calendar", copy)).toMatchObject({
+      position: "absolute",
+      top: { step: 16 },
+      left: { step: 0 },
+      right: { step: 0 }
+    })
   })
 
   it("pastes copied designs over a design, at its position and on top of it", async () => {

@@ -9,7 +9,7 @@ Answer three questions, from the request or by asking:
 
 1. **Who uses this screen, and what do they come to do?** The main task gets the most space and the first look.
 2. **What data does it show?** Real fields, typical amounts, and the extremes: none, one, thousands, a very long name.
-3. **What can go wrong?** Loading, empty, errors, no permission. Each is a state of the design.
+3. **What can go wrong?** Loading, empty, errors, no permission. Each is a state of the component it happens in.
 
 ## Layout
 
@@ -38,6 +38,6 @@ Answer three questions, from the request or by asking:
 
 ## Behaviour
 
-Designs are static, but they should show behaviour as states: a menu open, a dialog over the page, a toast after saving,
-a row being edited. When you're unsure whether something works, ask the person to try it with the Interact tool; it uses
+Designs are static, but their components should show behaviour as states: a menu open, a dialog, a toast after saving, a
+row being edited. When you're unsure whether something works, ask the person to try it with the Interact tool; it uses
 the real components.

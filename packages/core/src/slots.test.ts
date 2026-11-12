@@ -45,8 +45,7 @@ const card: ContainerSpec = {
       },
       { type: "layout", id: "footer", name: "Footer", children: [] }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 /** Marks a layout as a slot without `setSlot`'s checks, as an agent editing the file might. */
@@ -148,7 +147,7 @@ describe("a design's slots", () => {
   })
 
   it("are read from a project file, which refuses a name code can't use and a name two layouts share", () => {
-    const file = (container: ContainerSpec) => ({ version: 3, containers: [container] })
+    const file = (container: ContainerSpec) => ({ version: 4, containers: [container] })
     const marked = setSlot(setSlot(card, "body", "content"), "footer", "actions")
     expect(parseCanvasDocument(file(marked)).containers[0]).toEqual(marked)
     expect(() => parseCanvasDocument(file(marking(marked, "footer", "side actions")))).toThrow(
@@ -188,8 +187,7 @@ describe("filling an instance's slots", () => {
     id: "page",
     name: "Page",
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] }
   }
 
   const filled = (container: ContainerSpec): ContainerSpec => ({
@@ -281,8 +279,7 @@ describe("filling an instance's slots", () => {
             slots: { content: [{ type: "text", id: "lead", text: "Lead", bind: { text: "heading" } }] }
           }
         ]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     }
 
     const both = componentLibrary([component, panel])
@@ -315,11 +312,11 @@ describe("filling an instance's slots", () => {
 
     expect(leads).toHaveLength(2)
     expect(new Set([...leads, "lead"]).size).toBe(3)
-    expect(() => parseCanvasDocument({ version: 3, containers: [component, panel, detached] })).not.toThrow()
+    expect(() => parseCanvasDocument({ version: 4, containers: [component, panel, detached] })).not.toThrow()
   })
 
   it("is read from a project file, which refuses a fill reusing one of the design's ids", () => {
-    const file = (container: ContainerSpec) => ({ version: 3, containers: [component, container] })
+    const file = (container: ContainerSpec) => ({ version: 4, containers: [component, container] })
     expect(parseCanvasDocument(file(filled(page))).containers[1]).toEqual(filled(page))
 
     const clash = {
@@ -353,8 +350,7 @@ describe("a copy of a slot", () => {
       id: "page",
       name: "Page",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] }
     }
 
     const detached = detachInstance(screen, "copy", componentLibrary([marked]))

@@ -1,4 +1,11 @@
-import { boardRoot, type ContainerSpec, type RenderNode, resolveDesign, styleChanges } from "@parity-app/core"
+import {
+  boardRoot,
+  type ContainerSpec,
+  designStates,
+  type RenderNode,
+  resolveDesign,
+  styleChanges
+} from "@parity-app/core"
 import { useEffect, useMemo } from "react"
 import { findFrames, findNodeElement, previewFrameRules } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -66,8 +73,7 @@ export class StylePreview {
 
           const values = now.get(element) ?? new Map<string, string>()
 
-          // What's taken away goes first, so taking away a shorthand, as a fill's `background` going to a stack's
-          // `background-color` and `background-image`, doesn't clear the longhands set after it.
+          // What's taken away goes first, so taking away a shorthand doesn't clear the longhands set after it.
           for (const name of change.unset) {
             values.set(cssName(name), "")
           }
@@ -199,7 +205,8 @@ export class StylePreview {
 
   /** A frame's tree for a version of the design, worked out as the frame works out its own. */
   private render(container: ContainerSpec, host: HTMLElement): RenderNode[] {
-    const state = container.states.find((candidate) => candidate.id === host.dataset.state) ?? container.states[0]
+    const states = designStates(container)
+    const state = states.find((candidate) => candidate.id === host.dataset.state) ?? states[0]
 
     return resolveDesign(
       boardRoot(container),

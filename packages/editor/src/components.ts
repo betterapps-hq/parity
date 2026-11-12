@@ -71,7 +71,7 @@ export function makeComponent(
     ...from,
     containers: from.containers.map((container) => (container === original ? design : container))
   })
-  const target = next.get(options.into) ?? { version: 3, containers: [] }
+  const target = next.get(options.into) ?? { version: 4, containers: [] }
   next.set(options.into, { ...target, containers: [...target.containers, component] })
 
   return { documents: next, id }

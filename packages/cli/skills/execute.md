@@ -77,8 +77,9 @@ with `unknown_state`, and the error names the id it belongs to.
 
 ### Designs
 
-Lists every design with its `id`, `name`, `kind` (`screen`, `component` or `frame`), `states`, and `showing`: the state
-on the canvas, the main mode and the modes beside it. Start here to find ids.
+Lists every design with its `id`, `name`, `kind` (`screen`, `component` or `frame`) and `showing`: the main mode and the
+modes beside it. A component also lists its `states`, the base first, and `showing.state`, the state on the canvas; a
+screen or a frame has no states, so it lists none. Start here to find ids.
 
 ### Get
 
@@ -154,7 +155,7 @@ CreateDesign({
   root: {
     type: "layout",
     name: "Frame",
-    style: { width: 280, height: 400 },
+    style: { width: { step: 280 }, height: { step: 400 } },
     children: [
       part("nova/SidebarProvider", {}, [
         part("nova/Sidebar", { collapsible: "none" }, [
@@ -206,14 +207,14 @@ the person when it's far from what the design asked for.
 // The design asks for #2f6fed text at 13px: use the tokens nearest them.
 const [color] = GetTokens({ nearest: "#2f6fed", category: "color" })
 const [size] = GetTokens({ nearest: "13px", category: "font-size" })
-Update("signup/Title", { style: { foreground: color.name, size: size.name } })
+Update("signup/Title", { style: { color: { token: color.name }, fontSize: { token: size.name } } })
 ```
 
 For a circle or a pill, use `radius-full`, Tailwind's `rounded-full`. It's listed under `radius` with
 `source: "keyword"`, and frames draw it as round as the box allows, at any size:
 
 ```js
-Update("avatar", { style: { width: 10, height: 10, radius: "radius-full" } })
+Update("avatar", { style: { width: { step: 10 }, height: { step: 10 }, borderRadius: { token: "radius-full" } } })
 ```
 
 ### Selection
@@ -223,13 +224,14 @@ selected one" usually mean it.
 
 ## How a design fits together
 
-Parity builds the real app, and each design is one component tree, as its code is. Its states are the data and props the
-tree is in, its modes are the screens and themes it's drawn at, and its responsive patches are its breakpoints. Build
-one tree and patch it; never copy a design per screen or per state. When you're unsure how something should draw, ask
-what the code would do.
+Parity builds the real app, and each design is one component tree, as its code is. A component's states are the data and
+props it's tested in, a design's modes are the screens and themes it's drawn at, and its responsive patches are its
+breakpoints. Build one tree and patch it; never copy a design per screen or per state. When you're unsure how something
+should draw, ask what the code would do.
 
 A desktop menu that opens, while phones have a menu of their own, is `isOpen && <Menu className="max-md:hidden" />` in
-code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity:
+code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity, the header
+is a component, since only a component has states:
 
 ```js
 Update("header/Menu", { hidden: true }) // closed in the base design
@@ -253,9 +255,10 @@ from those copies instead. A component built once, such as an app's sidebar, dec
 bind them (see Params below).
 
 `kind: "frame"` makes a frame, the light kind for sketching an idea before it's a screen or a component: an empty padded
-layout, drawn once at its own `width` and `height` in the project's primary mode. A frame has one state, no params and
+layout, drawn once at its own `width` and `height` in the project's primary mode. A frame has no states, no params and
 no modes beside it, and no code is written from it, so `AddState`, `showModes` or another `mode` on one fail with
-`invalid_input`. Turn it into a screen or a component when it needs them.
+`invalid_input`. Turn it into a screen or a component when it needs them. A screen has no states either; only a
+component does, so `baseState` names a component's first state.
 
 ```js
 const sketch = CreateDesign({ name: "Sketch", kind: "frame", width: 480, height: 320 })
@@ -267,12 +270,13 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
 ### UpdateDesign
 
 Renames or moves a design, or changes how it's shown: `mode` sets the main frame's mode, `showModes` the modes beside
-it, `state` the state on the canvas, and `allStates: true` shows every state in its own row. None of these change the
-design itself. `width` and `height` resize a frame.
+it, and for a component, `state` the state on the canvas and `allStates: true` every state in its own row. None of these
+change the design itself. `width` and `height` resize a frame.
 
 `kind` turns a design into another kind. Turned into a frame, a design keeps its layers as its board drew them in the
 base state, with its params' values filled in, and drops its other states, the modes beside it, its params and its
-variants; the call's warnings say what went.
+variants; the call's warnings say what went. A component turned into a screen keeps its base state's look and drops its
+other states.
 
 ## Nodes
 
@@ -287,18 +291,35 @@ nested instance; they're stored by id, and a layer the component doesn't have fa
 const form = Insert("settings/Content", {
   type: "layout",
   name: "Profile form",
-  style: { gap: 4, maxWidth: 120 },
+  style: { gap: { step: 4 }, maxWidth: { step: 120 } },
   children: [
     { type: "component", component: "Label", props: { htmlFor: "name", children: "Name" } },
     { type: "component", component: "Input", props: { id: "name", defaultValue: "Avery Chen" } },
-    { type: "component", component: "Button", props: { children: "Save changes" }, style: { self: "start" } }
+    { type: "component", component: "Button", props: { children: "Save changes" }, style: { alignSelf: "start" } }
   ]
 })
 ```
 
-Style keys are in the document reference. Some that trip agents up: a `span` given a width, maximum, `textAlign` or
-`lines: 1` is drawn as a block, so it works in a slot or table cell, and `overflowWrap: "anywhere"` wraps a long word
-such as a web address. An absolutely placed component with `left` and `right` stretches between them.
+Style keys and the forms their values take are in document.md, under Style. Some that trip agents up: a length is always
+an object, as `{ step: 4 }`, and so is a token's name, as `{ token: "primary" }`; `fills` and `boxShadow` are lists, of
+one entry for one colour or one shadow; a `span` given a width, maximum, `textAlign` or `lineClamp: 1` is drawn as a
+block, so it works in a slot or table cell, and `overflowWrap: "anywhere"` wraps a long word such as a web address. An
+absolutely placed component with `left` and `right` stretches between them.
+
+```js
+// One colour, one shadow, and a row that scrolls sideways and snaps, which only the CSS map holds.
+Update("dashboard/Stats", {
+  style: {
+    flexDirection: "row",
+    gap: { step: 4 },
+    padding: [{ step: 4 }, { step: 6 }],
+    fills: [{ type: "solid", color: { token: "background" } }],
+    boxShadow: [{ type: "ring", width: 1, color: { token: "foreground", alpha: { step: 10 } } }],
+    overflow: "auto",
+    css: { "scroll-snap-type": { value: "x mandatory" } }
+  }
+})
+```
 
 ### Update
 
@@ -307,9 +328,9 @@ and `component`. `props`, `args` and `style` merge with what's there; set a key 
 video node also takes `src`, `alt` and `credit` (`[{ name, url? }]`), in the base design only. To put a photo or video a
 search found in one, use `place_result`, which tells the source it was used.
 
-With `{ state: "loading" }` the change belongs to that state instead of the base design, and `null` takes back the
-state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To turn off in one
-state what the base sets, list it in `unset`:
+On a component, with `{ state: "loading" }` the change belongs to that state instead of the base design, and `null`
+takes back the state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To
+turn off in one state what the base sets, list it in `unset`:
 `Update(button, { unset: { props: ["disabled"], style: ["gap"] } }, { state: "ready" })`. In the base design, `unset`
 removes the keys as `null` does.
 
@@ -338,32 +359,39 @@ Put back the ones you still want on the new ids, in the same call or the next. A
 `UpdateState(design, state, { changes: { [id]: … } })`.
 
 ```js
-const stats = Replace("dashboard/Stats", { type: "layout", name: "Stats", style: { direction: "row", gap: 16 } })
-Responsive(stats, "mobile", { style: { direction: "column" } })
+const stats = Replace("dashboard/Stats", {
+  type: "layout",
+  name: "Stats",
+  style: { flexDirection: "row", gap: { step: 16 } }
+})
+Responsive(stats, "mobile", { style: { flexDirection: "column" } })
 ```
 
 ### Responsive
 
-Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a
-viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`,
-`text`, `props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to
-remove it. `null` for the patch removes all of it. The patch applies in every state, as
+Patches a node in one viewport:
+`Responsive("dashboard/Stats", "mobile", { style: { gridTemplateColumns: [{ fr: 1 }] } })`. The viewport is a viewport
+option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`, `text`,
+`props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to remove it.
+`null` for the patch removes all of it. The patch applies in every state, as
 [How a design fits together](#how-a-design-fits-together) describes.
 
 ## States
 
-A state is a situation the whole design is in, like a story: loading, empty, error, signed out. It stores only the
-changes you give it. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears a
-node's patch. Every value given is kept, even one the base already has, so the state keeps it if the base changes. The
+Only a component has states. A state is a variation the component is tested in, like a story: loading, empty, error,
+disabled. A screen or a frame has none, and `AddState`, `UpdateState` and `DeleteState` on one fail with
+`invalid_input`; give the part that varies a component, and the screen sets a variant on its copy. A state stores only
+the changes you give it. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears
+a node's patch. Every value given is kept, even one the base already has, so the state keeps it if the base changes. The
 first state is the base. A key can reach inside an instance: `instance/inner`, with nested instances between
 (`person/avatar/initials`), each step an id or a name. A text or prop the component binds to a param sets the instance's
 param in that state.
 
 ```js
-AddState("team-members", {
+AddState("members-table", {
   name: "Empty",
   changes: {
-    "Members table": { hidden: true },
+    Rows: { hidden: true },
     "Empty state": { hidden: false },
     seats: { props: { children: "1 of 10 seats used" } }
   }
@@ -371,7 +399,7 @@ AddState("team-members", {
 ```
 
 Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A state
-can't show a node that a viewport's patch hides, so to keep a part off one screen, hide it there with `Responsive`
+can't show a node that a viewport's patch hides, so to keep a part off one screen size, hide it there with `Responsive`
 rather than in each state. A text node's words are its `text`; a component's are usually its `children` prop.
 
 ## Components
@@ -419,7 +447,7 @@ const sidebar = CreateDesign({
   root: {
     type: "layout",
     name: "Sidebar",
-    style: { gap: 4 },
+    style: { gap: { step: 4 } },
     children: [
       { type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } },
       { type: "text", name: "Beta", text: "Beta", bind: { visible: "showBeta" } }
@@ -430,7 +458,7 @@ const sidebar = CreateDesign({
     showBeta: { type: "boolean", default: false },
     density: {
       type: "variant",
-      options: [{ name: "Comfortable" }, { name: "Compact", overrides: { Sidebar: { style: { gap: 2 } } } }]
+      options: [{ name: "Comfortable" }, { name: "Compact", overrides: { Sidebar: { style: { gap: { step: 2 } } } } }]
     }
   }
 })
@@ -489,7 +517,18 @@ Print(GetTokens({ search: "shadow-popup" })[0].category) // shadow
 
 A style that names a token the project doesn't have gets a `not_a_token` warning. It lists the project's tokens of the
 category that goes there, or says the project has none:
-`size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+`fontSize "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+
+A colour, `borderRadius`, `fontFamily`, `fontSize`, `lineHeight` or `letterSpacing` written out as `{ value }` is drawn,
+and gets the same warning, naming the call that lists the tokens nearest it when they can be compared:
+`color "#2f6fed" isn't a token. Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`
+Use the token, or keep the value when the person asked for exactly it and tell them it's off the design system. A length
+that names something other than a length token gets `not_a_length_token`.
+
+A `{ value }`, `{ keyword }` or `{ expr }` its CSS property doesn't take, in a key or in the CSS map, gets an
+`invalid_value` warning that names the place, the value and the property, as does a CSS map property that isn't one. The
+browser would drop the declaration, so fix the value: `gap "red" isn't a value gap takes.`,
+`css "scrol-margin" isn't a CSS property.`
 
 `SetTokens` refuses a value the Tokens panel would refuse, throwing an `invalid_input` error that names the token and
 theme and says what's wrong: a bracket or quote left open, a `var()` naming no token, or a token built on itself. None
@@ -558,7 +597,7 @@ Print(
 
 `Measure` takes one state id and one mode id, because it returns one frame's layout. A list, `"all"` or `"shown"` fails
 with `invalid_input`, naming the ids it takes. To measure several frames, call it once for each; every layout says which
-state and mode it drew:
+state and mode it drew. Here `signup` is a component with states:
 
 ```js
 const signup = Designs().find((design) => design.id === "signup")
@@ -659,11 +698,16 @@ for (const { app, note, by } of References("dashboard")) {
 
 ## Examples
 
-A new screen, checked in every state and mode:
+A new screen, checked in every mode it shows:
 
 ```js
 const id = CreateDesign({ name: "Billing" })
-Insert(id, { type: "text", tag: "h1", text: "Billing", style: { size: "text-2xl", weight: 600 } })
+Insert(id, {
+  type: "text",
+  tag: "h1",
+  text: "Billing",
+  style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+})
 Insert(id, {
   type: "component",
   component: "Card",
@@ -683,13 +727,13 @@ Insert(id, {
     ]
   }
 })
-await Screenshot(id, { state: "all", mode: "shown" })
-Print(await Problems(id, { state: "all", mode: "shown" }))
+await Screenshot(id, { mode: "shown" })
+Print(await Problems(id, { mode: "shown" }))
 ```
 
-A loading state that swaps content for skeletons:
+A component's loading state that swaps its rows for skeletons:
 
 ```js
-Update("dashboard/Stats loading", { hidden: true })
-AddState("dashboard", { name: "Loading", changes: { Stats: { hidden: true }, "Stats loading": { hidden: false } } })
+Update("members-table/Skeleton", { hidden: true })
+AddState("members-table", { name: "Loading", changes: { Rows: { hidden: true }, Skeleton: { hidden: false } } })
 ```

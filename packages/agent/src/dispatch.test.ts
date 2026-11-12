@@ -42,11 +42,13 @@ function snapshot(): TabSnapshot {
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [
             {
               id: "signup",
               name: "Sign up",
+              // A component, since only a component has states, which most of these calls exercise.
+              kind: "component",
               position: { x: 0, y: 0 },
               root: {
                 type: "layout",
@@ -56,8 +58,7 @@ function snapshot(): TabSnapshot {
                   { type: "text", id: "title", name: "Title", text: "Create an account" },
                   { type: "component", id: "submit", name: "Submit", component: "Button", props: {} }
                 ]
-              },
-              states: [{ id: "default", name: "Default" }]
+              }
             }
           ]
         }
@@ -394,13 +395,15 @@ describe("dispatch", () => {
 
   it("takes a layer's effects: shadows, filters, the transform and text case (PAR-933)", async () => {
     const effects = {
-      shadow: [
-        { kind: "drop", token: "shadow-md" },
-        { kind: "ring", width: 1, color: { color: "border" } }
+      boxShadow: [
+        { type: "drop", token: "shadow-md" },
+        { type: "ring", width: 1, color: { token: "border" } }
       ],
-      filter: [{ kind: "adjust", values: { grayscale: 100 } }],
-      backdropFilter: [{ kind: "blur", value: "blur-md" }],
-      transform: { y: { percent: -50 }, rotate: 45, skewX: 10 },
+      filter: [{ type: "adjust", values: { grayscale: 100 } }],
+      backdropFilter: [{ type: "blur", value: { token: "blur-md" } }],
+      translate: { y: { value: "-50%" } },
+      rotate: 45,
+      transform: [{ type: "skewX", value: 10 }],
       textTransform: "uppercase"
     }
 
@@ -512,13 +515,12 @@ describe("images", () => {
       id: "hero-screen",
       name: "Landing",
       position: { x: 0, y: 0 },
-      root: { type: "image", id: "hero", src: "/images/hero.png", alt: "A desk" },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "image", id: "hero", src: "/images/hero.png", alt: "A desk" }
     }
 
     const documents = [
       ...fixture.tab.documents,
-      { path: "landing.par", document: { version: 3 as const, containers: [hero] } }
+      { path: "landing.par", document: { version: 4 as const, containers: [hero] } }
     ]
 
     const host: AgentHost = { ...fixture.host, snapshot: async () => ({ ...fixture.tab, documents }) }
@@ -733,7 +735,14 @@ describe("exportPictures", () => {
 function placingHost() {
   const fixture = fixtureHost()
   const signup = fixture.tab.documents[0]!.document.containers[0]!
-  const photo: DesignNode = { type: "image", id: "photo", name: "Photo", src: "/images/old.jpg", style: { width: 40 } }
+
+  const photo: DesignNode = {
+    type: "image",
+    id: "photo",
+    name: "Photo",
+    src: "/images/old.jpg",
+    style: { width: { step: 40 } }
+  }
 
   if (signup.root.type === "layout") {
     signup.root.children.push(photo)
@@ -874,7 +883,7 @@ describe("References", () => {
     tab.documents.push({
       path: "b.par",
       document: {
-        version: 3,
+        version: 4,
         containers: [{ ...structuredClone(signup), name: "Sign up again", position: below }],
         references: [
           onCanvas("other", 1560, { design: "signup", position: { x: 1560, y: 5000 } }),
@@ -971,7 +980,7 @@ describe("place", () => {
           src: desk.image.url,
           alt: "white desk",
           credit: { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" },
-          style: { width: 40 }
+          style: { width: { step: 40 } }
         }
       ])
     })

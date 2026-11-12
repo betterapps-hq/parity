@@ -1,11 +1,12 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2, 4, 5 and 6 are built: the package holds the stored
-style and `declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the adapter contract, which
+Agreed on 2026-11-11 ([decisions.md](../decisions.md)). All six steps are built: the package holds the stored style and
+`declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the stored style's form, with keys
+named after their CSS properties (PAR-941, in [editor.md](../editor.md), The stored style), the adapter contract, which
 `@parity-app/styles-tailwind` implements (PAR-943), the plain CSS printer and reader (PAR-944), and frames draw from
-rules and compiled classes (PAR-942, in [editor.md](../editor.md), Rendering frames). Step 3, the format change, isn't
-built yet. It sets where the rules for what a layer's style means live, so the canvas, Copy as code, writing components
-(PAR-265) and reading code back all follow one set.
+rules and compiled classes (PAR-942, in [editor.md](../editor.md), Rendering frames). It sets where the rules for what a
+layer's style means live, so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one
+set.
 
 ## In one line
 
@@ -25,10 +26,10 @@ style (in the .par file)
 
 ## Why
 
-**`NodeStyle` is Parity's own schema, not a spec.** It mixes three vocabularies, and some names mean something else in
-CSS:
+**`NodeStyle` was Parity's own schema, not a spec.** Before PAR-941 it mixed three vocabularies, and some names meant
+something else in CSS:
 
-| Key today    | Vocabulary | What it is in CSS                                     |
+| Key then     | Vocabulary | What it is in CSS                                     |
 | ------------ | ---------- | ----------------------------------------------------- |
 | `transform`  | none       | `text-transform`, not `transform`                     |
 | `self`       | none       | `align-self`                                          |
@@ -74,12 +75,20 @@ Node, React or Electron, and its tests run on their own.
 
 ```text
 packages/style-schema/src/
-├── model.ts        # the stored style schema (zod), moved from core's document.ts
-├── ledger.ts       # every CSS property: its owning key, section, token kinds and Baseline mark
+├── model.ts        # the stored style schema (zod): keys, lengths, sizes, tracks, shadows, filters, the CSS map
+├── value.ts        # the forms a stored value takes (token, value, step, keyword, expr), and each as CSS
+├── paint.ts        # colors and a fill's paints, and their CSS
+├── motion.ts       # transitions, and their CSS
+├── effects.ts      # the CSS of shadows, filters and the transform
+├── stored.ts       # what the schemas share: finite numbers, and objects without unset keys
 ├── declare.ts      # style → declarations
-├── read.ts         # declarations → style, and what no key owns into the CSS map
+├── ledger.ts       # every CSS property: its owning key, section, token kinds and Baseline mark
+├── placements.ts   # where each property goes in the Design tab, by hand
+├── spec.json       # each property's grammar and Baseline status, generated from the spec data
 ├── validate.ts     # a value against its property's CSS grammar
-└── adapter.ts      # the contract each framework's adapter implements
+├── adapter.ts      # the contract each framework's adapter implements
+├── css.ts          # the plain CSS printer and reader
+└── index.ts        # what the package exports
 ```
 
 ### Declarations
@@ -95,9 +104,10 @@ interface Declaration {
 }
 ```
 
-A layer has one declaration for each property. Where two keys write one property, as `size` and `leading` both write
-`line-height`, the later key's value stands, in the place the property was first written. What a kind of layer draws
-before any key is set, such as a layout's `display: flex` or text's `margin: 0`, is from the key that would change it.
+A layer has one declaration for each property. Where two keys write one property, as `fontSize` and `lineHeight` both
+write `line-height`, the later key's value stands, in the place the property was first written. What a kind of layer
+draws before any key is set, such as a layout's `display: flex` or text's `margin: 0`, is from the key that would change
+it.
 
 `declarations(style, context)` gives a layer's declarations. The context carries what a key's meaning depends on: the
 parent's layout (Fill writes `flex: 1 1 0` with `min-width: 0` in a row, and `align-self: stretch` across it), the

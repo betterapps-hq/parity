@@ -1,5 +1,13 @@
 import type { NodeStyle } from "@parity-app/style-schema"
-import type { ContainerSpec, DesignNode, NodePatch, PatchUnset, PropValues, StateSpec } from "./document.ts"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  designStates,
+  type NodePatch,
+  type PatchUnset,
+  type PropValues,
+  type StateSpec
+} from "./document.ts"
 import { alternativeLimit, closest, CodedError } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
@@ -120,7 +128,7 @@ export function nodeLabel(node: DesignNode, designName?: (id: string) => string 
     return node.alt || "Video"
   }
 
-  return node.style?.direction === "row" ? "Row" : "Column"
+  return node.style?.flexDirection === "row" ? "Row" : "Column"
 }
 
 /**
@@ -340,9 +348,12 @@ export function withFreshIds(node: DesignNode, taken: Set<string>): DesignNode {
 
 // States ---------------------------------------------------------------------------------------------------------------
 
-/** The first state is the base: the design as it is, with nothing overridden. Editing it edits the design itself. */
+/**
+ * The first state is the base: the design as it is, with nothing overridden. Editing it edits the design itself. A
+ * screen or a frame has only the base state.
+ */
 export function isBaseState(container: ContainerSpec, stateId: string): boolean {
-  return container.states[0]?.id === stateId
+  return designStates(container)[0]!.id === stateId
 }
 
 /**
@@ -350,15 +361,18 @@ export function isBaseState(container: ContainerSpec, stateId: string): boolean 
  * says so, lists each id beside its name, and points to the id of any state whose name it matches.
  */
 export function findState(container: ContainerSpec, stateId: string): StateSpec {
-  const state = container.states.find((candidate) => candidate.id === stateId)
+  const states = designStates(container)
+  const state = states.find((candidate) => candidate.id === stateId)
 
   if (state) {
     return state
   }
 
+  refuseUnlessComponent(container)
+
   const wanted = stateId.trim().toLowerCase()
-  const named = container.states.filter((candidate) => candidate.name.trim().toLowerCase() === wanted)
-  const listed = container.states.map((candidate) => `${candidate.id} (${candidate.name})`).join(", ")
+  const named = states.filter((candidate) => candidate.name.trim().toLowerCase() === wanted)
+  const listed = states.map((candidate) => `${candidate.id} (${candidate.name})`).join(", ")
   let hint = ""
 
   if (named.length === 1) {
@@ -371,7 +385,7 @@ export function findState(container: ContainerSpec, stateId: string): StateSpec 
   }
 
   // The ids a matching name points to lead the alternatives, so an agent reading only those picks the state it meant.
-  const ids = container.states.map((candidate) => candidate.id)
+  const ids = states.map((candidate) => candidate.id)
   const alternatives = [...new Set([...named.map((candidate) => candidate.id), ...closest(stateId, ids)])]
   throw new CodedError(
     `No state with id "${stateId}" in ${container.name}. Calls take a state's id, as Designs() lists it.${hint} States: ${listed}`,
@@ -1036,7 +1050,25 @@ function replaceState(container: ContainerSpec, state: StateSpec): ContainerSpec
     next.overrides = state.overrides
   }
 
-  return { ...container, states: container.states.map((candidate) => (candidate.id === state.id ? next : candidate)) }
+  return {
+    ...container,
+    states: designStates(container).map((candidate) => (candidate.id === state.id ? next : candidate))
+  }
+}
+
+/**
+ * Refuses a state on a screen or a frame, saying why: only a component has states, to stress-test it in its
+ * variations. A screen shows other data through its components' props instead.
+ */
+export function refuseUnlessComponent(container: ContainerSpec): void {
+  if (container.kind === "component") {
+    return
+  }
+
+  throw new CodedError(
+    `${container.name} is a ${container.kind ?? "screen"}, and only a component has states. Make the part that varies a component and give it states.`,
+    { code: "invalid_input", field: "design" }
+  )
 }
 
 /** Refuses to give a frame what only screens and components have, such as states and variants, saying why. */
@@ -1048,8 +1080,6 @@ function refuseOnFrame(container: ContainerSpec, why: string): void {
   throw new CodedError(`${container.name} is a frame, ${why}`, { code: "invalid_input", field: "design" })
 }
 
-const oneState = "which has one state. Make it a screen or a component to add states."
-
 /** A design with a state or option added, and the new one's id. */
 interface Added {
   container: ContainerSpec
@@ -1057,35 +1087,38 @@ interface Added {
 }
 
 export function addState(container: ContainerSpec, name: string): Added {
-  refuseOnFrame(container, oneState)
+  refuseUnlessComponent(container)
+  const states = designStates(container)
 
   const id = uniqueId(
     name,
-    container.states.map((state) => state.id)
+    states.map((state) => state.id)
   )
 
-  return { container: { ...container, states: [...container.states, { id, name }] }, id }
+  return { container: { ...container, states: [...states, { id, name }] }, id }
 }
 
 export function renameState(container: ContainerSpec, stateId: string, name: string): ContainerSpec {
+  refuseUnlessComponent(container)
   const state = findState(container, stateId)
 
   return replaceState(container, { ...state, name })
 }
 
 export function duplicateState(container: ContainerSpec, stateId: string): Added {
-  refuseOnFrame(container, oneState)
+  refuseUnlessComponent(container)
   const state = findState(container, stateId)
   const name = `${state.name} copy`
+  const before = designStates(container)
 
   const id = uniqueId(
     name,
-    container.states.map((candidate) => candidate.id)
+    before.map((candidate) => candidate.id)
   )
 
   const copy: StateSpec = isBaseState(container, stateId) ? { id, name } : { ...structuredClone(state), id, name }
-  const index = container.states.indexOf(state)
-  const states = [...container.states.slice(0, index + 1), copy, ...container.states.slice(index + 1)]
+  const index = before.indexOf(state)
+  const states = [...before.slice(0, index + 1), copy, ...before.slice(index + 1)]
 
   return { container: { ...container, states }, id }
 }
@@ -1096,7 +1129,7 @@ export function removeState(container: ContainerSpec, stateId: string): Containe
   }
 
   findState(container, stateId)
-  const states = container.states.filter((state) => state.id !== stateId)
+  const states = designStates(container).filter((state) => state.id !== stateId)
   const view = container.view?.state === stateId ? { ...container.view, state: states[0]!.id } : container.view
 
   const next: ContainerSpec = { ...container, states }
@@ -1115,7 +1148,7 @@ export function moveState(container: ContainerSpec, stateId: string, index: numb
   }
 
   const state = findState(container, stateId)
-  const rest = container.states.filter((candidate) => candidate !== state)
+  const rest = designStates(container).filter((candidate) => candidate !== state)
   const at = Math.max(1, Math.min(index, rest.length))
 
   return { ...container, states: [...rest.slice(0, at), state, ...rest.slice(at)] }
@@ -1169,7 +1202,7 @@ export function mapPatches(container: ContainerSpec, rename: (key: string) => st
     return Object.keys(next).length > 0 ? next : undefined
   }
 
-  const states = container.states.map((state) => {
+  const states = container.states?.map((state) => {
     const overrides = remap(state.overrides)
 
     if (overrides === state.overrides) {
@@ -1212,7 +1245,11 @@ export function mapPatches(container: ContainerSpec, rename: (key: string) => st
     return container
   }
 
-  const next: ContainerSpec = { ...container, states }
+  const next: ContainerSpec = { ...container }
+
+  if (states) {
+    next.states = states
+  }
 
   if (params) {
     next.params = params
@@ -1409,7 +1446,12 @@ export function addVariantOption(container: ContainerSpec, param: string, name: 
   return { container: { ...container, params: { ...container.params, [param]: { ...spec, options } } }, id }
 }
 
-export function renameVariantOption(container: ContainerSpec, param: string, option: string, name: string) {
+export function renameVariantOption(
+  container: ContainerSpec,
+  param: string,
+  option: string,
+  name: string
+): ContainerSpec {
   const spec = variantParam(container, param)
   const options = spec.options.map((candidate) => (candidate.id === option ? { ...candidate, name } : candidate))
 

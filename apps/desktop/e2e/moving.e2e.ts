@@ -111,7 +111,14 @@ describe("dragging an absolutely placed layer", () => {
     const from = center(await app.box("Calendar", review))
     // 24px of the design to the right is 6 steps.
     await app.drag(from, { x: from.x + 24 * zoom, y: from.y })
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 40, left: 6, right: -6, height: 16 })
+    await expect
+      .poll(() => app.style("Calendar", review))
+      .toMatchObject({
+        top: { step: 40 },
+        left: { step: 6 },
+        right: { step: -6 },
+        height: { step: 16 }
+      })
   })
 
   it("moves a negative inset and sides set by tokens from where they're drawn", async () => {
@@ -122,7 +129,10 @@ describe("dragging an absolutely placed layer", () => {
       e2e.session().store.updateContainer(key, "Set up insets", (container) => {
         const edit = (node: typeof container.root): typeof container.root => {
           if (node.id === review) {
-            return { ...node, style: { ...node.style, left: -2, right: "spacing", top: "spacing" } }
+            return {
+              ...node,
+              style: { ...node.style, left: { step: -2 }, right: { token: "spacing" }, top: { token: "spacing" } }
+            }
           }
 
           return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
@@ -136,7 +146,13 @@ describe("dragging an absolutely placed layer", () => {
     const before = await app.box("Calendar", review)
     // With Ctrl, so its left doesn't snap to the parent's, 8px away (PAR-174).
     await app.drag(center(before), { x: center(before).x + 16 * zoom, y: center(before).y }, undefined, ["Control"])
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: "spacing", left: 2, right: -3 })
+    await expect
+      .poll(() => app.style("Calendar", review))
+      .toMatchObject({
+        top: { token: "spacing" },
+        left: { step: 2 },
+        right: { step: -3 }
+      })
     expect((await app.box("Calendar", review)).width).toBeCloseTo(before.width, 0)
   })
 })
@@ -176,7 +192,7 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     // which lines up with Planning's, whose distance to it shows.
     expect(during?.indicators).toEqual(expect.arrayContaining(["points", "gaps:3"]))
     expect(during?.distances).toBeGreaterThan(before)
-    expect(during?.style).toMatchObject({ top: 40 })
+    expect(during?.style).toMatchObject({ top: { step: 40 } })
     expect(await app.undoLabel()).toBeUndefined()
     expect(await indicators()).toEqual([])
     expect(await distances()).toBe(before)
@@ -195,11 +211,18 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
       box: await app.box("Calendar", review)
     }))
 
-    expect(during?.style).toMatchObject({ top: 40 })
+    expect(during?.style).toMatchObject({ top: { step: 40 } })
     expect(during?.box.y).toBeCloseTo(before.y + before.height / 2, 0)
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 48, left: 0, right: 0, height: 16 })
+    await expect
+      .poll(() => app.style("Calendar", review))
+      .toMatchObject({
+        top: { step: 48 },
+        left: { step: 0 },
+        right: { step: 0 },
+        height: { step: 16 }
+      })
     await app.page.keyboard.press("Control+z")
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 40 })
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: { step: 40 } })
   })
 
   it("moves freely with Ctrl held", async () => {
@@ -208,7 +231,7 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     const from = center(await app.box("Calendar", review))
     const during = await app.drag(from, { x: from.x, y: from.y + 36 }, indicators, ["Control"])
     expect(during).toEqual([])
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 49 })
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: { step: 49 } })
   })
 
   it("puts a move back when Escape is pressed mid-drag, leaving nothing to undo", async () => {
@@ -221,7 +244,7 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
       await app.page.keyboard.press("Escape")
       await app.frames(2)
     })
-    expect(await app.style("Calendar", review)).toMatchObject({ top: 40 })
+    expect(await app.style("Calendar", review)).toMatchObject({ top: { step: 40 } })
     expect((await app.box("Calendar", review)).y).toBeCloseTo(before.y, 0)
     expect(await app.undoLabel()).toBeUndefined()
     expect(await indicators()).toEqual([])
@@ -234,7 +257,7 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     const bottom = { x: box.x + box.width / 2, y: box.y + box.height }
     // 26px down puts its bottom 6px short of the Lunch slot's top: 24 steps high, where steps alone would make it 23.
     await app.drag(bottom, { x: bottom.x, y: bottom.y + 26 })
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 40, height: 24 })
+    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: { step: 40 }, height: { step: 24 } })
   })
 })
 
@@ -254,7 +277,7 @@ describe("resize handles", () => {
     await expect.poll(() => hint.isVisible()).toBe(true)
     const during = await app.drag(handle, { x: handle.x + 48, y: handle.y + 3 }, () => hint.isVisible())
     expect(during).toBe(false)
-    await expect.poll(async () => (await app.style("Dashboard", button)).width).toBe(Math.round((box.width + 48) / 4))
+    await expect.poll(() => app.steps("Dashboard", button, "width")).toBe(Math.round((box.width + 48) / 4))
     expect((await app.style("Dashboard", button)).height).toBeUndefined()
     expect(await hint.isVisible()).toBe(false)
   })
@@ -275,7 +298,14 @@ describe("resize handles", () => {
     const box = await app.box("Calendar", review)
     const top = { x: box.x + box.width / 2, y: box.y }
     await app.drag(top, { x: top.x, y: top.y - 16 })
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ top: 36, height: 20, left: 0, right: 0 })
+    await expect
+      .poll(() => app.style("Calendar", review))
+      .toMatchObject({
+        top: { step: 36 },
+        height: { step: 20 },
+        left: { step: 0 },
+        right: { step: 0 }
+      })
     const after = await app.box("Calendar", review)
     expect(after.y + after.height).toBeCloseTo(box.y + box.height, 0)
   })
@@ -286,7 +316,14 @@ describe("resize handles", () => {
     const box = await app.box("Calendar", review)
     const left = { x: box.x, y: box.y + box.height / 2 }
     await app.drag(left, { x: left.x + 12, y: left.y })
-    await expect.poll(() => app.style("Calendar", review)).toMatchObject({ left: 3, right: 0, top: 40, height: 16 })
+    await expect
+      .poll(() => app.style("Calendar", review))
+      .toMatchObject({
+        left: { step: 3 },
+        right: { step: 0 },
+        top: { step: 40 },
+        height: { step: 16 }
+      })
   })
 
   it("takes the whole resize back when Escape is pressed mid-drag, leaving nothing to undo (PAR-193)", async () => {
@@ -319,7 +356,7 @@ describe("resize handles", () => {
     await app.selectLayer("Dashboard", button)
     const box = await app.box("Dashboard", button)
     const handle = { x: box.x + box.width, y: box.y + box.height / 2 }
-    const width = async () => (await app.style("Dashboard", button)).width
+    const width = () => app.steps("Dashboard", button, "width")
     // A write, a pause longer than a second, then more writes, which grouping by time made two undo steps.
     await app.drag(handle, { x: handle.x + 24, y: handle.y }, async () => {
       await expect.poll(width).toBe(Math.round((box.width + 24) / 4))
@@ -380,7 +417,7 @@ describe("empty layouts (PAR-193)", () => {
           const children = node.children.map(edit)
 
           if (node.id === "JWWeK") {
-            children.push({ type: "layout", id: "empty", style: { direction: "row" }, children: [] })
+            children.push({ type: "layout", id: "empty", style: { flexDirection: "row" }, children: [] })
           }
 
           return { ...node, children }

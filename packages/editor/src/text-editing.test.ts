@@ -1,4 +1,4 @@
-import { type ComponentLibrary, type ContainerSpec, findNode } from "@parity-app/core"
+import { type ComponentLibrary, type ContainerSpec, findNode, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   editableText,
@@ -45,8 +45,7 @@ const library: ComponentLibrary = new Map([
       name: "Button",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "component", id: "label", component: "Button", props: { children: "Continue" } },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "component", id: "label", component: "Button", props: { children: "Continue" } }
     }
   ]
 ])
@@ -141,13 +140,13 @@ describe("openingSelection", () => {
 describe("textSizing", () => {
   it("reads Figma's mode from a text layer's width and height", () => {
     expect(textSizing({})).toBe("auto-height")
-    expect(textSizing({ width: "fill" })).toBe("auto-height")
-    expect(textSizing({ width: 40 })).toBe("auto-height")
-    expect(textSizing({ width: "hug" })).toBe("auto-width")
-    expect(textSizing({ width: "hug", height: "hug" })).toBe("auto-width")
-    expect(textSizing({ width: 40, height: 10 })).toBe("fixed")
-    expect(textSizing({ width: "hug", height: "size-12" })).toBe("fixed")
-    expect(textSizing({ height: "fill" })).toBe("fixed")
+    expect(textSizing({ width: { size: "fill" } })).toBe("auto-height")
+    expect(textSizing({ width: { step: 40 } })).toBe("auto-height")
+    expect(textSizing({ width: { size: "hug" } })).toBe("auto-width")
+    expect(textSizing({ width: { size: "hug" }, height: { size: "hug" } })).toBe("auto-width")
+    expect(textSizing({ width: { step: 40 }, height: { step: 10 } })).toBe("fixed")
+    expect(textSizing({ width: { size: "hug" }, height: { token: "size-12" } })).toBe("fixed")
+    expect(textSizing({ height: { size: "fill" } })).toBe("fixed")
   })
 })
 
@@ -155,64 +154,75 @@ describe("withTextSizing", () => {
   const measured = { width: 52.5, height: 14 }
 
   it("makes auto width hug the text, dropping a fixed height and the older grow", () => {
-    expect(withTextSizing({ width: 40, height: 10 }, "auto-width", measured)).toEqual({
-      width: "hug",
+    expect(withTextSizing({ width: { step: 40 }, height: { step: 10 } }, "auto-width", measured)).toEqual({
+      width: { size: "hug" },
       height: undefined
     })
     expect(withTextSizing({ grow: true }, "auto-width", measured)).toEqual({
-      width: "hug",
+      width: { size: "hug" },
       height: undefined,
       grow: undefined
     })
   })
 
   it("makes auto height fix a hugging width where it's drawn, and keep any other width", () => {
-    expect(withTextSizing({ width: "hug" }, "auto-height", measured)).toEqual({ width: 52.5, height: undefined })
-    expect(withTextSizing({ width: "fill", height: 10 }, "auto-height", measured)).toEqual({
-      width: "fill",
+    expect(withTextSizing({ width: { size: "hug" } }, "auto-height", measured)).toEqual({
+      width: { step: 52.5 },
+      height: undefined
+    })
+    expect(withTextSizing({ width: { size: "fill" }, height: { step: 10 } }, "auto-height", measured)).toEqual({
+      width: { size: "fill" },
       height: undefined
     })
     expect(withTextSizing({}, "auto-height", measured)).toEqual({ width: undefined, height: undefined })
   })
 
   it("makes fixed keep the height it's drawn at, or the one it has", () => {
-    expect(withTextSizing({ width: "hug" }, "fixed", measured)).toEqual({ width: 52.5, height: 14 })
-    expect(withTextSizing({ width: 40 }, "fixed", measured)).toEqual({ width: 40, height: 14 })
-    expect(withTextSizing({ width: 40, height: "size-12" }, "fixed", measured)).toEqual({
-      width: 40,
-      height: "size-12"
+    expect(withTextSizing({ width: { size: "hug" } }, "fixed", measured)).toEqual({
+      width: { step: 52.5 },
+      height: { step: 14 }
+    })
+    expect(withTextSizing({ width: { step: 40 } }, "fixed", measured)).toEqual({
+      width: { step: 40 },
+      height: { step: 14 }
+    })
+    expect(withTextSizing({ width: { step: 40 }, height: { token: "size-12" } }, "fixed", measured)).toEqual({
+      width: { step: 40 },
+      height: { token: "size-12" }
     })
   })
 
   it("sets values over the design's in a state or variant, where dropping them would show the design's again", () => {
     const explicit = { explicit: true }
-    expect(withTextSizing({ width: 40, height: 10, grow: true }, "auto-width", measured, explicit)).toEqual({
-      width: "hug",
-      height: "hug",
+    expect(
+      withTextSizing({ width: { step: 40 }, height: { step: 10 }, grow: true }, "auto-width", measured, explicit)
+    ).toEqual({
+      width: { size: "hug" },
+      height: { size: "hug" },
       grow: false
     })
-    expect(withTextSizing({ width: 40, height: 10 }, "auto-height", measured, explicit)).toEqual({
-      width: 40,
-      height: "hug"
+    expect(withTextSizing({ width: { step: 40 }, height: { step: 10 } }, "auto-height", measured, explicit)).toEqual({
+      width: { step: 40 },
+      height: { size: "hug" }
     })
     // Nothing to set over: no height shows, so none is written.
-    expect(withTextSizing({ width: "hug" }, "auto-height", measured, explicit)).toEqual({
-      width: 52.5,
+    expect(withTextSizing({ width: { size: "hug" } }, "auto-height", measured, explicit)).toEqual({
+      width: { step: 52.5 },
       height: undefined
     })
-    expect(textSizing({ width: 40, height: "hug" })).toBe("auto-height")
+    expect(textSizing({ width: { step: 40 }, height: { size: "hug" } })).toBe("auto-height")
   })
 
   it("drops the older grow for auto height and fixed in a column, where it fills the height, and keeps it in a row", () => {
     const column = { column: true }
-    expect(withTextSizing({ width: 40, grow: true }, "auto-height", measured, column)).toEqual({
-      width: 40,
+    expect(withTextSizing({ width: { step: 40 }, grow: true }, "auto-height", measured, column)).toEqual({
+      width: { step: 40 },
       height: undefined,
       grow: undefined
     })
-    expect(withTextSizing({ width: 40, grow: true }, "fixed", measured, column)).toEqual({
-      width: 40,
-      height: 14,
+    expect(withTextSizing({ width: { step: 40 }, grow: true }, "fixed", measured, column)).toEqual({
+      width: { step: 40 },
+      height: { step: 14 },
       grow: undefined
     })
     expect(withTextSizing({ grow: true }, "auto-height", measured, { ...column, explicit: true })).toEqual({
@@ -225,8 +235,8 @@ describe("withTextSizing", () => {
 
   it("writes only the keys Resizing resets, so a reset in a state leaves nothing behind", () => {
     // A state's style before the switch, with a value Resizing doesn't own.
-    const state = { foreground: "red" }
-    const design = { width: 40, height: 10, grow: true }
+    const state = { color: { token: "red" } }
+    const design: NodeStyle = { width: { step: 40 }, height: { step: 10 }, grow: true }
 
     for (const sizing of ["auto-width", "auto-height", "fixed"] as const) {
       for (const column of [false, true]) {
@@ -244,7 +254,12 @@ describe("withTextSizing", () => {
   })
 
   it("lands each mode where textSizing reads it back", () => {
-    for (const style of [{}, { width: "hug" }, { width: 40, height: 10 }, { width: "fill" }]) {
+    for (const style of [
+      {},
+      { width: { size: "hug" } },
+      { width: { step: 40 }, height: { step: 10 } },
+      { width: { size: "fill" } }
+    ] satisfies NodeStyle[]) {
       for (const sizing of ["auto-width", "auto-height", "fixed"] as const) {
         const next = { ...style, ...withTextSizing(style, sizing, measured) }
         expect(textSizing(next)).toBe(sizing)

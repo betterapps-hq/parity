@@ -22,16 +22,21 @@ const design: ContainerSpec = {
   root: {
     type: "layout",
     id: "root",
-    style: { gap: 2, padding: 4 },
+    style: { gap: { step: 2 }, padding: { step: 4 } },
     children: [
-      { type: "layout", id: "mark", style: { width: 8, height: 8, background: "primary" }, children: [] },
+      {
+        type: "layout",
+        id: "mark",
+        style: { width: { step: 8 }, height: { step: 8 }, fills: [{ type: "solid", color: { token: "primary" } }] },
+        children: []
+      },
       { type: "text", id: "title", text: "Plans" },
-      { type: "component", id: "button", component: "Button", style: { width: 20 } }
+      { type: "component", id: "button", component: "Button", style: { width: { step: 20 } } }
     ]
   },
   states: [
     { id: "default", name: "Default" },
-    { id: "wide", name: "Wide", overrides: { mark: { style: { width: 20 } } } }
+    { id: "wide", name: "Wide", overrides: { mark: { style: { width: { step: 20 } } } } }
   ]
 }
 
@@ -218,7 +223,7 @@ describe("previewing a style edit", () => {
   it("shows it on the elements already drawn, in the next frame, in each state that has it", async () => {
     const before = await drawn("mark")
     expect(before.default!.width).toBe(32)
-    await show("mark", { width: 80 })
+    await show("mark", { width: { step: 80 } })
     const after = await drawn("mark")
     expect(after.default!.width).toBe(320)
     // An element's edit is a rule over its frame's, never an inline style.
@@ -229,8 +234,8 @@ describe("previewing a style edit", () => {
 
   it("replaces the last preview, putting back what the new one doesn't change", async () => {
     const before = await drawn("mark")
-    await show("mark", { width: 80 })
-    await show("mark", { height: 2 })
+    await show("mark", { width: { step: 80 } })
+    await show("mark", { height: { step: 2 } })
     const after = await drawn("mark")
     expect(after.default).toMatchObject({ width: 32, height: 8 })
     await act("cancel")
@@ -240,7 +245,7 @@ describe("previewing a style edit", () => {
   it("takes it back exactly, properties it took off included", async () => {
     const before = await drawn("root")
     expect(before.default).toMatchObject({ gap: "8px", padding: "16px" })
-    await show("root", { gap: null, padding: 10 })
+    await show("root", { gap: null, padding: { step: 10 } })
     expect((await drawn("root")).default).toMatchObject({ gap: "normal", padding: "40px" })
     await act("cancel")
     expect(await drawn("root")).toEqual(before)
@@ -250,7 +255,7 @@ describe("previewing a style edit", () => {
     await start(true)
     const before = await drawn("mark")
     expect(before.default).toMatchObject({ width: 32, height: 32 })
-    await show("mark", { width: null, height: 2 })
+    await show("mark", { width: null, height: { step: 2 } })
     const after = await drawn("mark")
     // Without a width, the mark stretches across its column, though its class still sets one.
     expect(after.default!.width).toBeGreaterThan(320)
@@ -262,28 +267,28 @@ describe("previewing a style edit", () => {
   it("writes a component's edit onto its element, since its style is its own prop", async () => {
     const before = await drawn("button")
     expect(before.default!.width).toBe(80)
-    await show("button", { width: 40 })
+    await show("button", { width: { step: 40 } })
     expect((await drawn("button")).default).toMatchObject({ width: 160, inline: "width: calc(var(--spacing) * 40);" })
     await act("cancel")
     expect(await drawn("button")).toEqual(before)
   })
 
   it("leaves what it shows for the change to draw over once released", async () => {
-    await show("mark", { width: 80 })
+    await show("mark", { width: { step: 80 } })
     await act("release")
     await act("cancel")
     expect((await drawn("mark")).default!.width).toBe(320)
     // The frame draws the change, and takes the preview's rule away as it does.
     await page.evaluate((design) => {
       // @ts-expect-error The bundle's global.
-      preview.redraw(preview.editNode(design, "default", "mark", { style: { width: 60 } }))
+      preview.redraw(preview.editNode(design, "default", "mark", { style: { width: { step: 60 } } }))
     }, design)
     expect((await drawn("mark")).default!.width).toBe(240)
   })
 
   it("shows nothing for an edit that changes nothing", async () => {
     const before = await drawn("mark")
-    await show("mark", { width: 8 })
+    await show("mark", { width: { step: 8 } })
     expect(await drawn("mark")).toEqual(before)
     // @ts-expect-error The bundle's global.
     expect(await page.evaluate(() => window.shown.active)).toBe(false)

@@ -15,12 +15,11 @@ function setup() {
       type: "layout",
       id: "root",
       children: [{ type: "component", id: "icon", component: "lucide/Hexagon", props: { size: 16 } }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

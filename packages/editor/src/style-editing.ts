@@ -8,9 +8,15 @@ import {
   editNode,
   type EditTarget,
   editsDesign,
+  type FieldLength,
+  fieldLength,
+  fieldSize,
   innerChanges,
+  isFill,
+  isHug,
   isInnerPath,
   type Length,
+  lengthField,
   locateInner,
   locateNode,
   nodeLabel,
@@ -22,7 +28,8 @@ import {
   type Size,
   type StateSpec,
   styleKeys,
-  targetPatches
+  targetPatches,
+  opacityPercent
 } from "@parity-app/core"
 import { editingState } from "./edit-frame.ts"
 import { boardReader } from "./shown.ts"
@@ -70,9 +77,9 @@ export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLaye
  * can only write the keys listed here, so resetting a row takes back everything its edits wrote.
  */
 export const styleRows = {
-  layoutType: ["display", "direction", "wrap", "columns"],
-  tracks: ["columns", "rows"],
-  alignment: ["align", "justify"],
+  layoutType: ["display", "flexDirection", "flexWrap", "gridTemplateColumns"],
+  tracks: ["gridTemplateColumns", "gridTemplateRows"],
+  alignment: ["alignItems", "justifyContent"],
   gap: ["gap", "rowGap"],
   padding: ["padding"],
   margin: ["margin"],
@@ -81,53 +88,40 @@ export const styleRows = {
   height: ["height", "grow"],
   min: ["minWidth", "minHeight"],
   max: ["maxWidth", "maxHeight"],
-  self: ["self"],
+  self: ["alignSelf"],
   span: ["colSpan", "rowSpan"],
   placement: ["position", "top", "right", "bottom", "left"],
   insets: ["top", "right", "bottom", "left"],
   layerOrder: ["zIndex"],
-  fill: ["background"],
-  radius: ["radius"],
+  fill: ["fills"],
+  radius: ["borderRadius"],
   // The Shadow list holds the drop shadows that follow the shape too, which are the layer's `filter`.
-  shadow: ["shadow", "filter"],
+  shadow: ["boxShadow", "filter"],
   filters: ["filter", "backdropFilter"],
-  transform: ["transform"],
+  transform: ["translate", "rotate", "scale", "transform", "transformOrigin"],
   opacity: ["opacity"],
   overflow: ["overflow"],
-  stroke: ["border", "borderWidth", "borderStyle"],
-  strokeColor: ["border"],
+  stroke: ["borderColor", "borderWidth", "borderStyle"],
+  strokeColor: ["borderColor"],
   strokeWidth: ["borderWidth"],
   strokeStyle: ["borderStyle"],
-  textColor: ["foreground"],
-  font: ["font"],
-  textSize: ["size"],
-  weight: ["weight"],
-  lineHeight: ["leading"],
-  letterSpacing: ["tracking"],
+  textColor: ["color"],
+  font: ["fontFamily"],
+  textSize: ["fontSize"],
+  weight: ["fontWeight"],
+  lineHeight: ["lineHeight"],
+  letterSpacing: ["letterSpacing"],
   textAlign: ["textAlign"],
   resizing: textSizingKeys,
-  decoration: ["italic", "decoration"],
+  decoration: ["fontStyle", "textDecorationLine"],
   case: ["textTransform"],
-  lines: ["lines"],
-  transitions: ["transitions"]
+  lines: ["lineClamp"],
+  transitions: ["transition"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
 
-/**
- * The Fill row's edit for a stack of paints, top first: nothing when it's empty, and one color token as the plain name
- * a single `background` has always held, so a file with one color reads as it did before stacks (PAR-931).
- */
-export function fillEdit(paints: readonly Paint[]): Pick<StyleValues, "background"> {
-  const [only] = paints
-
-  if (!only) {
-    return { background: undefined }
-  }
-
-  if (paints.length === 1 && only.kind === "solid" && only.alpha === undefined && !only.hidden) {
-    return { background: only.color }
-  }
-
-  return { background: [...paints] }
+/** The Fill row's edit for a stack of paints, top first: nothing when it's empty, so no empty list is left behind. */
+export function fillEdit(paints: readonly Paint[]): Pick<StyleValues, "fills"> {
+  return { fills: paints.length === 0 ? undefined : [...paints] }
 }
 
 export type StyleRow = keyof typeof styleRows
@@ -225,7 +219,8 @@ function stackingContext(
       return of(around, "layerOrder")
     }
 
-    if (opacity !== undefined && opacity < 100) {
+    // An opacity token may be see-through too, so it counts.
+    if (opacity !== undefined && (opacityPercent(opacity) ?? 0) < 100) {
       return of(around, "opacity")
     }
   }
@@ -359,7 +354,7 @@ function layoutOf(node: DesignNode | undefined): ParentLayout | undefined {
 
   const style = node.style ?? {}
 
-  return { direction: style.direction ?? "column", grid: style.display === "grid" }
+  return { direction: style.flexDirection ?? "column", grid: style.display === "grid" }
 }
 
 /** The style values several nodes share, and the properties set differently on some of them. */
@@ -409,15 +404,17 @@ export function fieldEdit<V, K extends keyof NodeStyle>(
 /** Switches the layout to a column, a row or a grid. A new grid keeps the columns it had, or two. */
 export function layoutTypeEdit(mode: "row" | "column" | "grid"): StyleEdit<RowKey<"layoutType">> {
   if (mode === "grid") {
-    return (style) => ({ display: "grid", columns: style.columns ?? 2 })
+    return (style) => ({ display: "grid", gridTemplateColumns: style.gridTemplateColumns ?? [{ fr: 1 }, { fr: 1 }] })
   }
 
-  return { display: undefined, direction: mode }
+  return { display: undefined, flexDirection: mode }
 }
 
 type SideValues = [Length, Length, Length, Length]
 
-/** Padding or margin as four sides, whichever form it's written in. */
+const noSides: Readonly<SideValues> = [{ step: 0 }, { step: 0 }, { step: 0 }, { step: 0 }]
+
+/** Padding or margin as four sides, each as it's stored, whichever form it's written in. */
 export function sidesOf(value: Padding | undefined): SideValues | undefined {
   if (value === undefined) {
     return undefined
@@ -434,31 +431,40 @@ export function sidesOf(value: Padding | undefined): SideValues | undefined {
   return value
 }
 
+/** Whether two stored lengths are the same length: the same form holding the same value. */
+function sameLength(a: Length, b: Length): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 /** The shortest form of four sides. */
 export function tidySides([top, right, bottom, left]: SideValues): Padding {
-  if (top === bottom && right === left) {
-    return top === right ? top : [top, right]
+  if (sameLength(top, bottom) && sameLength(right, left)) {
+    return sameLength(top, right) ? top : [top, right]
   }
 
   return [top, right, bottom, left]
 }
 
-/** A length field's view of a layer's style: the length it shows, and the style a typed length writes. */
+/**
+ * A length field's view of a layer's style: the length it shows, as steps or a name, and the style a typed length
+ * writes, in the stored form.
+ */
 export interface LengthField<K extends keyof NodeStyle> {
-  read: (style: NodeStyle) => Length | undefined
-  write: (value: Length | undefined, style: NodeStyle) => Pick<StyleValues, K>
+  read: (style: NodeStyle) => FieldLength | undefined
+  write: (value: FieldLength | undefined, style: NodeStyle) => Pick<StyleValues, K>
 }
 
 /** Some sides of padding or margin (0 is top, then clockwise), read from the first of them, in each layer's own. */
 export function sidesField<N extends "padding" | "margin">(name: N, indices: readonly number[]): LengthField<N> {
   return {
-    read: (style) => sidesOf(style[name])?.[indices[0]!],
+    read: (style) => lengthField(sidesOf(style[name])?.[indices[0]!]),
     write: (value, style) => {
-      const [top, right, bottom, left] = sidesOf(style[name]) ?? [0, 0, 0, 0]
+      const [top, right, bottom, left] = sidesOf(style[name]) ?? noSides
       const next: SideValues = [top, right, bottom, left]
+      const written = fieldLength(value ?? 0)
 
       for (const index of indices) {
-        next[index] = value ?? 0
+        next[index] = written
       }
 
       // SAFETY: the one key set is `name`, which is N, and padding and margin both take the sides' Padding.
@@ -467,31 +473,36 @@ export function sidesField<N extends "padding" | "margin">(name: N, indices: rea
   }
 }
 
-/** A layer's size along an axis as it shows: `grow` along the parent's direction shows, and is replaced, as fill. */
+/**
+ * A layer's size along an axis as a size field shows it, in steps or by name: `grow` along the parent's direction
+ * shows, and is replaced, as fill.
+ */
 export function shownSize(
   style: NodeStyle,
   axis: "width" | "height",
   parent: ParentLayout | undefined
-): Size | undefined {
-  return grows(style, axis, parent) ? "fill" : style[axis]
+): FieldLength | undefined {
+  return grows(style, axis, parent) ? "fill" : lengthField(style[axis])
 }
 
 function grows(style: NodeStyle, axis: "width" | "height", parent: ParentLayout | undefined): boolean {
   return style.grow === true && growsAlong(axis, parent)
 }
 
-/** A size's fixed length, or nothing when it's unset, fill or hug. */
-export function fixedSize(size: Size | undefined): Length | undefined {
+/** A size field's fixed length, or nothing when it's unset, fill or hug. */
+export function fixedSize(size: FieldLength | undefined): FieldLength | undefined {
   return size === "fill" || size === "hug" ? undefined : size
 }
 
 /** Sets a size (fixed, fill, hug, or auto when undefined), replacing a `grow` that filled along it. */
 export function sizeEdit<A extends "width" | "height">(
   axis: A,
-  value: Size | undefined,
+  value: FieldLength | undefined,
   parent: ParentLayout | undefined
 ): StyleEdit<RowKey<A>> {
-  return (style) => sizeValues(axis, value, grows(style, axis, parent))
+  const size = value === undefined ? undefined : fieldSize(value)
+
+  return (style) => sizeValues(axis, size, grows(style, axis, parent))
 }
 
 /** A size along `axis`, and `grow` taken away when it filled along it: the keys of the axis' row. */
@@ -517,9 +528,16 @@ export function sizeField<A extends "width" | "height">(
   return {
     read: (style) => fixedSize(shownSize(style, axis, parent)),
     write: (value, style) => {
-      const size = shownSize(style, axis, parent)
+      const growing = grows(style, axis, parent)
 
-      return sizeValues(axis, value ?? (fixedSize(size) === undefined ? size : undefined), grows(style, axis, parent))
+      if (value !== undefined) {
+        return sizeValues(axis, fieldSize(value), growing)
+      }
+
+      // A fill or a hug is kept as it's stored, so a fill keeps its share.
+      const kept: Size | undefined = growing ? { size: "fill" } : style[axis]
+
+      return sizeValues(axis, isFill(kept) || isHug(kept) ? kept : undefined, growing)
     }
   }
 }
@@ -527,7 +545,7 @@ export function sizeField<A extends "width" | "height">(
 /** Takes a layer out of the layout at its insets, 0 where unset, or puts it back and drops them. */
 export function placementEdit(absolute: boolean): StyleEdit<RowKey<"placement">> {
   if (absolute) {
-    return (style) => ({ position: "absolute", top: style.top ?? 0, left: style.left ?? 0 })
+    return (style) => ({ position: "absolute", top: style.top ?? { step: 0 }, left: style.left ?? { step: 0 } })
   }
 
   return { position: undefined, top: undefined, right: undefined, bottom: undefined, left: undefined }

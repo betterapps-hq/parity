@@ -5,9 +5,9 @@ import {
   type DesignNode,
   editInner,
   editNode,
+  isHug,
   isInnerPath,
   layerOnBoard,
-  type Length,
   type NodeStyle,
   type Size
 } from "@parity-app/core"
@@ -126,11 +126,11 @@ export type TextSizing = "auto-width" | "auto-height" | "fixed"
 
 /** The mode a text layer's style is in. A width it doesn't set is the one its layout gives it, so it's auto height. */
 export function textSizing(style: NodeStyle): TextSizing {
-  if (style.height !== undefined && style.height !== "hug") {
+  if (style.height !== undefined && !isHug(style.height)) {
     return "fixed"
   }
 
-  if (style.width === "hug") {
+  if (isHug(style.width)) {
     return "auto-width"
   }
 
@@ -167,23 +167,28 @@ export function withTextSizing(
   measured: { width?: number; height?: number },
   { explicit = false, column = false }: { explicit?: boolean; column?: boolean } = {}
 ): TextSizingValues {
-  const noHeight = explicit && style.height !== undefined ? "hug" : undefined
+  const noHeight: Size | undefined = explicit && style.height !== undefined ? { size: "hug" } : undefined
   const noGrow = style.grow ? { grow: explicit ? false : undefined } : {}
 
   if (sizing === "auto-width") {
-    return { width: "hug", height: noHeight, ...noGrow }
+    return { width: { size: "hug" }, height: noHeight, ...noGrow }
   }
 
-  const width = style.width === "hug" ? measured.width : style.width
+  const width = isHug(style.width) ? steps(measured.width) : style.width
   const grow = column ? noGrow : {}
 
   if (sizing === "auto-height") {
     return { width, height: noHeight, ...grow }
   }
 
-  return { width, height: fixedLength(style.height) ?? measured.height, ...grow }
+  return {
+    width,
+    height: isHug(style.height) ? steps(measured.height) : (style.height ?? steps(measured.height)),
+    ...grow
+  }
 }
 
-function fixedLength(size: Size | undefined): Length | undefined {
-  return size === "hug" ? undefined : size
+/** A measured length as a size, when the layer was measured. */
+function steps(measured: number | undefined): Size | undefined {
+  return measured === undefined ? undefined : { step: measured }
 }

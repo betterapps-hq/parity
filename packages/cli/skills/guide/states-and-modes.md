@@ -1,11 +1,13 @@
 # States and modes
 
-A design shows on the canvas as a grid of frames: its states down, and the modes it shows across. Both multiply what you
-have to check, and both are cheap to add, so use them instead of copying designs.
+A component shows on the canvas as a grid of frames: its states down, and the modes it shows across. A screen or a frame
+has no states, so it shows one row: its modes. States and modes multiply what you have to check, and both are cheap to
+add, so use them instead of copying designs.
 
 ## States
 
-A state is one situation the design can be in. Most screens need some of these:
+Only a component has states. A state is one variation the component is tested in, the way a Storybook story tests it.
+Most components that hold data need some of these:
 
 | State          | What changes                                                                 |
 | -------------- | ---------------------------------------------------------------------------- |
@@ -14,27 +16,39 @@ A state is one situation the design can be in. Most screens need some of these:
 | Error          | A message near what failed, saying what happened and what to do              |
 | Partly filled  | One item, a long name, a missing photo: the cases real data brings           |
 | Disabled, busy | A submit button that's disabled or shows progress while saving               |
-| Permissions    | What a viewer sees compared with an admin                                    |
+| Hover, focus   | How a control answers the pointer and the keyboard                           |
 
 Build states from the base design. Put what only some states need (skeletons, an empty state, an error message) into the
-base with `hidden: true`, then show and hide things per state with `AddState(design, { name, changes })`. A state stores
-only its changes, so editing the base updates every state.
+base with `hidden: true`, then show and hide things per state with `AddState(component, { name, changes })`. A state
+stores only its changes, so editing the base updates every state.
 
 Name states for the situation ("No members yet", "Invite failed"), not the change ("Table hidden").
 
 Every call that takes a state takes its id, never its name: `UpdateState`, `DeleteState`, `Update`'s and `Get`'s
-`state`, `UpdateDesign`'s `state` and the checks. `AddState` returns the id, and `Designs()` lists each design's states
-with their ids and names. Names can repeat and change, so an id made from a name stops matching it after a rename. A
-name passed by mistake fails with `unknown_state`, naming the id it belongs to, or every id when states share the name.
+`state`, `UpdateDesign`'s `state` and the checks. `AddState` returns the id, and `Designs()` lists each component's
+states with their ids and names. A screen or a frame lists no `states`, and a state call on one fails with
+`invalid_input`. Names can repeat and change, so an id made from a name stops matching it after a rename. A name passed
+by mistake fails with `unknown_state`, naming the id it belongs to, or every id when states share the name.
 
 ```js
-AddState("team-members", { name: "No members yet", changes: { "Members table": { hidden: true } } })
+AddState("members-table", {
+  name: "No members yet",
+  changes: { Rows: { hidden: true }, "Empty state": { hidden: false } }
+})
 // Later, find a state's id by its name in Designs(), then pass the id.
-const states = Designs().find((design) => design.id === "team-members").states // [{ id, name }]
+const states = Designs().find((design) => design.id === "members-table").states // [{ id, name }]
 const empty = states.find((state) => state.name === "No members yet").id
-UpdateState("team-members", empty, { name: "No members" })
-await Screenshot("team-members", { state: empty })
+UpdateState("members-table", empty, { name: "No members" })
+await Screenshot("members-table", { state: empty })
 ```
+
+### What a screen shows
+
+A screen shows one situation, with the data its components are given. An instance always shows its component's base
+state; states only test the component on its own board. When a screen needs a component to look another way, such as a
+table with no rows, give the component a variant param whose options patch it as a state would, and set the option in
+the instance's `args` (see components.md). Copy the screen only when the whole page is different, such as a separate
+sign-in page.
 
 ## Modes
 
@@ -57,9 +71,9 @@ change:
 
 ```js
 Responsive("dashboard/Sidebar", "mobile", { hidden: true })
-Responsive("dashboard/Stats", "tablet", { style: { columns: 2 } })
-Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })
-Responsive("dashboard/Content", "mobile", { style: { padding: [5, 4] } })
+Responsive("dashboard/Stats", "tablet", { style: { gridTemplateColumns: [{ fr: 1 }, { fr: 1 }] } })
+Responsive("dashboard/Stats", "mobile", { style: { gridTemplateColumns: [{ fr: 1 }] } })
+Responsive("dashboard/Content", "mobile", { style: { padding: [{ step: 5 }, { step: 4 }] } })
 ```
 
 The viewport is the viewport option's id, not the mode's. A frame is as wide as its viewport and as tall as its content,

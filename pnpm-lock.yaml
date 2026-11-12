@@ -331,6 +331,9 @@ importers:
       '@parity-app/builder-vite':
         specifier: workspace:*
         version: link:../../packages/builder-vite
+      '@parity-app/change-detection':
+        specifier: workspace:*
+        version: link:../../packages/change-detection
       '@parity-app/channel':
         specifier: workspace:*
         version: link:../../packages/channel
@@ -361,6 +364,9 @@ importers:
       '@parity-app/renderer-react':
         specifier: workspace:*
         version: link:../../packages/renderer-react
+      '@parity-app/service':
+        specifier: workspace:*
+        version: link:../../packages/service
       '@parity-app/style-schema':
         specifier: workspace:*
         version: link:../../packages/style-schema
@@ -430,12 +436,24 @@ importers:
 
   apps/portal:
     dependencies:
+      '@better-apps/identity-workos':
+        specifier: ^0.1.0
+        version: 0.1.0(@workos-inc/node@12.2.0)
+      '@parity-app/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
+      '@parity-app/service':
+        specifier: workspace:*
+        version: link:../../packages/service
       '@tanstack/react-router':
         specifier: ^1.170.46
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-start':
         specifier: ^1.169.5
         version: 1.169.5(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(supports-color@7.2.0)
+      '@workos-inc/node':
+        specifier: ^12.1.0
+        version: 12.2.0
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -602,6 +620,15 @@ importers:
       vite:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+
+  packages/change-detection:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/channel: {}
 
@@ -820,6 +847,15 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
 
+  packages/service:
+    dependencies:
+      '@parity-app/connectors':
+        specifier: workspace:*
+        version: link:../connectors
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
   packages/style-schema:
     dependencies:
       css-tree:
@@ -1033,6 +1069,12 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  '@better-apps/identity-workos@0.1.0':
+    resolution: {integrity: sha512-bRm/w09NU8wK9GSQgSGlqvlRCLZ+jS1cn2Zb3SZ1Op8LW1zqvji3YsK2LVRGWgM7J/hhbIBeCzorK3Uz3iwd5A==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      '@workos-inc/node': ^11.0.0
 
   '@betterapps/playbook@https://codeload.github.com/betterapps-hq/playbook/tar.gz/efc37ff702358b5415800908f94a4c1230e6c8a8':
     resolution: {gitHosted: true, integrity: sha512-u/OlnA4Io469+mAj4ks85xjP7mNZT9PwXSYIiBL7p7/syDNqZlyZ+Vr+pPHgdTJ6JjinluXdm43MhK7uWhBI7A==, tarball: https://codeload.github.com/betterapps-hq/playbook/tar.gz/efc37ff702358b5415800908f94a4c1230e6c8a8}
@@ -4779,6 +4821,10 @@ packages:
     peerDependencies:
       css-tree: ^3.2.1
 
+  '@workos-inc/node@12.2.0':
+    resolution: {integrity: sha512-uWzWtPieLqn+juXcIm8YQxh0qokZg0dnjzGm5AHeemiG6VeqzGYc6nlqQ2zw/OI80aYuaPo/ZOURACyQuqYgnA==}
+    engines: {node: '>=22.11.0'}
+
   '@xmldom/xmldom@0.8.15':
     resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
     engines: {node: '>=10.0.0'}
@@ -5002,6 +5048,10 @@ packages:
 
   before-after-hook@4.0.0:
     resolution: {integrity: sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ==}
+
+  better-apps@0.1.0:
+    resolution: {integrity: sha512-IG85knmkTYR9k12cp2szZmkAYtJq1vROl+/sxT6CeMyWPDf0Zq2I+PaT2SOAhg7uacSTJRGB9vqBPKihviq/7w==}
+    engines: {node: '>=24'}
 
   blake3-wasm@2.1.5:
     resolution: {integrity: sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g==}
@@ -8573,6 +8623,11 @@ snapshots:
       use-sync-external-store: 1.7.0(react@19.3.1)
     optionalDependencies:
       '@types/react': 19.3.0
+
+  '@better-apps/identity-workos@0.1.0(@workos-inc/node@12.2.0)':
+    dependencies:
+      '@workos-inc/node': 12.2.0
+      better-apps: 0.1.0
 
   '@betterapps/playbook@https://codeload.github.com/betterapps-hq/playbook/tar.gz/efc37ff702358b5415800908f94a4c1230e6c8a8(@types/node@24.19.2)(supports-color@7.2.0)':
     dependencies:
@@ -12266,6 +12321,8 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
+  '@workos-inc/node@12.2.0': {}
+
   '@xmldom/xmldom@0.8.15': {}
 
   '@yarnpkg/lockfile@1.1.0': {}
@@ -12484,6 +12541,8 @@ snapshots:
       - typescript
 
   before-after-hook@4.0.0: {}
+
+  better-apps@0.1.0: {}
 
   blake3-wasm@2.1.5: {}
 

@@ -16,7 +16,7 @@ const design: ContainerSpec = {
       {
         type: "layout",
         id: "row",
-        style: { direction: "row" },
+        style: { flexDirection: "row" },
         children: [
           { type: "text", id: "d", text: "D" },
           { type: "text", id: "e", text: "E" }
@@ -53,7 +53,7 @@ describe("several nodes at once", () => {
   })
 
   it("wraps siblings in a layout where the first one was", () => {
-    const next = wrapNodes(design, ["c", "b"], { id: "stack", style: { gap: 2 } })
+    const next = wrapNodes(design, ["c", "b"], { id: "stack", style: { gap: { step: 2 } } })
     expect(ids(next.root)).toEqual(["a", "stack", "row"])
     expect(ids(findNode(next.root, "stack"))).toEqual(["b", "c"])
   })
@@ -65,6 +65,6 @@ describe("several nodes at once", () => {
   it("unwraps a layout into its parent and drops its overrides", () => {
     const next = unwrapNode(design, "row")
     expect(ids(next.root)).toEqual(["a", "b", "c", "d", "e"])
-    expect(next.states[1]?.overrides).toEqual({ d: { text: "Dee" } })
+    expect(next.states![1]?.overrides).toEqual({ d: { text: "Dee" } })
   })
 })

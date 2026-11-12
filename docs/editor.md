@@ -221,7 +221,7 @@ finds what's under the pointer and hands it over (`underPoint`, and `selectedIn`
 sits in). `canvas/CanvasOverlay.tsx` handles the pointer ahead of tldraw and outlines the hover in its frame;
 `canvas/select-box.ts` (`pressBackground`) follows a press on a frame's background; `canvas/layer-drag.ts`
 (`pressLayers`) drags as before. `canvas/CanvasEditor.tsx` (`HoverOutlines`) leaves out the board's hover outline while
-a layer is hovered. Enter is `selectChildren` in `chrome/commands.ts`, with `childLayers` in `canvas/layers.ts`, and the
+a layer is hovered. Enter is `selectChildren` in `chrome/actions.ts`, with `childLayers` in `canvas/layers.ts`, and the
 keymap calls it "Select the layers inside, or edit text". A hover carries its frame's mode and state (`selection.ts`),
 and `elementBox` in `frame.ts` leaves out clipped elements.
 
@@ -513,33 +513,34 @@ menubar's command. A row in the Layers panel has a menu of its own, built the sa
   This holds for the menubar's and the title's menus, and dialogs, too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
-selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
-`rightClickSelection` there is what a right-click selects, and `layerCommands` which of Copy, Duplicate, the order, Wrap
-in layout and Hide can act on the selected layers, which the menubar's `actions.ts` reads too. `chrome/CanvasMenu.tsx`
-is the context menu around the canvas area in `ProjectView.tsx`: it records the right button's press, finds the design
-under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entries through the hover, runs items through
-`actions.ts`, and opens again on a right-click outside it (`reopensOnCanvas`, from `onOpenChange`). Paste here is
-`pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
-through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
-frame, with the frame's scale and the inside of the border from `canvas/frame-geometry.ts` (PAR-967), and `pasteHere` in
-`packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys an open menu keeps is
-`inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in `chrome/layers-menu.ts`, which reuses
-`canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a right-click on a row selects;
-`chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
+selection, the design under the pointer and every command's state, and returns the items in order, with Select layer's
+list. Whether an item can act, and what it's called, is `commandStates`', as the menubar and the keys have it (see
+Whether a command applies, and what it's called); the menu decides only which items to show. `rightClickSelection` there
+is what a right-click selects. `chrome/CanvasMenu.tsx` is the context menu around the canvas area in `ProjectView.tsx`:
+it records the right button's press, finds the design under the pointer with `hitTest` and `pickLayer`, outlines Select
+layer's entries through the hover, runs items through `actions.ts`, and opens again on a right-click outside it
+(`reopensOnCanvas`, from `onOpenChange`). Paste here is `pasteAtPointer` in `canvas/clipboard.ts`, which reads the
+clipboard and places designs, notes and text; layers go through `canvas/paste-here.ts`, where `measureHere` measures the
+layout or component's slot under the pointer in its frame, with the frame's scale and the inside of the border from
+`canvas/frame-geometry.ts` (PAR-967), and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies
+(`placedAt` at the pointer). Which keys an open menu keeps is `inMenu` in `canvas/shortcuts.ts`. The Layers row's menu
+is `layersMenu` in `chrome/layers-menu.ts`, which reuses `canvasMenu`'s items and the same states, and `rowSelection`
+there is what a right-click on a row selects; `chrome/LayerTree.tsx` selects on opening and runs the items through
+`actions.ts`.
 
 Tests:
 
 - `chrome/canvas-menu.test.ts` (21): one layer's menu in order with its keys, an instance's Go to, several layers, Show
   and Hide in two states, Show for a layer the variant shown hides and Hide after Hide shows it, a design's menu and its
   Make component label, several designs, a layer inside an instance, the menu around the designs and on a canvas with
-  nothing on it; Select layer's list, names, checks and the design's kind; what a right-click selects on a layer, a
-  frame's background, around the frames, the root, inside the selection, outside it, and in a selected design; and
-  `layerCommands`, which the menubar shares, for the design's own layers, one or several, and for a layer inside an
-  instance, the root, and one of each.
-- `chrome/layers-menu.test.ts` (7, PAR-571): a layer's row menu in order with the keymap's labels and keys, a design's,
-  the root's with only Rename available, Hide reading every selected layer, Hide in the state the selection was picked
-  in rather than the one the board shows (PAR-586, which the menu before got wrong), and what a right-click on a row
-  selects, inside the selection and outside it.
+  nothing on it; Select layer's list, names, checks and the design's kind; and what a right-click selects on a layer, a
+  frame's background, around the frames, the root, inside the selection, outside it, and in a selected design. Each menu
+  is built from `commandStates`, as the window builds it.
+- `chrome/layers-menu.test.ts` (9, PAR-571): a layer's row menu in order with the keymap's labels and keys, a design's,
+  the root's with only Rename available, Rename unavailable on a layer inside an instance whichever selected layer the
+  selection leads with, Hide reading every selected layer, Hide in the state the selection was picked in rather than the
+  one the board shows (PAR-586, which the menu before got wrong), and what a right-click on a row selects, inside the
+  selection and outside it.
 - `chrome/LayerTree.stories.tsx`, LayerMenu and DesignMenu (under Parity/Left panel/Layers): a right-click on a row
   selects it and opens its menu.
 - `packages/editor/src/paste-here.test.ts` (23): the dashboard's stats row, at the slot under the pointer, first and
@@ -583,8 +584,7 @@ opened no canvas menu. On 2026-11-04, in `pnpm dev` on the example: a right-clic
 moved it to the new point, with Select layer's list open too; Stat card's note pasted here between the header's Label
 and Value, in the Card header's slot, as "Paste layer here"; and with the Users card's value selected the menubar greyed
 Copy, Duplicate, Wrap in layout, the order and Hide or show. A stretched copy pasted at the pointer is covered by the
-unit tests alone. Cut and Delete, which the canvas menu doesn't have, stay available in the menubar for a layer inside
-an instance.
+unit tests alone. Since PAR-971 the menubar greys Cut and Delete for a layer inside an instance too.
 
 ### The overlay canvas only takes memory while it shows something (PAR-196)
 
@@ -1684,9 +1684,9 @@ on the whole selection as one undo step, labelled with how many things they touc
   its layout and down the Layers list. An order that wouldn't move it records nothing.
 - **Align on layers works in their layouts,** as the frame shows them: in the state being edited, with the variant
   options the board shows and the frame's viewport (PAR-464). A layer aligns by itself on its layout's cross axis
-  (`self`), and along the main axis the layout moves all its children (`justify`). So in a layout a variant turns into a
-  row, Align right sets `justify: end` on the layout, in that variant, rather than `self` on the layer. Layers in a
-  component's slot stay as they are.
+  (`alignSelf`), and along the main axis the layout moves all its children (`justifyContent`). So in a layout a variant
+  turns into a row, Align right sets `justifyContent: "end"` on the layout, in that variant, rather than `alignSelf` on
+  the layer. Layers in a component's slot stay as they are.
 - **Align on designs lines them up on the canvas** by their edges or centers, within the span of them all, and needs
   two. **Distribute spaces three or more evenly** between the outermost two, across or down. Positions are rounded to
   whole pixels, and a move that changes nothing records nothing.
@@ -2049,10 +2049,12 @@ What the floating controls on the canvas hold, and how a review tool takes over 
 Code: the review rules are `packages/editor/src/review.ts` (`startReview`, `pickReview`, `stopReview`, `reviewToolFor`
 and `isReviewTool`). In the app, `renderer/selection.ts` keeps each tab's review (`startReviewing`, `stopReviewing`,
 `useReview`, and `setTool` putting it down); `chrome/keymap.ts` and `chrome/actions.ts` have Comment and Annotate, and
-`stepBack` in `chrome/commands.ts` puts the review tool down on Esc. `chrome/FloatingToolbar/` has the toolbar:
+`stepBack` in `chrome/actions.ts` puts the review tool down on Esc. `chrome/FloatingToolbar/` has the toolbar:
 `FloatingToolbar.tsx`, `Tools.tsx`, `MoveMenu.tsx`, `FrameMenu.tsx`, `ReviewButton.tsx` and `tool-details.ts`, with the
 warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and `warp-motion.ts` (the choreography).
-`chrome/toolbar-parts.tsx` has the parts the floating bars share, and `chrome/ZoomControls.tsx` is Zoom.
+`chrome/toolbar-parts.tsx` has the parts the floating bars share, and `chrome/ZoomControls.tsx` is Zoom. Insert, Find
+references, Search actions and Zoom's buttons are unavailable when `commandsFor` says their command can't run, as Find
+references without a reference library, or Zoom to fit on a canvas with nothing on it (PAR-971).
 `collaboration/annotations/` has the review tools' bars: `annotation-kinds.ts` names and colors each review tool,
 `annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with
 `DoneButton.tsx`. `ReviewBar.tsx`, a bar for a review tool beside the toolbar rather than in it, is kept for later.
@@ -2068,7 +2070,8 @@ Tests:
   only Comment and the kinds are review tools.
 - `apps/desktop/src/renderer/springs.test.ts` (5): a spring starts at 0 and settles on 1, overshoots only when it's
   loose, settles later the less it's damped, and makes a `linear()` easing and keyframes.
-- `chrome/record-actions.test.ts`: Zoom's buttons run through the action list.
+- `chrome/record-actions.test.ts`: an action runs on the tab it's given, as Zoom's buttons give theirs, and only when
+  its state says it applies (PAR-971).
 - Stories, Parity / Chrome / Toolbar: SelectTool; Groups, which checks Frame, Text and Comment are the tools' group and
   Insert and Find references sit outside it; HandTool, TextTool, InteractTool, ToolTooltip, Annotating and Commenting;
   AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes back to Text;
@@ -2112,6 +2115,53 @@ Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
 reads the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard
 shortcuts dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
+
+### Whether a command applies, and what it's called (PAR-971)
+
+Every place that offers a command agrees on whether it can run now and what it's called: its keys, the menubar, Search
+actions, the toolbar, Zoom, and the canvas and Layers menus.
+
+- **A command that can't run is greyed** in the menus, Search actions and the toolbar, and its keys don't run it: a Ctrl
+  shortcut is recorded as cancelled, and a plain key does what it would anyway, as Tab moving focus.
+- **Names follow what's selected:** Undo and Redo name the step, Repeat what it repeats, Make component reads Convert to
+  component or Convert to screen for a design on its own, Go to the main component names it, Hide reads Show when every
+  selected layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could
+  act on, Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name
+  too, so "hide" finds Show.
+- **Layer commands need layers of the design's own:** Cut, Copy, Duplicate, Delete, Wrap in layout, Hide and Lock are
+  unavailable for only a design's root or layers inside an instance, and their keys do nothing then. The order and Make
+  component take one such layer alone. Rename is unavailable for a layer inside an instance.
+- **Some need something on the canvas or selected:** Select all needs a design or a note on the canvas, and Zoom to fit
+  a design, a note or a placed reference. Find references needs a connected reference library, Export selected and Copy
+  as PNG a layer or design selected, and Lock a layer or design, not a mode column picked on its own.
+- **A menu's own wording,** such as Insert… or Export…, is kept only for commands whose name doesn't change.
+
+Code: `commandStates` in `apps/desktop/src/renderer/chrome/command-state.ts` takes the tab's selection, designs, notes,
+canvas, history, what Repeat would run and whether a reference library is connected, and returns every command's
+`{ enabled, label }`. `commandsFor` in `chrome/actions.ts` reads a tab into it; `AppMenu.tsx` reads it once for each
+open menu, `canvasMenu` and `layersMenu` take it, `ActionsSearch.tsx` and `IconButton.tsx` (`CommandButton`) read it,
+and `canvas/shortcuts.ts` asks it before a key runs a command. `recordActions` in `chrome/record-actions.ts` asks it
+again before running, for the tab passed as `session` or the active one. What each command runs is private to
+`actions.ts`, which exports only `actions` and `commandsFor`.
+
+Tests:
+
+- `chrome/command-state.test.ts` (115): a table of situations (no project, an empty canvas, a note on it, nothing
+  selected, one or two layers, a hidden or locked layer, an instance, a layer inside an instance, the root, either of
+  those beside one of the design's own layers, a mode column, references on an empty canvas, a screen, a component, a
+  locked screen, two and three designs, a note, a reference, no reference library, no canvas, history and Repeat) and
+  the state and name each command has in them; and a state for every command in the keymap.
+- `chrome/record-actions.test.ts` (6): the wrapper records each run with where it came from, records one that doesn't
+  apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the tab it's given;
+  the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once there's
+  something to duplicate, recorded both times.
+- Stories, Parity / Chrome / App menu: EditLayerInInstance and ObjectLayerInInstance (greyed items, Cut and Delete among
+  them, and the keymap's names for a layer inside an instance), SearchActionsNamesWhatItDoes (a locked design's Unlock,
+  found by "lock"), and ExportSelectedAsItsShortcutDoes (PAR-976). Parity / Chrome / Zoom controls: NothingToFit, Zoom
+  to fit unavailable in a project with nothing on its canvas.
+- Tried in the app on 2026-11-12 with `scripts/drive.ts`: the menubar, canvas menu and Layers menu with nothing, a
+  screen, a component, a layer and every design selected; Hide from Object, then Show in Object and Layers, and Undo
+  naming the step; the canvas menu from Shift+F10; and each item's accessible name, its label and its keys.
 
 ### Search actions finds anything, and Repeat last action (PAR-180)
 
@@ -2241,11 +2291,11 @@ Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`):
 it's given, and `nudgedPosition` for designs and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has
 `nudgeSelection`, which nudges what's selected in the store, and `frameDrawn`, which reads a layout's flow, through
 `@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s `flowingBoxes`, and a layer's drawn insets
-from its frame (`frameGeometry`'s `insets`, in half steps by `insetSteps`, PAR-967). Then `chrome/commands.ts`
-(`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the
-arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps
-the other arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed
-by the selection's `selectionKey` (`selection.ts`).
+from its frame (`frameGeometry`'s `insets`, in half steps by `insetSteps`, PAR-967). Then `chrome/actions.ts` (`nudge`,
+whose `byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`,
+`↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps the other arrows from
+tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's
+`selectionKey` (`selection.ts`).
 
 Tests:
 
@@ -2293,7 +2343,7 @@ Both are in Edit, after Select all, as in Figma.
   components, or screens.
 
 Code: `apps/desktop/src/renderer/canvas/select.ts` (`inverseSelection`, `matchKey`, `matchingLayers`,
-`matchingSelection`), with the commands in `chrome/commands.ts` and the menu items in `chrome/AppMenu.tsx`.
+`matchingSelection`), with the commands in `chrome/actions.ts` and the menu items in `chrome/AppMenu.tsx`.
 
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` covers inverting layers, everything selected, designs, a mode
 column, nothing selected and an instance's layers; and matching cards' titles however they're placed, the cards
@@ -2318,7 +2368,7 @@ and Zoom to previous frame do. They're in View, after Zoom to selection.
 - **The zoom** is Zoom to selection's: the design fills the view, with a margin, whether it was in view or not.
 
 Code: `adjacentDesign` and `designOrder` in `apps/desktop/src/renderer/canvas/select.ts`, and `selectAdjacentDesign` in
-`chrome/commands.ts`, which zooms with `zoomToSelection`.
+`chrome/actions.ts`, which zooms with `zoomToSelection`.
 
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` (the order, going round, from a layer, and with nothing
 selected). End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2): N from Pricing selects Sign up and zooms to it,
@@ -2622,7 +2672,7 @@ Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediu
 the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
-grid), `project-media.ts` (the scan, kept per open project) and `remove-media.ts`.
+grid), `project-media.ts` (the scan, kept per open project, through code changes and reconnects) and `remove-media.ts`.
 
 Tests:
 
@@ -2640,6 +2690,7 @@ Tests:
   the code names, dropping files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
+- `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
@@ -2668,7 +2719,9 @@ it.
   results before it closes the dialog.
 - **When a search fails:** nothing matching says what to change, with Clear filters, or the other platform on Mobbin
   (`otherSide`). Too many searches counts down the wait the source asked for before Try again; a source that didn't
-  answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up.
+  answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up; and one
+  Parity's service searches, with nobody signed in, offers Sign in, which opens the sign-in dialog over the browser, and
+  searches again once someone's in (PAR-948).
 
 Code: `packages/connectors/src/browse.ts`; `apps/desktop/src/renderer/library/`: `library-browser.ts` (which library is
 open and what picking does), `use-library-search.ts` (the search, its pages and its state), `LibraryBrowser.tsx`,
@@ -2682,9 +2735,9 @@ Tests:
   narrowed a recent search, the other platform, the depth's names, a result's label, what can be picked, a video's
   length, and a picture's credit.
 - The browser's stories, grouped by library under Parity/Library browser, each with its check except Searching and the
-  two Live ones, sharing their setup in `library/browser-stories.tsx`: `LibraryBrowser.Pixabay.stories.tsx` (16): just
+  two Live ones, sharing their setup in `library/browser-stories.tsx`: `LibraryBrowser.Pixabay.stories.tsx` (17): just
   opened, recent searches, results, a typed search, choosing a type, filters behind Filters, picking, larger, more as
-  you scroll, videos, nothing found, too many searches, no answer, no key, searching and Live;
+  you scroll, videos, nothing found, too many searches, no answer, no key, signed out, searching and Live;
   `LibraryBrowser.Mobbin.stories.tsx` (5): screens, phones, nothing found, deep search and Live; and
   `LibraryBrowser.Unsplash.stories.tsx` (1). The Live stories search Pixabay and Mobbin with the keys in
   `apps/desktop/.env.local`.
@@ -2840,7 +2893,7 @@ no board, states, modes or layers, it isn't in Layers, and code and exports leav
 Code: `referenceSpec` in `packages/core/src/document.ts`; `packages/editor/src/references.ts` (the changes, size, row
 and searches) and `mergeAgentChanges` in `design-changes.ts`; `apps/desktop/src/renderer/references/find-references.ts`,
 `canvas/ReferenceUtil.tsx`, `chrome/ReferencePanel.tsx`, and the references in `design-store.ts`,
-`canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and `chrome/commands.ts`; `PlaceReference` in
+`canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and `chrome/actions.ts`; `PlaceReference` in
 `packages/agent/src/workspace.ts`, with `foundScreen` in `apps/desktop/src/utility/references.ts`.
 
 Tests:
@@ -2906,8 +2959,9 @@ The Design tab ends with an **Export** section for whatever is selected: a desig
 design, or several designs. It lists the sizes to write, each a PNG or a JPG at 1x, 2x or 3x, with **+** to add the next
 size not asked for (PNGs from 1x up, then JPGs) and **−** to remove one, down to the last. Under them it names the files
 that makes, the first three and how many more, and **Export** asks for a folder and writes them. The canvas menu ends
-with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected,
-export the selection at the same sizes. The sizes are remembered for every export, not per layer.
+with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected, run
+the one Export selected command, which exports the selection at the same sizes (PAR-976). It's unavailable with no layer
+or design selected. The sizes are remembered for every export, not per layer.
 
 - **Names:** each file is its layer's name as the Layers panel shows it, with `@2x` or `@3x` for those scales and none
   at 1x, as iOS and Android name theirs: `Headline@2x.png`. Characters a file name can't hold on Windows, macOS or Linux
@@ -2926,10 +2980,10 @@ export the selection at the same sizes. The sizes are remembered for every expor
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
-`MultiPanel.tsx`; `exportLayers` and `exportSelected` in `chrome/commands.ts`; the menus' items in
-`chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`; `framePictures` in
-`packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers` in
-`utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
+`MultiPanel.tsx`; `exportLayers` in `chrome/commands.ts` and the command's `exportSelected` in `chrome/actions.ts`; the
+menus' items in `chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`;
+`framePictures` in `packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers`
+in `utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
 
 Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's suffix and format, numbering alike names,
 a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
@@ -2937,8 +2991,10 @@ reasons a file can't be written, and a crop kept inside the picture). `apps/desk
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
 `chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
 `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
-`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
-the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
+`chrome/AppMenu.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
+drawing offscreen and writing the files run in the desktop app's service, which no test opens; the e2e suite covers the
+window's export, not this.
 
 ### Copy as PNG (PAR-190)
 
@@ -2960,9 +3016,9 @@ the selected designs, to the clipboard as one PNG at 2x, to paste into a chat, a
   Settings' export scale.
 
 Code: `planPicture`, `copyScale` and `largestPicture` in `packages/editor/src/export-files.ts`; `copySelectedAsPng` in
-`chrome/commands.ts`, sharing `selectedTargets` with `exportSelected`, which writes the clipboard; `copyAsPng` in
-`chrome/keymap.ts` and `chrome/actions.ts`; `layersPicture` in `utility/agent.ts`, through `framePictures`, with
-`composePicture` in `utility/webp.ts`, behind the service's `layers.picture`.
+`chrome/actions.ts`, sharing `selectedTargets` from `chrome/commands.ts` with `exportSelected`, which writes the
+clipboard; `copyAsPng` in `chrome/keymap.ts` and `chrome/actions.ts`; `layersPicture` in `utility/agent.ts`, through
+`framePictures`, with `composePicture` in `utility/webp.ts`, behind the service's `layers.picture`.
 
 Tests: `packages/editor/src/export-files.test.ts` (6 more: one layer planned exactly as its 2x PNG export, the box
 around a design's layers, designs placed as on the canvas, what can't be drawn left out with why, a picture too big to
@@ -3203,14 +3259,14 @@ Everything in the inspector's Design tab runs to one right edge, 12px from the p
 buttons such as Make component, a section's action such as Min and max, and the toggles beside Padding and Margin. A
 field's reset arrow, shown while a state changes it, sits in the label column right after the label, so a row's input
 keeps the row's full width whether or not it can be reset. An image's photo credit sits under its fields, in their
-column. The Editing bar reads as one sentence ("Editing Monthly changes every state") and wraps when it doesn't fit,
+column. The Editing bar reads as one sentence ("Editing Default changes every state") and wraps when it doesn't fit,
 rather than running past its border.
 
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Instance Changed In A State; Fields: Changed
-In A State; Design: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Editing A State; Fields: Changed In A State;
+Design: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -3335,70 +3391,73 @@ from the project's gradient tokens, read from their CSS; editing a token's stops
 image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
 then its fit and position. An image dropped on the section adds an image fill.
 
-The document keeps the stack in `background`: one color token is a string, as it always was, and a stack a list of
-paints ([decisions.md](decisions.md)). A stack of one plain color is written back as its token's name. The bottom color
-is drawn as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's
-dev server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill
-paints as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint
-names any color or gradient in it that isn't a token. With several layers selected and fills that differ, the section
-says so and + replaces them all.
+The document keeps the stack in `fills`, always a list of paints, each with its `type` ([decisions.md](decisions.md)).
+One color token is a list of one solid paint: `[{ type: "solid", color: { token: "card" } }]`. The bottom color is drawn
+as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's dev
+server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill paints
+as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint names any
+color or gradient in it that isn't a token. With several layers selected and fills that differ, the section says so
+and + replaces them all.
 
 Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
 paint's alpha, stops and angle are each one undo step per change, not per drag.
 
-Code: `paint.ts` in `@parity-app/core` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
+Code: `packages/style-schema/src/paint.ts` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
 `packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
 the document's paints to the control's and reading gradient tokens; `ImageSource` in
 `inspector/controls/image-fill.tsx`.
 
-Tests: `packages/core/src/paint.test.ts` (10): an old single color reads as it did, a stack round-trips, bad stops, fits
-and alphas are refused, the CSS each kind writes, and a render draws it. `packages/editor/src/style-editing.test.ts`
-(the Fill row's edit), `packages/editor/src/project-images.test.ts` (an image a fill paints is used),
-`packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it back, and hears about a color that
-isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against the project), and
-`apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back, ids kept so an open
-editor stays open, and gradient tokens read from CSS.
+Tests: `packages/core/src/paint.test.ts` (10): one color token as a list of one solid paint, a stack round-trips, bad
+stops, fits and alphas are refused, the CSS each kind writes, and a render draws it.
+`packages/editor/src/style-editing.test.ts` (the Fill row's edit), `packages/editor/src/project-images.test.ts` (an
+image a fill paints is used), `packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it
+back, and hears about a color that isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against
+the project), and `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back,
+ids kept so an open editor stays open, and gradient tokens read from CSS.
 
 ### Effects: shadows, filters and transform (PAR-933)
 
 The Effects section is the approved Shadow list, Filter list and Transform, each editing the selected layers' style.
 
-- **Shadows.** `shadow` is one shadow token, as before, or a stack, top first: drop and inner shadows, each a token's,
-  whose color can be set over the token's, or its own offsets, blur, spread and color in px, and rings, a width drawn
-  outside or inside. Frames draw them as one `box-shadow`. A token is drawn as the project defines it: its variable
-  can't be recolored, so a color set over a token's shows in the panel and the agent's reads, not yet in the frame.
+- **Shadows.** `boxShadow` is always a list, top first: drop and inner shadows, each a token's, whose color can be set
+  over the token's, or its own offsets, blur, spread and color in px, and rings, a width drawn outside or inside. One
+  shadow token is `[{ type: "drop", token: "shadow-md" }]`. Frames draw them as one `box-shadow`. A token is drawn as
+  the project defines it: its variable can't be recolored, so a color set over a token's shows in the panel and the
+  agent's reads, not yet in the frame.
 - **Drop shadows that follow the shape** are the layer's `filter: drop-shadow()`. The Shadow list shows them in its
   Follows the shape group, and the Filter list leaves them to it.
-- **Filters.** `filter` is the layer's, and `backdropFilter` what's behind it, each a list of blurs (a blur token),
-  adjustments and, on the layer, drop shadows, drawn in the list's order. Brightness, contrast and saturation are a
-  change from 100%, so +25 is `brightness(125%)`; hue is degrees, and grayscale, sepia and invert 0 to 100. A blur with
-  no token chosen writes nothing.
-- **Transform.** `transform` is a move (spacing steps, a length token, or a percentage of the layer's own size), a
-  rotation, a scale per axis (negative when flipped), a skew per axis, and the origin, drawn as CSS's `translate`,
-  `rotate` and `scale`, with the skew in `transform`. The panel shows Move, Scale with its flips, and Origin, and keeps
-  the rotation and skew the agent sets; PAR-937 adds rows for them.
-- **Text case is `textTransform`.** It was `transform`; a file that still has text case there no longer opens.
-- **Each list's edit replaces every selected layer's list,** as the mixed list says it will. Every entry takes an off
-  flag, kept and not drawn.
+- **Filters.** `filter` is the layer's, and `backdropFilter` what's behind it, each a list of blurs (a blur token or a
+  length, as `{ type: "blur", value: { token: "blur-sm" } }`), adjustments and, on the layer, drop shadows, drawn in the
+  list's order. Brightness, contrast and saturation are a change from 100%, so +25 is `brightness(125%)`; hue is
+  degrees, and grayscale, sepia and invert 0 to 100. A blur with no token chosen writes nothing.
+- **Transform.** Five keys hold it, each named after the CSS property it writes: `translate` is a move, a length each
+  way (`{ x: { step: 4 } }`, or `{ value: "50%" }` for a share of the layer's own size); `rotate` is degrees; `scale` is
+  a percentage per axis, negative when flipped; `transform` is a list of skews (`{ type: "skewX", value: 8 }`), applied
+  after the rest; and `transformOrigin` is the point they turn about, in percent. The panel shows Move, Scale with its
+  flips, and Origin, and keeps the rotation and skew the agent sets; PAR-937 adds rows for them.
+- **Text case is `textTransform`.** `transform` takes only its list of skews, so text case there is refused.
+- **Each list's edit replaces every selected layer's list,** as the mixed list says it will. Every entry takes
+  `off: true`, kept and not drawn.
 - **The section is three of the approved controls in a row:** the Shadow list titled Effects, then the Filter list
   titled Filters, whose + leaves out the drop shadow the Shadow list adds, then Transform.
 - **The project's own tokens.** The controls offer the project's colors, shadows (by kind: box, inset and drop) and
   blurs, read from its tokens, with a shadow token's layers read from its value so its card draws it.
 
-Code: the schema (`shadow`, `filter`, `transform` and `textTransform` in `nodeStyle`) in
-`packages/core/src/document.ts`; `shadowCss`, `filterCss` and `transformCss` in `packages/core/src/render.ts`; the rows
-`shadow`, `filters` and `transform` in `packages/editor/src/style-editing.ts`; tokens inside shadows, filters and the
-transform in `packages/agent/src/lint.ts`. In the app, `EffectsSection` in
+Code: the schema (`boxShadow`, `filter`, `backdropFilter`, the transform keys and `textTransform` in `nodeStyle`) in
+`packages/style-schema/src/model.ts`; `shadowCss`, `filterCss` and `transformCss` in
+`packages/style-schema/src/effects.ts`; the rows `shadow`, `filters` and `transform` in
+`packages/editor/src/style-editing.ts`; tokens inside shadows, filters and the transform in
+`packages/agent/src/lint.ts`. In the app, `EffectsSection` in
 `apps/desktop/src/renderer/inspector/sections/effects.tsx`, with the document's values turned into the controls' in
 `effects-values.ts` and the project's tokens in `effect-tokens.ts`. The agent's skill describes them in
 `packages/cli/skills/document.md`.
 
 Tests:
 
-- `packages/core/src/effects.test.ts` (8): every effect and text case kept through a file; one shadow token still taken;
-  text case under `transform` and a half-token shadow rejected; the shadows that are on drawn top first, with an alpha
-  mixed in; filters in order, with adjustments from 100% and neutral ones left out; a transform's move, rotation, scale,
-  skew and origin; and all of them on a drawn layer.
+- `packages/core/src/effects.test.ts` (8): every effect and text case kept through a file; one shadow token as a list of
+  one; text case under `transform` and a half-token shadow rejected; the shadows that are on drawn top first, with an
+  alpha mixed in; filters in order, with adjustments from 100% and neutral ones left out; a transform's move, rotation,
+  scale, skew and origin; and all of them on a drawn layer.
 - `packages/agent/src/dispatch.test.ts` (1): an agent's `Update` sets shadows, filters, the transform and text case.
 - `packages/agent/src/lint.test.ts` (1): tokens the project doesn't have inside a shadow, a ring's color, a filter's
   drop shadow, a backdrop blur, and a transform's move.
@@ -3422,28 +3481,28 @@ Motion lists the selected layers' transitions, on the approved Transition list. 
 Easing (Tailwind's, the project's, a curve, steps or a spring) and Delay. The eye turns an entry off without removing
 it, and an entry can be dragged to another place.
 
-- **What it writes.** The list goes into the layer's style in the state being edited, as `transitions`. A state can give
-  a layer transitions of its own, and resetting the state's change takes them back.
+- **What it writes.** The list goes into the layer's style in the state being edited, as `transition`, a list. A state
+  can give a layer transitions of its own, and resetting the state's change takes them back.
 - **Tokens.** Duration and Easing offer the project's duration and easing tokens. Tailwind's own easings are presets,
   not tokens, and Tailwind's defaults are what an unset field shows. Neither field offers Create token yet.
 - **On the canvas.** Each frame draws the transitions as inline CSS, so an edit that changes a frame's look plays them.
   Opacity changed in a state fades over that state's frame, for example. The board draws each state as its own frame, so
   there's no single frame going from one state to the next.
 - **Several layers.** Layers whose lists differ show an empty list, and a list made then replaces each layer's own.
-- **Agents.** `Update` and `AddState` take `transitions` in `style`, and `Get` reads them back. The lint warns about a
+- **Agents.** `Update` and `AddState` take `transition` in `style`, and `Get` reads them back. The lint warns about a
   duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
   forms.
 
 Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style-schema/src/motion.ts`, with
-`NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
+`NodeStyle.transition` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
 `packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
 Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
-a curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema,
-and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving out a
-hidden entry. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+a curve of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through the
+schema, and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving
+out an entry turned off. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
@@ -3754,9 +3813,9 @@ A text layer sizes in one of Figma's three ways, picked under Text > Resizing in
 component's text sizes as the component does). The mode is read from the layer's width and height, so it isn't a
 separate setting that could disagree with them, and the resize handles change it as Figma's do.
 
-- **Auto width:** `width: "hug"`. The layer is as wide as its line and never wraps for its parent, only at a maximum
-  width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers stays
-  `fit-content`.
+- **Auto width:** `width: { size: "hug" }`. The layer is as wide as its line and never wraps for its parent, only at a
+  maximum width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers
+  stays `fit-content`.
 - **Auto height:** any other width, or none, and no height. It wraps at its width and grows down. A text layer with no
   width wraps at the one its layout gives it, so that's auto height too, which is what text added to a layout starts as.
 - **Fixed:** a height as well, a length, a token or fill. It keeps that height whatever the text, and text past it
@@ -3799,10 +3858,11 @@ Tests:
   it was (PAR-582); and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
-- `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
-  whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
-  doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
-  and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
+- `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `alignSelf` drawn at
+  the whole width up to its maximum, placed by `alignSelf` or the parent's `alignItems` rather than stretched, so a
+  centred column doesn't hug its content; a fill along the parent still growing; and hug with `alignSelf` still hugging.
+  The CSS is `size` and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as
+  declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -3829,7 +3889,7 @@ maximum still wraps.
 ### Inline text, alignment and long words (PAR-898)
 
 A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
-component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lines: 1` would do nothing
+component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lineClamp: 1` would do nothing
 there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
 in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
 already draws its own box, which clamps it. A `p` or a heading is a block anyway.
@@ -3849,9 +3909,9 @@ staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: 
 to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
 
 Gaps: no warning says when a style has no effect for another reason. Checked in an isolated copy of the app on
-2026-11-11, in a shadcn table: a `span` with `maxWidth: 40` and `lines: 1` in a cell was cut off with an ellipsis at
-160px, a `span` aligned to the end lined up at its cell's end, and a web address with `overflowWrap: "anywhere"` wrapped
-onto three lines in a 224px column.
+2026-11-11, in a shadcn table: a `span` with `maxWidth: { step: 40 }` and `lineClamp: 1` in a cell was cut off with an
+ellipsis at 160px, a `span` aligned to the end lined up at its cell's end, and a web address with
+`overflowWrap: "anywhere"` wrapped onto three lines in a 224px column.
 
 ## Saving and undo
 
@@ -4086,17 +4146,17 @@ tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 
-The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes every state") they
-change the design; in another state, or with a variant other than the default shown on a component's board, they're kept
-as that state's or variant's changes ("changes only this state", "changes only the Large variant").
+The inspector's Editing control says where edits go on a component: in the base state ("Editing Default changes every
+state") they change the design; in another state, or with a variant other than the default shown on its board, they're
+kept as that state's or variant's changes ("changes only this state", "changes only the Large variant"). A screen has no
+states, so it has no Editing control and its edits always change the design (PAR-1002).
 
 - **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
-  on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
-  (Ctrl+Shift+H, or Hide and Show on a row in Layers, which runs the same command, PAR-586) hides what the state shows
-  and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
-  The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer
-  the variant already hides.
+  on the state's text, not the base state's. Hide or show (Ctrl+Shift+H, or Hide and Show on a row in Layers, which runs
+  the same command, PAR-586) hides what the state shows and shows what it hides, so a layer the state, the variant or a
+  param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says Show by the same reading
+  (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
 - **Hide and Show land where the board's edits land** (PAR-497). In the base state, with a variant option other than the
   default shown, the change goes to that option; in any other state the state takes it. The row's menu used to name it
   (Show in Compact) and now says just Hide or Show (PAR-192). Core's `editTargetName` still names where an edit lands
@@ -4127,11 +4187,11 @@ as that state's or variant's changes ("changes only this state", "changes only t
   A param without a default follows the layer's own value, as before, and variants are picked in the title bar.
 - **A state's change is kept against the board,** with the params bound: showing the Stat card's Falling icon in Loading
   keeps `hidden: false` for Loading, which used to be dropped as matching the design.
-- **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's state,
-  Reset all, Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a
-  note above them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state,
-  not only Yearly." or "Its state, Reset all, Swap and Detach change the design in every variant, not only Large." In
-  the base state there's nothing to say, so it doesn't show.
+- **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's Reset all,
+  Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a note above
+  them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state, not only
+  Loading." or "Reset all, Swap and Detach change the design in every variant, not only Large." In the base state
+  there's nothing to say, so it doesn't show.
 - **Values keep their types.** A param's or prop's field is chosen by what it's declared to take, not by the value it
   has: a number param with no value yet gets a number field, so typing 12 gives 12 and not "12"; a boolean gets a
   switch; text gets text. An object prop takes JSON, and JSON that doesn't parse stays in the field with "Can't read
@@ -4140,9 +4200,9 @@ as that state's or variant's changes ("changes only this state", "changes only t
   param defaults and component props all work this way.
 - **Clearing a prop in a state turns it off there** (PAR-421). A switch turned back to its default, a text emptied or an
   attribute removed takes the prop away in the state being edited, so a prop the base design turns on can be off in one
-  state: Sign in's button, disabled in the base, enabled in Wrong password. The field is marked as changed, an attribute
-  taken away stays listed, and Reset takes the state's change back. An instance's param cleared in a state goes back to
-  its default there. In the base state, clearing removes the prop from the design, as before.
+  state: Button's button, disabled in the base, enabled in Outline. The field is marked as changed, an attribute taken
+  away stays listed, and Reset takes the state's change back. An instance's param cleared in a state goes back to its
+  default there. In the base state, clearing removes the prop from the design, as before.
 
 Code: in `packages/core`, `edit.ts` (`propChange`, how the inspector sets and clears a prop; `nodeOnBoard`,
 `hiddenOnBoard`, `toggleHidden`, `editTargetName`, `editNode` keeping the bound param's default in step and a state's
@@ -4183,13 +4243,11 @@ Tests:
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
-- `chrome/LayerInstances.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
-  Yearly.
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
-  `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
+- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Button's button disabled in the base, its
+  `disabled` switch turned off in Outline, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the
 typed fields) beyond the stories above, whose play functions run only in Storybook. All of it, and the history above,
@@ -4203,6 +4261,50 @@ off left Pricing clean; the Stat card showed one trend icon, and Ctrl+Shift+H on
 not in Monthly; and 12 typed in a number param with no default gave the number 12. Known limits:
 
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
+
+### Only a component has states (PAR-1002)
+
+States such as Default, Hover or Loading belong to a component design. A screen or a frame is drawn as its layers are,
+so the project file refuses `states` on one, and a screen's Design tab has no States section, its board no state menu
+and its layers no Editing control. An instance has no State picker either: a copy always shows its component's base
+state, under its own overrides. A screen that needs a component to look another way sets the component's params in the
+instance.
+
+- **Turning a component into a screen keeps its base state's look.** What the base state changes moves into the screen's
+  layers, the other states are dropped, and a notice names them ("Removed 2 states: Hover and Pressed") with Undo.
+  Turning a screen into a component changes only its kind, and the component starts with its base state alone.
+- **A component that lists no states has its base state, Default.** Code that reads a design's states goes through
+  core's `designStates`, which gives a screen that one base state too, so selection, the canvas and the edit frame treat
+  every design alike.
+- **The agent can tell from the data.** `Designs()` lists `states` and `showing.state` only for components. `AddState`,
+  `UpdateState` and `DeleteState` take a component, and those, Get, Update or Screenshot with a state, and
+  `UpdateDesign`'s `state` or `allStates`, on a screen fail with "Home is a screen, and only a component has states."
+  and the `invalid_input` code. The base state's id is still accepted on any design, so a screenshot of a screen in
+  "default" works.
+
+Code: `packages/core/src/document.ts` (`checkNoStates`, `baseState`, `designStates`), `edit.ts`
+(`refuseUnlessComponent`), `render.ts` (an instance's scope in its component's base state);
+`packages/editor/src/kinds.ts` (`withoutStates`) and `document-equality.ts` (a screen's view keeps no state);
+`packages/agent/src/workspace.ts` (`listDesigns`, `namedState`) and `snippet-api.ts` (`ScreenSummary`,
+`ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`StateTarget`),
+`canvas/ContainerView.tsx` (the state menu) and `chrome/designs.ts` with `convert-to-frame.ts` (`droppedStatesLine`).
+
+Tests:
+
+- `packages/core/src/document.test.ts`, "states in a project file" (5): a component's states with the base first; a
+  component that lists none; states and a view's state refused on a screen; an instance's `state` refused; and a file
+  read and written as saved.
+- `packages/core/src/edit.test.ts`, "gives only a component states, with a code an agent can act on".
+- `packages/core/src/instances.test.ts`, "shows the component's base state, under the copy's overrides".
+- `packages/editor/src/kinds.test.ts` (4): a screen made a component by its kind alone, a component made a screen with
+  its other states dropped, the base state's changes moved into the screen's layers, and a screen's view naming no
+  state.
+- `packages/editor/src/edit-frame.test.ts`, "is always a screen's base state".
+- `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
+  screen, and a screen edited and drawn in its base state.
+- `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
+- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerInstances.stories.tsx`
+  InstanceLayer (no State row), and `chrome/StatesSection.stories.tsx` on components.
 
 ### Unsaved changes survive a crash (PAR-905)
 
@@ -4434,8 +4536,8 @@ so a square of any size is a circle and a wider box is a pill, in every viewport
 `var(--radius-full, calc(infinity * 1px))`, so a project that declares its own `--radius-full` keeps that value, and one
 that doesn't gets no new variable. `GetTokens` (and `parity tokens`, MCP `get_tokens`) lists it after the tokens, as
 `{ name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }`, unless
-the project has a token of that name, which is listed instead. An agent's `radius: "radius-full"`, in a design, a
-viewport's patch or a state, gets no "isn't a token" warning; under any other key it's still not a token.
+the project has a token of that name, which is listed instead. An agent's `borderRadius: { token: "radius-full" }`, in a
+design, a viewport's patch or a state, gets no "isn't a token" warning; under any other key it's still not a token.
 
 Code: `radiusKeywords` and `radiusCss` in `packages/core/src/render.ts`; `tokensAndKeywords` in
 `packages/agent/src/workspace.ts` and `lintDocument` in `packages/agent/src/lint.ts`.
@@ -4464,8 +4566,8 @@ hint PAR-186's styling controls give designers ("Nearest to 12px"), for agents.
   `radius-md`'s `calc(var(--radius) - 2px)` is 8px. A token that can't be read that way, such as a color name, `clamp()`
   or `radius-full`'s infinity, is left out.
 - **Ties go to the project's own tokens,** the semantic ones the skill prefers, then by name.
-- **The warning says so too.** When a design names a color under `background`, `foreground` or `border`, or a length
-  under `radius`, `size` or `tracking`, its "isn't a token" warning names the call:
+- **The warning says so too.** When a design names a color under `fills`, `color` or `borderColor`, or a length under
+  `borderRadius`, `fontSize` or `letterSpacing`, its "isn't a token" warning names the call:
   `Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`
 
 Code: `readNearValue` and `nearestTokens` in `packages/tokens/src/nearest.ts`, reading colors with `parseColor` in
@@ -4500,13 +4602,13 @@ the same one; nothing between knows the framework.
   theme already or its name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the
   rest), so the class exists, and hands every other value to the plain writer. A declaration that exists is edited where
   it is, whichever block that is.
-- **The warning says what the project has.** A style key takes one category of token: `size` a font size, `shadow` a
-  shadow, `background` a color. A name there that isn't a token gets one of these, in a design, a viewport's patch or a
-  state alike:
-  - `size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+- **The warning says what the project has.** A style key takes one category of token: `fontSize` a font size,
+  `boxShadow` a shadow, `fills` a color. A name there that isn't a token gets one of these, in a design, a viewport's
+  patch or a state alike:
+  - `fontSize "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
     The tokens are listed smallest first while there are eight or fewer; past that it's
     `Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`
-  - `shadow "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`
+  - `boxShadow[0].token "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`
   - A raw color or length keeps PAR-833's hint, the call that lists the nearest tokens, and a value that couldn't be a
     token's name (`0 1px 2px black`) isn't offered to `SetTokens` by name.
   - A place that takes more than one category (a gradient, a blur, a transition's duration or easing) keeps
@@ -4538,7 +4640,7 @@ How the Accessibility tab checks a design and helps fix what it finds.
 
 Each contrast failure in the Accessibility tab suggests the project's color token closest to the text's color that
 passes, drawn as a second text sample on the same background with the ratio it reaches ("Use `foreground`, Reaches
-18.16:1"). Apply sets it as the layers' `foreground` as one undoable step named "Use foreground", then checks the design
+18.16:1"). Apply sets it as the layers' `color` as one undoable step named "Use foreground", then checks the design
 again, since only a check shows the fix worked; the row offers Undo while that's still the last step, and Undo checks
 again too. Undo from the keyboard leaves the check out of date instead. When no token passes on that background, the row
 says so and has no Apply. `check_accessibility` and `Accessibility()` give agents the same fix on each contrast finding
@@ -4572,7 +4674,7 @@ text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as th
 `chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate,
 CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings
 in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so a state that
-sets its own `foreground` keeps it.
+sets its own `color` keeps it.
 
 ### Naming a layout or text layer (PAR-913)
 
@@ -4685,10 +4787,10 @@ places a **linked instance**, which follows the library: when the library's desi
 right-click menu has **Insert linked instance** and **Insert detached copy**. A detached copy is plain layers, baked
 from what the design shows, with fresh ids, to change freely.
 
-- **A linked instance** has the Instance section as any other: its variants and params, its state, overrides with Reset
-  all, and Detach. It can't go to its main component or push overrides to it, as that's in the library; the section
-  names the design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call
-  it by the design's name, as they do the project's own.
+- **A linked instance** has the Instance section as any other: its variants and params, overrides with Reset all, and
+  Detach. It can't go to its main component or push overrides to it, as that's in the library; the section names the
+  design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call it by the
+  design's name, as they do the project's own.
 - **A detached copy** is what Detach makes of a linked instance (see "Main components and instances" in
   [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
   step, "Add copy". A library design nested inside stays a linked instance.
@@ -5133,6 +5235,49 @@ channel around a card's shadow, which is how they rasterize; a third differs bet
 windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
 profile, so it captures its frames this way.
 
+### What changed since a frame was first looked at (PAR-997)
+
+Whether a frame, a node in it, or its board changed is answered by `@parity-app/change-detection`, never worked out from
+what a bitmap or a render key says. A first try at outlining changed boards read the bitmap cache's `stale` flag, which
+means "this picture isn't for this key", and stayed yellow after an edit was undone.
+
+- **A status is unknown, unchanged, or changed with the files that changed.** It compares the frame's trace now with its
+  baseline: the files it reads, each with a hash of its contents (see Bitmaps kept between sessions), so undoing an edit
+  gives the same digest and the frame is unchanged again. When only Parity's renderer changed, it's changed with no
+  files.
+- **The baseline is the frame's first trace while its project is open.** `ChangeBaselines` keeps it by the frame's id
+  (project, design, state and mode), so a new guest or render key doesn't make it another frame, and drops a project's
+  when it closes. A git ref or an accepted visual-test baseline would be compared the same way.
+- **Nodes.** A trace also lists the files each component the frame draws reads. A node changed when its component's
+  files did, or a file no component reads, such as a stylesheet, a tool's config or a lockfile, or a node inside it,
+  since it draws what's inside it. A trace without the list, as kept in a bitmap, gives every node the frame's status.
+- **A board adds its frames up:** changed when one is, unknown when none has said and one can't, else unchanged.
+- **The service answers, the canvas asks.** `frames.changes` takes frames by id with their jobs, traces each and
+  compares it with its baseline. Each frame asks again whenever its key changes, all the canvas's frames in one request,
+  and `useFrameChange` and `useDesignChange` read the answers. A board whose frames changed has `data-changed`, for
+  tools and tests to read; nothing shows it yet.
+
+Tried in a development build on the example project, with a yellow outline on `data-changed` added locally for testing:
+just opened, no board was outlined; after adding a comment to `badge.tsx`, the 30 boards whose frames draw a badge were;
+after undoing it, none was.
+
+Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `trace.ts`); `componentReads` and the `components`
+list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
+`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
+
+Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
+digest and the files that differ, came or went otherwise; a board changed with every frame's files, unknown when one
+can't say and none changed or there are none, else unchanged; the node whose component's file changed and the nodes
+holding it, but not the rest; every component reading a shared file; every node for a stylesheet; a component that
+started reading a file; and the frame's status for every node when it's unchanged, unknown or traced without
+components). `packages/change-detection/src/baselines.test.ts` (3: counted from the first trace and unchanged once the
+files are back; unknown for a frame not traced, which takes no baseline; each frame's own baseline, started again once
+its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads.
+`apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and each
+gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go). Gaps:
+`frames.changes` itself, and that a frame asks again when its key changes, have no test of their own; both were tried in
+the app.
+
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
 Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the
@@ -5545,7 +5690,9 @@ at the end of the strip. Both are the start page from the explorations (decision
   shadow of its own, so it stands off the main frame it overlaps.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
-    Edits not saved yet are never pictured: a picture that would show them waits for the next save.
+    Edits not saved yet are never pictured: a picture that would show them waits for the next save. A code change, the
+    guest moving or the service restarting doesn't take it again, since the project stays the same session until its tab
+    closes; reopening it does (PAR-1004).
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
@@ -5560,34 +5707,36 @@ each project's notes, and asks the service which folders are gone and where the 
 `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
 `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
 (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
-started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in
-`canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`,
-through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main
-names as `PARITY_PICTURE_DIR`.
+started for each session by `keepPictureOf` in `workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
+`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
+`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
+in the folder main names as `PARITY_PICTURE_DIR`.
 
 Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
 scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
-tabs" (8, with a project's picture let go once it isn't listed), "starting the workspace" (Home on a fresh install, and
-staying there) and "checking the start page's folders" (2: gone folders flagged and the example kept; checked again when
-Home shows). `utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where
-Parity runs once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a
-phone frame first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone
-beside a phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame
-cut to its window and read back; the latest in place of the one before; projects with none, or a file that can't be
-read, left out; a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial
-files only once old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping
-through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
-which plays, Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's
-pictures, Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab
-and New tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again
-with Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
-2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
-across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
-saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
-tall as its content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on
-2026-11-06: with the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects,
-and Open Acme opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it
-showed where it was with Remove.
+tabs" (8, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
+and picture through a code change and a reconnect, telling subscribers, the picture stopping when the tab closes, and a
+new session and picture on reopening), "starting the workspace" (Home on a fresh install, and staying there) and
+"checking the start page's folders" (2: gone folders flagged and the example kept; checked again when Home shows).
+`utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where Parity runs
+once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame
+first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone beside a
+phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its
+window and read back; the latest in place of the one before; projects with none, or a file that can't be read, left out;
+a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial files only once
+old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping through screens, which
+plays, Home without pictures, the first time with and without the example, folders that are gone, which plays, Starred,
+Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures, Parity/App's On
+Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip.
+Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
+Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where
+opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving across its card
+flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and saved with
+Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as tall as its
+content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with
+the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme
+opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it showed where
+it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -6136,10 +6285,10 @@ by hand on Windows; macOS and Linux weren't tried.
 
 Each change made in the inspector or the Tokens panel is recorded once, as `inspector.changed`, with the field, the
 design, the layers and the value before and after: style rows, a layer's text, visibility, props and name, an image, an
-instance's state and component, prop bindings, slots, states, a component's props and variants, and tokens. A preview
-records nothing, and nor does a change that leaves a value as it was. A design or layer renamed in Layers or on a
-board's title records the same `name` change as one renamed in the inspector. Detach, Push to main and Make component
-record `component.changed`, with the design, the layers and the component. Which field each control records is in
+instance's component, prop bindings, slots, states, a component's props and variants, and tokens. A preview records
+nothing, and nor does a change that leaves a value as it was. A design or layer renamed in Layers or on a board's title
+records the same `name` change as one renamed in the inspector. Detach, Push to main and Make component record
+`component.changed`, with the design, the layers and the component. Which field each control records is in
 [telemetry.md](telemetry.md), "Editing".
 
 `chrome/inspector-events.test.ts` covers, through the test sink: a style row on layers whose values differ; a number
@@ -6353,11 +6502,13 @@ new token kept, trying again when WorkOS doesn't answer, Session ended, another 
 another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
 asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
 moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
-account you're in ends, restoring every account in the one Parity was last in), `main/session-store.test.ts` (7: kept
-encrypted and forgotten, the file removed with the last account, nothing kept without a keyring or encryption, an
-unreadable or one-account file forgotten, an account replaced in place or added, which account you're in forgotten only
-with it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one
-takes it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
+service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
+shared between askers, and none once the session ends), `main/session-store.test.ts` (7: kept encrypted and forgotten,
+the file removed with the last account, nothing kept without a keyring or encryption, an unreadable or one-account file
+forgotten, an account replaced in place or added, which account you're in forgotten only with it),
+`main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes it,
+none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
 sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
 and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
 and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
@@ -6374,6 +6525,48 @@ installed build, which hasn't been tried yet.
 
 How the project's code runs in the canvas's frames.
 
+### The stored style (PAR-941)
+
+A layer's `style` in a `.par` file, and a state's or a viewport's patch of it, is what frames draw and what code is
+written from. Each value says what it is, so nothing is guessed from its text: a token named `fill` or `auto` is never
+taken for the size or the keyword.
+
+- **A key is named after the CSS property it writes:** `flexDirection`, `alignItems`, `justifyContent`, `borderRadius`,
+  `fontSize`, `lineHeight`, `textDecorationLine`. Its values are CSS's too, such as `justifyContent: "space-between"`,
+  `flexWrap: "wrap"`, `fontStyle: "italic"` and `overflow: "auto"`.
+- **A length is one of five forms:** steps of the spacing scale (`{ step: 4 }`), a token (`{ token: "gutter" }`), a
+  value with its unit (`{ value: "280px" }`), a keyword (`{ keyword: "auto" }`) or an expression
+  (`{ expr: "clamp(1rem, 2vw, 2rem)" }`). Padding and margin take one, two or four of them:
+  `[{ step: 2 }, { token: "gutter" }]`.
+- **A size** (`width`, `height`) is a length, `{ size: "fill" }` with an optional `share`, or `{ size: "hug" }`.
+- **A color** is a token or a written color, each with an optional alpha (`{ token: "primary", alpha: { step: 50 } }`,
+  `{ value: "#2563eb" }`), a keyword (`{ keyword: "currentColor" }`) or an expression.
+- **A value that names a token of its kind** (`borderRadius`, `fontFamily`, `fontSize`, `letterSpacing`) is a token, a
+  value, a keyword or an expression: `{ token: "radius-lg" }`. `lineHeight` takes steps as well, and `zIndex` is
+  `{ step: 10 }` or a token.
+- **Opacity, a border's width and a font weight** each take a number in their own form, or a token of their kind:
+  `opacity: { step: 50 }` (a percentage; `{ value: 0.5 }` is the same from 0 to 1), `borderWidth: { step: 2 }` (whole
+  pixels) and `fontWeight: { value: 600 }`.
+- **A number in one fixed unit stays a number:** `scale` in percent, a shadow's offsets in px, `rotate` in degrees,
+  `lineClamp`, `colSpan` and `rowSpan`.
+- **A grid's tracks are a list,** each a share of what's left or a length:
+  `gridTemplateColumns: [{ fr: 1 }, { fr: 1 }]`.
+- **The lists** are `fills`, `boxShadow`, `filter`, `backdropFilter`, `transform` and `transition`. Each entry says what
+  it is with `type`, where the list holds more than one kind, and `off: true` keeps it in the file without drawing it:
+  `{ type: "solid", color: { token: "card" } }`, `{ property: "colors", duration: { step: 150 }, off: true }`.
+- **The CSS map** holds what no key does, as declarations by property:
+  `css: { "scroll-snap-type": { value: "x mandatory" } }`. They're drawn after the keys, and each takes `off` too. A
+  property a key owns is refused there, with the key to use, so one row of the panel answers for it.
+- **The file's version is 4.** A version 3 file is rejected: it isn't read in its old form or converted
+  ([conventions.md](conventions.md), Fix forward).
+
+Code: `packages/style-schema/src/model.ts` (`nodeStyle`, and the helpers that turn a stored length into what a field
+holds and back), `value.ts` (the forms), `paint.ts` (colors and paints), `motion.ts` (transitions) and `declare.ts` (a
+style as CSS declarations). The file's version is `canvasDocument`'s in `packages/core/src/document.ts`.
+
+Tests: `packages/style-schema/src/model.test.ts` (what the schema takes and refuses, and its keys in the panel's order)
+and `declare.test.ts` (the declarations each key writes, and each property written once).
+
 ### Frames draw layers from rules and classes (PAR-942)
 
 A frame draws a layout, a text, an image or a video from CSS rules, not from an inline style, so the canvas has the
@@ -6383,8 +6576,9 @@ container query, a `group-hover:` rule.
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
   The classes are the Tailwind printer's (`packages/styles-tailwind`), which writes a class only when it compiles back
-  to the declaration it came from, so a layer measures the same by its classes as by its rule. Their CSS is one
-  stylesheet for the project's frames, in Tailwind's `utilities` layer and in Tailwind's order.
+  to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
+  a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
+  Tailwind's `utilities` layer and in Tailwind's order.
 - **Otherwise, and until the classes are written, a layer is drawn from a rule for its node:** one rule set for each
   element, found by its id (`[data-canvas-node="…"]`), holding its declarations in order. The window asks the project
   service for classes, since the service holds the project's Tailwind; a layer shows from its rule at once and from its
@@ -7032,9 +7226,9 @@ ids stored as ids through a nested instance, and a name the component doesn't ha
 ### A viewport's patch over states (PAR-902)
 
 A viewport's responsive patch is a breakpoint, so it applies in every state, as a media query does. Its style, and
-hiding a node, win over the variant options, the state, an instance's overrides and a screen's states reaching into an
-instance. Its text and props, and showing a node the design hides, sit under them, so a state still changes the words or
-hides what phones show. A desktop menu hidden on mobile stays hidden there when a state opens it.
+hiding a node, win over the variant options, the state, an instance's overrides and a component's states reaching into
+an instance it holds. Its text and props, and showing a node the design hides, sit under them, so a state still changes
+the words or hides what phones show. A desktop menu hidden on mobile stays hidden there when a state opens it.
 
 Implementation: `nodePatch` in `packages/core/src/render.ts`, which `drawnNode`, `resolveDesign` and `effectiveNode` go
 through.
@@ -7097,14 +7291,14 @@ three modes drawing together, finished last first, still answered and screenshot
 
 An execute call's findings are grouped: one per category and message, with how many places it was found and which.
 `warningGroups` gives each group's stable `category` (`render_failed`, `unknown_component`, `unknown_component_design`,
-`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `title_clearance`, `canvas_overlaps`,
-`kind_changed`, `unnamed_layout`), its `severity`, its `message`, its `count` and `at`, which lists every place as a
-`design/node` path or frame. Errors come first, then warnings, then suggestions, each in the order found. A render that
-failed is an error. A new unnamed layout that groups things is a suggestion, reported only for layouts the call added.
-`warnings` keeps one line per group: the place and message for one place, and for several the count, the first five and
-how many more (`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under
-"Render failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning.
-Nothing is named or renamed for the agent.
+`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `invalid_value`, `overlap`, `title_clearance`,
+`canvas_overlaps`, `kind_changed`, `unnamed_layout`), its `severity`, its `message`, its `count` and `at`, which lists
+every place as a `design/node` path or frame. Errors come first, then warnings, then suggestions, each in the order
+found. A render that failed is an error. A new unnamed layout that groups things is a suggestion, reported only for
+layouts the call added. `warnings` keeps one line per group: the place and message for one place, and for several the
+count, the first five and how many more (`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP
+text list the lines under "Render failures", "Warnings" and "Suggestions". A copy of the app without groups has every
+line read as a warning. Nothing is named or renamed for the agent.
 
 Implementation: `packages/agent/src/warnings.ts` (categories and severities, `groupWarnings`, `warningLine`);
 `packages/agent/src/workspace.ts` (`warn`, and the groups in `result`); `packages/cli/src/execute.ts` (the field and its

@@ -1,4 +1,4 @@
-import { editNode, type NodeStyle } from "@parity-app/core"
+import { designStates, editNode, type NodeStyle } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
@@ -41,7 +41,7 @@ const pick = (designName: string, layerName: string, style?: NodeStyle, state?: 
 
     if (style) {
       example().store.updateContainer(key, "Change style", (container) =>
-        editNode(container, state ?? container.states[0]!.id, id, { style })
+        editNode(container, state ?? designStates(container)[0]!.id, id, { style })
       )
     }
 
@@ -58,7 +58,9 @@ export const HorizontalLayout: Story = { loaders: [pick("Pricing", "Nav")] }
 export const GridLayout: Story = { loaders: [pick("Pricing", "Plans")] }
 
 /** A horizontal layout that wraps: the wrap toggle on, and a gap for each axis. */
-export const WrappingLayout: Story = { loaders: [pick("Pricing", "Nav links", { wrap: true, rowGap: 2 })] }
+export const WrappingLayout: Story = {
+  loaders: [pick("Pricing", "Nav links", { flexWrap: "wrap", rowGap: { step: 2 } })]
+}
 
 /** A layer in a grid, the Pro plan: how many columns and rows it spans, instead of self alignment. */
 export const InAGrid: Story = { loaders: [pick("Pricing", "Pro plan", { colSpan: 2 })] }
@@ -79,7 +81,7 @@ async function expectWhole(canvasElement: HTMLElement, name: string, value: stri
  */
 export const SizeAtNarrowest: Story = {
   parameters: { panelWidth: 260 },
-  loaders: [pick("Pricing", "Brand mark", { width: 24, height: 12 })],
+  loaders: [pick("Pricing", "Brand mark", { width: { step: 24 }, height: { step: 12 } })],
   play: async ({ canvasElement }) => {
     await expectWhole(canvasElement, "Width", "96")
     await expectWhole(canvasElement, "Height", "48")
@@ -88,7 +90,7 @@ export const SizeAtNarrowest: Story = {
 
 /** A 1440 by 900 brand mark at the inspector's usual width: four digits and px fit beside Fixed (PAR-496). */
 export const LargeSize: Story = {
-  loaders: [pick("Pricing", "Brand mark", { width: 360, height: 225 })],
+  loaders: [pick("Pricing", "Brand mark", { width: { step: 360 }, height: { step: 225 } })],
   play: async ({ canvasElement }) => {
     await expectWhole(canvasElement, "Width", "1440")
     await expectWhole(canvasElement, "Height", "900")
@@ -102,26 +104,26 @@ export const FillWidth: Story = { loaders: [pick("Plan card", "Call to action")]
 export const GrowsAsFill: Story = { loaders: [pick("Sign in", "Separator")] }
 
 /** Min and max limits set, Pricing's lede: the limits open by themselves, with a button to hide them. */
-export const MinAndMax: Story = { loaders: [pick("Pricing", "Lede", { minWidth: 80 })] }
+export const MinAndMax: Story = { loaders: [pick("Pricing", "Lede", { minWidth: { step: 80 } })] }
 
 /** A length given as a token rather than a step: the container size names show in a code font. */
 export const LengthTokens: Story = {
-  loaders: [pick("Sign in", "Sign in card", { width: "container-sm", maxWidth: "container-md" })]
+  loaders: [pick("Sign in", "Sign in card", { width: { token: "container-sm" }, maxWidth: { token: "container-md" } })]
 }
 
 /** Placed absolutely in its layout: the insets from each edge. */
 export const Absolute: Story = {
-  loaders: [pick("Pricing", "Billing period", { position: "absolute", top: 2, right: 4 })]
+  loaders: [pick("Pricing", "Billing period", { position: "absolute", top: { step: 2 }, right: { step: 4 } })]
 }
 
 /** Every appearance property set on Sign in's card: fill, radius, shadow, opacity and clipping. */
 export const Appearance: Story = {
   loaders: [
     pick("Sign in", "Sign in card", {
-      background: "card",
-      radius: "radius-2xl",
-      shadow: "shadow-lg",
-      opacity: 80,
+      fills: [{ type: "solid", color: { token: "card" } }],
+      borderRadius: { token: "radius-2xl" },
+      boxShadow: [{ type: "drop", token: "shadow-lg" }],
+      opacity: { step: 80 },
       overflow: "hidden"
     })
   ]
@@ -129,7 +131,13 @@ export const Appearance: Story = {
 
 /** A stroke: its color, width and dashed style, and a button to remove it. */
 export const Stroke: Story = {
-  loaders: [pick("Sign in", "Sign in card", { border: "primary", borderWidth: 2, borderStyle: "dashed" })]
+  loaders: [
+    pick("Sign in", "Sign in card", {
+      borderColor: { token: "primary" },
+      borderWidth: { step: 2 },
+      borderStyle: "dashed"
+    })
+  ]
 }
 
 /** A text layer, Pricing's headline: color, size, weight, letter spacing, centered, and its max lines. */
@@ -137,15 +145,15 @@ export const Text: Story = { loaders: [pick("Pricing", "Headline")] }
 
 /** Text decorations: underlined and italic, in title case. */
 export const TextDecorations: Story = {
-  loaders: [pick("Sign in", "Create an account", { italic: true, textTransform: "capitalize" })]
+  loaders: [pick("Sign in", "Create an account", { fontStyle: "italic", textTransform: "capitalize" })]
 }
 
 /** Text styles on a layout, Pricing's footer: they apply to the text inside, which says so. */
 export const TextInside: Story = { loaders: [pick("Pricing", "Footer")] }
 
-/** Styles a state changes, the headline in Yearly: their names in the agent color, each with a reset. */
+/** Styles a state changes, Stat card's label in Loading: their names in the agent color, each with a reset. */
 export const ChangedInAState: Story = {
-  loaders: [pick("Pricing", "Headline", { foreground: "primary", weight: 700 }, "yearly")]
+  loaders: [pick("Stat card", "Label", { color: { token: "primary" }, fontWeight: { value: 700 } }, "loading")]
 }
 
 /** The fill picker open: the project's colors with swatches, searchable, and None. */
@@ -191,7 +199,7 @@ export const PickingASizing: Story = {
  * the nearest step, 280px (PAR-194). Using it puts the width on the scale and the flag goes.
  */
 export const OffScaleSize: Story = {
-  loaders: [pick("Pricing", "Brand mark", { width: 70.25, height: 12 })],
+  loaders: [pick("Pricing", "Brand mark", { width: { step: 70.25 }, height: { step: 12 } })],
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
     await expect(panel.getByRole("textbox", { name: "Width" })).toHaveValue("281")
@@ -204,7 +212,7 @@ export const OffScaleSize: Story = {
 
 /** Insets off the scale on an absolutely placed layer, 3px from the top and 281px from the left: each flagged. */
 export const OffScaleInsets: Story = {
-  loaders: [pick("Pricing", "Billing period", { position: "absolute", top: 0.75, left: 70.25 })]
+  loaders: [pick("Pricing", "Billing period", { position: "absolute", top: { step: 0.75 }, left: { step: 70.25 } })]
 }
 
 /** 281 typed into Width stays 281px rather than landing on a step, and the row flags it. */

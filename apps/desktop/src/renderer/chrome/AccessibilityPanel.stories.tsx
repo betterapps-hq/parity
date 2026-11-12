@@ -283,8 +283,9 @@ function moreFindings(): AccessibilityFinding[] {
       return result
     })
 
-  const everywhere: [string, string][] = ["default", "loading", "empty-workspace"].flatMap((state) =>
-    ["desktop-light", "desktop-dark", "mobile-light"].map((mode): [string, string] => [state, mode])
+  // A screen has only its base state, so its findings differ by mode alone.
+  const everywhere: [string, string][] = ["desktop-light", "desktop-dark", "mobile-light"].map(
+    (mode): [string, string] => ["default", mode]
   )
 
   return [
@@ -320,7 +321,7 @@ function moreFindings(): AccessibilityFinding[] {
       "The landmark must have a unique `aria-label`, `aria-labelledby`, or `title` to make landmarks distinguishable",
       [
         ["default", "desktop-light"],
-        ["loading", "desktop-light"]
+        ["default", "desktop-dark"]
       ]
     )
   ]

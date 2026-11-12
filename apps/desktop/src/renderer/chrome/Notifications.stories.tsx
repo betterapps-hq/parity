@@ -15,9 +15,10 @@ import {
 } from "../stories/fixtures.tsx"
 import { answerNext, answering, pickingWith, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { importStyles } from "./AssetsPanel.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
-import { copySelectedAsPng, copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } from "./commands.ts"
+import { exportAllImages } from "./commands.ts"
 
 /**
  * The notifications the window's commands show at its bottom right, each run as its menu item or shortcut would.
@@ -55,7 +56,7 @@ export const Saved: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    void save()
+    void actions.save.run("menu")
     await holdToast("Saved")
   }
 }
@@ -71,7 +72,7 @@ export const SaveFailed: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    void save()
+    void actions.save.run("menu")
     await holdToast("Couldn't save")
   }
 }
@@ -86,7 +87,7 @@ export const SavedACopy: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    void saveCopy()
+    void actions.saveCopy.run("menu")
     await holdToast("Saved a copy")
   }
 }
@@ -102,28 +103,28 @@ export const SaveACopyFailed: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    void saveCopy()
+    void actions.saveCopy.run("menu")
     await holdToast("Couldn't save the copy")
   }
 }
 
-/** While the selected design is being exported as PNGs: a spinner until it's done. */
+/** While File > Export all renders every design as PNGs: a spinner until it's done. */
 export const Exporting: Story = {
   loaders: [
     async () => {
-      await pricingSelected()
+      await openProjects("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({ "designs.export": () => never() })
     }
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void exportImages("selection")
-    await holdToast("Exporting Pricing…")
+    void exportAllImages()
+    await holdToast(/^Exporting .+…$/)
   }
 }
 
-/** File > Export > All designs as PNG, done: how many images, the folder, and a button that shows them. */
+/** File > Export all, done: how many images, the folder, and a button that shows them. */
 export const Exported: Story = {
   loaders: [
     async () => {
@@ -133,7 +134,7 @@ export const Exported: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    void exportImages("all")
+    void exportAllImages()
     await holdToast(/^Exported \d+ images$/)
   }
 }
@@ -142,7 +143,7 @@ export const Exported: Story = {
 export const ExportedWithWarnings: Story = {
   loaders: [
     async () => {
-      await pricingSelected()
+      await openProjects("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({
         "designs.export": () => ({
@@ -157,7 +158,7 @@ export const ExportedWithWarnings: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void exportImages("selection")
+    void exportAllImages()
     await holdToast("Some previews had problems")
   }
 }
@@ -166,7 +167,7 @@ export const ExportedWithWarnings: Story = {
 export const ExportFailed: Story = {
   loaders: [
     async () => {
-      await pricingSelected()
+      await openProjects("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({
         "designs.export": () => {
@@ -177,18 +178,8 @@ export const ExportFailed: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void exportImages("selection")
+    void exportAllImages()
     await holdToast("Couldn't export")
-  }
-}
-
-/** Ctrl+Shift+E with nothing selected: what to select to export. */
-export const NothingSelectedToExport: Story = {
-  loaders: [() => openProjects("example")],
-  play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
-    void exportImages("selection")
-    await holdToast("Select a screen or component to export it")
   }
 }
 
@@ -203,7 +194,7 @@ export const CopyingAsPng: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void copySelectedAsPng()
+    void actions.copyAsPng.run("key")
     await holdToast("Copying as PNG…")
   }
 }
@@ -223,7 +214,7 @@ export const CopiedAsPng: Story = {
   },
   play: async () => {
     await frameDesigns("Pricing")
-    void copySelectedAsPng()
+    void actions.copyAsPng.run("key")
     await holdToast("Copied as PNG")
   }
 }
@@ -243,7 +234,7 @@ export const TooBigToCopyAsPng: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void copySelectedAsPng()
+    void actions.copyAsPng.run("key")
     await holdToast("Couldn't copy as PNG")
   }
 }
@@ -258,7 +249,7 @@ export const CopiedStyle: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    copySelectionStyle()
+    void actions.copyStyle.run("menu")
     await holdToast("Copied the style")
   }
 }
@@ -273,7 +264,7 @@ export const NotALayoutToUnwrap: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    unwrapSelection()
+    void actions.unwrap.run("menu")
     await holdToast("Select a layout to unwrap it")
   }
 }

@@ -1,6 +1,14 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
-import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  designStates,
+  findNode,
+  mapNode,
+  type ModeSettings,
+  shownModes,
+  tokenColor
+} from "@parity-app/core"
 import { kindName, type Selection } from "@parity-app/editor"
 import {
   ArrowUpRight,
@@ -350,7 +358,8 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
   const shown = shownModes(check.modes, check.container)
   const modes = [shown.main, ...shown.beside]
   const modeName = (id: string) => modes.find((mode) => mode.id === id)?.name ?? id
-  const stateName = (id: string) => check.container.states.find((state) => state.id === id)?.name ?? id
+  const states = designStates(check.container)
+  const stateName = (id: string) => states.find((state) => state.id === id)?.name ?? id
 
   // Name only what varies: the states when there's one mode, the modes when there's one state.
   const frameName = ({ state, mode }: Frame) => {
@@ -358,7 +367,7 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
       return stateName(state)
     }
 
-    if (check.container.states.length === 1) {
+    if (states.length === 1) {
       return modeName(mode)
     }
 
@@ -369,7 +378,7 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
 
   if (modes.length === 1) {
     every = "Every state"
-  } else if (check.container.states.length === 1) {
+  } else if (states.length === 1) {
     every = "Every mode"
   }
 
@@ -553,11 +562,11 @@ function LayerRow({
   const node = layer.nodes[0] === undefined ? undefined : findNode(container.root, layer.nodes[0])
   const name = layer.name ?? `The ${kindName(container.kind)}`
   const view = entry.container.view
-  const shownState = view?.state ?? entry.container.states[0]?.id
+  const shownState = view?.state ?? designStates(entry.container)[0]!.id
 
   const select = (frame: Frame) => {
     if (!view?.allStates && frame.state !== shownState) {
-      const state = container.states.find((candidate) => candidate.id === frame.state)?.name ?? frame.state
+      const state = designStates(container).find((candidate) => candidate.id === frame.state)?.name ?? frame.state
       store.updateView(entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
     }
 
@@ -722,7 +731,8 @@ function ContrastFixRow({
     session.store.updateContainer(entry.key, step, (container) => ({
       ...container,
       root: nodes.reduce(
-        (root, id) => mapNode(root, id, (node) => ({ ...node, style: { ...node.style, foreground: fix.token } })),
+        (root, id) =>
+          mapNode(root, id, (node) => ({ ...node, style: { ...node.style, color: tokenColor(fix.token) } })),
         container.root
       )
     }))

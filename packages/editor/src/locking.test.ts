@@ -29,8 +29,7 @@ function pricing(): ContainerSpec {
         },
         { type: "text", id: "footer", text: "Questions?" }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 
@@ -60,7 +59,7 @@ describe("toggleLockedLayers", () => {
 
   it("keeps the lock in a saved project", () => {
     const locked = setDesignLocked(toggleLockedLayers(pricing(), ["header"]), true)
-    const read = parseCanvasDocument({ version: 3, containers: [locked] })
+    const read = parseCanvasDocument({ version: 4, containers: [locked] })
     expect(read.containers[0]?.locked).toBe(true)
     expect(findNode(read.containers[0]!.root, "header")?.locked).toBe(true)
   })

@@ -91,13 +91,18 @@ const basics: { id: string; label: string; icon: typeof Type; node: () => Design
     id: "column",
     label: "Vertical layout",
     icon: Rows3,
-    node: () => ({ type: "layout", id: "column", style: { gap: 2 }, children: [] })
+    node: () => ({ type: "layout", id: "column", style: { gap: { step: 2 } }, children: [] })
   },
   {
     id: "row",
     label: "Horizontal layout",
     icon: Columns3,
-    node: () => ({ type: "layout", id: "row", style: { direction: "row", gap: 2, align: "center" }, children: [] })
+    node: () => ({
+      type: "layout",
+      id: "row",
+      style: { flexDirection: "row", gap: { step: 2 }, alignItems: "center" },
+      children: []
+    })
   }
 ]
 
@@ -113,8 +118,8 @@ export interface Offer {
 /**
  * Each session's offer, kept while its project info and its component designs stay the same, so opening the picker
  * builds nothing (PAR-178). Edits to designs change every entry but none of this, so the designs are compared by their
- * keys and names. It's kept by the project's info, which is replaced when its components or libraries change (the
- * session itself is replaced whenever any part of it does), and goes with it.
+ * keys and names. It's kept by the project's info, which is replaced when its components or libraries change, and
+ * goes with it.
  */
 const offers = new WeakMap<ProjectSession["info"], { designs: string; offer: Offer }>()
 

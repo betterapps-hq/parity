@@ -26,12 +26,12 @@ describe("Layer order", () => {
   })
 
   it("shows a number, a token or Auto, and stores what's chosen", () => {
-    expect(layerOrderSide(10)).toEqual({ number: 10 })
-    expect(layerOrderSide("z-overlay")).toEqual({ token: "z-overlay" })
+    expect(layerOrderSide({ step: 10 })).toEqual({ number: 10 })
+    expect(layerOrderSide({ token: "z-overlay" })).toEqual({ token: "z-overlay" })
     expect(layerOrderSide(undefined)).toBeUndefined()
 
-    expect(zIndexOf({ number: -5 })).toBe(-5)
-    expect(zIndexOf({ token: "z-overlay" })).toBe("z-overlay")
+    expect(zIndexOf({ number: -5 })).toEqual({ step: -5 })
+    expect(zIndexOf({ token: "z-overlay" })).toEqual({ token: "z-overlay" })
     expect(zIndexOf("auto")).toBeUndefined()
     expect(zIndexOf(undefined)).toBeUndefined()
   })
