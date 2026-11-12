@@ -1,6 +1,5 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  type BindableField,
   boardTarget,
   changesField,
   type ContainerSpec,
@@ -50,7 +49,6 @@ import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
-import { FieldWithProp } from "./field-prop.tsx"
 import { Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
@@ -77,6 +75,7 @@ import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
+import { TextWithProp } from "./text-prop.tsx"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
@@ -407,17 +406,8 @@ function LayerSections({
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
   const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
-  // A component design's own layers can use its props for their text and visibility; a copy's can't.
+  // A component design's own text layers can show one of its text props; a copy's can't.
   const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
-
-  const withProp = (field: BindableField, input: ReactNode) =>
-    usesProps ? (
-      <FieldWithProp entry={entry} nodeId={nodeId} field={field} bound={node.bind?.[field]}>
-        {input}
-      </FieldWithProp>
-    ) : (
-      input
-    )
 
   return (
     <>
@@ -425,8 +415,11 @@ function LayerSections({
         <PanelSection title="Content">
           {node.type === "text" ? (
             <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
-              {withProp(
-                "text",
+              {usesProps ? (
+                <TextWithProp entry={entry} nodeId={nodeId} bound={node.bind?.text}>
+                  <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
+                </TextWithProp>
+              ) : (
                 <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
               )}
             </Field>
@@ -450,13 +443,7 @@ function LayerSections({
 
       <PanelSection title="Visibility">
         <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
-          {withProp(
-            "visible",
-            <SwitchInput
-              value={!node.hidden}
-              onChange={(visible) => change("Toggle visibility", { hidden: !visible })}
-            />
-          )}
+          <SwitchInput value={!node.hidden} onChange={(visible) => change("Toggle visibility", { hidden: !visible })} />
         </Field>
       </PanelSection>
 

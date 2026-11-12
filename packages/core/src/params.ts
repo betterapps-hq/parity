@@ -22,11 +22,8 @@ import { finiteNumber } from "./schema.ts"
  * the instances that pass it kept in step.
  */
 
-/** Which fields a node's `bind` can drive, and the param types each takes. A prop takes any param, a variant's id too. */
-const bindableTypes = {
-  text: ["text", "value"],
-  visible: ["boolean", "value"]
-} as const satisfies Record<"text" | "visible", readonly ParamSpec["type"][]>
+/** The param types a text layer's `bind.text` takes. A prop takes any param, a variant's id too. */
+const textParamTypes: readonly ParamSpec["type"][] = ["text", "value"]
 
 function invalid(message: string, field: string): CodedError {
   return new CodedError(message, { code: "invalid_input", field })
@@ -227,12 +224,11 @@ export function deleteParam(container: ContainerSpec, name: string): ContainerSp
 /** A change to one node's `bind`: a param's name binds the field, `null` unbinds it. */
 export interface BindingChange {
   text?: string | null
-  visible?: string | null
   props?: Record<string, string | null>
 }
 
 /**
- * Binds or unbinds a node's text, visibility or props. An unbound field keeps what the param showed by default, so the
+ * Binds or unbinds a node's text or props. An unbound field keeps what the param showed by default, so the
  * board looks the same.
  */
 export function bindNode(container: ContainerSpec, nodeId: string, change: BindingChange): ContainerSpec {
@@ -246,20 +242,12 @@ export function bindNode(container: ContainerSpec, nodeId: string, change: Bindi
     let next: DesignNode = node
     const bind: NodeBinding = { ...node.bind }
 
-    for (const field of ["text", "visible"] as const) {
-      const value = change[field]
-
-      if (value === undefined) {
-        continue
-      }
-
-      if (value === null) {
-        const was = bind[field]
-        delete bind[field]
-        next = was === undefined ? next : withOwnValue(next, { field }, container.params?.[was]?.default)
-      } else {
-        bind[field] = value
-      }
+    if (change.text === null) {
+      const was = bind.text
+      delete bind.text
+      next = was === undefined ? next : withOwnValue(next, "text", container.params?.[was]?.default)
+    } else if (change.text !== undefined) {
+      bind.text = change.text
     }
 
     const props = { ...bind.props }
@@ -323,22 +311,17 @@ export function bindingProblem(
       return say("only a text layer's text binds to a param; bind a component's text through bind.props")
     }
 
-    for (const field of ["text", "visible"] as const) {
-      const name = each.bind[field]
+    const name = each.bind.text
 
-      if (name === undefined) {
-        continue
-      }
-
+    if (name !== undefined) {
       const param = container.params?.[name]
-      const types: readonly string[] = bindableTypes[field]
 
       if (!param) {
-        return say(`bind.${field} names "${name}", which isn't one of ${container.name}'s params`)
+        return say(`bind.text names "${name}", which isn't one of ${container.name}'s params`)
       }
 
-      if (!types.includes(param.type)) {
-        return say(`bind.${field} takes a ${types.join(" or ")} param, and "${name}" is a ${param.type}`)
+      if (!textParamTypes.includes(param.type)) {
+        return say(`bind.text takes a ${textParamTypes.join(" or ")} param, and "${name}" is a ${param.type}`)
       }
     }
 
@@ -538,10 +521,6 @@ function renameInBinding(bind: NodeBinding, from: string, to: string): NodeBindi
     next.text = to
   }
 
-  if (next.visible === from) {
-    next.visible = to
-  }
-
   if (next.props) {
     next.props = Object.fromEntries(
       Object.entries(next.props).map(([prop, param]) => [prop, param === from ? to : param])
@@ -571,11 +550,9 @@ function unbindAll(node: DesignNode, param: string, value: ParamValue): DesignNo
   let next = node
   const bind: NodeBinding = { ...node.bind }
 
-  for (const field of ["text", "visible"] as const) {
-    if (bind[field] === param) {
-      delete bind[field]
-      next = withOwnValue(next, { field }, value)
-    }
+  if (bind.text === param) {
+    delete bind.text
+    next = withOwnValue(next, "text", value)
   }
 
   if (bind.props) {
@@ -604,17 +581,13 @@ function unbindAll(node: DesignNode, param: string, value: ParamValue): DesignNo
   return result
 }
 
-/** A node showing `value` itself where a param used to give it: its text, its visibility or a prop. */
-function withOwnValue(
-  node: DesignNode,
-  where: { field: "text" | "visible" } | { prop: string },
-  value: ParamValue
-): DesignNode {
+/** A node showing `value` itself where a param used to give it: its text or a prop. */
+function withOwnValue(node: DesignNode, where: "text" | { prop: string }, value: ParamValue): DesignNode {
   if (value === undefined) {
     return node
   }
 
-  if ("prop" in where) {
+  if (where !== "text") {
     // SAFETY: a param's default is a value a prop can take, as the param stood for this prop until now.
     return node.type === "component"
       ? { ...node, props: { ...node.props, [where.prop]: value as PropValues[string] } }
@@ -622,25 +595,8 @@ function withOwnValue(
   }
 
   const text = z.string().safeParse(value)
-  const toggle = z.boolean().safeParse(value)
 
-  if (where.field === "text" && node.type === "text" && text.success) {
-    return { ...node, text: text.data }
-  }
-
-  if (where.field === "visible" && toggle.success) {
-    const next = { ...node }
-
-    if (toggle.data) {
-      delete next.hidden
-    } else {
-      next.hidden = true
-    }
-
-    return next
-  }
-
-  return node
+  return node.type === "text" && text.success ? { ...node, text: text.data } : node
 }
 
 function withoutShownVariant(container: ContainerSpec, param: string): ContainerSpec {

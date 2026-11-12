@@ -446,16 +446,15 @@ export function drawnNode(node: DesignNode, scope: EvalScope, viewport?: string)
 }
 
 /**
- * A node with a patch applied, and with the params it's bound to filled in from `args`, as it renders. A patch's text,
- * props and visibility win over bound values. The bindings themselves stay on the node.
+ * A node with a patch applied, and with the params it's bound to filled in from `args`, as it renders. A patch's text
+ * and props win over bound values. The bindings themselves stay on the node.
  */
 export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues): DesignNode {
   const bound = (param: string | undefined) =>
     param !== undefined && args && Object.hasOwn(args, param) ? { value: args[param] } : undefined
 
   const next: DesignNode = { ...node }
-  const visible = bound(node.bind?.visible)
-  const hidden = patch.hidden ?? (visible ? !visible.value : node.hidden)
+  const hidden = patch.hidden ?? node.hidden
 
   if (hidden !== node.hidden) {
     if (hidden) {

@@ -639,9 +639,8 @@ export function toggleHidden(container: ContainerSpec, stateId: string, ids: rea
 }
 
 /**
- * A component's board shows each param's default where a node binds it, so a change to a bound text, prop or
- * visibility in the design changes that default too, and the instances that don't set the param follow it. A param
- * without a default already follows the node's own value; variants are picked, not typed, so they're left alone.
+ * A component's board shows each param's default where a node binds it, so a change to a bound text or prop in the
+ * design changes that default too, and the instances that don't set the param follow it. A param without a default already follows the node's own value; variants are picked, not typed, so they're left alone.
  */
 function withBoundDefaults(container: ContainerSpec, node: DesignNode, change: NodeChange): ContainerSpec {
   const bind = node.bind
@@ -655,10 +654,6 @@ function withBoundDefaults(container: ContainerSpec, node: DesignNode, change: N
 
   if (Object.hasOwn(change, "text") && bind.text && change.text !== undefined) {
     values.push([bind.text, change.text])
-  }
-
-  if (Object.hasOwn(change, "hidden") && bind.visible) {
-    values.push([bind.visible, !change.hidden])
   }
 
   for (const [prop, param] of Object.entries(bind.props ?? {})) {
