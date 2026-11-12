@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Each tab keeps its own console filter, and closing a tab lets go of its previews, accessibility checks, media list and Props state",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

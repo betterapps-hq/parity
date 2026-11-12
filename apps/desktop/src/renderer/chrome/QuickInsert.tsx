@@ -568,7 +568,7 @@ function PickerCard({ session, component, uses }: { session: ProjectSession; com
 /** A component row's picture, made before the rest while the row is in view (PAR-207). */
 function RowPicture({ session, component }: { session: ProjectSession; component: string }) {
   const { pictured } = useComponentCard(session, component, false)
-  const onScreen = usePreviewOnScreen(session.id, component)
+  const onScreen = usePreviewOnScreen(session, component)
 
   return (
     // A picture rather than text, so it's a box beside the row's words, not one of them.

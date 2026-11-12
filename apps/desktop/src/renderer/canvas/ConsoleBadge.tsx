@@ -30,7 +30,7 @@ export function ConsoleBadge({ design, name }: { design: string; name: string })
         className="flex h-6 shrink-0 items-center gap-1 rounded-md border bg-background px-1.5 text-xs font-medium tabular-nums shadow-xs hover:bg-accent"
         data-canvas-control
         onPointerDown={stopEventPropagation}
-        onClick={() => showConsole(design)}
+        onClick={() => showConsole(session, design)}
       >
         {errors > 0 && (
           <>

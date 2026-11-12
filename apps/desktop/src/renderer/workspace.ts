@@ -72,6 +72,7 @@ export class ProjectSession {
   private parts: SessionParts
   private readonly listeners = new Set<() => void>()
   private readonly stops: (() => void)[] = []
+  private closed = false
 
   constructor(
     fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "recovery">,
@@ -127,9 +128,16 @@ export class ProjectSession {
     }
   }
 
-  /** Runs `stop` when the session ends, as its tab closes or reopens. */
+  /**
+   * Runs `stop` when the session ends, as its tab closes or reopens, or straight away if it has: a component can still
+   * draw a closed session, and what it starts then mustn't run on.
+   */
   untilClosed(stop: () => void): void {
-    this.stops.push(stop)
+    if (this.closed) {
+      stop()
+    } else {
+      this.stops.push(stop)
+    }
   }
 
   /**
@@ -137,6 +145,8 @@ export class ProjectSession {
    * until it renders again, so the session can outlive its tab; without its editor it holds no canvas (PAR-624).
    */
   close(): void {
+    this.closed = true
+
     for (const stop of this.stops.splice(0)) {
       stop()
     }

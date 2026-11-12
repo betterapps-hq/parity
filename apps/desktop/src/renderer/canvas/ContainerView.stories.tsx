@@ -210,6 +210,6 @@ export const FailingLayer: Story = onCanvas(
   () => {
     example().selection.set({ design: design("Team settings"), node: "story-team-tabs" })
     setLayout({ consoleHeight: 220 })
-    showConsole(design("Team settings"))
+    showConsole(example(), design("Team settings"))
   }
 )
