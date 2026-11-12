@@ -15,15 +15,19 @@ import {
 } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
 import { unrecordedShadow } from "./shadow.ts"
+import scrollbarCss from "./scrollbars.css?raw"
 
 export interface FrameEnvironment {
   classNames: string[]
   attributes: Record<string, string>
   /** The window the frame stands for, which the project's `vw` and `vh` measure. */
   viewport?: FrameViewport
+  /** The frame stands for a phone or a tablet, whose browser draws thin scrollbars (core's `isTouchMode`). */
+  touch?: boolean
 }
 
 let rootSheet: CSSStyleSheet | undefined
+let touchSheet: CSSStyleSheet | undefined
 
 /** The custom properties a frame's root sets to `initial`: every one Parity's page has given a frame's host to inherit. */
 const resetNames = new Set<string>()
@@ -106,6 +110,24 @@ function frameRootSheet(): CSSStyleSheet {
 }
 
 /**
+ * A phone's or a tablet's browser draws thin scrollbars, where a desktop browser takes 15px of the layout for its own,
+ * so frames that stand for one take Parity's own thin scrollbars (scrollbars.css), which take 6px (PAR-900). Parity's
+ * page's rules don't reach into a frame, and a desktop frame keeps the browser's. They're in a layer after the frame's
+ * root, so any scrollbar rule of the project's wins, in a layer or not, and Chromium skips them on an element that sets
+ * `scrollbar-width` or `scrollbar-color`.
+ */
+function frameTouchSheet(): CSSStyleSheet {
+  if (!touchSheet) {
+    touchSheet = new CSSStyleSheet()
+    touchSheet.replaceSync(`@layer canvas-frame-scrollbars {
+${scrollbarCss}
+}`)
+  }
+
+  return touchSheet
+}
+
+/**
  * Registers the length a frame's root reads its font size into, so `1em` there becomes pixels before `--canvas-rem`
  * passes it down. Registering is the document's, and once: a second registration of the name, as when this module is
  * loaded again in development, is refused, and the first still holds.
@@ -163,7 +185,9 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   rewriteAddedRules()
   const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
-  shadow.adoptedStyleSheets = [frameRootSheet(), sheet]
+  shadow.adoptedStyleSheets = environment.touch
+    ? [frameRootSheet(), frameTouchSheet(), sheet]
+    : [frameRootSheet(), sheet]
   keepOutInherited(host)
 
   if (environment.viewport) {

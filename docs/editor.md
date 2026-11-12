@@ -6110,6 +6110,38 @@ the project's values, as on the page; and the host still has `--frame-height`. E
 every board keeps its size zoomed far out. Gap: a variable Parity first defines after a frame is prepared isn't tested;
 it reaches the frame until it's prepared again.
 
+### Phone and tablet frames take thin scrollbars (PAR-900)
+
+A phone's or a tablet's browser draws a thin scrollbar, but a frame drew Chromium's 15px Windows scrollbar, with arrows.
+In a phone mode a row that scrolled sideways lost 15px of its height to it, enough to make it scroll down too. Frames
+that stand for a phone or a tablet now take Parity's own scrollbars: a 6px rounded thumb on no track, in the element's
+text color. Chromium can't draw a scrollbar over the content for one element alone, so they still take 6px.
+
+- **One stylesheet for both.** Parity's scrollbars are in `scrollbars.css`, which Parity's page imports and touch frames
+  adopt. Parity's page colors the thumb with its `--foreground`; in a frame it takes the scrolling element's text color.
+- **Only phones and tablets.** A mode is touch when its viewport's device is a phone or a tablet, or, for a viewport
+  that doesn't say, when its width suggests one (core's `isTouchMode`). Desktop and laptop frames keep the browser's
+  scrollbars, since Parity's page's rules don't reach into a frame.
+- **Offscreen frames too.** A render job carries `touch`, which the service's check passes on, so bitmaps, previews,
+  agents' screenshots and exports draw what the canvas draws. Bitmaps already kept for a touch mode go by a new name, so
+  they're drawn again once.
+- **The project's scrollbars win.** The rules are in a layer after the frame's root, so the project's own
+  `::-webkit-scrollbar` rules beat them, in a layer or not. Chromium also skips them on an element that sets
+  `scrollbar-width` or `scrollbar-color`.
+
+Code: `modeDevice` and `isTouchMode` in `packages/core/src/modes.ts`; `apps/desktop/src/renderer/scrollbars.css`;
+`frameTouchSheet` and `prepareFrame` in `apps/desktop/src/renderer/frame.ts`; `ModeView.tsx`; `renderJobMode`,
+`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's check in `service-checks.ts`.
+
+Tests: `packages/core/src/modes.test.ts` (1: a viewport's device, or the one its width suggests, with phones and tablets
+as touch). `apps/desktop/src/shared/render-job.test.ts` (1, and a case in 2 others: the default tablet and mobile modes'
+jobs are touch, and desktop's isn't; `touch` passes the service's check between processes; and it changes a frame's
+names in memory and on disk). `apps/desktop/src/renderer/frame.test.ts` (2), in Chrome with scrollbars drawn: a desktop
+frame's scrolling element gives the browser's scrollbars more than 6px each way and a touch frame's gives 6px; and a
+project's 12px `::-webkit-scrollbar` rule, unlayered or in a layer, and its `scrollbar-width: none`, win in a touch
+frame. `apps/desktop/src/renderer/render.test.ts` (1: an offscreen touch frame's scrolling element takes 6px, a desktop
+one's more). Gap: the thumb's color was checked by hand, in Chrome and in the app.
+
 ### Frames run React's production build (PAR-198)
 
 Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a

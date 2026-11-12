@@ -82,6 +82,8 @@ beforeAll(async () => {
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
+    // frame.ts reads scrollbars.css as text, as Vite's `?raw` gives it.
+    loader: { ".css": "text" },
     write: false,
     format: "iife",
     globalName: "preview",
