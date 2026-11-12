@@ -7818,6 +7818,25 @@ An integration added after `init` is set up at once, and Replay looks for `Repla
 - **The holds from PAR-758 and PAR-957 cover it.** Replay's canvas manager stops with the page recorder while it's
   paused, so a canvas isn't recorded while a project mounts or the canvas zooms either.
 
+## A frame's latest bitmap stands in while it's captured for new code (PAR-993)
+
+Kept bitmaps are named by a fingerprint of the whole project, so a branch switch, a new worktree, an edit to one
+component or a dependency update misses every one, and the canvas showed placeholders at the mode's window height, then
+filled them in one by one as they were captured, about 8.5 seconds on the example project, boards jumping as each took
+its height. In Sentry, most development sessions on 2026-11-11 and 12 started at 0 hits and 119 misses. You said to show
+the old pictures, "that's the point of the cache", with the screens' sizes. My calls:
+
+- **The latest is a second file, written with each capture,** named by `bitmapName` without the code, rather than an
+  index of the latest name for each frame. It needs no index kept in step across concurrent writes, the sweep already
+  ages and removes it like any bitmap, and the example's 119 bitmaps are about 570 KB, so keeping them twice costs
+  little.
+- **It's given only when there's none for the code,** marked `stale`, and the window treats it as it already treated the
+  bitmap of what a frame showed before an edit (PAR-165): shown, at its kept height, but never slept on or stored as the
+  key's bitmap. The frame is captured at once, without the 1-second wait, since nothing is being edited.
+- **Exports and the project's picture never take a stale bitmap,** since they need the frame as it's drawn now.
+- **Naming bitmaps by only what each frame draws is left for its own issue.** It would turn most of these misses into
+  hits, where this only hides them.
+
 ## One function maps every node (PAR-966)
 
 Core had `walkNodes` and `childEntries` to visit a tree but nothing to rebuild one, so each caller descended by a node's

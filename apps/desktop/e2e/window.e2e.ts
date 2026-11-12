@@ -14,16 +14,41 @@ afterEach(() => app?.reset())
 
 afterAll(() => app?.close())
 
-/** Where the window's page is scrolled to, and whether anything makes it taller or wider than the window. */
+/**
+ * Where the window's page is scrolled to, and whether anything makes it taller or wider than the window. When something
+ * does, `past` names the outermost elements reaching past the window, so a failure says what overflowed.
+ */
 const page = () =>
   app.page.evaluate(() => {
     const root = document.scrollingElement!
+    const overflows = root.scrollHeight > root.clientHeight || root.scrollWidth > root.clientWidth
+    const seen = { top: root.scrollTop, left: root.scrollLeft, overflows }
 
-    return {
-      top: root.scrollTop,
-      left: root.scrollLeft,
-      overflows: root.scrollHeight > root.clientHeight || root.scrollWidth > root.clientWidth
+    if (!overflows) {
+      return seen
     }
+
+    const reachesPast = (element: Element) => {
+      const { right, bottom } = element.getBoundingClientRect()
+
+      return right > root.clientWidth + 0.5 || bottom > root.clientHeight + 0.5
+    }
+
+    const past = [...document.body.querySelectorAll("*")]
+      .filter((element) => reachesPast(element) && !(element.parentElement && reachesPast(element.parentElement)))
+      .slice(0, 5)
+      .map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect()
+
+        const name = `${element.tagName.toLowerCase()}${[...element.classList]
+          .slice(0, 3)
+          .map((name) => `.${name}`)
+          .join("")}`
+
+        return `${name} "${(element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 40)}" at ${[x, y, width, height].map(Math.round).join(",")}`
+      })
+
+    return { ...seen, past }
   })
 
 const still = { top: 0, left: 0, overflows: false }
