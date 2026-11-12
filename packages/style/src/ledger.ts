@@ -169,17 +169,27 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   textTransform: ["text-transform"],
   decoration: ["text-decoration-line"],
   italic: ["font-style"],
-  lines: ["-webkit-line-clamp", "-webkit-box-orient", "text-overflow", "white-space"]
+  lines: ["-webkit-line-clamp", "-webkit-box-orient", "text-overflow", "white-space"],
+  overflowWrap: ["overflow-wrap"]
 }
 
 /**
  * The properties a key writes that another key owns, because its own can't work without them (principle 8 of
  * design-options.md, and design-options-css.md's Properties set by another control). Filling writes the flex item and
- * the least size that lets it shrink, a font size brings its line height, and cutting text off clips it.
+ * the least size that lets it shrink, a font size brings its line height, and cutting text off clips it. A size or an
+ * alignment on inline text draws it as a block (PAR-898), and a component placed against both edges of an axis takes
+ * an auto size on it (PAR-899).
  */
 export const setsForOthers: Readonly<Partial<Record<StyleKey, readonly string[]>>> = {
-  width: ["flex", "flex-shrink", "min-width", "align-self"],
-  height: ["flex", "flex-shrink", "min-height", "align-self"],
+  width: ["flex", "flex-shrink", "min-width", "align-self", "display"],
+  height: ["flex", "flex-shrink", "min-height", "align-self", "display"],
+  minWidth: ["display"],
+  maxWidth: ["display"],
+  minHeight: ["display"],
+  maxHeight: ["display"],
+  textAlign: ["display"],
+  right: ["width"],
+  bottom: ["height"],
   grow: ["min-width", "min-height"],
   size: ["line-height"],
   lines: ["overflow", "display"]
