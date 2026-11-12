@@ -1,9 +1,10 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2 and 5 are built: the package holds the stored style
-and `declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), and the adapter contract, which
-`@parity-app/styles-tailwind` implements (PAR-943). The rest isn't built yet. It sets where the rules for what a layer's
-style means live, so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one set.
+Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2, 5 and 6 are built: the package holds the stored
+style and `declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the adapter contract, which
+`@parity-app/styles-tailwind` implements (PAR-943), and the plain CSS printer and reader (PAR-944). The rest isn't built
+yet. It sets where the rules for what a layer's style means live, so the canvas, Copy as code, writing components
+(PAR-265) and reading code back all follow one set.
 
 ## In one line
 
@@ -144,11 +145,11 @@ picks the adapter, and a project with none gets plain CSS.
 
 ## The adapters
 
-| Adapter     | Where                         | Prints                                                                                            | Reads back                                  |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                                  |
-| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations                   |
-| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with Lightning CSS |
+| Adapter     | Where                         | Prints                                                                                            | Reads back                             |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
+| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations              |
+| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
 
 **The Tailwind adapter leans on Tailwind rather than a table of its own.** It already loads the project's design system
 to read the theme. That object, in Tailwind 4.3.3, also has:

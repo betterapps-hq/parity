@@ -6,10 +6,24 @@
   `new Date(value)` makes in the project's code, a date-only string at midnight UTC included, rather than a reading of
   our own that code wouldn't match; the agent docs say to give a day as a date and time without a zone. A string
   `new Date` can't read is refused when the file loads. The guest makes each date once per host, like a `$call`.
+
 - **A layout or text layer takes accessibility props, written as its element's attributes (PAR-913).** `role`, `id` and
   `aria-*` alone, under `props`, so `Update`, states, overrides and `unset` work as they do for a component. `id` is
   there so `aria-labelledby` and `aria-describedby` can point at a layer. Other attributes and screen-reader-only text
   are left out: a visually hidden text needs a class or style of its own, which is a separate decision.
+
+- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
+  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
+  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+  `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
+  rules it would have written and keeps the rest as text.
+  - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
+    can't load one. css-tree, already there for `validate`, parses a stylesheet in plain JavaScript, so reading needed
+    no new dependency. This is yours to overrule: the reader is the only part that would change.
+  - **One printer for code and for the canvas.** The selector is whatever the rules are for, a class in a project's code
+    or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
+  - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
+    written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
 
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
