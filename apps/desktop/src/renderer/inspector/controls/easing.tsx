@@ -295,7 +295,7 @@ export function EasingField({
           defaultTab={defaultTab}
           onChange={onChange}
           isTaken={isTaken}
-          onSave={create && saveToken}
+          onSave={saveToken}
         />
       </PopoverContent>
     </Popover>
@@ -342,7 +342,7 @@ export function EasingField({
           namespace={namespace}
           placeholder="springy"
           isTaken={isTaken}
-          onSave={create && saveToken}
+          onSave={saveToken}
         />
       )}
     </div>
@@ -402,7 +402,7 @@ function EasingEditor({
   onChange: (value: Easing) => void
   isTaken: (full: string) => boolean
   /** Makes a token of the easing, by the whole name given. */
-  onSave?: (full: string) => void
+  onSave: (full: string) => void
 }) {
   const [tab, setTab] = useState<EditorTab>(() => {
     if (value !== undefined && "spring" in value) {

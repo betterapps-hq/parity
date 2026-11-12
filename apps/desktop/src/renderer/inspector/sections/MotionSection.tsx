@@ -21,7 +21,7 @@ export function MotionSection({ editor, edit }: SectionProps) {
     edit("transitions", { transition: transitionsOf(next) }, "Change transitions")
   }
 
-  return <TransitionsSection entries={entries.list} onChange={change} />
+  return <TransitionsSection entries={entries.list} onSaveToken={() => undefined} onChange={change} />
 }
 
 /**

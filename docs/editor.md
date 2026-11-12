@@ -3289,9 +3289,8 @@ How the controls work with the document:
 - **The project's own tokens.** Every picker lists the project's tokens by the names the style holds (`radius-lg`,
   `text-xl`), with what each comes to. Spacing steps aren't listed, since a length shows in pixels. A kind the project
   has none of lists nothing; no picker falls back to the stories' stand-ins. Tokens are made in the Tokens panel, not
-  here: no field offers Create token (PAR-969), and where a value is written as one arbitrary value the field says why
-  without it. A new shadow names Tailwind's usual token for its kind (`shadow-sm`, `inset-shadow-sm`, `drop-shadow-md`)
-  and the `black` and `ring` colors only where the project has them, and is otherwise a shadow of its own.
+  here. A new shadow names Tailwind's usual token for its kind (`shadow-sm`, `inset-shadow-sm`, `drop-shadow-md`) and
+  the `black` and `ring` colors only where the project has them, and is otherwise a shadow of its own.
 - **In this design.** A color picker offers the colors the design's layers write out, most used first, beside the
   project's color tokens.
 - **Lengths keep what's typed.** Width, Height, limits, padding, margin, gaps and insets keep any number of pixels, so

@@ -1911,10 +1911,7 @@ export interface ProjectDataValue {
   /** The colors the design uses, which a color picker offers under In this design. */
   usedColors: readonly string[]
   images: ImageSource
-  /**
-   * Adds a token made with Create token. Only the stories hold one, in their state: the Design tab doesn't offer Create
-   * token, since a token it made would be in the design and not in the project's stylesheet.
-   */
+  /** Adds a token made with Create token; unset where the tokens are the project's own, which it doesn't make here. */
   create?: <K extends TokenSetName>(set: K, token: TokenSets[K][number]) => void
 }
 
@@ -1940,7 +1937,7 @@ export interface ProjectTokenSet<K extends TokenSetName> {
   create?: (token: TokenSets[K][number]) => void
 }
 
-/** One set of the project's tokens, and how to add to it (Create token) where that's offered. */
+/** One set of the project's tokens, and how to add to it (Create token) where the project can. */
 export function useTokens<K extends TokenSetName>(set: K): ProjectTokenSet<K> {
   const { tokens, create } = useProjectData()
 

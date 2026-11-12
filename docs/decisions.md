@@ -8233,8 +8233,7 @@ layer. My calls:
 
 The live panel's fields fell back to the exploration's stand-in tokens wherever a section forgot a set: Effects, Fill
 and Transform seeded the stand-ins under their own tokens, Motion merged its own over them, and four sections each
-turned the project's tokens into the fields' sets their own way. Create token there made a token that lived only in
-React state, so the design named a token the project didn't have. My calls:
+turned the project's tokens into the fields' sets their own way. My calls:
 
 - **One input, given where the panel starts.** `ProjectData` holds the project's tokens, the colors the design writes
   out and its images, and `StyleSections` gives it once for every section. A field drawn outside it throws, so a set
@@ -8244,9 +8243,6 @@ React state, so the design named a token the project didn't have. My calls:
   without Electron. The design's colors, which are about the document, are `designColors` in `@parity-app/editor`.
 - **The stand-ins are their own file,** `inspector/controls/stand-in-tokens.ts`, apart from the token model in
   `tokens.ts`, and a test checks nothing `StyleSections` draws imports it. PAR-936 removes it.
-- **The Design tab doesn't offer Create token,** as Motion's call above already said for the other fields. A token
-  belongs in the project's stylesheet, made in the Tokens panel; one held in the panel's state would leave the design
-  naming a token the project doesn't have. Where a value is written as one arbitrary value, the field still says why.
 - **A new shadow names only tokens the project has:** Tailwind's usual token for its kind, `black` and `ring` where the
   project defines them, and otherwise a shadow of its own in plain black.
 

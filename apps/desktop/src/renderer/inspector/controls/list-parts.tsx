@@ -313,7 +313,7 @@ export const overChecker = (image: string): CSSProperties => ({
 /**
  * Why a value is written as one arbitrary value, said under its row, and Create token, which names it as a token in a
  * small popover with the form the token list's Create token has: the namespace before the name, its checks, and one
- * clash message. Where nothing can save a token (`onSave` unset, as in the Design tab), it says why alone.
+ * clash message.
  */
 export function CreateTokenNote({
   says,
@@ -329,13 +329,9 @@ export function CreateTokenNote({
   /** Whether a token has this whole name already. */
   isTaken: (full: string) => boolean
   /** Makes the token, by its whole name. */
-  onSave?: (full: string) => void
+  onSave: (full: string) => void
 }) {
   const [open, setOpen] = useState(false)
-
-  if (!onSave) {
-    return <p className="type-description text-muted-foreground">{says}</p>
-  }
 
   return (
     <p className="flex flex-wrap items-center gap-x-1 type-description text-muted-foreground">
