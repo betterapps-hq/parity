@@ -65,6 +65,8 @@ export function useRowScrub(scrub: Scrub | undefined): void {
 
 interface FieldProps {
   label: string
+  /** A small mark before the name, as a prop's type. */
+  icon?: ReactNode
   /** Says more about the property, on hover. */
   hint?: string
   /** The value differs from the base design in the state being edited. */
@@ -108,6 +110,7 @@ export const nameMenuButton = `${nameButton} data-popup-open:bg-muted data-popup
  */
 export function Field({
   label,
+  icon,
   hint,
   changed,
   mixed = false,
@@ -165,6 +168,7 @@ export function Field({
     <fieldset aria-labelledby={labelId} className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}>
       <div className={nameRow}>
         <span className="flex min-w-0 items-center gap-1">
+          {icon}
           <Hint
             label={nameHint}
             detail={[mixed && "Different across the selected layers", hint, dragsBy && "Drag to change it"]
@@ -392,13 +396,19 @@ export function IconSegments<V extends string>({
  */
 export function SwitchRow({
   label,
+  icon,
   detail,
   changed = false,
   onReset,
+  action,
   checked,
   onCheckedChange
 }: {
   label: string
+  /** A small mark before the name, as a prop's type. */
+  icon?: ReactNode
+  /** A button after the switch, as a prop's menu. */
+  action?: ReactNode
   /** What it does, in the switch's hint. */
   detail?: string
   /** Changed in the state being edited: its name in the agent color, and the reset arrow after the switch. */
@@ -412,8 +422,9 @@ export function SwitchRow({
   return (
     <div className="col-span-2 flex h-5 min-w-0 items-center justify-between gap-2">
       <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2">
+        {icon && <span className="-mr-1 shrink-0">{icon}</span>}
         <span
-          className="truncate text-xs text-muted-foreground"
+          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
           style={changed ? { color: kindColors.agent } : undefined}
         >
           {label}
@@ -430,6 +441,7 @@ export function SwitchRow({
           </button>
         </Hint>
       )}
+      {action}
     </div>
   )
 }

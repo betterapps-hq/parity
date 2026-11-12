@@ -7,7 +7,7 @@ import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { openSource } from "./code-editor.ts"
-import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSection.tsx"
+import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
@@ -251,7 +251,6 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
           </Button>
         </div>
       </PanelSection>
-      {container.kind === "component" && <InCodeSection entry={entry} />}
     </>
   )
 }

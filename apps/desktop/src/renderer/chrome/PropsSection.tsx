@@ -21,11 +21,10 @@ import {
 } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
-import { FieldGrid, nameButton } from "../inspector/controls/field-row.tsx"
-import { type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
+import { nameButton } from "../inspector/controls/field-row.tsx"
+import { InstanceSection, type PropRow, type PropValueRow } from "../inspector/controls/instance-section.tsx"
 import type { PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
-import { PanelSection } from "./PanelSection.tsx"
 import {
   booleanValue,
   numberValue,
@@ -63,7 +62,8 @@ const groupTitles = new Map([
 ])
 
 /**
- * A component's props, from what its source declares, in the rows the approved Component instance section draws:
+ * A code component's instance: the Component instance section a component design's has, with its props from what its
+ * source declares:
  * variants offer their options with the default first, booleans a switch, and an unset prop is empty with its default
  * shown faintly. Attributes it passes to its element are added one at a time from a searchable list, and removed from
  * their row. Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
@@ -123,26 +123,17 @@ export function PropsSection({
   ]
 
   return (
-    <PanelSection
-      title={`${node.component} props`}
+    <InstanceSection
+      component={node.component}
       description={info ? undefined : "Reading this component's props from its source."}
-      action={<AddProp props={addable} free={!info} onAdd={(name, value) => onChange(name, value)} />}
-    >
-      {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No props to set.</p>
-      ) : (
-        <FieldGrid>
-          <PropRows
-            rows={rows}
-            onChange={(name, value, gesture) => {
-              const prop = known.get(name)
+      add={<AddProp props={addable} free={!info} onAdd={(name, value) => onChange(name, value)} />}
+      props={rows}
+      onChange={(name, value, gesture) => {
+        const prop = known.get(name)
 
-              onChange(name, prop ? propValueOf(prop, value) : value, gesture)
-            }}
-          />
-        </FieldGrid>
-      )}
-    </PanelSection>
+        onChange(name, prop ? propValueOf(prop, value) : value, gesture)
+      }}
+    />
   )
 }
 

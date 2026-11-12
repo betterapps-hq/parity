@@ -3233,17 +3233,19 @@ section with the group's own title leads it without a title of its own, and its 
   reset arrow before it. In a component design, the button beside it uses one of the component's props for whether the
   layer shows. Visibility has no section. Make component is under it for any layer inside a design but a component or an
   instance, which already is one.
-- **Component instance** (an instance of one of the project's component designs, or a library's): the component's name
-  in the title row, which goes to it, or for a library's says where it's linked from, and beside it, for one of the
-  design's own instances, the menu with Swap component, Reset overrides with how many there are, Push to main where the
-  component is the project's, and Detach. Then its props.
-- **Props rows**, the instance's and a code component's (`Button props`) alike: each prop's name with a capital first
-  letter, above its control. Text wraps and grows in a box with a handle; a number takes maths, steps, scrubs, previews
-  on the canvas while it's typed (PAR-203), and says why it can't read what's typed; on or off is a switch row; options
-  are a select with the default first; an object or a list is JSON a key to a line, read when it's left, and a prop
-  whose type isn't known takes any value. An unset prop is empty with its default shown faintly, and choosing the
-  default, or clearing the field, unsets it again. A code component's pass-through attributes have a remove button at
-  the end of their name's row.
+- **Component instance**, the same section for an instance of a component design and of a code component: the
+  component's name in the title row, which goes to a project design's component, or for a library's says where it's
+  linked from. A code component's links, to its stories and its file, are in the header. Beside the name, a code
+  component has + to add an attribute it passes to its element, and one of the design's own instances has the menu with
+  Swap component, Reset overrides with how many there are, Push to main where the component is the project's, and
+  Detach. Then its props, or "No props to set."
+- **Props rows**, an instance's and a component design's alike: each prop's type as a small tile (text, a number, on or
+  off, JSON, options) and its name with a capital first letter, above its control. Text wraps and grows in a box with a
+  handle; a number takes maths, steps, scrubs, previews on the canvas while it's typed (PAR-203), and says why it can't
+  read what's typed; on or off is a switch row; options are a select with the default first; an object or a list is JSON
+  a key to a line, read when it's left, and a prop whose type isn't known takes any value. An unset prop is empty with
+  its default shown faintly, and choosing the default, or clearing the field, unsets it again. A code component's
+  pass-through attributes have a remove button at the end of their name's row.
 - **Content** (text layers only): the words, which wrap and grow in their field, with a handle to drag it taller. Enter
   or leaving makes the edit, Shift+Enter starts a line, and Escape puts the words back. In a component design, the
   button beside it uses one of the component's props for the text. Then Tag. Not saved: Tag. A component whose only
@@ -3326,11 +3328,12 @@ out for each layer; `eachLength` and `eachSideOf` in `inspector/style-values.ts`
 nothing is disabled. `useDrawnBox` in `chrome/style-editor.ts` draws the panel again when the selected layer's drawn
 size changes. The Component instance section and the props rows are `InstanceSection` and `PropRows` in
 `inspector/controls/instance-section.tsx`, with their stories in `Instance.stories.tsx`; `chrome/LayerPanel.tsx` gives
-an instance's params as rows (`instanceRows`) and `chrome/PropsSection.tsx` a code component's. The preset offered is
-`closestPreset` in `inspector/controls/preset-data.ts`. `projectTokenSets` in `inspector/token-sets.ts` turns the
-project's tokens into the controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's
-values as the controls show them, and writes the controls' values back as the style holds them. `placeNode` in
-`chrome/LayerPanel.tsx` measures an absolutely placed layer, through the style editor's `place`.
+an instance's params as rows (`instanceRows`), `chrome/PropsSection.tsx` a code component's, and `ParamRows` in
+`chrome/ComponentsSection.tsx` a component design's own. The preset offered is `closestPreset` in
+`inspector/controls/preset-data.ts`. `projectTokenSets` in `inspector/token-sets.ts` turns the project's tokens into the
+controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's values as the controls show
+them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an
+absolutely placed layer, through the style editor's `place`.
 
 Tests:
 
@@ -3752,26 +3755,24 @@ which one code nests between the tags.
   a slot named after it. Once it's a slot, the button is the slot's name, which goes to it in the component's Props with
   the name focused, and × makes it a plain layout again. A layout inside a slot, or around one, can't be one: the button
   stays focusable and its hint says why.
-- **Props** lists a component's slots after its params, each with its type's tile. Where a param has its default, a slot
-  has the layout it fills, which selects that layout. Its name is renamed in place, camelCased (`Side actions` is
-  `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children` among them), or is
-  one of the component's params or another slot's. An × inside the layout's field, on hover or focus, removes it.
-  **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's pointed at;
-  the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than opening an
-  empty menu.
-- **In code**, below Modes, shows how an instance reads: each param with its default, and each slot. Code nests the slot
-  holding the most layers between the tags, as React's `children` and Vue's default slot, the first in layer order on a
-  tie (`childrenSlot`), and passes the others as props that take layers.
-- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row or its
-  line of code outlines its layout. Layers shows a slot's dashed icon and its name at the end of its row.
+- **Props** lists a component's params in the rows an instance's props are drawn in, each with its default to edit and a
+  menu at the end of its name's row to rename or remove it, then its slots, each with its type's tile. Where a param has
+  its default, a slot has the layout it fills, which selects that layout. Its name is renamed in place, camelCased
+  (`Side actions` is `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children`
+  among them), or is one of the component's params or another slot's. An × inside the layout's field, on hover or focus,
+  removes it. **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's
+  pointed at; the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than
+  opening an empty menu.
+- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row outlines
+  its layout. Layers shows a slot's dashed icon and its name at the end of its row.
 
 The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/core`: `designSlots`, `childrenSlot`,
 `setSlot`, `slotProblem`, `slotPlaceProblem` and `freeSlotName` in `slots.ts`, and `slotName` and `slotNameProblem` in
 `slot-names.ts`. Filling a slot from an instance is PAR-84.
 
-Code: `chrome/slot-props.tsx` (a slot's row, Add, In code and Make slot), `chrome/slot-focus.ts` (the slot to focus and
-a refused name), `ParamsSection` and `InCodeSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
-`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+Code: `chrome/slot-props.tsx` (a slot's row, Add and Make slot), `chrome/slot-focus.ts` (the slot to focus and a refused
+name), `ParamsSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx`, the slot
+outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
 
 Tests:
 
@@ -3853,7 +3854,7 @@ use one from its field.
 An agent can give a component design params without extracting it from copies. `CreateDesign` takes `params` in the
 `.par` shape, with nodes in its `root` binding them, and `AddParam`, `UpdateParam` and `DeleteParam` in `execute` change
 them later. `Update(path, { bind })` binds or unbinds a node's text, visibility or a code component's props, in the base
-design. Props and Variants show what an agent adds, as they show what Add makes.
+design. Props shows what an agent adds, as it shows what Add makes.
 
 - **Variant options** take an id made from the name unless given, and their changes keyed by node id or name. A default
   can be an option's id or name.
@@ -4405,7 +4406,7 @@ design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`tog
 `chrome/LayerTree.tsx` (the row's hidden mark), `chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx`
 (the layer as the board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts`
 (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx`
-(`ValueInput`), used by `PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+(`ValueInput`).
 
 Tests:
 
@@ -4465,6 +4466,10 @@ instance.
 - **A component that lists no states has its base state, Default.** Code that reads a design's states goes through
   core's `designStates`, which gives a screen that one base state too, so selection, the canvas and the edit frame treat
   every design alike.
+- **A component with one state lists it alone,** with no mark for which is shown and no Show every state, as there's
+  nothing to pick between or show beside it. Adding a state brings both back.
+- **Variants aren't in a component's Design tab for now.** Its Props lists params and slots; a variant a file already
+  has still draws, and still shows on its instances. PAR-1017 brings variants back as Figma's work.
 - **The agent can tell from the data.** `Designs()` lists `states` and `showing.state` only for components. `AddState`,
   `UpdateState` and `DeleteState` take a component, and those, Get, Update or Screenshot with a state, and
   `UpdateDesign`'s `state` or `allStates`, on a screen fail with "Home is a screen, and only a component has states."

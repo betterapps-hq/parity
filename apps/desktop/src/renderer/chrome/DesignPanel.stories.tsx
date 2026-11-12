@@ -58,8 +58,7 @@ const topBarWithSlot = () => {
 
 /**
  * A component design with a slot (PAR-83): Props lists App top bar's `actions` slot after its params, a kind of prop
- * that takes layers, with the layout it fills where a param has its default. In code, below Modes, shows how an
- * instance reads.
+ * that takes layers, with the layout it fills where a param has its default.
  */
 export const ComponentWithSlots: Story = { loaders: [inspecting("design", topBarWithSlot)] }
 
@@ -108,8 +107,7 @@ export const AddingATextProp: Story = {
     await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Text" }, slowly))
     const name = await panel.findByRole("textbox", { name: "New text prop's name" }, slowly)
     await userEvent.type(name, "Subtitle{Enter}", typing)
-    await expect(await panel.findByText("subtitle", undefined, slowly)).toBeVisible()
-    await expect(panel.getByText(`subtitle="Text"`, { exact: false })).toBeVisible()
+    await expect(await panel.findByRole("textbox", { name: "Subtitle" }, slowly)).toHaveValue("Text")
   }
 }
 

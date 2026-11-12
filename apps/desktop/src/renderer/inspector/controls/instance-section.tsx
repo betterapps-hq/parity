@@ -10,7 +10,20 @@ import {
   SelectTrigger,
   SelectValue
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowUpToLine, Diamond, Replace, RotateCcw, Unlink } from "lucide-react"
+import {
+  ArrowUpToLine,
+  Braces,
+  Diamond,
+  Hash,
+  List,
+  type LucideIcon,
+  Replace,
+  RotateCcw,
+  SquareDashed,
+  ToggleRight,
+  Type,
+  Unlink
+} from "lucide-react"
 import { type ReactNode, useId, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
@@ -23,6 +36,40 @@ import { NumberProp, type PropPreview } from "./number-field.tsx"
 
 /** A prop's name as its row shows it, with a capital first letter: `showRising` is ShowRising. */
 const shownName = (name: string) => name.charAt(0).toUpperCase() + name.slice(1)
+
+/** Each kind of prop's mark, as the component's Props list draws it: text, a number, on or off, JSON, options, layers. */
+const typeIcons: Record<PropValueRow["type"], LucideIcon> = {
+  text: Type,
+  number: Hash,
+  boolean: ToggleRight,
+  value: Braces,
+  variant: List,
+  shown: SquareDashed
+}
+
+/** Each kind of prop's name, in its tile's hint, as Props' Add names them. */
+const typeNames: Record<PropValueRow["type"], string> = {
+  text: "Text",
+  number: "Number",
+  boolean: "Toggle",
+  value: "JSON",
+  variant: "Options",
+  shown: "Layers"
+}
+
+/** A prop's type, as a small tile before its name, which names it on hover. */
+function TypeTile({ type }: { type: PropValueRow["type"] }) {
+  const Icon = typeIcons[type]
+
+  return (
+    <Hint label={typeNames[type]}>
+      <span className="grid size-4 shrink-0 place-items-center rounded-[4px] border bg-muted/60 text-muted-foreground">
+        <Icon className="size-2.5" aria-hidden />
+        <span className="sr-only">{typeNames[type]}</span>
+      </span>
+    </Hint>
+  )
+}
 
 /** A variant's options with its default first, as State lists its first state first: what unset comes to. */
 const defaultFirst = <O extends { id: string }>(options: readonly O[], first: string | undefined) => [
@@ -60,21 +107,25 @@ export type InstanceProp = PropRow
 type PropChange = (name: string, value: PropValue | undefined, gesture?: string) => void
 
 /**
- * Props' rows, drawn as the style sections draw theirs: the name above the control, a switch row for one that's on or
- * off, a field's box for text and numbers, JSON for objects and lists, and Tag's select for options.
+ * Props' rows, drawn as the style sections draw theirs: the type's tile and the name above the control, a switch row for
+ * one that's on or off, a field's box for text and numbers, JSON for objects and lists, and Tag's select for options.
+ * An instance's and a component's props are drawn alike.
  */
 export function PropRows({ rows, onChange }: { rows: readonly PropRow[]; onChange: PropChange }) {
   return rows.map((row) => {
     const label = shownName(row.name)
+    const icon = <TypeTile type={row.type} />
 
     if (row.type === "boolean") {
       return (
         <SwitchRow
           key={row.name}
           label={label}
+          icon={icon}
           detail={row.hint}
           changed={row.changed}
           onReset={row.onReset}
+          action={row.action}
           checked={row.value}
           onCheckedChange={(next) => onChange(row.name, next)}
         />
@@ -130,6 +181,7 @@ export function PropRows({ rows, onChange }: { rows: readonly PropRow[]; onChang
       <Field
         key={row.name}
         label={label}
+        icon={icon}
         hint={row.hint}
         changed={row.changed}
         onReset={row.onReset}
@@ -148,6 +200,10 @@ export interface InstanceSectionProps {
   onGoTo?: () => void
   /** Where a library's component comes from, for its name's hint. */
   linked?: string
+  /** Adds a prop it doesn't set yet, at the end of the title row. */
+  add?: ReactNode
+  /** Said under the title, as while a code component's props are still being read. */
+  description?: string
   props: readonly PropRow[]
   /** Changed in the state being edited, with the reset arrow by its name, for a row that doesn't say so itself. */
   changed?: (name: string) => boolean
@@ -172,12 +228,13 @@ export interface InstanceSectionProps {
 }
 
 /**
- * A component instance: its props. Going to the
- * component is its name in the title row, and swapping, resetting overrides, pushing them to the component and
- * detaching are in the menu beside it, as Penpot's and Figma's instance menus hold them.
+ * A component instance, of a component design or of a code component alike: its props. Going to the component is its
+ * name in the title row, where it's one of the project's designs; a code component's links are in the header. Adding a
+ * prop is the + beside it, and swapping, resetting overrides, pushing them to the component and detaching are in the
+ * menu, as Penpot's and Figma's instance menus hold them.
  */
 export function InstanceSection(props: InstanceSectionProps) {
-  const { component, onGoTo, linked, menu, changed = () => false, onResetProp } = props
+  const { component, onGoTo, linked, add, menu, changed = () => false, onResetProp } = props
 
   const rows = props.props.map((row) => ({
     ...row,
@@ -205,18 +262,24 @@ export function InstanceSection(props: InstanceSectionProps) {
               </Button>
             </Hint>
           ) : (
-            <Hint label={`Linked to ${component} in ${linked ?? "a library"}, which changes it`} wait>
+            <Hint label={linked && `Linked to ${component} in ${linked}, which changes it`} wait>
               <span className="flex h-6 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">{name}</span>
             </Hint>
           )}
+          {add}
           {menu && <InstanceMenu {...menu} />}
         </span>
       }
     >
+      {props.description && <p className="mb-2 text-xs text-muted-foreground">{props.description}</p>}
       {props.note}
-      <FieldGrid>
-        <PropRows rows={rows} onChange={props.onChange} />
-      </FieldGrid>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No props to set.</p>
+      ) : (
+        <FieldGrid>
+          <PropRows rows={rows} onChange={props.onChange} />
+        </FieldGrid>
+      )}
       {props.children && <div className="mt-2.5">{props.children}</div>}
       {/* Hidden from the eye, so the count is said where the menu is. */}
       {menu && menu.overrides > 0 && <span className="sr-only">{`${menu.overrides} overrides inside`}</span>}
