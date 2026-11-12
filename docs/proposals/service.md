@@ -138,7 +138,11 @@ As [packages.md](packages.md) sets out, logic takes data and returns data:
 - **`apps/portal`:** the TanStack Start app. Each route file reads the bindings and calls the package.
 - **`apps/desktop`:** a `SearchService` in main that calls the routes, used for a connector with no key here. A key in
   the environment still wins, so development copies don't change. The window already shows a key's source as `service`.
-- **`infra/cloudflare`:** the Worker, its KV namespace, its rate limits, its secrets and its domain.
+- **`infra/cloudflare`:** the shared `cloudflare-web` module from `betterapps-hq/pipelines`, which Storybook's previews
+  already sit beside. It makes a Worker for each of `staging` and `production`, the custom domain, one deploy token and
+  the GitHub settings the web templates read (`cd-web-deploy`, `cd-web-promote`, `preview-web`), and passes on the
+  Worker's secrets. Pull requests get Worker previews, and Neon branches once there's a database. No deploy workflow is
+  written here. The KV namespace and the rate limits are bindings in the app's Wrangler config, which deploys own.
 
 **New dependencies, which need your agreement:** `@tanstack/react-start`, `@cloudflare/vite-plugin` and `wrangler`.
 TanStack Start 1.0 is reported to need Vite 8; that's checked against this repository's `vp` before anything is added.
@@ -166,7 +170,7 @@ TanStack Start 1.0 is reported to need Vite 8; that's checked against this repos
 Each is its own issue and pull request:
 
 1. Sign-in tried in an installed build (PAR-612's last step).
-2. `apps/portal` with one health route, deployed by Terraform and a workflow to `api.tryparity.dev`.
+2. `apps/portal` with one health route, deployed through the shared pipelines to `api.tryparity.dev`.
 3. `@parity-app/service` and the two routes, with the session check and Pixabay's key as a secret.
 4. Main's `SearchService` and the `signed-out` problem, with Sign in in the library browser, designed in Storybook
    first. This is what makes an installed copy search.
