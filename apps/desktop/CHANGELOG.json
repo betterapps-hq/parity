@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 23:26:30 GMT",
+      "version": "0.77.0",
+      "tag": "@parity-app/desktop_v0.77.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f1087164c76f20627b13667354f174d5261af0ff",
+            "comment": "One field row across the Design tab: an image's or video's Content and an instance's slots name their fields above them, as every other section does"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 23:04:50 GMT",
       "version": "0.76.0",
       "tag": "@parity-app/desktop_v0.76.0",
