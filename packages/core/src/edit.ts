@@ -784,9 +784,12 @@ function unsetOf(props: PatchUnset["props"], style: PatchUnset["style"]): PatchU
   return unset
 }
 
-/** The props a node sets itself: a component's props, or an instance's args. Other nodes have none. */
+/**
+ * The props a node sets itself: a component's props, a layout's or text's accessibility attributes, or an instance's
+ * args. Other nodes have none.
+ */
 function ownProps(node: DesignNode): PropValues {
-  if (node.type === "component") {
+  if (node.type === "component" || node.type === "layout" || node.type === "text") {
     return node.props ?? {}
   }
 
@@ -903,6 +906,12 @@ function applyChange(node: DesignNode, change: NodeChange): DesignNode {
     next.props = mergeValues<PropValues>(next.props, change.props, {})
   }
 
+  if (change.props && (next.type === "layout" || next.type === "text")) {
+    // SAFETY: the document's schema checks a layout's or text's props when it's saved, and the agent checks a change
+    // before it's made (`isAccessibilityProp`).
+    next.props = mergeValues<PropValues>(next.props, change.props, {}) as typeof next.props
+  }
+
   if (change.props && next.type === "instance") {
     next.args = mergeValues<PropValues>(next.args, change.props, {})
   }
@@ -914,7 +923,7 @@ function applyChange(node: DesignNode, change: NodeChange): DesignNode {
   // In the design, taking a key away removes it.
   const taken = change.unset
 
-  if (taken?.props && next.type === "component") {
+  if (taken?.props && (next.type === "component" || next.type === "layout" || next.type === "text")) {
     next.props = emptyAsUndefined(without(next.props, taken.props))
   }
 
@@ -926,7 +935,7 @@ function applyChange(node: DesignNode, change: NodeChange): DesignNode {
     next.style = emptyAsUndefined(without(next.style, taken.style))
   }
 
-  if (next.type === "component" && next.props === undefined) {
+  if ((next.type === "component" || next.type === "layout" || next.type === "text") && next.props === undefined) {
     delete next.props
   }
 

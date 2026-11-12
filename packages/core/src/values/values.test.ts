@@ -133,6 +133,32 @@ describe("decorator and sample values", () => {
     )
   })
 
+  it("makes a date as `new Date(...)` makes it in the project's code, in a sample and a decorator (PAR-912)", () => {
+    const value = { selected: { $date: "2026-11-19T00:00:00" }, disabled: { before: { $date: 1_763_510_400_000 } } }
+    expect(parseData(sampleValue, value)).toEqual(value)
+    expect(evaluateValue(value, host(), "sample")).toEqual({
+      selected: new Date("2026-11-19T00:00:00"),
+      disabled: { before: new Date(1_763_510_400_000) }
+    })
+    expect(evaluateValue({ $date: "2026-11-19" }, host())).toEqual(new Date("2026-11-19"))
+    expect(valueImports(value, "sample")).toEqual([])
+  })
+
+  it("makes each date once for as long as the host keeps it, so a prop doesn't change between draws", () => {
+    const shared = host()
+    const date = { $date: "2026-11-19T00:00:00" }
+    expect(evaluateValue([date, { ...date }], shared, "sample")).toSatisfy(([a, b]: unknown[]) => a === b)
+  })
+
+  it.each([
+    [{ $date: "next Thursday" }, "/$date: expected a date, such as 2026-11-19T00:00:00"],
+    [{ $date: true }, "/$date:"],
+    [{ $date: "2026-11-19", zone: "UTC" }, "zone"]
+  ])("refuses a date `new Date` can't read: %j", (value, message) => {
+    expect(() => parseData(sampleValue, value)).toThrow(message)
+    expect(() => parseData(decoratorValue, value)).toThrow(message)
+  })
+
   it("lists the modules a value imports, from every form and argument, each once", () => {
     const value = {
       a: { $import: "one" },

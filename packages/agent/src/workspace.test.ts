@@ -522,6 +522,51 @@ Print(JSON.stringify([Get("card/body", { state: "plain" }).style, Get("card/body
   })
 })
 
+describe("Accessibility props on layout and text layers (PAR-913)", () => {
+  const cell: ContainerSpec = {
+    id: "cell",
+    name: "Cell",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "row", children: [{ type: "text", id: "dash", tag: "span", text: "–" }] },
+    states: [
+      { id: "base", name: "Base" },
+      { id: "busy", name: "Busy" }
+    ]
+  }
+
+  it("names a layer, in the design and in a state, and takes a name away with null", async () => {
+    const result = await read(
+      [cell],
+      `Update("cell/dash", { props: { "aria-label": "Doesn't apply" } })
+Update("cell/row", { props: { role: "row", "aria-busy": true } }, { state: "busy" })
+Update("cell/row", { props: { role: "row" } })
+Update("cell/row", { props: { role: null } })
+Print(JSON.stringify([Get("cell/dash").props, Get("cell/row", { state: "busy" }).props, Get("cell/row").props ?? {}]))`
+    )
+
+    expect(result).toEqual([{ "aria-label": "Doesn't apply" }, { role: "row", "aria-busy": true }, {}])
+  })
+
+  it.each([
+    `Update("cell/dash", { props: { onClick: "save" } })`,
+    `Update("cell/row", { props: { className: "row" } }, { state: "busy" })`
+  ])("refuses a prop that isn't an accessibility attribute: %s", async (code) => {
+    const result = await execute({ label: "Name", code }, snapshot([structuredClone(cell)]), hooks)
+
+    expect(result.error).toContain("A layout or text layer takes role, id and aria-* props, not")
+  })
+
+  it("refuses a layer inserted with another prop", async () => {
+    const result = await execute(
+      { label: "Insert", code: `Insert("cell/row", { type: "text", text: "Hi", props: { title: "Hi" } })` },
+      snapshot([structuredClone(cell)]),
+      hooks
+    )
+
+    expect(result.error).toContain('a layout or text layer takes role, id and aria-* props, not "title"')
+  })
+})
+
 describe("Update taking a prop away with null, and paths that can't be right (PAR-885)", () => {
   const table: ContainerSpec = {
     id: "table",

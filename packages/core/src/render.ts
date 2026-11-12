@@ -2,18 +2,19 @@ import { declarations, type Direction, type LayerKind, type NodeStyle } from "@p
 import { z } from "zod"
 import type { FrameViewport } from "./adapters.ts"
 import { screenHeightForWidth } from "./devices.ts"
-import type {
-  ComponentNode,
-  ContainerSpec,
-  DesignNode,
-  FrameSize,
-  InstanceNode,
-  NodePatch,
-  ParamSpec,
-  PatchUnset,
-  PropValues,
-  StateSpec,
-  VideoNode
+import {
+  type ComponentNode,
+  type ContainerSpec,
+  type DesignNode,
+  type FrameSize,
+  type InstanceNode,
+  isAccessibilityProp,
+  type NodePatch,
+  type ParamSpec,
+  type PatchUnset,
+  type PropValues,
+  type StateSpec,
+  type VideoNode
 } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
 
@@ -465,8 +466,8 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues
     }
   }
 
-  if (next.type === "component") {
-    const props = { ...next.props }
+  if (next.type === "component" || next.type === "layout" || next.type === "text") {
+    const props: PropValues = { ...next.props }
 
     for (const [prop, param] of Object.entries(next.bind?.props ?? {})) {
       const value = bound(param)
@@ -483,7 +484,9 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues
     Object.assign(props, patch.props)
 
     if (Object.keys(props).length > 0) {
-      next.props = props
+      // SAFETY: a layout's or text's props are checked when its file loads, and `accessibilityAttributes` writes only
+      // the accessibility attributes among what a patch or a param gives it.
+      next.props = props as typeof next.props
     } else {
       delete next.props
     }
@@ -503,6 +506,33 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues
   }
 
   return next
+}
+
+/**
+ * A layout's or text's props as the attributes its element carries, by their HTML names and as text, as React writes
+ * `aria-hidden={true}`. Only accessibility attributes (`isAccessibilityProp`): a patch's or a param's other props
+ * are left off.
+ */
+export function accessibilityAttributes(props: PropValues | undefined): ElementAttributes {
+  const attributes: ElementAttributes = {}
+
+  for (const [name, value] of Object.entries(props ?? {})) {
+    const written = attributeValue.safeParse(value)
+
+    if (isAccessibilityProp(name) && written.success) {
+      attributes[name] = String(written.data)
+    }
+  }
+
+  return attributes
+}
+
+/** What an attribute can be written from: text, a number or a boolean. */
+const attributeValue = z.union([z.string(), z.number(), z.boolean()])
+
+/** `{ attributes }` when there are any, so an element without them has none. */
+function withAttributes(attributes: ElementAttributes): { attributes?: ElementAttributes } {
+  return Object.keys(attributes).length > 0 ? { attributes } : {}
 }
 
 /** `values` without `keys`. */
@@ -638,19 +668,23 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
         const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
 
-        const element = {
+        const element: RenderElement = {
           kind: "element",
           nodeId: id(node),
           tag: "div",
-          style: inlineStyle(style, "layout", parent)
-        } as const
+          style: inlineStyle(style, "layout", parent),
+          children,
+          ...withAttributes(accessibilityAttributes(shown.props))
+        }
 
         if (children.length > 0) {
-          return [{ ...element, children }]
+          return [element]
         }
 
         // The canvas gives an empty layout a size to see, select and drop into (see `emptyLayoutAttribute`).
-        return [{ ...element, attributes: { [emptyLayoutAttribute]: unsizedAxes(style).join(" ") }, children }]
+        return [
+          { ...element, attributes: { ...element.attributes, [emptyLayoutAttribute]: unsizedAxes(style).join(" ") } }
+        ]
       }
 
       case "text":
@@ -660,7 +694,8 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             nodeId: id(node),
             tag: shown.tag ?? "p",
             style: inlineStyle(style, "text", parent, inlineTags.has(shown.tag ?? "p")),
-            children: [{ kind: "text", text: shown.text }]
+            children: [{ kind: "text", text: shown.text }],
+            ...withAttributes(accessibilityAttributes(shown.props))
           }
         ]
       case "image":

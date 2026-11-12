@@ -171,7 +171,8 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 `Components()` is everything a `component` node can name. `Props("Button")` returns the props found in the component's
 source: variants with their options (`variant`, `size`), its own props, including those a library's component adds to
 its element's (Nova's `isActive`), and with `{ all: true }` the attributes it passes to its element. A prop that isn't
-listed, or a variant value outside its options, comes back as a warning.
+listed, or a variant value outside its options, comes back as a warning. A prop typed `Date` takes
+`{ $date: "2026-11-19T00:00:00" }`, which the component gets as `new Date("2026-11-19T00:00:00")`.
 
 Its `composition` says what it needs around it and holds, before you insert it:
 
@@ -607,7 +608,10 @@ for (const state of signup.states) {
 for (const layout of layouts) Print(`${layout.state} in ${layout.mode}: ${layout.width} × ${layout.height}`)
 ```
 
-`Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
+`Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong. To fix a
+name on a layout or text layer, give it accessibility props:
+`Update(path, { props: { "aria-label": "Doesn't apply" } })`. A layout or text takes `role`, `id` and `aria-*` props,
+which land on its element.
 
 These frames are drawn in the same window as the canvas's: as wide as the frame, and as tall as the design's fixed
 height for the viewport, else the viewport's screen height, else the device nearest its width. So `100vh` and window
