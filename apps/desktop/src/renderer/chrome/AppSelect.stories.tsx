@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
+import { Field } from "../inspector/controls/field-row.tsx"
 import { AppSelect } from "./AppSelect.tsx"
-import { Field } from "./fields.tsx"
 import { PanelColumn, slowly } from "./inspector-stories.tsx"
 
 const overflows = [

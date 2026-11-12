@@ -8,7 +8,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ComponentProps, type ReactNode } from "react"
 import { ChangeMark, useChanged } from "../inspector/controls/field-parts.tsx"
-import { useFieldName, useMixed } from "./fields.tsx"
+import { useFieldName, useMixed } from "../inspector/controls/field-row.tsx"
 
 /** One choice: what it's worth, how it reads, and a line under it saying more. */
 export interface AppSelectItem<T> {

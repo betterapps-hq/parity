@@ -47,19 +47,18 @@ draws a list rather than branching on the layer's type. It needs three more capa
 | `instance`  | It's a component instance                                                 |
 | `attrs`     | It passes attributes to an element: an instance, a layout or a text layer |
 
-| Section        | Shown when                                                   |
-| -------------- | ------------------------------------------------------------ |
-| Header         | Always: name, kind, eye, links, Make component, Make slot    |
-| State selector | A layer inside a component design                            |
-| States         | A component design                                           |
-| Props          | A component design (defines them) or an instance (sets them) |
-| Slots          | A component design's slots, or an instance that fills them   |
-| Attributes     | `attrs`                                                      |
-| Content        | `text`                                                       |
-| Media          | `media`                                                      |
-| Style sections | As `styleParts` decides today                                |
-| Modes          | A screen or component design                                 |
-| Export         | Always                                                       |
+| Section        | Shown when                                                    |
+| -------------- | ------------------------------------------------------------- |
+| Header         | Always: name, kind, eye, links, Make component, Make slot     |
+| State selector | A layer inside a component design                             |
+| States         | A component design                                            |
+| Props          | A component design (defines them) or an instance (sets them)  |
+| Slots          | A component design's slots, or an instance that fills them    |
+| Attributes     | `attrs`                                                       |
+| Content        | `text` or `media`: a text's words, an image's or video's file |
+| Style sections | As `styleParts` decides today                                 |
+| Modes          | A screen or component design                                  |
+| Export         | Always                                                        |
 
 Attributes takes over the Accessibility section on layouts and text, which hold only `role`, `id` and `aria-*` today. An
 instance of a component design gets attributes once the file can hold them on it.
@@ -71,8 +70,8 @@ Inspector/
 ├── Panel/          Design tab, Accessibility tab, nothing selected
 ├── Layers/         Screen, Component, Frame, Text, Horizontal layout, Vertical layout, Grid,
 │                   Component instance, Icon, Image, Video, Several layers
-├── Sections/       Header, State selector, States, Props, Attributes, Slots, Content, Media,
-│                   Layout, Position, Size, Spacing, Fill, Stroke, Appearance, Effects,
+├── Sections/       Header, State selector, States, Props, Attributes, Slots, Content, Layout,
+│                   Position, Size, Spacing, Fill, Stroke, Appearance, Effects,
 │                   Typography, Transform, Motion, Modes, Export
 ├── Rows/           Box model, Padding, Margin, Size and aspect ratio, Placement and insets,
 │                   Frame size, Layout direction and alignment, Grid tracks, Grid placement,

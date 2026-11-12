@@ -2780,9 +2780,9 @@ image's is.
   without sound. With **Controls** on, it shows the browser's controls and waits to be played (`controls playsinline`).
 - **On the canvas** it plays as it does in the frame, since the canvas draws the frame. A frame's bitmap, drawn while
   zoomed out, shows the picture it was on.
-- **Its inspector section,** Video, has File, Alt text (its `aria-label`), Fit (cover, contain or fill) and Controls,
-  with its credit under them when it has one. Its layer's icon is a strip of film, its kind is Video, and an unnamed one
-  is named by its alt text, or Video.
+- **Its inspector section,** Content, as an image's is, has File, Alt text (its `aria-label`), Fit (cover, contain or
+  fill) and Controls, a switch on its name's row, with its credit under them when it has one. Its layer's icon is a
+  strip of film, its kind is Video, and an unnamed one is named by its alt text, or Video.
 - **Inserting:** a video goes in 320px wide at its own proportions, as an image does (`nodeForItem`), from the Media
   tab, a drop or a paste. Several dropped on the empty canvas make a frame called Videos, or Media with images among
   them.
@@ -3423,19 +3423,41 @@ Tests:
 - `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
   open their pickers by name: "Fill 1 picker" for the first.
 
+### One field row (PAR-1029)
+
+Every property in the Design tab sits in one row: its name above the control, and at the end of the name's row the reset
+arrow while a state changes it, the lock of a row a typography preset sets, or the row's own action, such as Add a
+column. Two half rows sit side by side, as Width and Height do. The name names a field inside that has no name of its
+own, hides a secret-looking one from session replay, and says Mixed across layers that differ. An image's or video's
+Content and an instance's slots, the last sections with their names in a column to the left, use it too, and a video's
+Controls is a switch on its name's row, as an on-or-off prop is.
+
+Code: `Field`, `FieldGrid` and `SwitchRow` in `apps/desktop/src/renderer/inspector/controls/field-row.tsx`, with
+`FirstStateName`, `FieldTarget`, `useMixed` and `useFieldName`. `chrome/fields.tsx` keeps the fields that sit in it.
+
+Tests:
+
+- `inspector/controls/FieldRow.stories.tsx` (Inspector › Parts › Field row): Set finds the field by the row's name;
+  Changed In A State puts the value back with the reset arrow; Mixed, Long Name, Half Rows, With An Action, Locked To A
+  Preset, Overriding A Preset and Changes With The Viewport, for review.
+- `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
+- `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
+- `inspector/controls/SlotPicker.stories.tsx` (Controls › Fields › Slot picker): Filled selects the layer from its chip
+  and clears the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+
 ### Each field's label names its control (PAR-892)
 
-A row's label names the control beside it, so a screen reader hears "Alt text" on an image's alt text, and a test finds
-it by role and name. Before, the label was only text beside the control: an image's or video's Visible, File, Alt text
-and Fit, a component's props and an instance's params had no name unless the call site repeated the label. A text field,
+A row's name names the control under it, so a screen reader hears "Alt text" on an image's alt text, and a test finds it
+by role and name. Before, the label was only text beside the control: an image's or video's Visible, File, Alt text and
+Fit, a component's props and an instance's params had no name unless the call site repeated the label. A text field,
 choice, switch, number field or JSON field takes its row's label through `aria-labelledby`. One given a name of its own
 keeps it: one of a row's several fields, such as Min's Minimum width and Minimum height, or a field outside a row, such
 as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
 token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
 
-Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `SwitchInput` and
-`ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label doesn't say it. A number
-field (`NumberField`) is named by its own `label`.
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/inspector/controls/field-row.tsx`; `TextInput`,
+`SwitchInput` and `ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label
+doesn't say it. A number field (`NumberField`) is named by its own `label`.
 
 Tests:
 
@@ -3457,8 +3479,8 @@ whether it shows. The pen in Layers on a layer the state changes, the Editing ba
 in the same color.
 
 Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/inspector/controls/field-parts.tsx`;
-`Field` and `SwitchRow` in `inspector/controls/field-row.tsx` and `Field` in `chrome/fields.tsx` mark their control;
-`changedSides` on `FourSidesField` in `inspector/controls/sides.tsx`.
+`Field` and `SwitchRow` in `inspector/controls/field-row.tsx` mark their control; `changedSides` on `FourSidesField` in
+`inspector/controls/sides.tsx`.
 
 Tests: none; it's checked in each control's Changed story in `inspector/controls`: Number field, Color field, Token
 length, Angle, Time, Keyword sets (Align Changed, Cursor Changed), Switch, Icon segments, Component instance, and
@@ -3487,10 +3509,9 @@ Tests:
 
 Everything in the inspector's Design tab runs to one right edge, 12px from the panel's side: inputs, the Editing bar,
 buttons such as Make component, a section's action such as Min and max, and the toggles beside Padding and Margin. A
-field's reset arrow, shown while a state changes it, sits in the label column right after the label, so a row's input
-keeps the row's full width whether or not it can be reset. An image's photo credit sits under its fields, in their
-column. The Editing bar reads as one sentence ("Editing Default changes every state") and wraps when it doesn't fit,
-rather than running past its border.
+field's reset arrow, shown while a state changes it, sits at the end of its name's row, so the field under it keeps the
+row's full width whether or not it can be reset. An image's photo credit sits under its fields. The Editing bar reads as
+one sentence ("Editing Default changes every state") and wraps when it doesn't fit, rather than running past its border.
 
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
@@ -3951,10 +3972,12 @@ Tests:
 An instance fills its component's slots with layers of the design it sits in, shown in place of each slot's placeholder.
 A slot it leaves empty shows the placeholder.
 
-- **The instance's panel** lists each slot after its params: a solid tile and how many layers fill it, or a dashed tile
-  and Empty. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
+- **The instance's panel** lists each slot after its params, as a prop: the Slot tile and its name with a capital first
+  letter, over its Slot picker: the layer that fills it as a chip, with its kind's icon and the name Layers gives it, or
+  an empty box. Clicking the chip selects the layer, so it can be renamed, and its × clears the slot, deleting the
+  layer. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
   itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
-  dashed edge. Clicking one selects the slot. An × inside a filled one's field clears it, deleting its layers.
+  dashed edge. Clicking the box selects the slot.
 - **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
@@ -3972,9 +3995,9 @@ The file keeps a fill as `slots` on the instance, by slot name, as a code compon
 `render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
 picture's tree `slotPreviewTree`.
 
-Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `InstanceSection` and `LayerPanel` in
-`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
-`canvas/insert.ts`.
+Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
+`inspector/controls/slot-picker.tsx`, `InstanceSection` and `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob`
+and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
 
 Tests:
 

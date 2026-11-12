@@ -1,15 +1,16 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { clearSlot, findNode, type InstanceNode, type InstanceSlot, instanceSlots } from "@parity-app/core"
 import { slotPreviewTree } from "@parity-app/editor"
-import { ArrowLeft, Square, SquareDashed, X } from "lucide-react"
+import { ArrowLeft, SquareDashed } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
-import { kindColors, layerLabel } from "../canvas/kinds.tsx"
+import { kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
 import { treePreviewJob, useOneOffPreview } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
-import { Field } from "./fields.tsx"
-import { Hint } from "./Hint.tsx"
+import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
+import { shownName, TypeTile } from "../inspector/controls/instance-section.tsx"
+import { SlotPickerField } from "../inspector/controls/slot-picker.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { updateAndRecord } from "./inspector-events.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -23,13 +24,17 @@ import { revealSelection } from "./reveal.ts"
 
 const slotColor = kindColors.component
 
-const layers = (count: number) => `${count} layer${count === 1 ? "" : "s"}`
-
 /** The path that selects an instance's slot: the instance, then the component's slot layout (see `slotAtPath`). */
 const slotPath = (instance: InstanceNode, slot: InstanceSlot) => `${instance.id}/${slot.node.id}`
 
-/** What a slot shows, in words, for a row's accessible name and its card: its layers, or its placeholder. */
-const slotState = (slot: InstanceSlot) => (slot.fill.length > 0 ? layers(slot.fill.length) : "Empty")
+/** The names of the layers filling a slot, as Layers names them; none while it shows its placeholder. */
+function useFillNames(slot: InstanceSlot): string[] {
+  const session = useProject()
+  const entries = useContainerEntries(session.store)
+  const library = session.store.getComponentLibrary()
+
+  return slot.fill.map((node) => layerLabel(node, entries, library, session.info.libraries))
+}
 
 /**
  * Clears a slot as one undoable step, deleting what fills it. It's recorded as the slot's layers, by id, before and
@@ -56,32 +61,11 @@ function useClear(entry: ContainerEntry, instance: InstanceNode) {
     )
 }
 
-/** The hint and accessible name of a slot's Clear, which deletes its layers. */
-const clearLabel = (slot: InstanceSlot) => `Clear ${slot.name}, deleting its ${layers(slot.fill.length)}`
-
-/**
- * What fills a slot, as its row and its panel say it: a solid tile and how many layers, or a dashed tile and Empty
- * while the placeholder shows.
- */
+/** What fills a slot, as its card and its panel say it: its layer's name, or nothing while it's empty. */
 function SlotState({ slot }: { slot: InstanceSlot }) {
-  const filled = slot.fill.length > 0
-  const Tile = filled ? Square : SquareDashed
+  const [name] = useFillNames(slot)
 
-  return (
-    <>
-      <Tile
-        className="size-3.5 shrink-0"
-        style={{ color: slotColor, fill: filled ? `color-mix(in oklch, ${slotColor} 25%, transparent)` : undefined }}
-      />
-      <span
-        className={`rounded-full px-1.5 py-px text-2xs ${
-          filled ? "bg-muted text-foreground" : "border border-dashed text-muted-foreground"
-        }`}
-      >
-        {slotState(slot)}
-      </span>
-    </>
-  )
+  return name === undefined ? null : <span className="min-w-0 truncate text-xs">{name}</span>
 }
 
 /**
@@ -178,51 +162,55 @@ function SlotCard({
 }
 
 /** One slot after an instance's params: what fills it, a click to select it, its card, and Clear inside the field. */
-function SlotField({ entry, instance, slot }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot }) {
+function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot }) {
   const session = useProject()
   const card = useHoverCard()
   const clear = useClear(entry, instance)
-  const filled = slot.fill.length > 0
+  const [name] = useFillNames(slot)
+  const layer = slot.fill[0]
+
+  const select = (node: string) => {
+    session.selection.set({ design: entry.key, node })
+    revealSelection(session)
+  }
 
   return (
-    <Field label={slot.name} hint="A slot: layers from this design, shown in place of its placeholder">
-      <div className="group relative min-w-0">
-        <SlotCard slot={slot} card={card}>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`w-full min-w-0 justify-start gap-1.5 px-2 text-xs font-normal ${filled ? "pr-7" : ""}`}
-            aria-label={`${slot.name} slot, ${slotState(slot)}`}
-            aria-describedby={card.open ? card.id : undefined}
-            onPointerEnter={card.enter}
-            onPointerLeave={card.leave}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault()
-                card.openWithKeyboard()
-              }
-            }}
-            onClick={() => {
-              session.selection.set({ design: entry.key, node: slotPath(instance, slot) })
-              revealSelection(session)
-            }}
-          >
-            <SlotState slot={slot} />
-          </Button>
-        </SlotCard>
-        {filled && (
-          <Hint label={clearLabel(slot)}>
-            <button
-              type="button"
-              aria-label={clearLabel(slot)}
-              className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
-              onClick={() => clear(slot)}
-            >
-              <X className="size-3" />
-            </button>
-          </Hint>
-        )}
-      </div>
+    <Field
+      label={shownName(slot.name)}
+      icon={<TypeTile type="slot" />}
+      hint="Layers from this design, shown in place of its placeholder"
+    >
+      <SlotCard slot={slot} card={card}>
+        <SlotPickerField
+          label={shownName(slot.name)}
+          layer={
+            layer && {
+              id: layer.id,
+              name: name ?? "",
+              icon: (
+                <NodeIcon
+                  node={layer}
+                  libraries={session.info.libraries}
+                  className="size-3 shrink-0"
+                  style={{ color: nodeColor(layer) }}
+                />
+              )
+            }
+          }
+          onClear={() => clear(slot)}
+          onSelectLayer={select}
+          aria-describedby={card.open ? card.id : undefined}
+          onPointerEnter={card.enter}
+          onPointerLeave={card.leave}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft") {
+              event.preventDefault()
+              card.openWithKeyboard()
+            }
+          }}
+          onClick={() => select(slotPath(instance, slot))}
+        />
+      </SlotCard>
     </Field>
   )
 }
@@ -230,10 +218,17 @@ function SlotField({ entry, instance, slot }: { entry: ContainerEntry; instance:
 /** One of the design's own instances' slots, after its params. Nothing for a component without slots. */
 export function InstanceSlotFields({ entry, instance }: { entry: ContainerEntry; instance: InstanceNode }) {
   const { store } = useProject()
+  const slots = instanceSlots(instance, projectLibrary(store))
 
-  return instanceSlots(instance, projectLibrary(store)).map((slot) => (
-    <SlotField key={slot.node.id} entry={entry} instance={instance} slot={slot} />
-  ))
+  return (
+    slots.length > 0 && (
+      <FieldGrid>
+        {slots.map((slot) => (
+          <SlotRow key={slot.node.id} entry={entry} instance={instance} slot={slot} />
+        ))}
+      </FieldGrid>
+    )
+  )
 }
 
 /**

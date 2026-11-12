@@ -3,16 +3,17 @@ import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { PixelField } from "../inspector/controls/controls.tsx"
+import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { NumberField } from "../inspector/controls/number-field.tsx"
 import { useTokenList } from "../tokens-store.ts"
 import { AppSelect } from "./AppSelect.tsx"
-import { Field, Swatch, SwitchInput, TextInput, TokenInput, ValueInput } from "./fields.tsx"
+import { Swatch, SwitchInput, TextInput, TokenInput, ValueInput } from "./fields.tsx"
 import { InspectorStage, openInspector, PanelColumn, search, slowly, typing } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { booleanValue, numberValue, type PropValue, textValue } from "./prop-values.ts"
 
 /**
- * The inspector's controls, one row each: a label, the control, and a reset button when a state changes the value.
+ * The inspector's controls, each in a field row (Parts › Field row): its name above the control.
  * Text and numbers commit on Enter or blur; choices, switches and tokens right away. Numbers and lengths are the Design
  * tab's own (`NumberField`, `PixelField`): they read units and maths, step with Up and Down, scrub by their label, and
  * say under the row what they couldn't read.
@@ -131,7 +132,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
 
   return (
     <PanelSection title="Fields">
-      <div className="flex flex-col gap-1">
+      <FieldGrid>
         {row("label", "Text", <TextInput value={values.label} onCommit={(label) => set({ label })} />)}
         {row(
           "description",
@@ -182,6 +183,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           "Choice",
           <AppSelect
             variant="panel"
+            className="w-full"
             value={values.variant}
             none="default (default)"
             items={["default", "outline", "secondary", "ghost", "destructive", "link"].map((value) => ({
@@ -215,7 +217,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
             onChange={(radius) => set({ radius })}
           />
         )}
-      </div>
+      </FieldGrid>
     </PanelSection>
   )
 }
@@ -267,13 +269,13 @@ const anyValues: PropValue[] = [true, 42, "Billed yearly", ["monthly", "yearly"]
 export const AnyValue: Story = {
   render: () => (
     <PanelSection title="Any value">
-      <div className="flex flex-col gap-1">
+      <FieldGrid>
         {anyValues.map((value) => (
           <Field key={JSON.stringify(value)} label={kindOf(value)}>
             <ValueInput value={value} onCommit={() => undefined} />
           </Field>
         ))}
-      </div>
+      </FieldGrid>
     </PanelSection>
   )
 }

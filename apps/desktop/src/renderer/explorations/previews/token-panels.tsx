@@ -31,7 +31,7 @@ import {
 import { Check, ChevronDown, ChevronsUpDown, LayoutGrid, List, Pause, Pencil, Play, Search } from "lucide-react"
 import { Fragment, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useId, useState } from "react"
 import { CopyButton, CopyOnClick, useCopy } from "../../chrome/Copy.tsx"
-import { Field, Swatch } from "../../chrome/fields.tsx"
+import { Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
@@ -55,6 +55,7 @@ import {
   valueLabel
 } from "../../chrome/token-previews.tsx"
 import { keepEditing } from "../../chrome/TokenDetail.tsx"
+import { Field } from "../../inspector/controls/field-row.tsx"
 import { optionNamed } from "../parts.tsx"
 import {
   allTokens,
