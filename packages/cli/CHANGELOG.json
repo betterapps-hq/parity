@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 04:25:08 GMT",
+      "version": "0.51.0",
+      "tag": "@parity-app/cli_v0.51.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "09961c3a3ee4663830d34f9c9e80eff5b3559baf",
+            "comment": "Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a layout is relative only when a child is placed in it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c5b1ba4d6d7a74663300c8ef431c4929e30e875",
+            "comment": "Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and result, and every type they name, with their doc comments"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "48e4559704bdaa06c614ff6b471edf140d01cc5b",
+            "comment": "Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 04:02:39 GMT",
       "version": "0.50.0",
       "tag": "@parity-app/cli_v0.50.0",
