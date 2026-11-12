@@ -1,4 +1,3 @@
-import { distanceFromView } from "@parity-app/core"
 import { useEffect, useState } from "react"
 import { react, type Signal } from "tldraw"
 
@@ -29,18 +28,6 @@ export function boardDormant(at: { hidden: boolean; drawn: boolean; far: boolean
 /** Frames waiting to wake, in the order they asked, each with how near it is to the middle of the view. */
 const waking = new Map<() => void, (() => number) | undefined>()
 let frame = 0
-
-/**
- * How near a frame on the canvas is to the middle of the view, in screen pixels (`distanceFromView`), so what's in view
- * is drawn and captured first, then what's around it (PAR-955). Infinite for one not on a canvas.
- */
-export function viewRank(element: HTMLElement | null): number {
-  const area = element?.closest(".canvas-area")
-
-  return element && area
-    ? distanceFromView(element.getBoundingClientRect(), area.getBoundingClientRect())
-    : Number.POSITIVE_INFINITY
-}
 
 /**
  * Whether a frame's design is drawn. Zoomed far out, a frame showing its bitmap (`canSleep`) sleeps: it lets go of its
