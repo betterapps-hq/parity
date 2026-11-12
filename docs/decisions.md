@@ -7761,3 +7761,19 @@ Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
 - **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
   and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
 - **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.
+
+## Builds people run file Sentry's bugs, and a crashed service says why (PAR-950, PAR-951)
+
+Two Linear bugs filed on 2026-11-12 weren't bugs anyone could hit. PAR-951 was a `ReferenceError` from a dev copy hot
+reloading a half-saved file. PAR-950, titled `emit`, was a pull request's CI run whose packaged project service couldn't
+find a module; the pull request fixed it before merging. You decided on 2026-11-12 to clean up the noise they showed.
+
+- **Only `preview`, `beta` and `production` file Linear bugs,** one Sentry alert each, so an issue counts as new in each
+  environment. `development` and `ci` still send to Sentry. How it's set up is in [sentry.md](sentry.md#alerts).
+- **`release` is now `beta`,** since it's the published version before promotion, which only the beta update channel and
+  npm's `next` get. Beside `production` it read as the same thing. Events sent before keep `release`.
+- **A project service that exits unexpectedly is reported as an error named by what it printed,** such as
+  `The project service exited with code 1: Error: Cannot find module '../data/patch.json'`, with its last 50 lines of
+  output, and grouped by that error. Its output is piped through main rather than inherited, and still printed there.
+  Sentry's own `'Utility' process exited with 'abnormal-exit'` is dropped: it carried no cause, and its stack made
+  Sentry title it `emit`. The service is the only utility process Parity starts.

@@ -49,8 +49,9 @@ carries the crashed run's last minutes, read from the files.
 Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
 
 - **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `preview` for a pull
-  request's installer or a pkg.pr.new CLI, `release` for the published app and CLI (PAR-778), and `production` for a
-  published app or CLI that's been promoted to everyone, from the start after it learns so (PAR-779, PAR-799).
+  request's installer or a pkg.pr.new CLI, `beta` for the published app and CLI before promotion (PAR-778, PAR-950), and
+  `production` for a published app or CLI that's been promoted to everyone, from the start after it learns so (PAR-779,
+  PAR-799).
 - **`release`:** the published version, or the commit any other build was made from.
 - **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
   GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
@@ -172,7 +173,7 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
   from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
-  `release` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
+  `beta` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
   registry after it sends and keeps the answer in `~/.parity/installed-cli.json`, which the next command reads, so no
   command waits on npm. From a pkg.pr.new preview URL it reports as `preview`; from a checkout, as `development`.
 - **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all

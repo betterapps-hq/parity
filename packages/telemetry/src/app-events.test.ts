@@ -4,6 +4,8 @@ import {
   lagCheck,
   mainBlocked,
   memoryRecord,
+  outputTail,
+  serviceCrash,
   serviceExit,
   serviceExited,
   startupTimer,
@@ -222,5 +224,65 @@ describe("memoryRecord", () => {
       renderBytes: 0,
       totalBytes: 10
     })
+  })
+})
+
+describe("outputTail", () => {
+  it("keeps the last lines of output that arrives in pieces", () => {
+    const tail = outputTail(2)
+    tail.add("one\ntw")
+    tail.add("o\r\nthree\n")
+    expect(tail.text()).toBe("two\nthree")
+  })
+
+  it("is empty for a process that printed nothing", () => {
+    expect(outputTail().text()).toBe("")
+  })
+})
+
+describe("serviceCrash", () => {
+  const output = [
+    "node:internal/modules/cjs/loader:1571",
+    "  const err = new Error(message);",
+    "",
+    "Error: Cannot find module '../data/patch.json'",
+    "Require stack:",
+    "- /tmp/parity/resources/app.asar.unpacked/utility.mjs",
+    "Node.js v24.22.1"
+  ].join("\n")
+
+  it("names and groups a crash by the error the service printed, with its output", () => {
+    expect(serviceCrash({ exitCode: 1, output, expected: false })).toEqual({
+      message: "The project service exited with code 1: Error: Cannot find module '../data/patch.json'",
+      fingerprint: ["service-exited", "Error: Cannot find module '../data/patch.json'"],
+      output
+    })
+  })
+
+  it("reads an error with a code, as Node prints a system error", () => {
+    const printed = "TypeError [ERR_INVALID_ARG_TYPE]: bad path\n    at x"
+    expect(serviceCrash({ exitCode: 7, output: printed, expected: false })?.fingerprint).toEqual([
+      "service-exited",
+      "TypeError [ERR_INVALID_ARG_TYPE]: bad path"
+    ])
+  })
+
+  it("names the missing script when the service printed nothing", () => {
+    expect(serviceCrash({ exitCode: 1, output: "", expected: false, missing: "/app/utility.mjs" })).toMatchObject({
+      message: "The project service exited with code 1: /app/utility.mjs doesn't exist",
+      fingerprint: ["service-exited", "/app/utility.mjs doesn't exist"]
+    })
+  })
+
+  it("groups a crash that printed no error by its code", () => {
+    expect(serviceCrash({ exitCode: 3, output: "starting\n", expected: false })).toMatchObject({
+      message: "The project service exited with code 3",
+      fingerprint: ["service-exited", "code 3"]
+    })
+  })
+
+  it("reports nothing for an expected exit or a clean one", () => {
+    expect(serviceCrash({ exitCode: 1, output, expected: true })).toBeUndefined()
+    expect(serviceCrash({ exitCode: 0, output, expected: false })).toBeUndefined()
   })
 })

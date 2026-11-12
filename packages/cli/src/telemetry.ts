@@ -257,7 +257,7 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
 }
 
 /**
- * Whether this CLI was installed from npm: `release` for the package `npm publish` made, named by its version, and
+ * Whether this CLI was installed from npm: `beta` for the package `npm publish` made, named by its version, and
  * `preview` for a pkg.pr.new one, as the app's installed builds do. A checkout's, from source or its own `dist`, reports
  * as `development`, named by its commit.
  */
