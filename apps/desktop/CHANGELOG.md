@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 11:51:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 12:10:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.71.1
+
+Thu, 12 Nov 2026 12:10:21 GMT
+
+### Patches
+
+- Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels
+  (ajcraswell@gmail.com)
 
 ## 0.71.0
 
