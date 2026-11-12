@@ -26,8 +26,11 @@ type Story = StoryObj<typeof meta>
 /** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
 export const TextLayer: Story = { loaders: [pick("Pricing", "Headline")] }
 
-/** A component layer, Plan card's call to action: its label, Button's props, a link to its stories, and its style. */
-export const ComponentLayer: Story = { loaders: [pick("Plan card", "Call to action")] }
+/** An instance of a code component, Plan card's call to action: Button's props, its header's links, and its style. */
+export const CodeComponentInstance: Story = { loaders: [pick("Plan card", "Call to action")] }
+
+/** An instance of a component design, Pricing's Pro plan: its props, Go to component in its header, and its style. */
+export const DesignInstance: Story = { loaders: [pick("Pricing", "Pro plan")] }
 
 /** A component whose content is layers in its slot rather than a label: Sign in's submit button. */
 export const ComponentWithLayersInside: Story = { loaders: [pick("Sign in", "Sign in button")] }
