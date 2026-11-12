@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 05:19:08 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 05:54:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.68.0
+
+Thu, 12 Nov 2026 05:54:28 GMT
+
+### Minor changes
+
+- Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name (ajcraswell@gmail.com)
 
 ## 0.67.0
 
