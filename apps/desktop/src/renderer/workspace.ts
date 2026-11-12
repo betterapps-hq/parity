@@ -24,6 +24,7 @@ import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
+import { keepProjectPicture } from "./project-picture.ts"
 import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
 import { holdRecording } from "./replay.ts"
 import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
@@ -33,34 +34,118 @@ import { type KnownProject, knownProjects, type ProjectNote } from "./start/proj
 import { TokenStore } from "./tokens-store.ts"
 import { currentTraceContext } from "./tracing.ts"
 
-/** Everything one open project needs: its info from the service, its components and styles, and its stores. */
-export interface ProjectSession {
-  id: string
+/** What can change in an open project while its tab is open, each part replaced whole. */
+export interface SessionParts {
   info: ProjectInfo
   loaded: LoadedGuest
-  store: DesignStore
-  selection: SelectionStore
   tokens: TokenStore
-  /** Components and their props, inferred from source after the tab opens. */
-  components: ComponentStore
   /**
    * Components the type checker found after the guest loaded, and ones whose code changed since (with a `version`),
    * which offscreen renders add to theirs.
    */
-  added?: Record<string, GuestComponentSource & ProjectInfo["sources"][string]>
+  added?: Record<string, GuestComponentSource & ProjectInfo["sources"][string]> | undefined
   /** When each component's code last changed on disk, by its builder's stamp, while the tab is open (PAR-165). */
-  versions?: Record<string, number>
-  /** Design files that couldn't be read. */
-  errors: { path: string; error: string }[]
-  /** Keeps a copy of its unsaved changes outside the project, in case Parity closes before they're saved (PAR-905). */
-  recovery: RecoveryKeeper
+  versions?: Record<string, number> | undefined
   /** The tab's canvas, once mounted. */
-  editor?: Editor
+  editor?: Editor | undefined
+}
+
+/**
+ * Everything one open project needs: its info from the service, its components and styles, and its stores. It's one
+ * object from its tab becoming ready to the tab closing or reopening, so what's kept for it lasts as long (PAR-1004).
+ * Its stores never change; the parts that can, such as its info or its guest, are read through it and change through
+ * `update`, which tells whoever subscribed.
+ */
+export class ProjectSession {
+  readonly id: string
+  readonly store: DesignStore
+  readonly selection: SelectionStore
+  /** Components and their props, inferred from source after the tab opens. */
+  readonly components: ComponentStore
+  /** Design files that couldn't be read. */
+  readonly errors: { path: string; error: string }[]
+  /** Keeps a copy of its unsaved changes outside the project, in case Parity closes before they're saved (PAR-905). */
+  readonly recovery: RecoveryKeeper
   /**
    * Watches for the first frame its canvas draws on screen, live or from a bitmap, recorded with how long opening took
-   * (PAR-711). Gone once one has.
+   * (PAR-711). Gone once one has. Nothing draws from it, so it changes without telling anyone.
    */
-  firstFrame?: FirstFrameWatch
+  firstFrame?: FirstFrameWatch | undefined
+  private parts: SessionParts
+  private readonly listeners = new Set<() => void>()
+  private readonly stops: (() => void)[] = []
+
+  constructor(
+    fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "errors" | "recovery">,
+    parts: SessionParts
+  ) {
+    this.id = fixed.id
+    this.store = fixed.store
+    this.selection = fixed.selection
+    this.components = fixed.components
+    this.errors = fixed.errors
+    this.recovery = fixed.recovery
+    this.parts = parts
+  }
+
+  get info(): ProjectInfo {
+    return this.parts.info
+  }
+
+  get loaded(): LoadedGuest {
+    return this.parts.loaded
+  }
+
+  get tokens(): TokenStore {
+    return this.parts.tokens
+  }
+
+  get added(): SessionParts["added"] {
+    return this.parts.added
+  }
+
+  get versions(): SessionParts["versions"] {
+    return this.parts.versions
+  }
+
+  get editor(): Editor | undefined {
+    return this.parts.editor
+  }
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+
+    return () => this.listeners.delete(listener)
+  }
+
+  /** The parts as they are now, a new object each time one changes. */
+  getParts = (): SessionParts => this.parts
+
+  /** Replaces the parts given, and tells whoever subscribed. */
+  update(change: Partial<SessionParts>): void {
+    this.parts = { ...this.parts, ...change }
+
+    for (const listener of this.listeners) {
+      listener()
+    }
+  }
+
+  /** Runs `stop` when the session ends, as its tab closes or reopens. */
+  untilClosed(stop: () => void): void {
+    this.stops.push(stop)
+  }
+
+  /**
+   * Ends the session: stops what was kept for it and lets go of its canvas. React keeps the tabs a component last read
+   * until it renders again, so the session can outlive its tab; without its editor it holds no canvas (PAR-624).
+   */
+  close(): void {
+    for (const stop of this.stops.splice(0)) {
+      stop()
+    }
+
+    this.update({ editor: undefined })
+  }
 }
 
 export interface Tab {
@@ -278,6 +363,7 @@ export class Workspace {
       this.endAttempt(attempt, info.id)
       firstFrameOf(session, asked.ready(info))
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
+      keepPictureOf(session)
       recordLoaded()
       this.settleMove(info.id)
       this.settleDetection(info.id)
@@ -425,9 +511,7 @@ export class Workspace {
     }
 
     if (tab.session) {
-      // React keeps the tabs a component last read until it renders again, so this tab can outlive its closing. Without
-      // its editor it holds no canvas: a closed project's whole canvas stayed while frames were still awake (PAR-624).
-      tab.session.editor = undefined
+      tab.session.close()
       void request("project.close", { projectId: tab.session.id })
       releaseGuest(tab.session.info.guestUrl)
     }
@@ -457,11 +541,13 @@ export class Workspace {
     // again while saving has a session of its own, which this reload mustn't replace.
     const tab = this.getTab(id)
 
-    if (!tab || this.attempts.has(id) || tab.session?.store !== before.session?.store) {
+    if (!tab || this.attempts.has(id) || tab.session !== before.session) {
       return
     }
 
     this.replace(id, { id, title: tab.title, status: "loading" })
+    // It opens again as a new session, so what was kept for this one stops.
+    tab.session?.close()
     // The project opens again with a builder of its own, so where the last one moved to no longer matters.
     this.moves.delete(id)
     this.latestMoves.delete(id)
@@ -506,6 +592,7 @@ export class Workspace {
       this.endAttempt(attempt, id)
       firstFrameOf(session, asked.ready(info))
       this.replace(id, { id, title: info.name, status: "ready", session })
+      keepPictureOf(session)
       // Its changes were saved before it reopened, so the last session's copy goes and this one keeps its own.
       void tab.session?.recovery.drop()
       session.recovery.start()
@@ -593,11 +680,7 @@ export class Workspace {
           }
 
           const before = current.session.info.guestUrl
-          this.replace(id, {
-            ...current,
-            session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
-          })
-          current.session.tokens.dispose()
+          this.drawFrom(current, current.session, info, loaded)
 
           if (before !== info.guestUrl) {
             releaseGuest(before)
@@ -666,12 +749,7 @@ export class Workspace {
       }
 
       // From the session as it is now, since its sources can change while the guest loads.
-      const info = { ...current.session.info, guestUrl }
-      this.replace(tab.id, {
-        ...current,
-        session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
-      })
-      current.session.tokens.dispose()
+      this.drawFrom(current, current.session, { ...current.session.info, guestUrl }, loaded)
       releaseGuest(before)
 
       return true
@@ -688,6 +766,22 @@ export class Workspace {
 
       return false
     }
+  }
+
+  /**
+   * Gives a tab's session new parts. The session stays the same object, so what's kept for it stays; the tab is copied
+   * so that what reads it from the list of tabs draws again.
+   */
+  private updateSession(tab: Tab, session: ProjectSession, change: Partial<SessionParts>): void {
+    session.update(change)
+    this.replace(tab.id, { ...tab })
+  }
+
+  /** Draws a tab's session from a guest loaded anew, with tokens of its own, letting go of the last guest's tokens. */
+  private drawFrom(tab: Tab, session: ProjectSession, info: ProjectInfo, loaded: LoadedGuest): void {
+    const { tokens } = session
+    this.updateSession(tab, session, { info, loaded, tokens: tokenStore(info, loaded, session.store) })
+    tokens.dispose()
   }
 
   /** Draws a tab that has just loaded from where its guest moved meanwhile, if it did. */
@@ -821,7 +915,7 @@ export class Workspace {
       info.leftOut = leftOut
     }
 
-    this.replace(id, { ...tab, session: { ...tab.session, info, added } })
+    this.updateSession(tab, tab.session, { info, added })
   }
 
   /**
@@ -846,7 +940,7 @@ export class Workspace {
 
     tab.session.loaded.guest.addComponents?.(add)
     const added = { ...tab.session.added, ...add }
-    this.replace(id, { ...tab, session: { ...tab.session, versions, added } })
+    this.updateSession(tab, tab.session, { versions, added })
   }
 
   setEditor(id: string, editor: Editor | undefined): void {
@@ -856,7 +950,7 @@ export class Workspace {
       return
     }
 
-    this.replace(id, { ...tab, session: { ...tab.session, editor } })
+    this.updateSession(tab, tab.session, { editor })
   }
 
   /** The tabs with a project in them, as agents see them. */
@@ -1162,19 +1256,19 @@ async function createSession(
   const components = new ComponentStore()
   inferComponents(info, components)
 
-  const session: ProjectSession = {
-    id: info.id,
-    info,
-    loaded,
-    store,
-    components,
-    selection: new SelectionStore(),
-    tokens: tokenStore(info, loaded, store),
-    errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : [])),
-    recovery: keepRecovery(store, (copy) =>
-      request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
-    )
-  }
+  const session = new ProjectSession(
+    {
+      id: info.id,
+      store,
+      components,
+      selection: new SelectionStore(),
+      errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : [])),
+      recovery: keepRecovery(store, (copy) =>
+        request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
+      )
+    },
+    { info, loaded, tokens: tokenStore(info, loaded, store) }
+  )
 
   sayWhenSavesFail(session)
   followCorrections(session)
@@ -1191,6 +1285,14 @@ async function createSession(
     })
 
   return { session, recordLoaded }
+}
+
+/**
+ * Keeps the start page's picture of the project for as long as its session lasts (PAR-607), so a code change or a
+ * reconnect doesn't take it again.
+ */
+function keepPictureOf(session: ProjectSession): void {
+  session.untilClosed(keepProjectPicture(session))
 }
 
 /**

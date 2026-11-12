@@ -332,9 +332,11 @@ export function CanvasOverlay() {
   // Outlines follow the camera, layout changes, animations and drags, so they're measured when one of those can have
   // moved them, not every frame (PAR-522, see `@parity-app/editor`'s overlay-measuring.ts): each change measures every
   // frame for a moment, and after that only while an animation runs in a frame drawn over. Measuring rests otherwise.
-  // The camera is followed apart from that, in the frame it moves (PAR-653): see `followCamera` below.
+  // The camera is followed apart from that, in the frame it moves (PAR-653): see `followCamera` below. It starts again
+  // once the canvas mounts, to follow its camera and shapes.
+  const { editor } = session
   useEffect(() => {
-    const { selection, store, editor } = session
+    const { selection, store } = session
     const area = rootRef.current?.parentElement
 
     if (!area) {
@@ -549,7 +551,7 @@ export function CanvasOverlay() {
 
       document.fonts.removeEventListener("loadingdone", wake)
     }
-  }, [session])
+  }, [session, editor])
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[300] overflow-hidden">
