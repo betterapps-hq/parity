@@ -7983,8 +7983,9 @@ and split into PAR-1004 to PAR-1007:
   The name stays, since renaming it touches every file that takes one for nothing.
 - **What never changes is plain fields:** `id`, `store`, `selection`, `components`, `recovery` and `errors`. What can
   change is read through getters and changed through `session.update(...)`, which tells the session's listeners: `info`,
-  `loaded` (the guest), `tokens`, `added`, `versions`, `editor` and `firstFrame`. The workspace updates the session
-  where it used to copy it.
+  `loaded` (the guest), `tokens`, `added`, `versions` and `editor`. The workspace updates the session where it used to
+  copy it. `firstFrame` stays a plain field, set as the tab opens and cleared once the canvas draws, since nothing draws
+  from it.
 - **Components get the same object from the context, and `useProject()` subscribes to it,** so they draw again when a
   changing part changes, as they did when the context's value was a new copy. An effect keyed on the session no longer
   runs again on each change; one that needs a changing part depends on that part.
