@@ -1409,7 +1409,12 @@ export function addVariantOption(container: ContainerSpec, param: string, name: 
   return { container: { ...container, params: { ...container.params, [param]: { ...spec, options } } }, id }
 }
 
-export function renameVariantOption(container: ContainerSpec, param: string, option: string, name: string) {
+export function renameVariantOption(
+  container: ContainerSpec,
+  param: string,
+  option: string,
+  name: string
+): ContainerSpec {
   const spec = variantParam(container, param)
   const options = spec.options.map((candidate) => (candidate.id === option ? { ...candidate, name } : candidate))
 

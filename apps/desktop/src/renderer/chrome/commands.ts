@@ -1,4 +1,4 @@
-import { findNode } from "@parity-app/core"
+import { type DesignNode, findNode } from "@parity-app/core"
 import {
   type Alignment,
   arrowOf,
@@ -26,6 +26,7 @@ import { parentLayer, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import type { ContainerEntry } from "../design-store.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
@@ -825,7 +826,7 @@ export function toggleComponent(session = activeSession()): void {
 }
 
 /** The one layer selected, when it's one of its design's own layers, not the root or a layer inside an instance. */
-export function selectedOwnLayer(session = activeSession()) {
+export function selectedOwnLayer(session = activeSession()): { entry: ContainerEntry; node: DesignNode } | undefined {
   const current = session?.selection.get()
   const entry = current?.design ? session?.store.getEntry(current.design) : undefined
 

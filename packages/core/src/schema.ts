@@ -99,6 +99,10 @@ export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = 
   throw new CodedError(`${pointer || "/"}: ${message}`, details)
 }
 
+/** A reader for one kind of file or message: what it's given, and where that sits, for the problem's pointer. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
+export type DataParser<R> = (value: unknown, at?: string) => R
+
 /**
  * A reader for one kind of file or message: `parseData` with its schema, and `read` making the result what callers
  * use. The parsers built with it are where their data comes in, so they take what the file or message held.
@@ -106,8 +110,7 @@ export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = 
 export function parserFor<T extends z.ZodType, R = z.output<T>>(
   schema: T,
   read?: (parsed: z.output<T>) => R
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
-): (value: unknown, at?: string) => R {
+): DataParser<R> {
   return (value, at = "") => {
     const parsed = parseData(schema, value, at)
 
