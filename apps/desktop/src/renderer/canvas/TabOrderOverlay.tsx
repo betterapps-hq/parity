@@ -2,17 +2,11 @@ import { useEffect, useRef, useState } from "react"
 import { findFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
+import { areaSpace, type Box } from "./frame-geometry.ts"
 import { tabOrder, useTabOrderShown } from "./tab-order.ts"
 
-interface Stop {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 /** Each frame's tab stops, in the canvas area's coordinates. */
-type Trails = { key: string; stops: Stop[] }[]
+type Trails = { key: string; stops: Box[] }[]
 
 /** At most this many stops are drawn per frame; a frame with more is still numbered up to here. */
 const maxStops = 200
@@ -49,17 +43,13 @@ export function TabOrderOverlay() {
         return
       }
 
-      const origin = area.getBoundingClientRect()
+      const space = areaSpace(area)
 
       const next = findFrames(area, design).map((host) => ({
         key: `${host.dataset.mode}:${host.dataset.state}`,
         stops: tabOrder(host)
           .slice(0, maxStops)
-          .map((element) => {
-            const rect = element.getBoundingClientRect()
-
-            return { x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
-          })
+          .map((element) => space.box(element.getBoundingClientRect()))
       }))
 
       const serialized = JSON.stringify(next)
@@ -82,7 +72,7 @@ export function TabOrderOverlay() {
           {trails.map(({ key, stops }) => (
             <g key={key}>
               <polyline
-                points={stops.map((stop) => `${stop.x + stop.width / 2},${stop.y + stop.height / 2}`).join(" ")}
+                points={stops.map((stop) => `${stop.x + stop.w / 2},${stop.y + stop.h / 2}`).join(" ")}
                 fill="none"
                 stroke={color}
                 strokeWidth={1.5}
@@ -94,8 +84,8 @@ export function TabOrderOverlay() {
                   key={index}
                   x={stop.x}
                   y={stop.y}
-                  width={stop.width}
-                  height={stop.height}
+                  width={stop.w}
+                  height={stop.h}
                   rx={3}
                   fill="none"
                   stroke={color}

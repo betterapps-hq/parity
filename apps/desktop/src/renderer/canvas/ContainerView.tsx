@@ -38,7 +38,7 @@ import {
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
-import { ChevronDown, Crown, Rows3 } from "lucide-react"
+import { ChevronDown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
   memo,
@@ -70,6 +70,7 @@ import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFr
 import { useDesignChange, useFrameChange } from "./frame-changes.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
+import { useFrameView } from "./frame-view.ts"
 import { useFrameOnScreen } from "./frames-on-screen.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
@@ -151,7 +152,6 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
         state={state}
         mode={primary}
         primary
-        projectPrimary
         scale={1}
         caption={false}
         tabbable={isSelected}
@@ -393,7 +393,6 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                 state={state}
                 mode={mode}
                 primary={column === 0}
-                projectPrimary={mode.id === all[0]?.id}
                 scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
                 caption={index === 0}
                 tabbable={isSelected}
@@ -918,8 +917,6 @@ interface FrameTileProps {
   mode: ResolvedMode
   /** The board's main frame. */
   primary: boolean
-  /** The project's primary mode, marked with a crown. */
-  projectPrimary: boolean
   scale: number
   /** Column headers show on the first row only; the columns line up below it. */
   caption: boolean
@@ -942,7 +939,6 @@ const FrameTile = memo(function FrameTile({
   state,
   mode,
   primary,
-  projectPrimary,
   scale,
   caption,
   tabbable,
@@ -983,10 +979,14 @@ const FrameTile = memo(function FrameTile({
   const holding = useRef(false)
 
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
+  // Where the frame is against the view, so what's in view is captured and woken first (PAR-955).
+  const view = useFrameView(tile)
+
   const kept = useFrameBitmap(
     shows,
     () => drawnHeight(tile.current, frame.width),
-    () => holding.current
+    () => holding.current,
+    view.rank
   )
 
   const bitmap = kept.src
@@ -1040,7 +1040,7 @@ const FrameTile = memo(function FrameTile({
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
   // and its new bitmap is taken, so it doesn't sleep on it.
-  const awake = useAwake(shown && !kept.stale && !interactive, rest, key)
+  const awake = useAwake(shown && !kept.stale && !interactive, rest, key, view)
   // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
   // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
   // frame's own height or, for one that grows with its content, its window's (PAR-525).
@@ -1078,7 +1078,6 @@ const FrameTile = memo(function FrameTile({
             className="pointer-events-auto flex min-w-0 items-center gap-1.5 font-medium hover:underline"
             style={selected ? { color: kindColors.mode } : undefined}
           >
-            {projectPrimary && <Crown className="size-3.5 shrink-0 text-amber-400" aria-label="Primary mode" />}
             <ModeViewportIcon of={mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
             <Name>{mode.name}</Name>
           </button>

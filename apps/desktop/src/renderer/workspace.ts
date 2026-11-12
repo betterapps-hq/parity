@@ -62,8 +62,6 @@ export class ProjectSession {
   readonly selection: SelectionStore
   /** Components and their props, inferred from source after the tab opens. */
   readonly components: ComponentStore
-  /** Design files that couldn't be read. */
-  readonly errors: { path: string; error: string }[]
   /** Keeps a copy of its unsaved changes outside the project, in case Parity closes before they're saved (PAR-905). */
   readonly recovery: RecoveryKeeper
   /**
@@ -74,16 +72,16 @@ export class ProjectSession {
   private parts: SessionParts
   private readonly listeners = new Set<() => void>()
   private readonly stops: (() => void)[] = []
+  private closed = false
 
   constructor(
-    fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "errors" | "recovery">,
+    fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "recovery">,
     parts: SessionParts
   ) {
     this.id = fixed.id
     this.store = fixed.store
     this.selection = fixed.selection
     this.components = fixed.components
-    this.errors = fixed.errors
     this.recovery = fixed.recovery
     this.parts = parts
   }
@@ -130,9 +128,16 @@ export class ProjectSession {
     }
   }
 
-  /** Runs `stop` when the session ends, as its tab closes or reopens. */
+  /**
+   * Runs `stop` when the session ends, as its tab closes or reopens, or straight away if it has: a component can still
+   * draw a closed session, and what it starts then mustn't run on.
+   */
   untilClosed(stop: () => void): void {
-    this.stops.push(stop)
+    if (this.closed) {
+      stop()
+    } else {
+      this.stops.push(stop)
+    }
   }
 
   /**
@@ -140,6 +145,8 @@ export class ProjectSession {
    * until it renders again, so the session can outlive its tab; without its editor it holds no canvas (PAR-624).
    */
   close(): void {
+    this.closed = true
+
     for (const stop of this.stops.splice(0)) {
       stop()
     }
@@ -147,6 +154,12 @@ export class ProjectSession {
     this.update({ editor: undefined })
   }
 }
+
+/**
+ * A project's designs and what's selected in them, which most edits read and change. A function that reads these takes
+ * them, with a `Pick` of any other part it reads, rather than the whole session, so its tests build only that (PAR-1006).
+ */
+export type ProjectDesigns = Pick<ProjectSession, "store" | "selection">
 
 export interface Tab {
   /** The project's root once known; a placeholder while it opens. */
@@ -1261,7 +1274,6 @@ async function createSession(
       store,
       components,
       selection: new SelectionStore(),
-      errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : [])),
       recovery: keepRecovery(store, (copy) =>
         request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
       )

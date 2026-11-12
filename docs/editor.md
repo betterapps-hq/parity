@@ -356,12 +356,12 @@ checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the can
 ### One reading of a frame for every gesture (PAR-967)
 
 Whatever the canvas measures in a frame comes from one place: the outlines' sizes, resizing, dragging and nudging a
-layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes and the
-corners of an agent's scan. Frame skeletons still work theirs out (PAR-996). How many screen pixels make one of the
-design's had been worked out three ways in thirteen places: the camera's zoom times the frame's own scale, an element's
-drawn width over its offset width, and the frame's drawn width over the width it was given. Nothing checked they agreed,
-and dragging an absolutely placed layer took its scale from the camera and its insets from the page, which agree only
-once tldraw has drawn the camera's latest move.
+layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes, the
+corners of an agent's scan, frame skeletons (PAR-996), and where the inspector and tab order mark elements. How many
+screen pixels make one of the design's had been worked out three ways in thirteen places: the camera's zoom times the
+frame's own scale, an element's drawn width over its offset width, and the frame's drawn width over the width it was
+given. Nothing checked they agreed, and dragging an absolutely placed layer took its scale from the camera and its
+insets from the page, which agree only once tldraw has drawn the camera's latest move.
 
 - **The scale is read from where the frame is drawn,** its width on screen over its width as laid out, so it always
   agrees with the boxes beside it, whatever the camera, a companion mode's smaller frame or anything else multiplies
@@ -383,10 +383,12 @@ once tldraw has drawn the camera's latest move.
 Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` reads a frame's host (its `scale`, `rect`,
 `node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
 `parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
-frame's, and `areaSpace` takes screen pixels to the overlay's. `canvas/layer-measure.ts` turns that into what
-`@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`, `snapScene` and `spacingMeasure`. The host's
-`data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are in decisions.md, One reading of a frame for
-every gesture.
+frame's, and `areaSpace` takes screen pixels to the overlay's. `measureFrame` in `canvas/frame-skeletons.ts` takes a
+skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/InspectOverlay.tsx` and `canvas/TabOrderOverlay.tsx`
+place their marks with `areaSpace`; the inspector reads the area's box only once it has a mark to place (PAR-653).
+`canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`,
+`snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are
+in decisions.md, One reading of a frame for every gesture.
 
 Tests:
 
@@ -400,6 +402,10 @@ Tests:
   frame at two fifths, whose borders Chrome rounds, gives insets from where they're drawn; and a layer whose containing
   block is the outline around a half-size frame gives the design's insets, where reading that outline at its own scale
   gave half of them.
+- `canvas/frame-skeletons-drawn.test.ts` (26), in Chrome: a frame's skeleton measured with the camera at 5% to 100%, by
+  itself and at half its own size, as a companion frame is drawn: its height, its page, a card with a border all round,
+  a picture and a line of text come out in the design's pixels, in the order they're drawn, and a frame that hasn't
+  drawn its design, or isn't drawn, has none.
 - `canvas/frame-geometry.test.ts` (15), from numbers: the scale from two sizes, by the longer side, at any zoom times a
   frame's scale, and none for a box that isn't drawn, is turned or stretched; a box inside its sides, never inside out;
   insets between two boxes at any scale; between screen pixels and the frame's; and the overlay's pixels.
@@ -951,9 +957,9 @@ file and line in the project it was written at, which opens in the person's edit
 it, with the project's files from the root and a library's by its file's name. The header filters by level and by words,
 and Clear empties the log for agents too. Since PAR-165 the levels are a menu, as Chrome's DevTools have them: its
 button says what shows ("All levels", "Errors only", "Custom levels") and it opens to a checkbox for each level with its
-count, any mix of them; the errors and warnings are counted on the header's right. There's no design filter, no time on
-a message and no button selecting a group's design. The panel's height is dragged at its top edge and kept with the
-layout.
+count, any mix of them; the errors and warnings are counted on the header's right. Each tab keeps its own levels and
+words, and they go when the tab closes (PAR-1005). There's no design filter, no time on a message and no button
+selecting a group's design. The panel's height is dragged at its top edge and kept with the layout.
 
 - **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
   It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
@@ -982,10 +988,10 @@ and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `sha
 `window.canvasHost.console` in the preload script; the job's `design` in `shared/render-job.ts` and
 `shared/protocol.ts`; `captureConsole` and `frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`,
 `projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in
-`renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's
-in `canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents:
-`ConsoleEntry` and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in
-`packages/cli/src/client.ts`.
+`renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, its filter in `chrome/console-filter.ts`, kept for
+each tab with `projectPart` in `renderer/project-part.ts`, the count in `chrome/StatusBar.tsx` and the board's in
+`canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`
+and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
 
 Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
 frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
@@ -1001,12 +1007,13 @@ left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears 
 since a test's clicks would otherwise badge boards for the tests after it. `shared/render-job.test.ts` (the job's design
 passes the service's check, and no name has it), `shared/ipc-checks.test.ts` (an announcement and a builder's address
 checked), `chrome/layout.test.ts` (the console's open state and height kept, and their defaults),
-`packages/agent/src/run.test.ts` (each frame names its design and state) and `packages/cli/src/client.test.ts` (the
-design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign,
-WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running app, `e2e/console.e2e.ts`
-clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted on Members' board and
-listed under Members in the panel, which covers the window's announcement reaching main ahead of Electron's
-`console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
+`renderer/project-part.test.ts` (each tab's filter kept apart, forgotten when its tab closes, and none kept for a
+reopened project), `packages/agent/src/run.test.ts` (each frame names its design and state) and
+`packages/cli/src/client.test.ts` (the design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted,
+Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running
+app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted
+on Members' board and listed under Members in the panel, which covers the window's announcement reaching main ahead of
+Electron's `console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
 
 ### Previews in the Components panel and the insert picker (PAR-208)
 
@@ -2672,7 +2679,8 @@ Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediu
 the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
-grid), `project-media.ts` (the scan, kept per open project, through code changes and reconnects) and `remove-media.ts`.
+grid), `project-media.ts` (the scan, kept with the open project's session through code changes and reconnects, and
+dropped when its tab closes) and `remove-media.ts`.
 
 Tests:
 
@@ -2691,6 +2699,7 @@ Tests:
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
 - `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
+- `project-part.test.ts`, "when its tab closes": the scan forgotten, one under way let go, and no scan after.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
@@ -3791,8 +3800,8 @@ The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/cor
 `slot-names.ts`. Filling a slot from an instance is PAR-84.
 
 Code: `chrome/slot-props.tsx` (a slot's row, Add and Make slot), `chrome/slot-focus.ts` (the slot to focus and a refused
-name), `ParamsSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx`, the slot
-outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+name, kept for each tab until it closes), `ParamsSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
+`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
 
 Tests:
 
@@ -3800,6 +3809,7 @@ Tests:
   refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside another, or around one;
   the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
   slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
+- `apps/desktop/src/renderer/project-part.test.ts`: the slot to focus forgotten when the tab closes.
 - Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and Layout
   Inside A Slot), Parity/Inspector/Design (Component With Slots, Component With Several Slots, Adding A Slot, which adds
   one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers › Slots, and
@@ -3856,13 +3866,15 @@ A copy's layers, inside an instance, don't offer it: they belong to their compon
 
 Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
 `bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
-row being typed and a refused name), and `chrome/field-prop.tsx` with `LayerSections` in `chrome/LayerPanel.tsx`.
+row being typed and a refused name, kept for each tab until it closes), and `chrome/field-prop.tsx` with `LayerSections`
+in `chrome/LayerPanel.tsx`.
 
 Tests:
 
 - `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
   prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
   of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+- `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
 - Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
   Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
 
@@ -4520,6 +4532,35 @@ Tests:
 - Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerPanel.stories.tsx`
   DesignInstance (no State row), and `chrome/StatesSection.stories.tsx` on components.
 
+### A design's modes in its own order (PAR-923)
+
+A screen's or component's Modes section lists every mode of the project in the design's own order. The first is the one
+its board shows first, and the rest are drawn beside it in that order where they're shown.
+
+- **Each row has a handle** on the left, which drags it into place with the motion lists use, and Up and Down on it move
+  it a place. Moving a mode first makes it the one shown first, and the mode that was first still shows, beside it. A
+  project with one mode has no handle.
+- **The first mode always shows,** so its switch is on and disabled, with the hint "The first mode always shows". Each
+  other's switch shows it beside the first.
+- **No crown, radio, Show all or Only.** The project's primary mode is no longer marked in the section or on a board's
+  mode captions. The board's modes menu still offers Show first, Show all and Only.
+- **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
+  order, and the first frame's mode as `mode`, as before. An order that is the project's, and a first mode that is the
+  project's primary mode, aren't written down.
+
+Code: `packages/core/src/document.ts` (the view's `order`) and `modes.ts` (`shownModes`'s `ordered`);
+`packages/editor/src/document-equality.ts` (an empty order is dropped); in the app, `canvas/view.ts` (`withModeOrder`),
+`ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the captions).
+
+Tests:
+
+- `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
+  shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
+  nothing, and modes the order doesn't name after it.
+- Stories: Parity/Inspector/Design › Another Mode First, which checks the first mode's switch is on and disabled, then
+  moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode Shown and Mode
+  Selected.
+
 ### Unsaved changes survive a crash (PAR-905)
 
 A crash, a forced quit or an agent stopping Parity no longer loses unsaved changes. Agents can't save, so long agent
@@ -4874,21 +4915,24 @@ the style to set.
 - **Out of date, and checking again.** A check whose design changed since shows an amber warning with Check again, a dot
   on the refresh button, and its findings faded. Checking again keeps the last findings, faded, under "Checking again",
   rather than emptying the panel.
+- **Each tab's checks.** A tab keeps its designs' checks until it closes, when they go, and a check still running then
+  is let go (PAR-1005).
 
 Code: `contrastFix` and `contrastRatio` in `packages/tokens/src/contrast.ts`, `colorDistance` in
 `packages/tokens/src/color.ts`; the frame's readings (`contrastReadings`, `follows`, `tokenColors`) in
 `apps/desktop/src/renderer/render.ts`; `addContrastFixes` in `packages/agent/src/frames.ts`; `ContrastFixRow`,
-`ImpactTally` and `DesignCheck` in `apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; `fixLine` in
-`packages/cli/src/client.ts`.
+`ImpactTally` and `DesignCheck` in `apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; the checks kept for each
+tab, `checksOf` in `chrome/accessibility-checks.ts`; `fixLine` in `packages/cli/src/client.ts`.
 
 Tests: `packages/tokens/src/contrast.test.ts` (WCAG ratios, translucent colors, the closest passing token, passing
 frames, preferred tokens and the fallback, large text, no token); `packages/agent/src/run.test.ts` ("gives contrast
 failures the token that passes in every frame", "gives no contrast fix when coloring the layer wouldn't reach its
-text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set"); and
-`chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate,
-CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings
-in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so a state that
-sets its own `color` keeps it.
+text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set");
+`apps/desktop/src/renderer/project-part.test.ts` (the checks forgotten when the tab closes, and one running then let
+go); and `chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken,
+OutOfDate, CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the
+frame's readings in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so
+a state that sets its own `color` keeps it.
 
 ### Naming a layout or text layer (PAR-913)
 
@@ -5039,9 +5083,15 @@ keeps showing its bitmap until it wakes, then draws its design again at the size
   frame whose design doesn't render has no bitmap, so it never sleeps. A capture that fails, as the offscreen window's
   can on a busy machine, isn't kept: the frame tries again 2 seconds later, then at doubling intervals up to 16, so it
   isn't left drawn for good.
-- **What wakes:** a sleeping frame wakes once it's no longer to sleep and its board is near the view (within a quarter
-  of the view's size, as boards out of view are), one frame each animation frame, in the order they asked. A frame out
-  of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
+- **What wakes:** a sleeping frame wakes once it's no longer to sleep and it's near the view, within a quarter of the
+  view's size: its board, as boards out of view are, and the frame itself, since a board with many states and modes is
+  large (PAR-955). Frames wake one each animation frame, those in view before those around it and, within each, the one
+  nearest the middle first. Where each frame is comes from two `IntersectionObserver`s each canvas shares
+  (`useFrameView`), one for the view and one for the view and its margin, which report a frame as it crosses an edge, so
+  ranking reads what they reported rather than measuring every frame waiting. Waking goes by the zoom itself, not the
+  settled zoom sleep waits for, so frames in view swap their bitmaps for their designs while a zoom in is still going,
+  rather than showing the bitmap enlarged and blurry until it stops. A frame out of view stays asleep, still showing its
+  bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
 - **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
   so its board lays out the new size, and sleeps again once its new bitmap is taken. A change to the project's code does
   this to every frame, each waking once and sleeping once. A frame falls asleep just after React has run its effects,
@@ -5066,9 +5116,9 @@ decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts th
 and shows the placeholder, with the `.frame-placeholder` rule in `styles.css`; the board's `near` and `dormant` signals
 in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`;
 `capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture; `captureWindow` in
-`apps/desktop/src/main/index.ts`, which takes a capture up to three times, after the offscreen window paints again, when
-Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component previews and
-exports all capture through it.
+`apps/desktop/src/main/render-pool.ts`, which takes a capture up to three times, after the offscreen window paints
+again, when Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component
+previews and exports all capture through it.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
@@ -5091,6 +5141,27 @@ checked by reading `wakeNext`. The memory it gives back and the time waking take
 capture failing with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and
 any other failure is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the
 failure came from about one capture in each CI run, and Sentry's count from CI after the change is the check.
+
+### Frame skeletons (PAR-996)
+
+Zoomed far out, a frame shows its skeleton until its bitmap is taken: its text as faded bars in the text's color, and
+its cards, fields, buttons and images as flat shapes, a few SVG paths per frame, at the frame's measured height. It's
+measured from the live frame once the frame has stayed the same for a second, when the browser is idle, and again 2
+seconds later for a frame that hasn't drawn its design yet or is out of view. Boxes are read as drawn and taken to the
+frame's own pixels through the frame's geometry (see One reading of a frame for every gesture), so a skeleton is the
+same at any zoom and in a companion mode's smaller frame. The last 400 are kept in memory, by what their frame shows.
+
+Code: `useFrameSkeleton` and `measureFrame` in `apps/desktop/src/renderer/canvas/frame-skeletons.ts`; `frameSkeleton` in
+`packages/core/src/skeleton.ts`, which turns the boxes into paths; `canvas/FrameSkeleton.tsx`, which draws them; the
+`.frame-skeleton` rules in `styles.css`.
+
+Tests: `apps/desktop/src/renderer/canvas/frame-skeletons-drawn.test.ts` (26, in Chrome: what a frame draws, measured at
+zooms from 5% to 100% and at half the frame's size, in the design's pixels; nothing for a frame that hasn't drawn or
+isn't drawn). `packages/core/src/skeleton.test.ts` (8: the background, text as bars, borders, what's too thin or past
+the frame, boxes drawn alike in one path, overlaps kept in order, the largest boxes kept when there are too many, and an
+empty frame). Gap: a skeleton shown on the canvas has no test of its own; it was checked by measuring the example
+project's Billing frames, main and companion, at 100%, 10% and 5% in the running app, which agreed to within a hundredth
+of a pixel.
 
 ### A hidden tab's frames sleep (PAR-153)
 
@@ -5381,10 +5452,12 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 - **Four frames are captured at once (PAR-523),** each in an offscreen window of its own, so each is drawn, measured and
   captured exactly as it was when one window took them one at a time. The canvas asks for as many captures at once as
   there are windows (`offscreenWindows`, in `turns`), so an agent's render or export waits for at most the four under
-  way. A window opens only when a job finds the others busy, its first job taking about half a second more to load the
-  page and the project's modules, and all close a minute after the last job. A capture takes about 150 ms in its window:
-  drawing the frame (the 30 ms wait, components loading on demand, two animation frames), the window made as tall as the
-  frame and two more animation frames, then the capture and its PNG.
+  way. Frames in view go next, then those around it, then those farther away, each the nearest the middle first, as the
+  canvas's observers last placed them when a window frees up (PAR-955). A window opens only when a job finds the others
+  busy, its first job taking about half a second more to load the page and the project's modules, and all close a minute
+  after the last job. A capture takes about 150 ms in its window: drawing the frame (the 30 ms wait, components loading
+  on demand, two animation frames), the window made as tall as the frame and two more animation frames, then the capture
+  and its PNG.
 - **What's kept is cleaned up** when the service starts and after every 50 writes, latest bitmaps with the rest: partial
   files a write left behind over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and
   then the least recently shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap
@@ -5392,8 +5465,9 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   next change.
 
 Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
-`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
-`ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
+`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `createRenderPool` in
+`apps/desktop/src/main/render-pool.ts`, which opens the offscreen windows, closes them a minute after the last job and
+opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
 `frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
 `packages/builder-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
@@ -5434,20 +5508,24 @@ crop covering its box, and boxes and heights measured back in CSS pixels). `pack
 text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
 images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
 the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, the frame's latest from other code comes as stale and the frame is still captured (PAR-993),
-frames with the same key share a read, frames asking together share one request and each gets its own bitmap, none when
-the service couldn't say, none when none was kept, and a capture taken during the read wins). Gaps: that a frame waits
-for the read before its capture, and the fingerprint kept per address, have no test of their own; both were checked by
-reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on `examples/shadcn-vite`: the first session kept
-119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were shown from disk with no capture, about 2 seconds
-after the window loaded, the service answering each read in about a millisecond once it reached it; Clear bitmap cache
-emptied the folder and showed its toast. Before the fix to wait for the read, the service answered after the 1-second
-wait, so every frame was captured again anyway. The four windows were checked against one in debug copies on fresh
-profiles: of the 119 bitmaps both kept, 117 were the same file byte for byte, and 2 differed by at most 6 of 255 in a
-channel around a card's shadow, which is how they rasterize; a third differs between two runs with the same number of
-windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
-profile, so it captures its frames this way.
+`apps/desktop/src/main/render-pool.test.ts` (9: a window opened for the first job is kept for the next, a renderer that
+crashes fails its job and its window opens again for the next, a crashed frame isn't pictured, the windows close a
+minute after the last job and open again for the next, they stay open while a job draws, closing them all forgets the
+close that waited, what a window writes is tagged with the design it draws, a capture gives the frame's picture, and a
+preview of one color drew nothing). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in
+for its key, with its height, so no capture is asked for, the frame's latest from other code comes as stale and the
+frame is still captured (PAR-993), frames with the same key share a read, frames asking together share one request and
+each gets its own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the
+read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
+of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+`examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
+shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
+millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
+the read, the service answered after the 1-second wait, so every frame was captured again anyway. The four windows were
+checked against one in debug copies on fresh profiles: of the 119 bitmaps both kept, 117 were the same file byte for
+byte, and 2 differed by at most 6 of 255 in a channel around a card's shadow, which is how they rasterize; a third
+differs between two runs with the same number of windows. That captures go to separate windows has no automated test;
+the end-to-end suite starts each copy on a fresh profile, so it captures its frames this way.
 
 ### What changed since a frame was first looked at (PAR-997)
 
@@ -5570,6 +5648,9 @@ shadcn's tooltip reads, set in `styles.css`.
   every open). One the offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window
   looks every preview up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the
   component designs change.
+- **Kept while the tab is open (PAR-1005).** The window keeps a tab's previews, and what it knows of each, with its
+  session: closing the tab stops making them and drops them, rather than keeping them until the window closes, and an
+  answer that arrives after is let go. Reopening the project looks them up again from the store on disk.
 - **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
   it, and Clear bitmap cache removes them too.
 - **A void element gets no children (PAR-513).** React declares `children` for every element, so a component whose props
@@ -5607,9 +5688,10 @@ and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
 and `previews.make` handlers and their checks in `apps/desktop/src/shared/service-checks.ts`,
 `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`; `renderJob`, `previewName`,
-`deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; `renderPreview`, `renderOffscreen` and
-`servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
-`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in
+`deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
+`apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
+`startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
+`previewsOf`, kept for each tab with `projectPart` in `renderer/project-part.ts`; `previewMode` and `modeAppearance` in
 `packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
 `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
@@ -5655,9 +5737,10 @@ kept for other elements and for a component's own, and none for shadcn's Input).
 `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word with
 "…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
 `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
-sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
-Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have
-no test of their own; they were tried in the app.
+sentence). `apps/desktop/src/renderer/project-part.test.ts` (1: closing the tab stops the window's pass, takes away its
+listeners, lets a lookup's answer go and keeps no preview). Gaps: the rest of the window's store and scheduler
+(`component-previews.ts`), including looking previews up again when Parity's theme changes, the card's page color from
+the picture's corner, the queue's use in main and the protocol have no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts
@@ -5972,8 +6055,8 @@ start is dropped").
 - **Opening writes nothing.** The Home screen opens as if the main project file held it: there's nothing to undo or
   save, and the folder is left as it was. The file is written with the first change, Home screen included. Closed
   without a change, the project opens on a new Home screen next time.
-- **Only a project with no project file gets one.** A project whose file couldn't be read gets none, so saving never
-  writes over the broken file, and one whose designs were all deleted opens with none.
+- **Only a project with no project file gets one.** One whose designs were all deleted opens with none. A file that
+  can't be read stops the project opening (see below), so there's never a Home screen to write over it.
 - **A blank project from the scaffolder (PAR-284) has no project file either,** so it opens on a Home screen the same
   way.
 
@@ -5982,12 +6065,12 @@ Code: `openingDesigns`, `homeScreen` and `homeComponent` in `packages/editor/src
 / App / Blank project opens on the Home screen. The stories of Layers with nothing in it open `designless`, a project
 whose file holds no designs.
 
-Tests: `packages/editor/src/home.test.ts` (14: a Home screen in the main file of a project with none, a project's own
-files as they are, and none beside a file that couldn't be read; the screen drawing `App` with Mobile Light beside
-Desktop Light, a padded page headed Home with nothing to draw, the phone mode sharing the primary mode's theme, a
-laptop's beside a phone's, and the primary mode alone; and what renders `/`: Next's, a `pages` folder's and a `routes`
-folder's page over `App`, a route group's, a route file's default export, `App` by export or file and the nearest one,
-never a library's, and nothing). Gap: `createSession` calling it has no automated test.
+Tests: `packages/editor/src/home.test.ts` (13: a Home screen in the main file of a project with none, and a project's
+own files as they are; the screen drawing `App` with Mobile Light beside Desktop Light, a padded page headed Home with
+nothing to draw, the phone mode sharing the primary mode's theme, a laptop's beside a phone's, and the primary mode
+alone; and what renders `/`: Next's, a `pages` folder's and a `routes` folder's page over `App`, a route group's, a
+route file's default export, `App` by export or file and the nearest one, never a library's, and nothing). Gap:
+`createSession` calling it has no automated test.
 
 ### Opening in seconds (PAR-179)
 
@@ -6079,11 +6162,11 @@ while the tools are found was tried and gained nothing, as both work on the serv
 Code: `useFirstDrawWaits`, `holdsFirstDraw`, `drawnHeight`, and the `measure` and `holding` that `useFrameBitmap` and
 `capture` take, in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in `canvas/ContainerView.tsx`, and
 the `[data-measured]` and `.frame-placeholder` rules in `styles.css`; `window.canvasHeight` in `renderer/render.ts`,
-which `renderFrame` in `main/index.ts` asks after a capture, and the `frames.capture` handler in `utility/index.ts`,
-which keeps it; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`; `withoutPatternFills` in
-`canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in `utility/index.ts`, with
-`roots` of `openProjects` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the opening
-timings in `apps/desktop/scripts/perf.ts`.
+which the render pool's `render` in `main/render-pool.ts` asks after a capture, and the `frames.capture` handler in
+`utility/index.ts`, which keeps it; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`; `withoutPatternFills`
+in `canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in `utility/index.ts`,
+with `roots` of `openProjects` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the
+opening timings in `apps/desktop/scripts/perf.ts`.
 
 Tests: `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (3 for `holdsFirstDraw`: a frame zoomed far out waits
 while its bitmap is to come, kept or captured, and once it has come, until it falls asleep on it; draws once its capture
@@ -6331,14 +6414,15 @@ Smoke check, on Windows, from a fresh worktree:
 Checked on Windows 11 (10.0.26200) on 2026-11-03 with `examples/shadcn-vite`: both runs showed the same 119 modes with
 no errors. With the dev runner's check removed, the copy failed as above and logged the missing path.
 
-Code: `isPackaged` in `apps/desktop/src/main/packaged.ts`, `serviceEntry` and `startService` in
-`apps/desktop/src/main/index.ts`; `parityElectron` in `apps/desktop/scripts/parity-electron.ts`, which `scripts/dev.ts`
-skips under `PARITY_STANDARD_ELECTRON=1`.
+Code: `isPackaged` in `apps/desktop/src/main/packaged.ts`, `serviceEntry` in `apps/desktop/src/main/index.ts`, and
+`createProjectService` in `main/project-service.ts`, which names a missing script when the service exits;
+`parityElectron` in `apps/desktop/scripts/parity-electron.ts`, which `scripts/dev.ts` skips under
+`PARITY_STANDARD_ELECTRON=1`.
 
-Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev runner counting as not packaged. The app
-tests start Parity through `scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing
-automated starts the service from a freshly made copy and compares it with Electron as installed. That's the smoke check
-above.
+Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev runner counting as not packaged, and
+`main/project-service.test.ts` a crash that names the missing script. The app tests start Parity through
+`scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing automated starts the service
+from a freshly made copy and compares it with Electron as installed. That's the smoke check above.
 
 ## The window
 
@@ -6417,20 +6501,23 @@ the beta setting and beta/stable installed builds independently of the preferenc
 toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
-operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement, and
-`main/host-handlers.ts` answers the window's update methods, through `preload/index.ts`. `renderer/chrome/updates.tsx`
-shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close acknowledgement, for the
+windows `main/index.ts` gives it, and `main/host-handlers.ts` answers the window's update methods, through
+`preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
+`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
-failure resetting the close decision, disabled development builds and the Mac fallback. `main/update-channel.test.ts`
-runs electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping
-stable on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
+failure resetting the close decision, disabled development builds and the Mac fallback. `main/close-flow.test.ts` covers
+each way a close starts (closing, quitting, restarting for an update) against each answer the page gives, in one table,
+and an install that fails after the page agreed, which asks again at the next close. `main/update-channel.test.ts` runs
+electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping stable
+on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
 `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
 losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
 checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
-real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation and relaunch as the
-newer version. It refuses to run outside CI.
+real packaged versions, built uncompressed since neither leaves the runner, checksum rejection, Later, unsaved-work
+cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 
@@ -6512,6 +6599,29 @@ added, a state added, a layout made a slot, a state's change reset, and a token'
 `chrome/component-events.test.ts` covers an instance detached, a layer that isn't one, a copy's overrides pushed whole
 and from a layer inside it, layers made a component, and a push that throws.
 
+### A design file that can't be read stops the project opening (PAR-1011)
+
+A project whose `.par` isn't JSON, or doesn't match the design file format, doesn't open: its tab shows the page for a
+project that couldn't open, and the reason names the file. Before, it opened without that file's designs and a card at
+the bottom of Layers said why.
+
+- **The reason says which file and what's wrong,** in Details with Copy: "shadcn-vite.par doesn't match the design file
+  format:" with the check's pointer and message under it, such as `/containers/0/states: only a component has states`,
+  or "designs/landing.par isn't valid JSON:" with the parser's message. A `.lib.par` is checked against the library file
+  format.
+- **Close is the page's one button,** at the right as in a dialog's footer, for whatever stopped the project opening.
+  Show in folder stays beside the folder.
+- **A file that changes on disk and no longer reads** while the project is open is skipped, as before, and the log says
+  so.
+
+Code: `readDesigns` in `packages/project/src/open-project.ts`, which the service's open in
+`apps/desktop/src/utility/projects.ts` calls for each project file, and `ProjectFailed` in
+`apps/desktop/src/renderer/ProjectStatus.tsx` on `ErrorPage` (`chrome/ErrorPage.tsx`). In Storybook, Parity / Chrome /
+Opening a project shows Failed On An Invalid Design File and Failed On A Broken Design File.
+
+Tests: `packages/project/src/open-project.test.ts` (the error naming the file and the pointer for a design file and a
+library file, and naming a file that isn't JSON).
+
 ### A part that fails keeps the rest working (PAR-667)
 
 When part of the window throws while it draws, it says so in its own place and the rest of the window carries on. Edits
@@ -6521,8 +6631,8 @@ live in the project's store, not in what draws them, so nothing is lost. Each pl
   laid out, with Report a problem and Copy details under it. The panel's tabs and its edge still work.
 - **The console** keeps its header, edge and close button, with the error's details to copy in the header, and says so
   where "Nothing logged" would be.
-- **A whole tab**, such as a project or Home, is laid out as the page for a project that couldn't open, with the error
-  in full.
+- **A whole tab**, such as a project or Home, is laid out as the page for a project that couldn't open (`ErrorPage`),
+  with the error in full and its buttons at the right, Try again last, as in a dialog's footer.
 - **The whole window**, the last resort, shows Parity's mark and Try again, with a strip to move the window by.
 - **The tab bar and the status bar** say so in a line, **each dialog** says so in a dialog of its own, closing which
   closes the dialog that failed, and **what's drawn over the canvas**, its outlines, toolbar and controls, fails without
@@ -6542,6 +6652,26 @@ error's event ID is kept and an uncaught one's isn't. `shared/ipc-checks.test.ts
 `chrome/ErrorBoundary.stories.tsx` breaks each part of the real window in turn with `tripBoundary`, and its play
 functions check that Try again draws a part afresh, that a second failure offers Reopen project, and that closing a
 failed dialog closes it and Settings opens again afterwards.
+
+### The window stays on Parity's page (PAR-975)
+
+A design's code runs in the window's page, so a link in a design, followed in Interact, could otherwise replace the
+editor. The window refuses to leave Parity's page: a link to a web page or a dev server on this machine opens in your
+browser, as a link that opens a new window already did, and anything else does nothing. A server's redirect away from
+the page is refused too. Reloading the page still works, and frames inside a design, such as an embedded video, load as
+they would in a browser. The offscreen windows that draw frames for agents stay on their own page the same way, with
+nothing opened in the browser. Only Parity's page gets a channel to the project service when it loads.
+
+Code: `pageGuard`, `onPage` and `opensInBrowser` in `apps/desktop/src/main/parity-page.ts`, set on both kinds of window
+in `main/index.ts`; `parityPage` in `main/project-service.ts` decides which pages connect.
+
+Tests: `apps/desktop/src/main/parity-page.test.ts` (10: the same page with a query or hash, other paths, ports, hosts
+and schemes, what opens in the browser, a refused link opened in the browser, a refused file address not opened, a
+reload let through, a refused redirect, frames left alone, a render window kept on its page) and
+`main/project-service.test.ts` (2: a reload of Parity's page gets a fresh channel and a page the window was taken to
+none; no service starts for a page that isn't Parity's). Gaps: Electron's own events aren't driven in a test. Checked in
+the app on 2026-11-12 with `scripts/drive.ts` on `pnpm dev`: a clicked link and a script setting `location.href` left
+the window on its page, and after a reload the page's channel reached the service again.
 
 ### The page never scrolls (PAR-424)
 
@@ -6634,14 +6764,18 @@ Gaps: nothing checks automatically that the lights stay on opacity and transform
 
 You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
 [proposals/sign-in.md](proposals/sign-in.md) designs it, and can stay signed in to several accounts, such as your own
-and your company's. Signing in is optional: nothing that works on local folders asks for it. Parity carries WorkOS's
+and your company's. An installed copy needs you signed in before anything else (PAR-1008). Parity carries WorkOS's
 client ID and never its API key, and the window never sees a token.
 
-- **The first launch shows the sign-in screen** in Home's place: Continue with Google, GitHub or Microsoft, or a work
-  email, and "Open a folder on this computer without signing in", which opens the folder picker over Home. Signing in or
-  going on without is remembered (`parity.signIn` in local storage), and so is opening a project another way while it
-  shows. It doesn't show when Parity already knows a project, or was started with one, as `pnpm dev` and the end-to-end
-  tests start it.
+- **Signed out, an installed copy shows the sign-in screen** over everything: Continue with Google, GitHub or Microsoft,
+  or a work email, and at its foot that Parity never sees your password. There's no way past it. Signing out, or a
+  session WorkOS ended with no other account to fall back to, leads back to it, and what was open stays as it was
+  underneath (`placeFor`).
+- **A copy run from source asks too.** `pnpm dev` shares the installed app's kept accounts, so signing in once on a
+  computer covers every run. A copy with its own user data folder has no kept session, so the end-to-end tests,
+  `pnpm perf` and the checks that run a built copy (`try-built.ts`, `try-update.ts`) start it signed in as a stand-in
+  with `PARITY_SIGNED_IN_AS`, JSON naming an email, with no tokens and without WorkOS (`main/stand-in-account.ts`).
+  `launch({ signedInAs })` names another stand-in, and `launch({ signedOut: true })` starts at the sign-in screen.
 - **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
   Signed in already, it's Add another account, which says the accounts you're in stay signed in.
@@ -6671,9 +6805,10 @@ client ID and never its API key, and the window never sees a token.
   `account` file, with who it signs in and how, and the file says which account Parity was last in, to start in it; the
   access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
   minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
-  after 5 seconds, doubling to 5 minutes. A file from a build that kept one account isn't read, so you sign in once
-  more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts
-  panel keeps saying so, and both explain why.
+  after 5 seconds, doubling to 5 minutes. The file is written whole, beside it then renamed over it, so a write cut
+  short leaves the accounts it held; one that can't be decrypted, or from a build that kept one account, isn't read, so
+  you sign in once more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit
+  Parity", the accounts panel keeps saying so, and both explain why.
 - **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
   `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
   in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
@@ -6718,11 +6853,12 @@ asked which, the same account again in its place, switching without asking WorkO
 moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
 account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
 service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
-shared between askers, and none once the session ends), `main/session-store.test.ts` (7: kept encrypted and forgotten,
-the file removed with the last account, nothing kept without a keyring or encryption, an unreadable or one-account file
-forgotten, an account replaced in place or added, which account you're in forgotten only with it),
-`main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes it,
-none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+shared between askers, and none once the session ends), `main/session-store.test.ts` (10: kept encrypted and forgotten,
+a write cut short leaving the last accounts readable, the file readable only by you, the file removed with the last
+account, nothing kept without a keyring or encryption, an unreadable or one-account file forgotten, a missing file quiet
+and one that can't be opened kept, an account replaced in place or added, which account you're in forgotten only with
+it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes
+it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
 sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
 and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
 and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add

@@ -49,7 +49,6 @@ import {
   ChevronsDownUp,
   Eye,
   EyeOff,
-  FileWarning,
   Lock,
   LockOpen,
   Plus,
@@ -125,7 +124,7 @@ const lineHeights: Record<Line["type"], number> = { heading: 28, empty: 28, row:
  */
 export function LayerTree() {
   const session = useProject()
-  const { store, selection, errors } = session
+  const { store, selection } = session
   const entries = useContainerEntries(store)
   const notes = useNotes(store)
   const selected = useSelection(selection)
@@ -696,18 +695,6 @@ export function LayerTree() {
               ))}
             </div>
           )}
-          {errors.map((error) => (
-            <div
-              key={error.path}
-              className="mx-3 mt-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs"
-            >
-              <div className="mb-1 flex items-center gap-1.5 font-medium text-destructive">
-                <FileWarning className="size-3.5" />
-                {error.path}
-              </div>
-              <code className="type-code break-words text-muted-foreground">{error.error}</code>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -991,7 +978,7 @@ const LayerRow = memo(function LayerRow({
                     className="grid size-4 place-items-center rounded-sm hover:bg-accent"
                     onClick={(event) => {
                       event.stopPropagation()
-                      showConsole(row.design.key)
+                      showConsole(session, row.design.key)
                     }}
                   >
                     <OctagonAlert className="size-3 text-destructive" />

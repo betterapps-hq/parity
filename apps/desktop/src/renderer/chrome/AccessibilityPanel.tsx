@@ -25,87 +25,18 @@ import {
   TriangleAlert,
   Undo2
 } from "lucide-react"
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { setTabOrderShown, useTabOrderShown } from "../canvas/tab-order.ts"
 import { type ContainerEntry, useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
-import { request } from "../service.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { type Check, checksOf, findingsOf, useCheck } from "./accessibility-checks.ts"
 import { ruleWords } from "./accessibility-rules.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { Name } from "./Name.tsx"
 import { PanelError } from "./PanelError.tsx"
-
-/** A check of one design, kept with what it checked so a later change shows it's out of date. */
-type Check = { container: ContainerSpec; modes: ModeSettings } &
-  /** Checking again keeps the last check's findings, to show faded until this one's arrive. */
-  (
-    | { status: "checking"; previous?: DoneCheck }
-    | { status: "done"; findings: AccessibilityFinding[]; frames: number; warnings: string[] }
-    | { status: "failed"; error: string }
-  )
-
-type DoneCheck = Extract<Check, { status: "done" }>
-
-const checks = new Map<string, Check>()
-const listeners = new Set<() => void>()
-const checkKey = (session: ProjectSession, design: string) => `${session.id}\n${design}`
-
-function setCheck(key: string, check: Check): void {
-  checks.set(key, check)
-
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-function useCheck(key: string): Check | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => checks.get(key)
-  )
-}
-
-/** The findings to show for a check: its own, or while it checks again, the last check's. */
-function findingsOf(check: Check | undefined): DoneCheck | undefined {
-  if (check?.status === "done") {
-    return check
-  }
-
-  if (check?.status === "checking") {
-    return check.previous
-  }
-
-  return undefined
-}
-
-/** Renders the design offscreen in every state and shown mode, and checks each frame with axe-core. */
-async function runCheck(session: ProjectSession, entry: ContainerEntry): Promise<void> {
-  const key = checkKey(session, entry.key)
-  const checked = { container: entry.container, modes: session.store.getModes() }
-  const checking: Check = { ...checked, status: "checking" }
-  const previous = findingsOf(checks.get(key))
-
-  if (previous) {
-    checking.previous = previous
-  }
-
-  setCheck(key, checking)
-
-  try {
-    const result = await request("accessibility.check", { projectId: session.id, design: entry.key })
-    setCheck(key, { ...checked, status: "done", ...result })
-  } catch (error) {
-    setCheck(key, { ...checked, status: "failed", error: error instanceof Error ? error.message : String(error) })
-  }
-}
 
 const impactOrder: AccessibilityImpact[] = ["critical", "serious", "moderate", "minor"]
 
@@ -218,16 +149,17 @@ export function AccessibilityPanel() {
 function DesignCheck({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const modes = useModeSettings(session.store)
-  const key = checkKey(session, entry.key)
-  const check = useCheck(key)
+  const check = useCheck(session, entry.key)
   const { container } = entry
 
   // The first look at a design checks it; after that, checking again is the person's call.
   useEffect(() => {
-    if (!checks.has(key)) {
-      void runCheck(session, entry)
+    const checks = checksOf(session)
+
+    if (!checks.get(entry.key)) {
+      void checks.run(entry)
     }
-  }, [entry, key, session])
+  }, [entry, session])
 
   const checking = check?.status === "checking"
   const stale = check?.status === "done" && changedSince(check, container, modes)
@@ -242,7 +174,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
   }
 
   const faded = stale || (checking && !!shown)
-  const checkAgain = () => void runCheck(session, entry)
+  const checkAgain = () => void checksOf(session).run(entry)
 
   return (
     <>
@@ -722,7 +654,7 @@ function ContrastFixRow({
     const changed = session.store.getEntry(entry.key)
 
     if (changed) {
-      void runCheck(session, changed)
+      void checksOf(session).run(changed)
     }
   }
 

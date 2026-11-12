@@ -1,8 +1,62 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 11:51:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 19:27:29 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.1
+
+Thu, 12 Nov 2026 19:27:29 GMT
+
+### Patches
+
+- Keep you signed in when the saved session's write is cut short: the file is written whole (PAR-977)
+  (ajcraswell@gmail.com)
+- Keep the editor and render windows on Parity's page: links off it open in the browser, and only Parity's page gets a
+  channel to the project service (ajcraswell@gmail.com)
+- Each tab keeps its own console filter, and closing a tab lets go of its previews, accessibility checks, media list and
+  Props state (ajcraswell@gmail.com)
+
+## 0.74.0
+
+Thu, 12 Nov 2026 14:06:12 GMT
+
+### Minor changes
+
+- Sign in before anything else: the sign-in screen shows whenever you're signed out, with no way past it
+  (ajcraswell@gmail.com)
+
+## 0.73.0
+
+Thu, 12 Nov 2026 12:53:06 GMT
+
+### Minor changes
+
+- A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says
+  which file and why, with one Close button (ajcraswell@gmail.com)
+
+### Patches
+
+- Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project
+  with one check (PAR-973) (ajcraswell@gmail.com)
+
+## 0.72.0
+
+Thu, 12 Nov 2026 12:29:14 GMT
+
+### Minor changes
+
+- Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)
+  (ajcraswell@gmail.com)
+
+## 0.71.1
+
+Thu, 12 Nov 2026 12:10:21 GMT
+
+### Patches
+
+- Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels
+  (ajcraswell@gmail.com)
 
 ## 0.71.0
 

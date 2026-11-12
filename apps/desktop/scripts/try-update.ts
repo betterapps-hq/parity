@@ -144,7 +144,9 @@ async function packageVersion(version: string, output: string, url: string): Pro
       extends: join(appDir, "electron-builder.yml"),
       directories: { output },
       extraMetadata: { version },
-      publish: [{ provider: "generic", url }]
+      publish: [{ provider: "generic", url }],
+      // Neither installer leaves the runner, and compressing each took about a minute on Windows (PAR-1010).
+      compression: "store"
     })
   )
 
@@ -392,6 +394,9 @@ try {
   })
   await symlink(join(fixture, "node_modules"), join(project, "node_modules"), "junction")
   env.PARITY_PROJECT = project
+  // A built copy needs someone signed in (PAR-1008), and a check can't sign in through a browser: a stand-in, without
+  // tokens or WorkOS.
+  env.PARITY_SIGNED_IN_AS = JSON.stringify({ email: "check@parity.test", name: "Check" })
   let executable: string
 
   if (process.platform === "win32") {

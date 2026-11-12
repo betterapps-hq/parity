@@ -14,7 +14,7 @@ import { SearchPalette } from "./search.tsx"
  * and account, opening a project (which opens its tab), New project with its templates, Open, and search (Ctrl K).
  */
 const meta = {
-  title: "Parity/Explorations/Start page",
+  title: "Parity/Explorations/Start page/Start page",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

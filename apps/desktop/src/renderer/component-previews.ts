@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
 import { bitmapsWaiting } from "./canvas/frame-bitmaps.ts"
+import { projectPart } from "./project-part.ts"
 import { request } from "./service.ts"
 import { getResolvedTheme, type ResolvedTheme, subscribeResolvedTheme } from "./theme.ts"
 import { type ProjectSession, workspace } from "./workspace.ts"
@@ -48,7 +49,7 @@ export type PreviewState =
  * kept. Unsaved token previews aren't drawn, so trying a token re-makes nothing.
  */
 export function previewJob(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "added" | "components" | "id" | "info" | "store">,
   component: string,
   appearance: ResolvedTheme = getResolvedTheme(),
   variant?: Variant
@@ -84,7 +85,7 @@ export function previewJob(
  * in a window the mode's width, at `previewScale`. `tree` is given the mode's viewport option.
  */
 export function treePreviewJob(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "added" | "id" | "info" | "store">,
   id: string,
   tree: (viewport: string) => RenderNode[],
   appearance: ResolvedTheme = getResolvedTheme()
@@ -202,6 +203,8 @@ interface Entry {
 
 /** One project's previews, while its tab is open. */
 class ProjectPreviews {
+  /** Once its tab has closed: nothing is made or kept after. */
+  private disposed = false
   private readonly entries = new Map<string, Entry>()
   private readonly onScreen = new Map<string, number>()
   /** Variants a card has asked for, by their id, made on demand and kept while the tab is open. */
@@ -217,12 +220,16 @@ class ProjectPreviews {
   private refreshing: Promise<void> | undefined
   private refreshAgain = false
   private stopped = false
-  /** What the previews were last looked up for, so a change elsewhere in the workspace doesn't look them up again. */
+  /** What the previews were last looked up for, so another change to the session, as its canvas mounting, doesn't. */
   private lookedUpFor: readonly unknown[] = []
 
-  constructor(readonly projectId: string) {}
+  constructor(private readonly session: ProjectSession) {}
 
   start(): void {
+    if (this.disposed) {
+      return
+    }
+
     this.stop()
     this.stopped = false
     this.lookedUpFor = []
@@ -243,17 +250,10 @@ class ProjectPreviews {
       }
     })
     // An edit, the person's or an agent's, counts as working.
-    const session = this.session()
-
-    if (session) {
-      this.stops.push(session.store.subscribe(active))
-    }
-
-    if (session) {
-      this.stops.push(session.components.subscribe(() => this.refreshSoon()))
-    }
-
-    this.stops.push(workspace.subscribe(() => this.refreshSoon()))
+    this.stops.push(this.session.store.subscribe(active))
+    this.stops.push(this.session.components.subscribe(() => this.refreshSoon()))
+    // A new guest, new sources or newly added components.
+    this.stops.push(this.session.subscribe(() => this.refreshSoon()))
     // Previews are drawn in the mode matching Parity's light or dark theme, so a new theme looks them up again.
     this.stops.push(subscribeResolvedTheme(() => this.refreshSoon()))
     this.refreshSoon()
@@ -268,6 +268,17 @@ class ProjectPreviews {
 
     clearTimeout(this.timer)
     clearTimeout(this.refreshTimer)
+  }
+
+  /** Stops for good as the tab closes, forgetting every preview it kept. */
+  dispose(): void {
+    this.stop()
+    this.disposed = true
+    this.entries.clear()
+    this.onScreen.clear()
+    this.variants.clear()
+    this.skipped.clear()
+    this.listeners.clear()
   }
 
   subscribe = (listener: () => void) => {
@@ -296,10 +307,6 @@ class ProjectPreviews {
     }
   }
 
-  private session(): ProjectSession | undefined {
-    return workspace.getTabs().find((tab) => tab.session?.id === this.projectId)?.session
-  }
-
   /**
    * Shows a component's variants on its card: each is looked up, then made before anything off screen, until the
    * function it gives is called. The ones asked for are kept, and looked up again with the rest.
@@ -319,7 +326,7 @@ class ProjectPreviews {
 
     const hides = variants.map((variant) => this.show(variantId(component, variant)))
 
-    if (added.length > 0) {
+    if (added.length > 0 && !this.disposed) {
       void this.lookUp(added)
     }
 
@@ -331,29 +338,27 @@ class ProjectPreviews {
   }
 
   /** Every preview the window keeps: each component the Components panel lists, in its order, then variants asked for. */
-  private components(session: ProjectSession): string[] {
-    return [...Object.keys(session.info.sources), ...this.variants.keys()]
+  private components(): string[] {
+    return [...Object.keys(this.session.info.sources), ...this.variants.keys()]
   }
 
   /** The job that draws a preview by its id, a component's or a variant's. */
-  private jobFor(session: ProjectSession, id: string): PreviewJob | undefined {
+  private jobFor(id: string): PreviewJob | undefined {
     const asked = this.variants.get(id)
 
-    return asked ? previewJob(session, asked.component, undefined, asked.variant) : previewJob(session, id)
+    return asked ? previewJob(this.session, asked.component, undefined, asked.variant) : previewJob(this.session, id)
   }
 
   /** Looks some previews up straight away, outside a refresh, as a card's variants are when it opens. */
   private async lookUp(ids: string[]): Promise<void> {
-    const session = this.session()
-
-    if (!session) {
-      return
-    }
-
-    const jobs = ids.flatMap((id) => this.jobFor(session, id) ?? [])
+    const jobs = ids.flatMap((id) => this.jobFor(id) ?? [])
 
     try {
       const { previews } = await request("previews.lookup", { previews: jobs })
+
+      if (this.disposed) {
+        return
+      }
 
       for (const preview of previews) {
         if (!this.entries.has(preview.component)) {
@@ -384,9 +389,9 @@ class ProjectPreviews {
    * Parity's own light or dark theme, which picks their mode.
    */
   private refreshSoon(): void {
-    const session = this.session()
+    const { session } = this
 
-    if (!session || this.stopped) {
+    if (this.stopped) {
       return
     }
 
@@ -419,21 +424,19 @@ class ProjectPreviews {
       return
     }
 
-    const session = this.session()
-
-    if (!session) {
-      return
-    }
-
     this.skipped.clear()
 
     const run = async () => {
-      const jobs = this.components(session).flatMap((id) => this.jobFor(session, id) ?? [])
+      const jobs = this.components().flatMap((id) => this.jobFor(id) ?? [])
 
       for (let start = 0; start < jobs.length; start += lookupBatch) {
         const { previews } = await request("previews.lookup", {
           previews: jobs.slice(start, start + lookupBatch)
         })
+
+        if (this.disposed) {
+          return
+        }
 
         for (const preview of previews) {
           this.apply(preview)
@@ -442,7 +445,7 @@ class ProjectPreviews {
         this.notify()
       }
 
-      const listed = new Set(this.components(session))
+      const listed = new Set(this.components())
 
       for (const component of this.entries.keys()) {
         if (!listed.has(component)) {
@@ -514,15 +517,14 @@ class ProjectPreviews {
    */
   private async step(): Promise<void> {
     this.timer = undefined
-    const session = this.session()
 
-    if (!session || this.stopped || this.making || this.refreshing) {
+    if (this.stopped || this.making || this.refreshing) {
       return
     }
 
-    const settled = !!session.editor && workspace.getActive()?.session?.id === this.projectId && bitmapsWaiting() === 0
+    const settled = !!this.session.editor && workspace.getActive()?.session === this.session && bitmapsWaiting() === 0
 
-    const needed = this.components(session).flatMap((component) => {
+    const needed = this.components().flatMap((component) => {
       const entry = this.entries.get(component)
 
       if (entry?.preview.state !== "waiting" || this.skipped.has(component)) {
@@ -544,7 +546,7 @@ class ProjectPreviews {
       return
     }
 
-    const preview = this.jobFor(session, next.make)
+    const preview = this.jobFor(next.make)
     const entry = this.entries.get(next.make)
 
     if (!preview || !entry || entry.preview.state !== "waiting") {
@@ -558,6 +560,10 @@ class ProjectPreviews {
 
     try {
       const made = await request("previews.make", { preview, priority: next.priority })
+
+      if (this.disposed) {
+        return
+      }
 
       // Looked up again meanwhile, for newer code: this one's out of date, and stays waiting for its new key.
       if (this.entries.get(next.make)?.key === made.key) {
@@ -579,31 +585,20 @@ class ProjectPreviews {
   }
 }
 
-const projects = new Map<string, ProjectPreviews>()
-
-/** A project's previews, made the first time they're asked for, and kept while the window is open: they're small. */
-function previewsFor(projectId: string): ProjectPreviews {
-  let previews = projects.get(projectId)
-
-  if (!previews) {
-    previews = new ProjectPreviews(projectId)
-    projects.set(projectId, previews)
-  }
-
-  return previews
-}
+/** A project's previews, made the first time they're asked for and dropped when its tab closes. */
+export const previewsOf = projectPart((session: ProjectSession) => new ProjectPreviews(session))
 
 /** Starts making a project's previews while its tab is open; the function it gives stops them. */
-export function startPreviews(projectId: string): () => void {
-  const previews = previewsFor(projectId)
+export function startPreviews(session: ProjectSession): () => void {
+  const previews = previewsOf(session)
   previews.start()
 
   return () => previews.stop()
 }
 
 /** A component's preview, as it is now. */
-export function useComponentPreview(projectId: string, component: string): PreviewState | undefined {
-  const previews = previewsFor(projectId)
+export function useComponentPreview(session: ProjectSession, component: string): PreviewState | undefined {
+  const previews = previewsOf(session)
 
   return useSyncExternalStore(previews.subscribe, () => previews.get(component))
 }
@@ -613,12 +608,12 @@ export function useComponentPreview(projectId: string, component: string): Previ
  * makes none (PAR-208).
  */
 export function useVariantPreviews(
-  projectId: string,
+  session: ProjectSession,
   component: string,
   variants: readonly Variant[],
   shown: boolean
 ): (PreviewState | undefined)[] {
-  const previews = previewsFor(projectId)
+  const previews = previewsOf(session)
   const ids = variants.map((variant) => variantId(component, variant))
   // The variants are asked for again only when they change, not when a new array of the same ones comes.
   const key = ids.join(" ")
@@ -643,7 +638,7 @@ export function useVariantPreviews(
  * preview is made before the ones nobody can see. Nothing for no component.
  */
 export function usePreviewOnScreen(
-  projectId: string,
+  session: ProjectSession,
   component: string | undefined
 ): (element: Element | null) => void {
   const [element, setElement] = useState<Element | null>(null)
@@ -652,7 +647,7 @@ export function usePreviewOnScreen(
       return
     }
 
-    const previews = previewsFor(projectId)
+    const previews = previewsOf(session)
     let hide: (() => void) | undefined
 
     const observer = new IntersectionObserver(([seen]) => {
@@ -670,7 +665,7 @@ export function usePreviewOnScreen(
       observer.disconnect()
       hide?.()
     }
-  }, [element, projectId, component])
+  }, [element, session, component])
 
   return setElement
 }

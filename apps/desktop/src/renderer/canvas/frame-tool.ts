@@ -9,7 +9,7 @@ import {
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { getPreferences } from "../chrome/preferences.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { followPress, gestures } from "./gesture.ts"
 import type { Point } from "./hit.ts"
@@ -56,7 +56,7 @@ export function useFrameDrawing(): FrameDrawing | undefined {
 }
 
 /** Adds a frame, selects it, and goes back to the move tool, as one undo step. Returns its key. */
-function addFrame(session: ProjectSession, at: Point, size: { width: number; height: number }): string {
+function addFrame(session: ProjectDesigns, at: Point, size: { width: number; height: number }): string {
   const { store, selection } = session
 
   const frame = drawnFrame(
@@ -76,7 +76,11 @@ function addFrame(session: ProjectSession, at: Point, size: { width: number; hei
  * Follows a press with the frame tool on the canvas area, from `event`: a drag draws a frame from where it began, a
  * click makes one there at 100 × 100. Escape, or the window losing focus, draws nothing. Ctrl or Cmd stops snapping.
  */
-export function drawFrame(session: ProjectSession, area: HTMLElement, event: PointerEvent): void {
+export function drawFrame(
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
+  area: HTMLElement,
+  event: PointerEvent
+): void {
   const { editor, store } = session
 
   if (!editor) {
@@ -148,7 +152,11 @@ export function drawFrame(session: ProjectSession, area: HTMLElement, event: Poi
  * A size from the frame tool's menu: the selected frame, `frame`, takes it, as one undo step; with none selected, a new
  * frame at that size goes in the middle of the view.
  */
-export function placeFrame(session: ProjectSession, preset: FramePreset, frame?: string): void {
+export function placeFrame(
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
+  preset: FramePreset,
+  frame?: string
+): void {
   const size = { width: preset.width, height: preset.height }
 
   if (frame) {
@@ -157,6 +165,6 @@ export function placeFrame(session: ProjectSession, preset: FramePreset, frame?:
     return
   }
 
-  const middle = viewCenter(session)
+  const middle = viewCenter(session.editor)
   addFrame(session, { x: middle.x - size.width / 2, y: middle.y - size.height / 2 }, size)
 }

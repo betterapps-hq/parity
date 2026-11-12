@@ -360,7 +360,8 @@ function ShadowTokenSummary({ entry }: { entry: ShadowEntry }) {
   const token = useShadowTokens().all.find((option) => option.name === name)
 
   return (
-    <span className="flex min-w-0 text-foreground">
+    // Room for the chip's dot, which sits over its corner: the row clips what spills out of it.
+    <span className="flex min-w-0 pt-1 pr-1 text-foreground">
       <TokenChip
         name={name}
         token={token}

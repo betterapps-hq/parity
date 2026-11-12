@@ -30,7 +30,7 @@ import {
   TriangleAlert,
   X
 } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { clearConsole } from "../console-feed.ts"
@@ -38,6 +38,7 @@ import { byDesign, type ConsoleMessage, type Level, type Tally, tally, useConsol
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource } from "./code-editor.ts"
+import { allLevels, consoleFilterOf, type Shown, useConsoleFilter } from "./console-filter.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
@@ -46,51 +47,12 @@ import { Name } from "./Name.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
-/** The levels the console filters by; debug messages go with info. */
-type Shown = "error" | "warning" | "info"
-
-const allLevels: readonly Shown[] = ["error", "warning", "info"]
-
-/**
- * What the console shows: the levels turned on, any mix of them, and the words searched for. `focus` is the design a
- * board's badge or a Layers mark opened it on, whose group opens and comes into view with the others closed; `at` tells
- * one opening from the next.
- */
-interface Filter {
-  levels: readonly Shown[]
-  focus?: { design: string; at: number } | undefined
-  query: string
-}
-
-let filter: Filter = { levels: allLevels, query: "" }
-let focusCount = 0
-const listeners = new Set<() => void>()
-
-function setFilter(change: Partial<Filter>): void {
-  filter = { ...filter, ...change }
-
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-function useFilter(): Filter {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => filter
-  )
-}
-
 /**
  * Opens the console. Given a design, as its badge on the canvas and a failing layer's mark in Layers do, it opens that
  * design's messages and brings them into view, closing the other designs', and shows every level.
  */
-export function showConsole(design?: string): void {
-  setFilter(design ? { focus: { design, at: ++focusCount }, levels: allLevels } : { focus: undefined })
+export function showConsole(session: Pick<ProjectSession, "untilClosed">, design?: string): void {
+  consoleFilterOf(session).focus(design)
   setLayout({ console: true })
 }
 
@@ -109,7 +71,7 @@ export function ConsolePanel() {
   const layout = useLayout()
   const session = useProject()
   const messages = useConsole(session.id)
-  const shown = useFilter()
+  const shown = useConsoleFilter(session)
 
   if (!layout.console) {
     return null
@@ -171,21 +133,21 @@ function NothingLogged() {
 }
 
 function ConsoleHeader({ session, messages }: { session: ProjectSession; messages: readonly ConsoleMessage[] }) {
-  const shown = useFilter()
+  const shown = useConsoleFilter(session)
   const counts = tally(messages)
 
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
       {/* The title sits in the header's row, so it drops the margin a section title keeps over its fields. */}
       <PanelSectionTitle title="Console" as="h2" spacing="" />
-      <LevelsMenu counts={counts} levels={shown.levels} />
+      <LevelsMenu session={session} counts={counts} levels={shown.levels} />
       <InputGroup className="h-7 w-56">
         <InputGroupAddon>
           <Search />
         </InputGroupAddon>
         <InputGroupInput
           value={shown.query}
-          onChange={(event) => setFilter({ query: event.currentTarget.value })}
+          onChange={(event) => consoleFilterOf(session).set({ query: event.currentTarget.value })}
           placeholder="Filter messages"
           aria-label="Filter messages"
           className="text-xs"
@@ -230,7 +192,7 @@ function levelsLabel(levels: readonly Shown[]): string {
  * The levels shown, as a menu with a checkbox for each and its count, saying in its button what it shows. Any mix of
  * levels can show; a menu takes the space of one button where a toggle for each took three.
  */
-function LevelsMenu({ counts, levels }: { counts: Tally; levels: readonly Shown[] }) {
+function LevelsMenu({ session, counts, levels }: { session: ProjectSession; counts: Tally; levels: readonly Shown[] }) {
   const icons: Record<Shown, ReactNode> = {
     error: <CircleX className="text-destructive" />,
     warning: <TriangleAlert className="text-amber-500" />,
@@ -254,7 +216,9 @@ function LevelsMenu({ counts, levels }: { counts: Tally; levels: readonly Shown[
             checked={levels.includes(level)}
             closeOnClick={false}
             onCheckedChange={(on) =>
-              setFilter({ levels: allLevels.filter((each) => (each === level ? on : levels.includes(each))) })
+              consoleFilterOf(session).set({
+                levels: allLevels.filter((each) => (each === level ? on : levels.includes(each)))
+              })
             }
           >
             {icons[level]}

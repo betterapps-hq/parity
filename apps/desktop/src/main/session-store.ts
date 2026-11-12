@@ -1,7 +1,8 @@
 import { rmSync } from "node:fs"
-import { readFile, writeFile } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { z } from "zod"
 import { accountPerson, signInProvider } from "../shared/account.ts"
+import { writeWhole } from "./json-file.ts"
 
 /**
  * One account kept between launches: its refresh token, and who it signs in so Parity can show them before refreshing.
@@ -79,7 +80,8 @@ export function sessionStore(
       return
     }
 
-    await writeFile(file, await encryption.encryptStringAsync(JSON.stringify(kept)), { mode: 0o600 })
+    // Whole, so a write cut short leaves the last accounts readable rather than half a file that signs everyone out.
+    await writeWhole(file, await encryption.encryptStringAsync(JSON.stringify(kept)), 0o600)
   }
 
   const read = async () => {

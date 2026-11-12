@@ -137,8 +137,11 @@ function SignInForm({ onSignIn }: { onSignIn: (request: SignInRequest) => void }
   )
 }
 
-/** Under the ways in: signing in happens in the browser, so Parity never handles a password. Kept short (your call). */
-function Legal() {
+/**
+ * Signing in happens in the browser, so Parity never handles a password. Kept short (your call). It sits under the ways
+ * in in a dialog, and at the foot of the sign-in screen.
+ */
+export function Legal() {
   return (
     <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
       <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
@@ -174,7 +177,7 @@ export function SignInPanel({
         </div>
       </div>
       <SignInForm onSignIn={onSignIn} />
-      <Legal />
+      {dialog && <Legal />}
     </div>
   )
 }

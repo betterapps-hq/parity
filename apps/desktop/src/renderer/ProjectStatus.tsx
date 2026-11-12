@@ -1,7 +1,6 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { Check, Circle, Copy, FolderOpen, LoaderCircle, RotateCw, TriangleAlert } from "lucide-react"
-import { useEffect, useState } from "react"
-import { actions } from "./chrome/actions.ts"
+import { Check, Circle, LoaderCircle } from "lucide-react"
+import { ErrorPage } from "./chrome/ErrorPage.tsx"
 import { useLayout } from "./chrome/layout.ts"
 import { isPlaceholder, type Tab, workspace } from "./workspace.ts"
 
@@ -130,86 +129,31 @@ function OutlineBoard({ className }: { className: string }) {
   )
 }
 
-/**
- * A project that couldn't open: why, in the service's words, and the ways on from here. Trying again opens it in the
- * same tab; a tab that never learned its folder can only open another project.
- */
+/** A project that couldn't open: why, in the service's words, and Close (PAR-1011). */
 export function ProjectFailed({ tab }: { tab: Tab }) {
   const { name, folder } = projectOf(tab)
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
-      <div role="alert" className="m-auto flex w-full max-w-lg flex-col gap-5">
-        <span className="grid size-10 place-items-center rounded-full bg-destructive/10 text-destructive">
-          <TriangleAlert className="size-5" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-lg font-semibold tracking-tight">
-            {name ? `Couldn't open ${name}` : "Couldn't open the project"}
-          </h1>
-          {folder && (
-            <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-              <span className="truncate" title={folder}>
-                {folder}
-              </span>
-              <button
-                type="button"
-                className="shrink-0 underline-offset-2 hover:text-foreground hover:underline"
-                onClick={() => void window.canvasHost.showItem(folder)}
-              >
-                Show in folder
-              </button>
-            </p>
-          )}
-        </div>
-        {tab.message && <ErrorDetails message={tab.message} />}
-        <div className="flex flex-wrap gap-2">
-          {folder && (
-            <Button onClick={() => void workspace.reload(tab.id, "Starting the project's builder")}>
-              <RotateCw /> Try again
-            </Button>
-          )}
-          <Button variant={folder ? "outline" : "default"} onClick={() => void actions.openFolder.run("panel")}>
-            <FolderOpen /> {folder ? "Open another project…" : "Open a project…"}
-          </Button>
-          <Button variant="ghost" onClick={() => void workspace.close(tab.id)}>
-            Close tab
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/** The error as the service gave it, to read in full or copy into a bug report. Error boundaries' tabs show it too. */
-export function ErrorDetails({ message }: { message: string }) {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) {
-      return
-    }
-
-    const timer = setTimeout(() => setCopied(false), 1500)
-
-    return () => clearTimeout(timer)
-  }, [copied])
-
-  return (
-    <div className="overflow-hidden rounded-lg border bg-muted/40">
-      <div className="flex items-center justify-between border-b py-1 pr-1 pl-3 text-xs text-muted-foreground">
-        Details
-        <Button
-          variant="ghost"
-          size="xs"
-          className="text-muted-foreground"
-          onClick={() => void navigator.clipboard.writeText(message).then(() => setCopied(true))}
-        >
-          {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-      <pre className="max-h-56 overflow-auto p-3 type-code font-mono whitespace-pre-wrap text-foreground/90 select-text">
-        {message}
-      </pre>
-    </div>
+    <ErrorPage
+      title={name ? `Couldn't open ${name}` : "Couldn't open the project"}
+      subtitle={
+        folder && (
+          <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+            <span className="truncate" title={folder}>
+              {folder}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 underline-offset-2 hover:text-foreground hover:underline"
+              onClick={() => void window.canvasHost.showItem(folder)}
+            >
+              Show in folder
+            </button>
+          </p>
+        )
+      }
+      details={tab.message}
+      actions={<Button onClick={() => void workspace.close(tab.id)}>Close</Button>}
+    />
   )
 }

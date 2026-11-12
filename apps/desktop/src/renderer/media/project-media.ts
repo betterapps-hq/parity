@@ -1,6 +1,7 @@
 import { type CodeReference, type ImageFile, type ProjectImage, projectImages } from "@parity-app/editor"
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { useContainerEntries } from "../design-store.ts"
+import { projectPart } from "../project-part.ts"
 import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -8,8 +9,8 @@ import type { ProjectSession } from "../workspace.ts"
 /*
  * A project's media as the window lists it (PAR-838). The service scans the image files and the code that names them
  * (`images.scan`); the window has the designs as they are, unsaved changes included; and `projectImages` in
- * `@parity-app/editor` puts the two together, the same way agents get them. The scan is kept for each open project,
- * so the tab shows what it last knew while it asks again.
+ * `@parity-app/editor` puts the two together, the same way agents get them. The scan is kept with each open project's
+ * session, so the tab shows what it last knew while it asks again, and goes when the tab closes.
  */
 
 /** What the service last found in a project's files. */
@@ -35,6 +36,8 @@ class MediaFiles {
   private scanning: Promise<void> | undefined
   /** The paths designs named with no file there when a scan was last asked for. */
   private askedFor: string | undefined
+  private readonly timers = new Set<ReturnType<typeof setTimeout>>()
+  private disposed = false
 
   constructor(private readonly projectId: string) {}
 
@@ -54,6 +57,11 @@ class MediaFiles {
   /** Asks the service again. A scan already under way answers for this one too. */
   scan(missing = this.askedFor): Promise<void> {
     this.askedFor = missing
+
+    if (this.disposed) {
+      return Promise.resolve()
+    }
+
     this.scanning ??= this.ask().finally(() => {
       this.scanning = undefined
     })
@@ -64,16 +72,37 @@ class MediaFiles {
   /** Marks the ones just added for a moment, as they arrive on the wall. */
   markFresh(srcs: readonly string[]): void {
     this.set({ ...this.state, fresh: srcs })
-    setTimeout(
-      () => this.set({ ...this.state, fresh: this.state.fresh.filter((src) => !srcs.includes(src)) }),
-      freshFor
-    )
+
+    const timer = setTimeout(() => {
+      this.timers.delete(timer)
+      this.set({ ...this.state, fresh: this.state.fresh.filter((src) => !srcs.includes(src)) })
+    }, freshFor)
+
+    this.timers.add(timer)
+  }
+
+  /** Forgets what it found and stops: a scan under way is let go, and nothing just added stays marked. */
+  dispose(): void {
+    this.disposed = true
+    this.listeners.clear()
+
+    for (const timer of this.timers) {
+      clearTimeout(timer)
+    }
+
+    this.timers.clear()
+    this.state = { fresh: [] }
   }
 
   private async ask(): Promise<void> {
     try {
-      this.set({ ...this.state, scanned: await request("images.scan", { projectId: this.projectId }) })
+      const scanned = await request("images.scan", { projectId: this.projectId })
+      this.set({ ...this.state, scanned })
     } catch (error) {
+      if (this.disposed) {
+        return
+      }
+
       reportError(error, { operation: "images.scan", title: "Couldn't list the project's media" })
       // What it last knew stays; with nothing known, the tab shows none rather than waiting forever.
       this.set({ ...this.state, scanned: this.state.scanned ?? { files: [], references: [] } })
@@ -81,6 +110,10 @@ class MediaFiles {
   }
 
   private set(state: FilesState): void {
+    if (this.disposed) {
+      return
+    }
+
     this.state = state
 
     for (const listener of this.listeners) {
@@ -89,19 +122,10 @@ class MediaFiles {
   }
 }
 
-const byProject = new WeakMap<ProjectSession, MediaFiles>()
-
-/** An open project's image files, made the first time they're asked for. */
-export function mediaFilesOf(session: ProjectSession): MediaFiles {
-  let files = byProject.get(session)
-
-  if (!files) {
-    files = new MediaFiles(session.id)
-    byProject.set(session, files)
-  }
-
-  return files
-}
+/** An open project's image files, made the first time they're asked for and dropped when its tab closes. */
+export const mediaFilesOf = projectPart(
+  (session: Pick<ProjectSession, "id" | "untilClosed">) => new MediaFiles(session.id)
+)
 
 /** A project's media for the tab. */
 export interface ProjectMedia {

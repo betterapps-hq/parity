@@ -132,7 +132,7 @@ const logged = (open: boolean, then?: () => Promise<void>) =>
     ["Pricing", "Dashboard"],
     () => {
       setLayout({ console: open, consoleHeight: 300 })
-      showConsole(undefined)
+      showConsole(example(), undefined)
       setLayout({ console: open })
       const { id, info } = example()
       const log = consoleLog(id)

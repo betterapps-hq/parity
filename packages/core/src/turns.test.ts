@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { turns } from "./turns.ts"
+import { distanceFromView, turns, viewRank } from "./turns.ts"
 
 /** A task that records when it starts and finishes only when `release` is called. */
 function held(log: string[], name: string) {
@@ -51,5 +51,68 @@ describe("turns", () => {
     failing.fail(new Error("The capture failed"))
     await expect(failed).rejects.toThrow("The capture failed")
     expect(await next).toBe("next")
+  })
+
+  it("takes the lowest ranked waiting task next, read when the turn frees up, then the unranked in order", async () => {
+    const log: string[] = []
+    const queue = turns(1)
+    const first = held(log, "first")
+    const ranks = { far: 50, near: 10, middle: 20 }
+
+    const tasks = Object.fromEntries(
+      ["far", "near", "middle", "unranked", "later"].map((name) => [name, held(log, name)])
+    )
+
+    void queue.run(first.task)
+    void queue.run(tasks.far!.task, () => ranks.far)
+    void queue.run(tasks.unranked!.task)
+    void queue.run(tasks.near!.task, () => ranks.near)
+    void queue.run(tasks.middle!.task, () => ranks.middle)
+    void queue.run(tasks.later!.task)
+    // The camera moved while they waited: what was far is now nearest.
+    ranks.far = 0
+
+    for (const done of [first, tasks.far!, tasks.near!, tasks.middle!, tasks.unranked!]) {
+      done.release()
+      await tick()
+    }
+
+    expect(log).toEqual(["first", "far", "near", "middle", "unranked", "later"])
+  })
+})
+
+describe("distanceFromView", () => {
+  const view = { left: 0, top: 0, width: 1000, height: 800 }
+
+  it("ranks what's in the middle first, then the rest of the view, then what's around it", () => {
+    const at = (left: number, top: number) => distanceFromView({ left, top, width: 100, height: 100 }, view)
+    const middle = at(450, 350)
+    const corner = at(0, 0)
+    const outside = at(1200, 350)
+
+    expect(middle).toBe(0)
+    expect(corner).toBeGreaterThan(middle)
+    expect(outside).toBeGreaterThan(corner)
+  })
+})
+
+describe("viewRank", () => {
+  it("puts anything in view before anything around it, and that before what's far away, however big", () => {
+    // A tall frame with its middle well off screen, but part of it in view.
+    const tallInView = viewRank({ inView: true, near: true, distance: 5000 })
+    const smallAround = viewRank({ inView: false, near: true, distance: 600 })
+    const far = viewRank({ inView: false, near: false, distance: 700 })
+
+    expect(tallInView).toBeLessThan(smallAround)
+    expect(smallAround).toBeLessThan(far)
+  })
+
+  it("takes what's nearer the middle first within each", () => {
+    expect(viewRank({ inView: true, near: true, distance: 10 })).toBeLessThan(
+      viewRank({ inView: true, near: true, distance: 300 })
+    )
+    expect(viewRank({ inView: false, near: false, distance: 900 })).toBeLessThan(
+      viewRank({ inView: false, near: false, distance: 4000 })
+    )
   })
 })

@@ -2,6 +2,117 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 19:27:29 GMT",
+      "version": "0.74.1",
+      "tag": "@parity-app/desktop_v0.74.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4bf8f301eb7a5fdd683cf37be18ded22f90514ba",
+            "comment": "Keep you signed in when the saved session's write is cut short: the file is written whole (PAR-977)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9f7a17177f7afb0bf26aadfe2624ca3c66f62982",
+            "comment": "Keep the editor and render windows on Parity's page: links off it open in the browser, and only Parity's page gets a channel to the project service"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "26a238e0d2f288ff004b1f53eacaa835e6ac34bc",
+            "comment": "Each tab keeps its own console filter, and closing a tab lets go of its previews, accessibility checks, media list and Props state"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "483e455e8ee22774cc1cec00d7d00e452acfe5f1",
+            "comment": "Frame skeletons and the inspect and tab-order overlays read frames through the frame geometry module"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 14:06:12 GMT",
+      "version": "0.74.0",
+      "tag": "@parity-app/desktop_v0.74.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6e578f022f06d5b0503adea752a0fa463482ba91",
+            "comment": "Sign in before anything else: the sign-in screen shows whenever you're signed out, with no way past it"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "46fd3207e3af21e30535bd96b7facedba45cf80c",
+            "comment": "Move main's close flow, project service, render pool and process metrics into modules with tests"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:53:06 GMT",
+      "version": "0.73.0",
+      "tag": "@parity-app/desktop_v0.73.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "23b45b3b0b49a017b1f053b82e1e9870760115fa",
+            "comment": "A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says which file and why, with one Close button"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c8b6e459553861709e9d51ed3ece0e9537ed1c75",
+            "comment": "Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project with one check (PAR-973)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:29:14 GMT",
+      "version": "0.72.0",
+      "tag": "@parity-app/desktop_v0.72.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b897319e647682322827005a7fe26079e1964ded",
+            "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:10:21 GMT",
+      "version": "0.71.1",
+      "tag": "@parity-app/desktop_v0.71.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0a3e44222eda2d7eb68ba9630462bc63c7d8da22",
+            "comment": "Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 11:51:21 GMT",
       "version": "0.71.0",
       "tag": "@parity-app/desktop_v0.71.0",

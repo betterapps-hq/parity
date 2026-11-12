@@ -21,7 +21,7 @@ export function useProjectImages(session: ProjectSession): ImageSource {
       images: pictures,
       stock: [],
       add: async (file) => {
-        const node = await importMedia(session, file, fileBaseName(file.name))
+        const node = await importMedia(session.id, file, fileBaseName(file.name))
 
         return node.type === "image" ? node.src : ""
       },

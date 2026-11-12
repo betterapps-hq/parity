@@ -4,15 +4,9 @@ import { allFrames, findFrames, findNodeElements, nodeOfElement } from "../frame
 import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { elementsWrittenAt, frameAt, type SourcedElement, shortSource, sourcedElementAt } from "./element-sources.ts"
+import { type AreaSpace, areaSpace, type Box } from "./frame-geometry.ts"
 import { getInspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"
 import { chipColors, kindColors } from "./kinds.tsx"
-
-interface Box {
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 /** What the overlay draws: boxes in the canvas area's coordinates, and the label of the one under the pointer. */
 interface Marks {
@@ -126,14 +120,8 @@ export function InspectOverlay() {
         return
       }
 
-      let origin: DOMRect | undefined
-
-      const box = (element: Element): Box => {
-        origin ??= area.getBoundingClientRect()
-        const rect = element.getBoundingClientRect()
-
-        return { x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
-      }
+      let space: AreaSpace | undefined
+      const box = (element: Element): Box => (space ??= areaSpace(area)).box(element.getBoundingClientRect())
 
       const next = measure(getInspecting(), selected, pointed, box)
       const serialized = JSON.stringify(next)
@@ -163,8 +151,8 @@ export function InspectOverlay() {
           style={{
             left: box.x,
             top: box.y,
-            width: box.width,
-            height: box.height,
+            width: box.w,
+            height: box.h,
             outline: `1px ${box.dashed ? "dashed" : "solid"} ${color}`,
             background: box.dashed ? undefined : `color-mix(in oklch, ${color} 10%, transparent)`
           }}
@@ -227,7 +215,7 @@ function measure(
       for (const element of elementsWrittenAt(roots, mark!.at)) {
         const at = box(element)
 
-        if (at.width === 0 && at.height === 0) {
+        if (at.w === 0 && at.h === 0) {
           continue
         }
 

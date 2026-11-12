@@ -31,7 +31,7 @@ import { useTabs, workspace } from "./workspace.ts"
 export function ProjectView({ id, active }: { id: string; active: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
   const session = tab?.session
-  useShortcuts(session, active)
+  useShortcuts(session?.selection, active)
 
   if (!tab) {
     return null
@@ -104,9 +104,8 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
   const tool = useTool(session!.selection)
   const onEditor = useCallback((editor: Editor | undefined) => workspace.setEditor(tabId, editor), [tabId])
 
-  // Component previews are made in the background for as long as the tab is open (PAR-207).
-  const projectId = session?.id
-  useEffect(() => (projectId ? startPreviews(projectId) : undefined), [projectId])
+  // Component previews are made in the background for as long as the tab is open (PAR-207), and go when it closes.
+  useEffect(() => (session ? startPreviews(session) : undefined), [session])
 
   useEffect(() => {
     const editor = session?.editor

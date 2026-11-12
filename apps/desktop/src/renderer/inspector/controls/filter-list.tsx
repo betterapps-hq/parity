@@ -301,7 +301,8 @@ function FilterRow({
         {shadow.token === undefined ? (
           <span className="truncate">{`${layerNumbers(shadow.layer, false)} ${colorWords(shadow.layer)}`}</span>
         ) : (
-          <span className="flex min-w-0 text-foreground">
+          <span className="flex min-w-0 pt-1 pr-1 text-foreground">
+            {/* Room for the chip's dot, which sits over its corner: the row clips what spills out of it. */}
             <TokenChip
               name={shadow.token}
               token={token}

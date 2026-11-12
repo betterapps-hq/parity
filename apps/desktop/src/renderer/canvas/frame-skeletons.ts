@@ -1,6 +1,7 @@
 import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/core"
 import { type RefObject, useEffect, useState } from "react"
 import { flagsOf } from "../bits.ts"
+import { frameGeometry, frameSize, toFrame } from "./frame-geometry.ts"
 
 /** How long a frame stays the same before it's measured, as long as before its bitmap is taken. */
 const settleMs = 1000
@@ -44,7 +45,7 @@ export function useFrameSkeleton(
         () => {
           const host = tile.current?.querySelector<HTMLElement>("[data-frame]")
           // A frame out of view isn't laid out, so measuring it would lay it out just for this.
-          const measured = host && !host.closest("[data-away]") ? measureFrame(host, width) : undefined
+          const measured = host && !host.closest("[data-away]") ? measureFrame(host) : undefined
 
           if (!measured) {
             timer = setTimeout(attempt, retryMs)
@@ -94,27 +95,26 @@ export function useFrameSkeleton(
  * What a frame draws, in its own CSS pixels and the order it draws it: each line of text, each image and icon, and each
  * box with a background or a border all round. Nothing for a frame that hasn't drawn its design yet.
  */
-export function measureFrame(host: HTMLElement, width: number): { height: number; drawn: DrawnBox[] } | undefined {
+export function measureFrame(host: HTMLElement): { height: number; drawn: DrawnBox[] } | undefined {
   const root = host.shadowRoot
 
   if (!root?.querySelector("[data-canvas-node]")) {
     return undefined
   }
 
-  const frame = host.getBoundingClientRect()
   // The frame is drawn scaled, by the canvas's zoom and its own; boxes are measured as drawn and scaled back.
-  const ratio = frame.width / width
+  const geometry = frameGeometry(host)
+  const frame = { rect: geometry.rect, scale: geometry.scale }
 
-  if (!(ratio > 0)) {
+  if (!(frame.rect.right > frame.rect.left)) {
     return undefined
   }
 
-  const local = (rect: DOMRect) => ({
-    x: (rect.left - frame.left) / ratio,
-    y: (rect.top - frame.top) / ratio,
-    width: rect.width / ratio,
-    height: rect.height / ratio
-  })
+  const local = (rect: DOMRect) => {
+    const { x, y, w, h } = toFrame(frame, rect)
+
+    return { x, y, width: w, height: h }
+  }
 
   const drawn: DrawnBox[] = []
   const range = document.createRange()
@@ -195,7 +195,7 @@ export function measureFrame(host: HTMLElement, width: number): { height: number
     }
   }
 
-  return { height: frame.height / ratio, drawn }
+  return { height: frameSize(frame, frame.rect).height, drawn }
 }
 
 /** Whether a color shows at all: not transparent, and not fully see-through. */

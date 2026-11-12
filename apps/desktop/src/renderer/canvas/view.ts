@@ -9,9 +9,12 @@ import {
 export interface ContainerModes {
   /** The main frame's mode. */
   primary: ResolvedMode
-  /** Modes this design shows next to its main frame, in project order. */
+  /** Modes this design shows next to its main frame, in its order. */
   companions: ResolvedMode[]
+  /** Every mode, in project order: the primary mode first. */
   all: ResolvedMode[]
+  /** Every mode in the design's order: the main frame's first. */
+  ordered: ResolvedMode[]
 }
 
 /** The modes a board shows frames of, by id, and its main one. */
@@ -21,9 +24,46 @@ export interface ShownModes {
 }
 
 export function containerModes(settings: ModeSettings, container: ContainerSpec): ContainerModes {
-  const { main, beside, all } = shownModes(settings, container)
+  const { main, beside, all, ordered } = shownModes(settings, container)
 
-  return { primary: main, companions: beside, all }
+  return { primary: main, companions: beside, all, ordered }
+}
+
+/**
+ * Puts a design's modes in this order: the first is its main frame's, shown whatever else is, and the others are drawn
+ * beside it in this order. A main frame's mode that's no longer first still shows, beside the new one. The project's
+ * primary mode is the default main rather than written down, and an order that is the project's isn't written down
+ * either.
+ */
+export function withModeOrder(
+  view: ContainerViewSettings,
+  order: readonly string[],
+  all: ResolvedMode[]
+): ContainerViewSettings {
+  const [main] = order
+  const was = view.mode ?? all[0]?.id
+  const shown = new Set(view.modes)
+
+  if (was !== undefined) {
+    shown.add(was)
+  }
+
+  shown.delete(main ?? "")
+  const next: ContainerViewSettings = { ...view, modes: [...shown] }
+
+  if (main === undefined || main === all[0]?.id) {
+    delete next.mode
+  } else {
+    next.mode = main
+  }
+
+  if (order.every((id, index) => id === all[index]?.id)) {
+    delete next.order
+  } else {
+    next.order = [...order]
+  }
+
+  return next
 }
 
 /**

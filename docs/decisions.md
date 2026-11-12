@@ -2726,6 +2726,20 @@ the Repository, CI and releases stream in Linear.
     or systems do.
   - Vite Task's cache isn't kept between runs yet. `pnpm verify` runs through `vp run` since PAR-405, and ci-verify's
     `vite-task-cache` input turns the rest on.
+- **CI checks each system's app in a job of its own, beside `verify` (PAR-1010).** Windows' verify took 14.4 minutes
+  against Ubuntu's 4.1, though its `pnpm verify` took 4, about what macOS took. The rest was setup on a slow disk and
+  checks only Windows ran, one after another. You asked for these changes:
+  - `verify` runs `pnpm verify` and `try-packed` on each system. `app-windows`, `app-linux` and `app-macos` build and
+    package the app, each its own ci-verify call that runs beside it: Windows also starts the built app, installs it and
+    updates it, Linux updates it, and macOS only packages. Every installer target still has to build before a merge.
+    `app-windows` uploads the source maps, and `CI passes` waits on every job.
+  - The Windows and Linux app jobs install the fixture projects as `verify` does, from the same cache, since the start
+    and update checks open them. `app-macos` caches only Electron's downloads, keyed on the app's `package.json`.
+  - Windows doesn't run from a Dev Drive. ci-verify had one for a day, a trusted ReFS drive holding a copy of the
+    checkout, TEMP and pnpm's store, but with warm caches `vp install` took 152 to 201 seconds instead of 21, as pnpm
+    copies packages onto ReFS slowly, and `pnpm verify` took the same 4 minutes. You had it taken out of Pipelines.
+  - `try-update.ts` builds its two installers with `store` compression, since neither leaves the runner. Compressing
+    each took about a minute on Windows.
 - **Parity's checks are Vite+ tasks, so Vite Task replays one whose inputs haven't changed (PAR-405).** My calls:
   - The root `vite.config.ts` defines `check` (`vp check`), `test` (`vp test run`) and `types`
     (`vp lint --type-aware --type-check`). `pnpm verify` is `vp run check && vp run test`, `pnpm check:types` is
@@ -3764,9 +3778,6 @@ answers for a frame host. My calls:
   positioned around it in the design has the frame's outline, `.mode-frame`, as its `offsetParent`, and the frame's
   `zoom` doesn't scale that outline. Read at its own scale, a companion frame at half size gave half the insets. A
   review of this change found it before it merged.
-- **Frame skeletons keep their own ratio for now.** `measureFrame` in `canvas/frame-skeletons.ts` divides the frame's
-  drawn width by its width too, but PAR-954 and PAR-955, in progress, work on frames' bitmaps and skeletons, so it moves
-  over in PAR-996 once they land.
 
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
@@ -4191,6 +4202,16 @@ stops the servers a project needs. Storybook is the first to use it; dev servers
   the project only takes it off the list. Only what Parity started is ever stopped.
 - **Closing a project stops everything Parity started for it** (`stopProject`), and quitting stops everything. Starting
   a server again under the same id stops the last one first, so a project never has two of one server.
+- **Stopping a server ends its whole process tree** (PAR-980). `killTree` in
+  [process-tree.ts](../apps/desktop/src/shared/process-tree.ts) runs `taskkill /T /F` on Windows. On macOS and Linux it
+  reads the tree from `ps`, then sends each process SIGTERM, parents first, so a dev server's workers go with it. It
+  walks the tree rather than killing a process group, so servers aren't spawned detached and nothing they start in a
+  group of its own is missed.
+- **Main ends the project service with its servers** (PAR-980). The service stops its servers from an exit handler, but
+  a process that's killed runs none, so when main quits or replaces the service it calls `killTree` on the service's
+  process, which takes the servers it started with it. On Windows `taskkill /F` ends the service with code 1, so a
+  service ended as the app quits isn't taken for a crash, and a replaced one's `service.exited` says code 1. A service
+  that crashes is already gone, so its servers are left running until PAR-1019 stops them.
 - **Builders and tasks stay as they are.** A project's builder has its own process and closing rules (CAN-81), and tasks
   such as installs and type checks run once and report a result; both still list themselves in the same processes, and
   either could move onto the manager when there's a reason to.
@@ -4253,8 +4274,8 @@ same screen. My calls:
 - **Opening writes nothing.** The Home screen opens as if the project file held it, so opening a folder leaves it as it
   was, and the file is written with the first change. A Home screen made on open but never kept is no loss, since the
   next open makes the same one.
-- **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
-  deleted opens with none, as the person left it.
+- **A file whose designs were all deleted opens with none,** as the person left it. A file that can't be read stops the
+  project opening (PAR-1011), so there's no Home screen to write over it.
 
 ## Agents name states by id, and a name points to its id (PAR-459)
 
@@ -5010,7 +5031,8 @@ taking my recommendation:
 - **Parity talks to WorkOS itself, with no new library:** a public client with PKCE, on `fetch` and zod, in a new
   `@parity-app/account` package. `@workos/authkit-electron` was passed over: it's at 0.1.2, needs an older
   `@workos-inc/node` than Better Apps uses, and brings `electron-store` and its own React provider.
-- **Signing in is optional.** Nothing that works on local folders asks for it.
+- **Signing in is optional.** Nothing that works on local folders asks for it. (Replaced on 2026-11-12: an installed
+  copy requires it, PAR-1008.)
 
 My calls:
 
@@ -6511,6 +6533,31 @@ My calls:
 - **It ends signed out,** whether ended from the band, by Sign out, by WorkOS's 60 minutes or by quitting. The
   impersonated refresh token never goes to `safeStorage`, and the support person's own session isn't kept aside.
 - **Telemetry tags every event in it** with `impersonated: true` and the support person's email.
+
+## An installed copy needs you signed in (PAR-1008)
+
+Your calls, on 2026-11-12: you must sign in when the app opens, the sign-in screen loses "Open a folder on this computer
+without signing in", and "Parity never sees your password" sits at its foot in that link's place. This replaces "Signing
+in is optional".
+
+My calls:
+
+- **Every copy requires it, `pnpm dev` too** (your call, 2026-11-12). A copy run from source shares the installed app's
+  kept accounts, so signing in once on a computer covers every run. A copy with its own user data folder, as the
+  end-to-end tests and `pnpm perf` have, starts as a stand-in.
+- **The screen covers what's open and changes nothing under it.** Open projects and unsaved changes stay as they are, as
+  with Session ended. The title bar and its menus still show, so a project opened from the File menu opens behind the
+  screen.
+- **A session that ends with another account still signed in** moves you to that account and says so in the dialog, as
+  before. Only with nobody left does the screen show.
+- **Tests start signed in as a stand-in,** from `PARITY_SIGNED_IN_AS`, with no tokens and without WorkOS, so no real
+  account or token is in CI. A built copy takes one too, since the checks that install and update a build have to get
+  past the screen; it's no way round signing in for anything that matters, since a stand-in has no token and Parity's
+  service checks every request.
+- **A first launch with no connection stays on the screen,** since there's no way to sign in without one. Someone who
+  signed in before stays signed in offline, as before.
+- **It ships after signing in is proven in an installed build** (PAR-651), since nothing gets past the screen without
+  it.
 
 ## The Design panel's calls (PAR-652)
 
@@ -8118,6 +8165,12 @@ and split into PAR-1004 to PAR-1007:
 - **Functions take the part of the project they use,** a `DesignStore`, a `ProjectInfo` or a
   `Pick<ProjectSession, "store" | "selection">`, so tests build that part without a cast. Opening, closing and the
   workspace still take the whole session.
+- **Only the designs and the selection have a name, `ProjectDesigns`** (PAR-1006), since most canvas and panel edits
+  read both. A function that reads one part, and reads it straight away, takes that part: a `DesignStore`, a
+  `SelectionStore`, the `Editor`, a `ProjectInfo` or the project's id. One that reads more takes
+  `ProjectDesigns & Pick<ProjectSession, ...>` or a `Pick`, which names what it reads where a type of its own would hide
+  it, and reads a changing part, such as the editor, when it uses it. Component previews keep the whole session, since
+  they follow its changes and end with it.
 - **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
   would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
   reopened project, which keeps its root, would pick up the last one's state.
@@ -8262,3 +8315,143 @@ asked on 2026-11-11 for 10%, about where a design's details stop showing. My cal
   forth.
 - **Between 10% and the old line, frames draw their designs.** At 1.5x that's 10% to 17%. More frames are live at those
   zooms, so `pnpm perf`'s zoom run and `canvas.restedFar` (PAR-949) show what it costs and whether the bitmaps arrive.
+
+## A design keeps its own mode order, and the crown is gone (PAR-923)
+
+You approved a Modes section with a handle on each mode and no radio, Show all, Only or crown, and asked on 2026-11-12
+for the crown to leave the canvas too. My calls:
+
+- **The order belongs to the design,** not the project. Each design already picked the mode it shows first, so the order
+  is the same choice taken further, and dragging in one design's panel doesn't reorder every other board. The Modes
+  tab's order and Make primary still set the project's.
+- **The first mode is the one shown first,** so moving a mode to the top is how a design picks it. The mode that was
+  first stays shown beside the new one, rather than disappearing because something moved above it.
+- **The board's modes menu keeps Show first, Show all and Only,** since only the panel's design was approved.
+
+## A design file that can't be read stops the project opening (PAR-1011)
+
+Since PAR-1002, older project files with states on a screen fail the file's check. The project opened without that
+file's designs, and a card at the bottom of Layers gave the reason. You found that the wrong place, and asked for the
+project not to open at all, with the error saying why. My calls follow your answers:
+
+- **A `.par` that isn't JSON, or doesn't match the design file format, stops the project opening.** The page that says a
+  project couldn't open shows it, with the reason in Details: "shadcn-vite.par doesn't match the design file format:"
+  and the check's pointer and message under it, or "isn't valid JSON:" and the parser's message. A `.lib.par` is checked
+  against the library file format the same way. The format is still the zod schema `parseCanvasDocument` runs.
+- **The page has one button, Close** (your call). Try again and Open another project went, for every reason a project
+  can't open, since it's one page. Show in folder stays beside the folder.
+- **Its buttons sit at the right, the main one last, as in a dialog's footer** (your call), for every error page in a
+  tab, including a project or Home that stopped working. `ErrorPage` lays them out, so each page passes its buttons and
+  nothing else.
+- **No Open in editor.** You asked for the error alone. I considered a dialog over the project and a message on the
+  canvas, with a button to open the file at the bad line; both kept a project open that can't be saved.
+- **A file that changes on disk while the project is open and no longer reads** is left as before: the change is skipped
+  and logged, often a file caught mid-write.
+
+## Frames in view are drawn first, and swap their bitmaps while zooming in (PAR-955)
+
+Zooming back in from far out, frames that slept kept showing their bitmaps, blurry once enlarged, until the zoom
+settled, then woke one each animation frame in the order they asked. Bitmaps were captured in that order too, whatever
+was in view. You asked on 2026-11-11 for what's in view and around it to come before what's far away, and for bitmaps in
+view to swap for designs while still zooming. My calls:
+
+- **Waking goes by the zoom, sleep by the settled zoom.** A board's frames stop being dormant as soon as the zoom is
+  back above the line's margin (`isFarZoom`), even mid-zoom. Falling asleep still waits for the zoom to settle, so a
+  zoom passing through the line doesn't take frames apart.
+- **In view, then around it, then far away, for waking and captures,** and within each the nearest the middle first
+  (`viewRank` in core), read when each turn comes, so a camera still moving gets what's in view now. Frames with no
+  place, as a project's picture asks for, go last.
+- **`IntersectionObserver`, not measuring.** The first version measured every waiting frame's box at each turn, which
+  makes the browser lay the page out to answer. One observer each canvas shares, of the view and a quarter-view margin
+  around it, reports each frame as it crosses that edge, with its box; ranking reads what it last reported. It watches
+  no other edges, since a zoom moves every frame on every frame and each edge is checked again for all of them.
+- **Each frame is near or not on its own.** A board with many states and modes is large, and any edge of it near the
+  view woke every frame on it. A frame now wakes only once its board and the frame itself are near, so frames a screen
+  or more away on a near board stay asleep.
+- **Still one frame each animation frame.** Waking more at once is what kept the page busy for seconds (PAR-197);
+  choosing which one is what changed.
+- **The zoom is read once, not by every board.** Whether the camera rests far (`isRestingFar`) now also needs the zoom
+  itself past the line's margin, worked out in one place, so boards still read a signal that changes only crossing the
+  line rather than each checking the zoom on every frame of a zoom.
+- **Measured against the changes before it,** as you asked, with `pnpm perf`'s four zoom runs three times each, taking
+  turns, on a 1.5x screen: before PAR-949, with it, with the 10% line (PAR-954), and with this. The medians were within
+  the runs' spread of each other (far zoom 46.5, 40.8, 35.8 and 45.8 fps; zoom at 100% 32.3, 27.3, 28.5 and 30.0), with
+  other copies of the app running on the machine. No run crosses the line, so the swap itself was timed apart: zooming
+  in from 5% to 40% over 1.5 seconds, frames in view started drawing at 14% and none showed a bitmap when the zoom
+  stopped, where before every one showed its bitmap until then, and two still did 1.3 seconds after.
+
+## Project files are written whole, and one check says what's inside the project (PAR-973)
+
+Caches were written more safely than designs: a `.par` save wrote over the file in place, so a save cut off partway
+could leave half a file, and four modules each decided what's inside the project, two by a prefix. My calls:
+
+- **One function writes a project file,** `writeProjectFile(root, path, content)` in the project service's
+  `utility/project-files.ts`: under a hidden name beside the file, then renamed over it, tried a few times on Windows
+  while another process holds the file. A save that's cut off leaves the file as it was, and the watcher never reads
+  half of one. `.par` saves and every project edit (token and stylesheet edits, library style imports, images) use it;
+  removing a file is `removeProjectFile`. It stays in the app, because `@parity-app/project` is a reader package that
+  never writes. `parity lib` still writes its `.lib.par` in place until PAR-423 moves it onto project edits. A copy
+  saved through Save a copy isn't a project file and is written as before.
+- **One function says what's inside a project,** `insideProject(root, path)` in `@parity-app/project`, by the relative
+  path: not the root itself, `..`, a sibling folder whose name starts with the root's, or another drive, and on Windows
+  regardless of case. Edits, saves, Code's file reads and removing an image use it, the last with `public/images/` or
+  `public/videos/` as the root. It reads nothing, so it judges a symlink by where it sits.
+- **A write follows symlinks and refuses one that leads out of the project.** The writer checks the real folder it would
+  land in against the root's real folder, so a linked folder or file inside the project is written through, and stays a
+  link, while one that leads elsewhere on disk is refused with "links outside the project". Reads, such as the Code
+  section's, still go by the path alone.
+- **What a write put there is known once it has landed,** not before, so a failed write never leaves Parity believing a
+  file holds what it doesn't. An edit that fails partway puts back only the files that landed, since a file is now
+  written whole or not at all.
+- **Saves wait their turn with the project's edits,** in the same queue, so two saves made at once land in the order
+  they were made and a `.lib.par` save reads the manifest no other write is partway through.
+
+## Main's lifecycles are modules with tests (PAR-972)
+
+`main/index.ts` held four lifecycles at its module scope, where they ran only inside Electron and no test reached them:
+the window's close and quit, the project service process, the offscreen render windows and the performance stats.
+PAR-1012 to PAR-1015 moved one each. My calls:
+
+- **Each is a `createX(options)` module that takes what it needs of Electron as adapters,** as `createAccount` and
+  `createConnectorHub` already did: `createCloseFlow` in `main/close-flow.ts`, `createProjectService` in
+  `main/project-service.ts`, `createRenderPool` in `main/render-pool.ts` and `createProcessUsage` in
+  `main/process-usage.ts`. None imports Electron, so their tests run without it, against fakes.
+- **An adapter is a small object `index.ts` builds from Electron's own,** not the `BrowserWindow` or `UtilityProcess`
+  itself: a closing window is its id, `crashed`, `destroyed`, `ask`, `close`, `onClose` and `onClosed`. A fake then has
+  only what the module uses, and the module can't reach past it.
+- **The render pool hands back the windows it opened,** each carrying its `BrowserWindow`, so `index.ts` still tells a
+  render window from an app window, and the performance stats still name the offscreen renderers.
+- **The service's handlers stay in `index.ts`.** They connect the service to the account, the connectors, the console
+  log and the render pool, which is wiring. The lifecycle takes them whole and gives them to each fresh service's
+  channel.
+- **Timers are real `setTimeout`s,** and the tests use Vitest's fake timers, as `idle-close.test.ts` does. The service's
+  clock for how long it ran is an option, since fake timers don't move `performance.now()` by default.
+- **Behaviour didn't change.** The close flow keeps the five flags and the three-second wait, the service its back-off
+  (PAR-788), and the render pool its crash reopen (PAR-681) and idle close. One quirk stays as it was: a page that says
+  its window may close for an update without first saying it's deciding, whose install then fails, has its window closed
+  by the three-second wait. The preload always says it's deciding first, so the window doesn't close.
+- **The close flow's test is a table** over how a close starts (closing, quitting, restarting for an update) and what
+  the page answers, with each row's outcome: closed, quit, installed, failed, still quitting and called off.
+- **`index.ts` is wiring:** it builds the adapters, creates the four, and connects them to each other and to the app. It
+  went from 1,504 lines to about 1,020. The rest of it is the account, the connectors, the theme, the menus and the
+  window's handlers, which already had modules of their own.
+
+## Parity's windows stay on Parity's page (PAR-975)
+
+Project code runs in the editor window's page and in the offscreen render windows. Nothing stopped either navigating
+elsewhere, and every load of the editor window was given a port to the project service, so a page a link or script took
+it to would keep the preload bridge and every service method. My calls:
+
+- **Each window shows one page.** The editor window shows `PARITY_RENDERER_URL`: the Vite server's page in development,
+  `parity://app/index.html` installed. A render window shows `render.html` beside it. `onPage` in `main/parity-page.ts`
+  compares by scheme, host and path, as the sender check has since PAR-965, so a query, a hash or a reload is the same
+  page. `fromParityPage` now uses it, so the two can't drift apart.
+- **`will-navigate` and `will-redirect` refuse anywhere else,** through `pageGuard`. A link the editor window refuses
+  opens in the browser when `opensInBrowser` takes it, which is the window-open handler's rule (https, or http on
+  localhost and 127.0.0.1) and now its function too. A refused redirect opens nothing, since no one clicked it, and a
+  render window opens nothing, since no one sees it.
+- **Only the main frame is held.** Frames inside a design, such as an embedded video or map, navigate and redirect as
+  they would in a browser. They don't get the preload bridge, and the sender check already refuses them.
+- **Only Parity's page gets a service port.** `createProjectService` takes `parityPage`, and both `connect` and a
+  restart's reconnecting skip any other page; one that isn't Parity's doesn't start a service either. The guard should
+  mean no other page ever loads, so this is the second lock behind it.

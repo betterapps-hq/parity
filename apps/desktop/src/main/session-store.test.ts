@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import type * as Fs from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import {
   type Encryption,
   type StoreProblem,
@@ -12,6 +13,26 @@ import {
   withoutAccount
 } from "./session-store.ts"
 
+/** Whether the next `writeFile` is cut short: half its bytes reach the disk, then it fails. */
+const cut = vi.hoisted(() => ({ next: false }))
+
+vi.mock("node:fs/promises", async (original) => {
+  const fs = await original<typeof Fs>()
+
+  return {
+    ...fs,
+    writeFile: async (file: string, content: Uint8Array, options?: Parameters<typeof Fs.writeFile>[2]) => {
+      if (!cut.next) {
+        return fs.writeFile(file, content, options)
+      }
+
+      cut.next = false
+      await fs.writeFile(file, content.slice(0, content.length / 2), options)
+      throw new Error("The disk was pulled out")
+    }
+  }
+})
+
 let folder = ""
 let file = ""
 
@@ -20,7 +41,10 @@ beforeEach(() => {
   file = join(folder, "account")
 })
 
-afterEach(() => rmSync(folder, { recursive: true, force: true }))
+afterEach(() => {
+  cut.next = false
+  rmSync(folder, { recursive: true, force: true })
+})
 
 /** A keychain that encodes the text as base64, so what's written is never the token as given. */
 function keychain(backend?: string, available = true): Encryption {
@@ -65,6 +89,20 @@ describe("sessionStore", () => {
     store.clear()
     expect(existsSync(file)).toBe(false)
     expect(await store.read()).toBeUndefined()
+  })
+
+  it("keeps the last accounts readable when a write is cut short", async () => {
+    const store = sessionStore(file, keychain(), "win32")
+    await store.update((kept) => withAccount(kept, ada))
+    cut.next = true
+    await expect(store.update((kept) => withAccount(kept, work))).rejects.toThrow("The disk was pulled out")
+    expect(await sessionStore(file, keychain(), "win32").read()).toEqual({ accounts: [ada] })
+    expect(readdirSync(folder)).toEqual(["account"])
+  })
+
+  it.skipIf(process.platform === "win32")("keeps the file readable only by the person", async () => {
+    await sessionStore(file, keychain(), "linux").update((kept) => withAccount(kept, ada))
+    expect(statSync(file).mode.toString(8).slice(-3)).toBe("600")
   })
 
   it("removes the file once no account is left", async () => {

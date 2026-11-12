@@ -168,7 +168,7 @@ export function MediaPanel() {
 
 /** Adds image and video files to the project, then lists them, marked for a moment as they arrive on the wall. */
 async function addFiles(session: ProjectSession, files: readonly File[]): Promise<void> {
-  const saved = await addImageFiles(session, files)
+  const saved = await addImageFiles(session.id, files)
 
   if (saved.length === 0) {
     return
