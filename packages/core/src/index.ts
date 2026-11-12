@@ -105,7 +105,12 @@ export {
   gradientKinds,
   type GradientPaint,
   type ImagePaint,
+  isEasingFunction,
+  isEasingKeyword,
   isNamedLength,
+  isSpring,
+  isTimeToken,
+  isTransitionSet,
   type Length,
   type Move,
   type NodeStyle,
@@ -123,9 +128,13 @@ export {
   type Size,
   type SolidPaint,
   spacing,
+  springLinear,
+  springSamples,
+  springSettle,
   type StyleKey,
   styleKeys,
   token,
   type TokenGradientPaint,
-  type Transform
+  type Transform,
+  type Transition
 } from "@parity-app/style"

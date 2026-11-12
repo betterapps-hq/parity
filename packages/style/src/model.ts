@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { transition } from "./motion.ts"
 import { nodeFill } from "./paint.ts"
 import { finiteNumber, stored } from "./stored.ts"
 
@@ -199,7 +200,11 @@ export const nodeStyle = stored({
   decoration: z.enum(["underline", "line-through"]).optional(),
   italic: z.boolean().optional(),
   /** Lines of text before it's cut off with an ellipsis. */
-  lines: finiteNumber.optional()
+  lines: finiteNumber.optional(),
+
+  // Motion.
+  /** How the layer moves from one look to the next, as a state change shows it. */
+  transitions: z.array(transition).optional()
 })
 
 /**

@@ -110,7 +110,46 @@ export const bitmapCacheUsed = defineEvent(
   }
 )
 
-export const renderEvents = [frameRendered, frameFailed, previewMade, previewFailed, bitmapCacheUsed] as const
+const showing = {
+  bitmaps: count("Frames in view showing their bitmap"),
+  skeletons: count("Frames in view showing their skeleton, measured from the frame, until its bitmap comes"),
+  placeholders: count("Frames in view showing a plain placeholder, having never drawn, until their bitmap comes"),
+  live: count("Frames in view drawing their design, having neither a bitmap nor a skeleton yet")
+}
+
+export const canvasRestedFar = defineEvent(
+  "canvas.restedFar",
+  z.object({
+    zoom: z.number().positive().describe("The canvas's zoom, where 1 is 100%"),
+    pixelRatio: z.number().positive().describe("The screen's device pixel ratio, which moves where the line is"),
+    frames: count("Frames in view, leaving out the selected board's, which stay live"),
+    ...showing,
+    bitmapsAtRest: showing.bitmaps.describe("Frames in view showing their bitmap as the camera came to rest"),
+    skeletonsAtRest: showing.skeletons.describe("Frames in view showing their skeleton as the camera came to rest"),
+    placeholdersAtRest: showing.placeholders.describe(
+      "Frames in view showing a placeholder as the camera came to rest"
+    ),
+    liveAtRest: showing.live.describe("Frames in view drawing their design as the camera came to rest"),
+    untilBitmapsMs: ms("From coming to rest until every frame in view showed its bitmap, when they all did").optional(),
+    ended: z
+      .enum(["bitmaps", "waited", "moved"])
+      .describe("Every frame in view showed its bitmap, 10 seconds passed first, or the camera moved first")
+  }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "The camera rests zoomed out far enough for frames to show bitmaps, once every frame in view shows one, 10 seconds pass, or the camera moves."
+  }
+)
+
+export const renderEvents = [
+  frameRendered,
+  frameFailed,
+  previewMade,
+  previewFailed,
+  bitmapCacheUsed,
+  canvasRestedFar
+] as const
 
 /** How long a frame may draw before it's recorded as timed out, in milliseconds. It's left to finish. */
 export const frameTimeoutMs = 30_000
@@ -180,6 +219,90 @@ export function cacheCounter(): CacheCounter {
         previewMisses: previews.misses,
         previewHitRate: rate(previews)
       }
+    }
+  }
+}
+
+/** How long `canvas.restedFar` waits for every frame in view to show its bitmap, in milliseconds. */
+export const restedFarWaitMs = 10_000
+
+/** What the frames in view show, zoomed far out. */
+export interface FramesShowing {
+  bitmaps: number
+  skeletons: number
+  placeholders: number
+  live: number
+}
+
+type RestedFar = z.input<typeof canvasRestedFar.schema>
+
+/** Follows one rest of the camera zoomed far out, as `watchRestedFar` makes it. */
+export interface RestedFarWatch {
+  /** What the frames in view show at `at`: `canvas.restedFar`'s attributes once that ends the rest, else nothing. */
+  saw(at: number, frames: FramesShowing): RestedFar | undefined
+  /** The camera moved at `at`: the attributes, unless the rest already ended or had no frames in view. */
+  moved(at: number, frames: FramesShowing): RestedFar | undefined
+}
+
+/**
+ * Follows the camera resting zoomed far out, from `rest.at`, given what the frames in view show over time, and says how
+ * it went once every frame in view shows its bitmap, `restedFarWaitMs` pass, or the camera moves: the frames' bitmaps,
+ * skeletons, placeholders and live designs at rest (the first look that finds frames) and at the end, and how long the
+ * bitmaps took. A rest with no frames in view says nothing, and a rest says it once.
+ */
+export function watchRestedFar(rest: { at: number; zoom: number; pixelRatio: number }): RestedFarWatch {
+  let first: FramesShowing | undefined
+  let ended = false
+
+  const end = (at: number, frames: FramesShowing, how: RestedFar["ended"]): RestedFar | undefined => {
+    ended = true
+    const atRest = first ?? frames
+    const total = frames.bitmaps + frames.skeletons + frames.placeholders + frames.live
+
+    if (total === 0) {
+      return undefined
+    }
+
+    const attributes: RestedFar = {
+      zoom: rest.zoom,
+      pixelRatio: rest.pixelRatio,
+      frames: total,
+      ...frames,
+      bitmapsAtRest: atRest.bitmaps,
+      skeletonsAtRest: atRest.skeletons,
+      placeholdersAtRest: atRest.placeholders,
+      liveAtRest: atRest.live,
+      ended: how
+    }
+
+    if (how === "bitmaps") {
+      attributes.untilBitmapsMs = Math.max(0, Math.round(at - rest.at))
+    }
+
+    return attributes
+  }
+
+  return {
+    saw(at, frames) {
+      if (ended) {
+        return undefined
+      }
+
+      const total = frames.bitmaps + frames.skeletons + frames.placeholders + frames.live
+
+      // The first look that finds frames is what showed at rest: one before they're laid out finds none.
+      if (total > 0) {
+        first ??= frames
+      }
+
+      if (total > 0 && frames.bitmaps === total) {
+        return end(at, frames, "bitmaps")
+      }
+
+      return at - rest.at >= restedFarWaitMs ? end(at, frames, "waited") : undefined
+    },
+    moved(at, frames) {
+      return ended ? undefined : end(at, frames, "moved")
     }
   }
 }
