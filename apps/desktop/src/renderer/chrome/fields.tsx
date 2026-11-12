@@ -12,6 +12,7 @@ import {
   PopoverTrigger,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -840,11 +841,13 @@ export function ChoiceInput<T extends string>({
         <SelectValue placeholder="Mixed" />
       </SelectTrigger>
       <PanelSelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </PanelSelectContent>
     </Select>
   )

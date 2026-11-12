@@ -10,6 +10,7 @@ import {
   RadioGroupItem,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -379,11 +380,13 @@ function SlotSelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
     </Field>
@@ -573,11 +576,13 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.values(organizations).map((candidate) => (
-                    <SelectItem key={candidate.id} value={candidate.id}>
-                      {candidate.name}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {Object.values(organizations).map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        {candidate.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
               <span className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-input px-2.5 text-sm dark:bg-input/30">

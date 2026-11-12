@@ -8,6 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Select,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -1254,11 +1255,13 @@ export function TextSection({ draft, set }: SectionProps) {
             <SelectValue />
           </SelectTrigger>
           <PanelSelectContent>
-            {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </PanelSelectContent>
         </Select>
       </Field>

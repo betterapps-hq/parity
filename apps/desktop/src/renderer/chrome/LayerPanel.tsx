@@ -1,4 +1,4 @@
-import { Button, Kbd, Select, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd, Select, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
 import {
   type BindableField,
   boardTarget,
@@ -756,13 +756,15 @@ function InstanceSection({
                 <SelectValue placeholder="Swap component" />
               </SelectTrigger>
               <PanelSelectContent>
-                {swappable
-                  .filter((candidate) => candidate.container.id !== node.design)
-                  .map((candidate) => (
-                    <SelectItem key={candidate.key} value={candidate.container.id}>
-                      {candidate.container.name}
-                    </SelectItem>
-                  ))}
+                <SelectGroup>
+                  {swappable
+                    .filter((candidate) => candidate.container.id !== node.design)
+                    .map((candidate) => (
+                      <SelectItem key={candidate.key} value={candidate.container.id}>
+                        {candidate.container.name}
+                      </SelectItem>
+                    ))}
+                </SelectGroup>
               </PanelSelectContent>
             </Select>
             <Hint label="Turn this copy into plain layers, no longer linked to the component" wait>
@@ -840,11 +842,13 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           <SelectValue />
         </SelectTrigger>
         <PanelSelectContent>
-          {states.map((candidate) => (
-            <SelectItem key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {states.map((candidate) => (
+              <SelectItem key={candidate.id} value={candidate.id}>
+                {candidate.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </PanelSelectContent>
       </Select>
       {/* What edits change wraps rather than spilling past the bar when it doesn't fit beside the state. */}

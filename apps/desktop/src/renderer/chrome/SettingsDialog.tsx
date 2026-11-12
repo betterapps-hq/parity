@@ -6,6 +6,7 @@ import {
   DialogTitle,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -133,11 +134,13 @@ export function SettingsDialog() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {editorChoices.map((choice) => (
-                  <SelectItem key={choice.value} value={choice.value}>
-                    {choice.label}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {editorChoices.map((choice) => (
+                    <SelectItem key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </Row>

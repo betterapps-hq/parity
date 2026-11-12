@@ -10,6 +10,7 @@ import {
   Label,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -293,11 +294,13 @@ export function IssueDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {tracker.places.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {tracker.places.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>

@@ -5,6 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Select,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -701,11 +702,13 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
             <SelectValue />
           </SelectTrigger>
           <PanelSelectContent>
-            {springModeItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {springModeItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </PanelSelectContent>
         </Select>
       </div>

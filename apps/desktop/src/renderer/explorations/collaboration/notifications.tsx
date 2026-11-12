@@ -8,6 +8,7 @@ import {
   RadioGroupItem,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -546,10 +547,12 @@ export function NotificationSettings({ className = "" }: { className?: string })
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="now">Right away</SelectItem>
-                  <SelectItem value="daily">Daily summary</SelectItem>
-                  <SelectItem value="weekly">Weekly summary</SelectItem>
-                  <SelectItem value="off">Never</SelectItem>
+                  <SelectGroup>
+                    <SelectItem value="now">Right away</SelectItem>
+                    <SelectItem value="daily">Daily summary</SelectItem>
+                    <SelectItem value="weekly">Weekly summary</SelectItem>
+                    <SelectItem value="off">Never</SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>

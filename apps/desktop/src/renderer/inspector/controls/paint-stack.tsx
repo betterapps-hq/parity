@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Select,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -583,11 +584,13 @@ export function GradientEditor({
               <SelectValue />
             </SelectTrigger>
             <PanelSelectContent>
-              {blends.map((blend) => (
-                <SelectItem key={blend.value} value={blend.value}>
-                  {blend.label}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {blends.map((blend) => (
+                  <SelectItem key={blend.value} value={blend.value}>
+                    {blend.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </PanelSelectContent>
           </Select>
         </Field>

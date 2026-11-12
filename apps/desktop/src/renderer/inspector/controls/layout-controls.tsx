@@ -5,6 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Select,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -300,11 +301,13 @@ export function LayoutSection({ draft, set }: SectionProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <PanelSelectContent>
-                    {lineItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {lineItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </PanelSelectContent>
                 </Select>
               </Field>

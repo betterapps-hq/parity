@@ -17,6 +17,7 @@ import {
   RadioGroupItem,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue
@@ -224,11 +225,13 @@ function ExportChoices({
                 <SelectValue>{(value: string) => `${value} px`}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {sizes.map((option) => (
-                  <SelectItem key={option} value={String(option)}>
-                    {option} px
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {sizes.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option} px
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </Field>

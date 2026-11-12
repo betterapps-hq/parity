@@ -3,6 +3,7 @@ import {
   Button,
   Input,
   Select,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -307,11 +308,13 @@ export function ColorEditor({
             <SelectValue />
           </SelectTrigger>
           <PanelSelectContent>
-            {models.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {models.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </PanelSelectContent>
         </Select>
         <div className="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-1">{fields[model]}</div>

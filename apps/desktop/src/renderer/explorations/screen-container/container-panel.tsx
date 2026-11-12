@@ -7,6 +7,7 @@ import {
   RadioGroupItem,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -250,11 +251,13 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {designStates(entry.container).map((candidate) => (
-            <SelectItem key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {designStates(entry.container).map((candidate) => (
+              <SelectItem key={candidate.id} value={candidate.id}>
+                {candidate.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
       <span className="shrink-0 text-muted-foreground">{changes}</span>

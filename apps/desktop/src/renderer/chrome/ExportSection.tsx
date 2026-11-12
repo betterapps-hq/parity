@@ -1,4 +1,4 @@
-import { Button, Select, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Select, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
 import { describeFiles, type ExportSize, exportFiles, nextExportSize } from "@parity-app/editor"
 import { Download, Minus, Plus } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
@@ -48,9 +48,11 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
                 <SelectValue>{(value: ExportSize["scale"]) => `${value}x`}</SelectValue>
               </SelectTrigger>
               <PanelSelectContent>
-                <SelectItem value={1}>1x</SelectItem>
-                <SelectItem value={2}>2x</SelectItem>
-                <SelectItem value={3}>3x</SelectItem>
+                <SelectGroup>
+                  <SelectItem value={1}>1x</SelectItem>
+                  <SelectItem value={2}>2x</SelectItem>
+                  <SelectItem value={3}>3x</SelectItem>
+                </SelectGroup>
               </PanelSelectContent>
             </Select>
             <Select<ExportSize["format"]>
@@ -61,8 +63,10 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
                 <SelectValue>{(value: ExportSize["format"]) => value.toUpperCase()}</SelectValue>
               </SelectTrigger>
               <PanelSelectContent>
-                <SelectItem value="png">PNG</SelectItem>
-                <SelectItem value="jpg">JPG</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="png">PNG</SelectItem>
+                  <SelectItem value="jpg">JPG</SelectItem>
+                </SelectGroup>
               </PanelSelectContent>
             </Select>
             <IconButton

@@ -3,6 +3,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
   Select,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue
@@ -370,14 +371,16 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
             </SelectTrigger>
             {/* Wider than its half-row trigger, so what each fit does reads whole, and lined up with its left edge. */}
             <PanelSelectContent className="w-56" align="start" alignItemWithTrigger={false}>
-              {fits.map((fit) => (
-                <SelectItem key={fit} value={fit}>
-                  <span className="flex flex-col gap-0.5">
-                    <span>{fitNames[fit]}</span>
-                    <span className="text-muted-foreground">{fitDetails[fit]}</span>
-                  </span>
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {fits.map((fit) => (
+                  <SelectItem key={fit} value={fit}>
+                    <span className="flex flex-col gap-0.5">
+                      <span>{fitNames[fit]}</span>
+                      <span className="text-muted-foreground">{fitDetails[fit]}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </PanelSelectContent>
           </Select>
         </Field>

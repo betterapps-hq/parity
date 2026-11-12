@@ -6,6 +6,7 @@ import {
   PopoverTrigger,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -119,12 +120,14 @@ export function FilterControl({ filter, value, named, onChange }: FilterControlP
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {!filter.default && <SelectItem value={any}>{nameOf(any)}</SelectItem>}
-        {filter.values.map((each) => (
-          <SelectItem key={each.id} value={each.id}>
-            <ValueMark value={each} /> {each.name}
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          {!filter.default && <SelectItem value={any}>{nameOf(any)}</SelectItem>}
+          {filter.values.map((each) => (
+            <SelectItem key={each.id} value={each.id}>
+              <ValueMark value={each} /> {each.name}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   )
