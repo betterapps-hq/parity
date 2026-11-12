@@ -4966,6 +4966,8 @@ the style to set.
   rather than emptying the panel.
 - **Each tab's checks.** A tab keeps its designs' checks until it closes, when they go, and a check still running then
   is let go (PAR-1005).
+- **The newest check wins.** Checking a design again before the last check answers shows only the newest check's result,
+  whichever reply lands first; an older one's result or failure is dropped (PAR-979).
 
 Code: `contrastFix` and `contrastRatio` in `packages/tokens/src/contrast.ts`, `colorDistance` in
 `packages/tokens/src/color.ts`; the frame's readings (`contrastReadings`, `follows`, `tokenColors`) in
@@ -4978,10 +4980,11 @@ frames, preferred tokens and the fallback, large text, no token); `packages/agen
 failures the token that passes in every frame", "gives no contrast fix when coloring the layer wouldn't reach its
 text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set");
 `apps/desktop/src/renderer/project-part.test.ts` (the checks forgotten when the tab closes, and one running then let
-go); and `chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken,
-OutOfDate, CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the
-frame's readings in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so
-a state that sets its own `color` keeps it.
+go); `chrome/accessibility-checks.test.ts` (two checks answered out of order show the second's result, an older reply
+landing first leaves it checking, and an older failure is dropped); and `chrome/AccessibilityPanel.stories.tsx`:
+ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate, CheckingAgain, ManyFindings (the tally) and
+LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings in `render.ts` need the offscreen window, so
+they have no automated test; a fix sets the base style, so a state that sets its own `color` keeps it.
 
 ### Naming a layout or text layer (PAR-913)
 
