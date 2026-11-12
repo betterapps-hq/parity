@@ -291,7 +291,7 @@ export interface MeasuredNode extends FrameBox {
  * A node in the layout `Measure` returns: a measured node with its box under `box`, as `Problems` gives it (PAR-915), and
  * the ancestor that clips it as `{ node, name, box }`, as a problem's `container` is.
  */
-export interface LayoutNode extends Omit<MeasuredNode, keyof FrameBox | "clip"> {
+export interface NodeLayout extends Omit<MeasuredNode, keyof FrameBox | "clip"> {
   /** The name it shows in the layers. */
   name?: string
   box: FrameBox
