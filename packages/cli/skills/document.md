@@ -171,6 +171,11 @@ A text layer sizes as Figma's text does, by its `width` and `height`: `width: "h
 its text, wrapped only by a `maxWidth`; any other width, or none, with no `height` is auto height, wrapping at its width
 and growing down; a `height` as well is fixed.
 
+A `fill` across the parent with a `maxWidth` takes the parent's width up to that maximum, then sits where `self` or the
+parent's `align` puts it, as `w-full max-w-… mx-auto` does: a content column centred at 160 steps is
+`{ width: "fill", maxWidth: 160, self: "center" }`, and it still narrows on a phone. `hug` with `self` stays as wide as
+its content.
+
 Type set on a layout applies to the text inside it. A component's own look comes from its props, so reach for a variant
 (`variant: "secondary"`) before styling a component from outside.
 

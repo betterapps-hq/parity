@@ -412,12 +412,12 @@ describe("parseCanvasDocument", () => {
 })
 
 describe("sizing", () => {
-  const sized = (direction: "row" | "column", style: DesignNode["style"]) => {
+  const sized = (direction: "row" | "column", style: DesignNode["style"], parent: DesignNode["style"] = {}) => {
     const [page] = resolveDesign(
       {
         type: "layout",
         id: "page",
-        style: { direction },
+        style: { ...parent, direction },
         children: [{ type: "layout", id: "box", style, children: [] }]
       },
       undefined,
@@ -435,6 +435,28 @@ describe("sizing", () => {
     expect(sized("row", { width: "fill" })).toMatchObject({ flex: "1 1 0%", minWidth: "0" })
     expect(sized("column", { width: "fill" })).toMatchObject({ alignSelf: "stretch" })
     expect(sized("column", { height: "fill" })).toMatchObject({ flex: "1 1 0%", minHeight: "0" })
+  })
+
+  it("fills across up to a maximum and then takes its place, as mx-auto max-w-… does", () => {
+    // Stretching would give way to `self`, leaving the box as wide as its content.
+    expect(sized("column", { width: "fill", maxWidth: 240, self: "center" })).toMatchObject({
+      width: "100%",
+      maxWidth: "calc(var(--spacing) * 240)",
+      alignSelf: "center"
+    })
+    // A stretched box stops at its maximum at the start; filling instead leaves it to the parent's alignment.
+    const capped = sized("column", { width: "fill", maxWidth: 112 }, { align: "center" })
+    expect(capped).toMatchObject({ width: "100%", maxWidth: "calc(var(--spacing) * 112)" })
+    expect(capped.alignSelf).toBeUndefined()
+    expect(sized("row", { height: "fill", self: "end" })).toMatchObject({ height: "100%", alignSelf: "flex-end" })
+    // Along the parent, it still grows.
+    expect(sized("row", { width: "fill", maxWidth: 240 })).toMatchObject({ flex: "1 1 0%" })
+    expect(sized("row", { width: "fill", maxWidth: 240 }).width).toBeUndefined()
+    // Hugging still hugs.
+    expect(sized("column", { width: "hug", maxWidth: 240, self: "center" })).toMatchObject({
+      width: "fit-content",
+      alignSelf: "center"
+    })
   })
 
   it("keeps fixed sizes from shrinking along the parent's direction only", () => {

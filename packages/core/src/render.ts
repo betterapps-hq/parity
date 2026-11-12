@@ -973,8 +973,8 @@ function boxCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
     fill(css, parent === "column" ? "height" : "width", parent ?? "row")
   }
 
-  sizeCss(css, "width", style.width, parent)
-  sizeCss(css, "height", style.height, parent)
+  sizeCss(css, "width", style.width, parent, style.self !== undefined || style.maxWidth !== undefined)
+  sizeCss(css, "height", style.height, parent, style.self !== undefined || style.maxHeight !== undefined)
 
   if (style.minWidth !== undefined) {
     css.minWidth = spacing(style.minWidth)
@@ -1237,8 +1237,15 @@ function effectsCss(style: NodeStyle): InlineStyle {
 /**
  * Figma's sizing in flex terms. Filling the parent's main axis grows into the free space; filling the cross axis
  * stretches. A fixed length doesn't shrink along the main axis. Outside a layout, fill is the whole parent.
+ * `placed` is a node with its own place across the parent or a maximum on this axis (see `fill`).
  */
-function sizeCss(css: InlineStyle, axis: "width" | "height", size: Size | undefined, parent: Direction | undefined) {
+function sizeCss(
+  css: InlineStyle,
+  axis: "width" | "height",
+  size: Size | undefined,
+  parent: Direction | undefined,
+  placed = false
+) {
   if (size === undefined) {
     return
   }
@@ -1248,7 +1255,7 @@ function sizeCss(css: InlineStyle, axis: "width" | "height", size: Size | undefi
   if (size === "hug") {
     css[axis] = "fit-content"
   } else if (size === "fill") {
-    fill(css, axis, parent)
+    fill(css, axis, parent, placed)
   } else {
     css[axis] = spacing(size)
 
@@ -1258,7 +1265,13 @@ function sizeCss(css: InlineStyle, axis: "width" | "height", size: Size | undefi
   }
 }
 
-function fill(css: InlineStyle, axis: "width" | "height", parent: Direction | undefined) {
+/**
+ * Across the parent, a fill stretches, unless the node is `placed`: `self` would replace the stretch and leave it as
+ * wide as its content, and a stretched node stops at its maximum at the start, ignoring the parent's alignment. Those
+ * take the whole parent instead, up to the maximum, and sit where `self` or the parent's alignment puts them, as
+ * `w-full max-w-… mx-auto` does.
+ */
+function fill(css: InlineStyle, axis: "width" | "height", parent: Direction | undefined, placed = false) {
   const min = axis === "width" ? "minWidth" : "minHeight"
 
   if (parent === undefined) {
@@ -1266,6 +1279,8 @@ function fill(css: InlineStyle, axis: "width" | "height", parent: Direction | un
   } else if ((axis === "width") === (parent === "row")) {
     css.flex = "1 1 0%"
     css[min] = "0"
+  } else if (placed) {
+    css[axis] = "100%"
   } else {
     css.alignSelf = "stretch"
   }
