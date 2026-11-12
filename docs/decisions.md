@@ -8231,3 +8231,35 @@ project not to open at all, with the error saying why. My calls follow your answ
   canvas, with a button to open the file at the bad line; both kept a project open that can't be saved.
 - **A file that changes on disk while the project is open and no longer reads** is left as before: the change is skipped
   and logged, often a file caught mid-write.
+
+## Frames in view are drawn first, and swap their bitmaps while zooming in (PAR-955)
+
+Zooming back in from far out, frames that slept kept showing their bitmaps, blurry once enlarged, until the zoom
+settled, then woke one each animation frame in the order they asked. Bitmaps were captured in that order too, whatever
+was in view. You asked on 2026-11-11 for what's in view and around it to come before what's far away, and for bitmaps in
+view to swap for designs while still zooming. My calls:
+
+- **Waking goes by the zoom, sleep by the settled zoom.** A board's frames stop being dormant as soon as the zoom is
+  back above the line's margin (`isFarZoom`), even mid-zoom. Falling asleep still waits for the zoom to settle, so a
+  zoom passing through the line doesn't take frames apart.
+- **In view, then around it, then far away, for waking and captures,** and within each the nearest the middle first
+  (`viewRank` in core), read when each turn comes, so a camera still moving gets what's in view now. Frames with no
+  place, as a project's picture asks for, go last.
+- **`IntersectionObserver`, not measuring.** The first version measured every waiting frame's box at each turn, which
+  makes the browser lay the page out to answer. One observer each canvas shares, of the view and a quarter-view margin
+  around it, reports each frame as it crosses that edge, with its box; ranking reads what it last reported. It watches
+  no other edges, since a zoom moves every frame on every frame and each edge is checked again for all of them.
+- **Each frame is near or not on its own.** A board with many states and modes is large, and any edge of it near the
+  view woke every frame on it. A frame now wakes only once its board and the frame itself are near, so frames a screen
+  or more away on a near board stay asleep.
+- **Still one frame each animation frame.** Waking more at once is what kept the page busy for seconds (PAR-197);
+  choosing which one is what changed.
+- **The zoom is read once, not by every board.** Whether the camera rests far (`isRestingFar`) now also needs the zoom
+  itself past the line's margin, worked out in one place, so boards still read a signal that changes only crossing the
+  line rather than each checking the zoom on every frame of a zoom.
+- **Measured against the changes before it,** as you asked, with `pnpm perf`'s four zoom runs three times each, taking
+  turns, on a 1.5x screen: before PAR-949, with it, with the 10% line (PAR-954), and with this. The medians were within
+  the runs' spread of each other (far zoom 46.5, 40.8, 35.8 and 45.8 fps; zoom at 100% 32.3, 27.3, 28.5 and 30.0), with
+  other copies of the app running on the machine. No run crosses the line, so the swap itself was timed apart: zooming
+  in from 5% to 40% over 1.5 seconds, frames in view started drawing at 14% and none showed a bitmap when the zoom
+  stopped, where before every one showed its bitmap until then, and two still did 1.3 seconds after.
