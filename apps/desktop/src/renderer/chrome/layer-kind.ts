@@ -2,7 +2,7 @@ import type { DesignNode, LibraryInfo } from "@parity-app/core"
 
 /** What a selected layer is: its kind in a word or two, and in full, saying which component when it's one. */
 export interface LayerKind {
-  /** The kind alone, as "Instance" or "Horizontal layout", which never repeats the layer's name. */
+  /** The kind alone, as "Component instance" or "Horizontal layout", which never repeats the layer's name. */
   label: string
   /** The kind and which one, as "Instance of Plan card" or "Check icon from Lucide"; the label when there's no more. */
   description: string
@@ -31,7 +31,7 @@ export function layerKind(
   }
 
   if (node.type === "instance") {
-    return { label: "Instance", description: `Instance of ${designName(node.design) ?? node.design}` }
+    return { label: "Component instance", description: `Instance of ${designName(node.design) ?? node.design}` }
   }
 
   if (node.type === "component") {

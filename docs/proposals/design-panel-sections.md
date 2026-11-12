@@ -51,15 +51,16 @@ match, in this order. Every section needs `styled`.
 | Frame size            | `frame`                | W with breakpoints, H with Hug                                                                                              |
 | Placement and insets  | not `root`             | Position (in flow, absolute, fixed, sticky, relative), the pin box, insets                                                  |
 | Layer order           | not `root`             | z-index                                                                                                                     |
+| Transform             | not `root`             | Move, scale and flips, and origin; drawn inside Placement and insets                                                        |
 | Size and aspect ratio | not `frame`            | W and H with the Sizing menu (Fill needs `inFlex`, `inGrid` or `box`), min and max, aspect ratio; align self needs `inFlex` |
 | Grid placement        | `inGrid`               | Span, start and end lines, align and justify self                                                                           |
+| Spacing               | none                   | The box model: padding, and margin when not `root`; in Size                                                                 |
 | Layout                | `box`                  | Direction, wrap, alignment, gap, grid tracks                                                                                |
-| Spacing               | none                   | The box model: padding, and margin when not `root`                                                                          |
-| Appearance            | none                   | Opacity, blend mode, radius and corner shape, clip, cursor                                                                  |
 | Text                  | `text` or `textInside` | Preset, font, weight, size, line height, letter spacing, align, case, wrap; tag and max lines need `text`                   |
+| Appearance            | none                   | Opacity, blend mode, radius and corner shape, clip, cursor                                                                  |
 | Fill                  | none                   | The paint stack: colors, gradients and images                                                                               |
 | Stroke                | none                   | Color, width per side, style, position                                                                                      |
-| Effects               | none                   | Shadows, blurs and filters, transform                                                                                       |
+| Effects               | none                   | Shadows, blurs and filters                                                                                                  |
 | Motion                | none                   | Transitions with time and easing                                                                                            |
 | Raw CSS               | none                   | Properties the sections don't cover                                                                                         |
 

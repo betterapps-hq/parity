@@ -25,7 +25,7 @@ function limitValues(key: LimitKey, steps: number | undefined): StyleValues {
 /**
  * Size, the approved section (PAR-186) as Storybook has it: W and H on one line with the aspect lock between them, and
  * a row for each limit Sizing adds. It reads and writes the layers' `NodeStyle`: lengths as steps of the spacing scale,
- * Hug, Fill where the layer can fill, and spacing and container tokens. The aspect lock is disabled until `NodeStyle`
+ * Hug, Fill where the layer can fill, and spacing and container tokens. The aspect lock isn't saved until `NodeStyle`
  * holds a ratio (PAR-926). Align self and a grid child's span have no approved control here: Grid placement and a flex
  * child's alignment bring them back.
  */

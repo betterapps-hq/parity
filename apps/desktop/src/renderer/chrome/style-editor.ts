@@ -10,12 +10,15 @@ import {
   styleSelection
 } from "@parity-app/editor"
 import type { Token } from "@parity-app/tokens"
+import { useEffect, useReducer, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { findFrames, subscribeFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
+import type { ProjectSession } from "../workspace.ts"
 import {
   type InspectorChange,
   recordInspectorChange,
@@ -72,6 +75,100 @@ export interface LayerPlace {
   inFlow: { x: number; y: number }
 }
 
+/** A layer's drawn size as text, to tell when it changes, or empty while it isn't drawn. */
+const sizeKey = (size: { width: number; height: number } | undefined) => (size ? `${size.width}x${size.height}` : "")
+
+/**
+ * Draws the panel again when the one selected layer's drawn size changes: its frame drawing it for the first time, an
+ * edit laying it out again, or the frame resizing. The panel reads the size as it draws (`measure`, `place`), and
+ * nothing else tells it a frame has drawn, so a layer picked before its frame drew showed no size in Size or Spacing.
+ * It watches the design's frames as the canvas's overlay does, and measures once an animation frame at most.
+ */
+function useDrawnBox(
+  session: ProjectSession,
+  design: string,
+  layer: string | undefined,
+  picked: { mode?: string; state?: string }
+): void {
+  const [, redraw] = useReducer((count: number) => count + 1, 0)
+  // The size this draw of the panel saw, which a change is told against.
+  const seen = useRef("")
+  const drawn = layer ? sizeKey(measureNode(session, design, layer, picked)) : ""
+  const { mode, state } = picked
+
+  useEffect(() => {
+    seen.current = drawn
+  })
+
+  useEffect(() => {
+    const area = session.editor?.getContainer().closest(".canvas-area")
+
+    if (!layer || !area) {
+      return
+    }
+
+    let frame = 0
+
+    const check = () => {
+      frame = 0
+
+      if (sizeKey(measureNode(session, design, layer, { mode, state })) !== seen.current) {
+        redraw()
+      }
+    }
+
+    const soon = () => {
+      frame ||= requestAnimationFrame(check)
+    }
+
+    const resizes = new ResizeObserver(soon)
+    const watched = new Map<HTMLElement, MutationObserver>()
+
+    const watch = (host: HTMLElement) => {
+      if (watched.has(host) || !host.shadowRoot) {
+        return
+      }
+
+      resizes.observe(host)
+      const changes = new MutationObserver(soon)
+      changes.observe(host.shadowRoot, { subtree: true, childList: true, attributes: true, characterData: true })
+      watched.set(host, changes)
+    }
+
+    findFrames(area, design).forEach(watch)
+
+    const stopFrames = subscribeFrames((host, mounted) => {
+      if (host.dataset.design !== design) {
+        return
+      }
+
+      if (mounted) {
+        watch(host)
+      } else {
+        watched.get(host)?.disconnect()
+        watched.delete(host)
+        resizes.unobserve(host)
+      }
+
+      soon()
+    })
+
+    // The frame may have drawn between the panel's draw and now.
+    soon()
+
+    return () => {
+      stopFrames()
+      resizes.disconnect()
+
+      for (const changes of watched.values()) {
+        changes.disconnect()
+      }
+
+      cancelAnimationFrame(frame)
+    }
+  }, [session, design, layer, mode, state])
+}
+
 /**
  * The style editor for layers of one design: the module's selection, with its edits previewed on the canvas and made
  * through the store. Undefined when none of the layers exists.
@@ -80,6 +177,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const session = useProject()
   const { store } = session
   const selected = useSelection(session.selection)
+  useDrawnBox(session, entry.key, ids.length === 1 ? ids[0] : undefined, selected)
   const tokens = useTokenList(session.tokens)
   // A field's edit previews on the canvas, applied as the edit would apply it, until it's made or taken back.
   const preview = useStylePreview(session, entry.key)

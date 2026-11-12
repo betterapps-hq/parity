@@ -47,13 +47,13 @@ export const TurningAPropOffInAState: Story = {
   ],
   play: async ({ canvasElement }) => {
     const panel = within(canvasElement)
-    const disabled = await panel.findByRole("switch", { name: "disabled" }, slowly)
+    const disabled = await panel.findByRole("switch", { name: "Disabled" }, slowly)
     await expect(disabled).toBeChecked()
     await userEvent.click(disabled)
-    await expect(panel.getByRole("switch", { name: "disabled" })).not.toBeChecked()
-    await userEvent.click(await panel.findByRole("button", { name: "Reset disabled to Default" }, slowly))
-    await expect(await panel.findByRole("switch", { name: "disabled" }, slowly)).toBeChecked()
-    await expect(panel.queryByRole("button", { name: "Reset disabled to Default" })).toBeNull()
+    await expect(panel.getByRole("switch", { name: "Disabled" })).not.toBeChecked()
+    await userEvent.click(await panel.findByRole("button", { name: "Reset Disabled to Default" }, slowly))
+    await expect(await panel.findByRole("switch", { name: "Disabled" }, slowly)).toBeChecked()
+    await expect(panel.queryByRole("button", { name: "Reset Disabled to Default" })).toBeNull()
   }
 }
 

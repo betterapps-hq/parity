@@ -613,8 +613,8 @@ export function ExpressionField({
     })
   }
 
-  /** Closes the editor, if what's typed can be stored or `leaving` puts the value back; says whether it closed. */
-  const commit = (leaving: boolean): boolean => {
+  /** Closes the editor if what's typed can be stored, on Enter or leaving; says whether it closed. */
+  const commit = (): boolean => {
     if (editing === undefined) {
       return false
     }
@@ -631,18 +631,15 @@ export function ExpressionField({
 
     const reason = check(text)
 
-    if (reason && !leaving) {
+    // What it can't read stays as typed, leaving or not, with the reason in the error's red.
+    if (reason) {
       setMessage({ tone: "error", text: reason })
 
       return false
     }
 
-    if (reason) {
-      setMessage({ tone: "note", text: `${value === undefined ? "Left unset." : `Reverted to ${value}.`} ${reason}.` })
-    } else {
-      onChange(text)
-      setMessage(undefined)
-    }
+    onChange(text)
+    setMessage(undefined)
 
     setEditing(undefined)
 
@@ -697,7 +694,7 @@ export function ExpressionField({
     if (event.key === "Enter") {
       event.preventDefault()
 
-      if (commit(false)) {
+      if (commit()) {
         backToField()
       }
     }
@@ -893,7 +890,7 @@ export function ExpressionField({
               onKeyDown={onEditorKey}
               onBlur={() => {
                 if (!returning.current) {
-                  commit(true)
+                  commit()
                 }
               }}
               className={`${fieldInput} ${wrappingText} type-code font-mono`}

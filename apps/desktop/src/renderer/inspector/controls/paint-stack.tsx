@@ -243,8 +243,9 @@ export function PaintStack({
     void images.add(file).then((src) => put({ kind: "image", src, fit: "fill", position: [50, 50] }))
   })
 
+  // The divider under the section is the wrapper's, since the section is its only child.
   return (
-    <div className="relative" {...drop.handlers}>
+    <div className="relative border-b last:border-b-0" {...drop.handlers}>
       <PanelSection
         title="Fill"
         action={

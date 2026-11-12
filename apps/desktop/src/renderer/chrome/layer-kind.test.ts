@@ -43,7 +43,7 @@ describe("layerKind", () => {
 
   it("says which component an instance is of only in full, so the label never repeats the layer's name", () => {
     expect(kind({ type: "instance", id: "i", name: "Pro plan", design: "plan-card" })).toEqual({
-      label: "Instance",
+      label: "Component instance",
       description: "Instance of Plan card"
     })
     expect(kind({ type: "instance", id: "j", design: "deleted-card" }).description).toBe("Instance of deleted-card")

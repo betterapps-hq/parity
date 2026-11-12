@@ -71,7 +71,7 @@ const sameSide = (a: Side | undefined, b: Side | undefined) => JSON.stringify(a)
  * Layout, the approved section (PAR-186) as Storybook has it: the alignment box, with Type and Gap beside it, and a
  * grid's columns and rows under them. It edits the layers' `NodeStyle`, which holds a direction, wrapping, a grid's
  * column and row counts, the gaps, and where children sit. Reversing, where wrapped lines sit, lining up baselines,
- * filling gaps and a grid's track sizes are disabled until it holds them (PAR-928).
+ * filling gaps and a grid's track sizes aren't saved until it holds them (PAR-928).
  */
 export function LayoutSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection

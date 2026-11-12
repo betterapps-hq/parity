@@ -145,9 +145,6 @@ export type Unstorable =
 /** Whether the document stores a part's value; unset, as in the stories, it stores every part. */
 export const StoresContext = createContext<(part: Unstorable) => boolean>(() => true)
 
-/** The Design tab's: `NodeStyle` holds none of these parts yet, so they draw disabled until PAR-924 to PAR-935 add them. */
-export const storesNothing = () => false
-
 /**
  * A part of a control the document can't store yet, shown as the approved design has it but disabled and dimmed, so
  * the section matches its story while the property waits for its issue. Without a part, it's always stored.
@@ -166,19 +163,14 @@ export function Unstored({ part, children }: { part: Unstorable | undefined; chi
   )
 }
 
-/** A reason as a sentence of its own, ending in a full stop unless it ends in one already or leads into an answer. */
-const sentence = (text: string) => (/[.:?!]$/.test(text) ? text : `${text}.`)
-
 /**
  * Text typed into a field, checked before it's stored: `read` gives what to store, or the reason it can't. Text it
- * can't read stays, outlined, with the reason under the row; Enter keeps it, and Escape puts the value back; leaving does
- * too, and says why. Up and Down step the value, ending any typing. Fields that say things on one line under their row
+ * can't read stays, outlined, with the reason under the row in the error's red, whether Enter is pressed or the field is
+ * left, until it's typed in again or Escape puts the value back. Up and Down step the value, ending any typing. Fields that say things on one line under their row
  * together, as a color's channels do, pass that line as `line`; each still outlines itself.
  */
 export function useTyped<T>({
-  label,
   shown,
-  backTo,
   read,
   onCommit,
   onStep,
@@ -188,8 +180,6 @@ export function useTyped<T>({
   label: string
   /** The value as the field shows it at rest, which Escape puts back. */
   shown: string
-  /** What the field says it's back to, where that isn't the text shown (a token's chip shows no text). */
-  backTo?: string
   read: (text: string) => Reading<T>
   onCommit: (value: T) => void
   onStep?: (up: boolean, shift: boolean, alt: boolean) => void
@@ -267,13 +257,6 @@ export function useTyped<T>({
   }
 
   const error = failed
-  const named = backTo ?? (shown || "unset")
-  // What's put back, said under the field: the value kept, with the field's name where fields share a line.
-  let kept = named === "unset" ? "Left unset." : `Reverted to ${named}.`
-
-  if (line) {
-    kept = named === "unset" ? `${label} left unset.` : `${label} reverted to ${named}.`
-  }
 
   const commit = (leaving: boolean): boolean => {
     const text = typedNow.current
@@ -289,13 +272,9 @@ export function useTyped<T>({
       setMessage(outcome.message)
     } else if (leaving && quiet) {
       setMessage(undefined)
-    } else if (leaving) {
-      setMessage({
-        tone: "note",
-        text: `${kept} ${sentence(outcome.reason)}`,
-        action: outcome.action
-      })
     } else {
+      // What it can't read stays as typed, leaving or not, with the reason in the error's red, until it's typed in
+      // again or Escape puts the value back.
       cancelPreview()
       setMessage({ tone: "error", text: outcome.reason, action: outcome.action })
 
@@ -2508,7 +2487,7 @@ function lockedTyping<T>(
  * and opens them, with Detach in what it opens while a token's set. Nothing in the field shows only on hover. A
  * value of its own has no mark: its token list offers the nearest token first, then Create token (`own`). What's typed
  * is read when Enter is pressed or the field is left: text it can't read stays, outlined, with the reason under the
- * row, and Escape puts the value back; leaving does too, and says why. Up and Down step it. Typing on a focused pill replaces
+ * row, whether Enter is pressed or the field is left, and Escape puts the value back. Up and Down step it. Typing on a focused pill replaces
  * the token; Backspace in the empty field, or on the pill, takes it off, and Detach keeps what it came to. A click on
  * the pill focuses the field as a click on its text does, and once it's focused opens the tokens, as Alt+Down does.
  * Messages span a grid's row, so a row of fields says things under the whole row.
@@ -2596,7 +2575,6 @@ export function ValueField<T>({
   const typed = useTyped<{ value: T } | { each: (own: number) => number }>({
     label,
     shown: shown ?? "",
-    backTo,
     read: (text) => {
       const update = perLayer && relativeUpdate(text, label)
 
