@@ -197,6 +197,23 @@ export const NoKey: Story = {
   }
 }
 
+/**
+ * Parity's service runs the search, and nobody is signed in (PAR-948): Sign in opens the sign-in dialog, and the search
+ * runs again once someone is in.
+ */
+export const SignedOut: Story = {
+  loaders: [
+    async () => {
+      await opening(pixabay, { query: "nature", filters: {} })()
+      answeringSearches(() => ({ problem: { code: "signed-out", message: "Sign in to Parity to search." } }))
+    }
+  ],
+  play: async () => {
+    await body().findByText("Sign in to search Pixabay")
+    await expect(body().getByRole("button", { name: "Sign in" })).toBeVisible()
+  }
+}
+
 /** Waiting on the source, over placeholders in the shape results take. */
 export const Searching: Story = {
   loaders: [

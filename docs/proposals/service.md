@@ -1,7 +1,8 @@
 # Proposal: Parity's service, starting with stock media search
 
-Status: agreed, 2026-11-11 (PAR-131), and recorded in decisions.md. Nothing here is built. It says where Parity's server
-code runs, how it grows, and what its first route does. Calls already made are in
+Status: agreed, 2026-11-11 (PAR-131), and recorded in decisions.md. The app, its two search routes and the desktop's
+side are built (PAR-947, PAR-131, PAR-948); what changed from this page as they were built is in decisions.md. It says
+where Parity's server code runs, how it grows, and what its first route does. Calls already made are in
 [decisions.md](../decisions.md#keys-are-the-app-owners-and-parity-reports-uses-itself-par-829); the connectors it serves
 are in [connectors.md](../connectors.md).
 
@@ -161,7 +162,9 @@ is added.
 - Whether the rate limiting binding costs anything. Its page doesn't say.
 - Mobbin's API terms, read before the route ships: whether one key may serve every user, and what it asks about keeping
   answers.
-- Better Apps' WorkOS identity can be installed once its packages are on npm (PAR-952).
+- Mobbin's key and Pixabay's as Worker secrets, which the app's owner sets with `wrangler secret put`. Until then the
+  service searches nothing.
+- A real search end to end, signed in, from an installed copy.
 
 ## Decisions
 

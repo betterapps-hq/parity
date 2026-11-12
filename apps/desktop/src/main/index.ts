@@ -77,6 +77,7 @@ import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { localPlacements } from "./placements.ts"
 import { privateMemory } from "./private-memory.ts"
+import { createRemoteSearch } from "./remote-search.ts"
 import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, renderResult } from "./render-results.ts"
 import { createReports, offersCrashReports } from "./report.ts"
 import { localHistory } from "./search-history.ts"
@@ -823,6 +824,17 @@ for (const name of Object.keys(process.env)) {
 }
 
 /**
+ * Parity's own service, which holds the sources' keys (PAR-131, PAR-948): a copy with no key of its own, as every
+ * installed one is, searches through it as the signed-in person. An installed copy asks production's, and a development
+ * copy staging's, which takes the same sign-in.
+ */
+const remoteSearch = createRemoteSearch({
+  address: packaged ? "https://api.tryparity.dev" : "https://parity-portal-staging.hoa-preview.workers.dev",
+  fetch: (url, init) => net.fetch(url, init),
+  token: (renew) => account.accessToken(renew)
+})
+
+/**
  * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys and runs every search, for the window
  * over IPC and for agents through the service, and keeps the person's recent searches.
  */
@@ -830,6 +842,7 @@ const connectorHub = createConnectorHub({
   // The ones offered: Pixabay finds photos, and Unsplash's connector is kept but not searched.
   connectors: offered,
   keys: connectorKeys,
+  service: remoteSearch,
   history: localHistory(join(app.getPath("userData"), "recent-searches.json")),
   placements: localPlacements(join(app.getPath("userData"), "connector-placements.json")),
   fetch: (url, init) => net.fetch(url, init),
@@ -1314,7 +1327,17 @@ answerWindows<HostEvent, BrowserWindow>({
   around: handleInSpan,
   handlers: hostHandlers({
     account,
-    connectors: connectorHub,
+    connectors: {
+      ...connectorHub,
+      states() {
+        // A copy that started offline asks again what the service searches, for the next time a browser opens.
+        if (remoteSearch.connectors.length === 0) {
+          void remoteSearch.load()
+        }
+
+        return connectorHub.states()
+      }
+    },
     buildInfo: () => installedBuild.get(),
     telemetry: {
       get: () => telemetrySetting.get(),
@@ -1420,6 +1443,8 @@ void app.whenReady().then(() => {
   // The keychain is only ready once the app is.
   void account.restore()
   connectorHub.start()
+  // Which sources Parity's service searches, so the window offers them.
+  void remoteSearch.load()
   void updates.check()
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

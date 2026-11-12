@@ -26,7 +26,8 @@ import {
   type Searched
 } from "@parity-app/connectors"
 import { History, Lightbulb, Search } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
+import { accountActions, useAccount } from "../account/account.ts"
 import { ValueMark } from "./FilterControls.tsx"
 
 type Run = (search: Searched) => void
@@ -279,6 +280,10 @@ export function ProblemNotice({
     return () => clearTimeout(tick)
   }, [left])
 
+  if (problem.code === "signed-out") {
+    return <SignedOut name={name} onSignedIn={onRetry} />
+  }
+
   const retry = (
     <Button size="sm" variant="outline" disabled={left > 0} onClick={onRetry}>
       Try again
@@ -304,12 +309,41 @@ export function ProblemNotice({
   return <Notice title={problemTitle(problem.code, name)}>{problem.message}</Notice>
 }
 
-function Notice({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+/**
+ * Parity's service runs this library's searches, and only for someone signed in (PAR-948). Sign in opens the sign-in
+ * dialog over the browser, and the search runs again as soon as someone is in.
+ */
+function SignedOut({ name, onSignedIn }: { name: string; onSignedIn: () => void }) {
+  const signedIn = useAccount().state.account !== null
+  const was = useRef(signedIn)
+
+  // Only on becoming signed in: someone already in whose search was still turned away isn't sent round again.
+  useEffect(() => {
+    if (signedIn && !was.current) {
+      onSignedIn()
+    }
+
+    was.current = signedIn
+  }, [signedIn, onSignedIn])
+
+  return (
+    <Notice
+      title={`Sign in to search ${name}`}
+      action={
+        <Button size="sm" onClick={accountActions.open}>
+          Sign in
+        </Button>
+      }
+    />
+  )
+}
+
+function Notice({ title, action, children }: { title: string; action?: ReactNode; children?: ReactNode }) {
   return (
     <Empty className="h-full">
       <EmptyHeader>
         <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>{children}</EmptyDescription>
+        {children && <EmptyDescription>{children}</EmptyDescription>}
       </EmptyHeader>
       {action && <EmptyContent>{action}</EmptyContent>}
     </Empty>

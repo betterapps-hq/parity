@@ -89,6 +89,9 @@ module "portal" {
     manage_environment = false
     write_account_id   = false
   }
+
+  # A deploy makes the KV namespace searches are kept in, from its binding, so the token can write KV too (PAR-131).
+  token_permissions = ["Workers Scripts Write", "Workers KV Storage Write"]
 }
 
 output "portal" {
