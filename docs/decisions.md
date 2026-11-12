@@ -7697,8 +7697,9 @@ Built as [proposals/service.md](proposals/service.md) agreed. My calls where bui
   503 with `unavailable`, logged for the owner with the source's name and never the search.
 - **The sources' keys are Worker secrets the owner sets by hand** with `wrangler secret put`, which deploys keep. They
   aren't in Terraform, so no key passes through a workflow.
-- **The KV namespace is made by the first deploy,** from a binding with no ID, so the deploy token gets Workers KV
-  Storage Write.
+- **The KV namespaces are made in Terraform,** one for production and one that staging and its previews share, and the
+  Worker's config names them by ID. A deploy could make one from a binding with no ID, but a pull request's preview
+  can't. The deploy token gets Workers KV Storage Write to bind them.
 - **Main keeps each account's access token in memory** and hands the current one to the service's client. Refreshes are
   shared between askers, since a refresh token works once and a second use would end the session.
 - **A development copy with no key asks staging's Worker,** and an installed copy production's. Both take the same
