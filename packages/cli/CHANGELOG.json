@@ -2,6 +2,61 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 05:19:24 GMT",
+      "version": "0.52.0",
+      "tag": "@parity-app/cli_v0.52.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2f195d6458b86b936a08882caff1a50493e827d3",
+            "comment": "Core's update state and the update.failed event carry the updater's error code; the CLI doesn't change"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b1e205d84bfe03cc38935d761218957e7d943667",
+            "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e217bce57fc9396e90021bd766041447e212a78e",
+            "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c27fe3a0fb7525786a06b3a2241808a6776d9ab4",
+            "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b853ed3bb3fdc8472e0d3de85bb52ec10294792f",
+            "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c4b40904f11b32762815aa681b4e931287250278",
+            "comment": "`open_project` and `parity open` now say that opening an open project detects it again, and ask agents not to kill Parity to pick up changes (PAR-817, PAR-818)."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "49bc4fa69c015b3205a875ce89ee61f546becf21",
+            "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 04:25:08 GMT",
       "version": "0.51.0",
       "tag": "@parity-app/cli_v0.51.0",

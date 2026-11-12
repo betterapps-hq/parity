@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
