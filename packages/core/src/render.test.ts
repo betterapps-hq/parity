@@ -268,7 +268,7 @@ describe("resolveDesign", () => {
     expect(card.slots.children?.[0]).toMatchObject({ props: { children: "Save", disabled: true } })
   })
 
-  it("takes away what a state unsets, over the design and the viewport's patch", () => {
+  it("takes away what a state unsets from the design, but not what the viewport's patch sets", () => {
     const state = {
       id: "plain",
       name: "Plain",
@@ -288,8 +288,9 @@ describe("resolveDesign", () => {
     // The design's row is taken away, so the layout is a column, as it is by default.
     expect(page.style).toMatchObject({ flexDirection: "column", gap: "calc(var(--spacing) * 4)" })
     expect(page.style).not.toHaveProperty("background")
-    expect(page.style).not.toHaveProperty("borderRadius")
-    expect(resolveDesign(rounded, undefined, "mobile")[0]).toMatchObject({ style: { borderRadius: "var(--radius)" } })
+    // A breakpoint's style applies whatever the state is.
+    expect(page.style).toMatchObject({ borderRadius: "var(--radius)" })
+    expect(resolveDesign(rounded, state, "desktop")[0]).not.toHaveProperty("style.borderRadius")
     const card = page.children[1]
 
     if (card?.kind !== "component") {
