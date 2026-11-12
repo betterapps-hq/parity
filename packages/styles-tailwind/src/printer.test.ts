@@ -182,26 +182,84 @@ describe("reading classes back", () => {
 describe("round trips", () => {
   /** Styles in each form the panel writes today, drawn as each kind of layer. */
   const styles: NodeStyle[] = [
-    { direction: "row", gap: 4, padding: [2, 4], align: "center", justify: "between", wrap: true },
-    { display: "grid", columns: 3, rows: 2, rowGap: 2, justify: "center" },
-    { width: "fill", height: 20, minWidth: 10, maxWidth: "container-md", self: "end", grow: true },
-    { position: "absolute", top: 0, right: 4, zIndex: 10, opacity: 50, overflow: "scroll" },
-    { background: "primary", foreground: "primary-foreground", border: "border", borderWidth: 2, radius: "radius-lg" },
-    { radius: "radius-full", shadow: "shadow-md", borderStyle: "dashed", border: "input" },
-    { font: "font-sans", size: "text-lg", weight: 600, leading: "leading-tight", tracking: "tracking-wide" },
-    { textAlign: "center", textTransform: "uppercase", decoration: "underline", italic: true, lines: 2 },
-    { transform: { x: 2, y: { percent: -50 }, rotate: 45, scaleX: 110, origin: { x: 50, y: 0 } } },
-    { filter: [{ kind: "blur", value: "blur-sm" }], backdropFilter: [{ kind: "adjust", values: { brightness: 25 } }] },
     {
-      background: [
+      flexDirection: "row",
+      gap: { step: 4 },
+      padding: [{ step: 2 }, { step: 4 }],
+      alignItems: "center",
+      justifyContent: "space-between",
+      flexWrap: "wrap"
+    },
+    {
+      display: "grid",
+      gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }],
+      gridTemplateRows: [{ fr: 1 }, { fr: 1 }],
+      rowGap: { step: 2 },
+      justifyContent: "center"
+    },
+    {
+      width: { size: "fill" },
+      height: { step: 20 },
+      minWidth: { step: 10 },
+      maxWidth: { token: "container-md" },
+      alignSelf: "end",
+      grow: true
+    },
+    {
+      position: "absolute",
+      top: { step: 0 },
+      right: { step: 4 },
+      zIndex: { step: 10 },
+      opacity: { step: 50 },
+      overflow: "auto"
+    },
+    {
+      fills: [{ type: "solid", color: { token: "primary" } }],
+      color: { token: "primary-foreground" },
+      borderColor: { token: "border" },
+      borderWidth: { step: 2 },
+      borderRadius: { token: "radius-lg" }
+    },
+    {
+      borderRadius: { token: "radius-full" },
+      boxShadow: [{ type: "drop", token: "shadow-md" }],
+      borderStyle: "dashed",
+      borderColor: { token: "input" }
+    },
+    {
+      fontFamily: { token: "font-sans" },
+      fontSize: { token: "text-lg" },
+      fontWeight: { value: 600 },
+      lineHeight: { token: "leading-tight" },
+      letterSpacing: { token: "tracking-wide" }
+    },
+    {
+      textAlign: "center",
+      textTransform: "uppercase",
+      textDecorationLine: "underline",
+      fontStyle: "italic",
+      lineClamp: 2
+    },
+    {
+      translate: { x: { step: 2 }, y: { value: "-50%" } },
+      rotate: 45,
+      scale: { x: 110 },
+      transformOrigin: { x: 50, y: 0 }
+    },
+    {
+      filter: [{ type: "blur", value: { token: "blur-sm" } }],
+      backdropFilter: [{ type: "adjust", values: { brightness: 25 } }]
+    },
+    {
+      fills: [
         {
-          kind: "linear",
+          type: "linear",
           stops: [
-            { color: "primary", position: 0 },
-            { color: "card", alpha: 50, position: 100 }
+            { color: { token: "primary" }, position: 0 },
+            { color: { token: "card", alpha: { step: 50 } }, position: 100 }
           ]
         },
-        { kind: "solid", color: "muted" }
+        { type: "solid", color: { token: "muted" } }
       ]
     }
   ]

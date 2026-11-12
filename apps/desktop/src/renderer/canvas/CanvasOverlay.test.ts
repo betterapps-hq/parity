@@ -52,7 +52,7 @@ let root
  */
 export function mount(containers, { camera } = {}) {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers } }],
+    [{ path: "app.par", document: { version: 4, containers } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }
@@ -179,14 +179,24 @@ const dashboard = {
   root: {
     type: "layout",
     id: "app",
-    style: { padding: 6, gap: 6 },
+    style: { padding: { step: 6 }, gap: { step: 6 } },
     children: [
-      { type: "layout", id: "header", style: { direction: "row", gap: 2 }, children: [text("title", "Dashboard")] },
-      { type: "layout", id: "stats", style: { direction: "row", gap: 4 }, children: [stat("revenue"), stat("users")] },
+      {
+        type: "layout",
+        id: "header",
+        style: { flexDirection: "row", gap: { step: 2 } },
+        children: [text("title", "Dashboard")]
+      },
+      {
+        type: "layout",
+        id: "stats",
+        style: { flexDirection: "row", gap: { step: 4 } },
+        children: [stat("revenue"), stat("users")]
+      },
       {
         type: "layout",
         id: "chart",
-        style: { height: 20, padding: 2 },
+        style: { height: { step: 20 }, padding: { step: 2 } },
         children: [text("chart-title", "Revenue"), { type: "component", id: "remember", component: "Checkbox" }]
       }
     ]
@@ -205,7 +215,7 @@ const statCard = {
   root: {
     type: "layout",
     id: "card",
-    style: { padding: 4, gap: 1, width: 30 },
+    style: { padding: { step: 4 }, gap: { step: 1 }, width: { step: 30 } },
     children: [text("label", "Revenue"), text("value", "$45,231")]
   }
 }

@@ -71,9 +71,9 @@ change:
 
 ```js
 Responsive("dashboard/Sidebar", "mobile", { hidden: true })
-Responsive("dashboard/Stats", "tablet", { style: { columns: 2 } })
-Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })
-Responsive("dashboard/Content", "mobile", { style: { padding: [5, 4] } })
+Responsive("dashboard/Stats", "tablet", { style: { gridTemplateColumns: [{ fr: 1 }, { fr: 1 }] } })
+Responsive("dashboard/Stats", "mobile", { style: { gridTemplateColumns: [{ fr: 1 }] } })
+Responsive("dashboard/Content", "mobile", { style: { padding: [{ step: 5 }, { step: 4 }] } })
 ```
 
 The viewport is the viewport option's id, not the mode's. A frame is as wide as its viewport and as tall as its content,

@@ -31,7 +31,7 @@ const sketch = {
 }
 
 const parFile = (text: string) =>
-  `${JSON.stringify({ version: 3, containers: [{ ...sketch, name: text }] }, null, 2)}\n`
+  `${JSON.stringify({ version: 4, containers: [{ ...sketch, name: text }] }, null, 2)}\n`
 
 const designs = (name: string) => parseCanvasDocument(JSON.parse(parFile(name)))
 
@@ -225,7 +225,7 @@ describe("opening a project", () => {
       mainDocument: "shop.par",
       modes: { custom: false }
     })
-    expect(info.documents).toEqual([{ path: "shop.par", document: expect.objectContaining({ version: 3 }) }])
+    expect(info.documents).toEqual([{ path: "shop.par", document: expect.objectContaining({ version: 4 }) }])
     expect(Object.keys(info.sources)).toContain("Button")
     expect(projects.roots()).toEqual([root])
     // Asked again while it's open, it's the same project, served by the same builder.

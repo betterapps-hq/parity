@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "maia",
   "name": "Shadcn Maia",
   "description": "Every shadcn component on Base UI, in the maia style, kept in step with upstream.",

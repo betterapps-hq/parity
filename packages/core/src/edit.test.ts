@@ -46,7 +46,7 @@ const design: ContainerSpec = {
   root: {
     type: "layout",
     id: "page",
-    style: { gap: 4 },
+    style: { gap: { step: 4 } },
     children: [
       { type: "text", id: "title", text: "Create an account" },
       {
@@ -94,8 +94,8 @@ describe("editing another state", () => {
     const kept = { keepEqual: true }
     const next = editNode(design, "loading", "title", { text: "Create an account", hidden: false }, kept)
     expect(next.states![1]?.overrides?.title).toEqual({ text: "Create an account", hidden: false })
-    const style = editNode(design, "loading", "page", { style: { gap: 4 } }, kept)
-    expect(style.states![1]?.overrides?.page).toEqual({ style: { gap: 4 } })
+    const style = editNode(design, "loading", "page", { style: { gap: { step: 4 } } }, kept)
+    expect(style.states![1]?.overrides?.page).toEqual({ style: { gap: { step: 4 } } })
   })
 
   it("shows the node as the state sees it", () => {

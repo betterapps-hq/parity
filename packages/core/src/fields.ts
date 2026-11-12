@@ -1,4 +1,4 @@
-import { isNamedLength } from "@parity-app/style-schema"
+import { type FieldLength, isNamedLength } from "@parity-app/style-schema"
 
 /**
  * What the inspector's number and length fields read from what's typed, and how they step. A field reads a number, a
@@ -183,7 +183,7 @@ export function scrubSteps(dx: number, shift: boolean): number {
 }
 
 /** A value as the field shows it: lengths in pixels, a token by its name, nothing when unset. */
-export function formatFieldValue(value: number | string | undefined, rules: FieldRules): string {
+export function formatFieldValue(value: FieldLength | undefined, rules: FieldRules): string {
   if (value === undefined) {
     return ""
   }
@@ -282,7 +282,7 @@ export interface OffScaleFlag {
 }
 
 /** The flag for a length field's value when it's a number off the spacing scale; otherwise nothing. */
-export function offScaleFlag(value: number | string | undefined, rules: FieldRules): OffScaleFlag | undefined {
+export function offScaleFlag(value: FieldLength | undefined, rules: FieldRules): OffScaleFlag | undefined {
   if (rules.kind !== "length" || value === undefined || isNamedLength(value) || onSpacingGrid(value)) {
     return undefined
   }

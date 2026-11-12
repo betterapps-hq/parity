@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

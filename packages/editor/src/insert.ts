@@ -109,7 +109,7 @@ export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, t
       media.credit = item.credit
     }
 
-    media.style = { width: imageSteps, height }
+    media.style = { width: { step: imageSteps }, height: { step: height } }
 
     return media
   }

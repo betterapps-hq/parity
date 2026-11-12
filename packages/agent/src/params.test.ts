@@ -44,7 +44,7 @@ function snapshot(): AgentSnapshot {
     tokens: [],
     theme: [],
     modes: defaultModeSettings,
-    documents: [{ path: "app.par", document: { version: 3, containers: [card, dashboard] } }],
+    documents: [{ path: "app.par", document: { version: 4, containers: [card, dashboard] } }],
     libraryDesigns: [],
     tokenOverrides: [],
     mainDocument: "app.par",
@@ -91,7 +91,7 @@ const id = CreateDesign({
     showBadge: { type: "boolean", default: false },
     density: { type: "variant", default: "Compact", options: [
       { name: "Comfortable" },
-      { name: "Compact", overrides: { Sidebar: { style: { gap: 2 } } } }
+      { name: "Compact", overrides: { Sidebar: { style: { gap: { step: 2 } } } } }
     ] }
   }
 })
@@ -109,7 +109,7 @@ Print(id)`)
         default: "compact",
         options: [
           { id: "comfortable", name: "Comfortable" },
-          { id: "compact", name: "Compact", overrides: { [root]: { style: { gap: 2 } } } }
+          { id: "compact", name: "Compact", overrides: { [root]: { style: { gap: { step: 2 } } } } }
         ]
       }
     })
@@ -170,7 +170,7 @@ Update(id, { bind: { text: "caption" } })`)
     const { result, after } = await run(`
 AddParam("stat-card", "tone", { type: "variant", options: [
   { name: "Plain" },
-  { name: "Loud", overrides: { Card: { style: { padding: 6 } } } },
+  { name: "Loud", overrides: { Card: { style: { padding: { step: 6 } } } } },
   { name: "Quiet" }
 ] })
 Update("dashboard/sales", { args: { tone: "quiet" } })
@@ -181,7 +181,7 @@ UpdateParam("stat-card", "tone", { options: [{ name: "Plain" }, { name: "Loud" }
       type: "variant",
       options: [
         { id: "plain", name: "Plain" },
-        { id: "loud", name: "Loud", overrides: { card: { style: { padding: 6 } } } }
+        { id: "loud", name: "Loud", overrides: { card: { style: { padding: { step: 6 } } } } }
       ]
     })
     // The pick of Quiet went with it, which leaves Dashboard as it was.

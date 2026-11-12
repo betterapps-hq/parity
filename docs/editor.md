@@ -1684,9 +1684,9 @@ on the whole selection as one undo step, labelled with how many things they touc
   its layout and down the Layers list. An order that wouldn't move it records nothing.
 - **Align on layers works in their layouts,** as the frame shows them: in the state being edited, with the variant
   options the board shows and the frame's viewport (PAR-464). A layer aligns by itself on its layout's cross axis
-  (`self`), and along the main axis the layout moves all its children (`justify`). So in a layout a variant turns into a
-  row, Align right sets `justify: end` on the layout, in that variant, rather than `self` on the layer. Layers in a
-  component's slot stay as they are.
+  (`alignSelf`), and along the main axis the layout moves all its children (`justifyContent`). So in a layout a variant
+  turns into a row, Align right sets `justifyContent: "end"` on the layout, in that variant, rather than `alignSelf` on
+  the layer. Layers in a component's slot stay as they are.
 - **Align on designs lines them up on the canvas** by their edges or centers, within the span of them all, and needs
   two. **Distribute spaces three or more evenly** between the outermost two, across or down. Positions are rounded to
   whole pixels, and a move that changes nothing records nothing.
@@ -3391,70 +3391,73 @@ from the project's gradient tokens, read from their CSS; editing a token's stops
 image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
 then its fit and position. An image dropped on the section adds an image fill.
 
-The document keeps the stack in `background`: one color token is a string, as it always was, and a stack a list of
-paints ([decisions.md](decisions.md)). A stack of one plain color is written back as its token's name. The bottom color
-is drawn as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's
-dev server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill
-paints as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint
-names any color or gradient in it that isn't a token. With several layers selected and fills that differ, the section
-says so and + replaces them all.
+The document keeps the stack in `fills`, always a list of paints, each with its `type` ([decisions.md](decisions.md)).
+One color token is a list of one solid paint: `[{ type: "solid", color: { token: "card" } }]`. The bottom color is drawn
+as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's dev
+server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill paints
+as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint names any
+color or gradient in it that isn't a token. With several layers selected and fills that differ, the section says so
+and + replaces them all.
 
 Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
 paint's alpha, stops and angle are each one undo step per change, not per drag.
 
-Code: `paint.ts` in `@parity-app/core` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
+Code: `packages/style-schema/src/paint.ts` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
 `packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
 the document's paints to the control's and reading gradient tokens; `ImageSource` in
 `inspector/controls/image-fill.tsx`.
 
-Tests: `packages/core/src/paint.test.ts` (10): an old single color reads as it did, a stack round-trips, bad stops, fits
-and alphas are refused, the CSS each kind writes, and a render draws it. `packages/editor/src/style-editing.test.ts`
-(the Fill row's edit), `packages/editor/src/project-images.test.ts` (an image a fill paints is used),
-`packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it back, and hears about a color that
-isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against the project), and
-`apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back, ids kept so an open
-editor stays open, and gradient tokens read from CSS.
+Tests: `packages/core/src/paint.test.ts` (10): one color token as a list of one solid paint, a stack round-trips, bad
+stops, fits and alphas are refused, the CSS each kind writes, and a render draws it.
+`packages/editor/src/style-editing.test.ts` (the Fill row's edit), `packages/editor/src/project-images.test.ts` (an
+image a fill paints is used), `packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it
+back, and hears about a color that isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against
+the project), and `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back,
+ids kept so an open editor stays open, and gradient tokens read from CSS.
 
 ### Effects: shadows, filters and transform (PAR-933)
 
 The Effects section is the approved Shadow list, Filter list and Transform, each editing the selected layers' style.
 
-- **Shadows.** `shadow` is one shadow token, as before, or a stack, top first: drop and inner shadows, each a token's,
-  whose color can be set over the token's, or its own offsets, blur, spread and color in px, and rings, a width drawn
-  outside or inside. Frames draw them as one `box-shadow`. A token is drawn as the project defines it: its variable
-  can't be recolored, so a color set over a token's shows in the panel and the agent's reads, not yet in the frame.
+- **Shadows.** `boxShadow` is always a list, top first: drop and inner shadows, each a token's, whose color can be set
+  over the token's, or its own offsets, blur, spread and color in px, and rings, a width drawn outside or inside. One
+  shadow token is `[{ type: "drop", token: "shadow-md" }]`. Frames draw them as one `box-shadow`. A token is drawn as
+  the project defines it: its variable can't be recolored, so a color set over a token's shows in the panel and the
+  agent's reads, not yet in the frame.
 - **Drop shadows that follow the shape** are the layer's `filter: drop-shadow()`. The Shadow list shows them in its
   Follows the shape group, and the Filter list leaves them to it.
-- **Filters.** `filter` is the layer's, and `backdropFilter` what's behind it, each a list of blurs (a blur token),
-  adjustments and, on the layer, drop shadows, drawn in the list's order. Brightness, contrast and saturation are a
-  change from 100%, so +25 is `brightness(125%)`; hue is degrees, and grayscale, sepia and invert 0 to 100. A blur with
-  no token chosen writes nothing.
-- **Transform.** `transform` is a move (spacing steps, a length token, or a percentage of the layer's own size), a
-  rotation, a scale per axis (negative when flipped), a skew per axis, and the origin, drawn as CSS's `translate`,
-  `rotate` and `scale`, with the skew in `transform`. The panel shows Move, Scale with its flips, and Origin, and keeps
-  the rotation and skew the agent sets; PAR-937 adds rows for them.
-- **Text case is `textTransform`.** It was `transform`; a file that still has text case there no longer opens.
-- **Each list's edit replaces every selected layer's list,** as the mixed list says it will. Every entry takes an off
-  flag, kept and not drawn.
+- **Filters.** `filter` is the layer's, and `backdropFilter` what's behind it, each a list of blurs (a blur token or a
+  length, as `{ type: "blur", value: { token: "blur-sm" } }`), adjustments and, on the layer, drop shadows, drawn in the
+  list's order. Brightness, contrast and saturation are a change from 100%, so +25 is `brightness(125%)`; hue is
+  degrees, and grayscale, sepia and invert 0 to 100. A blur with no token chosen writes nothing.
+- **Transform.** Five keys hold it, each named after the CSS property it writes: `translate` is a move, a length each
+  way (`{ x: { step: 4 } }`, or `{ value: "50%" }` for a share of the layer's own size); `rotate` is degrees; `scale` is
+  a percentage per axis, negative when flipped; `transform` is a list of skews (`{ type: "skewX", value: 8 }`), applied
+  after the rest; and `transformOrigin` is the point they turn about, in percent. The panel shows Move, Scale with its
+  flips, and Origin, and keeps the rotation and skew the agent sets; PAR-937 adds rows for them.
+- **Text case is `textTransform`.** `transform` takes only its list of skews, so text case there is refused.
+- **Each list's edit replaces every selected layer's list,** as the mixed list says it will. Every entry takes
+  `off: true`, kept and not drawn.
 - **The section is three of the approved controls in a row:** the Shadow list titled Effects, then the Filter list
   titled Filters, whose + leaves out the drop shadow the Shadow list adds, then Transform.
 - **The project's own tokens.** The controls offer the project's colors, shadows (by kind: box, inset and drop) and
   blurs, read from its tokens, with a shadow token's layers read from its value so its card draws it.
 
-Code: the schema (`shadow`, `filter`, `transform` and `textTransform` in `nodeStyle`) in
-`packages/core/src/document.ts`; `shadowCss`, `filterCss` and `transformCss` in `packages/core/src/render.ts`; the rows
-`shadow`, `filters` and `transform` in `packages/editor/src/style-editing.ts`; tokens inside shadows, filters and the
-transform in `packages/agent/src/lint.ts`. In the app, `EffectsSection` in
+Code: the schema (`boxShadow`, `filter`, `backdropFilter`, the transform keys and `textTransform` in `nodeStyle`) in
+`packages/style-schema/src/model.ts`; `shadowCss`, `filterCss` and `transformCss` in
+`packages/style-schema/src/effects.ts`; the rows `shadow`, `filters` and `transform` in
+`packages/editor/src/style-editing.ts`; tokens inside shadows, filters and the transform in
+`packages/agent/src/lint.ts`. In the app, `EffectsSection` in
 `apps/desktop/src/renderer/inspector/sections/effects.tsx`, with the document's values turned into the controls' in
 `effects-values.ts` and the project's tokens in `effect-tokens.ts`. The agent's skill describes them in
 `packages/cli/skills/document.md`.
 
 Tests:
 
-- `packages/core/src/effects.test.ts` (8): every effect and text case kept through a file; one shadow token still taken;
-  text case under `transform` and a half-token shadow rejected; the shadows that are on drawn top first, with an alpha
-  mixed in; filters in order, with adjustments from 100% and neutral ones left out; a transform's move, rotation, scale,
-  skew and origin; and all of them on a drawn layer.
+- `packages/core/src/effects.test.ts` (8): every effect and text case kept through a file; one shadow token as a list of
+  one; text case under `transform` and a half-token shadow rejected; the shadows that are on drawn top first, with an
+  alpha mixed in; filters in order, with adjustments from 100% and neutral ones left out; a transform's move, rotation,
+  scale, skew and origin; and all of them on a drawn layer.
 - `packages/agent/src/dispatch.test.ts` (1): an agent's `Update` sets shadows, filters, the transform and text case.
 - `packages/agent/src/lint.test.ts` (1): tokens the project doesn't have inside a shadow, a ring's color, a filter's
   drop shadow, a backdrop blur, and a transform's move.
@@ -3478,28 +3481,28 @@ Motion lists the selected layers' transitions, on the approved Transition list. 
 Easing (Tailwind's, the project's, a curve, steps or a spring) and Delay. The eye turns an entry off without removing
 it, and an entry can be dragged to another place.
 
-- **What it writes.** The list goes into the layer's style in the state being edited, as `transitions`. A state can give
-  a layer transitions of its own, and resetting the state's change takes them back.
+- **What it writes.** The list goes into the layer's style in the state being edited, as `transition`, a list. A state
+  can give a layer transitions of its own, and resetting the state's change takes them back.
 - **Tokens.** Duration and Easing offer the project's duration and easing tokens. Tailwind's own easings are presets,
   not tokens, and Tailwind's defaults are what an unset field shows. Neither field offers Create token yet.
 - **On the canvas.** Each frame draws the transitions as inline CSS, so an edit that changes a frame's look plays them.
   Opacity changed in a state fades over that state's frame, for example. The board draws each state as its own frame, so
   there's no single frame going from one state to the next.
 - **Several layers.** Layers whose lists differ show an empty list, and a list made then replaces each layer's own.
-- **Agents.** `Update` and `AddState` take `transitions` in `style`, and `Get` reads them back. The lint warns about a
+- **Agents.** `Update` and `AddState` take `transition` in `style`, and `Get` reads them back. The lint warns about a
   duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
   forms.
 
 Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style-schema/src/motion.ts`, with
-`NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
+`NodeStyle.transition` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
 `packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
 Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
-a curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema,
-and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving out a
-hidden entry. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+a curve of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through the
+schema, and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving
+out an entry turned off. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
@@ -3810,9 +3813,9 @@ A text layer sizes in one of Figma's three ways, picked under Text > Resizing in
 component's text sizes as the component does). The mode is read from the layer's width and height, so it isn't a
 separate setting that could disagree with them, and the resize handles change it as Figma's do.
 
-- **Auto width:** `width: "hug"`. The layer is as wide as its line and never wraps for its parent, only at a maximum
-  width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers stays
-  `fit-content`.
+- **Auto width:** `width: { size: "hug" }`. The layer is as wide as its line and never wraps for its parent, only at a
+  maximum width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers
+  stays `fit-content`.
 - **Auto height:** any other width, or none, and no height. It wraps at its width and grows down. A text layer with no
   width wraps at the one its layout gives it, so that's auto height too, which is what text added to a layout starts as.
 - **Fixed:** a height as well, a length, a token or fill. It keeps that height whatever the text, and text past it
@@ -3855,10 +3858,11 @@ Tests:
   it was (PAR-582); and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
-- `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
-  whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
-  doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
-  and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
+- `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `alignSelf` drawn at
+  the whole width up to its maximum, placed by `alignSelf` or the parent's `alignItems` rather than stretched, so a
+  centred column doesn't hug its content; a fill along the parent still growing; and hug with `alignSelf` still hugging.
+  The CSS is `size` and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as
+  declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -3885,7 +3889,7 @@ maximum still wraps.
 ### Inline text, alignment and long words (PAR-898)
 
 A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
-component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lines: 1` would do nothing
+component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lineClamp: 1` would do nothing
 there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
 in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
 already draws its own box, which clamps it. A `p` or a heading is a block anyway.
@@ -3905,9 +3909,9 @@ staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: 
 to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
 
 Gaps: no warning says when a style has no effect for another reason. Checked in an isolated copy of the app on
-2026-11-11, in a shadcn table: a `span` with `maxWidth: 40` and `lines: 1` in a cell was cut off with an ellipsis at
-160px, a `span` aligned to the end lined up at its cell's end, and a web address with `overflowWrap: "anywhere"` wrapped
-onto three lines in a 224px column.
+2026-11-11, in a shadcn table: a `span` with `maxWidth: { step: 40 }` and `lineClamp: 1` in a cell was cut off with an
+ellipsis at 160px, a `span` aligned to the end lined up at its cell's end, and a web address with
+`overflowWrap: "anywhere"` wrapped onto three lines in a 224px column.
 
 ## Saving and undo
 
@@ -4532,8 +4536,8 @@ so a square of any size is a circle and a wider box is a pill, in every viewport
 `var(--radius-full, calc(infinity * 1px))`, so a project that declares its own `--radius-full` keeps that value, and one
 that doesn't gets no new variable. `GetTokens` (and `parity tokens`, MCP `get_tokens`) lists it after the tokens, as
 `{ name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }`, unless
-the project has a token of that name, which is listed instead. An agent's `radius: "radius-full"`, in a design, a
-viewport's patch or a state, gets no "isn't a token" warning; under any other key it's still not a token.
+the project has a token of that name, which is listed instead. An agent's `borderRadius: { token: "radius-full" }`, in a
+design, a viewport's patch or a state, gets no "isn't a token" warning; under any other key it's still not a token.
 
 Code: `radiusKeywords` and `radiusCss` in `packages/core/src/render.ts`; `tokensAndKeywords` in
 `packages/agent/src/workspace.ts` and `lintDocument` in `packages/agent/src/lint.ts`.
@@ -4562,8 +4566,8 @@ hint PAR-186's styling controls give designers ("Nearest to 12px"), for agents.
   `radius-md`'s `calc(var(--radius) - 2px)` is 8px. A token that can't be read that way, such as a color name, `clamp()`
   or `radius-full`'s infinity, is left out.
 - **Ties go to the project's own tokens,** the semantic ones the skill prefers, then by name.
-- **The warning says so too.** When a design names a color under `background`, `foreground` or `border`, or a length
-  under `radius`, `size` or `tracking`, its "isn't a token" warning names the call:
+- **The warning says so too.** When a design names a color under `fills`, `color` or `borderColor`, or a length under
+  `borderRadius`, `fontSize` or `letterSpacing`, its "isn't a token" warning names the call:
   `Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`
 
 Code: `readNearValue` and `nearestTokens` in `packages/tokens/src/nearest.ts`, reading colors with `parseColor` in
@@ -4598,13 +4602,13 @@ the same one; nothing between knows the framework.
   theme already or its name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the
   rest), so the class exists, and hands every other value to the plain writer. A declaration that exists is edited where
   it is, whichever block that is.
-- **The warning says what the project has.** A style key takes one category of token: `size` a font size, `shadow` a
-  shadow, `background` a color. A name there that isn't a token gets one of these, in a design, a viewport's patch or a
-  state alike:
-  - `size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+- **The warning says what the project has.** A style key takes one category of token: `fontSize` a font size,
+  `boxShadow` a shadow, `fills` a color. A name there that isn't a token gets one of these, in a design, a viewport's
+  patch or a state alike:
+  - `fontSize "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
     The tokens are listed smallest first while there are eight or fewer; past that it's
     `Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`
-  - `shadow "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`
+  - `boxShadow[0].token "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`
   - A raw color or length keeps PAR-833's hint, the call that lists the nearest tokens, and a value that couldn't be a
     token's name (`0 1px 2px black`) isn't offered to `SetTokens` by name.
   - A place that takes more than one category (a gradient, a blur, a transition's duration or easing) keeps
@@ -4636,7 +4640,7 @@ How the Accessibility tab checks a design and helps fix what it finds.
 
 Each contrast failure in the Accessibility tab suggests the project's color token closest to the text's color that
 passes, drawn as a second text sample on the same background with the ratio it reaches ("Use `foreground`, Reaches
-18.16:1"). Apply sets it as the layers' `foreground` as one undoable step named "Use foreground", then checks the design
+18.16:1"). Apply sets it as the layers' `color` as one undoable step named "Use foreground", then checks the design
 again, since only a check shows the fix worked; the row offers Undo while that's still the last step, and Undo checks
 again too. Undo from the keyboard leaves the check out of date instead. When no token passes on that background, the row
 says so and has no Apply. `check_accessibility` and `Accessibility()` give agents the same fix on each contrast finding
@@ -4670,7 +4674,7 @@ text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as th
 `chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate,
 CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings
 in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so a state that
-sets its own `foreground` keeps it.
+sets its own `color` keeps it.
 
 ### Naming a layout or text layer (PAR-913)
 
@@ -6521,6 +6525,48 @@ installed build, which hasn't been tried yet.
 
 How the project's code runs in the canvas's frames.
 
+### The stored style (PAR-941)
+
+A layer's `style` in a `.par` file, and a state's or a viewport's patch of it, is what frames draw and what code is
+written from. Each value says what it is, so nothing is guessed from its text: a token named `fill` or `auto` is never
+taken for the size or the keyword.
+
+- **A key is named after the CSS property it writes:** `flexDirection`, `alignItems`, `justifyContent`, `borderRadius`,
+  `fontSize`, `lineHeight`, `textDecorationLine`. Its values are CSS's too, such as `justifyContent: "space-between"`,
+  `flexWrap: "wrap"`, `fontStyle: "italic"` and `overflow: "auto"`.
+- **A length is one of five forms:** steps of the spacing scale (`{ step: 4 }`), a token (`{ token: "gutter" }`), a
+  value with its unit (`{ value: "280px" }`), a keyword (`{ keyword: "auto" }`) or an expression
+  (`{ expr: "clamp(1rem, 2vw, 2rem)" }`). Padding and margin take one, two or four of them:
+  `[{ step: 2 }, { token: "gutter" }]`.
+- **A size** (`width`, `height`) is a length, `{ size: "fill" }` with an optional `share`, or `{ size: "hug" }`.
+- **A color** is a token or a written color, each with an optional alpha (`{ token: "primary", alpha: { step: 50 } }`,
+  `{ value: "#2563eb" }`), a keyword (`{ keyword: "currentColor" }`) or an expression.
+- **A value that names a token of its kind** (`borderRadius`, `fontFamily`, `fontSize`, `letterSpacing`) is a token, a
+  value, a keyword or an expression: `{ token: "radius-lg" }`. `lineHeight` takes steps as well, and `zIndex` is
+  `{ step: 10 }` or a token.
+- **Opacity, a border's width and a font weight** each take a number in their own form, or a token of their kind:
+  `opacity: { step: 50 }` (a percentage; `{ value: 0.5 }` is the same from 0 to 1), `borderWidth: { step: 2 }` (whole
+  pixels) and `fontWeight: { value: 600 }`.
+- **A number in one fixed unit stays a number:** `scale` in percent, a shadow's offsets in px, `rotate` in degrees,
+  `lineClamp`, `colSpan` and `rowSpan`.
+- **A grid's tracks are a list,** each a share of what's left or a length:
+  `gridTemplateColumns: [{ fr: 1 }, { fr: 1 }]`.
+- **The lists** are `fills`, `boxShadow`, `filter`, `backdropFilter`, `transform` and `transition`. Each entry says what
+  it is with `type`, where the list holds more than one kind, and `off: true` keeps it in the file without drawing it:
+  `{ type: "solid", color: { token: "card" } }`, `{ property: "colors", duration: { step: 150 }, off: true }`.
+- **The CSS map** holds what no key does, as declarations by property:
+  `css: { "scroll-snap-type": { value: "x mandatory" } }`. They're drawn after the keys, and each takes `off` too. A
+  property a key owns is refused there, with the key to use, so one row of the panel answers for it.
+- **The file's version is 4.** A version 3 file is rejected: it isn't read in its old form or converted
+  ([conventions.md](conventions.md), Fix forward).
+
+Code: `packages/style-schema/src/model.ts` (`nodeStyle`, and the helpers that turn a stored length into what a field
+holds and back), `value.ts` (the forms), `paint.ts` (colors and paints), `motion.ts` (transitions) and `declare.ts` (a
+style as CSS declarations). The file's version is `canvasDocument`'s in `packages/core/src/document.ts`.
+
+Tests: `packages/style-schema/src/model.test.ts` (what the schema takes and refuses, and its keys in the panel's order)
+and `declare.test.ts` (the declarations each key writes, and each property written once).
+
 ### Frames draw layers from rules and classes (PAR-942)
 
 A frame draws a layout, a text, an image or a video from CSS rules, not from an inline style, so the canvas has the
@@ -7245,14 +7291,14 @@ three modes drawing together, finished last first, still answered and screenshot
 
 An execute call's findings are grouped: one per category and message, with how many places it was found and which.
 `warningGroups` gives each group's stable `category` (`render_failed`, `unknown_component`, `unknown_component_design`,
-`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `overlap`, `title_clearance`, `canvas_overlaps`,
-`kind_changed`, `unnamed_layout`), its `severity`, its `message`, its `count` and `at`, which lists every place as a
-`design/node` path or frame. Errors come first, then warnings, then suggestions, each in the order found. A render that
-failed is an error. A new unnamed layout that groups things is a suggestion, reported only for layouts the call added.
-`warnings` keeps one line per group: the place and message for one place, and for several the count, the first five and
-how many more (`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP text list the lines under
-"Render failures", "Warnings" and "Suggestions". A copy of the app without groups has every line read as a warning.
-Nothing is named or renamed for the agent.
+`unknown_prop`, `invalid_option`, `not_a_token`, `not_a_length_token`, `invalid_value`, `overlap`, `title_clearance`,
+`canvas_overlaps`, `kind_changed`, `unnamed_layout`), its `severity`, its `message`, its `count` and `at`, which lists
+every place as a `design/node` path or frame. Errors come first, then warnings, then suggestions, each in the order
+found. A render that failed is an error. A new unnamed layout that groups things is a suggestion, reported only for
+layouts the call added. `warnings` keeps one line per group: the place and message for one place, and for several the
+count, the first five and how many more (`12 places (home/a, …, home/e and 7 more): name layouts…`). The CLI and MCP
+text list the lines under "Render failures", "Warnings" and "Suggestions". A copy of the app without groups has every
+line read as a warning. Nothing is named or renamed for the agent.
 
 Implementation: `packages/agent/src/warnings.ts` (categories and severities, `groupWarnings`, `warningLine`);
 `packages/agent/src/workspace.ts` (`warn`, and the groups in `result`); `packages/cli/src/execute.ts` (the field and its

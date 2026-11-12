@@ -227,7 +227,7 @@ describe("describeAccessibility", () => {
     })
 
     expect(text).toContain(
-      '  Member row (row-1), in default in desktop: #737373 on #f5f5f5 is 4.34:1, and 14px text needs 4.5:1.\n    Fix: set style.foreground to "foreground", which reaches 18.16:1 in every frame checked.'
+      '  Member row (row-1), in default in desktop: #737373 on #f5f5f5 is 4.34:1, and 14px text needs 4.5:1.\n    Fix: set style.color to { token: "foreground" }, which reaches 18.16:1 in every frame checked.'
     )
     expect(text).toContain(
       "\n    Fix: none of the project's color tokens pass on this background; change the background."

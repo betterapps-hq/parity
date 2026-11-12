@@ -35,20 +35,38 @@ export function newDesign(
       type: "layout",
       id: rootId,
       name: "Page",
-      style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
-      children: [{ type: "text", id: generateId(ids), tag: "h1", text: name, style: { size: "text-2xl", weight: 600 } }]
+      style: {
+        padding: [{ step: 10 }, { step: 12 }],
+        gap: { step: 6 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
+      children: [
+        {
+          type: "text",
+          id: generateId(ids),
+          tag: "h1",
+          text: name,
+          style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+        }
+      ]
     },
     component: {
       type: "layout",
       id: rootId,
       name: "Root",
-      style: { padding: 4, gap: 2 },
+      style: { padding: { step: 4 }, gap: { step: 2 } },
       children: [{ type: "text", id: generateId(ids), text: "Component" }]
     },
     frame: {
       type: "layout",
       id: rootId,
-      style: { padding: 6, gap: 4, background: "background", foreground: "foreground" },
+      style: {
+        padding: { step: 6 },
+        gap: { step: 4 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
       children: []
     }
   }

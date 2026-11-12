@@ -1,4 +1,4 @@
-import { spacing } from "@parity-app/style-schema"
+import { fontWeightNumber, spacing } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import { findNode, nodeOnBoard } from "./edit.ts"
@@ -84,7 +84,7 @@ function effectiveOutline(tree: EffectiveTree): Outline[] {
   const outline: Outline = { id: tree.path, children: tree.children.flatMap(effectiveOutline) }
 
   if (node.type === "layout") {
-    outline.direction = style.direction ?? "column"
+    outline.direction = style.flexDirection ?? "column"
   }
 
   if (style.gap !== undefined) {
@@ -95,8 +95,8 @@ function effectiveOutline(tree: EffectiveTree): Outline[] {
     outline.text = node.text
   }
 
-  if (style.weight !== undefined) {
-    outline.weight = String(style.weight)
+  if (style.fontWeight !== undefined) {
+    outline.weight = String(fontWeightNumber(style.fontWeight))
   }
 
   return [outline]
@@ -189,22 +189,41 @@ describe("effectiveNode", () => {
   })
 
   it("applies the responsive patch over the node's own values", () => {
-    expect(body({ layout: "stacked" }, "mobile")).toMatchObject({ direction: "column", gap: 2, padding: 2 })
-    expect(body({ layout: "stacked" }, "desktop")).toMatchObject({ direction: "column", gap: 4, padding: 4 })
+    expect(body({ layout: "stacked" }, "mobile")).toMatchObject({
+      flexDirection: "column",
+      gap: { step: 2 },
+      padding: { step: 2 }
+    })
+    expect(body({ layout: "stacked" }, "desktop")).toMatchObject({
+      flexDirection: "column",
+      gap: { step: 4 },
+      padding: { step: 4 }
+    })
   })
 
   it("applies the responsive style over variant options, which still set what it leaves alone", () => {
-    expect(body({ layout: "inline" }, "mobile")).toMatchObject({ direction: "row", gap: 2, padding: 2 })
-    expect(body({ layout: "inline" }, "desktop")).toMatchObject({ direction: "row", gap: 6, padding: 4 })
+    expect(body({ layout: "inline" }, "mobile")).toMatchObject({
+      flexDirection: "row",
+      gap: { step: 2 },
+      padding: { step: 2 }
+    })
+    expect(body({ layout: "inline" }, "desktop")).toMatchObject({
+      flexDirection: "row",
+      gap: { step: 6 },
+      padding: { step: 4 }
+    })
   })
 
   it("applies the state over the variant options", () => {
-    expect(body({ layout: "inline" }, "desktop", card.states![1])).toMatchObject({ direction: "row", gap: 2 })
+    expect(body({ layout: "inline" }, "desktop", card.states![1])).toMatchObject({
+      flexDirection: "row",
+      gap: { step: 2 }
+    })
   })
 
   it("shows the variants the board shows when none are given", () => {
     const showingInline = { ...card, view: { variants: { layout: "inline" } } }
-    expect(effectiveNode(showingInline, "body")?.style?.direction).toBe("row")
+    expect(effectiveNode(showingInline, "body")?.style?.flexDirection).toBe("row")
   })
 
   it("applies an instance's args, overrides, responsive patch and the outer state inside it", () => {
@@ -215,10 +234,10 @@ describe("effectiveNode", () => {
     expect(title("desktop", profile.states![1])).toMatchObject({ text: "Selected" })
     // The instance's responsive patch picks Stacked on mobile. It shows the card's base state, not its Compact one.
     expect(effectiveNode(profile, "person/body", { library, viewport: "mobile" })?.style).toMatchObject({
-      direction: "column"
+      flexDirection: "column"
     })
     expect(effectiveNode(profile, "person/body", { library, viewport: "desktop" })?.style).toMatchObject({
-      direction: "row"
+      flexDirection: "row"
     })
     expect(effectiveNode(profile, "person/body", { library })?.style?.gap).not.toBe(2)
   })
@@ -227,10 +246,10 @@ describe("effectiveNode", () => {
     const initials = (state = profile.states![0]) =>
       effectiveNode(profile, "person/avatar/initials", { library, state })
 
-    expect(initials()).toMatchObject({ text: "AL", style: { weight: 700 } })
+    expect(initials()).toMatchObject({ text: "AL", style: { fontWeight: { value: 700 } } })
     expect(effectiveNode(profile, "person/avatar/circle", { library, state: profile.states![1] })?.style).toMatchObject(
       {
-        background: "accent"
+        fills: [{ type: "solid", color: { token: "accent" } }]
       }
     )
     expect(effectiveNode(design("card"), "avatar/initials", { library })).toMatchObject({ text: "CD" })
@@ -262,8 +281,8 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
     root: {
       type: "layout",
       id: "bar",
-      style: { gap: 4 },
-      responsive: { mobile: { style: { gap: 2 } } },
+      style: { gap: { step: 4 } },
+      responsive: { mobile: { style: { gap: { step: 2 } } } },
       children: [
         // Closed in the base design, and phones have their own menu.
         { type: "layout", id: "menu", hidden: true, responsive: { mobile: { hidden: true } }, children: [] },
@@ -278,7 +297,7 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
         id: "open",
         name: "Menu open",
         overrides: {
-          bar: { style: { gap: 6 } },
+          bar: { style: { gap: { step: 6 } } },
           menu: { hidden: false },
           toggle: { hidden: true },
           title: { text: "Menu" }
@@ -305,8 +324,10 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
   })
 
   it("draws the viewport's style over the state's", () => {
-    expect(effectiveNode(header, "bar", { state: open, viewport: "mobile" })?.style).toMatchObject({ gap: 2 })
-    expect(effectiveNode(header, "bar", { state: open, viewport: "desktop" })?.style).toMatchObject({ gap: 6 })
+    expect(effectiveNode(header, "bar", { state: open, viewport: "mobile" })?.style).toMatchObject({ gap: { step: 2 } })
+    expect(effectiveNode(header, "bar", { state: open, viewport: "desktop" })?.style).toMatchObject({
+      gap: { step: 6 }
+    })
   })
 
   it("keeps a state's text over the viewport's", () => {
@@ -328,7 +349,9 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
       root: {
         type: "layout",
         id: "page",
-        children: [{ type: "instance", id: "top", design: "header", overrides: { bar: { style: { gap: 8 } } } }]
+        children: [
+          { type: "instance", id: "top", design: "header", overrides: { bar: { style: { gap: { step: 8 } } } } }
+        ]
       },
       states: [
         { id: "base", name: "Base" },
@@ -341,8 +364,8 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
     const at = (path: string, viewport: string, state = screen.states![0]) =>
       effectiveNode(screen, path, { library: headers, viewport, state })
 
-    expect(at("top/bar", "mobile")?.style).toMatchObject({ gap: 2 })
-    expect(at("top/bar", "desktop")?.style).toMatchObject({ gap: 8 })
+    expect(at("top/bar", "mobile")?.style).toMatchObject({ gap: { step: 2 } })
+    expect(at("top/bar", "desktop")?.style).toMatchObject({ gap: { step: 8 } })
     expect(at("top/menu", "mobile", screen.states![1])?.hidden).toBe(true)
     expect(at("top/menu", "desktop", screen.states![1])?.hidden).toBeUndefined()
   })

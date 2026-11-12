@@ -180,7 +180,7 @@ describe("a fill's images in a frame", () => {
     expect(withProjectUrls(style)).toEqual({
       backgroundImage: `linear-gradient(red, blue), url("${project}"), url(https://cdn.example/b.png)`
     })
-    const plain = { background: "var(--card)" }
+    const plain = { backgroundColor: "var(--card)" }
     expect(withProjectUrls(plain)).toBe(plain)
   })
 })

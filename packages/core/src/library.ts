@@ -292,7 +292,7 @@ export type LibraryEdits = Omit<z.infer<typeof libraryEdits>, "$schema">
 export const libraryManifest = fileObject({
   $schema: z.string().optional(),
   /** The current manifest format; obsolete formats are rejected rather than migrated. */
-  version: z.literal(3),
+  version: z.literal(4),
   /** Short name its components are namespaced by, as in `nova/Button`. Defaults to the package name. */
   id: z.string().optional(),
   name: z.string(),
@@ -441,7 +441,7 @@ export function libraryDesigns(manifest: Pick<LibraryManifest, "canvas">, id: st
 
 /** The designs in a `.lib.par`, or an empty canvas when it has none yet. */
 export function libraryCanvas(manifest: LibraryManifest): CanvasDocument {
-  return manifest.canvas ?? { version: 3, containers: [] }
+  return manifest.canvas ?? { version: 4, containers: [] }
 }
 
 /**

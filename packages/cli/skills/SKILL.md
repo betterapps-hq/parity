@@ -148,16 +148,18 @@ parity status --summary
 - **Use the project's components.** `Components()` lists them; library components are namespaced, as in `nova/Button`,
   and icons too, as in `lucide/Heart`. A name that isn't in the list renders as a placeholder. Don't rebuild a button,
   card or input out of layouts and text when the project has one.
-- **Use the project's tokens.** Colours, radii, shadows, fonts, sizes, leading and tracking name a token, such as
-  `muted-foreground`, `radius-lg` or `text-sm`, without the `--`. Lengths are steps of the spacing scale: `4` is four
-  spacing units (1rem in a default Tailwind project). `GetTokens()` lists them. Never write a raw colour or pixel value.
-  When a design hands you one, such as `#2f6fed` or `13px`, use the nearest token: `GetTokens({ nearest: "#2f6fed" })`
-  lists the closest first, and a length takes a category too, as in
+- **Use the project's tokens.** Colours, radii, shadows, fonts, font sizes, line heights and letter spacing name a token
+  without the `--`, as `{ token: "muted-foreground" }`, `{ token: "radius-lg" }` or `{ token: "text-sm" }`. Lengths are
+  steps of the spacing scale: `{ step: 4 }` is four spacing units (1rem in a default Tailwind project). `GetTokens()`
+  lists them. A colour or size written out, as `{ value: "#2f6fed" }` or `{ value: "13px" }`, is drawn but leaves the
+  design system, and `execute` warns about it. When a design hands you one, use the nearest token:
+  `GetTokens({ nearest: "#2f6fed" })` lists the closest first, and a length takes a category too, as in
   `GetTokens({ nearest: "13px", category: "font-size" })`.
 - **Prefer semantic colours** (`background`, `foreground`, `card`, `muted`, `muted-foreground`, `primary`, `border`,
   `destructive`) over palette ones (`color-blue-500`). They change with the theme; palette colours don't.
-- **Layout is auto layout.** A `layout` node is a flex box (or a grid with `display: "grid"`); children fill, hug or
-  take a fixed length. Avoid absolute positioning unless something truly overlaps, such as a badge on an avatar.
+- **Layout is auto layout.** A `layout` node is a flex box (or a grid with `display: "grid"`); children fill
+  (`{ size: "fill" }`), hug (`{ size: "hug" }`) or take a length. Avoid absolute positioning unless something truly
+  overlaps, such as a badge on an avatar.
 - **One design, every viewport.** Don't copy a screen for mobile. Patch it with `Responsive(node, "mobile", patch)`:
   hide the sidebar, stack the columns, shrink the padding.
 - **Real content.** Write the words the screen would show: names, numbers, dates and messages that fit the product.

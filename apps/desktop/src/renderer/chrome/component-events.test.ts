@@ -55,7 +55,7 @@ function setup() {
   }
 
   return new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [card, home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [card, home] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

@@ -19,9 +19,9 @@ describe("pickMainDocument", () => {
 
 describe("readDesigns", () => {
   it("reads a .par as its designs, and a .lib.par's designs from its canvas", () => {
-    const canvas = { version: 3, containers: [] }
+    const canvas = { version: 4, containers: [] }
     expect(readDesigns("shop.par", JSON.stringify(canvas))).toEqual(canvas)
-    const library = { version: 3, name: "Nova", canvas }
+    const library = { version: 4, name: "Nova", canvas }
     expect(readDesigns("nova.lib.par", JSON.stringify(library))).toEqual(canvas)
   })
 })

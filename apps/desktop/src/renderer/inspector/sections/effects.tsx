@@ -17,8 +17,8 @@ import {
 } from "./effects-values.ts"
 
 /**
- * Effects (PAR-933): the approved Shadow list, Filter list and Transform, editing the layers' `shadow`, `filter`,
- * `backdropFilter` and `transform`, with the project's own colors, shadows and blurs. Each list's edit replaces every
+ * Effects (PAR-933): the approved Shadow list, Filter list and Transform, editing the layers' `boxShadow`, `filter`,
+ * `backdropFilter` and transform keys, with the project's own colors, shadows and blurs. Each list's edit replaces every
  * selected layer's list, as a mixed list says it will.
  */
 export function EffectsSection({ editor }: { editor: StyleEditor }) {
@@ -39,13 +39,13 @@ export function EffectsSection({ editor }: { editor: StyleEditor }) {
     return value === undefined ? undefined : px(value)
   }
 
-  const shadowsMixed = mixed.includes("shadow") || mixed.includes("filter")
+  const shadowsMixed = mixed.includes("boxShadow") || mixed.includes("filter")
   const filtersMixed = mixed.includes("filter") || mixed.includes("backdropFilter")
-  const transformMixed = mixed.includes("transform")
+  const transformMixed = editor.selection.differs("transform")
 
   // Scale X and Y apart is the panel's until they differ, which the transform then says.
   const [apart, setApart] = useState(false)
-  const transform = transformValueOf(style.transform, editor.unit, tokenPx)
+  const transform = transformValueOf(style, editor.unit, tokenPx)
   const linked = !apart && transform.scaleLinked !== false
 
   return (
@@ -67,11 +67,7 @@ export function EffectsSection({ editor }: { editor: StyleEditor }) {
         mixed={transformMixed}
         onChange={(value) => {
           setApart(value.scaleLinked === false)
-          editor.set(
-            "transform",
-            (layer) => ({ transform: transformOf(value, layer.transform, editor.unit) }),
-            "Change transform"
-          )
+          editor.set("transform", (layer) => transformOf(value, layer, editor.unit, tokenPx), "Change transform")
         }}
       />
     </ProjectTokens>

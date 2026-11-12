@@ -34,7 +34,7 @@ const dashboard: ContainerSpec = {
         type: "layout",
         id: "stats",
         name: "Stats",
-        style: { direction: "row" },
+        style: { flexDirection: "row" },
         children: [
           { type: "instance", id: "users", design: "stat-card", args: { label: "Users" } },
           { type: "instance", id: "revenue", name: "Revenue", design: "stat-card" }

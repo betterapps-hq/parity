@@ -1,3 +1,4 @@
+import { lengthSteps } from "@parity-app/core"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, center } from "./app.ts"
 
@@ -171,7 +172,12 @@ describe("nudging", () => {
     await expect
       .poll(() => app.style("Calendar", planning))
       // 11px and 1px, in steps of the example's 4px spacing unit.
-      .toMatchObject({ top: Number(was.top) + 2.75, left: 0.25, right: -0.25, height: was.height })
+      .toMatchObject({
+        top: { step: lengthSteps(was.top)! + 2.75 },
+        left: { step: 0.25 },
+        right: { step: -0.25 },
+        height: was.height
+      })
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => app.style("Calendar", planning)).toEqual(was)
   })
@@ -334,7 +340,12 @@ describe("paste over selection and paste to replace", () => {
     const copy = (await app.selection()).node!
     const after = await app.children("Calendar", events)
     expect(after[after.indexOf(planning) + 1]).toBe(copy)
-    expect(await app.style("Calendar", copy)).toMatchObject({ position: "absolute", top: 16, left: 0, right: 0 })
+    expect(await app.style("Calendar", copy)).toMatchObject({
+      position: "absolute",
+      top: { step: 16 },
+      left: { step: 0 },
+      right: { step: 0 }
+    })
   })
 
   it("pastes copied designs over a design, at its position and on top of it", async () => {

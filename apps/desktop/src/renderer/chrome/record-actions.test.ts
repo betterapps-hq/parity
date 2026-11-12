@@ -31,7 +31,7 @@ const recorded = () => sink.spans.map(({ name, outcome, attributes }) => ({ name
 /** A tab holding `containers`, saved nowhere, with no canvas drawn. */
 function tab(containers: ContainerSpec[] = []): ProjectSession {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers } }],
+    [{ path: "app.par", document: { version: 4, containers } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

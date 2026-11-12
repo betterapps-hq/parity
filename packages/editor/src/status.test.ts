@@ -30,7 +30,7 @@ function open(): DesignHistory {
   const containers = [design("home"), design("about")]
 
   return withStylesheet(
-    openDesigns([{ path: "app.par", document: { version: 3, containers } }], defaultModeSettings, "app.par"),
+    openDesigns([{ path: "app.par", document: { version: 4, containers } }], defaultModeSettings, "app.par"),
     "src/index.css"
   )
 }
