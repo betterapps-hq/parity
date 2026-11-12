@@ -47,6 +47,8 @@ function snapshot(): TabSnapshot {
             {
               id: "signup",
               name: "Sign up",
+              // A component, since only a component has states, which most of these calls exercise.
+              kind: "component",
               position: { x: 0, y: 0 },
               root: {
                 type: "layout",
@@ -56,8 +58,7 @@ function snapshot(): TabSnapshot {
                   { type: "text", id: "title", name: "Title", text: "Create an account" },
                   { type: "component", id: "submit", name: "Submit", component: "Button", props: {} }
                 ]
-              },
-              states: [{ id: "default", name: "Default" }]
+              }
             }
           ]
         }
@@ -512,8 +513,7 @@ describe("images", () => {
       id: "hero-screen",
       name: "Landing",
       position: { x: 0, y: 0 },
-      root: { type: "image", id: "hero", src: "/images/hero.png", alt: "A desk" },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "image", id: "hero", src: "/images/hero.png", alt: "A desk" }
     }
 
     const documents = [

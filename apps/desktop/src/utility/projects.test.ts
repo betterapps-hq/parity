@@ -27,8 +27,7 @@ const sketch = {
   kind: "frame",
   position: { x: 40, y: 80 },
   size: { width: 400, height: 300 },
-  root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] }
 }
 
 const parFile = (text: string) =>
@@ -433,6 +432,10 @@ describe("a project Parity doesn't support", () => {
 })
 
 describe("an open project's files", () => {
+  // The watcher waits 400 ms after a change, then reads the project from disk, which a loaded CI runner can take most of
+  // waitFor's default second over.
+  const detected = { timeout: 5_000 }
+
   it("tell the windows about a project file changed outside the canvas, but not about the canvas's own saves", async () => {
     const { projects, watcher, fileChanged } = setUp()
     await projects.open(root)
@@ -467,7 +470,7 @@ describe("an open project's files", () => {
     await write("components.json", JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
     expect(await projects.detectAgain(root)).toBe(true)
     watcher.change("components.json")
-    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
 
     // A moment without package.json, as while it's rewritten, isn't a change.
     const manifest = await readFile(join(root, "package.json"), "utf8")
@@ -493,7 +496,7 @@ describe("an open project's files", () => {
 
     await write("fake.config.ts", "export default {}")
     watcher.change("fake.config.ts")
-    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
   })
 
   it("tell the windows when what detection reads changed while the project opened", async () => {
@@ -501,7 +504,7 @@ describe("an open project's files", () => {
     builder.hooks.starting = () =>
       writeFileSync(join(root, "components.json"), JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
     await projects.open(root)
-    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
   })
 
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {

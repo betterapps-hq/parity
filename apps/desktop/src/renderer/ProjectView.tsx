@@ -18,7 +18,6 @@ import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
-import { keepProjectPicture } from "./project-picture.ts"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
 import { useTool } from "./selection.ts"
 import { useTabs, workspace } from "./workspace.ts"
@@ -33,8 +32,6 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
   const session = tab?.session
   useShortcuts(session, active)
-  // The start page's picture of the project, taken as it opens and after each save (PAR-607).
-  useEffect(() => (session ? keepProjectPicture(session) : undefined), [session])
 
   if (!tab) {
     return null

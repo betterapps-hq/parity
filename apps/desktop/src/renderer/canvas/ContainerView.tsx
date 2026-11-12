@@ -19,11 +19,12 @@ import {
   companionScale,
   type ComponentLibrary,
   type ContainerKind,
+  designStates,
   frameGeometry,
   frameSize,
   type ParamSpec,
-  type ResolvedMode,
   resolveDesign,
+  type ResolvedMode,
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
@@ -66,6 +67,7 @@ import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
+import { useDesignChange, useFrameChange } from "./frame-changes.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { useFrameOnScreen } from "./frames-on-screen.ts"
@@ -101,18 +103,19 @@ export function ContainerView(props: ContainerViewProps) {
 
 /**
  * A frame on the canvas, the light kind: no board, previews or menus. Its name sits above it, smaller and quieter than
- * a board's, and the design is drawn at its own size in the project's primary mode, in its one state (PAR-545).
+ * a board's, and the design is drawn at its own size in the project's primary mode, as its layers are (PAR-545).
  */
 function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
-  const { store, loaded, selection } = useProject()
+  const { id: project, store, loaded, selection } = useProject()
   const settings = useModeSettings(store)
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
+  const change = useDesignChange(project, entry.key)
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
-  const state = container.states[0]!
+  const state = designStates(container)[0]!
   useFitToContent(board, entry)
 
   const titleBar = (
@@ -129,7 +132,12 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   )
 
   return (
-    <div ref={board} className="container-view frame-view relative w-max font-sans" data-design={key}>
+    <div
+      ref={board}
+      className="container-view frame-view relative w-max font-sans"
+      data-design={key}
+      data-changed={change.state === "changed" ? "" : undefined}
+    >
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -275,7 +283,9 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   useGutterStyle(board, "board")
-  const { store, loaded, selection } = useProject()
+  const { id: project, store, loaded, selection } = useProject()
+  // Whether its frames changed since they were first looked at, marked on the board for tools to read (PAR-997).
+  const change = useDesignChange(project, entry.key)
   const settings = useModeSettings(store)
   const { selected: isSelected, mode: selectedMode } = useDesignSelection(selection, entry.key)
   const library = useLibrary(store, entry.key)
@@ -284,13 +294,14 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const { primary, companions, all } = useMemo(() => containerModes(settings, container), [settings, container])
   const active = activeState(container)
   const allStates = container.view?.allStates ?? false
-  const rows = allStates ? container.states : [active]
+  const states = designStates(container)
+  const rows = allStates ? states : [active]
   const columns = [primary, ...companions]
   const color = designColor(container.kind)
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
 
-  const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
+  const stateName = (id: string) => states.find((state) => state.id === id)?.name ?? id
 
   const selectState = (state: string) =>
     store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
@@ -321,18 +332,20 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             }
           />
         )}
-        <StateMenu
-          states={container.states}
-          active={active.id}
-          allStates={allStates}
-          onSelect={selectState}
-          onShowAll={(on) =>
-            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
-              ...view,
-              allStates: on
-            }))
-          }
-        />
+        {container.kind === "component" && (
+          <StateMenu
+            states={states}
+            active={active.id}
+            allStates={allStates}
+            onSelect={selectState}
+            onShowAll={(on) =>
+              store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
+                ...view,
+                allStates: on
+              }))
+            }
+          />
+        )}
         <ModesMenu modes={all} main={primary} beside={companions} triggerClassName={menuTrigger} onChange={showModes} />
       </TitleControls>
     </TitleBar>
@@ -343,6 +356,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
       ref={board}
       className="container-view relative w-max bg-card font-sans text-card-foreground shadow-2xl"
       data-design={key}
+      data-changed={change.state === "changed" ? "" : undefined}
     >
       <BoardEdge />
       {title
@@ -757,7 +771,7 @@ function StateMenu({
   onSelect,
   onShowAll
 }: {
-  states: StateSpec[]
+  states: readonly StateSpec[]
   active: string
   allStates: boolean
   onSelect: (state: string) => void
@@ -961,6 +975,8 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
+  // Whether the frame changed since it was first looked at, which its board adds up (PAR-997).
+  useFrameChange({ project: session.id, design: entry.key, state: state.id, mode: mode.id }, shows.job, key)
   // The first row's frames are what the project's picture shows (PAR-607).
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
   // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.

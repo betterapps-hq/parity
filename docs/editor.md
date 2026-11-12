@@ -1177,12 +1177,12 @@ past its parent, so the layer's style writes `width: auto` (or `height: auto`) o
 keeps it at that size. Layouts and text span between their insets already, and an image or a video keeps the size of its
 picture unless it's given one.
 
-Code: `stretchBetweenEdges` in `packages/style/src/declare.ts`, which `packages/core/src/render.ts` draws as the
+Code: `stretchBetweenEdges` in `packages/style-schema/src/declare.ts`, which `packages/core/src/render.ts` draws as the
 component's inline style, over its own.
 
-Tests: `packages/style/src/declare.test.ts`, declarations: a component placed against all four sides writing an auto
-width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose own
-style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
+Tests: `packages/style-schema/src/declare.test.ts`, declarations: a component placed against all four sides writing an
+auto width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose
+own style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
 
 Gaps: none known. Checked in an isolated copy of the app on 2026-11-11: a Separator placed at left 14, right 0 in an
 80-step layout was drawn from 56px in to the layout's right edge, 264px wide, where it had run past it.
@@ -1820,16 +1820,17 @@ core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences
 a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
 variant option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's
 outside it; each option of two variant params checked in turn, refused for one the board doesn't show; and refused when
-a layer in the part shows a param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit
-(PAR-518): none for a component that sets its own size, unless given; none for a part whose sample gives no children;
-and a part without a sample taking the children its library's other samples give it (none for an icon's box or one used
-without any, their text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's
-Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts,
-leaving out classes for what's inside or taken from a parent. The extraction and its check are core's
-`extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state
-changing the part refused, a single part's texts as params, and the check against the board, refused under a variant
-option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer in the
-part shows a param's default.
+a layer in the part shows a param's default. Under "repeated parts whose props are written in another order" (2,
+PAR-998), `findRepeats` and `extractComponent` pair a component's props by name, not by the order each part writes them
+in. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a component that sets
+its own size, unless given; none for a part whose sample gives no children; and a part without a sample taking the
+children its library's other samples give it (none for an icon's box or one used without any, their text), else its
+name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and
+Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's inside or taken
+from a parent. The extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`:
+occurrences become instances that render the same, a state changing the part refused, a single part's texts as params,
+and the check against the board, refused under a variant option that changes the part but not one that changes what's
+outside it or isn't shown, and refused when a layer in the part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -2621,7 +2622,7 @@ Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediu
 the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
-grid), `project-media.ts` (the scan, kept per open project) and `remove-media.ts`.
+grid), `project-media.ts` (the scan, kept per open project, through code changes and reconnects) and `remove-media.ts`.
 
 Tests:
 
@@ -2639,6 +2640,7 @@ Tests:
   the code names, dropping files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
+- `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
@@ -3176,7 +3178,7 @@ section with the group's own title leads it without a title of its own, and its 
 - **Component instance** (an instance of one of the project's component designs, or a library's): the component's name
   in the title row, which goes to it, or for a library's says where it's linked from, and beside it, for one of the
   design's own instances, the menu with Swap component, Reset overrides with how many there are, Push to main where the
-  component is the project's, and Detach. Then State, which isn't a prop, and the props under a quiet Props heading.
+  component is the project's, and Detach. Then its props.
 - **Props rows**, the instance's and a code component's (`Button props`) alike: each prop's name with a capital first
   letter, above its control. Text wraps and grows in a box with a handle; a number takes maths, steps, scrubs, previews
   on the canvas while it's typed (PAR-203), and says why it can't read what's typed; on or off is a switch row; options
@@ -3367,14 +3369,14 @@ Everything in the inspector's Design tab runs to one right edge, 12px from the p
 buttons such as Make component, a section's action such as Min and max, and the toggles beside Padding and Margin. A
 field's reset arrow, shown while a state changes it, sits in the label column right after the label, so a row's input
 keeps the row's full width whether or not it can be reset. An image's photo credit sits under its fields, in their
-column. The Editing bar reads as one sentence ("Editing Monthly changes every state") and wraps when it doesn't fit,
+column. The Editing bar reads as one sentence ("Editing Default changes every state") and wraps when it doesn't fit,
 rather than running past its border.
 
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Instance Changed In A State; Fields: Changed
-In A State; Design: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Editing A State; Fields: Changed In A State;
+Design: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -3600,16 +3602,16 @@ it, and an entry can be dragged to another place.
   duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
   forms.
 
-Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style/src/motion.ts`, with
+Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style-schema/src/motion.ts`, with
 `NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
 `packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
-Tests: `packages/style/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables, a
-curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, and
-what the schema refuses. `packages/style/src/declare.test.ts`: the `transition` declaration, leaving out a hidden entry.
-`packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
+a curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema,
+and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving out a
+hidden entry. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
@@ -3969,7 +3971,7 @@ Tests:
 - `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
   whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
   doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
-  and `fill` in `packages/style/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
+  and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (6), end to end (PAR-202), on Pricing's subtitle: a double-click on "upgrade" and on
@@ -4004,11 +4006,11 @@ which also lets a table cell or a hugging layout narrow to fit, or `break-word`,
 on a line of its own. Set on a layout, the text inside takes it. Unset, a long word runs out of its box. The Text
 section has no control for it yet; agents set it.
 
-Code: `text` (with `boxKeys`) and `type` in `packages/style/src/declare.ts`, the `overflowWrap` key in
-`packages/style/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's tag is
-inline.
+Code: `text` (with `boxKeys`) and `type` in `packages/style-schema/src/declare.ts`, the `overflowWrap` key in
+`packages/style-schema/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's
+tag is inline.
 
-Tests: `packages/style/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
+Tests: `packages/style-schema/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
 alignment, drawn as a block; several lines keeping the box that clamps them; inline text with nothing that needs a box
 staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: in a component's slot, a `span` aligned
 to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
@@ -4254,17 +4256,17 @@ tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 
-The inspector's Editing control says where edits go: in the base state ("Editing Monthly changes every state") they
-change the design; in another state, or with a variant other than the default shown on a component's board, they're kept
-as that state's or variant's changes ("changes only this state", "changes only the Large variant").
+The inspector's Editing control says where edits go on a component: in the base state ("Editing Default changes every
+state") they change the design; in another state, or with a variant other than the default shown on its board, they're
+kept as that state's or variant's changes ("changes only this state", "changes only the Large variant"). A screen has no
+states, so it has no Editing control and its edits always change the design (PAR-1002).
 
 - **Edits start from what the board shows.** The inspector, the text editor and Hide read a layer as the board draws it
   in the state being edited: with the variant shown, the state's changes, and the params it binds. The text editor opens
-  on the state's text: in Pricing's Yearly state, the Pro plan's price opens as $19, not Monthly's $24. Hide or show
-  (Ctrl+Shift+H, or Hide and Show on a row in Layers, which runs the same command, PAR-586) hides what the state shows
-  and shows what it hides, so a layer the state, the variant or a param hides counts as hidden, and Layers marks it so.
-  The canvas menu's Hide says Show by the same reading (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer
-  the variant already hides.
+  on the state's text, not the base state's. Hide or show (Ctrl+Shift+H, or Hide and Show on a row in Layers, which runs
+  the same command, PAR-586) hides what the state shows and shows what it hides, so a layer the state, the variant or a
+  param hides counts as hidden, and Layers marks it so. The canvas menu's Hide says Show by the same reading
+  (`hiddenOnBoard`, PAR-486), so it never offers to hide a layer the variant already hides.
 - **Hide and Show land where the board's edits land** (PAR-497). In the base state, with a variant option other than the
   default shown, the change goes to that option; in any other state the state takes it. The row's menu used to name it
   (Show in Compact) and now says just Hide or Show (PAR-192). Core's `editTargetName` still names where an edit lands
@@ -4295,11 +4297,11 @@ as that state's or variant's changes ("changes only this state", "changes only t
   A param without a default follows the layer's own value, as before, and variants are picked in the title bar.
 - **A state's change is kept against the board,** with the params bound: showing the Stat card's Falling icon in Loading
   keeps `hidden: false` for Loading, which used to be dropped as matching the design.
-- **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's state,
-  Reset all, Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a
-  note above them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state,
-  not only Yearly." or "Its state, Reset all, Swap and Detach change the design in every variant, not only Large." In
-  the base state there's nothing to say, so it doesn't show.
+- **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's Reset all,
+  Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a note above
+  them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state, not only
+  Loading." or "Reset all, Swap and Detach change the design in every variant, not only Large." In the base state
+  there's nothing to say, so it doesn't show.
 - **Values keep their types.** A param's or prop's field is chosen by what it's declared to take, not by the value it
   has: a number param with no value yet gets a number field, so typing 12 gives 12 and not "12"; a boolean gets a
   switch; text gets text. An object prop takes JSON, and JSON that doesn't parse stays in the field with "Can't read
@@ -4308,9 +4310,9 @@ as that state's or variant's changes ("changes only this state", "changes only t
   param defaults and component props all work this way.
 - **Clearing a prop in a state turns it off there** (PAR-421). A switch turned back to its default, a text emptied or an
   attribute removed takes the prop away in the state being edited, so a prop the base design turns on can be off in one
-  state: Sign in's button, disabled in the base, enabled in Wrong password. The field is marked as changed, an attribute
-  taken away stays listed, and Reset takes the state's change back. An instance's param cleared in a state goes back to
-  its default there. In the base state, clearing removes the prop from the design, as before.
+  state: Button's button, disabled in the base, enabled in Outline. The field is marked as changed, an attribute taken
+  away stays listed, and Reset takes the state's change back. An instance's param cleared in a state goes back to its
+  default there. In the base state, clearing removes the prop from the design, as before.
 
 Code: in `packages/core`, `edit.ts` (`propChange`, how the inspector sets and clears a prop; `nodeOnBoard`,
 `hiddenOnBoard`, `toggleHidden`, `editTargetName`, `editNode` keeping the bound param's default in step and a state's
@@ -4351,13 +4353,11 @@ Tests:
 - `apps/desktop/src/renderer/chrome/edit-scope.test.ts` (3): no note in the base state, the state's name, the variant's.
 - `apps/desktop/src/renderer/chrome/prop-values.test.ts` (4): fields by declared type before there's a value, by the
   value's own type, JSON refused rather than kept as text, and any value read as JSON or text.
-- `chrome/LayerInstances.stories.tsx`, InstanceChangedInAState: the note above the Pro plan's state, Swap and Detach in
-  Yearly.
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Sign in's button disabled in the base, its
-  `disabled` switch turned off in Wrong password, then Reset, which turns it back on and leaves nothing to reset.
+- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Button's button disabled in the base, its
+  `disabled` switch turned off in Outline, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the
 typed fields) beyond the stories above, whose play functions run only in Storybook. All of it, and the history above,
@@ -4371,6 +4371,50 @@ off left Pricing clean; the Stat card showed one trend icon, and Ctrl+Shift+H on
 not in Monthly; and 12 typed in a number param with no default gave the number 12. Known limits:
 
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
+
+### Only a component has states (PAR-1002)
+
+States such as Default, Hover or Loading belong to a component design. A screen or a frame is drawn as its layers are,
+so the project file refuses `states` on one, and a screen's Design tab has no States section, its board no state menu
+and its layers no Editing control. An instance has no State picker either: a copy always shows its component's base
+state, under its own overrides. A screen that needs a component to look another way sets the component's params in the
+instance.
+
+- **Turning a component into a screen keeps its base state's look.** What the base state changes moves into the screen's
+  layers, the other states are dropped, and a notice names them ("Removed 2 states: Hover and Pressed") with Undo.
+  Turning a screen into a component changes only its kind, and the component starts with its base state alone.
+- **A component that lists no states has its base state, Default.** Code that reads a design's states goes through
+  core's `designStates`, which gives a screen that one base state too, so selection, the canvas and the edit frame treat
+  every design alike.
+- **The agent can tell from the data.** `Designs()` lists `states` and `showing.state` only for components. `AddState`,
+  `UpdateState` and `DeleteState` take a component, and those, Get, Update or Screenshot with a state, and
+  `UpdateDesign`'s `state` or `allStates`, on a screen fail with "Home is a screen, and only a component has states."
+  and the `invalid_input` code. The base state's id is still accepted on any design, so a screenshot of a screen in
+  "default" works.
+
+Code: `packages/core/src/document.ts` (`checkNoStates`, `baseState`, `designStates`), `edit.ts`
+(`refuseUnlessComponent`), `render.ts` (an instance's scope in its component's base state);
+`packages/editor/src/kinds.ts` (`withoutStates`) and `document-equality.ts` (a screen's view keeps no state);
+`packages/agent/src/workspace.ts` (`listDesigns`, `namedState`) and `snippet-api.ts` (`ScreenSummary`,
+`ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`StateTarget`),
+`canvas/ContainerView.tsx` (the state menu) and `chrome/designs.ts` with `convert-to-frame.ts` (`droppedStatesLine`).
+
+Tests:
+
+- `packages/core/src/document.test.ts`, "states in a project file" (5): a component's states with the base first; a
+  component that lists none; states and a view's state refused on a screen; an instance's `state` refused; and a file
+  read and written as saved.
+- `packages/core/src/edit.test.ts`, "gives only a component states, with a code an agent can act on".
+- `packages/core/src/instances.test.ts`, "shows the component's base state, under the copy's overrides".
+- `packages/editor/src/kinds.test.ts` (4): a screen made a component by its kind alone, a component made a screen with
+  its other states dropped, the base state's changes moved into the screen's layers, and a screen's view naming no
+  state.
+- `packages/editor/src/edit-frame.test.ts`, "is always a screen's base state".
+- `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
+  screen, and a screen edited and drawn in its base state.
+- `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
+- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerInstances.stories.tsx`
+  InstanceLayer (no State row), and `chrome/StatesSection.stories.tsx` on components.
 
 ### Unsaved changes survive a crash (PAR-905)
 
@@ -4578,10 +4622,10 @@ panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name them
 project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
 (PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
 `valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
-and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style` as it runs, which checks the
-value against its property's grammar without a browser (PAR-940), then asks the window's browser once the snippet ends.
-The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came from, with Save
-in place of Apply.
+and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style-schema` as it runs, which
+checks the value against its property's grammar without a browser (PAR-940), then asks the window's browser once the
+snippet ends. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came
+from, with Save in place of Apply.
 
 Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
 left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a
@@ -4853,10 +4897,10 @@ places a **linked instance**, which follows the library: when the library's desi
 right-click menu has **Insert linked instance** and **Insert detached copy**. A detached copy is plain layers, baked
 from what the design shows, with fresh ids, to change freely.
 
-- **A linked instance** has the Instance section as any other: its variants and params, its state, overrides with Reset
-  all, and Detach. It can't go to its main component or push overrides to it, as that's in the library; the section
-  names the design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call
-  it by the design's name, as they do the project's own.
+- **A linked instance** has the Instance section as any other: its variants and params, overrides with Reset all, and
+  Detach. It can't go to its main component or push overrides to it, as that's in the library; the section names the
+  design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call it by the
+  design's name, as they do the project's own.
 - **A detached copy** is what Detach makes of a linked instance (see "Main components and instances" in
   [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
   step, "Add copy". A library design nested inside stays a linked instance.
@@ -5301,6 +5345,49 @@ channel around a card's shadow, which is how they rasterize; a third differs bet
 windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
 profile, so it captures its frames this way.
 
+### What changed since a frame was first looked at (PAR-997)
+
+Whether a frame, a node in it, or its board changed is answered by `@parity-app/change-detection`, never worked out from
+what a bitmap or a render key says. A first try at outlining changed boards read the bitmap cache's `stale` flag, which
+means "this picture isn't for this key", and stayed yellow after an edit was undone.
+
+- **A status is unknown, unchanged, or changed with the files that changed.** It compares the frame's trace now with its
+  baseline: the files it reads, each with a hash of its contents (see Bitmaps kept between sessions), so undoing an edit
+  gives the same digest and the frame is unchanged again. When only Parity's renderer changed, it's changed with no
+  files.
+- **The baseline is the frame's first trace while its project is open.** `ChangeBaselines` keeps it by the frame's id
+  (project, design, state and mode), so a new guest or render key doesn't make it another frame, and drops a project's
+  when it closes. A git ref or an accepted visual-test baseline would be compared the same way.
+- **Nodes.** A trace also lists the files each component the frame draws reads. A node changed when its component's
+  files did, or a file no component reads, such as a stylesheet, a tool's config or a lockfile, or a node inside it,
+  since it draws what's inside it. A trace without the list, as kept in a bitmap, gives every node the frame's status.
+- **A board adds its frames up:** changed when one is, unknown when none has said and one can't, else unchanged.
+- **The service answers, the canvas asks.** `frames.changes` takes frames by id with their jobs, traces each and
+  compares it with its baseline. Each frame asks again whenever its key changes, all the canvas's frames in one request,
+  and `useFrameChange` and `useDesignChange` read the answers. A board whose frames changed has `data-changed`, for
+  tools and tests to read; nothing shows it yet.
+
+Tried in a development build on the example project, with a yellow outline on `data-changed` added locally for testing:
+just opened, no board was outlined; after adding a comment to `badge.tsx`, the 30 boards whose frames draw a badge were;
+after undoing it, none was.
+
+Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `trace.ts`); `componentReads` and the `components`
+list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
+`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
+
+Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
+digest and the files that differ, came or went otherwise; a board changed with every frame's files, unknown when one
+can't say and none changed or there are none, else unchanged; the node whose component's file changed and the nodes
+holding it, but not the rest; every component reading a shared file; every node for a stylesheet; a component that
+started reading a file; and the frame's status for every node when it's unchanged, unknown or traced without
+components). `packages/change-detection/src/baselines.test.ts` (3: counted from the first trace and unchanged once the
+files are back; unknown for a frame not traced, which takes no baseline; each frame's own baseline, started again once
+its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads.
+`apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and each
+gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go). Gaps:
+`frames.changes` itself, and that a frame asks again when its key changes, have no test of their own; both were tried in
+the app.
+
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
 Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the
@@ -5713,7 +5800,9 @@ at the end of the strip. Both are the start page from the explorations (decision
   shadow of its own, so it stands off the main frame it overlaps.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
-    Edits not saved yet are never pictured: a picture that would show them waits for the next save.
+    Edits not saved yet are never pictured: a picture that would show them waits for the next save. A code change, the
+    guest moving or the service restarting doesn't take it again, since the project stays the same session until its tab
+    closes; reopening it does (PAR-1004).
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
@@ -5728,34 +5817,36 @@ each project's notes, and asks the service which folders are gone and where the 
 `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
 `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
 (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
-started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in
-`canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`,
-through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main
-names as `PARITY_PICTURE_DIR`.
+started for each session by `keepPictureOf` in `workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
+`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
+`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
+in the folder main names as `PARITY_PICTURE_DIR`.
 
 Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
 scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
-tabs" (8, with a project's picture let go once it isn't listed), "starting the workspace" (Home on a fresh install, and
-staying there) and "checking the start page's folders" (2: gone folders flagged and the example kept; checked again when
-Home shows). `utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where
-Parity runs once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a
-phone frame first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone
-beside a phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame
-cut to its window and read back; the latest in place of the one before; projects with none, or a file that can't be
-read, left out; a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial
-files only once old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping
-through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
-which plays, Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's
-pictures, Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab
-and New tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again
-with Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
-2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
-across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
-saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
-tall as its content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on
-2026-11-06: with the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects,
-and Open Acme opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it
-showed where it was with Remove.
+tabs" (8, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
+and picture through a code change and a reconnect, telling subscribers, the picture stopping when the tab closes, and a
+new session and picture on reopening), "starting the workspace" (Home on a fresh install, and staying there) and
+"checking the start page's folders" (2: gone folders flagged and the example kept; checked again when Home shows).
+`utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where Parity runs
+once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame
+first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone beside a
+phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its
+window and read back; the latest in place of the one before; projects with none, or a file that can't be read, left out;
+a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial files only once
+old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping through screens, which
+plays, Home without pictures, the first time with and without the example, folders that are gone, which plays, Starred,
+Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures, Parity/App's On
+Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip.
+Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
+Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where
+opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving across its card
+flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and saved with
+Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as tall as its
+content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with
+the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme
+opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it showed where
+it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -6304,10 +6395,10 @@ by hand on Windows; macOS and Linux weren't tried.
 
 Each change made in the inspector or the Tokens panel is recorded once, as `inspector.changed`, with the field, the
 design, the layers and the value before and after: style rows, a layer's text, visibility, props and name, an image, an
-instance's state and component, prop bindings, slots, states, a component's props and variants, and tokens. A preview
-records nothing, and nor does a change that leaves a value as it was. A design or layer renamed in Layers or on a
-board's title records the same `name` change as one renamed in the inspector. Detach, Push to main and Make component
-record `component.changed`, with the design, the layers and the component. Which field each control records is in
+instance's component, prop bindings, slots, states, a component's props and variants, and tokens. A preview records
+nothing, and nor does a change that leaves a value as it was. A design or layer renamed in Layers or on a board's title
+records the same `name` change as one renamed in the inspector. Detach, Push to main and Make component record
+`component.changed`, with the design, the layers and the component. Which field each control records is in
 [telemetry.md](telemetry.md), "Editing".
 
 `chrome/inspector-events.test.ts` covers, through the test sink: a style row on layers whose values differ; a number
@@ -6551,8 +6642,9 @@ container query, a `group-hover:` rule.
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
   The classes are the Tailwind printer's (`packages/styles-tailwind`), which writes a class only when it compiles back
-  to the declaration it came from, so a layer measures the same by its classes as by its rule. Their CSS is one
-  stylesheet for the project's frames, in Tailwind's `utilities` layer and in Tailwind's order.
+  to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
+  a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
+  Tailwind's `utilities` layer and in Tailwind's order.
 - **Otherwise, and until the classes are written, a layer is drawn from a rule for its node:** one rule set for each
   element, found by its id (`[data-canvas-node="…"]`), holding its declarations in order. The window asks the project
   service for classes, since the service holds the project's Tailwind; a layer shows from its rule at once and from its
@@ -6575,7 +6667,7 @@ container query, a `group-hover:` rule.
   (`prepareCanvasCss`): `rem` and viewport units measure the frame, a width media query asks the frame's width, and a
   root-relative `url()` is the project's.
 
-Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style`'s
+Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style-schema`'s
 `declarations`, and marks a layout whose child is Absolute (`anchors`). `packages/core/src/frame-rules.ts` has
 `frameRules` (a tree's rules, through `cssPrinter`), `previewRules`, `withClasses` and `writeClasses`.
 `apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and one for a preview, after the
@@ -6594,8 +6686,8 @@ Tests:
   `revert-layer` first for what it takes away; classes put on the elements a framework wrote them for; and classes
   written one declaration at a time, compiled together with the ones the frames already have.
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
-- `packages/style/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a child
-  is placed in is `relative`; an Absolute one stays Absolute.
+- `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
+  child is placed in is `relative`; an Absolute one stays Absolute.
 - `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
@@ -7200,9 +7292,9 @@ ids stored as ids through a nested instance, and a name the component doesn't ha
 ### A viewport's patch over states (PAR-902)
 
 A viewport's responsive patch is a breakpoint, so it applies in every state, as a media query does. Its style, and
-hiding a node, win over the variant options, the state, an instance's overrides and a screen's states reaching into an
-instance. Its text and props, and showing a node the design hides, sit under them, so a state still changes the words or
-hides what phones show. A desktop menu hidden on mobile stays hidden there when a state opens it.
+hiding a node, win over the variant options, the state, an instance's overrides and a component's states reaching into
+an instance it holds. Its text and props, and showing a node the design hides, sit under them, so a state still changes
+the words or hides what phones show. A desktop menu hidden on mobile stays hidden there when a state opens it.
 
 Implementation: `nodePatch` in `packages/core/src/render.ts`, which `drawnNode`, `resolveDesign` and `effectiveNode` go
 through.

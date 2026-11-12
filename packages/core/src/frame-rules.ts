@@ -1,4 +1,4 @@
-import { type CssDeclaration, cssPrinter } from "@parity-app/style"
+import { type CssDeclaration, cssPrinter } from "@parity-app/style-schema"
 import type { ClassPrinter } from "./adapters.ts"
 import type { RenderElement, RenderNode } from "./render.ts"
 

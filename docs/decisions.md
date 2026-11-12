@@ -1,5 +1,9 @@
 # Decisions
 
+- **The style package is `@parity-app/style-schema` (PAR-999).** You found `@parity-app/style` too vague on 2026-11-12
+  and chose this name. Only the name and the folder (`packages/style-schema`) changed: the schema, the ledger,
+  `validate` and the adapter contract are as they were. Entries below written before the rename use the new name.
+
 - **Tokens come in and go out through the styles adapter, and nothing between knows the framework (PAR-911).** You asked
   for this on 2026-11-11, instead of special cases per library. `StylesAdapter` already read a framework's theme
   (`loadTheme`); it now writes token values too (`writeTokens`), and `@parity-app/tokens` keeps only the plain writer
@@ -51,9 +55,9 @@
     Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
     Layer order in a Block layout wait for those.
 
-- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
-  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
-  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+- **Plain CSS is printed and read in `@parity-app/style-schema`, with css-tree's parser, not Lightning CSS (PAR-944).**
+  Step 6 of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for
+  each place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
   `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
   rules it would have written and keeps the rest as text.
   - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
@@ -63,6 +67,33 @@
     or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
   - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
     written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
+
+- **The Tailwind printer takes two values for the same when Tailwind spells both as one class (PAR-1001).** In the
+  running app on 2026-11-11 a layer drew with `m-[0]`, `font-[500]` and `gap-[calc(var(--spacing)_*_1)]`, where a person
+  writes `m-0`, `font-medium` and `gap-1`.
+  - **`canonicalizeCandidates` was already asked, and already gave the right class.** The printer then dropped it,
+    because it read the class back and compared the value as text: `m-0` compiles to `0px`, not `0`; `gap-1` to
+    `var(--spacing)`, not `calc(var(--spacing) * 1)` (every other step keeps the `calc`, which is why `gap-6` came out
+    right); `font-medium` to `var(--font-weight-medium)`, not `500`.
+  - **Where the text differs, Tailwind decides.** The value a class reads back as and the value it's written for are
+    each put to `canonicalizeCandidates` as an arbitrary property, and they're the same value when both come back as one
+    class. The printer still has no table and does no arithmetic of its own. A class is still written only when it reads
+    back as one declaration of the same property in the same place.
+  - **It asks both ways, which is stricter than taking Tailwind's spelling.** Tailwind works a value out from its theme,
+    and a project can set a theme variable somewhere Tailwind doesn't look. The example sets `--radius` to 0.625rem in
+    `:root` while Tailwind's theme has 0.25rem, so Tailwind spells `border-radius: 0.25rem` as `rounded-lg`, which draws
+    0.625rem here. `rounded-lg` reads back as `var(--radius)`, which Tailwind doesn't spell as `rounded-lg`, so the
+    printer writes `rounded-[0.25rem]`. For the same reason `var(--radius-md)` stays `rounded-(--radius-md)`, where
+    Tailwind's tools say `rounded-md`.
+  - **A value written as a number can now come out as the token that holds it:** `font-weight: 500` as `font-medium`,
+    `gap: 1rem` as `gap-4`, `color: #fff` as `text-white`, `line-height: 1.5` as `leading-normal`. That's what you asked
+    for, and what Tailwind's own lint suggests. It draws the same unless the project sets that theme variable
+    (`--font-weight-medium`, `--spacing`) outside its theme, as the example does with `--radius`. A variable that's read
+    straight through, as these four are, is one the printer can't catch that for. This is yours to overrule: the
+    stricter rule would keep a number as a number and only take `0` for `0px` and `calc(x * 1)` for `x`.
+  - **`font-size: var(--text-sm)` stays `text-(length:--text-sm)`.** `text-sm` also sets a line height, so it isn't that
+    declaration. Tailwind's own tools give the same spelling. Pixel lengths keep their brackets too (`gap-[4px]`):
+    Tailwind only converts them to its scale when told the root font size, which the printer doesn't assume.
 
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
@@ -120,7 +151,7 @@
     browser and check nothing without one. A refusal now names the line of the snippet, and the browser is still asked
     after.
 
-- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+- **`@parity-app/style-schema` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
   [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
   `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
   - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
@@ -132,16 +163,16 @@
     replaces the inline styles with rules.
   - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
     `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
-    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
-    itself.
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports
+    `@parity-app/style-schema` itself.
 
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
-  package, `@parity-app/style`, holds the stored style, moved out of core, and turns it into CSS declarations and back;
-  each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling each
-  class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data, gives
-  each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
+  package, `@parity-app/style-schema`, holds the stored style, moved out of core, and turns it into CSS declarations and
+  back; each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling
+  each class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data,
+  gives each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
   package, with the schema leaving core; one format change that renames the keys after their CSS properties, after
   PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
   rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
@@ -7618,9 +7649,9 @@ My calls:
   in its state. Showing one frame going from state to state is a feature of its own.
 - **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
   offer Create token, and the Design tab's other fields don't either.
-- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
-  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
-  spring maths from there.
+- **The schema, its CSS and the spring maths are in `@parity-app/style-schema`** (`motion.ts`), beside the rest of the
+  stored style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import
+  the spring maths from there.
 
 ## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
 
@@ -7967,6 +7998,91 @@ skipped the sender check. My calls:
   for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
   stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
   map, its handler, and its line in the bridge, and the compiler holds the three together.
+
+## Only a component has states (PAR-1002)
+
+States were on every design. Screens used them for the data a page shows (Pricing's Monthly and Yearly, Dashboard's
+Loading), and an instance could pick which of its component's states to show. In code, a screen is a route, and what
+varies is the data its components get: a loading table is the table in its loading state, not a second page. You asked
+for states on component designs only, and for the schema to say so, so an agent never has to guess whether a design has
+any. My calls:
+
+- **The project file refuses `states` on a screen or a frame,** and `view.state` or `view.allStates` on one. A component
+  without `states` has its base state, Default, so a new component doesn't write one.
+- **An instance has no `state`.** It shows its component's base state, under its overrides. A screen that needs a
+  component another way sets its params, as code passes props, and a variant param picks the look.
+- **Existing screen states were dropped,** as stale prototype data. The example's Button screen became a component and
+  kept its four states.
+- **Inside the editor every design has a base state,** given by `designStates`, so selection, the canvas, the edit frame
+  and the agent's paths read a screen in "default" as before. Only adding, renaming, removing or showing another state
+  is refused.
+- **The agent sees the difference in `Designs()`,** which lists `states` and `showing.state` for components only, and
+  its contract is a union by `kind`. A state call on a screen fails with `invalid_input` on `design` and says to make
+  the part that varies a component. I considered keeping states on screens and refusing them only in the agent, which
+  would have left the file and the editor disagreeing with what the agent may do.
+- **Turning a component into a screen keeps its base state's look** and drops the rest, named in a notice with Undo, as
+  turning a design into a frame already does with what a frame can't have.
+
+## The portal's pages are at `tryparity.dev`, blank for now (PAR-1003)
+
+- **`tryparity.dev` serves a blank page from the service's Worker** (your call, 2026-11-12), so the portal's screens
+  have a host before they're built. The page is an empty document titled Parity.
+- **Both hosts reach every route for now** (my call). `tryparity.dev` and `api.tryparity.dev` are two custom domains on
+  one Worker, so the API answers on either. Keeping each host to its own routes waits until there's a page worth keeping
+  apart.
+- **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
+  for an environment.
+
+## One object per open project (PAR-970)
+
+Any change to an open project replaced its `ProjectSession` with a copy (a reconnect, a guest moving, new sources, a
+code change, the canvas mounting), while the media cache and the start page picture keyed on that object, and panel
+state sat in window singletons keyed five ways that nothing cleared when a tab closed. Agreed with Andrew on 2026-11-12,
+and split into PAR-1004 to PAR-1007:
+
+- **`ProjectSession` becomes a class with one instance per open project,** from its tab becoming ready to it closing.
+  The name stays, since renaming it touches every file that takes one for nothing.
+- **What never changes is plain fields:** `id`, `store`, `selection`, `components`, `recovery` and `errors`. What can
+  change is read through getters and changed through `session.update(...)`, which tells the session's listeners: `info`,
+  `loaded` (the guest), `tokens`, `added`, `versions` and `editor`. The workspace updates the session where it used to
+  copy it. `firstFrame` stays a plain field, set as the tab opens and cleared once the canvas draws, since nothing draws
+  from it.
+- **Components get the same object from the context, and `useProject()` subscribes to it,** so they draw again when a
+  changing part changes, as they did when the context's value was a new copy. An effect keyed on the session no longer
+  runs again on each change; one that needs a changing part depends on that part.
+- **Per-project state hangs off the session with `projectPart(make)`,** made the first time it's asked for and disposed
+  of when the session goes: media files, accessibility checks, the console's filter, component previews, the prop being
+  added and slot focus. Previews go when their tab closes rather than with the window, and each tab has its own console
+  filter. The start page picture is the session's too, from opening to closing, not a React effect's.
+- **Reopening a project makes a new session** and disposes of the old one as closing would, since it reads the designs
+  again into a new store.
+- **Functions take the part of the project they use,** a `DesignStore`, a `ProjectInfo` or a
+  `Pick<ProjectSession, "store" | "selection">`, so tests build that part without a cast. Opening, closing and the
+  workspace still take the whole session.
+- **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
+  would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
+  reopened project, which keeps its root, would pick up the last one's state.
+
+## What changed is answered in `@parity-app/change-detection` (PAR-997)
+
+A yellow outline for changed boards, tried by reading the bitmap cache's `stale` flag, stayed yellow after an edit was
+undone: `stale` means the picture isn't for the frame's key, and the key moves with every edit. You asked for an
+interface that gives each node's change status, so a consumer can't read the wrong thing. My calls:
+
+- **A package of its own, `@parity-app/change-detection`, pure:** the trace's schema, comparing traces, a status for a
+  frame, its nodes and a board, and baselines. It reads no files; traces are still taken in the service, over the
+  readers in `@parity-app/project`, so visual tests and the CLI can compare the same way.
+- **A status is unknown, unchanged or changed with the files.** Unknown keeps "no answer yet" apart from "unchanged", so
+  nothing is outlined or skipped on a guess.
+- **The baseline is the first trace taken of a frame while its project is open,** kept by project, design, state and
+  mode. It's what "since I opened it" means, and a later baseline, a git ref or an accepted visual test, is another
+  source of traces for the same comparison.
+- **A node's status comes from the files its component reads,** which traces now list per component, plus the files no
+  component reads and the nodes inside it. Bitmaps keep only the files and the digest, which is all a bitmap's validity
+  needs.
+- **The canvas reads changes through `useFrameChange` and `useDesignChange`,** and marks a changed board with
+  `data-changed`, which nothing styles. The yellow outline was only for testing, so it stays local; how changes show is
+  for Storybook first.
 
 ## The Design tab's field edits through one session (PAR-968)
 

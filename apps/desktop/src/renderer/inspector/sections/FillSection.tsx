@@ -43,6 +43,8 @@ function fillTokens(tokens: readonly Token[]): Pick<TokenSets, "color" | "gradie
 /** The project's pictures for image fills, drawn from its dev server; a file added is saved into `public/images/`. */
 function useImageSourceOf(session: ProjectSession): ImageSource {
   const { images } = useProjectMedia(session)
+  // The pictures are drawn from the guest's address, which changes when its builder restarts on another port.
+  const { guestUrl } = session.info
 
   return useMemo(() => {
     const pictures = images
@@ -60,7 +62,9 @@ function useImageSourceOf(session: ProjectSession): ImageSource {
       preview: (src) => (src ? pictureUrl(session, src) : undefined),
       name: (src) => pictures.find((image) => image.src === src)?.name ?? src.replace("/images/", "")
     }
-  }, [images, session])
+    // `guestUrl` is read through the session by `pictureUrl`.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, session, guestUrl])
 }
 
 /**

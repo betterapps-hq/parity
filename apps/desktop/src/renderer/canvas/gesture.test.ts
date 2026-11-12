@@ -101,8 +101,7 @@ const home: ContainerSpec = {
   id: "home",
   name: "Home",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "root", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [] }
 }
 
 const design = "app.par#home"

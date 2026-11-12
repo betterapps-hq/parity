@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity-app/style"
+import type { NodeStyle } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import type { ClassPrinter } from "./adapters.ts"
 import type { ContainerSpec, DesignNode } from "./document.ts"
@@ -24,7 +24,7 @@ const design: ContainerSpec = {
   ]
 }
 
-function render(root: ContainerSpec["root"], state = design.states[0]) {
+function render(root: ContainerSpec["root"], state = design.states![0]) {
   return resolveDesign(root, state, "desktop")
 }
 
@@ -154,7 +154,7 @@ describe("previewRules", () => {
   })
 
   it("follows the state each render shows", () => {
-    const wide = design.states[1]
+    const wide = design.states![1]
     // In Wide, the state's own width wins over the base design's, so a base edit to it changes nothing there.
     expect(previewRules(render(design.root, wide), render(withStyle("title", { width: 80 }), wide))).toBe("")
     expect(previewRules(render(design.root), render(design.root, wide))).toBe(

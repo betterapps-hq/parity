@@ -1,4 +1,5 @@
 import type { ContainerSpec } from "@parity-app/core"
+import { designStates } from "@parity-app/core"
 import { absoluteDrag, layerResize, resizeStart, type SnapBox } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
 import {
@@ -103,8 +104,7 @@ const design: ContainerSpec = {
         ]
       }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 /** Each number of a box to the nearest millionth of a pixel, past what a scale's rounding leaves. */
@@ -157,7 +157,7 @@ describe("what a layer snaps to", () => {
 
 describe("dragging an absolutely placed layer from what its frame measured", () => {
   it("moves by the same steps however big the frame is drawn, and snaps to the same sibling", () => {
-    const shown = resizeStart(design, "review", { state: design.states[0]! })!
+    const shown = resizeStart(design, "review", { state: designStates(design)[0]! })!
 
     for (const scale of scales) {
       const frame = calendar(scale)
@@ -198,7 +198,7 @@ describe("what resizing a layer starts from", () => {
   })
 
   it("resizes by the same steps however big the frame is drawn", () => {
-    const shown = resizeStart(design, "review", { state: design.states[0]! })!
+    const shown = resizeStart(design, "review", { state: designStates(design)[0]! })!
 
     for (const scale of scales) {
       const frame = calendar(scale)

@@ -15,7 +15,7 @@ import { type ReactNode, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { PanelSection, PanelSectionTitle } from "../../chrome/PanelSection.tsx"
+import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type PropValue, readValue, textValue } from "../../chrome/prop-values.ts"
 import { formatNumber, stepCount } from "./css-values.ts"
 import { initialSession, reduceSession, type SessionEffect } from "./edit-session.ts"
@@ -156,14 +156,10 @@ export interface InstanceSectionProps {
   onGoTo?: () => void
   /** Where a library's component comes from, for its name's hint. */
   linked?: string
-  /** The component's states, its first the one shown while none is set, and the one the instance shows. */
-  states: readonly { id: string; name: string }[]
-  state: string | undefined
   props: readonly PropRow[]
   /** Changed in the state being edited, with the reset arrow by its name, for a row that doesn't say so itself. */
   changed?: (name: string) => boolean
   onResetProp?: (name: string) => void
-  onState: (state: string | undefined) => void
   onChange: PropChange
   /**
    * The menu beside the component's name, for one of the design's own instances: how many layers inside it differ from
@@ -184,13 +180,12 @@ export interface InstanceSectionProps {
 }
 
 /**
- * A component instance: the state it shows, which isn't a prop, then its props under their own heading. Going to the
+ * A component instance: its props. Going to the
  * component is its name in the title row, and swapping, resetting overrides, pushing them to the component and
  * detaching are in the menu beside it, as Penpot's and Figma's instance menus hold them.
  */
 export function InstanceSection(props: InstanceSectionProps) {
-  const { component, onGoTo, linked, states, state, menu, changed = () => false, onResetProp } = props
-  const first = states[0]
+  const { component, onGoTo, linked, menu, changed = () => false, onResetProp } = props
 
   const rows = props.props.map((row) => ({
     ...row,
@@ -228,21 +223,6 @@ export function InstanceSection(props: InstanceSectionProps) {
     >
       {props.note}
       <FieldGrid>
-        {first && (
-          <Field label="State">
-            <Choice
-              label="State"
-              value={state ?? first.id}
-              options={states}
-              onChange={(next) => props.onState(next === first.id ? undefined : next)}
-            />
-          </Field>
-        )}
-        {rows.length > 0 && (
-          <div className="col-span-2 -mb-1">
-            <PanelSectionTitle title="Props" tone="quiet" />
-          </div>
-        )}
         <PropRows rows={rows} onChange={props.onChange} />
       </FieldGrid>
       {props.children && <div className="mt-2.5">{props.children}</div>}

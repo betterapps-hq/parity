@@ -12,8 +12,7 @@ describe("canvasBoards", () => {
       id,
       name: id,
       position: { x, y: 0 },
-      root: { type: "layout" as const, id: "page", children: [] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout" as const, id: "page", children: [] }
     })
 
     const boards = canvasBoards(

@@ -74,12 +74,13 @@ const card: ContainerSpec = {
 }
 
 /**
- * A screen placing the card with args and overrides that reach into its avatar, a responsive patch that picks the
+ * A component placing the card with args and overrides that reach into its avatar, a responsive patch that picks the
  * card's variant on mobile, and a state that reaches inside the card.
  */
 const profile: ContainerSpec = {
   id: "profile",
   name: "Profile",
+  kind: "component",
   position: { x: 800, y: 0 },
   root: {
     type: "layout",
@@ -93,7 +94,6 @@ const profile: ContainerSpec = {
         id: "person",
         design: "card",
         args: { title: "Ada Lovelace", layout: "inline" },
-        state: "compact",
         overrides: { meta: { text: "Joined 1843" }, "avatar/initials": { text: "AL", style: { weight: 700 } } },
         responsive: { mobile: { props: { layout: "stacked" } } }
       }
@@ -136,9 +136,9 @@ export const effectiveFixture: EffectiveFixture = {
       name: "a state that overrides a value the variant sets",
       design: card,
       variants: { layout: "inline" },
-      state: card.states[1]
+      state: card.states![1]
     },
     { name: "responsive patches on the design and inside its instance", design: profile },
-    { name: "a nested instance with args and overrides, in a state", design: profile, state: profile.states[1] }
+    { name: "a nested instance with args and overrides, in a state", design: profile, state: profile.states![1] }
   ]
 }

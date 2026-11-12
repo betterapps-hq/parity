@@ -42,9 +42,10 @@ function busy(ms: number): void {
 describe("waitLimit", () => {
   it("reads an answer that came while this process was too busy to read it for longer than the limit", async () => {
     const url = await copy()
-    const limit = waitLimit(200)
+    // Busy for twice the limit, which counts as one tick, and leaves the rest for the answer to arrive and be read.
+    const limit = waitLimit(400)
     const answer = fetch(url, { method: "POST", body: "{}", signal: limit.signal })
-    busy(500)
+    busy(800)
 
     const response = await answer
     limit.stop()
