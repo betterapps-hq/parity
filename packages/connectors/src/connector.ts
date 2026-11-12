@@ -115,6 +115,8 @@ export type Found = z.infer<typeof found>
 export const problemCode = z.enum([
   /** This copy of Parity has no key for a connector that needs one, which only the app's owner can arrange. */
   "no-key",
+  /** Parity's service runs this search, only for someone signed in, and nobody is. Signing in fixes it. */
+  "signed-out",
   /** The source turned the key down: it's wrong, revoked, or for another service. */
   "key-refused",
   /** The key works, but its plan doesn't include this. */

@@ -1,7 +1,7 @@
 import { nodeStyle, styleKey } from "@parity-app/style-schema"
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
-import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
+import { type DataParser, fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
 import { sampleProps } from "./values/grammar.ts"
 
@@ -321,8 +321,6 @@ const instanceNode = nodeBase.extend({
   /** The component design's id. */
   design: z.string(),
   args: plainObject.optional(),
-  /** Which of the component's states this copy shows. */
-  state: z.string().optional(),
   /**
    * What this copy changes inside the component, keyed by the inner node's id, or `nested/inner` for a node inside a
    * nested instance. The copy stays linked: everything it doesn't change follows the component.
@@ -453,8 +451,8 @@ export const containerKinds = ["screen", "component", "frame"] as const
 /**
  * What a design is. A screen is a whole page or view; a component is a reusable piece that screens place as instances.
  * A frame is the light kind, for sketching on the canvas: a layout drawn once, at its own `size`, in the project's
- * primary mode, with one state, no params, no modes beside it, and no code written from it. Only a top-level design is
- * a frame; one placed inside another design becomes a layout there.
+ * primary mode, with no params, no modes beside it, and no code written from it. Only a top-level design is a frame;
+ * one placed inside another design becomes a layout there. Only a component has states (see `designStates`).
  */
 export type ContainerKind = (typeof containerKinds)[number]
 
@@ -512,9 +510,9 @@ const containerViewSettings = fileObject({
   mode: z.string().optional(),
   /** Other modes shown beside the main frame. */
   modes: z.array(z.string()).optional(),
-  /** The state the canvas shows. Defaults to the first. */
+  /** A component's state the canvas shows. Defaults to the first. */
   state: z.string().optional(),
-  /** Show every state, one row each, instead of only the active one. */
+  /** Show every state of a component, one row each, instead of only the active one. */
   allStates: z.boolean().optional(),
   /** The option the board shows for each variant param, by option id. Unset ones show their default. */
   variants: z.record(z.string(), z.string()).optional()
@@ -535,6 +533,17 @@ const stateSpec = fileObject({
 
 export type StateSpec = z.infer<typeof stateSpec>
 
+/** The one state a screen or frame is drawn in: its layers as they are. */
+export const baseState: StateSpec = { id: "default", name: "Default" }
+
+/**
+ * A design's states, the base first. Only a component has states of its own, to stress-test it in its variations; a
+ * screen or a frame, and a component that lists none, has the base state alone.
+ */
+export function designStates(container: Pick<ContainerSpec, "states">): readonly StateSpec[] {
+  return container.states ?? [baseState]
+}
+
 /** One design, as a project file or the clipboard holds it (see `ContainerSpec`). */
 export const containerSpec = fileObject({
   id: z.string(),
@@ -545,7 +554,11 @@ export const containerSpec = fileObject({
   /** Kept from being selected or moved on the canvas, with every layer in it; it's still selected from Layers. */
   locked: z.boolean().optional(),
   root: nodeTree,
-  states: z.array(stateSpec).min(1, "expected at least one state"),
+  /**
+   * A component's states, the base first: the design as it is, then each variation it's tested in, such as Hover or
+   * Loading. Only a component has them; without them it has the base state alone.
+   */
+  states: z.array(stateSpec).min(1, "expected at least one state").optional(),
   view: containerViewSettings.optional(),
   /** A component's inputs. Instances pass values for them; nodes inside bind to them. */
   params: z.record(z.string(), paramSpec).optional(),
@@ -585,8 +598,12 @@ export const containerSpec = fileObject({
     slots.add(node.slot)
   })
 
-  for (const [index, state] of container.states.entries()) {
+  for (const [index, state] of (container.states ?? []).entries()) {
     checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
+  }
+
+  if (container.kind !== "component") {
+    checkNoStates(container, context)
   }
 
   if (container.kind === "frame") {
@@ -603,8 +620,8 @@ export const containerSpec = fileObject({
 })
 
 /**
- * One design, like a Storybook CSF file. `root` is the design itself. States are authored and patch nodes (content,
- * props, visibility). Modes are project-wide (see `ModeSettings`); every design can be rendered in any of them, and
+ * One design, like a Storybook CSF file. `root` is the design itself. A component's states are authored and patch
+ * nodes (content, props, visibility). Modes are project-wide (see `ModeSettings`); every design can be rendered in any of them, and
  * `view` records which ones this design shows next to its primary frame.
  */
 export type ContainerSpec = z.infer<typeof containerSpec>
@@ -628,21 +645,28 @@ function checkPatchKeys(
   }
 }
 
+/** Only a component has states: a screen or a frame is drawn as its layers are, so it names no state to show. */
+function checkNoStates(container: ContainerSpec, context: z.RefinementCtx): void {
+  const kind = container.kind ?? "screen"
+
+  if (container.states !== undefined) {
+    problem(context, ["states"], `only a component has states; a ${kind} is drawn as its layers are`)
+  }
+
+  for (const field of ["state", "allStates"] as const) {
+    if (container.view?.[field] !== undefined) {
+      problem(context, ["view", field], `only a component has states; a ${kind} has none to show`)
+    }
+  }
+}
+
 /**
- * What a frame may hold: a layout at its root and one state, drawn as its layers are, with no params, no view (it
- * shows only the primary mode and that state) and no sizes per viewport, since it has one of its own.
+ * What a frame may hold: a layout at its root, drawn as its layers are, with no params, no view (it shows only the
+ * primary mode) and no sizes per viewport, since it has one of its own.
  */
 function checkFrame(frame: ContainerSpec, context: z.RefinementCtx): void {
   if (frame.root.type !== "layout") {
     problem(context, ["root"], "a frame's root is a layout")
-  }
-
-  if (frame.states.length > 1) {
-    problem(context, ["states"], "a frame has one state")
-  }
-
-  if (Object.keys(frame.states[0]?.overrides ?? {}).length > 0) {
-    problem(context, ["states", 0, "overrides"], "a frame is drawn as its layers are")
   }
 
   if (frame.params !== undefined) {
@@ -650,7 +674,7 @@ function checkFrame(frame: ContainerSpec, context: z.RefinementCtx): void {
   }
 
   if (frame.view !== undefined) {
-    problem(context, ["view"], "a frame shows only the primary mode and its one state")
+    problem(context, ["view"], "a frame shows only the primary mode")
   }
 
   if (frame.frames !== undefined) {
@@ -665,7 +689,7 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
 
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
 export const canvasDocument = fileObject({
-  version: z.literal(3),
+  version: z.literal(4),
   containers: z.array(containerSpec),
   /** The project's modes. Unset means the defaults. */
   modes: modeSettings.optional(),
@@ -696,10 +720,10 @@ export const canvasDocument = fileObject({
 export type CanvasDocument = z.infer<typeof canvasDocument>
 
 /** Reads a project file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export const parseCanvasDocument = parserFor(canvasDocument)
+export const parseCanvasDocument: DataParser<CanvasDocument> = parserFor(canvasDocument)
 
 /** Validates one node tree on its own, as agents insert them. `path` is where it sits, for the error's pointer. */
-export const parseDesignNode = parserFor(nodeTree)
+export const parseDesignNode: DataParser<DesignNode> = parserFor(nodeTree)
 
 /** Validates a state's or viewport's patch on its own. `path` is where it sits, for the error's pointer. */
 export const parseNodePatch = parserFor(nodePatch)

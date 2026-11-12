@@ -13,6 +13,7 @@ import {
   type ComponentNode,
   type ContainerSpec,
   type DesignNode,
+  designStates,
   type FrameSize,
   type InstanceNode,
   isAccessibilityProp,
@@ -119,7 +120,7 @@ function unsizedAxes(style: NodeStyle): Axis[] {
     const size = style[axis]
     const least = axis === "width" ? style.minWidth : style.minHeight
 
-    return (size === undefined || size === "hug" || size === "fill") && least === undefined
+    return (size === undefined || "size" in size) && least === undefined
   })
 }
 
@@ -652,7 +653,8 @@ export function instanceScope(
   // A param the patch takes away goes back to its default.
   const given = { ...without(node.args, patch.unset?.props), ...patch.props }
   const choices = variantChoices(component.params, given)
-  const componentState = component.states.find((candidate) => candidate.id === node.state) ?? component.states[0]
+  // An instance shows its component's base state: other states only stress-test the component on its own board.
+  const componentState = designStates(component)[0]
 
   return {
     args: { ...defaults, ...given, ...choices },
@@ -682,7 +684,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 
     switch (shown.type) {
       case "layout": {
-        const direction = style.direction ?? "column"
+        const direction = style.flexDirection ?? "column"
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
         const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
 

@@ -16,7 +16,6 @@ function snapshot(): AgentSnapshot {
       name: "Card",
       children: [{ type: "text", id: "label", name: "Label", text: "Revenue", bind: { text: "label" } }]
     },
-    states: [{ id: "default", name: "Default" }],
     params: { label: { type: "text", default: "Revenue" } }
   }
 
@@ -27,12 +26,16 @@ function snapshot(): AgentSnapshot {
     root: {
       type: "layout",
       id: "page",
-      children: [{ type: "instance", id: "sales", design: "stat-card", args: { label: "Sales" } }]
-    },
-    states: [
-      { id: "default", name: "Default" },
-      { id: "empty", name: "Empty", overrides: { sales: { props: { label: "No sales" } } } }
-    ]
+      children: [
+        {
+          type: "instance",
+          id: "sales",
+          design: "stat-card",
+          args: { label: "Sales" },
+          responsive: { mobile: { props: { label: "No sales" } } }
+        }
+      ]
+    }
   }
 
   return {
@@ -41,7 +44,7 @@ function snapshot(): AgentSnapshot {
     tokens: [],
     theme: [],
     modes: defaultModeSettings,
-    documents: [{ path: "app.par", document: { version: 3, containers: [card, dashboard] } }],
+    documents: [{ path: "app.par", document: { version: 4, containers: [card, dashboard] } }],
     libraryDesigns: [],
     tokenOverrides: [],
     mainDocument: "app.par",
@@ -88,7 +91,7 @@ const id = CreateDesign({
     showBadge: { type: "boolean", default: false },
     density: { type: "variant", default: "Compact", options: [
       { name: "Comfortable" },
-      { name: "Compact", overrides: { Sidebar: { style: { gap: 2 } } } }
+      { name: "Compact", overrides: { Sidebar: { style: { gap: { step: 2 } } } } }
     ] }
   }
 })
@@ -106,7 +109,7 @@ Print(id)`)
         default: "compact",
         options: [
           { id: "comfortable", name: "Comfortable" },
-          { id: "compact", name: "Compact", overrides: { [root]: { style: { gap: 2 } } } }
+          { id: "compact", name: "Compact", overrides: { [root]: { style: { gap: { step: 2 } } } } }
         ]
       }
     })
@@ -158,14 +161,16 @@ Update(id, { bind: { text: "caption" } })`)
     expect(after("stat-card")!.params).toEqual({ title: { type: "text", default: "Users" } })
     expect(findNode(after("stat-card")!.root, "label")?.bind).toEqual({ text: "title" })
     expect(findNode(after("dashboard")!.root, "sales")).toMatchObject({ args: { title: "Sales" } })
-    expect(after("dashboard")!.states[1]!.overrides).toEqual({ sales: { props: { title: "No sales" } } })
+    expect(findNode(after("dashboard")!.root, "sales")?.responsive).toEqual({
+      mobile: { props: { title: "No sales" } }
+    })
   })
 
   it("keeps an option's changes when a new list names it again, and drops picks of an option that went", async () => {
     const { result, after } = await run(`
 AddParam("stat-card", "tone", { type: "variant", options: [
   { name: "Plain" },
-  { name: "Loud", overrides: { Card: { style: { padding: 6 } } } },
+  { name: "Loud", overrides: { Card: { style: { padding: { step: 6 } } } } },
   { name: "Quiet" }
 ] })
 Update("dashboard/sales", { args: { tone: "quiet" } })
@@ -176,7 +181,7 @@ UpdateParam("stat-card", "tone", { options: [{ name: "Plain" }, { name: "Loud" }
       type: "variant",
       options: [
         { id: "plain", name: "Plain" },
-        { id: "loud", name: "Loud", overrides: { card: { style: { padding: 6 } } } }
+        { id: "loud", name: "Loud", overrides: { card: { style: { padding: { step: 6 } } } } }
       ]
     })
     // The pick of Quiet went with it, which leaves Dashboard as it was.

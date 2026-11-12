@@ -1,4 +1,4 @@
-import { isNamedLength, type NodeStyle } from "@parity-app/core"
+import type { NodeStyle } from "@parity-app/core"
 import type { StackingContext } from "@parity-app/editor"
 import { defaultValues, previewKind, type Token } from "@parity-app/tokens"
 import { comesTo } from "../../token-values.ts"
@@ -31,16 +31,16 @@ export function layerOrderSide(zIndex: NodeStyle["zIndex"]): Side {
     return undefined
   }
 
-  return isNamedLength(zIndex) ? { token: zIndex } : { number: zIndex }
+  return "token" in zIndex ? { token: zIndex.token } : { number: zIndex.step }
 }
 
-/** What the field's value stores: a whole number, a token's name, or nothing for Auto. */
+/** What the field's value stores: a whole number, a token, or nothing for Auto. */
 export function zIndexOf(side: Side): NodeStyle["zIndex"] {
   if (side === undefined || side === "auto" || "percent" in side) {
     return undefined
   }
 
-  return "token" in side ? side.token : Math.round(side.number)
+  return "token" in side ? { token: side.token } : { step: Math.round(side.number) }
 }
 
 const because: Record<StackingContext["because"], string> = {

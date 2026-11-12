@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "radix",
   "name": "Radix Primitives",
   "description": "Unstyled, accessible primitives; styles come from the project's CSS.",

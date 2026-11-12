@@ -11,6 +11,7 @@ import {
 import {
   addState,
   changeCount,
+  designStates,
   duplicateState,
   findNode,
   isBaseState,
@@ -34,7 +35,8 @@ import { GroupLabel, PanelSection } from "./PanelSection.tsx"
 import { textValue } from "./prop-values.ts"
 
 /**
- * A design's states, like a Storybook file's stories. The first is the base: the design itself. Every other state
+ * A component's states, like a Storybook file's stories: only a component has them. The first is the base: the
+ * component itself. Every other state
  * lists exactly what it changes, and each change can be reset.
  */
 export function StatesSection({ entry }: { entry: ContainerEntry }) {
@@ -47,7 +49,7 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
   // A change to the states records them all, by id and name, before and after (PAR-713).
   const states = { field: "states", read: statesValue }
 
-  const view = (state: string, name = container.states.find(({ id }) => id === state)?.name ?? state) =>
+  const view = (state: string, name = designStates(container).find(({ id }) => id === state)?.name ?? state) =>
     store.updateView(key, `Show ${name}`, (current) => ({ ...current, state, allStates: false }))
 
   const add = () => {
@@ -78,7 +80,7 @@ export function StatesSection({ entry }: { entry: ContainerEntry }) {
       }
     >
       <ul className="flex flex-col gap-0.5" aria-label="States">
-        {container.states.map((state, index) => (
+        {designStates(container).map((state, index) => (
           <StateRow
             key={state.id}
             state={state}

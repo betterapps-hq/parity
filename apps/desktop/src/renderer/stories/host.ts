@@ -12,6 +12,7 @@ import {
   type ContainerSpec,
   defaultModeSettings,
   type DesignNode,
+  designStates,
   parseData
 } from "@parity-app/core"
 import {
@@ -448,7 +449,7 @@ export function projectInfo(root: string): ProjectInfo {
       id: root,
       root,
       name,
-      documents: empty ? [] : [{ path: file, document: { version: 3, containers: [] } }],
+      documents: empty ? [] : [{ path: file, document: { version: 4, containers: [] } }],
       mainDocument: file,
       modes: { settings: defaultModeSettings, custom: false },
       notes: [
@@ -790,6 +791,13 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
     case "accessibility.check":
       return { findings: findingsFor(String(request.params.design)), frames: 4, warnings: [] }
+    case "frames.changes":
+      // Nothing to compare in a story: every frame's change is unknown, so no board is outlined.
+      return {
+        changes: parseData(z.array(z.json()), JSON.parse(request.params.frames)).map(() => ({
+          status: { state: "unknown" }
+        }))
+      }
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
       return { kept: parseData(z.array(z.json()), JSON.parse(request.params.jobs)).map(() => ({})) }
@@ -865,7 +873,7 @@ function findingsFor(key: string): AccessibilityFinding[] {
   }
 
   const nodes = componentNodes(container)
-  const states = container.states.slice(0, 2)
+  const states = designStates(container).slice(0, 2)
 
   return states.flatMap((state): AccessibilityFinding[] => [
     ...nodes.slice(0, 2).map((node) => ({

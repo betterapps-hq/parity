@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import type { DesignNode, NodeStyle } from "@parity-app/core"
+import { type DesignNode, lengthSteps, type NodeStyle } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
 import { type Browser, chromium, type Locator, type Page } from "playwright-core"
 import { expect, inject } from "vite-plus/test"
@@ -296,6 +296,11 @@ export class App {
 
   async style(design: string, id: string): Promise<NodeStyle> {
     return (await this.node(design, id))?.style ?? {}
+  }
+
+  /** A layer's width or height in steps of the spacing scale; nothing when it's unset or isn't stored as steps. */
+  async steps(design: string, id: string, axis: "width" | "height"): Promise<number | undefined> {
+    return lengthSteps((await this.style(design, id))[axis])
   }
 
   selection(): Promise<Selection> {

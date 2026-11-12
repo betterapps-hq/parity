@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Rename @parity-app/style to @parity-app/style-schema",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

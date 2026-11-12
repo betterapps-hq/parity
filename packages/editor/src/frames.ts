@@ -4,6 +4,8 @@ import {
   detachInstance,
   type FrameSize,
   generateId,
+  isHug,
+  lengthSteps,
   type ModeSettings,
   type ResolvedMode,
   resolveModes,
@@ -13,7 +15,6 @@ import {
 } from "@parity-app/core"
 import { newDesign } from "./create.ts"
 import type { Point } from "./drop-slot.ts"
-import { lengthSteps } from "./lengths.ts"
 import { layersName } from "./new-screen.ts"
 
 /**
@@ -144,7 +145,7 @@ export function draggedBox(from: Point, to: Point): CanvasRect {
 
 /** Whether a frame is as wide as what's in it: its root layout hugs its content, so its size follows the root's. */
 export function hugsContent(design: ContainerSpec): boolean {
-  return design.kind === "frame" && design.root.type === "layout" && design.root.style?.width === "hug"
+  return design.kind === "frame" && design.root.type === "layout" && isHug(design.root.style?.width)
 }
 
 /**
@@ -206,12 +207,12 @@ export function frameRootShown(design: ContainerSpec, unit: number): ContainerSp
   const style = { ...design.root.style }
   const { width, height } = design.size ?? {}
 
-  if (width !== undefined && style.width !== "hug") {
-    style.width = width / unit
+  if (width !== undefined && !isHug(style.width)) {
+    style.width = { step: width / unit }
   }
 
   if (height !== undefined) {
-    style.height = height / unit
+    style.height = { step: height / unit }
   }
 
   return { ...design, root: { ...design.root, style } }
@@ -235,7 +236,7 @@ export function frameRootStored(design: ContainerSpec, unit: number): ContainerS
 
   if (width !== undefined) {
     size.width = Math.round(width * unit)
-  } else if (style.width === "hug" && design.size?.width !== undefined) {
+  } else if (isHug(style.width) && design.size?.width !== undefined) {
     size.width = design.size.width
   }
 
@@ -243,7 +244,7 @@ export function frameRootStored(design: ContainerSpec, unit: number): ContainerS
     size.height = Math.round(height * unit)
   }
 
-  if (style.width !== "hug") {
+  if (!isHug(style.width)) {
     delete style.width
   }
 
@@ -287,10 +288,14 @@ export function frameOfText(text: string, taken: Iterable<string>, at: Point): N
       root: {
         type: "layout",
         id: rootId,
-        style: { padding: 2, width: "hug", background: "background", foreground: "foreground" },
+        style: {
+          padding: { step: 2 },
+          width: { size: "hug" },
+          fills: [{ type: "solid", color: { token: "background" } }],
+          color: { token: "foreground" }
+        },
         children: [{ type: "text", id: node, text }]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     },
     node
   }

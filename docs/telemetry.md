@@ -335,8 +335,8 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
     `chrome/LayerPanel.tsx`, as each is set or reset;
   - `name`, a layer's or, with no layers, the design's, wherever it's renamed: the inspector, a Layers row or a board's
     title on the canvas, through `renameAndRecord` (PAR-728);
-  - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.state` and `instance.design`, the
-    component it was swapped to;
+  - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.design`, the component it was
+    swapped to;
   - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
     all or States' Reset;
   - `bind.text` and `bind.visible`, the prop a component's layer uses (`chrome/field-prop.tsx`);

@@ -18,7 +18,7 @@ const brand = "aP9rK"
 const plans = "Wre7g"
 
 const width = () => app.page.locator('input[aria-label="Width"]')
-const brandWidth = async () => (await app.style("Pricing", brand)).width
+const brandWidth = () => app.steps("Pricing", brand, "width")
 const drawnWidth = async () => (await app.size("Pricing", brand))?.width
 
 async function selectBrand(): Promise<void> {
@@ -104,7 +104,7 @@ describe("typing in a length field", () => {
       e2e.session().store.updateContainer(e2e.key("Pricing"), "Agent", (container) => {
         const edit = (node: typeof container.root): typeof container.root => {
           if (node.id === brand) {
-            return { ...node, style: { ...node.style, width: 10 } }
+            return { ...node, style: { ...node.style, width: { step: 10 } } }
           }
 
           return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
@@ -147,7 +147,7 @@ describe("stepping and scrubbing", () => {
     const opacity = app.page.locator('input[aria-label="Opacity"]')
     await typeOver(opacity, "50-10")
     await opacity.press("Enter")
-    await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toBe(40)
+    await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toEqual({ step: 40 })
   })
 
   it("scrubs the Width label a step per 2px, previewing, and makes one undo step on release", async () => {
@@ -185,7 +185,7 @@ describe("several layers", () => {
     await width().pressSequentially("+8", { delay: 20 })
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(10)
-    expect((await app.style("Pricing", plans)).width).toBe(302)
+    expect(await app.steps("Pricing", plans, "width")).toBe(302)
   })
 })
 

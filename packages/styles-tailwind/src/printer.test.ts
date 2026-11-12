@@ -72,12 +72,39 @@ describe("printing declarations as classes", () => {
     expect(classes({ property: "transform-origin", value: "50% 0%" })).toEqual(["origin-[50%_0%]"])
   })
 
-  it("keeps the value as written where Tailwind's own utility says it another way", () => {
-    // `min-w-0` is `calc(var(--spacing) * 0)` and `font-semibold` is `var(--font-weight-semibold)`.
-    expect(classes({ property: "min-width", value: "0" })).toEqual(["min-w-[0]"])
-    expect(classes({ property: "font-weight", value: "600" })).toEqual(["font-[600]"])
-    // The example's theme is inline, so `rounded-md` holds the radius itself and never reads `--radius-md`.
+  // Each of these compiles to other text than the value: `m-0` to `0px`, `gap-1` to `var(--spacing)`, `font-medium` to
+  // `var(--font-weight-medium)`, `leading-normal` to `var(--leading-normal)`.
+  it.each([
+    ["margin", "0", "m-0"],
+    ["min-width", "0", "min-w-0"],
+    ["inset", "0", "inset-0"],
+    ["gap", "calc(var(--spacing) * 1)", "gap-1"],
+    ["gap", "calc(var(--spacing)*1)", "gap-1"],
+    ["row-gap", "calc(var(--spacing) * 1)", "gap-y-1"],
+    ["padding", "calc(var(--spacing) * 1)", "p-1"],
+    ["gap", "1rem", "gap-4"],
+    ["font-weight", "500", "font-medium"],
+    ["font-weight", "600", "font-semibold"],
+    ["line-height", "1.5", "leading-normal"],
+    ["color", "#fff", "text-white"]
+  ])("writes %s: %s as %s, which Tailwind says is the same value written another way", (property, value, expected) => {
+    expect(classes({ property, value })).toEqual([expected])
+    expect(printer().read([expected]).declarations).toMatchObject([{ property }])
+  })
+
+  it("keeps a font size's variable, since the size's own utility sets a line height too", () => {
+    expect(printer().css(["text-sm"])).toContain("line-height: var(--tw-leading, var(--text-sm--line-height))")
+    expect(classes({ property: "font-size", value: "var(--text-sm)" })).toEqual(["text-(length:--text-sm)"])
+  })
+
+  it("keeps the value as written where Tailwind's spelling would draw something else here", () => {
+    // Tailwind spells both of these from its theme, where `--radius` is 0.25rem. The example sets it to 0.625rem
+    // outside the theme, so `rounded-lg` isn't 0.25rem here, and `rounded-md` doesn't read `--radius-md`.
+    expect(systems.spells.canonicalizeCandidates(["[border-radius:0.25rem]"])).toEqual(["rounded-lg"])
+    expect(classes({ property: "border-radius", value: "0.25rem" })).toEqual(["rounded-[0.25rem]"])
     expect(classes({ property: "border-radius", value: "var(--radius-md)" })).toEqual(["rounded-(--radius-md)"])
+    // A length Tailwind's scale has no step for.
+    expect(classes({ property: "gap", value: "4px" })).toEqual(["gap-[4px]"])
   })
 
   it("writes a property Tailwind has no utility for as an arbitrary property", () => {
@@ -155,26 +182,84 @@ describe("reading classes back", () => {
 describe("round trips", () => {
   /** Styles in each form the panel writes today, drawn as each kind of layer. */
   const styles: NodeStyle[] = [
-    { direction: "row", gap: 4, padding: [2, 4], align: "center", justify: "between", wrap: true },
-    { display: "grid", columns: 3, rows: 2, rowGap: 2, justify: "center" },
-    { width: "fill", height: 20, minWidth: 10, maxWidth: "container-md", self: "end", grow: true },
-    { position: "absolute", top: 0, right: 4, zIndex: 10, opacity: 50, overflow: "scroll" },
-    { background: "primary", foreground: "primary-foreground", border: "border", borderWidth: 2, radius: "radius-lg" },
-    { radius: "radius-full", shadow: "shadow-md", borderStyle: "dashed", border: "input" },
-    { font: "font-sans", size: "text-lg", weight: 600, leading: "leading-tight", tracking: "tracking-wide" },
-    { textAlign: "center", textTransform: "uppercase", decoration: "underline", italic: true, lines: 2 },
-    { transform: { x: 2, y: { percent: -50 }, rotate: 45, scaleX: 110, origin: { x: 50, y: 0 } } },
-    { filter: [{ kind: "blur", value: "blur-sm" }], backdropFilter: [{ kind: "adjust", values: { brightness: 25 } }] },
     {
-      background: [
+      flexDirection: "row",
+      gap: { step: 4 },
+      padding: [{ step: 2 }, { step: 4 }],
+      alignItems: "center",
+      justifyContent: "space-between",
+      flexWrap: "wrap"
+    },
+    {
+      display: "grid",
+      gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }],
+      gridTemplateRows: [{ fr: 1 }, { fr: 1 }],
+      rowGap: { step: 2 },
+      justifyContent: "center"
+    },
+    {
+      width: { size: "fill" },
+      height: { step: 20 },
+      minWidth: { step: 10 },
+      maxWidth: { token: "container-md" },
+      alignSelf: "end",
+      grow: true
+    },
+    {
+      position: "absolute",
+      top: { step: 0 },
+      right: { step: 4 },
+      zIndex: { step: 10 },
+      opacity: { step: 50 },
+      overflow: "auto"
+    },
+    {
+      fills: [{ type: "solid", color: { token: "primary" } }],
+      color: { token: "primary-foreground" },
+      borderColor: { token: "border" },
+      borderWidth: { step: 2 },
+      borderRadius: { token: "radius-lg" }
+    },
+    {
+      borderRadius: { token: "radius-full" },
+      boxShadow: [{ type: "drop", token: "shadow-md" }],
+      borderStyle: "dashed",
+      borderColor: { token: "input" }
+    },
+    {
+      fontFamily: { token: "font-sans" },
+      fontSize: { token: "text-lg" },
+      fontWeight: { value: 600 },
+      lineHeight: { token: "leading-tight" },
+      letterSpacing: { token: "tracking-wide" }
+    },
+    {
+      textAlign: "center",
+      textTransform: "uppercase",
+      textDecorationLine: "underline",
+      fontStyle: "italic",
+      lineClamp: 2
+    },
+    {
+      translate: { x: { step: 2 }, y: { value: "-50%" } },
+      rotate: 45,
+      scale: { x: 110 },
+      transformOrigin: { x: 50, y: 0 }
+    },
+    {
+      filter: [{ type: "blur", value: { token: "blur-sm" } }],
+      backdropFilter: [{ type: "adjust", values: { brightness: 25 } }]
+    },
+    {
+      fills: [
         {
-          kind: "linear",
+          type: "linear",
           stops: [
-            { color: "primary", position: 0 },
-            { color: "card", alpha: 50, position: 100 }
+            { color: { token: "primary" }, position: 0 },
+            { color: { token: "card", alpha: { step: 50 } }, position: 100 }
           ]
         },
-        { kind: "solid", color: "muted" }
+        { type: "solid", color: { token: "muted" } }
       ]
     }
   ]

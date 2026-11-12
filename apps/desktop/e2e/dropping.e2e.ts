@@ -105,9 +105,9 @@ describe("dropping image files", () => {
       type: "image",
       src: expect.stringMatching(/^\/images\/wide-banner-[0-9a-f]{8}\.png$/)
     })
-    expect(banner?.style).toEqual({ width: 80, height: 40 })
+    expect(banner?.style).toEqual({ width: { step: 80 }, height: { step: 40 } })
     expect(vector).toMatchObject({ type: "image", src: expect.stringMatching(/^\/images\/logo-[0-9a-f]{8}\.svg$/) })
-    expect(vector?.style).toEqual({ width: 80, height: 80 })
+    expect(vector?.style).toEqual({ width: { step: 80 }, height: { step: 80 } })
     const { project } = inject("app")
 
     for (const image of [banner, vector]) {
@@ -141,7 +141,10 @@ describe("dropping image files", () => {
     expect(added).toMatchObject({ name: "logo", kind: "frame", position: page })
     expect(await app.selection()).toEqual({ design: added.key })
     const [image] = await app.children("logo", await rootOf("logo"))
-    expect(await app.node("logo", image!)).toMatchObject({ type: "image", style: { width: 80, height: 80 } })
+    expect(await app.node("logo", image!)).toMatchObject({
+      type: "image",
+      style: { width: { step: 80 }, height: { step: 80 } }
+    })
     expect(await app.undoLabel()).toBe("Drop image")
     await app.page.keyboard.press("Control+z")
     await expect.poll(async () => (await app.designs()).length).toBe(before.length)
@@ -285,7 +288,7 @@ describe("dropping a component from the panel", () => {
     expect(await app.node("Calendar", added)).toMatchObject({
       type: "component",
       component: "Badge",
-      style: { position: "absolute", left: 10, top: 6 }
+      style: { position: "absolute", left: { step: 10 }, top: { step: 6 } }
     })
     expect((await app.selection()).node).toBe(added)
     expect(await app.undoLabel()).toBe("Add Badge")

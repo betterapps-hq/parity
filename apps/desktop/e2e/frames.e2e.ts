@@ -132,7 +132,7 @@ describe("converting a frame", () => {
     await expect.poll(async () => (await frameOf(frame.key)).kind).toBe("frame")
   })
 
-  it("asks before a screen with states becomes a frame, saying what it drops", async () => {
+  it("asks before a screen with modes beside it becomes a frame, saying what it drops", async () => {
     await app.show("Pricing", 0.3)
     await convertFromTitle("Pricing", "Convert to frame")
     const dialog = app.page.getByRole("dialog")

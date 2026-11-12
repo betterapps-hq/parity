@@ -36,8 +36,7 @@ const badge: ContainerSpec = {
     id: "badge-root",
     name: "Badge",
     children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const context = (fields: Partial<InsertContext> = {}): InsertContext => ({
@@ -58,7 +57,7 @@ describe("what a new screen is called", () => {
     expect(layersName([text("t", "Sign in to your account")])).toBe("Sign in to your account")
     expect(layersName([{ type: "layout", id: "l", name: "Hero", children: [] }])).toBe("Hero")
     expect(layersName([{ type: "layout", id: "l", children: [] }])).toBe("Column")
-    expect(layersName([{ type: "layout", id: "l", style: { direction: "row" }, children: [] }])).toBe("Row")
+    expect(layersName([{ type: "layout", id: "l", style: { flexDirection: "row" }, children: [] }])).toBe("Row")
     expect(layersName([image("photo", "A hill at dawn")])).toBe("A hill at dawn")
     expect(layersName([image("photo")])).toBe("Image")
   })
@@ -94,9 +93,14 @@ describe("layers with nothing to go into", () => {
       position: { x: 40, y: 60 },
       root: {
         type: "layout",
-        style: { padding: 6, gap: 4, width: "hug", background: "background", foreground: "foreground" }
-      },
-      states: [{ id: "default", name: "Default" }]
+        style: {
+          padding: { step: 6 },
+          gap: { step: 4 },
+          width: { size: "hug" },
+          fills: [{ type: "solid", color: { token: "background" } }],
+          color: { token: "foreground" }
+        }
+      }
     })
     expect(design).not.toHaveProperty("size")
     expect(inside(design)).toMatchObject([{ type: "text", text: "Welcome back" }])

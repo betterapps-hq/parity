@@ -18,8 +18,7 @@ const card: ContainerSpec = {
       { type: "text", id: "note", name: "Note", text: "Cancel any time" },
       { type: "layout", id: "body", name: "Body", children: [] }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 describe("adding a value prop", () => {

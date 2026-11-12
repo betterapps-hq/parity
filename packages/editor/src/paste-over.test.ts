@@ -16,7 +16,7 @@ function form(): ContainerSpec {
         text("label"),
         text("placeholder"),
         text("hint"),
-        text("badge", { style: { position: "absolute", top: 2, right: "edge" } }),
+        text("badge", { style: { position: "absolute", top: { step: 2 }, right: { token: "edge" } } }),
         {
           type: "component",
           id: "card",
@@ -37,11 +37,11 @@ const button: DesignNode = { type: "component", id: "button", component: "ui/But
 const icon: DesignNode = {
   type: "layout",
   id: "icon",
-  style: { position: "absolute", bottom: 1 },
+  style: { position: "absolute", bottom: { step: 1 } },
   children: [text("glyph")]
 }
 
-const base = form().states[0]!
+const base = form().states![0]!
 
 const children = (container: ContainerSpec, id = "root") => {
   const node = findNode(container.root, id)!
@@ -61,7 +61,7 @@ describe("paste over selection", () => {
     const { container, copies } = placeOver(form(), ["placeholder"], [button, text("note")], base)
     expect(children(container)).toEqual(["label", "placeholder", "ui/Button", copies[1], "hint", "badge", "ui/Card"])
     expect(nodeIds(form().root).has(copies[0]!)).toBe(false)
-    expect(container.states[1]!.overrides).toEqual({ placeholder: { text: "Required" } })
+    expect(container.states![1]!.overrides).toEqual({ placeholder: { text: "Required" } })
   })
 
   it("puts them after the last of several selected layers, once", () => {
@@ -79,7 +79,11 @@ describe("paste over selection", () => {
   it("puts them on top of an absolutely placed layer, at its insets", () => {
     const { container, copies } = placeOver(form(), ["badge"], [icon], base)
     expect(children(container)).toEqual(["label", "placeholder", "hint", "badge", copies[0], "ui/Card"])
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", top: 2, right: "edge" })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      top: { step: 2 },
+      right: { token: "edge" }
+    })
     expect(findNode(container.root, "badge")).toBeDefined()
   })
 
@@ -87,15 +91,15 @@ describe("paste over selection", () => {
     // On mobile the hint is placed absolutely; elsewhere it flows.
     const hint: DesignNode = {
       ...text("hint"),
-      responsive: { mobile: { style: { position: "absolute", bottom: 0, left: 2 } } }
+      responsive: { mobile: { style: { position: "absolute", bottom: { step: 0 }, left: { step: 2 } } } }
     }
 
     const responsive: ContainerSpec = { ...form(), root: { type: "layout", id: "root", children: [hint] } }
     const mobile = placeOver(responsive, ["hint"], [icon], base, "mobile")
     expect(findNode(mobile.container.root, mobile.copies[0]!)?.style).toEqual({
       position: "absolute",
-      bottom: 0,
-      left: 2
+      bottom: { step: 0 },
+      left: { step: 2 }
     })
     const desktop = placeOver(responsive, ["hint"], [icon], base, "desktop")
     expect(findNode(desktop.container.root, desktop.copies[0]!)?.style).toEqual(icon.style)
@@ -149,7 +153,7 @@ describe("paste to replace", () => {
     const { container, copies } = replaceLayers(original, ["placeholder"], [button], base)
     expect(nodeIds(original.root).has(copies[0]!)).toBe(false)
     expect(copies[0]).not.toBe("button")
-    expect(container.states[1]!.overrides).toBeUndefined()
+    expect(container.states![1]!.overrides).toBeUndefined()
   })
 
   it("replaces each selected layer with its own copy, as Figma does", () => {
@@ -166,7 +170,11 @@ describe("paste to replace", () => {
 
   it("places a copy over an absolutely placed layer at its insets, in place of its own", () => {
     const { container, copies } = replaceLayers(form(), ["badge"], [icon], base)
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", top: 2, right: "edge" })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      top: { step: 2 },
+      right: { token: "edge" }
+    })
   })
 
   it("leaves the design's root and layers inside instances alone", () => {

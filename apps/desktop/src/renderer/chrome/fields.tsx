@@ -1055,13 +1055,17 @@ const groupTitles = new Map([
 export function TokenInput({
   label,
   value,
+  drawn,
   tokens,
   categories,
   onChange
 }: {
   /** The property it sets, as a screen reader names it: "Fill", or "Text color" where the row says only Color. */
   label: string
+  /** The token's name, or a value written out (`#2563eb`), which it shows as text. */
   value: string | undefined
+  /** What a color that isn't one of the tokens draws as, for its swatch. */
+  drawn?: string
   tokens: Token[]
   categories: TokenCategory[]
   onChange: (value: string | undefined) => void
@@ -1084,7 +1088,9 @@ export function TokenInput({
             className="h-7 w-full justify-between gap-1.5 px-2 text-xs font-normal"
           >
             <span className="flex min-w-0 items-center gap-1.5">
-              {value && categories.includes("color") && <Swatch value={current?.values.default ?? `var(--${value})`} />}
+              {value && categories.includes("color") && (
+                <Swatch value={current?.values.default ?? drawn ?? `var(--${value})`} />
+              )}
               {/* A token's name is code; None and Mixed are words, so they keep the panel's font. */}
               <span className={`truncate ${value ? "font-mono" : "text-muted-foreground"}`}>{shown}</span>
             </span>

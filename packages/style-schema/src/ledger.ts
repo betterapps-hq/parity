@@ -114,16 +114,16 @@ export const specProperties: readonly string[] = Object.keys(spec.properties)
  */
 export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   display: ["display"],
-  direction: ["flex-direction"],
-  columns: ["grid-template-columns"],
-  rows: ["grid-template-rows"],
+  flexDirection: ["flex-direction"],
+  gridTemplateColumns: ["grid-template-columns"],
+  gridTemplateRows: ["grid-template-rows"],
   gap: ["gap"],
   rowGap: ["row-gap"],
   padding: ["padding"],
   margin: ["margin"],
-  align: ["align-items"],
-  justify: ["justify-content", "justify-items"],
-  wrap: ["flex-wrap"],
+  alignItems: ["align-items"],
+  justifyContent: ["justify-content", "justify-items"],
+  flexWrap: ["flex-wrap"],
   width: ["width"],
   height: ["height"],
   minWidth: ["min-width"],
@@ -133,14 +133,14 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   colSpan: ["grid-column"],
   rowSpan: ["grid-row"],
   grow: ["flex", "flex-shrink"],
-  self: ["align-self"],
+  alignSelf: ["align-self"],
   position: ["position"],
   top: ["top"],
   right: ["right"],
   bottom: ["bottom"],
   left: ["left"],
   zIndex: ["z-index"],
-  background: [
+  fills: [
     "background",
     "background-color",
     "background-image",
@@ -148,29 +148,35 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
     "background-position",
     "background-repeat"
   ],
-  foreground: ["color"],
-  border: ["border-color"],
+  color: ["color"],
+  borderColor: ["border-color"],
   borderWidth: ["border-width"],
   borderStyle: ["border-style"],
-  radius: ["border-radius"],
-  shadow: ["box-shadow"],
+  borderRadius: ["border-radius"],
+  boxShadow: ["box-shadow"],
   opacity: ["opacity"],
   overflow: ["overflow"],
   filter: ["filter"],
   backdropFilter: ["backdrop-filter"],
-  transform: ["translate", "rotate", "scale", "transform", "transform-origin"],
-  transitions: ["transition"],
-  font: ["font-family"],
-  size: ["font-size"],
-  weight: ["font-weight"],
-  leading: ["line-height"],
-  tracking: ["letter-spacing"],
+  translate: ["translate"],
+  rotate: ["rotate"],
+  scale: ["scale"],
+  transform: ["transform"],
+  transformOrigin: ["transform-origin"],
+  transition: ["transition"],
+  fontFamily: ["font-family"],
+  fontSize: ["font-size"],
+  fontWeight: ["font-weight"],
+  lineHeight: ["line-height"],
+  letterSpacing: ["letter-spacing"],
   textAlign: ["text-align"],
   textTransform: ["text-transform"],
-  decoration: ["text-decoration-line"],
-  italic: ["font-style"],
-  lines: ["-webkit-line-clamp", "-webkit-box-orient", "text-overflow", "white-space"],
-  overflowWrap: ["overflow-wrap"]
+  textDecorationLine: ["text-decoration-line"],
+  fontStyle: ["font-style"],
+  lineClamp: ["-webkit-line-clamp", "-webkit-box-orient", "text-overflow", "white-space"],
+  overflowWrap: ["overflow-wrap"],
+  // The CSS map holds what no key owns, so it owns nothing itself.
+  css: []
 }
 
 /**
@@ -191,8 +197,8 @@ export const setsForOthers: Readonly<Partial<Record<StyleKey, readonly string[]>
   right: ["width"],
   bottom: ["height"],
   grow: ["min-width", "min-height"],
-  size: ["line-height"],
-  lines: ["overflow", "display"]
+  fontSize: ["line-height"],
+  lineClamp: ["overflow", "display"]
 }
 
 /** What the ledger holds for one property. */
@@ -246,3 +252,8 @@ function entries(): Map<string, LedgerEntry> {
 
 /** Every property Chromium draws that Parity places, by name, in the Design tab's order. */
 export const ledger: ReadonlyMap<string, LedgerEntry> = entries()
+
+/** The stored key that owns a property, by the key's name. Unset, the CSS map holds the property. */
+export function ownerOf(property: string): string | undefined {
+  return ledger.get(property.toLowerCase())?.key
+}

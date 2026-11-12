@@ -1,5 +1,33 @@
 # Decisions
 
+- **The stored style is named and shaped as CSS is, in `.par` version 4 (PAR-941).** Step 3 of
+  [style-package.md](proposals/style-package.md), following What the design model needs in
+  [design-options-code.md](proposals/design-options-code.md). A version 3 file is rejected, and the examples, the
+  libraries and the fixtures are rewritten, as Fix forward says. What a file holds is in [editor.md](editor.md), The
+  stored style.
+  - **Every key that writes one CSS property takes its name.** You chose this on 2026-11-12 over the issue's shorter
+    list, so `alignItems` sits beside `justifyContent` rather than `align`: `flexDirection`, `flexWrap`, `fontWeight`,
+    `borderRadius`, `textDecorationLine`, `fontStyle` and `lineClamp` join the renames the issue names. `grow`,
+    `colSpan` and `rowSpan` keep their names, since each is Parity's idea rather than one property.
+  - **Transform is CSS's own properties.** You chose this on 2026-11-12 over one list: `translate`, `rotate`, `scale`
+    and `transformOrigin` are keys, since CSS applies them in a fixed order, and `transform` is the ordered list, which
+    holds skew today.
+  - **A value takes a form where it can be a token or is a length; a number in one fixed unit stays a number.** Lengths,
+    sizes, colors, radius, the type keys, `zIndex`, a blur and a transition's times and easing are stored with their
+    form. I'd kept opacity, border width and font weight as numbers; you chose on 2026-11-12 to give them forms before
+    the format landed, since each has tokens of its own: `opacity: { step: 50 }`, `borderWidth: { step: 2 }`,
+    `fontWeight: { value: 600 }`. Rotation, scale, a shadow's offsets and a filter's adjustments stay numbers.
+  - **My call: a list entry is told apart by `type` and turned off by `off`,** in every list, as the proposal's own
+    example has it. Paints and transitions had `kind` and `hidden`.
+  - **My call: `flexWrap` and `fontStyle` take the value that takes them off** (`nowrap`, `normal`), which a state or a
+    viewport needs to undo the base's. They write nothing, as an unset key does.
+  - **My call: `overflow`'s `scroll` is `auto`,** which is what it always drew, as the proposal asks.
+  - **My call: the CSS map is `css`, by property, each `{ value, off? }`,** and the schema refuses a property a key
+    owns, by the ledger. Nothing in the panel writes it yet.
+  - **Left for later, each a wider form the file can take without changing what it holds now:** one value or four for
+    radius and the border's sides, the `allow` reason on an exception, and controls for the value, keyword and
+    expression forms, which the panel shows as text.
+
 - **The style package is `@parity-app/style-schema` (PAR-999).** You found `@parity-app/style` too vague on 2026-11-12
   and chose this name. Only the name and the folder (`packages/style-schema`) changed: the schema, the ledger,
   `validate` and the adapter contract are as they were. Entries below written before the rename use the new name.
@@ -67,6 +95,33 @@
     or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
   - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
     written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
+
+- **The Tailwind printer takes two values for the same when Tailwind spells both as one class (PAR-1001).** In the
+  running app on 2026-11-11 a layer drew with `m-[0]`, `font-[500]` and `gap-[calc(var(--spacing)_*_1)]`, where a person
+  writes `m-0`, `font-medium` and `gap-1`.
+  - **`canonicalizeCandidates` was already asked, and already gave the right class.** The printer then dropped it,
+    because it read the class back and compared the value as text: `m-0` compiles to `0px`, not `0`; `gap-1` to
+    `var(--spacing)`, not `calc(var(--spacing) * 1)` (every other step keeps the `calc`, which is why `gap-6` came out
+    right); `font-medium` to `var(--font-weight-medium)`, not `500`.
+  - **Where the text differs, Tailwind decides.** The value a class reads back as and the value it's written for are
+    each put to `canonicalizeCandidates` as an arbitrary property, and they're the same value when both come back as one
+    class. The printer still has no table and does no arithmetic of its own. A class is still written only when it reads
+    back as one declaration of the same property in the same place.
+  - **It asks both ways, which is stricter than taking Tailwind's spelling.** Tailwind works a value out from its theme,
+    and a project can set a theme variable somewhere Tailwind doesn't look. The example sets `--radius` to 0.625rem in
+    `:root` while Tailwind's theme has 0.25rem, so Tailwind spells `border-radius: 0.25rem` as `rounded-lg`, which draws
+    0.625rem here. `rounded-lg` reads back as `var(--radius)`, which Tailwind doesn't spell as `rounded-lg`, so the
+    printer writes `rounded-[0.25rem]`. For the same reason `var(--radius-md)` stays `rounded-(--radius-md)`, where
+    Tailwind's tools say `rounded-md`.
+  - **A value written as a number can now come out as the token that holds it:** `font-weight: 500` as `font-medium`,
+    `gap: 1rem` as `gap-4`, `color: #fff` as `text-white`, `line-height: 1.5` as `leading-normal`. That's what you asked
+    for, and what Tailwind's own lint suggests. It draws the same unless the project sets that theme variable
+    (`--font-weight-medium`, `--spacing`) outside its theme, as the example does with `--radius`. A variable that's read
+    straight through, as these four are, is one the printer can't catch that for. This is yours to overrule: the
+    stricter rule would keep a number as a number and only take `0` for `0px` and `calc(x * 1)` for `x`.
+  - **`font-size: var(--text-sm)` stays `text-(length:--text-sm)`.** `text-sm` also sets a line height, so it isn't that
+    declaration. Tailwind's own tools give the same spelling. Pixel lengths keep their brackets too (`gap-[4px]`):
+    Tailwind only converts them to its scale when told the root font size, which the printer doesn't assume.
 
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
@@ -450,7 +505,8 @@ still need your call.
   than being made non-modal, which would let a left click outside the menu act on the canvas as well as close it.
 - **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
   Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
-  which the canvas menu doesn't have, are unchanged.
+  which the canvas menu doesn't have, are unchanged. PAR-971 replaced the rule with `commandStates`, which works out
+  every command's state for every menu (see "Each command's state is worked out once").
 - **A Layers row's menu runs the menubar's commands on the selection** (PAR-571), as the canvas menu does, so a
   right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
   rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
@@ -6272,17 +6328,20 @@ valid.
   and duration, and the work the action causes joins its trace.
 - **The wrapper is `run(from)`.** `recordActions` (`chrome/record-actions.ts`) wraps every entry, and the window runs an
   action only through it: keys, the menubar, the canvas and Layers menus, Search actions, the toolbar and panel buttons.
-  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Save for the
-  Tokens panel's project, runs that in the action's place, still recorded under the action's ID.
+  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Rename in
+  place in Layers, runs that in the action's place, still recorded under the action's ID.
 - **One tried while it doesn't apply is recorded as cancelled and doesn't run.** That's a Ctrl shortcut on the canvas or
   any app shortcut. A plain key that doesn't apply still does what it would anyway, such as Tab moving focus, so it
-  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer.
+  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer. Since PAR-971 it asks
+  `commandStates`, as every menu does.
 - **Selection is counts, not IDs or names.** That's enough to tell an empty selection from many layers. It stays cheap
-  for PAR-647's budget: one `available` call and one count per command.
-- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It reads the source and
-  flags any file that imports a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
-  `QuickInsert.tsx` and calls it anywhere except through `instead`. Search actions' extras with no shortcut (Export all,
-  Snap, Performance stats, Clear bitmap cache, About) aren't in the action list, so they aren't recorded.
+  for PAR-647's budget: one state check and one count per run.
+- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It read the source and
+  flagged any file that imported a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
+  `QuickInsert.tsx` and called it anywhere except through `instead`. PAR-971 made those functions private to
+  `actions.ts` and replaced the scan with a test of the registry (see "Each command's state is worked out once"). Search
+  actions' extras with no shortcut (Export all, Snap, Performance stats, Clear bitmap cache, About) aren't in the action
+  list, so they aren't recorded.
 
 ## Interface events are recorded by the stores that own them (PAR-634)
 
@@ -7649,6 +7708,33 @@ My calls:
   Parity writes no deploy workflow of its own.
 - **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
 
+## The service searches for signed-in people, and installed copies search through it (PAR-131, PAR-948)
+
+Built as [proposals/service.md](proposals/service.md) agreed. My calls where building it showed more:
+
+- **The token check is Better Apps' WorkOS identity** (`@better-apps/identity-workos`, PAR-615), with a WorkOS client
+  that has the client ID and no API key. The API reads bearer tokens only: a request's cookies are never passed on, so
+  the adapter's cookie password is never used.
+- **`@workos-inc/node` is added, at 12,** which the adapter needs for `verifyAccessToken`. Its published range said 11,
+  which lacks it; Better Apps' range is corrected there.
+- **Each source is held to 50 searches a minute by a rate limiting binding,** not by reading `X-RateLimit-Remaining`: a
+  Worker keeps nothing between requests, Mobbin sends no such header, and 50 is under both sources' limits. The binding
+  counts in each Cloudflare location, so a source can still refuse, which is passed on.
+- **How many searches the key has left is never passed on,** since it's the service's to mind, not one person's.
+- **A connector the service has no key for answers 404 with `no-key`,** and a key or plan the source turns down answers
+  503 with `unavailable`, logged for the owner with the source's name and never the search.
+- **The sources' keys are Worker secrets the owner sets by hand** with `wrangler secret put`, which deploys keep. They
+  aren't in Terraform, so no key passes through a workflow.
+- **The KV namespaces are made in Terraform,** one for production and one that staging and its previews share, and the
+  Worker's config names them by ID. A deploy could make one from a binding with no ID, but a pull request's preview
+  can't. The deploy token gets Workers KV Storage Write to bind them.
+- **Main keeps each account's access token in memory** and hands the current one to the service's client. Refreshes are
+  shared between askers, since a refresh token works once and a second use would end the session.
+- **A development copy with no key asks staging's Worker,** and an installed copy production's. Both take the same
+  sign-in, since every build uses WorkOS's Staging client for now.
+- **Signed out, the library browser shows Sign in where its results would be,** with no other text, and searches again
+  once someone's in. Agents are told to carry on without the source, as with `no-key`.
+
 ## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
 
 PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
@@ -7971,6 +8057,143 @@ skipped the sender check. My calls:
   for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
   stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
   map, its handler, and its line in the bridge, and the compiler holds the three together.
+
+## Only a component has states (PAR-1002)
+
+States were on every design. Screens used them for the data a page shows (Pricing's Monthly and Yearly, Dashboard's
+Loading), and an instance could pick which of its component's states to show. In code, a screen is a route, and what
+varies is the data its components get: a loading table is the table in its loading state, not a second page. You asked
+for states on component designs only, and for the schema to say so, so an agent never has to guess whether a design has
+any. My calls:
+
+- **The project file refuses `states` on a screen or a frame,** and `view.state` or `view.allStates` on one. A component
+  without `states` has its base state, Default, so a new component doesn't write one.
+- **An instance has no `state`.** It shows its component's base state, under its overrides. A screen that needs a
+  component another way sets its params, as code passes props, and a variant param picks the look.
+- **Existing screen states were dropped,** as stale prototype data. The example's Button screen became a component and
+  kept its four states.
+- **Inside the editor every design has a base state,** given by `designStates`, so selection, the canvas, the edit frame
+  and the agent's paths read a screen in "default" as before. Only adding, renaming, removing or showing another state
+  is refused.
+- **The agent sees the difference in `Designs()`,** which lists `states` and `showing.state` for components only, and
+  its contract is a union by `kind`. A state call on a screen fails with `invalid_input` on `design` and says to make
+  the part that varies a component. I considered keeping states on screens and refusing them only in the agent, which
+  would have left the file and the editor disagreeing with what the agent may do.
+- **Turning a component into a screen keeps its base state's look** and drops the rest, named in a notice with Undo, as
+  turning a design into a frame already does with what a frame can't have.
+
+## The portal's pages are at `tryparity.dev`, blank for now (PAR-1003)
+
+- **`tryparity.dev` serves a blank page from the service's Worker** (your call, 2026-11-12), so the portal's screens
+  have a host before they're built. The page is an empty document titled Parity.
+- **Both hosts reach every route for now** (my call). `tryparity.dev` and `api.tryparity.dev` are two custom domains on
+  one Worker, so the API answers on either. Keeping each host to its own routes waits until there's a page worth keeping
+  apart.
+- **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
+  for an environment.
+
+## One object per open project (PAR-970)
+
+Any change to an open project replaced its `ProjectSession` with a copy (a reconnect, a guest moving, new sources, a
+code change, the canvas mounting), while the media cache and the start page picture keyed on that object, and panel
+state sat in window singletons keyed five ways that nothing cleared when a tab closed. Agreed with Andrew on 2026-11-12,
+and split into PAR-1004 to PAR-1007:
+
+- **`ProjectSession` becomes a class with one instance per open project,** from its tab becoming ready to it closing.
+  The name stays, since renaming it touches every file that takes one for nothing.
+- **What never changes is plain fields:** `id`, `store`, `selection`, `components`, `recovery` and `errors`. What can
+  change is read through getters and changed through `session.update(...)`, which tells the session's listeners: `info`,
+  `loaded` (the guest), `tokens`, `added`, `versions` and `editor`. The workspace updates the session where it used to
+  copy it. `firstFrame` stays a plain field, set as the tab opens and cleared once the canvas draws, since nothing draws
+  from it.
+- **Components get the same object from the context, and `useProject()` subscribes to it,** so they draw again when a
+  changing part changes, as they did when the context's value was a new copy. An effect keyed on the session no longer
+  runs again on each change; one that needs a changing part depends on that part.
+- **Per-project state hangs off the session with `projectPart(make)`,** made the first time it's asked for and disposed
+  of when the session goes: media files, accessibility checks, the console's filter, component previews, the prop being
+  added and slot focus. Previews go when their tab closes rather than with the window, and each tab has its own console
+  filter. The start page picture is the session's too, from opening to closing, not a React effect's.
+- **Reopening a project makes a new session** and disposes of the old one as closing would, since it reads the designs
+  again into a new store.
+- **Functions take the part of the project they use,** a `DesignStore`, a `ProjectInfo` or a
+  `Pick<ProjectSession, "store" | "selection">`, so tests build that part without a cast. Opening, closing and the
+  workspace still take the whole session.
+- **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
+  would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
+  reopened project, which keeps its root, would pick up the last one's state.
+
+## What changed is answered in `@parity-app/change-detection` (PAR-997)
+
+A yellow outline for changed boards, tried by reading the bitmap cache's `stale` flag, stayed yellow after an edit was
+undone: `stale` means the picture isn't for the frame's key, and the key moves with every edit. You asked for an
+interface that gives each node's change status, so a consumer can't read the wrong thing. My calls:
+
+- **A package of its own, `@parity-app/change-detection`, pure:** the trace's schema, comparing traces, a status for a
+  frame, its nodes and a board, and baselines. It reads no files; traces are still taken in the service, over the
+  readers in `@parity-app/project`, so visual tests and the CLI can compare the same way.
+- **A status is unknown, unchanged or changed with the files.** Unknown keeps "no answer yet" apart from "unchanged", so
+  nothing is outlined or skipped on a guess.
+- **The baseline is the first trace taken of a frame while its project is open,** kept by project, design, state and
+  mode. It's what "since I opened it" means, and a later baseline, a git ref or an accepted visual test, is another
+  source of traces for the same comparison.
+- **A node's status comes from the files its component reads,** which traces now list per component, plus the files no
+  component reads and the nodes inside it. Bitmaps keep only the files and the digest, which is all a bitmap's validity
+  needs.
+- **The canvas reads changes through `useFrameChange` and `useDesignChange`,** and marks a changed board with
+  `data-changed`, which nothing styles. The yellow outline was only for testing, so it stays local; how changes show is
+  for Storybook first.
+
+## Each command's state is worked out once, for every place that offers it (PAR-971)
+
+`commandStates` in `chrome/command-state.ts` takes a snapshot of the tab (its selection, designs, notes, whether its
+canvas is drawn, its history, what Repeat would run and whether a reference library is connected) and returns, for every
+command in the keymap, whether it can run and what it's called. The keys, the menubar, Search actions, the toolbar, Zoom
+and the canvas and Layers menus all read it through `commandsFor` in `chrome/actions.ts`. This replaces the one rule
+(`layerCommands`, PAR-419), which only covered the layer commands, and the source scan (PAR-639). My calls:
+
+- **One function returns the whole table, data in and data out.** I considered giving each action `available(context)`
+  and `label(context)` beside its `run`. That keeps a rule next to what it runs, but a menu would still call each one in
+  turn, and a table test would have to load the registry, which brings in React and the canvas. The function is tested
+  as rows of a selection, a command, whether it's enabled and its name, with no window.
+- **The name is the keymap's unless what's selected changes it:** Undo and Redo name the step, Repeat names what it
+  repeats, Make component reads Convert to component or Convert to screen, Go to the main component names it, Hide reads
+  Show, and Lock reads Unlock. With nothing they could act on, Hide and Lock keep the keymap's "Hide or show" and "Lock
+  or unlock". Search actions shows the same name and still finds the keymap's, so "hide" finds Show.
+- **A menu keeps its own fixed wording only for a command whose name never changes,** such as Insert…, Export… and Save
+  a copy…. It decides which items to show, such as the layer items only for layers, and nothing about whether they can
+  run.
+- **What the surfaces disagreed on now follows one rule.** Select all and Zoom to fit need something on the canvas, as
+  the canvas menu had it, and for Zoom to fit a placed reference counts too. Find references needs a reference library,
+  as its key had it, so the canvas menu and the toolbar grey it without one. Rename is unavailable for a layer inside an
+  instance, as the Layers menu had it. Export selected needs a layer or design selected, as the menubar had it and as
+  Copy as PNG already did, so Ctrl+Shift+E with nothing selected does nothing rather than saying what to select. Lock
+  needs layers or designs, so a mode column picked on its own greys it rather than offering a Lock that does nothing.
+- **The Layers menu's Rename also asks the row.** Rename in place renames the row that was right-clicked, so it's greyed
+  on a layer inside an instance even when the selection leads with one of the design's own.
+- **Cut and Delete follow PAR-419's rule for layers** (the architecture review's call, 2026-11-12, for you to overrule).
+  They're greyed for only a design's root or layers inside an instance, and Ctrl+X and Del do nothing then, as PAR-419
+  has it for Copy and Duplicate. PAR-419 left them out because the canvas menu didn't have them, without deciding they
+  should stay available. Everything else recorded points this way: an item that can't act now is greyed, layers inside
+  an instance can't be deleted, and PAR-571's Layers menu already greyed Delete on those rows. Keeping them available
+  would have turned that greyed Delete into one that does nothing. Designs, notes and references can still be cut and
+  deleted.
+- **What each command runs is private to `actions.ts`.** The functions moved there from `commands.ts` unexported, so the
+  module gives the rest of the window only `actions` and `commandsFor`, and nothing can run a command around the
+  wrapper. `commands.ts` keeps what other modules share: the active tab, the `selected…` queries, `exportLayers` for the
+  Export section, Export all, Clear bitmap cache and Exit. The registry test checks those are the module's only exports
+  and that a command runs only when its state says it applies, recorded either way. It replaces the source scan. What
+  the commands build on, such as `createDesign`, `togglePanels` or the editor's operations, can still be imported
+  elsewhere; the scan caught that and the registry test doesn't. That's the brief's call: only the commands' own bodies
+  are kept private.
+- **An action runs on the tab it's given.** `run(from, { session })` checks and runs the command for that tab, else the
+  active one. Zoom's buttons and the Tokens panel's Save pass their own tab, rather than binding a command's function
+  through `instead`. `instead` is left for New screen and New component where the canvas was right-clicked, and Rename
+  in place in Layers.
+- **File > Export selected runs Ctrl+Shift+E's command** (PAR-976). It ran `exportImages("selection")`, which wrote the
+  selected design's states and modes at Settings' export scale, while the shortcut, the canvas menu and the Layers menu
+  exported the selection at the Export section's sizes. The menu now does what they do, and only Export all writes every
+  state and mode. Export all, Snap, Performance stats, Clear bitmap cache and About still have no command, so they
+  aren't recorded, as before.
 
 ## Far frames show bitmaps from 10% zoom, on every screen (PAR-954)
 

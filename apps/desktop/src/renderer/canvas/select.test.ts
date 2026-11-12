@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { adjacentDesign, designOrder, inverseSelection, matchingLayers, matchingSelection } from "./select.ts"
 
-const title: NodeStyle = { size: "lg", weight: 600 }
+const title: NodeStyle = { fontSize: { token: "lg" }, fontWeight: { value: 600 } }
 
 type TextNode = Extract<DesignNode, { type: "text" }>
 
@@ -26,8 +26,8 @@ function list(): ContainerSpec {
   const card = (n: number, titleStyle = title): DesignNode => ({
     type: "layout",
     id: `card-${n}`,
-    style: { padding: 4, background: "card" },
-    children: [text(`title-${n}`, titleStyle, "h3"), text(`about-${n}`, { size: "sm" })]
+    style: { padding: { step: 4 }, fills: [{ type: "solid", color: { token: "card" } }] },
+    children: [text(`title-${n}`, titleStyle, "h3"), text(`about-${n}`, { fontSize: { token: "sm" } })]
   })
 
   return {
@@ -38,10 +38,10 @@ function list(): ContainerSpec {
       type: "layout",
       id: "root",
       children: [
-        text("heading", { size: "2xl" }, "h3"),
+        text("heading", { fontSize: { token: "2xl" } }, "h3"),
         card(1),
         // Placed differently, it still matches.
-        card(2, { ...title, width: "fill" }),
+        card(2, { ...title, width: { size: "fill" } }),
         card(3),
         { type: "instance", id: "stat-a", design: "stat", args: { label: "Users" } },
         { type: "instance", id: "stat-b", design: "stat", args: { label: "Revenue" } },
@@ -52,7 +52,7 @@ function list(): ContainerSpec {
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "bold", name: "Bold", overrides: { "title-3": { style: { weight: 800 } } } }
+      { id: "bold", name: "Bold", overrides: { "title-3": { style: { fontWeight: { value: 800 } } } } }
     ]
   }
 }
@@ -62,8 +62,7 @@ function design(id: string, kind?: "component" | "screen"): ContainerSpec {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] }
   }
 
   if (kind) {
@@ -79,7 +78,7 @@ function store(): DesignStore {
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [design("home", "screen"), design("button", "component"), list(), design("card", "component")]
         }
       }
@@ -124,7 +123,7 @@ describe("select inverse", () => {
 })
 
 describe("select matching layers", () => {
-  const base = list().states[0]!
+  const base = list().states![0]!
 
   it("matches a card's title to the other cards' titles, however they're placed", () => {
     expect(matchingLayers(list(), ["title-1"], base)).toEqual(["title-1", "title-2", "title-3"])
@@ -140,7 +139,7 @@ describe("select matching layers", () => {
   })
 
   it("matches layers as the state being edited shows them", () => {
-    const bold = list().states[1]!
+    const bold = list().states![1]!
     expect(matchingLayers(list(), ["title-1"], bold)).toEqual(["title-1", "title-2"])
   })
 

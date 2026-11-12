@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "fluent",
   "name": "Fluent UI",
   "description": "Microsoft's Fluent 2 design system for React, styled with Griffel.",

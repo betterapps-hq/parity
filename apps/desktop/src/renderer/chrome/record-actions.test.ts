@@ -1,9 +1,19 @@
-import { readdirSync, readFileSync } from "node:fs"
-import { dirname, join, relative, resolve } from "node:path"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { newDesign } from "@parity-app/editor"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
+import { DesignStore } from "../design-store.ts"
+import { SelectionStore } from "../selection.ts"
 import { traceWith } from "../tracing.ts"
-import { recordActions } from "./record-actions.ts"
+import type { ProjectSession } from "../workspace.ts"
+import * as registry from "./actions.ts"
+import { keymap } from "./keymap.ts"
+import { type Recording, recordActions } from "./record-actions.ts"
+
+vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key }))
+
+// The insert picker draws previews, which need a window; nothing here opens it.
+vi.mock("./QuickInsert.tsx", () => ({ openQuickInsert: () => undefined }))
 
 const sink = createTestSink()
 
@@ -18,6 +28,27 @@ traceWith(
 
 const recorded = () => sink.spans.map(({ name, outcome, attributes }) => ({ name, outcome, attributes }))
 
+/** A tab holding `containers`, saved nowhere, with no canvas drawn. */
+function tab(containers: ContainerSpec[] = []): ProjectSession {
+  const store = new DesignStore(
+    [{ path: "app.par", document: { version: 4, containers } }],
+    defaultModeSettings,
+    "app.par",
+    { saveDocument: async () => undefined, autosave: () => false }
+  )
+
+  // SAFETY: the commands run here, and whether they apply, read only the store and the selection.
+  return { store, selection: new SelectionStore() } as ProjectSession
+}
+
+/** Recording with every action applying in no tab, and the counts given. */
+function recordingOf<Id extends string>(
+  selected: { layers: number; designs: number },
+  overrides: Partial<Recording<Id>> = {}
+): Recording<Id> {
+  return { session: () => undefined, enabled: () => true, selected: () => selected, ...overrides }
+}
+
 describe("recordActions", () => {
   it("records each run with where it came from and what was selected, handing on the key that ran it", () => {
     sink.clear()
@@ -26,13 +57,13 @@ describe("recordActions", () => {
     const actions = recordActions(
       {
         nudge: {
-          run: (event) => {
+          run: (_session, event) => {
             pressed.push(event?.key)
           },
           byKey: true
         }
       },
-      () => ({ layers: 2, designs: 0 })
+      recordingOf({ layers: 2, designs: 0 })
     )
 
     expect(actions.nudge.byKey).toBe(true)
@@ -59,11 +90,10 @@ describe("recordActions", () => {
         paste: {
           run: () => {
             ran = true
-          },
-          available: () => false
+          }
         }
       },
-      () => ({ layers: 0, designs: 0 })
+      recordingOf({ layers: 0, designs: 0 }, { enabled: () => false })
     )
 
     expect(actions.paste.run("key")).toBeUndefined()
@@ -91,10 +121,9 @@ describe("recordActions", () => {
           }
         },
         save: { run: () => Promise.reject(failed) },
-        undo: { run: () => undefined, available: () => false }
+        undo: { run: () => undefined }
       },
-      () => ({ layers: 0, designs: 1 }),
-      (id) => heard.push(id)
+      recordingOf({ layers: 0, designs: 1 }, { enabled: (id) => id !== "undo", ran: (id) => heard.push(id) })
     )
 
     void actions.newScreen.run("canvasMenu", {
@@ -113,73 +142,61 @@ describe("recordActions", () => {
       { outcome: "cancelled", action: "undo", from: "key", enabled: false, layers: 0, designs: 1 }
     ])
   })
-})
 
-const renderer = resolve(import.meta.dirname, "..")
-const actionsFile = join(import.meta.dirname, "actions.ts")
+  it("acts on the tab it's given, else the one `session` names", () => {
+    const given = tab()
+    const active = tab()
+    const ranOn: (ProjectSession | undefined)[] = []
+    const asked: (ProjectSession | undefined)[] = []
 
-/** The modules whose functions the actions run, beside this file. */
-const commandModules = ["commands.ts", "layout.ts", "create.ts", "QuickInsert.tsx"].map((name) =>
-  join(import.meta.dirname, name)
-)
+    const actions = recordActions(
+      { save: { run: (session) => void ranOn.push(session) } },
+      recordingOf(
+        { layers: 0, designs: 0 },
+        {
+          session: () => active,
+          enabled: (_id, session) => {
+            asked.push(session)
 
-const importPattern = /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)"/g
-
-/** The names a file imports from the command modules. */
-function importedCommands(file: string, source: string): string[] {
-  return [...source.matchAll(importPattern)]
-    .filter(([, , from]) => commandModules.includes(resolve(dirname(file), from!)))
-    .flatMap(([, names]) => names!.split(",").map((name) => name.trim().replace(/^type\s+/, "")))
-    .filter(Boolean)
-}
-
-/** The window's own source files, not tests, stories or design explorations. */
-function windowFiles(folder: string): string[] {
-  return readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(folder, entry.name)
-
-    if (entry.isDirectory()) {
-      return entry.name === "explorations" || entry.name === "stories" ? [] : windowFiles(path)
-    }
-
-    return /\.tsx?$/.test(entry.name) && !/\.(test|stories)\.tsx?$/.test(entry.name) ? [path] : []
-  })
-}
-
-describe("the action list", () => {
-  it("is the only way the window runs an action's command, so every one is recorded", () => {
-    // What the actions run, not what they ask: `activeSession` and the `selected…` queries are for `available`.
-    const commands = new Set(
-      importedCommands(actionsFile, readFileSync(actionsFile, "utf8")).filter(
-        (name) => name !== "activeSession" && !name.startsWith("selected")
+            return true
+          }
+        }
       )
     )
 
-    expect(commands).toContain("alignSelection")
+    void actions.save.run("panel", { session: given })
+    void actions.save.run("menu")
+    expect(ranOn).toEqual([given, active])
+    expect(asked).toEqual([given, active])
+  })
+})
 
-    const bypasses = windowFiles(renderer)
-      .filter((file) => file !== actionsFile && !commandModules.includes(file))
-      .flatMap((file) => {
-        const source = readFileSync(file, "utf8")
+const pricing: ContainerSpec = { ...newDesign("screen", [], { x: 0, y: 0 }), id: "pricing", name: "Pricing" }
 
-        const body = source
-          .replace(importPattern, "")
-          .replace(/\/\*[\s\S]*?\*\//g, "")
-          .replace(/\/\/.*$/gm, "")
+describe("the action list", () => {
+  it("runs every command in the keymap, and leaves what each runs out of reach", () => {
+    expect(Object.keys(registry.actions).toSorted()).toEqual(Object.keys(keymap).toSorted())
+    // Only the recorded actions and their states leave the module, so nothing runs a command around them.
+    expect(Object.keys(registry).toSorted()).toEqual(["actions", "commandsFor"])
+  })
 
-        return importedCommands(file, source)
-          .filter((name) => commands.has(name))
-          .flatMap((name) => {
-            // Called, or passed on as a handler. One bound to where it was asked for runs in the action's place,
-            // through `instead`, which drops what it returns when that isn't an action's result.
-            const used = new RegExp(`(?<![\\w.])${name}(?=\\s*\\()|(?<=[{(,=]\\s*)${name}(?=\\s*[}),])`, "g")
-            const uses = body.match(used)?.length ?? 0
-            const instead = body.match(new RegExp(`instead: \\(\\) => (?:void )?${name}\\(`, "g"))?.length ?? 0
+  it("runs a command only when its state says it applies, on the tab it's given, and records it either way", () => {
+    sink.clear()
+    const session = tab([pricing])
+    const { store, selection } = session
 
-            return uses > instead ? [`${relative(renderer, file)} runs ${name} without actions.ts`] : []
-          })
-      })
+    expect(registry.commandsFor(session).duplicate.enabled).toBe(false)
+    void registry.actions.duplicate.run("menu", { session })
+    expect(store.getEntries()).toHaveLength(1)
 
-    expect(bypasses).toEqual([])
+    selection.set({ design: "app.par#pricing" })
+    expect(registry.commandsFor(session).duplicate.enabled).toBe(true)
+    void registry.actions.duplicate.run("menu", { session })
+    expect(store.getEntries()).toHaveLength(2)
+
+    expect(recorded().map(({ outcome, attributes }) => ({ outcome, ...attributes }))).toEqual([
+      { outcome: "cancelled", action: "duplicate", from: "menu", enabled: false, layers: 0, designs: 0 },
+      { outcome: "ok", action: "duplicate", from: "menu", enabled: true, layers: 0, designs: 1 }
+    ])
   })
 })

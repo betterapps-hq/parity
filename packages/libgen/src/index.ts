@@ -260,7 +260,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   report.package = { name, version }
 
   const manifest: LibraryManifest = {
-    version: 3,
+    version: 4,
     id: options.id ?? preset?.id ?? name.replace(/^@[^/]+\//, "").replace(/^react-/, ""),
     name: options.name ?? preset?.name ?? name
   }
@@ -780,7 +780,7 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
   const name = pkg.name ?? basename(root)
 
   const manifest: LibraryManifest = {
-    version: 3,
+    version: 4,
     id: options.id ?? name.replace(/^@[^/]+\//, ""),
     name: options.name ?? name
   }

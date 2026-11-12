@@ -17,9 +17,11 @@ const avatar: ContainerSpec = {
   root: {
     type: "layout",
     id: "circle",
-    style: { padding: 2, radius: "radius-full" },
-    responsive: { mobile: { style: { padding: 1 } } },
-    children: [{ type: "text", id: "initials", text: "??", bind: { text: "initials" }, style: { weight: 500 } }]
+    style: { padding: { step: 2 }, borderRadius: { token: "radius-full" } },
+    responsive: { mobile: { style: { padding: { step: 1 } } } },
+    children: [
+      { type: "text", id: "initials", text: "??", bind: { text: "initials" }, style: { fontWeight: { value: 500 } } }
+    ]
   },
   states: [{ id: "base", name: "Base" }]
 }
@@ -39,29 +41,29 @@ const card: ContainerSpec = {
       type: "variant",
       options: [
         { id: "stacked", name: "Stacked" },
-        { id: "inline", name: "Inline", overrides: { body: { style: { direction: "row", gap: 6 } } } }
+        { id: "inline", name: "Inline", overrides: { body: { style: { flexDirection: "row", gap: { step: 6 } } } } }
       ]
     }
   },
   root: {
     type: "layout",
     id: "body",
-    style: { direction: "column", gap: 4, padding: 4 },
+    style: { flexDirection: "column", gap: { step: 4 }, padding: { step: 4 } },
     // Over the variant's gap, as a breakpoint is: an Inline card stays a row on mobile, with the mobile gap.
-    responsive: { mobile: { style: { gap: 2, padding: 2 } } },
+    responsive: { mobile: { style: { gap: { step: 2 }, padding: { step: 2 } } } },
     children: [
       {
         type: "instance",
         id: "avatar",
         design: "avatar",
         args: { initials: "CD" },
-        overrides: { circle: { style: { background: "primary" } } }
+        overrides: { circle: { style: { fills: [{ type: "solid", color: { token: "primary" } }] } } }
       },
       {
         type: "layout",
         id: "copy",
         children: [
-          { type: "text", id: "title", text: "Title", bind: { text: "title" }, style: { weight: 600 } },
+          { type: "text", id: "title", text: "Title", bind: { text: "title" }, style: { fontWeight: { value: 600 } } },
           { type: "text", id: "meta", text: "Updated today", responsive: { mobile: { hidden: true } } }
         ]
       }
@@ -69,23 +71,24 @@ const card: ContainerSpec = {
   },
   states: [
     { id: "base", name: "Base" },
-    { id: "compact", name: "Compact", overrides: { body: { style: { gap: 2 } }, meta: { text: "Today" } } }
+    { id: "compact", name: "Compact", overrides: { body: { style: { gap: { step: 2 } } }, meta: { text: "Today" } } }
   ]
 }
 
 /**
- * A screen placing the card with args and overrides that reach into its avatar, a responsive patch that picks the
+ * A component placing the card with args and overrides that reach into its avatar, a responsive patch that picks the
  * card's variant on mobile, and a state that reaches inside the card.
  */
 const profile: ContainerSpec = {
   id: "profile",
   name: "Profile",
+  kind: "component",
   position: { x: 800, y: 0 },
   root: {
     type: "layout",
     id: "page",
-    style: { padding: 8, gap: 4 },
-    responsive: { mobile: { style: { padding: 4 } } },
+    style: { padding: { step: 8 }, gap: { step: 4 } },
+    responsive: { mobile: { style: { padding: { step: 4 } } } },
     children: [
       { type: "text", id: "heading", tag: "h1", text: "Profile", responsive: { mobile: { text: "Me" } } },
       {
@@ -93,8 +96,10 @@ const profile: ContainerSpec = {
         id: "person",
         design: "card",
         args: { title: "Ada Lovelace", layout: "inline" },
-        state: "compact",
-        overrides: { meta: { text: "Joined 1843" }, "avatar/initials": { text: "AL", style: { weight: 700 } } },
+        overrides: {
+          meta: { text: "Joined 1843" },
+          "avatar/initials": { text: "AL", style: { fontWeight: { value: 700 } } }
+        },
         responsive: { mobile: { props: { layout: "stacked" } } }
       }
     ]
@@ -104,7 +109,10 @@ const profile: ContainerSpec = {
     {
       id: "selected",
       name: "Selected",
-      overrides: { "person/title": { text: "Selected" }, "person/avatar/circle": { style: { background: "accent" } } }
+      overrides: {
+        "person/title": { text: "Selected" },
+        "person/avatar/circle": { style: { fills: [{ type: "solid", color: { token: "accent" } }] } }
+      }
     }
   ]
 }
@@ -136,9 +144,9 @@ export const effectiveFixture: EffectiveFixture = {
       name: "a state that overrides a value the variant sets",
       design: card,
       variants: { layout: "inline" },
-      state: card.states[1]
+      state: card.states![1]
     },
     { name: "responsive patches on the design and inside its instance", design: profile },
-    { name: "a nested instance with args and overrides, in a state", design: profile, state: profile.states[1] }
+    { name: "a nested instance with args and overrides, in a state", design: profile, state: profile.states![1] }
   ]
 }

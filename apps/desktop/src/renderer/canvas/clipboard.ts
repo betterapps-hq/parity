@@ -326,7 +326,7 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
   const path = store.mainPath
   const named = kindsName(copies.map((copy) => copy.kind))
   store.change(copies.length === 1 ? `Paste over ${named}` : `Paste ${named} over`, (snapshot) => {
-    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 4, containers: [] }
     const next = { ...document, containers: [...document.containers, ...copies] }
 
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
@@ -424,7 +424,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
 
     const path = store.mainPath
     store.change(`Paste ${kindsName(copies.map((copy) => copy.kind))} here`, (snapshot) => {
-      const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+      const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 4, containers: [] }
       const next = { ...document, containers: [...document.containers, ...copies] }
 
       return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
@@ -791,7 +791,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
   const copies = copyDesigns(designs, ids, shift)
   const path = store.mainPath
   store.change(`Paste ${kindsName(copies.map((copy) => copy.kind))}`, (snapshot) => {
-    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 4, containers: [] }
     const next = { ...document, containers: [...document.containers, ...copies] }
 
     return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }

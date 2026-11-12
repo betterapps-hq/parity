@@ -34,8 +34,7 @@ const card: ContainerSpec = {
   name: "Card",
   kind: "component",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text: "Hello" }] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text: "Hello" }] }
 }
 
 /** A screen, Home, placing Card twice: `first` with its title overridden, `second` as the component has it. */
@@ -52,12 +51,11 @@ function setup() {
         { type: "instance", id: "second", design: "card" },
         { type: "text", id: "note", text: "Fine print" }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   return new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [card, home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [card, home] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

@@ -13,10 +13,21 @@ describe("a new design", () => {
       root: {
         type: "layout",
         name: "Page",
-        style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
-        children: [{ type: "text", tag: "h1", text: "Untitled screen", style: { size: "text-2xl", weight: 600 } }]
-      },
-      states: [{ id: "default", name: "Default" }]
+        style: {
+          padding: [{ step: 10 }, { step: 12 }],
+          gap: { step: 6 },
+          fills: [{ type: "solid", color: { token: "background" } }],
+          color: { token: "foreground" }
+        },
+        children: [
+          {
+            type: "text",
+            tag: "h1",
+            text: "Untitled screen",
+            style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+          }
+        ]
+      }
     })
     expect(screen).not.toHaveProperty("frames")
   })
@@ -30,7 +41,7 @@ describe("a new design", () => {
       root: {
         type: "layout",
         name: "Root",
-        style: { padding: 4, gap: 2 },
+        style: { padding: { step: 4 }, gap: { step: 2 } },
         children: [{ type: "text", text: "Component" }]
       },
       frames: { desktop: { width: 480 } }
@@ -48,13 +59,17 @@ describe("a new design", () => {
       root: {
         type: "layout",
         id: frame.root.id,
-        style: { padding: 6, gap: 4, background: "background", foreground: "foreground" },
+        style: {
+          padding: { step: 6 },
+          gap: { step: 4 },
+          fills: [{ type: "solid", color: { token: "background" } }],
+          color: { token: "foreground" }
+        },
         children: []
       },
-      states: [{ id: "default", name: "Default" }],
       size: { width: 400, height: 300 }
     })
-    expect(parseCanvasDocument({ version: 3, containers: [frame] }).containers[0]).toEqual(frame)
+    expect(parseCanvasDocument({ version: 4, containers: [frame] }).containers[0]).toEqual(frame)
     expect(newDesign("frame", [], { x: 0, y: 0 })).not.toHaveProperty("size")
   })
 

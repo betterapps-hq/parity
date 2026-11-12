@@ -53,7 +53,26 @@ vi.mock("./report-error.ts", async (original) => ({
     tracked.push({ name, attributes, span: options?.span })
 }))
 
+/** Each start page picture the workspace kept, by project, and whether it stopped. */
+const pictures = vi.hoisted(() => {
+  const kept: { project: string; stopped: boolean }[] = []
+
+  return kept
+})
+
+vi.mock("./project-picture.ts", () => ({
+  keepProjectPicture: (session: { id: string }) => {
+    const keeping = { project: session.id, stopped: false }
+    pictures.push(keeping)
+
+    return () => {
+      keeping.stopped = true
+    }
+  }
+}))
+
 const { homeTab, Workspace } = await import("./workspace.ts")
+const { mediaFilesOf } = await import("./media/project-media.ts")
 
 const info: ProjectInfo = {
   id: "/projects/app",
@@ -93,6 +112,7 @@ const detection = { changed: false }
 
 beforeEach(() => {
   tracked.length = 0
+  pictures.length = 0
   opens = []
   closes = []
   picturesKept = []
@@ -284,6 +304,83 @@ describe("a closed tab", () => {
     expect(held[0]?.session?.editor).toBe(editor)
     await workspace.close(info.id)
     expect(held[0]?.session?.editor).toBeUndefined()
+  })
+})
+
+// docs/editor.md, The start page: a project's picture is taken as it opens and after saves, not again when its code
+// changes or the service restarts, since its session stays the same object until its tab closes (PAR-1004).
+describe("an open project's session", () => {
+  const button = { id: "button", name: "Button", path: "src/Button.tsx", export: "Button" }
+
+  async function opened() {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!({ ...info, sources: { button } })
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+
+    return { workspace, session: workspace.getTab(info.id)!.session! }
+  }
+
+  it("stays the same object when the project's code changes, keeping its media and its picture", async () => {
+    const { workspace, session } = await opened()
+    const media = mediaFilesOf(session)
+    workspace.codeChanged(info.id, [button.path], 2)
+    const after = workspace.getTab(info.id)!.session!
+    expect(after.versions).toEqual({ button: 2 })
+    expect(after).toBe(session)
+    expect(mediaFilesOf(after)).toBe(media)
+    expect(pictures).toEqual([{ project: info.id, stopped: false }])
+  })
+
+  it("stays the same object through a reconnect, with the new guest and tokens in it", async () => {
+    const { workspace, session } = await opened()
+    const media = mediaFilesOf(session)
+    const { tokens } = session
+    const reconnecting = workspace.reconnect()
+    opens[1]!({ ...info, guestUrl: "http://127.0.0.1:5008/guest" })
+    await settle()
+    const fresh = { guest: { fresh: true }, sheet: {}, tokens: [] }
+    guest.loads[1]!(fresh)
+    await reconnecting
+    const after = workspace.getTab(info.id)!.session!
+    expect(after).toBe(session)
+    expect(after.loaded).toBe(fresh)
+    expect(after.tokens).not.toBe(tokens)
+    expect(mediaFilesOf(after)).toBe(media)
+    expect(pictures).toEqual([{ project: info.id, stopped: false }])
+  })
+
+  it("tells whoever subscribed when a part changes", async () => {
+    const { workspace, session } = await opened()
+    const told = vi.fn<() => void>()
+    session.subscribe(told)
+    const parts = session.getParts()
+    workspace.codeChanged(info.id, [button.path], 2)
+    expect(told).toHaveBeenCalledOnce()
+    expect(session.getParts()).not.toBe(parts)
+  })
+
+  it("stops keeping the picture when its tab closes", async () => {
+    const { workspace } = await opened()
+    await workspace.close(info.id)
+    expect(pictures).toEqual([{ project: info.id, stopped: true }])
+  })
+
+  it("is a new session when the project reopens, which keeps a picture of its own", async () => {
+    const { workspace, session } = await opened()
+    const reloading = workspace.reload(info.id)
+    await settle()
+    opens[1]!(info)
+    await settle()
+    guest.loads[1]!(loaded)
+    await reloading
+    expect(workspace.getTab(info.id)!.session).not.toBe(session)
+    expect(pictures).toEqual([
+      { project: info.id, stopped: true },
+      { project: info.id, stopped: false }
+    ])
   })
 })
 
@@ -777,8 +874,7 @@ describe("recording a save", () => {
     id: "about",
     name: "About",
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 
   const save = { action: "save", from: "key" as const, enabled: true, layers: 0, designs: 0 }

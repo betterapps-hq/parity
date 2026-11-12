@@ -71,7 +71,7 @@ const placement = new Set<keyof NodeStyle>([
   "minHeight",
   "maxHeight",
   "grow",
-  "self",
+  "alignSelf",
   "colSpan",
   "rowSpan",
   "margin"

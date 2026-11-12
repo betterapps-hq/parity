@@ -70,7 +70,7 @@ export function PropTile({ kind }: { kind: ValueKind | "slot" }) {
 }
 
 function LayoutIcon({ node }: { node: LayoutNode }) {
-  const Icon = node.style?.direction === "row" ? Columns3 : Rows3
+  const Icon = node.style?.flexDirection === "row" ? Columns3 : Rows3
 
   return <Icon className="size-3 shrink-0" />
 }

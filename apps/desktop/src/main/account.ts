@@ -98,6 +98,12 @@ export interface Account {
    * otherwise whether it signed the person in.
    */
   takeLink(link: string): Promise<HandBack | "not-mine">
+  /**
+   * The access token of the account you're in, for Parity's service: refreshed first when it has run out or `renew`
+   * asks, as after the service turned one down. None when you're signed out or WorkOS can't be reached. It never
+   * leaves main.
+   */
+  accessToken(renew?: boolean): Promise<string | undefined>
 }
 
 /** A sign-in waiting for the browser. */
@@ -113,6 +119,8 @@ interface Waiting {
 interface Live {
   /** None once WorkOS ended its session. */
   refreshToken: string | undefined
+  /** Its access token and when it runs out, in main's memory only. None until its first refresh after a launch. */
+  access?: { token: string; expiresAt: number }
   person: AccountPerson
   provider: SignInProvider
   /** Whether it's kept between launches, so other copies of Parity share it through the store. */
@@ -249,7 +257,16 @@ export function createAccount(options: AccountOptions): Account {
 
   const signedIn = async (session: Session, provider: SignInProvider) => {
     const person = personWith(session, named)
-    const live: Live = { refreshToken: session.refreshToken, person, provider, kept: false, failures: 0 }
+
+    const live: Live = {
+      refreshToken: session.refreshToken,
+      access: accessOf(session),
+      person,
+      provider,
+      kept: false,
+      failures: 0
+    }
+
     live.kept = await update((kept) => ({ ...withAccount(kept, stored(live)), current: person.email }))
     // The same account signed in again, as after its session ended, takes the old session's place in the list.
     const before = find(person.email)
@@ -275,6 +292,7 @@ export function createAccount(options: AccountOptions): Account {
     options.telemetry.track("account.sessionEnded", { reason, current: current === live })
     stop(live)
     live.refreshToken = undefined
+    delete live.access
     live.failures = 0
 
     if (current === live) {
@@ -290,6 +308,7 @@ export function createAccount(options: AccountOptions): Account {
   const refreshed = async (live: Live, session: Session) => {
     const was = live.person.email
     live.refreshToken = session.refreshToken
+    live.access = accessOf(session)
     live.failures = 0
     const person = personWith(session, live.person.organizations)
     const changed = JSON.stringify(person) !== JSON.stringify(live.person)
@@ -320,7 +339,21 @@ export function createAccount(options: AccountOptions): Account {
     return kept?.refreshToken
   }
 
-  async function refresh(live: Live): Promise<void> {
+  /** Refreshes under way, so two askers share one: a refresh token works once, and a second use ends the session. */
+  const refreshing = new Map<Live, Promise<void>>()
+
+  function refresh(live: Live): Promise<void> {
+    let under = refreshing.get(live)
+
+    if (!under) {
+      under = refreshNow(live).finally(() => refreshing.delete(live))
+      refreshing.set(live, under)
+    }
+
+    return under
+  }
+
+  async function refreshNow(live: Live): Promise<void> {
     if (!going(live)) {
       return
     }
@@ -425,6 +458,23 @@ export function createAccount(options: AccountOptions): Account {
 
   return {
     state,
+
+    async accessToken(renew = false) {
+      const live = current
+
+      if (!live) {
+        return undefined
+      }
+
+      // Half a minute spare, so a token doesn't run out on its way to the service.
+      const fresh = () => live.access !== undefined && live.access.expiresAt - options.now() > 30_000
+
+      if (renew || !fresh()) {
+        await refresh(live)
+      }
+
+      return current === live && fresh() ? live.access?.token : undefined
+    },
 
     async restore() {
       const kept = await options.store.read()
@@ -637,6 +687,11 @@ export function createAccount(options: AccountOptions): Account {
       return said.problem === "choose-organization" || said.problem === "single-sign-on" ? "continue" : "problem"
     }
   }
+}
+
+/** A session's access token and when it runs out. */
+function accessOf(session: Session): NonNullable<Live["access"]> {
+  return { token: session.accessToken, expiresAt: session.token.expiresAt }
 }
 
 /** Who a session signs in, as the window shows them. */

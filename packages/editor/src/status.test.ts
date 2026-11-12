@@ -22,8 +22,7 @@ function design(id: string): ContainerSpec {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 }
 
@@ -31,7 +30,7 @@ function open(): DesignHistory {
   const containers = [design("home"), design("about")]
 
   return withStylesheet(
-    openDesigns([{ path: "app.par", document: { version: 3, containers } }], defaultModeSettings, "app.par"),
+    openDesigns([{ path: "app.par", document: { version: 4, containers } }], defaultModeSettings, "app.par"),
     "src/index.css"
   )
 }

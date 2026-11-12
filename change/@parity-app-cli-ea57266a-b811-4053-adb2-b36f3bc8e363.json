@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A search that needs someone signed in to Parity is no longer a failure: agents carry on without the source",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -24,7 +24,7 @@ describe("the designs a project opens with", () => {
   })
 
   it("opens a project's own files as they are, and none of them broken ones", () => {
-    const document: CanvasDocument = { version: 3, containers: [] }
+    const document: CanvasDocument = { version: 4, containers: [] }
 
     const files = [
       { path: "shop.par", document },
@@ -51,10 +51,9 @@ describe("the Home screen", () => {
       root: {
         type: "layout",
         name: "Page",
-        style: { background: "background", foreground: "foreground" },
+        style: { fills: [{ type: "solid", color: { token: "background" } }], color: { token: "foreground" } },
         children: [{ type: "component", component: "App" }]
       },
-      states: [{ id: "default", name: "Default" }],
       view: { modes: ["mobile-light"] }
     })
     const [child] = screen.root.type === "layout" ? screen.root.children : []
@@ -64,8 +63,20 @@ describe("the Home screen", () => {
   it("is a padded page headed Home when nothing renders the app's `/`", () => {
     const screen = homeScreen({ Button: viteApp.Button! }, defaultModeSettings)
     expect(screen.root).toMatchObject({
-      style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
-      children: [{ type: "text", tag: "h1", text: "Home", style: { size: "text-2xl", weight: 600 } }]
+      style: {
+        padding: [{ step: 10 }, { step: 12 }],
+        gap: { step: 6 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
+      children: [
+        {
+          type: "text",
+          tag: "h1",
+          text: "Home",
+          style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+        }
+      ]
     })
   })
 

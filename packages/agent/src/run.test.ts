@@ -2,6 +2,7 @@ import {
   type ContainerSpec,
   defaultModeSettings,
   type DesignNode,
+  designStates,
   findNode,
   frameGeometry,
   resolveModes
@@ -36,11 +37,13 @@ function snapshot(): AgentSnapshot {
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [
             {
               id: "signup",
               name: "Sign up",
+              // A component, since only a component has states, which most of these calls exercise.
+              kind: "component",
               position: { x: 0, y: 0 },
               root: {
                 type: "layout",
@@ -56,8 +59,7 @@ function snapshot(): AgentSnapshot {
                     props: { children: "Sign up" }
                   }
                 ]
-              },
-              states: [{ id: "default", name: "Default" }]
+              }
             }
           ]
         }
@@ -172,7 +174,7 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(result.created.Hint).toMatch(/^[a-zA-Z0-9]{5}$/)
     const container = result.changes.designs[0]!.after!
     expect(findNode(container.root, "submit")).toMatchObject({ props: { children: "Sign up", variant: "outline" } })
-    expect(container.states[1]).toEqual({
+    expect(container.states![1]).toEqual({
       id: "loading",
       name: "Loading",
       overrides: { submit: { props: { disabled: true } } }
@@ -186,23 +188,26 @@ Print(Get("page", {depth: 1}).children.length)`
     const result = await execute(
       {
         label: "Animate the button",
-        code: `Update("submit", {style: {transitions: [{property: "colors", duration: 200, easing: "ease-out"}]}})
-AddState("signup", {name: "Pressed", changes: {Submit: {style: {transitions: [{property: "transform", easing: {spring: {duration: 400, bounce: 0.3}}}]}}}})
-Print(JSON.stringify(Get("submit").style.transitions))
-Print(Get("submit", {state: "pressed"}).style.transitions[0].easing.spring.duration)
-Update("submit", {style: {transitions: null}}, {state: "pressed"})`
+        code: `Update("submit", {style: {transition: [{property: "colors", duration: {step: 200}, easing: {keyword: "ease-out"}}]}})
+AddState("signup", {name: "Pressed", changes: {Submit: {style: {transition: [{property: "transform", easing: {spring: {duration: 400, bounce: 0.3}}}]}}}})
+Print(JSON.stringify(Get("submit").style.transition))
+Print(Get("submit", {state: "pressed"}).style.transition[0].easing.spring.duration)
+Update("submit", {style: {transition: null}}, {state: "pressed"})`
       },
       snapshot(),
       hooks()
     )
 
     expect(result.error).toBeUndefined()
-    expect(result.output).toEqual(['[{"property":"colors","duration":200,"easing":"ease-out"}]', "400"])
-    const container = result.changes.designs[0]!.after!
-    expect(findNode(container.root, "submit")?.style?.transitions).toEqual([
-      { property: "colors", duration: 200, easing: "ease-out" }
+    expect(result.output).toEqual([
+      '[{"property":"colors","duration":{"step":200},"easing":{"keyword":"ease-out"}}]',
+      "400"
     ])
-    expect(container.states[1]?.overrides?.submit?.style?.transitions).toBeUndefined()
+    const container = result.changes.designs[0]!.after!
+    expect(findNode(container.root, "submit")?.style?.transition).toEqual([
+      { property: "colors", duration: { step: 200 }, easing: { keyword: "ease-out" } }
+    ])
+    expect(container.states![1]?.overrides?.submit?.style?.transition).toBeUndefined()
   })
 
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
@@ -330,7 +335,7 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
     const result = await execute(
       {
         label: "New screen",
-        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {background: "background"}, children: [{type: "text", text: "Plans", style: {size: "text-2xl"}}]}})
+        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {fills: [{type: "solid", color: {token: "background"}}]}, children: [{type: "text", text: "Plans", style: {fontSize: {token: "text-2xl"}}}]}})
 Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       },
       snapshot(),
@@ -355,7 +360,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
 
     const read = {
       ...base,
-      documents: [{ path: "app.par", document: { version: 3 as const, containers: [signup, other] } }]
+      documents: [{ path: "app.par", document: { version: 4 as const, containers: [signup, other] } }]
     }
 
     const result = await execute(
@@ -592,44 +597,44 @@ Print(JSON.stringify(Overlaps()))`
     const result = await execute(
       {
         label: "Off system",
-        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {background: "hotpink"}})`
+        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {fills: [{type: "solid", color: {token: "hotpink"}}]}})`
       },
       snapshot(),
       hooks()
     )
 
     expect(result.warnings.join("\n")).toContain(`"Carousel" isn't one of the project's components`)
-    expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
+    expect(result.warnings.join("\n")).toContain(`fills "hotpink" isn't a token`)
   })
 
   it("fills a layer with a stack of paints, reads it back, and checks each paint's tokens (PAR-931)", async () => {
     const stack = [
       {
-        kind: "linear",
+        type: "linear",
         angle: 90,
         stops: [
-          { color: "primary", position: 0 },
-          { color: "nope", position: 100 }
+          { color: { token: "primary" }, position: 0 },
+          { color: { token: "nope" }, position: 100 }
         ]
       },
-      { kind: "image", src: "/images/hero.jpg", fit: "fill" },
-      { kind: "solid", color: "background", alpha: 80 }
+      { type: "image", src: "/images/hero.jpg", fit: "fill" },
+      { type: "solid", color: { token: "background", alpha: { step: 80 } } }
     ]
 
     const result = await execute(
       {
         label: "Hero fill",
-        code: `Update("page", {style: {background: ${JSON.stringify(stack)}}})
-Print(JSON.stringify(Get("page").style.background))`
+        code: `Update("page", {style: {fills: ${JSON.stringify(stack)}}})
+Print(JSON.stringify(Get("page").style.fills))`
       },
       snapshot(),
       hooks()
     )
 
     expect(JSON.parse(result.output[0]!)).toEqual(stack)
-    expect(findNode(result.changes.designs[0]!.after!.root, "page")?.style?.background).toEqual(stack)
-    expect(result.warnings.join("\n")).toContain(`background "nope" isn't a token`)
-    expect(result.warnings.join("\n")).not.toContain(`background "primary"`)
+    expect(findNode(result.changes.designs[0]!.after!.root, "page")?.style?.fills).toEqual(stack)
+    expect(result.warnings.join("\n")).toContain(`fills "nope" isn't a token`)
+    expect(result.warnings.join("\n")).not.toContain(`fills "primary"`)
   })
 
   it("lists radius-full with the radius tokens and takes it without a warning (PAR-458)", async () => {
@@ -638,8 +643,8 @@ Print(JSON.stringify(Get("page").style.background))`
         label: "Pill",
         code: [
           `Print(JSON.stringify(GetTokens({ category: "radius" })))`,
-          `Update("submit", {style: {radius: "radius-full"}})`,
-          `Update("title", {style: {background: "radius-full"}})`
+          `Update("submit", {style: {borderRadius: {token: "radius-full"}}})`,
+          `Update("title", {style: {fills: [{type: "solid", color: {token: "radius-full"}}]}})`
         ].join("\n")
       },
       snapshot(),
@@ -649,9 +654,9 @@ Print(JSON.stringify(Get("page").style.background))`
     expect(JSON.parse(result.output[0]!)).toEqual([
       { name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }
     ])
-    expect(result.warnings.join("\n")).not.toContain(`radius "radius-full"`)
+    expect(result.warnings.join("\n")).not.toContain(`borderRadius "radius-full"`)
     // A keyword is a radius only: as a color it's still not a token.
-    expect(result.warnings.join("\n")).toContain(`background "radius-full" isn't a token`)
+    expect(result.warnings.join("\n")).toContain(`fills "radius-full" isn't a token`)
   })
 
   it("lists a project's own --radius-full as its token, not the keyword", async () => {
@@ -1081,8 +1086,7 @@ Print(await Screenshot("signup", {mode: ${JSON.stringify(modes)}}))`
         name: "Member row",
         kind: "component",
         position: { x: 0, y: 1000 },
-        root: { type: "layout", id: "row", children: [] },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "layout", id: "row", children: [] }
       }
     ]
 
@@ -1136,8 +1140,7 @@ describe("render inputs", () => {
         name: "Label",
         kind: "component",
         position: { x: 0, y: 0 },
-        root: { type: "text", id: "text", text: "From the kit" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "From the kit" }
       }
     ]
     const requests: FrameRequest[] = []
@@ -1165,8 +1168,7 @@ describe("render inputs", () => {
         name: "Label",
         kind: "component",
         position: { x: 0, y: 0 },
-        root: { type: "text", id: "text", text: "From the kit" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "From the kit" }
       }
     ]
 
@@ -1198,8 +1200,7 @@ Insert("page", {type: "instance", design: "kit/missing"})`
         name: "Label",
         kind: "component",
         position: { x: 0, y: 1000 },
-        root: { type: "text", id: "text", text: "The project's own" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "The project's own" }
       }
     ]
     project.libraryDesigns = [
@@ -1256,9 +1257,9 @@ describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
       {
         label: "Page titles",
         code: [
-          `Update("title", {style: {size: "text-display"}})`,
+          `Update("title", {style: {fontSize: {token: "text-display"}}})`,
           `SetTokens({ "text-display": "4rem", "shadow-popup": { default: "0 8px 24px black", dark: "none" } })`,
-          `Update("page", {style: {shadow: "shadow-popup"}})`,
+          `Update("page", {style: {boxShadow: [{type: "drop", token: "shadow-popup"}]}})`,
           `Print(JSON.stringify(GetTokens({ search: "text-display" })))`,
           `Print(JSON.stringify(GetTokens({ category: "shadow" })))`
         ].join("\n")
@@ -1296,12 +1297,12 @@ describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
 
   it("warns about the name until a call adds it, saying how", async () => {
     const before = await execute(
-      { label: "Page titles", code: `Update("title", {style: {size: "text-display"}})` },
+      { label: "Page titles", code: `Update("title", {style: {fontSize: {token: "text-display"}}})` },
       snapshot(),
       hooks()
     )
 
-    expect(before.warnings.join("\n")).toContain(`size "text-display" isn't a token`)
+    expect(before.warnings.join("\n")).toContain(`fontSize "text-display" isn't a token`)
     expect(before.warnings.join("\n")).toContain(`add text-display with SetTokens`)
   })
 
@@ -1551,7 +1552,7 @@ Insert("dashboard/Toolbar", {
       {
         ...base,
         iconSets: [lucide],
-        documents: [{ path: "app.par", document: { version: 3, containers: [signup, dashboard] } }]
+        documents: [{ path: "app.par", document: { version: 4, containers: [signup, dashboard] } }]
       },
       withIcons()
     )
@@ -1615,7 +1616,7 @@ describe("warning groups", () => {
 }
 Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
 Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
-Update("submit", { style: { background: "hotpink" } })
+Update("submit", { style: { fills: [{ type: "solid", color: { token: "hotpink" } }] } })
 await Screenshot("signup")`
       },
       base,
@@ -1711,12 +1712,11 @@ Print(GetModes(id).designs[0].frames)`
     expect(result.changes.designs[0]!.after).toMatchObject({
       kind: "frame",
       size: { width: 400, height: 300 },
-      root: { type: "layout", children: [{ type: "text", text: "Idea" }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", children: [{ type: "text", text: "Idea" }] }
     })
     expect(result.changes.designs[0]!.after).not.toHaveProperty("view")
     expect(result.output).toEqual([
-      '{"state":"default","mode":"desktop-light","beside":[]} 1',
+      '{"mode":"desktop-light","beside":[]} 1',
       '[{"mode":"desktop-light","width":400,"height":300,"window":{"width":400,"height":300}}]'
     ])
     expect(result.screenshots).toMatchObject([{ mode: "desktop-light", width: 400 }])
@@ -1734,10 +1734,13 @@ Print(GetModes(id).designs[0].frames)`
     expect(result.changes.designs[0]!.after!.position.x).toBeGreaterThan(1400)
   })
 
-  it("turns a screen into a frame, saying what it dropped, and back", async () => {
+  it("turns a component into a frame, saying what it dropped, and into a screen", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.states.push({ id: "error", name: "Error", overrides: { title: { text: "Try again" } } })
+    signup.states = [
+      ...designStates(signup),
+      { id: "error", name: "Error", overrides: { title: { text: "Try again" } } }
+    ]
     signup.view = { modes: ["mobile-light"], state: "error" }
 
     const result = await execute(
@@ -1755,7 +1758,8 @@ Print(GetDesign("signup").frames)`
     expect(result.error).toBeUndefined()
     expect(result.warnings).toContain("Sign up is a frame now. States dropped: Error. Modes dropped: mobile-light.")
     expect(result.output).toEqual(['{"width":600}', '{"desktop":{"width":600}}'])
-    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen", states: [{ id: "default" }] })
+    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen" })
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("states")
   })
 
   it("refuses what a frame doesn't have: other states, modes and sizes per viewport", async () => {
@@ -1764,7 +1768,7 @@ Print(GetDesign("signup").frames)`
     base.documents[0]!.document.containers = [frame]
 
     const calls: [string, string, string][] = [
-      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, which has one state"],
+      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, and only a component has states"],
       [`UpdateDesign("signup", { showModes: ["mobile-light"] })`, "showModes", "takes no showModes"],
       [`await Screenshot("signup", { mode: "mobile-light" })`, "mode", "drawn only in the primary mode, desktop-light"],
       [`UpdateDesign(CreateDesign({ name: "Home" }), { width: 400 })`, "width", "only a frame takes a width"]
@@ -1797,6 +1801,64 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
       kind: "screen",
       frames: { desktop: { width: 480, height: 320 } }
     })
+  })
+})
+
+describe("states, only a component's (PAR-1002)", () => {
+  /** Sign up, a component, beside Home, a screen with the same layers. */
+  function withScreen(): AgentSnapshot {
+    const base = snapshot()
+    const [signup] = base.documents[0]!.document.containers
+    const { states: _states, ...layers } = structuredClone(signup!)
+    base.documents[0]!.document.containers.push({
+      ...layers,
+      id: "home",
+      name: "Home",
+      kind: "screen",
+      position: { x: 3000, y: 0 }
+    })
+
+    return base
+  }
+
+  it("lists a component's states and showing state, and a screen's modes alone", async () => {
+    const result = await execute({ label: "Read", code: `Print(JSON.stringify(Designs()))` }, withScreen(), hooks())
+    const [component, screen] = JSON.parse(result.output[0]!)
+
+    expect(component).toMatchObject({ id: "signup", kind: "component", states: [{ id: "default", name: "Default" }] })
+    expect(component.showing).toEqual({ state: "default", mode: "desktop-light", beside: [] })
+    expect(screen).toMatchObject({ id: "home", kind: "screen", showing: { mode: "desktop-light", beside: [] } })
+    expect(screen).not.toHaveProperty("states")
+    expect(screen.showing).not.toHaveProperty("state")
+  })
+
+  it.each([
+    `AddState("home", { name: "Loading" })`,
+    `UpdateState("home", "loading", { name: "Waiting" })`,
+    `DeleteState("home", "loading")`,
+    `Update("home/title", { text: "Hi" }, { state: "loading" })`,
+    `Get("home/title", { state: "loading" })`,
+    `UpdateDesign("home", { allStates: true })`,
+    `CreateDesign({ name: "About", baseState: "Signed out" })`,
+    `await Screenshot("home", { state: "loading" })`
+  ])("refuses %s on a screen, saying only a component has states", async (code) => {
+    const result = await execute({ label: "Try", code }, withScreen(), hooks())
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/is a screen, and only a component has states/)
+    expect(result.details).toMatchObject({ code: "invalid_input", field: "design" })
+  })
+
+  it("draws and edits a screen in its base state", async () => {
+    const result = await execute(
+      { label: "Edit", code: `Update("home/title", { text: "Welcome" })\nawait Screenshot("home", { state: "all" })` },
+      withScreen(),
+      hooks()
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toMatchObject([{ design: "home", state: "default" }])
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("states")
   })
 })
 
@@ -1898,7 +1960,7 @@ describe("coded failures", () => {
     )
 
     expect(byId.error).toBeUndefined()
-    expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
+    expect(byId.changes.designs[0]!.after!.states![1]).toEqual({ id: "loading", name: "Waiting" })
   })
 
   it("explains that Measure draws one frame when given a list, all or shown, before rendering (PAR-461)", async () => {
@@ -1989,7 +2051,7 @@ await Problems("signup", { state: "all", mode: "all" })`
     { code: `Insert("page", { type: "text", text: 1 })`, field: "node/text", message: "expected a string" },
     { code: `Insert("page", { type: "text", text: "Hi" }, { index: -1 })`, field: "index", message: "at least 0" },
     { code: `Insert(document, { type: "layout" }, { kind: "page" })`, field: "kind", message: "expected one of" },
-    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "a number or a string" },
+    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "expected { step }, { token }" },
     { code: `Update("title", { width: 3 })`, field: "width", message: "use Replace, Move or Responsive" },
     { code: `Update("title", { text: "Hi" }, { state: 1 })`, field: "state", message: "expected a string" },
     { code: `Replace("title", "text")`, field: "node", message: "expected an object" },
@@ -2028,18 +2090,18 @@ await Problems("signup", { state: "all", mode: "all" })`
     const result = await execute(
       {
         label: "Order",
-        code: `Update("title", { style: { zIndex: 10 } })
-Print(Get("title").style.zIndex)`
+        code: `Update("title", { style: { zIndex: { step: 10 } } })
+Print(Get("title").style.zIndex.step)`
       },
       snapshot(),
       hooks()
     )
 
     expect(result.output).toEqual(["10"])
-    expect(findNode(result.changes.designs[0]!.after!.root, "title")).toMatchObject({ style: { zIndex: 10 } })
+    expect(findNode(result.changes.designs[0]!.after!.root, "title")).toMatchObject({ style: { zIndex: { step: 10 } } })
 
     const refused = await execute(
-      { label: "Order", code: `Update("title", { style: { zIndex: 1.5 } })` },
+      { label: "Order", code: `Update("title", { style: { zIndex: { step: 1.5 } } })` },
       snapshot(),
       hooks()
     )
@@ -2051,13 +2113,13 @@ Print(Get("title").style.zIndex)`
   it("still reads null as taking a value away", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.root = { ...layoutRoot(signup), responsive: { mobile: { style: { gap: 2 } } } }
+    signup.root = { ...layoutRoot(signup), responsive: { mobile: { style: { gap: { step: 2 } } } } }
 
     const result = await execute(
       {
         label: "Clear",
-        code: `Update("title", { name: null, style: { size: "text-2xl" } })
-Update("title", { style: { size: null } })
+        code: `Update("title", { name: null, style: { fontSize: { token: "text-2xl" } } })
+Update("title", { style: { fontSize: null } })
 Responsive("page", "mobile", null)
 AddState("signup", { name: "Error", changes: { title: { text: "Try again" } } })
 UpdateState("signup", "error", { changes: { title: null } })`
@@ -2070,7 +2132,7 @@ UpdateState("signup", "error", { changes: { title: null } })`
     const after = result.changes.designs[0]!.after!
     expect(findNode(after.root, "title")).toEqual({ type: "text", id: "title", text: "Create an account" })
     expect(after.root.responsive).toBeUndefined()
-    expect(after.states[1]).toEqual({ id: "error", name: "Error" })
+    expect(after.states![1]).toEqual({ id: "error", name: "Error" })
   })
 })
 
@@ -2080,9 +2142,12 @@ describe("Replace", () => {
     const read = snapshot()
     const [design] = read.documents[0]!.document.containers
     const page = layoutRoot(design)
-    page.responsive = { mobile: { style: { gap: 2 } } }
+    page.responsive = { mobile: { style: { gap: { step: 2 } } } }
     page.children[0]!.responsive = { mobile: { hidden: true }, tablet: { text: "Sign up" } }
-    design!.states.push({ id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } })
+    design!.states = [
+      ...designStates(design!),
+      { id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } }
+    ]
     design!.params = {
       size: {
         type: "variant",
@@ -2116,8 +2181,8 @@ describe("Replace", () => {
       }
     ])
     const after = result.changes.designs[0]!.after!
-    expect(after.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
-    expect(after.root.responsive).toEqual({ mobile: { style: { gap: 2 } } })
+    expect(after.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(after.root.responsive).toEqual({ mobile: { style: { gap: { step: 2 } } } })
   })
 
   it("reports every node's patches when it replaces the root, which clears the states", async () => {
@@ -2147,8 +2212,8 @@ describe("Replace", () => {
 
     expect(result.error).toBeUndefined()
     const change = result.changes.designs[0]!
-    expect(change.base!.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
-    expect(change.after!.states[1]!.overrides).toBeUndefined()
+    expect(change.base!.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(change.after!.states![1]!.overrides).toBeUndefined()
   })
 
   it("reports nothing when the call fails and changes nothing", async () => {
@@ -2194,6 +2259,6 @@ UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up�
     const after = result.changes.designs[0]!.after!
     const title = result.discarded![0]!.replacement
     expect(findNode(after.root, title)?.responsive).toEqual({ mobile: { hidden: true } })
-    expect(after.states[1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
+    expect(after.states![1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
   })
 })

@@ -187,7 +187,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "check_accessibility",
-    'Check a design\'s accessibility with axe-core against WCAG 2.2 AA, rendered offscreen in every state and the modes it shows unless you narrow it. Lists each rule broken, worst first, with the layers that break it (ids you can pass to execute), the frames, what\'s wrong and a link on how to fix it. A contrast failure names the color token to set as style.foreground so it passes in every frame checked, when one does. state and mode take an id, a list, or "all"; mode also takes "shown". Automated checks find some issues, not all.',
+    'Check a design\'s accessibility with axe-core against WCAG 2.2 AA, rendered offscreen in every state and the modes it shows unless you narrow it. Lists each rule broken, worst first, with the layers that break it (ids you can pass to execute), the frames, what\'s wrong and a link on how to fix it. A contrast failure names the color token to set as style.color so it passes in every frame checked, when one does. state and mode take an id, a list, or "all"; mode also takes "shown". Automated checks find some issues, not all.',
     operations.accessibility,
     (result) => [text(describeAccessibility(result))]
   ),

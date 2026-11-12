@@ -378,10 +378,10 @@ function MessageRow({
   const frames = message.frames ?? []
 
   const frameName = ({ state, mode }: { state: string; mode: string }) => {
-    const stateName = entry?.container.states.find((candidate) => candidate.id === state)?.name ?? state
+    const stateName = entry?.container.states?.find((candidate) => candidate.id === state)?.name ?? state
     const modeName = resolveModes(session.store.getModes()).find((candidate) => candidate.id === mode)?.name ?? mode
 
-    return entry && entry.container.states.length > 1 ? `${stateName} in ${modeName}` : modeName
+    return entry && (entry.container.states?.length ?? 0) > 1 ? `${stateName} in ${modeName}` : modeName
   }
 
   return (

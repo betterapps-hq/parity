@@ -1,6 +1,7 @@
 import {
   type ContainerSpec,
   type DesignNode,
+  designStates,
   findNode,
   mapNode,
   type NodeChange,
@@ -123,7 +124,7 @@ export function rowChanged(before: StyleSelection, after: StyleSelection | undef
 const styleOf = (node: DesignNode): NodeStyle | undefined => ("style" in node ? node.style : undefined)
 
 /** What a layer shows in a field: its text, whether it's hidden, or a prop's or a style's value. */
-export type FieldShown = PropValue | NodeStyle[keyof NodeStyle] | undefined
+export type FieldShown = PropValue | undefined
 
 /** A field a layer's change sets, by name, with what it showed before and shows after. */
 export interface ChangedField {
@@ -349,7 +350,7 @@ export function paramValue(container: ContainerSpec, name: string): ParamShown |
 
 /** A design's states as `inspector.changed` sends them: each one's id and name, not what it changes. */
 export function statesValue(container: ContainerSpec): Named[] {
-  return container.states.map(({ id, name }) => ({ id, name }))
+  return designStates(container).map(({ id, name }) => ({ id, name }))
 }
 
 /**

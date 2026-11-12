@@ -17,9 +17,18 @@ says how one is built and what adding the next one takes. What was decided, and 
 ├── unsplash.ts               Unsplash's API: photos, by orientation and color, paged by page, with placed; not offered
 └── index.ts                  `connectors`, every one Parity has; `offered`, the ones main runs; and the key variables
 
+@parity-app/service           Parity's service searching for the app: data in, data out, tested without a Worker
+├── search.ts                 who may search, each limit, the day's cache and what each answer's status is
+└── wire.ts                   the routes, and the answer that lists what the service searches
+
+apps/portal                   the Worker at api.tryparity.dev
+├── server/search.ts          Cloudflare's bindings and who sent a request, handed to @parity-app/service
+└── routes/v1/connectors/     GET the connectors searched; POST {id}/search
+
 apps/desktop
 ├── main/connectors.ts        the hub: keys, every search checked and budgeted, find, recent, placed, a service
 ├── main/placements.ts        placements counted as each source's usage, in <userData>/connector-placements.json
+├── main/remote-search.ts     Parity's service as the hub's `SearchService`, as the signed-in person
 ├── main/search-history.ts    the person's recent searches, in <userData>/recent-searches.json for now
 ├── shared/connectors.ts      what the window sees and sends, checked with zod
 ├── utility/references.ts     agents' searches for screens and photos, through main, with previews saved
@@ -28,7 +37,8 @@ apps/desktop
 
 - **Keys are the app owner's.** People never enter one. A connector's `auth` says whether it needs a key and which
   variable a development copy sets it with (`PARITY_<NAME>_KEY`). Main reads them once and takes every such variable, in
-  any letter case, out of its environment. A shipped copy will search through Parity's service, which holds them.
+  any letter case, out of its environment. A shipped copy has none and searches through Parity's service, which holds
+  them as Worker secrets (PAR-131).
 - **The window asks main over IPC:** `canvasHost.connectors` gets the list (each connector's details and whether this
   copy can search it, never a key), searches, lists the person's recent searches, and says a result was placed
   (`placed`). The library browser searches this way (editor.md), and adding a stock picture to the project reports each
@@ -75,11 +85,19 @@ apps/desktop
   `X-RateLimit-Remaining` and `X-RateLimit-Limit` headers, which Pixabay and Unsplash send and Mobbin doesn't.
 - **A service can run searches for main.** The hub takes a `SearchService` that searches some connectors with keys of
   its own, with the hub's timeout. A connector with no key here goes to it, for searches and placements, and a key here
-  still wins. Nothing implements one yet: it's where Parity's own service plugs in to hold the keys.
-- **A search never throws.** Its answer is what it found or a problem: `no-key`, `key-refused`, `no-access`,
-  `rate-limited` (with `retryAfter` when the source says), `invalid` (with the field) or `unavailable`, which is also
-  what an adapter or service that throws gives. Only `invalid` is the asker's to fix. `no-key` tells an agent to carry
-  on without the source, and isn't an error to the CLI or MCP.
+  still wins. Parity's own service is one (`main/remote-search.ts`, PAR-948): main asks it which connectors it searches
+  as Parity starts, and sends each search with the signed-in person's WorkOS access token, renewing the token once when
+  the service turns it down. Signed out, it answers `signed-out` without asking. An installed copy asks
+  `api.tryparity.dev`, and a development copy with no key staging's Worker.
+- **The service runs the same adapters** (`@parity-app/service`, `apps/portal`). It checks the token through Better
+  Apps' WorkOS identity, allows each person 30 searches a minute and each source 50, keeps what a search found for 24
+  hours in Workers KV under a hash of the search, and never keeps a problem, a query or who asked. Every answer is a
+  `SearchAnswer`: 200 for results and for a problem the source gave, 401 for `signed-out`, 400 for `invalid`, 429 with
+  `Retry-After` for its own limits, 404 for a connector it has no key for, and 503 when the source or its key fails.
+- **A search never throws.** Its answer is what it found or a problem: `no-key`, `signed-out`, `key-refused`,
+  `no-access`, `rate-limited` (with `retryAfter` when the source says), `invalid` (with the field) or `unavailable`,
+  which is also what an adapter or service that throws gives. Only `invalid` is the asker's to fix. `no-key` and
+  `signed-out` tell an agent to carry on without the source, and aren't errors to the CLI or MCP.
 - **Previews are a convenience.** An agent's search saves a smaller picture when the source has one (`Found.preview`,
   Unsplash's small size), stops reading one past 4 MB, keeps file names short, deletes previews older than a week, and
   lists a result whose preview failed with its link.
@@ -168,4 +186,5 @@ What adding Pixabay in place of Unsplash showed, and what changed:
   results.
 
 Still open: the window has no Place for pictures yet, so only agents place them today. Pixabay's terms ask for each
-search's answer to be kept for 24 hours; Parity's service will do that for every user (PAR-131).
+search's answer to be kept for 24 hours, which Parity's service does for every installed copy (PAR-131); a development
+copy searching with its own key keeps none.

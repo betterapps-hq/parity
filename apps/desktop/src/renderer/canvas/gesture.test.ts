@@ -101,8 +101,7 @@ const home: ContainerSpec = {
   id: "home",
   name: "Home",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "root", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [] }
 }
 
 const design = "app.par#home"
@@ -110,7 +109,7 @@ const design = "app.par#home"
 /** A project with one design, Home, and a stand-in window whose held cursors are listed. */
 function setup() {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }

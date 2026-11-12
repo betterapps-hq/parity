@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right values and extract cleanly (PAR-998)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

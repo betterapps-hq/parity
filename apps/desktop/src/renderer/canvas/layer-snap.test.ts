@@ -23,7 +23,12 @@ const badgeIn = (card: string) => ({
   component: "Card",
   slots: {
     children: [
-      { type: "text", id: `${card}-badge`, text: "New", style: { position: "absolute", top: 2, left: 2 } },
+      {
+        type: "text",
+        id: `${card}-badge`,
+        text: "New",
+        style: { position: "absolute", top: { step: 2 }, left: { step: 2 } }
+      },
       { type: "text", id: `${card}-title`, text: "Title" }
     ]
   }
@@ -40,14 +45,20 @@ const container = {
       {
         type: "layout",
         id: "events",
-        style: { position: "absolute", top: 50, left: 4 },
-        children: [{ type: "text", id: "review", text: "Review", style: { position: "absolute", top: 10, left: 0 } }]
+        style: { position: "absolute", top: { step: 50 }, left: { step: 4 } },
+        children: [
+          {
+            type: "text",
+            id: "review",
+            text: "Review",
+            style: { position: "absolute", top: { step: 10 }, left: { step: 0 } }
+          }
+        ]
       },
       badgeIn("panel"),
       badgeIn("plain")
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 beforeAll(async () => {

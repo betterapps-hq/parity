@@ -46,8 +46,7 @@ function design(height?: number): ContainerSpec {
     id: "page",
     name: "Page",
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 
   if (height !== undefined) {
@@ -71,7 +70,7 @@ async function agentRequest(container: ContainerSpec): Promise<FrameRequest> {
       modes,
       libraryDesigns: [],
       tokenOverrides: [],
-      documents: [{ path: "app.par", document: { version: 3, containers: [container] } }],
+      documents: [{ path: "app.par", document: { version: 4, containers: [container] } }],
       mainDocument: "app.par",
       props: {},
       selection: {},

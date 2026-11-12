@@ -364,24 +364,36 @@ const tabSummary = z.looseObject({
   designs: z.int().describe("How many designs the project has.")
 })
 
-/** One design on the canvas, and where its board is. Its size is missing until its board has been drawn. */
-const designSummary = z.looseObject({
+/** What's said about every design on the canvas, and where its board is. Its size is missing until it's drawn. */
+const summaryFields = {
   id: z.string(),
   name: z.string(),
-  kind: z.string(),
   file: z.string(),
   x: number,
   y: number,
   width: number.optional(),
   height: number.optional(),
-  states: z.array(ref),
-  showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings }),
   nodes: z.int(),
   references: z
     .int()
     .optional()
     .describe("How many references are on the canvas for it, which get_references shows. Missing when none.")
-})
+}
+
+/** One design on the canvas. Only a component has states, so only a component lists them. */
+const designSummary = z.discriminatedUnion("kind", [
+  z.looseObject({
+    ...summaryFields,
+    kind: z.enum(["screen", "frame"]),
+    showing: z.looseObject({ mode: z.string(), beside: strings })
+  }),
+  z.looseObject({
+    ...summaryFields,
+    kind: z.literal("component"),
+    states: z.array(ref).describe("The component's states, the base first."),
+    showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings })
+  })
+])
 
 const overlap = z.looseObject({
   designs: strings,
@@ -523,7 +535,7 @@ const warningGroup = z.looseObject({
     .string()
     .describe(
       "Stable: render_failed, unknown_component, unknown_component_design, unknown_prop, invalid_option, " +
-        "not_a_token, not_a_length_token, overlap, title_clearance, canvas_overlaps, kind_changed or " +
+        "not_a_token, not_a_length_token, invalid_value, overlap, title_clearance, canvas_overlaps, kind_changed or " +
         "unnamed_layout. overlap and title_clearance cover boards this call created, changed or moved: " +
         "overlap when two boards collide, title_clearance when they're clear but one's title covers the other. " +
         "canvas_overlaps counts the rest of the canvas's; call Overlaps() to check every board."
@@ -870,7 +882,7 @@ const foundReply = z.looseObject({
       code: z
         .string()
         .describe(
-          "no-key, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+          "no-key, signed-out, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
         ),
       message: z.string(),
       retryAfter: number.optional().describe("Seconds to wait before searching again.")

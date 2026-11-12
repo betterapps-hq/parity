@@ -42,11 +42,10 @@ const pricing: ContainerSpec = {
   id: "pricing",
   name: "Pricing",
   position: { x: 0, y: 0 },
-  root: { type: "image", id: "banner", src: "/images/hero.png" },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "image", id: "banner", src: "/images/hero.png" }
 }
 
-const document: CanvasDocument = { version: 3, containers: [home, pricing] }
+const document: CanvasDocument = { version: 4, containers: [home, pricing] }
 
 const documents = [{ path: "app.par", document }]
 
@@ -97,9 +96,9 @@ describe("projectImages", () => {
         type: "layout",
         id: "banner",
         style: {
-          background: [
-            { kind: "image", src: "/images/team.png", fit: "fill" },
-            { kind: "solid", color: "muted" }
+          fills: [
+            { type: "image", src: "/images/team.png", fit: "fill" },
+            { type: "solid", color: { token: "muted" } }
           ]
         },
         children: []
@@ -109,7 +108,7 @@ describe("projectImages", () => {
         {
           id: "night",
           name: "Night",
-          overrides: { banner: { style: { background: [{ kind: "image", src: "/images/night.png", fit: "tile" }] } } }
+          overrides: { banner: { style: { fills: [{ type: "image", src: "/images/night.png", fit: "tile" }] } } }
         }
       ]
     }
@@ -117,7 +116,7 @@ describe("projectImages", () => {
     const found = projectImages({
       files: [{ path: "public/images/team.png", bytes: 10 }],
       references: [],
-      documents: [{ path: "app.par", document: { version: 3, containers: [filled] } }]
+      documents: [{ path: "app.par", document: { version: 4, containers: [filled] } }]
     })
 
     expect(found.map((image) => [image.src, image.kind, image.usedBy.map((use) => use.node)])).toEqual([
@@ -218,8 +217,7 @@ describe("a project's videos (PAR-841)", () => {
         { type: "video", id: "hero", src: "/videos/waves.mp4", alt: "Waves at dusk" },
         { type: "video", id: "stock", src: "https://cdn.example.com/surf.webm", credit }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const videos = projectImages({
@@ -228,7 +226,7 @@ describe("a project's videos (PAR-841)", () => {
       { path: "public/images/hero.png", bytes: 1200 }
     ],
     references: [],
-    documents: [{ path: "app.par", document: { version: 3, containers: [clip] } }]
+    documents: [{ path: "app.par", document: { version: 4, containers: [clip] } }]
   })
 
   it("lists video files under public/videos by their name there, with the layers that play them", () => {

@@ -10,8 +10,7 @@ function design(id: string): ContainerSpec {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 }
 
@@ -22,7 +21,7 @@ function setup({ autosave = false, failing = false, home = design("home") } = {}
   let stylesheetFailure: string | undefined
 
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [home] } }],
+    [{ path: "app.par", document: { version: 4, containers: [home] } }],
     defaultModeSettings,
     "app.par",
     {
@@ -90,7 +89,7 @@ describe("library designs", () => {
     }
 
     const store = new DesignStore(
-      [{ path: "app.par", document: { version: 3, containers: [home] } }],
+      [{ path: "app.par", document: { version: 4, containers: [home] } }],
       defaultModeSettings,
       "app.par",
       persistence,
@@ -125,7 +124,7 @@ describe("saving", () => {
 
   it("takes changes from the files, and won't overwrite unsaved work with them unless forced", () => {
     const { store } = setup()
-    const fromDisk: CanvasDocument = { version: 3, containers: [design("home"), design("pricing")] }
+    const fromDisk: CanvasDocument = { version: 4, containers: [design("home"), design("pricing")] }
     expect(store.reloadDocument("app.par", fromDisk)).toBe(true)
     expect(store.getEntries().map((entry) => entry.container.id)).toEqual(["home", "pricing"])
 
@@ -141,7 +140,7 @@ describe("saving", () => {
     vi.useFakeTimers()
     const { store, writes } = setup({ autosave: true })
     store.addContainer("app.par", design("about"))
-    store.reloadDocument("app.par", { version: 3, containers: [design("home")] }, true)
+    store.reloadDocument("app.par", { version: 4, containers: [design("home")] }, true)
     await vi.runAllTimersAsync()
     expect(writes).toEqual([])
     expect(store.getSaveState()).toEqual({ status: "saved" })
@@ -339,7 +338,7 @@ describe("reverting to a checkpoint", () => {
     const checkpoint = start(store)
     rename(store, "During", "resize")
     // An agent changes another file mid-gesture.
-    store.reloadDocument("other.par", { version: 3, containers: [design("pricing")] })
+    store.reloadDocument("other.par", { version: 4, containers: [design("pricing")] })
     rename(store, "Still during", "resize")
     store.revert(checkpoint)
     expect(name(store)).toBe("home")

@@ -9,38 +9,81 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as V1HealthRouteImport } from './routes/v1/health'
+import { Route as V1ConnectorsIndexRouteImport } from './routes/v1/connectors/index'
+import { Route as V1ConnectorsIdSearchRouteImport } from './routes/v1/connectors/$id.search'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const V1HealthRoute = V1HealthRouteImport.update({
   id: '/v1/health',
   path: '/v1/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const V1ConnectorsIndexRoute = V1ConnectorsIndexRouteImport.update({
+  id: '/v1/connectors/',
+  path: '/v1/connectors/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const V1ConnectorsIdSearchRoute = V1ConnectorsIdSearchRouteImport.update({
+  id: '/v1/connectors/$id/search',
+  path: '/v1/connectors/$id/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/v1/health': typeof V1HealthRoute
+  '/v1/connectors/': typeof V1ConnectorsIndexRoute
+  '/v1/connectors/$id/search': typeof V1ConnectorsIdSearchRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/v1/health': typeof V1HealthRoute
+  '/v1/connectors': typeof V1ConnectorsIndexRoute
+  '/v1/connectors/$id/search': typeof V1ConnectorsIdSearchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/v1/health': typeof V1HealthRoute
+  '/v1/connectors/': typeof V1ConnectorsIndexRoute
+  '/v1/connectors/$id/search': typeof V1ConnectorsIdSearchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/v1/health'
+  fullPaths:
+    '/' | '/v1/health' | '/v1/connectors/' | '/v1/connectors/$id/search'
   fileRoutesByTo: FileRoutesByTo
-  to: '/v1/health'
-  id: '__root__' | '/v1/health'
+  to: '/' | '/v1/health' | '/v1/connectors' | '/v1/connectors/$id/search'
+  id:
+    | '__root__'
+    | '/'
+    | '/v1/health'
+    | '/v1/connectors/'
+    | '/v1/connectors/$id/search'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   V1HealthRoute: typeof V1HealthRoute
+  V1ConnectorsIndexRoute: typeof V1ConnectorsIndexRoute
+  V1ConnectorsIdSearchRoute: typeof V1ConnectorsIdSearchRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/v1/health': {
       id: '/v1/health'
       path: '/v1/health'
@@ -48,11 +91,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof V1HealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/v1/connectors/': {
+      id: '/v1/connectors/'
+      path: '/v1/connectors'
+      fullPath: '/v1/connectors/'
+      preLoaderRoute: typeof V1ConnectorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/v1/connectors/$id/search': {
+      id: '/v1/connectors/$id/search'
+      path: '/v1/connectors/$id/search'
+      fullPath: '/v1/connectors/$id/search'
+      preLoaderRoute: typeof V1ConnectorsIdSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   V1HealthRoute: V1HealthRoute,
+  V1ConnectorsIndexRoute: V1ConnectorsIndexRoute,
+  V1ConnectorsIdSearchRoute: V1ConnectorsIdSearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

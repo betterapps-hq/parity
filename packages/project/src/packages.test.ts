@@ -148,7 +148,7 @@ beforeAll(() => {
     version: "1.0.0",
     exports: { ".": { import: { types: "./types/main.d.mts", default: "./esm/main.mjs" } } }
   })
-  write("node_modules/exported/exported.lib.par", { version: 3, id: "exported", name: "Exported" })
+  write("node_modules/exported/exported.lib.par", { version: 4, id: "exported", name: "Exported" })
   write("node_modules/exported/types/main.d.mts", "export declare function Badge(): unknown")
   write("node_modules/exported/esm/main.mjs")
 

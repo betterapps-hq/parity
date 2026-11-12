@@ -14,8 +14,8 @@ import {
 } from "../stories/fixtures.tsx"
 import { answering, roots, running, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { AtBottom, olderProjectAt, renameDesign, Window } from "./chrome-fixtures.tsx"
-import { save } from "./commands.ts"
 import { setLayout } from "./layout.ts"
 import { StatusBar } from "./StatusBar.tsx"
 
@@ -98,7 +98,7 @@ export const Everything: Story = {
       )
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
-      await save()
+      await actions.save.run("menu")
     }
   ],
   play: async () => {
@@ -133,7 +133,7 @@ export const SaveFailed: Story = {
     }
   ],
   play: async () => {
-    void save()
+    void actions.save.run("menu")
     await expect(await body().findByRole("button", { name: /Couldn't save/ })).toBeVisible()
     await holdToast("Couldn't save")
   }
@@ -147,7 +147,7 @@ export const RetryingAFailedSave: Story = {
       preferring({ performanceStats: false })
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
-      await save()
+      await actions.save.run("menu")
       service.saveFails = false
     }
   ],
