@@ -33,7 +33,7 @@ const design: ContainerSpec = {
         slots: {
           children: [
             row("a", "Avery", "Owner", "default"),
-            row("j", "Jordan", "Admin", "secondary", true),
+            row("j", "Jordan", "Admin", "secondary"),
             row("s", "Sam", "Member", "outline")
           ]
         }
@@ -54,9 +54,22 @@ describe("findRepeats", () => {
     expect(candidate!.params).toEqual([
       { name: "text", type: "text", values: ["Avery", "Jordan", "Sam"] },
       { name: "role", type: "text", values: ["Owner", "Admin", "Member"] },
-      { name: "roleVariant", type: "text", values: ["default", "secondary", "outline"] },
-      { name: "showText", type: "boolean", values: [false, true, false] }
+      { name: "roleVariant", type: "text", values: ["default", "secondary", "outline"] }
     ])
+  })
+
+  it("keeps apart parts whose layers inside show differently", () => {
+    const away = mapNode(design.root, "row-j", () => row("j", "Jordan", "Admin", "secondary", true))
+    expect(findRepeats(away).map((candidate) => candidate.nodes)).toEqual([["row-a", "row-s"]])
+    expect(() =>
+      extractComponent({ ...design, root: away }, ["row-a", "row-j"], {
+        id: "member-row",
+        name: "Member row",
+        position: { x: 0, y: -400 },
+        viewports: ["desktop"],
+        library: componentLibrary([])
+      })
+    ).toThrow(`"row-j" isn't structured like "row-a"`)
   })
 })
 
@@ -144,20 +157,20 @@ describe("extractComponent", () => {
     position: { x: 0, y: -400 },
     viewports: ["desktop", "mobile"],
     library: componentLibrary([]),
-    paramNames: { text: "name", showText: "away" }
+    paramNames: { text: "name" }
   }
 
   it("replaces each occurrence with an instance and renders exactly the same", () => {
     const { component, design: extracted } = extractComponent(design, ["row-a", "row-j", "row-s"], options)
     expect(component).toMatchObject({
       kind: "component",
-      params: { name: { type: "text", default: "Avery" }, away: { type: "boolean", default: false } }
+      params: { name: { type: "text", default: "Avery" } }
     })
     expect(findNode(extracted.root, "row-j")).toEqual({
       type: "instance",
       id: "row-j",
       design: "member-row",
-      args: { name: "Jordan", roleVariant: "secondary", role: "Admin", away: true }
+      args: { name: "Jordan", roleVariant: "secondary", role: "Admin" }
     })
     // The Without Sam state still hides Sam's row, now an instance.
     const library = componentLibrary([component])

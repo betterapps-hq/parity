@@ -8,11 +8,6 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
   ToggleGroup,
   ToggleGroupItem,
@@ -36,12 +31,14 @@ import {
   Search
 } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me } from "../explore-data.ts"
 import { AzureDevOpsMark, GitHubMark, withVariables } from "../parts.tsx"
 import {
   type AudienceId,
   audiences,
+  isOrgId,
   type OrgId,
   organizations,
   projects,
@@ -374,18 +371,14 @@ function SlotSelect({
 }) {
   return (
     <Field label={label} htmlFor={id}>
-      <Select value={value} onValueChange={(next) => next && onChange(next)}>
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <AppSelect
+        variant="dialog"
+        id={id}
+        className="w-full"
+        items={options.map((option) => ({ value: option, label: option }))}
+        value={value}
+        onValueChange={(next) => next && onChange(next)}
+      />
     </Field>
   )
 }
@@ -561,25 +554,17 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
           </Field>
           <Field label="Where it lives" htmlFor="new-project-org">
             <div className="flex gap-2">
-              <Select
+              <AppSelect
+                variant="dialog"
+                id="new-project-org"
+                className="w-36"
                 items={Object.values(organizations).map((candidate) => ({
                   value: candidate.id,
                   label: candidate.name
                 }))}
                 value={org}
-                onValueChange={(value) => value && setOrg(value)}
-              >
-                <SelectTrigger id="new-project-org" className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(organizations).map((candidate) => (
-                    <SelectItem key={candidate.id} value={candidate.id}>
-                      {candidate.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(value) => value && isOrgId(value) && setOrg(value)}
+              />
               <span className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-input px-2.5 text-sm dark:bg-input/30">
                 <GitHubMark size={14} />
                 <span className="truncate">

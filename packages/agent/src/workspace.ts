@@ -1113,7 +1113,7 @@ export class AgentWorkspace {
 
   /**
    * Changes a layer inside an instance, as the editor does: in a state, the state's patch for its path; in the base
-   * state, that copy's override. A text, prop or visibility the component binds sets the instance's param instead.
+   * state, that copy's override. A text or prop the component binds sets the instance's param instead.
    */
   private updateInner(
     found: Located & { layer: string },

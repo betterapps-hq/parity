@@ -1825,17 +1825,19 @@ core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences
 a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
 variant option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's
 outside it; each option of two variant params checked in turn, refused for one the board doesn't show; and refused when
-a layer in the part shows a param's default. Under "repeated parts whose props are written in another order" (2,
-PAR-998), `findRepeats` and `extractComponent` pair a component's props by name, not by the order each part writes them
-in. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a component that sets
-its own size, unless given; none for a part whose sample gives no children; and a part without a sample taking the
-children its library's other samples give it (none for an icon's box or one used without any, their text), else its
-name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and
-Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's inside or taken
-from a parent. The extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`:
-occurrences become instances that render the same, a state changing the part refused, a single part's texts as params,
-and the check against the board, refused under a variant option that changes the part but not one that changes what's
-outside it or isn't shown, and refused when a layer in the part shows a param's default.
+a layer in the part shows a param's default. Which layers inside a part show is part of its structure: rows where one
+layer shows in some and not in others aren't found as repeats, and extracting them is refused (PAR-1025). Under
+"repeated parts whose props are written in another order" (2, PAR-998), `findRepeats` and `extractComponent` pair a
+component's props by name, not by the order each part writes them in. `packages/core/src/library-insert.test.ts`, with
+three for names that fit (PAR-518): none for a component that sets its own size, unless given; none for a part whose
+sample gives no children; and a part without a sample taking the children its library's other samples give it (none for
+an icon's box or one used without any, their text), else its name. `packages/code/src/props.test.ts` has two for
+`fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a
+library's compiled parts, leaving out classes for what's inside or taken from a parent. The extraction and its check are
+core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
+a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
+variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
+in the part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -3437,9 +3439,9 @@ keeps it: one of a row's several fields, such as Min's Minimum width and Minimum
 as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
 token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
 
-Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `ChoiceInput`,
-`SwitchInput` and `ValueInput` take a name only where the row's label doesn't say it. A number field (`NumberField`) is
-named by its own `label`.
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `SwitchInput` and
+`ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label doesn't say it. A number
+field (`NumberField`) is named by its own `label`.
 
 Tests:
 
@@ -3449,6 +3451,25 @@ Tests:
 - `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
+
+### Selects (PAR-1023)
+
+Every select in the app is one component, `AppSelect`, so they all look and behave alike. Its items sit 4px in from the
+popup's edge, as the app's menus do. A panel's select reads at its field's 12px and opens with the chosen item where the
+value was; a dialog's reads at 13px. A select that can be left unset lists that choice first, in gray, such as Visible
+for Overflow; a select in a row whose layers differ reads Mixed. Keyboard use, focus and names are Base UI's.
+
+Selects built by hand kept missing a part of the kit's Select. Without its `SelectGroup`, for one, the items ran edge to
+edge. So `AppSelect` puts the parts together as shadcn does, and lint stops any other file importing them.
+
+Code: `AppSelect` in `apps/desktop/src/renderer/chrome/AppSelect.tsx`, with `variant` `panel` or `dialog` and `none` for
+the unset item; the `no-restricted-imports` entry for `apps/**` in `vite.config.ts`.
+
+Tests:
+
+- `chrome/AppSelect.stories.tsx` InAPanel and InADialog: each opens its select and checks its items sit in a group
+  padded 4px, at 12px and 13px.
+- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
 
 ### One right edge in the inspector (PAR-552)
 
@@ -3851,29 +3872,30 @@ kind (`Text`, `0`, off) to change in the row it becomes; Escape, or leaving it e
 is reserved, or is another prop's or slot's stays typed, with why under the row. Slots come after, as "Slot from a
 layout", while a layout can be one.
 
-A layer of the component design can use a prop for its text, if it's text, and for whether it shows:
+A text layer of the component design can use a text prop for its text:
 
-- **Unbound,** the field has a button beside it, Use a prop for this text (or whether it shows), offering the
-  component's props of the right kind, text props or toggles, and New prop from this text, which adds one named after
-  the layer, with what the field shows as its default, so nothing changes until an instance sets it.
+- **Unbound,** the Text field has a button beside it, Use a prop for this text, offering the component's text props, and
+  New prop from this text, which adds one named after the layer, with its text as the default, so nothing changes until
+  an instance sets it.
 - **Bound,** the field is the prop's name in the component color, which goes to the component's Props, with an × inside
-  to stop using it, keeping what it showed as the layer's own value.
+  to stop using it, keeping what it showed as the layer's own text.
 
-A copy's layers, inside an instance, don't offer it: they belong to their component.
+A copy's layers, inside an instance, don't offer it: they belong to their component. Whether a layer shows can't use a
+prop (PAR-1025): hide it in a state or a variant option, or in one copy.
 
-Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
-`bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
-row being typed and a refused name, kept for each tab until it closes), and `chrome/field-prop.tsx` with `LayerSections`
+Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `textProps`,
+`bindText` and `propFromText`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
+row being typed and a refused name, kept for each tab until it closes), and `chrome/text-prop.tsx` with `LayerSections`
 in `chrome/LayerPanel.tsx`.
 
 Tests:
 
 - `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
-  prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
-  of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+  prop's or a slot's, and a free one numbered; the text props; using one and going back to its text; a prop that isn't
+  text, and a layer that isn't text; and a prop made from a layer's text.
 - `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
-- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
-  Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
+- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop and Making
+  A Prop From Text, which makes `period` from Plan card's period).
 
 Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
 use one from its field.
@@ -3882,7 +3904,7 @@ use one from its field.
 
 An agent can give a component design params without extracting it from copies. `CreateDesign` takes `params` in the
 `.par` shape, with nodes in its `root` binding them, and `AddParam`, `UpdateParam` and `DeleteParam` in `execute` change
-them later. `Update(path, { bind })` binds or unbinds a node's text, visibility or a code component's props, in the base
+them later. `Update(path, { bind })` binds or unbinds a text node's text or a code component's props, in the base
 design. Props shows what an agent adds, as it shows what Add makes.
 
 - **Variant options** take an id made from the name unless given, and their changes keyed by node id or name. A default
@@ -4398,13 +4420,12 @@ states, so it has no Editing control and its edits always change the design (PAR
   they sit in as the board shows them, with the variant shown, and its edits and resets land in the state or variant
   option the Editing control names. A row's reset takes back every key its edit writes: resetting Placement in a state
   drops the insets it set, and resetting Width drops the `grow` it replaced.
-- **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
-  shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
-  visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
+- **A component's board shows its params' defaults,** as an instance that sets none of them does. Changing a bound text
+  or prop on the board, in the base state, changes the param's default too, so the board and the instances that don't
   set the param follow it: renaming the Stat card's Revenue label to Sales on the board makes `label` default to Sales.
   A param without a default follows the layer's own value, as before, and variants are picked in the title bar.
-- **A state's change is kept against the board,** with the params bound: showing the Stat card's Falling icon in Loading
-  keeps `hidden: false` for Loading, which used to be dropped as matching the design.
+- **A state's change is kept against the board:** showing the Stat card's hidden Falling icon in Loading keeps
+  `hidden: false` for Loading, which used to be dropped as matching the design.
 - **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's Reset all,
   Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a note above
   them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state, not only
@@ -4438,11 +4459,10 @@ design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`tog
 
 Tests:
 
-- `packages/core/src/instances.test.ts` (7): the Stat card's board showing one trend icon as its instances do; a bound
-  text's default on the board, and an edit to it changing the default; a param without a default left to the layer's own
-  value; the board's layer in a state, inside an instance and with a variant shown; and hiding through a bound param, in
-  a state the param hides, and through the state's and the variant's changes. The five about the board and Hide fail
-  against the code before PAR-164.
+- `packages/core/src/instances.test.ts` (6): a bound text's default on the board, and an edit to it changing the
+  default; a param without a default left to the layer's own value; the board's layer in a state, inside an instance and
+  with a variant shown; and showing and hiding on the board, in a state the design hides it, and through the state's and
+  the variant's changes.
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
 - `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
@@ -7526,7 +7546,7 @@ one:
 
 - In a state, it's that state's patch for the path, so the base and the other states stay as they were.
 - In the base state, `Update` changes that copy alone, as the instance's override.
-- A text, prop or visibility the component binds to a param gives the instance around it a value for the param instead.
+- A text or prop the component binds to a param gives the instance around it a value for the param instead.
 - `null` in `changes` takes the state's change to that layer back, with the param values its bound fields took.
 
 Inside an instance only `hidden`, `text`, `props`, `style` and `unset` change. A path through a layer that isn't an

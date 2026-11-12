@@ -3994,9 +3994,6 @@
                               {
                                 "id": "EaCl2",
                                 "name": "Rising",
-                                "bind": {
-                                  "visible": "showRising"
-                                },
                                 "type": "component",
                                 "component": "lucide/TrendingUp",
                                 "props": {
@@ -4006,9 +4003,6 @@
                               {
                                 "id": "ysAqF",
                                 "name": "Falling",
-                                "bind": {
-                                  "visible": "showFalling"
-                                },
                                 "type": "component",
                                 "component": "lucide/TrendingDown",
                                 "props": {
@@ -6981,9 +6975,6 @@
                         {
                           "id": "TxhOz",
                           "name": "Popular",
-                          "bind": {
-                            "visible": "showPopular"
-                          },
                           "type": "component",
                           "component": "Badge",
                           "props": {
@@ -11223,9 +11214,6 @@
           {
             "id": "LMx35",
             "name": "Met icon",
-            "bind": {
-              "visible": "met"
-            },
             "type": "component",
             "component": "lucide/CircleCheck",
             "props": {
@@ -11239,9 +11227,6 @@
               "color": {
                 "token": "muted-foreground"
               }
-            },
-            "bind": {
-              "visible": "notMet"
             },
             "type": "component",
             "component": "lucide/Circle",
@@ -14081,9 +14066,6 @@
                           {
                             "id": "VdmO5",
                             "name": "Web icon",
-                            "bind": {
-                              "visible": "showWebIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Globe",
                             "props": {
@@ -14093,9 +14075,6 @@
                           {
                             "id": "XkS7Q",
                             "name": "Mobile icon",
-                            "bind": {
-                              "visible": "showMobileIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Smartphone",
                             "props": {
@@ -14105,9 +14084,6 @@
                           {
                             "id": "CQNJ7",
                             "name": "Billing icon",
-                            "bind": {
-                              "visible": "showBillingIcon"
-                            },
                             "type": "component",
                             "component": "lucide/CreditCard",
                             "props": {
@@ -14117,9 +14093,6 @@
                           {
                             "id": "J6pWW",
                             "name": "Design icon",
-                            "bind": {
-                              "visible": "showDesignIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Palette",
                             "props": {
@@ -14129,9 +14102,6 @@
                           {
                             "id": "sm95n",
                             "name": "Portal icon",
-                            "bind": {
-                              "visible": "showPortalIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Building2",
                             "props": {
@@ -14141,9 +14111,6 @@
                           {
                             "id": "hpTLc",
                             "name": "Launch icon",
-                            "bind": {
-                              "visible": "showLaunchIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Megaphone",
                             "props": {
@@ -18690,9 +18657,6 @@
                           {
                             "id": "t3drT",
                             "name": "Projects icon",
-                            "bind": {
-                              "visible": "showProjectsIcon"
-                            },
                             "type": "component",
                             "component": "lucide/FolderKanban",
                             "props": {
@@ -18702,9 +18666,6 @@
                           {
                             "id": "Xh0Ea",
                             "name": "Inbox icon",
-                            "bind": {
-                              "visible": "showInboxIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Inbox",
                             "props": {
@@ -18714,9 +18675,6 @@
                           {
                             "id": "eZ63f",
                             "name": "Reports icon",
-                            "bind": {
-                              "visible": "showReportsIcon"
-                            },
                             "type": "component",
                             "component": "lucide/ChartLine",
                             "props": {
@@ -18726,9 +18684,6 @@
                           {
                             "id": "lgnp7",
                             "name": "Messages icon",
-                            "bind": {
-                              "visible": "showMessagesIcon"
-                            },
                             "type": "component",
                             "component": "lucide/MessagesSquare",
                             "props": {
@@ -18738,9 +18693,6 @@
                           {
                             "id": "O3gUO",
                             "name": "Files icon",
-                            "bind": {
-                              "visible": "showFilesIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Files",
                             "props": {
@@ -18750,9 +18702,6 @@
                           {
                             "id": "Zl5bc",
                             "name": "Security icon",
-                            "bind": {
-                              "visible": "showSecurityIcon"
-                            },
                             "type": "component",
                             "component": "lucide/ShieldCheck",
                             "props": {
@@ -23202,9 +23151,6 @@
               {
                 "id": "Z6R1a",
                 "name": "Laptop icon",
-                "bind": {
-                  "visible": "laptop"
-                },
                 "type": "component",
                 "component": "lucide/Laptop",
                 "props": {
@@ -23214,9 +23160,6 @@
               {
                 "id": "OW0BL",
                 "name": "Phone icon",
-                "bind": {
-                  "visible": "phone"
-                },
                 "type": "component",
                 "component": "lucide/Smartphone",
                 "props": {
@@ -23270,9 +23213,6 @@
                   {
                     "id": "qTsRJ",
                     "name": "This device",
-                    "bind": {
-                      "visible": "current"
-                    },
                     "type": "component",
                     "component": "Badge",
                     "props": {
@@ -23321,9 +23261,6 @@
           {
             "id": "kI3JU",
             "name": "Sign out button",
-            "bind": {
-              "visible": "showSignOut"
-            },
             "type": "component",
             "component": "Button",
             "props": {
@@ -24439,9 +24376,6 @@
                           {
                             "id": "zddHe",
                             "name": "Chat icon",
-                            "bind": {
-                              "visible": "showChatIcon"
-                            },
                             "type": "component",
                             "component": "lucide/MessagesSquare",
                             "props": {
@@ -24451,9 +24385,6 @@
                           {
                             "id": "hbeMr",
                             "name": "Code icon",
-                            "bind": {
-                              "visible": "showCodeIcon"
-                            },
                             "type": "component",
                             "component": "lucide/GitBranch",
                             "props": {
@@ -24463,9 +24394,6 @@
                           {
                             "id": "rra5f",
                             "name": "Drive icon",
-                            "bind": {
-                              "visible": "showDriveIcon"
-                            },
                             "type": "component",
                             "component": "lucide/HardDrive",
                             "props": {
@@ -24475,9 +24403,6 @@
                           {
                             "id": "DOaMW",
                             "name": "Calendar icon",
-                            "bind": {
-                              "visible": "showCalendarIcon"
-                            },
                             "type": "component",
                             "component": "lucide/CalendarDays",
                             "props": {
@@ -24487,9 +24412,6 @@
                           {
                             "id": "cxUvF",
                             "name": "Video icon",
-                            "bind": {
-                              "visible": "showVideoIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Video",
                             "props": {
@@ -24499,9 +24421,6 @@
                           {
                             "id": "CzT1r",
                             "name": "Issues icon",
-                            "bind": {
-                              "visible": "showIssuesIcon"
-                            },
                             "type": "component",
                             "component": "lucide/ListTodo",
                             "props": {
@@ -24511,9 +24430,6 @@
                           {
                             "id": "TonDi",
                             "name": "Design icon",
-                            "bind": {
-                              "visible": "showDesignIcon"
-                            },
                             "type": "component",
                             "component": "lucide/PenTool",
                             "props": {
@@ -24523,9 +24439,6 @@
                           {
                             "id": "luCte",
                             "name": "Docs icon",
-                            "bind": {
-                              "visible": "showDocsIcon"
-                            },
                             "type": "component",
                             "component": "lucide/NotebookText",
                             "props": {
@@ -24535,9 +24448,6 @@
                           {
                             "id": "RgKfM",
                             "name": "Automation icon",
-                            "bind": {
-                              "visible": "showAutomationIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Zap",
                             "props": {
@@ -24603,9 +24513,6 @@
                         {
                           "id": "PYXCe",
                           "name": "Connected badge",
-                          "bind": {
-                            "visible": "connected"
-                          },
                           "type": "component",
                           "component": "Badge",
                           "props": {
@@ -24688,9 +24595,6 @@
                       {
                         "id": "aPt60",
                         "name": "Manage button",
-                        "bind": {
-                          "visible": "connected"
-                        },
                         "type": "component",
                         "component": "Button",
                         "props": {
@@ -24703,7 +24607,6 @@
                         "id": "nAwec",
                         "name": "Connect button",
                         "bind": {
-                          "visible": "showConnect",
                           "props": {
                             "disabled": "connecting"
                           }
@@ -24719,9 +24622,6 @@
                             {
                               "id": "a09Os",
                               "name": "Spinner",
-                              "bind": {
-                                "visible": "connecting"
-                              },
                               "type": "component",
                               "component": "nova/Spinner"
                             },
@@ -27443,7 +27343,6 @@
                   "id": "FjdYg",
                   "name": "Email label",
                   "bind": {
-                    "visible": "showLabels",
                     "props": {
                       "htmlFor": "emailId"
                     }
@@ -27479,9 +27378,6 @@
                 {
                   "id": "oYwOe",
                   "name": "Error",
-                  "bind": {
-                    "visible": "invalid"
-                  },
                   "type": "component",
                   "component": "nova/FieldError",
                   "props": {
@@ -27516,7 +27412,6 @@
                   "id": "R1DAP",
                   "name": "Role label",
                   "bind": {
-                    "visible": "showLabels",
                     "props": {
                       "htmlFor": "roleId"
                     }
@@ -30999,7 +30894,6 @@
               "id": "xCzoy",
               "name": "Unread",
               "bind": {
-                "visible": "showUnread",
                 "props": {
                   "children": "unread"
                 }
@@ -31091,9 +30985,6 @@
                   {
                     "id": "eZKkz",
                     "name": "Online",
-                    "bind": {
-                      "visible": "online"
-                    },
                     "type": "component",
                     "component": "AvatarBadge"
                   }
@@ -31118,7 +31009,6 @@
               "id": "JbpY8",
               "name": "Unread",
               "bind": {
-                "visible": "showUnread",
                 "props": {
                   "children": "unread"
                 }
@@ -32285,9 +32175,6 @@
                     "token": "radius-4xl"
                   }
                 },
-                "bind": {
-                  "visible": "unread"
-                },
                 "type": "layout",
                 "children": []
               }
@@ -32412,9 +32299,6 @@
                   "borderRadius": {
                     "token": "radius-md"
                   }
-                },
-                "bind": {
-                  "visible": "showSnippet"
                 },
                 "type": "layout",
                 "children": [
@@ -43686,9 +43570,6 @@
               "fontSize": {
                 "token": "text-xs"
               }
-            },
-            "bind": {
-              "visible": "showCover"
             },
             "type": "layout",
             "children": [

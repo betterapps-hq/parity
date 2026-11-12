@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 21:49:43 GMT",
+      "version": "0.74.4",
+      "tag": "@parity-app/desktop_v0.74.4",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2111c5d7e2a0bbc3f7bd18145b22b656e729c5c4",
+            "comment": "Drop references to the deleted decisions record from comments"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "919f32bb98566aa6ea829f54e27fac86f0009b2e",
+            "comment": "Select popups inset their items by 4px, like the app's other menus"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 20:51:03 GMT",
       "version": "0.74.3",
       "tag": "@parity-app/desktop_v0.74.3",

@@ -4,11 +4,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  Select,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+  DropdownMenuSubTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   ArrowUpToLine,
@@ -26,7 +22,7 @@ import {
 } from "lucide-react"
 import { type ReactNode, useId, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { PanelSelectContent } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type PropValue, readValue, textValue } from "../../chrome/prop-values.ts"
@@ -341,21 +337,16 @@ function Choice({
   options: readonly { id: string; name: string }[]
   onChange: (value: string) => void
 }) {
-  const items = options.map((option) => ({ value: option.id, label: option.name }))
-
   return (
-    <Select items={items} value={value ?? null} onValueChange={(next) => next !== null && onChange(next)}>
-      <SelectTrigger size="sm" aria-label={label} className="h-7 w-full text-xs">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <PanelSelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </PanelSelectContent>
-    </Select>
+    <AppSelect
+      variant="panel"
+      aria-label={label}
+      className="w-full"
+      placeholder={placeholder}
+      items={options.map((option) => ({ value: option.id, label: option.name }))}
+      value={value ?? null}
+      onValueChange={(next) => next !== null && onChange(next)}
+    />
   )
 }
 

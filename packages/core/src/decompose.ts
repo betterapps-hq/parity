@@ -28,11 +28,11 @@ export interface RepeatCandidate {
   params: { name: string; type: ParamSpec["type"]; values: PropValue[] }[]
 }
 
-/** One value that can differ between occurrences: a text, a prop, or whether a node shows. */
+/** One value that can differ between occurrences: a text or a prop. */
 interface Slot {
   /** Path from the occurrence root, as child indexes (slot name included for components). */
   path: string
-  field: "text" | "visible" | `props.${string}`
+  field: "text" | `props.${string}`
   node: DesignNode
 }
 
@@ -312,12 +312,20 @@ function withoutNodeIds(render: RenderNode[]): string {
   )
 }
 
-/** Structure without content, as JSON: two parts with the same structure can share a component. */
-function structure(node: DesignNode): string {
+/**
+ * Structure without content, as JSON: two parts with the same structure can share a component. Which layers inside
+ * show is structure too; whether the part itself shows stays on each instance.
+ */
+function structure(node: DesignNode, inner = false): string {
   // What it holds is structure wherever it holds it, the layers an instance fills its slots with included: `slotsOf`
   // reads the same lists, so two parts with one structure have their values in the same places.
-  const inside = childEntries(node).map(({ slot, nodes }) => [slot ?? null, nodes.map(structure)])
-  const base = { type: node.type, style: node.style ?? null, responsive: node.responsive ?? null, inside }
+  const inside = childEntries(node).map(({ slot, nodes }) => [
+    slot ?? null,
+    nodes.map((child) => structure(child, true))
+  ])
+
+  const hidden = inner && node.hidden === true
+  const base = { type: node.type, hidden, style: node.style ?? null, responsive: node.responsive ?? null, inside }
 
   switch (node.type) {
     case "layout":
@@ -360,7 +368,7 @@ function contentKind(value: PropValue): ContentKind | undefined {
 }
 
 function slotsOf(node: DesignNode, path = ""): Slot[] {
-  const slots: Slot[] = [{ path, field: "visible", node }]
+  const slots: Slot[] = []
 
   if (node.type === "text") {
     slots.push({ path, field: "text", node })
@@ -384,10 +392,6 @@ function slotsOf(node: DesignNode, path = ""): Slot[] {
 }
 
 function valueAt(slot: Slot): PropValue {
-  if (slot.field === "visible") {
-    return !slot.node.hidden
-  }
-
   if (slot.field === "text") {
     return slot.node.type === "text" ? slot.node.text : undefined
   }
@@ -413,11 +417,6 @@ function paramsFor(nodes: DesignNode[]): Param[] {
     const values = per.map((slots) => valueAt(slots[index]!))
 
     if (values.every((value) => value === values[0])) {
-      continue
-    }
-
-    // The root's visibility stays on each instance.
-    if (slot.field === "visible" && slot.path === "") {
       continue
     }
 
@@ -481,9 +480,6 @@ function bindTemplate(node: DesignNode, params: Param[]): DesignNode {
 
       if (field === "text") {
         bind.text = param.name
-      } else if (field === "visible") {
-        bind.visible = param.name
-        delete target.hidden
       } else {
         bind.props = { ...bind.props, [field.slice(6)]: param.name }
       }
@@ -502,9 +498,7 @@ function paramName(slot: Slot, taken: Set<string>): string {
   const prop = slot.field.startsWith("props.") ? slot.field.slice(6) : undefined
   let name = base
 
-  if (slot.field === "visible") {
-    name = `show${capitalize(base)}`
-  } else if (prop && prop !== "children") {
+  if (prop && prop !== "children") {
     name = `${base}${capitalize(prop)}`
   }
 

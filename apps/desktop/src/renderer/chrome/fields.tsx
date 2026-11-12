@@ -10,18 +10,13 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type TokenCategory } from "@parity-app/core"
 import { isSecretName } from "@parity-app/telemetry"
 import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
-import { type ComponentProps, createContext, type ReactNode, useContext, useId, useState } from "react"
+import { createContext, type ReactNode, useContext, useId, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import { NumberProp, type PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
@@ -73,7 +68,7 @@ const FieldLabelContext = createContext<string | undefined>(undefined)
  * How an input is named: by `name` when it's given one, for a row of several inputs or an input outside a field, and
  * otherwise by the label of the field it sits in, so a call site doesn't repeat the label.
  */
-function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-labelledby"?: string } {
+export function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-labelledby"?: string } {
   const labelId = useContext(FieldLabelContext)
 
   return name ? { "aria-label": name } : { "aria-labelledby": labelId }
@@ -195,60 +190,6 @@ export function TextInput({
       }}
     />
   )
-}
-
-export function ChoiceInput<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  placeholder = "Default"
-}: {
-  /** Its accessible name, where its field's label doesn't name it. */
-  label?: string
-  value: T | undefined
-  options: { value: T; label: string }[]
-  onChange: (value: T | undefined) => void
-  placeholder?: string
-}) {
-  const mixed = useMixed()
-  const named = useFieldName(label)
-
-  const items: { value: T | "__unset"; label: ReactNode }[] = [
-    { value: "__unset", label: <span className="text-muted-foreground">{placeholder}</span> },
-    ...options
-  ]
-
-  return (
-    <Select<T | "__unset">
-      items={items}
-      value={value ?? (mixed ? null : "__unset")}
-      onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : next)}
-    >
-      <SelectTrigger size="sm" {...named} className="h-7 w-full text-xs">
-        <SelectValue placeholder="Mixed" />
-      </SelectTrigger>
-      <PanelSelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </PanelSelectContent>
-    </Select>
-  )
-}
-
-/**
- * A panel's select opens over its 12px field with the chosen item where the value was, so its items are the field's
- * 12px, not a menu's 13px (docs/typography.md: Select in a panel). The kit's items set their own size, so it's set on
- * them here. Dialogs' selects keep the kit's `SelectContent` and 13px.
- */
-export function PanelSelectContent({
-  className = "",
-  ...props
-}: Omit<ComponentProps<typeof SelectContent>, "className"> & { className?: string }) {
-  return <SelectContent {...props} className={`[&_[data-slot=select-item]]:text-xs ${className}`} />
 }
 
 export function SwitchInput({

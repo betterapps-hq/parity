@@ -8,15 +8,11 @@ import {
   DialogTitle,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ExternalLink, Search } from "lucide-react"
 import { useState } from "react"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { AzureDevOpsMark, GitHubMark } from "../parts.tsx"
 import type { LinkedIssue, ThreadData, TrackerId } from "./collab-data.ts"
 
@@ -288,18 +284,13 @@ export function IssueDialog({
             <>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">{placeLabel(tracker.id)}</Label>
-                <Select value={place} onValueChange={(next) => next && setPlace(next)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tracker.places.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <AppSelect
+                  variant="dialog"
+                  className="w-full"
+                  items={tracker.places.map((option) => ({ value: option, label: option }))}
+                  value={place}
+                  onValueChange={(next) => next && setPlace(next)}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="issue-title" className="text-xs text-muted-foreground">

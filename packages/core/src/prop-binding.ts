@@ -5,9 +5,8 @@ import { slotName, slotNameProblem } from "./slot-names.ts"
 import { designSlots } from "./slots.ts"
 
 /*
- * A component design's value props, made by hand rather than by Extract component, and the layer fields that use them:
- * a layer's text shows a text prop, and its visibility follows a toggle. A prop no field uses is still the component's,
- * in its code and on each instance.
+ * A component design's value props, made by hand rather than by Extract component, and the text layers that show them.
+ * A prop no layer uses is still the component's, in its code and on each instance.
  */
 
 /** The kinds of value prop Props' Add makes. */
@@ -17,11 +16,6 @@ export type ValuePropType = (typeof valuePropTypes)[number]
 
 /** The default a new prop of each kind starts with. */
 const startingValues = { text: "Text", number: 0, boolean: false } satisfies Record<ValuePropType, ParamSpec["default"]>
-
-/** The layer fields a prop can drive, and the kind of prop each takes. */
-export type BindableField = "text" | "visible"
-
-const fieldTypes = { text: "text", visible: "boolean" } as const satisfies Record<BindableField, ValuePropType>
 
 /**
  * Why a component design can't take a new prop called `name`, or undefined when it can: a prop is a prop in code, so its
@@ -73,23 +67,18 @@ export function addValueProp(container: ContainerSpec, name: string, type: Value
   return { ...container, params: { ...container.params, [name]: { type, default: startingValues[type] } } }
 }
 
-/** The component's props a layer's field can use: its text props for text, its toggles for visibility. */
-export function bindableProps(container: ContainerSpec, field: BindableField): string[] {
+/** The component's text props, the ones a text layer's text can use. */
+export function textProps(container: ContainerSpec): string[] {
   return Object.entries(container.params ?? {})
-    .filter(([, param]) => param.type === fieldTypes[field])
+    .filter(([, param]) => param.type === "text")
     .map(([name]) => name)
 }
 
 /**
- * Makes a layer's field use one of the component's props, or, with `param` undefined, go back to a value of its own:
- * the one the prop showed by default, so the layer looks the same.
+ * Makes a text layer's text use one of the component's text props, or, with `param` undefined, go back to text of its
+ * own: the text the prop showed by default, so the layer looks the same.
  */
-export function bindField(
-  container: ContainerSpec,
-  nodeId: string,
-  field: BindableField,
-  param: string | undefined
-): ContainerSpec {
+export function bindText(container: ContainerSpec, nodeId: string, param: string | undefined): ContainerSpec {
   if (container.kind !== "component") {
     throw new Error("Only a component design's layers use props")
   }
@@ -100,38 +89,27 @@ export function bindField(
     throw new Error(`No node "${nodeId}" in this design`)
   }
 
-  if (field === "text" && node.type !== "text") {
+  if (node.type !== "text") {
     throw new Error("Only a text layer's text can use a prop")
   }
 
-  if (param !== undefined && container.params?.[param]?.type !== fieldTypes[field]) {
-    throw new Error(`${container.name} has no ${fieldTypes[field]} prop called ${param}`)
+  if (param !== undefined && container.params?.[param]?.type !== "text") {
+    throw new Error(`${container.name} has no text prop called ${param}`)
   }
 
   const root = mapNode(container.root, nodeId, (current) => {
     const next: DesignNode = { ...current, bind: { ...current.bind } }
-    const was = current.bind?.[field]
+    const was = current.bind?.text
 
     if (param === undefined) {
-      delete next.bind![field]
-      const shown = was === undefined ? undefined : container.params?.[was]?.default
+      delete next.bind!.text
+      const text = z.string().safeParse(was === undefined ? undefined : container.params?.[was]?.default)
 
-      const text = z.string().safeParse(shown)
-      const toggle = z.boolean().safeParse(shown)
-
-      if (field === "text" && next.type === "text" && text.success) {
+      if (next.type === "text" && text.success) {
         next.text = text.data
       }
-
-      if (field === "visible" && toggle.success) {
-        if (toggle.data) {
-          delete next.hidden
-        } else {
-          next.hidden = true
-        }
-      }
     } else {
-      next.bind![field] = param
+      next.bind!.text = param
     }
 
     if (Object.keys(next.bind!).length === 0) {
@@ -151,26 +129,27 @@ interface AddedProp {
 }
 
 /**
- * Adds a prop from a layer's field and makes the field use it: named after the layer, with what the field shows now as
- * its default, so nothing changes until an instance sets it. Returns the design and the prop's name.
+ * Adds a text prop from a text layer's text and makes the text use it: named after the layer, with its text now as the
+ * prop's default, so nothing changes until an instance sets it. Returns the design and the prop's name.
  */
-export function propFromField(container: ContainerSpec, nodeId: string, field: BindableField): AddedProp {
+export function propFromText(container: ContainerSpec, nodeId: string): AddedProp {
   const node = locateNode(container.root, nodeId)?.node
 
   if (!node) {
     throw new Error(`No node "${nodeId}" in this design`)
   }
 
-  const label = node.name ?? (node.type === "text" ? node.text : "")
-  const name = freePropName(container, field === "visible" ? `show ${label}` : label)
-  const type = fieldTypes[field]
-  const added = addValueProp(container, name, type)
-  const value = field === "text" && node.type === "text" ? node.text : !node.hidden
+  if (node.type !== "text") {
+    throw new Error("Only a text layer's text can use a prop")
+  }
+
+  const name = freePropName(container, node.name ?? node.text)
+  const added = addValueProp(container, name, "text")
 
   const withDefault: ContainerSpec = {
     ...added,
-    params: { ...added.params, [name]: { type, default: value } }
+    params: { ...added.params, [name]: { type: "text", default: node.text } }
   }
 
-  return { container: bindField(withDefault, nodeId, field, name), name }
+  return { container: bindText(withDefault, nodeId, name), name }
 }

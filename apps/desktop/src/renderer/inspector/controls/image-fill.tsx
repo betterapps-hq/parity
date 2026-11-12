@@ -1,16 +1,8 @@
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  Select,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@buildkitgg/shadcn-baseui-kit"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, ImagePlus, Search } from "lucide-react"
 import { type DragEvent, type ReactNode, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { PanelSelectContent } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { useProjectData } from "./field-parts.tsx"
@@ -316,8 +308,11 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
       <div className="-mx-2 border-t" />
       <FieldGrid>
         <Field label="Fit" hint={fitHints[paint.fit]} half>
-          <Select
-            items={fits.map((fit) => ({ value: fit, label: fitNames[fit] }))}
+          <AppSelect
+            variant="panel"
+            aria-label="Fit"
+            className="w-full px-2"
+            items={fits.map((fit) => ({ value: fit, label: fitNames[fit], detail: fitDetails[fit] }))}
             value={paint.fit}
             onValueChange={(next) => {
               const picked = fits.find((fit) => fit === next)
@@ -326,22 +321,11 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
                 onChange({ ...paint, fit: picked })
               }
             }}
-          >
-            <SelectTrigger size="sm" aria-label="Fit" className="h-7 w-full px-2 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            {/* Wider than its half-row trigger, so what each fit does reads whole, and lined up with its left edge. */}
-            <PanelSelectContent className="w-56" align="start" alignItemWithTrigger={false}>
-              {fits.map((fit) => (
-                <SelectItem key={fit} value={fit}>
-                  <span className="flex flex-col gap-0.5">
-                    <span>{fitNames[fit]}</span>
-                    <span className="text-muted-foreground">{fitDetails[fit]}</span>
-                  </span>
-                </SelectItem>
-              ))}
-            </PanelSelectContent>
-          </Select>
+            // Wider than its half-row trigger, so what each fit does reads whole, and lined up with its left edge.
+            popupClassName="w-56"
+            align="start"
+            alignItemWithTrigger={false}
+          />
         </Field>
         {paint.fit === "crop" && (
           <Field label="Scale" half>
