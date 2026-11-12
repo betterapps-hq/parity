@@ -3167,9 +3167,9 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A
-  frame's Frame size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the
-  agreed table, which has it only in Grid placement; it stays as it was.
+- Grid placement and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A frame's Frame
+  size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the agreed table,
+  which has it only in Grid placement; it stays as it was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3305,6 +3305,41 @@ adding a drop shadow, a background blur, a move of 16px and a flip by keyboard d
 listed the project's two layers of `shadow-sm` with their color. A color set over a shadow token isn't drawn in frames,
 as above.
 
+### Transitions (PAR-934)
+
+Motion lists the selected layers' transitions, on the approved Transition list. **+** adds Colors at Tailwind's defaults
+(150ms and its default curve), shown faintly. Each entry opens its details: Changes (a set or a property), Duration,
+Easing (Tailwind's, the project's, a curve, steps or a spring) and Delay. The eye turns an entry off without removing
+it, and an entry can be dragged to another place.
+
+- **What it writes.** The list goes into the layer's style in the state being edited, as `transitions`. A state can give
+  a layer transitions of its own, and resetting the state's change takes them back.
+- **Tokens.** Duration and Easing offer the project's duration and easing tokens. Tailwind's own easings are presets,
+  not tokens, and Tailwind's defaults are what an unset field shows. Neither field offers Create token yet.
+- **On the canvas.** Each frame draws the transitions as inline CSS, so an edit that changes a frame's look plays them.
+  Opacity changed in a state fades over that state's frame, for example. The board draws each state as its own frame, so
+  there's no single frame going from one state to the next.
+- **Several layers.** Layers whose lists differ show an empty list, and a list made then replaces each layer's own.
+- **Agents.** `Update` and `AddState` take `transitions` in `style`, and `Get` reads them back. The lint warns about a
+  duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
+  forms.
+
+Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style/src/motion.ts`, with
+`NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
+`packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
+`inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
+`inspector/motion-values.ts` turning the document's forms into the list's.
+
+Tests: `packages/style/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables, a
+curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, and
+what the schema refuses. `packages/style/src/declare.test.ts`: the `transition` declaration, leaving out a hidden entry.
+`packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+`packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
+`packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
+`packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
+`apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's entries and back, seconds
+stored as milliseconds, and the project's tokens the fields offer.
+
 ## Component props
 
 What the Props section of a component layer lists, and how each kind of prop is set there.
@@ -3428,6 +3463,40 @@ Tests:
 
 Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
 use one from its field.
+
+### Agents declare a component's params (PAR-901)
+
+An agent can give a component design params without extracting it from copies. `CreateDesign` takes `params` in the
+`.par` shape, with nodes in its `root` binding them, and `AddParam`, `UpdateParam` and `DeleteParam` in `execute` change
+them later. `Update(path, { bind })` binds or unbinds a node's text, visibility or a code component's props, in the base
+design. Props and Variants show what an agent adds, as they show what Add makes.
+
+- **Variant options** take an id made from the name unless given, and their changes keyed by node id or name. A default
+  can be an option's id or name.
+- **Renaming** changes the nodes that bind the param, the option the board shows, and every instance's args and patches
+  in the tab: the instance's own, its responsive patches, and the states', variant options' and other instances' patches
+  that set it.
+- **A new list of options** keeps an option named as before, with its id and changes. Instances that picked an option
+  that went show the default.
+- **Deleting** leaves each bound node with the param's default as its own value, as unbinding in Props does, and takes
+  the arg out of every instance.
+- **Refused:** a name code couldn't use or another prop's or slot's, a default of the wrong kind, options on a param
+  that isn't a variant, a changed type, params on a screen or frame, and a `bind` that names a missing param, one of the
+  wrong type, or sits outside a component design.
+
+Rules in `@parity-app/core`, `params.ts`: `addParam`, `updateParam`, `renameParam`, `deleteParam`, `bindNode`,
+`bindingProblem` and `changeArgs`. Code: `AddParam`, `UpdateParam`, `DeleteParam` and `withParams` in
+`packages/agent/src/workspace.ts`, with `paramInput` and `paramUpdate` in `arguments.ts`.
+
+Tests:
+
+- `packages/core/src/params.test.ts`: adding, with each refusal; renaming binds and the board's option; deleting keeping
+  values; changing defaults and options; binding and unbinding, and binds refused; and args renamed or dropped in
+  instances, responsive patches and states.
+- `packages/agent/src/params.test.ts`: `CreateDesign` with params and a variant's changes by node name; adding a param
+  and binding it with `Update`; renaming across instances; a new options list keeping changes and dropping picks;
+  deleting; and the calls refused.
+- `packages/cli/src/skill-examples.test.ts`: execute.md's App sidebar example runs.
 
 ### Filling a slot from an instance (PAR-84)
 
@@ -3580,6 +3649,10 @@ Tests:
   it was (PAR-582); and every switch landing where `textSizing` reads it back.
 - `packages/core/src/render.test.ts`, sizing: hug text drawn `max-content`, still wrapped by a maximum width, and other
   widths as before.
+- `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
+  whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
+  doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
+  and `fill` in `packages/style/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -5688,6 +5761,30 @@ recorded), reading the local log's lines, and the files a report takes: the last
 the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
 zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, from a
 fallback, sending, sent and failed, with Send moving from one to the next.
+
+### Install the parity command (PAR-906)
+
+Help > Install the parity command puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
+with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
+second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
+and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
+failure says what went wrong.
+
+- **Windows:** `parity.cmd`, for PowerShell and Command Prompt, and a `parity` shell script, for Git Bash, in
+  `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH, kept as written so variables in it stay variables.
+  Running apps are told PATH changed, so a terminal opened next has it.
+- **macOS:** `/usr/local/bin/parity`, asking for an administrator when that folder can't be written, as VS Code's
+  command does.
+- **Linux:** `~/.local/bin/parity`. An AppImage mounts somewhere new each run, so its launcher finds the CLI beside the
+  executable Node runs as.
+- **Each installed app's start rewrites launchers it wrote** that point somewhere else, so moving or reinstalling it
+  keeps the command working. A file without Parity's marker line is left alone. In development the command runs the
+  checkout's CLI source, and starting isn't rewriting it.
+
+The build ships the CLI npm publishes in `cli/` beside the service, its packages with the service's, and fails unless it
+runs in Parity's Electron (`scripts/build.ts`). `@parity-app/core`'s `cli-command.test.ts` covers the folders, the
+launchers' text and quoting, and adding the folder to PATH. Writing the files and PATH (`main/cli-command.ts`) was tried
+by hand on Windows; macOS and Linux weren't tried.
 
 ### What the inspector's changes record (PAR-640, PAR-713, PAR-728)
 

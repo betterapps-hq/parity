@@ -9,6 +9,7 @@ import {
   finiteNumber,
   imageCredit,
   nodeStyle,
+  paramTypes,
   patchUnset,
   plainObject,
   textTags
@@ -85,6 +86,35 @@ export const patchInput = z.strictObject({
 
 export type PatchInput = z.infer<typeof patchInput>
 
+/** A variant's option: its id, made from its name unless given, and what it changes, keyed by node id or name. */
+const optionInput = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  overrides: z.record(z.string(), patchInput).optional()
+})
+
+export type OptionInput = z.infer<typeof optionInput>
+
+/** A param, as `CreateDesign` and `AddParam` take it. A variant's default can be an option's id or name. */
+export const paramInput = z.strictObject({
+  type: z.enum(paramTypes),
+  default: z.unknown().optional(),
+  description: z.string().optional(),
+  options: z.array(optionInput).min(1).optional()
+})
+
+export type ParamInput = z.infer<typeof paramInput>
+
+/** `UpdateParam`'s change. `null` takes away the default or the description; `options` is the whole new list. */
+export const paramUpdate = z.strictObject({
+  name: z.string().optional(),
+  default: z.unknown().optional(),
+  description: z.string().nullish(),
+  options: z.array(optionInput).min(1).optional()
+})
+
+export type ParamUpdate = z.infer<typeof paramUpdate>
+
 /** `Update`'s change: a patch, and the node's name, tag and component in the base state. */
 export const updateChange = z.strictObject(
   {
@@ -97,7 +127,15 @@ export const updateChange = z.strictObject(
     /** An image's picture, its description and who made it, in the base design only. */
     src: z.string().min(1).optional(),
     alt: z.string().nullish(),
-    credit: imageCredit.nullish()
+    credit: imageCredit.nullish(),
+    /** Binds a field to one of the component's params, or with `null` unbinds it, in the base design only. */
+    bind: z
+      .strictObject({
+        text: z.string().nullish(),
+        visible: z.string().nullish(),
+        props: z.record(z.string(), z.string().nullable()).optional()
+      })
+      .optional()
   },
   {
     error: (issue) =>
@@ -120,7 +158,9 @@ export const designInput = z.strictObject({
   baseState: z.string().optional(),
   /** A frame's own size, in pixels. */
   width: pixels.optional(),
-  height: pixels.optional()
+  height: pixels.optional(),
+  /** A component's params, by name. */
+  params: z.record(z.string(), paramInput).optional()
 })
 
 export type DesignInput = z.infer<typeof designInput>

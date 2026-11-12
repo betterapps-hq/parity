@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Move the style schema and its CSS into @parity-app/style",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

@@ -1,8 +1,22 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 00:07:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 00:46:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.62.0
+
+Thu, 12 Nov 2026 00:46:21 GMT
+
+### Minor changes
+
+- Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color
+  token (ajcraswell@gmail.com)
+
+### Patches
+
+- A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]
+  (ajcraswell@gmail.com)
 
 ## 0.61.0
 

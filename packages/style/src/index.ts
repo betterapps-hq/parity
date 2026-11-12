@@ -6,6 +6,8 @@ export * from "./ledger.ts"
 
 export * from "./model.ts"
 
+export * from "./motion.ts"
+
 export * from "./paint.ts"
 
 export * from "./validate.ts"

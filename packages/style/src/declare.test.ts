@@ -197,7 +197,45 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     ]
   ],
   ["self", { self: "start" }, component, [["align-self", "flex-start", "self"]]],
-  ["self over filling across a row", { height: "fill", self: "center" }, inRow, [["align-self", "center", "self"]]],
+  [
+    "a centred column fills up to its maximum",
+    { width: "fill", maxWidth: 160, self: "center" },
+    inColumn,
+    [
+      ["width", "100%", "width"],
+      ["max-width", "calc(var(--spacing) * 160)", "maxWidth"],
+      ["align-self", "center", "self"]
+    ]
+  ],
+  [
+    "a fill with a maximum is left to the parent's alignment",
+    { width: "fill", maxWidth: 112 },
+    inColumn,
+    [
+      ["width", "100%", "width"],
+      ["max-width", "calc(var(--spacing) * 112)", "maxWidth"]
+    ]
+  ],
+  [
+    "a fill along the parent with a maximum still grows",
+    { width: "fill", maxWidth: 112 },
+    inRow,
+    [
+      ["flex", "1 1 0%", "width"],
+      ["min-width", "0", "width"],
+      ["max-width", "calc(var(--spacing) * 112)", "maxWidth"]
+    ]
+  ],
+  // A fill placed by `self` takes the whole parent rather than stretching, which `self` would replace (PAR-897).
+  [
+    "self over filling across a row",
+    { height: "fill", self: "center" },
+    inRow,
+    [
+      ["height", "100%", "height"],
+      ["align-self", "center", "self"]
+    ]
+  ],
   [
     "spans",
     { colSpan: 2, rowSpan: 3 },
@@ -398,7 +436,18 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["overflow", "hidden", "lines"]
     ]
   ],
-  ["lines on anything but text write nothing", { lines: 2 }, component, []]
+  ["lines on anything but text write nothing", { lines: 2 }, component, []],
+  [
+    "transitions, leaving out a hidden one",
+    {
+      transitions: [
+        { property: "opacity", duration: 200, easing: "linear" },
+        { property: "width", hidden: true }
+      ]
+    },
+    component,
+    [["transition", "opacity 200ms linear", "transitions"]]
+  ]
 ]
 
 describe("declarations", () => {

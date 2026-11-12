@@ -182,6 +182,29 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(events.at(-1)).toMatchObject({ kind: "end" })
   })
 
+  it("sets a layer's transitions, a state's own, reads them back, and clears them with null (PAR-934)", async () => {
+    const result = await execute(
+      {
+        label: "Animate the button",
+        code: `Update("submit", {style: {transitions: [{property: "colors", duration: 200, easing: "ease-out"}]}})
+AddState("signup", {name: "Pressed", changes: {Submit: {style: {transitions: [{property: "transform", easing: {spring: {duration: 400, bounce: 0.3}}}]}}}})
+Print(JSON.stringify(Get("submit").style.transitions))
+Print(Get("submit", {state: "pressed"}).style.transitions[0].easing.spring.duration)
+Update("submit", {style: {transitions: null}}, {state: "pressed"})`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.output).toEqual(['[{"property":"colors","duration":200,"easing":"ease-out"}]', "400"])
+    const container = result.changes.designs[0]!.after!
+    expect(findNode(container.root, "submit")?.style?.transitions).toEqual([
+      { property: "colors", duration: 200, easing: "ease-out" }
+    ])
+    expect(container.states[1]?.overrides?.submit?.style?.transitions).toBeUndefined()
+  })
+
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
     const read = snapshot()
     const before = structuredClone(read.modes)

@@ -46,6 +46,8 @@ export * from "./mode-report.ts"
 
 export * from "./modes.ts"
 
+export * from "./params.ts"
+
 export * from "./preview-order.ts"
 
 export * from "./project.ts"
@@ -82,6 +84,8 @@ export * from "./values/index.ts"
 
 export * from "./webp-text.ts"
 
+export * from "./cli-command.ts"
+
 export * from "./code-editors.ts"
 
 export * from "./element-source.ts"
@@ -103,7 +107,12 @@ export {
   gradientKinds,
   type GradientPaint,
   type ImagePaint,
+  isEasingFunction,
+  isEasingKeyword,
   isNamedLength,
+  isSpring,
+  isTimeToken,
+  isTransitionSet,
   type Length,
   type Move,
   type NodeStyle,
@@ -121,9 +130,13 @@ export {
   type Size,
   type SolidPaint,
   spacing,
+  springLinear,
+  springSamples,
+  springSettle,
   type StyleKey,
   styleKeys,
   token,
   type TokenGradientPaint,
-  type Transform
+  type Transform,
+  type Transition
 } from "@parity-app/style"

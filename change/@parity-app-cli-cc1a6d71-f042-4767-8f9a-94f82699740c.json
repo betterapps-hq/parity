@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]",
+  "comment": "Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

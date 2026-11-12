@@ -180,6 +180,23 @@ describe("what a state changes", () => {
     expect(styleOf(design, "save", "hover")).toEqual({ padding: 3, weight: 600, background: "accent" })
   })
 
+  it("gives a state transitions of its own, which the board plays on switching to it, and takes them back (PAR-934)", () => {
+    let design = toolbar()
+    const transitions = [{ property: "colors", duration: 200, easing: "ease-out" }]
+    design = styleSelection(design, ["save", "cancel"], "default")!.edit("transitions", { transitions })(design)
+    const springy = [{ property: "transform", easing: { spring: { duration: 400, bounce: 0.3 } } }]
+    design = styleSelection(design, ["save"], "hover")!.edit("transitions", { transitions: springy })(design)
+    expect(styleOf(design, "save").transitions).toEqual(transitions)
+    expect(styleOf(design, "save", "hover").transitions).toEqual(springy)
+
+    const hover = styleSelection(design, ["save", "cancel"], "hover")!
+    expect(hover.changed("transitions")).toBe(true)
+    expect(hover.differs("transitions")).toBe(true)
+    design = hover.reset("transitions")(design)
+    expect(styleOf(design, "save", "hover").transitions).toEqual(transitions)
+    expect(styleSelection(design, ["save", "cancel"], "hover")!.style.transitions).toEqual(transitions)
+  })
+
   it("does nothing on reset when edits change the design itself", () => {
     const design = toolbar()
     expect(styleSelection(design, ["save"], "default")!.reset("padding")(design)).toBe(design)

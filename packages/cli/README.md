@@ -9,16 +9,19 @@ and serves all of this as MCP tools.
 
 ## Install
 
-It needs Node 24. Run it without installing:
+With the Parity app, choose **Help > Install the parity command**. It puts a `parity` command on your PATH that runs the
+CLI shipped inside the app, so it's always the app's version and needs no Node.
 
-```sh
-npx @parity-app/cli --help
-```
-
-or install it to get the `parity` command:
+Without the app, as in CI, it needs Node 24. Install it to get the `parity` command:
 
 ```sh
 npm install --global @parity-app/cli
+```
+
+or run it without installing, which spends a second or two finding the package on every call:
+
+```sh
+npx @parity-app/cli --help
 ```
 
 That's the version released to everyone, npm's `latest`. Every change to Parity is published to `next` first, for
@@ -61,15 +64,19 @@ script.
 
 ## With an agent
 
-Add the MCP server to your agent's configuration:
+Add the MCP server to your agent's configuration. It's the quickest way for an agent to reach Parity: the server starts
+once, and each call then takes only as long as the app's own work.
 
 ```json
 {
   "mcpServers": {
-    "parity": { "command": "npx", "args": ["-y", "@parity-app/cli", "mcp"] }
+    "parity": { "command": "parity", "args": ["mcp"] }
   }
 }
 ```
+
+Without the installed command, use `"command": "npx", "args": ["-y", "@parity-app/cli", "mcp"]`, which pays npx's
+start-up once per session rather than once per call.
 
 Then have the agent read the skill first, with the `read_skill` tool or `parity skill`.
 
