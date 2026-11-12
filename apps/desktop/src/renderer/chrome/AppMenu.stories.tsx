@@ -365,12 +365,25 @@ export const ArrangeThreeDesigns: Story = {
   }
 }
 
-/** Help: searching actions, the keyboard shortcuts, developer tools and About. */
+/** Help: searching actions, the keyboard shortcuts, developer tools, installing the parity command and About. */
 export const Help: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
     await openMenu("Help")
+  }
+}
+
+/** Help > Install the parity command on Windows, where the folder just joined PATH: a new terminal finds it (PAR-906). */
+export const InstalledParityCommand: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    await openMenu("Help")
+    await userEvent.click(body().getByRole("menuitem", { name: "Install the parity command" }))
+    await body().findByText("Installed the parity command")
+    // The toast slides in, so its description shows once it has.
+    await waitFor(() => expect(body().getByText("Open a new terminal to run it.")).toBeVisible())
   }
 }
 

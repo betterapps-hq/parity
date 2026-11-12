@@ -84,6 +84,8 @@ export * from "./values/index.ts"
 
 export * from "./webp-text.ts"
 
+export * from "./cli-command.ts"
+
 export * from "./code-editors.ts"
 
 export * from "./element-source.ts"

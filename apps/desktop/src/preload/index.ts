@@ -5,6 +5,7 @@ import { ipc } from "../shared/channels.ts"
 import type { ConnectorPlaced, ConnectorSearch } from "../shared/connectors.ts"
 import {
   type CanvasHost,
+  type CliInstall,
   type ConsoleChange,
   type CopiedFile,
   type LoggedEntry,
@@ -205,6 +206,7 @@ const host: CanvasHost = {
   showItem: (path) => invoke<void>(ipc.showItem, path),
   copiedFiles: () => invoke<CopiedFile[]>(ipc.copiedFiles),
   openInEditor: (request) => invoke<{ opened: string }>(ipc.openInEditor, request),
+  installCli: () => invoke<CliInstall>(ipc.installCli),
   quit: () => invoke<void>(ipc.quit),
   toggleDevTools: () => invoke<void>(ipc.toggleDevTools),
   setTheme: (theme) => invoke<void>(ipc.setTheme, theme),

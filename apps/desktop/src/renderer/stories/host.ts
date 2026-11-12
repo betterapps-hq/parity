@@ -407,6 +407,8 @@ export function installHost(): void {
     showItem: () => Promise.resolve(),
     copiedFiles: () => Promise.resolve([]),
     openInEditor: () => Promise.resolve({ opened: "VS Code" }),
+    installCli: () =>
+      Promise.resolve({ folder: "C:\\Users\\ana\\AppData\\Local\\Parity\\bin", onPath: true, newTerminal: true }),
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
     setTheme: () => Promise.resolve(),

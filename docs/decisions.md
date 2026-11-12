@@ -7337,6 +7337,34 @@ project that switches its dark theme by attribute on the root still drew light v
 Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
 a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
 
+## The app installs its own `parity` command (PAR-906)
+
+Agents ran the CLI as `npx -y @parity-app/cli@0.31.0 …`, and each call spent most of its time in npx. Measured on
+Windows with the app running: npx resolving the cached package took 1.2–2.8 s, Node starting 0.1–0.25 s, loading the
+CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Print(1)` 0.45–0.7 s. Your call on
+2026-11-11: a menu item installs the command, as Pen's does. My calls:
+
+- **The command runs the CLI shipped inside the app, with the app's Electron as Node,** as VS Code's `code` does. It's
+  always the app's version, so nothing keeps it in step, and it needs no Node or npm. Electron as Node started the CLI
+  about 0.1 s slower than Node itself, and `--prefer-offline` and Node's compile cache didn't speed up npx or loading.
+  Pen's item only opens a docs page.
+- **Help > Install the parity command** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity`
+  shell script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on
+  macOS, asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers
+  it wrote, which carry a marker line, so moving the app keeps the command working.
+- **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
+  bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
+  the CLI and its sender load in Parity's Electron.
+- **The skill sends agents to the MCP tools first, then `parity`, never npx per call** (your call, 2026-11-11: without
+  the CLI, push to MCP). An agent with neither asks for the menu item. The README's MCP configuration runs `parity mcp`,
+  with npx as the fallback, which pays its start-up once per session.
+- **No daemon.** The CLI already talks straight to the app, which answers in about 10 ms; what costs is starting a
+  process, which a client of a daemon still pays. MCP stays the fastest route for agents that have it.
+
+After, with the same app and tab (medians of 5, the machine busy with other sessions): `tabs` went from 2.0 s through
+npx to 0.39 s through the Git Bash launcher and 0.37 s through `parity.cmd`; `exec` of `Print(1)` from 2.45 s to 0.74 s,
+most of which is now the app running the snippet.
+
 ## Agents declare a component's params directly (PAR-901)
 
 Agents could only give a component design params through `ExtractComponent`, which needs two or more built copies, so a
@@ -7383,6 +7411,29 @@ My calls:
 - **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
   style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
   spring maths from there.
+
+## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
+
+The design is in [proposals/service.md](proposals/service.md). Your calls, on 2026-11-11:
+
+- **Server code runs in one TanStack Start app, `apps/portal`, on a Cloudflare Worker.** It ships first with only an
+  API, and the portal's pages join it later. A piece leaves the one Worker only when it scales differently, releases on
+  its own schedule or mustn't share its secrets.
+- **The API is at `api.tryparity.dev`,** with the version in the path (`/v1`).
+- **Searches need a signed-in person.** Main sends its WorkOS access token and the service checks it. Signing in is
+  heading towards required for the whole app, but "Signing in is optional" stands until that's decided on its own.
+- **The service searches Mobbin and Pixabay from the start,** each with the app owner's key as a Worker secret.
+- **`@tanstack/react-start`, `@cloudflare/vite-plugin` and `wrangler` are added.**
+
+My calls:
+
+- **Answers are kept for 24 hours in Workers KV,** shared by everyone, as Pixabay's terms ask. The Workers Cache API
+  keeps things in one data centre, so each would ask the source again.
+- **Each person is limited by their WorkOS user id,** with the Workers rate limiting binding, and the service keeps no
+  personal data: the id is only a counter's key, and the query is kept only as a hash.
+- **It deploys through the shared pipelines,** with the `cloudflare-web` Terraform module and the web templates, so
+  Parity writes no deploy workflow of its own.
+- **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
 
 ## The service's app is `apps/portal`, deployed through the shared web templates (PAR-947)
 
