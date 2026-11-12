@@ -325,10 +325,28 @@ export class App {
       const host = document.elementsFromPoint(point.x, point.y).find((element) => element.shadowRoot)
       const inner = host?.shadowRoot?.elementsFromPoint(point.x, point.y).slice(0, 3).map(name) ?? []
       const { selection, editor } = window.e2e!.session()
+      const { frames } = window.e2eModules!
+      const design = selection.get().design
+
+      // What the canvas's own hit test finds at the point, in each of the selected design's frames holding it, which
+      // the DOM's stack can't show: frames are inert, so the stack passes through them.
+      const layers = (design ? frames.findFrames(document, design) : [])
+        .filter((host) => {
+          const rect = host.getBoundingClientRect()
+
+          return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+        })
+        .map((host) => ({
+          mode: host.dataset.mode,
+          primary: host.dataset.primary,
+          asleep: !!host.closest("[data-asleep]"),
+          under: frames.nodesAt(host, point)
+        }))
 
       return {
         stack,
         inner,
+        layers,
         selection: selection.get(),
         tool: selection.getTool(),
         hover: selection.getHover(),
@@ -743,8 +761,15 @@ export class App {
     for (let level = 1; ; level++) {
       if (!(await until(async () => (await this.selection()).node === path[level]))) {
         const { node } = await this.selection()
+
+        // Where each is drawn now, which says whether the layout moved since the point was measured.
+        const drawnAt = (layer: string | undefined) =>
+          layer ? this.box(design, layer).catch(() => undefined) : Promise.resolve(undefined)
+
+        const [expected, got] = await Promise.all([drawnAt(path[level]), drawnAt(node)])
         throw new Error(
           `At ${point.x},${point.y} in ${design}, ${node} was selected where ${path[level]} should be. ` +
+            `${path[level]} is drawn at ${JSON.stringify(expected)}, ${node} at ${JSON.stringify(got)}. ` +
             `There: ${await this.describe(point)}`
         )
       }

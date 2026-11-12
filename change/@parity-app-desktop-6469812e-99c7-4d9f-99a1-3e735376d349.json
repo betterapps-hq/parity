@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "e2e failure messages name what the canvas finds at the point",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
