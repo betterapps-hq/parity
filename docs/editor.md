@@ -318,8 +318,9 @@ work kept the machine busy.
 - **Zooming doesn't wake measuring every frame.** A change to tldraw's store that only moves the camera or the pointer,
   or starts or stops the camera, doesn't wake it, and neither does the wheel. Boards moving or resizing once the camera
   stops still do.
-- **The element inspector's overlay (PAR-167) reads nothing with nothing to mark.** It had read the canvas area's box in
-  every animation frame, laying the page out partway through each frame of a zoom.
+- **The element inspector's overlay (PAR-167) read nothing with nothing to mark.** It had read the canvas area's box in
+  every animation frame, laying the page out partway through each frame of a zoom. It left the app with the Code tab
+  (PAR-1027).
 - **Measured** on 2026-11-05 with `pnpm perf --runs "zoom at 100%,zoom hovering a layer,zoom with a layer selected"` on
   the example project (119 frames), React's production build, in two rounds of before and after one after another. Each
   run zooms with Ctrl and the wheel over a layer of the first design, from 100% to about 300% and back, then to about
@@ -337,9 +338,9 @@ in the profile. Earlier the same day, with other sessions using the machine, the
 second before.
 
 Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
-ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`, and the inspector's `tick` in
-`canvas/InspectOverlay.tsx`. `pnpm perf`'s `zoom at 100%`, `zoom hovering a layer` and `zoom with a layer selected` runs
-(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named.
+ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`. `pnpm perf`'s `zoom at 100%`,
+`zoom hovering a layer` and `zoom with a layer selected` runs (`apps/desktop/scripts/perf.ts`) report `outline off`, and
+`--runs` measures only the runs named.
 
 Tests:
 
@@ -383,10 +384,10 @@ Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` read
 `node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
 `parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
 frame's, and `areaSpace` takes screen pixels to the overlay's. `measureFrame` in `canvas/frame-skeletons.ts` takes a
-skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/InspectOverlay.tsx` and `canvas/TabOrderOverlay.tsx`
-place their marks with `areaSpace`; the inspector reads the area's box only once it has a mark to place (PAR-653).
-`canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`,
-`snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are gone.
+skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/TabOrderOverlay.tsx` places its marks with
+`areaSpace`. `canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`,
+`resizeBoxes`, `snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are
+gone.
 
 Tests:
 
@@ -874,21 +875,14 @@ FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the edito
 
 ## Reading the code
 
-### Where each element is written: the Code tab (PAR-167)
+### Where each element is written (PAR-167)
 
-The inspector's Code tab, after Modes and before Accessibility, shows where the selected component layer is written.
-**Component** names its export and file, with a button that opens it in the person's editor at the export, as View code
-does. **Elements** lists the elements the layer draws that the project's own files wrote, nested as the code nests them,
-each with its tag and its file's name and line, `button.tsx:44`. Pointing at one outlines it on the canvas, with a chip
-naming its tag, file and line, and clicking one picks it. **Source** shows the picked element's lines, 5 before and 12
-after with its own highlighted, from the file as it is on disk, coloured by Shiki through the kit's code block. Its
-header copies `path:line:column` and opens the file in the editor at the line. The first element is shown until another
-is picked.
+Right-clicking an element a project file wrote ends the canvas menu with **Open in editor**, which shows its `file:line`
+and opens it in the person's editor at that line. Agents get the same places.
 
-**Inspect**, in the tab's header and its empty states, picks an element on the canvas, as a browser's developer tools
-do. The pointer becomes a crosshair, the element under it is outlined with its chip, and clicking selects the layer it's
-in and picks the element. Escape, or a pick, stops it. It works with nothing selected. Right-clicking an element a
-project file wrote ends the canvas menu with **Open in editor**, which shows its `file:line` and opens it there.
+The inspector's Code tab, which listed a component layer's elements with their lines and picked one on the canvas with
+Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code panel`
+stories, beside the window, reading the example's files from Storybook's copy.
 
 - **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
   element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
@@ -896,14 +890,9 @@ project file wrote ends the canvas menu with **Open in editor**, which shows its
   file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
   props on, so the element it draws would take its caller's line over its own. Installed packages, virtual modules and
   production builds carry nothing.
-- **What has no line:** a library's component says it's written in its package, and lists no elements. Parity's own
-  layers (text, images and layouts) say they're drawn from the design file. With several layers selected, the tab asks
-  for one.
-- **Picking by box:** frames don't take the pointer outside Interact, so the element under the pointer is found from
+- **Finding it by box:** frames don't take the pointer outside Interact, so the element under the pointer is found from
   boxes: the innermost element a project file wrote, looking through elements with no box, as `display: contents` ones.
   A library's element inside a project's element counts as the project's.
-- **Reading the file:** the service's `code.read` reads a project file by its path from the root. It refuses a path
-  outside the project's folder and a file over 1 MB.
 - **For agents:** `parity components` and MCP's `get_components` give `files`, the file each of the project's own
   components is written in, and the text lists them by file. `Measure` gives each node's `source`, where the project's
   code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`. Parity's own layers have
@@ -911,14 +900,12 @@ project file wrote ends the canvas menu with **Open in editor**, which shows its
 
 Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
 `formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
-plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `CodePanel` in `renderer/chrome/CodePanel.tsx`;
-`sourcedElements`, `sourcedElementAt` and `frameAt` in `renderer/canvas/element-sources.ts`; the picking store in
-`canvas/inspect.ts` and its outlines in `canvas/InspectOverlay.tsx`; the menu's `open-source` entry in
-`chrome/canvas-menu.ts`, drawn by `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in
-`main/code-editor.ts`'s `openInEditor` and its check in `shared/ipc-checks.ts`; `readProjectFile` in `utility/code.ts`.
-For agents: `componentsReport` in `packages/agent/src/dispatch.ts`, `describeComponents` in
-`packages/cli/src/client.ts`, and each measured node's `source` in `renderer/render.ts`, passed on by the check in
-`main/render-results.ts`.
+plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
+`renderer/canvas/element-sources.ts`; the menu's `open-source` entry in `chrome/canvas-menu.ts`, drawn by
+`chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in `main/code-editor.ts`'s `openInEditor`
+and its check in `shared/ipc-checks.ts`. For agents: `componentsReport` in `packages/agent/src/dispatch.ts`,
+`describeComponents` in `packages/cli/src/client.ts`, and each measured node's `source` in `renderer/render.ts`, passed
+on by the check in `main/render-results.ts`. The exploration is in `renderer/explorations/code-panel/`.
 
 Tests: `packages/code/src/element-sources.test.ts` (6: each element written for the page gets its file, line and column;
 a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
@@ -926,19 +913,16 @@ tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps ba
 for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
 in it, and anything else reads as none). `packages/builder-vite/src/index.test.ts` (4: the project's own JSX tagged and
 named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
-modules and files without JSX left alone; development server only). `apps/desktop/src/utility/code.test.ts` (3: a file
-read by its path, one outside the project or the folder itself refused, one too big refused).
-`apps/desktop/src/shared/ipc-checks.test.ts` (a line from an element's source is taken; one that isn't a positive whole
-number is refused). `chrome/canvas-menu.test.ts` (Open in editor ends the menu over an element a project file wrote),
-and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
+modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
+from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
+(Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
+`chrome/CanvasMenu.stories.tsx`, drawn from Storybook's copy of the example project, which the same transform tags, and
+in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
 `packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
 (`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
-own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on).
-`chrome/CodePanel.stories.tsx`: ComponentLayer, ElementPicked, Inspecting, PickedOnCanvas, LibraryComponent,
-ParityLayer, NothingSelected and OpenFromCanvasMenu, drawn from Storybook's copy of the example project, which the same
-transform tags. Gaps: reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the
-Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
-stories.
+own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps:
+reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the Measure and render-result
+tests pass a source through.
 
 ### The designs' console (PAR-147)
 
@@ -3314,8 +3298,8 @@ the insert picker names it, so it agrees with the icon; a grid gets the Layout s
 layer inside an instance says the same, in the component color.
 
 A text layer's color is green, its own (PAR-792), where other layers are the layer blue: its T in Layers, this heading,
-the Code and Accessibility panels, states, search and the canvas menu, and its outline, chip and text-editing outline on
-the canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
+the Accessibility panel, states, search and the canvas menu, and its outline, chip and text-editing outline on the
+canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
 (`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). A text layer inside an instance is
 still drawn in the component color.
 

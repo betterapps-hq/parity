@@ -21,7 +21,6 @@ import {
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
 import { cacheUse, reportCacheUse } from "./cache-use.ts"
-import { readProjectFile } from "./code.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
@@ -211,7 +210,6 @@ const handlers: Handlers<ServiceMethods> = {
   "previews.lookup": async (params) => ({ previews: await previews.lookupPreviews(params.previews) }),
   "previews.make": ({ preview, priority }) => previews.makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
-  "code.read": ({ projectId, path }) => readProjectFile(projects.get(projectId).info.root, path),
   "project.components": ({ projectId }) => projects.components(projectId),
   "project.correctComponents": projects.correctComponents,
   "library.catalog": ({ projectId }) => catalogFor(projects.get(projectId)),
