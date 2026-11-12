@@ -118,6 +118,52 @@ export interface LiveEdits {
 /** The live edits the fields inside make their changes through, as the Design tab's sections provide them. */
 export const LiveEditsContext = createContext<LiveEdits | undefined>(undefined)
 
+/**
+ * The parts of the approved controls whose values the document the panel edits can't store yet, each added by one of
+ * PAR-924 to PAR-935. The stories store everything, so they show every control working.
+ */
+export type Unstorable =
+  | "aspect"
+  | "reverse"
+  | "lines"
+  | "dense"
+  | "baseline"
+  | "trackSizes"
+  | "fixedPlacement"
+  | "pinCenter"
+  | "pinScale"
+  | "cornerShape"
+  | "eachCorner"
+  | "blend"
+  | "alpha"
+  | "eachSide"
+  | "strokePosition"
+  | "preset"
+  | "smallCaps"
+  | "tag"
+  | "scrollAlways"
+
+/** Whether the document stores a part's value; unset, as in the stories, it stores every part. */
+export const StoresContext = createContext<(part: Unstorable) => boolean>(() => true)
+
+/**
+ * A part of a control the document can't store yet, shown as the approved design has it but disabled and dimmed, so
+ * the section matches its story while the property waits for its issue. Without a part, it's always stored.
+ */
+export function Unstored({ part, children }: { part: Unstorable | undefined; children: ReactNode }) {
+  const stores = useContext(StoresContext)
+
+  if (part === undefined || stores(part)) {
+    return children
+  }
+
+  return (
+    <fieldset disabled className="contents *:opacity-50">
+      {children}
+    </fieldset>
+  )
+}
+
 /** A reason as a sentence of its own, ending in a full stop unless it ends in one already or leads into an answer. */
 const sentence = (text: string) => (/[.:?!]$/.test(text) ? text : `${text}.`)
 

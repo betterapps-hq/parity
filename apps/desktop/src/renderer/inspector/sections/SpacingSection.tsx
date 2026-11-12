@@ -1,7 +1,6 @@
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { BoxModel } from "../controls/box-model.tsx"
 import { useTokens } from "../controls/field-parts.tsx"
-import { Field } from "../controls/field-row.tsx"
 import { type Sides, sideNumber, sideRules } from "../controls/sides-writes.ts"
 import { paddingOf, sidesShown } from "../style-values.ts"
 import { mixedOf, type SectionProps } from "./section-edits.ts"
@@ -15,8 +14,8 @@ const rules = {
 const everySide = [true, true, true, true]
 
 /**
- * Spacing, as the approved box model (PAR-186): margin's ring around padding's around the layer's size, each side's
- * value where the side is, opening its field. A design's root has no margin, so its box is padding's alone. An edit of
+ * Spacing, the approved box model (PAR-186) as Storybook has it: margin's ring around padding's around the layer's
+ * size, each side's value where the side is, opening its field. A design's root has no margin, so its box is padding's alone. An edit of
  * some sides changes only those sides of each selected layer.
  */
 export function SpacingSection({ editor, edit, shows }: SectionProps) {
@@ -51,33 +50,18 @@ export function SpacingSection({ editor, edit, shows }: SectionProps) {
       `Change ${name}`
     )
 
-  const changed = editor.selection.changed("padding") || (margin && editor.selection.changed("margin"))
-
   return (
     <PanelSection title="Spacing">
-      <Field
-        label={margin ? "Padding and margin" : "Padding"}
-        changed={changed}
-        mixed={mixed("padding") || (margin && mixed("margin"))}
-        onReset={() => {
-          editor.reset("padding")
-
-          if (margin) {
-            editor.reset("margin")
-          }
-        }}
-      >
-        <BoxModel
-          padding={padding}
-          margin={margin ? sidesShown(style.margin, unit) : undefined}
-          paddingMixed={mixed("padding") ? everySide : []}
-          marginMixed={mixed("margin") ? everySide : []}
-          size={size}
-          rules={rules}
-          onPadding={sidesEdit("padding")}
-          onMargin={sidesEdit("margin")}
-        />
-      </Field>
+      <BoxModel
+        padding={padding}
+        margin={margin ? sidesShown(style.margin, unit) : undefined}
+        paddingMixed={mixed("padding") ? everySide : []}
+        marginMixed={mixed("margin") ? everySide : []}
+        size={size}
+        rules={rules}
+        onPadding={sidesEdit("padding")}
+        onMargin={sidesEdit("margin")}
+      />
     </PanelSection>
   )
 }

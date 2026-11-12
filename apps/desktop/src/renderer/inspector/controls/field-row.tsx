@@ -25,7 +25,7 @@ import {
 import { kindColors } from "../../canvas/kinds.tsx"
 import { FirstStateName } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { overrideColor } from "./field-parts.tsx"
+import { overrideColor, StoresContext, type Unstorable } from "./field-parts.tsx"
 
 /*
  * A property's row as the simpler fields lay it out (PAR-186): its name above the control in words, as Figma's with
@@ -250,6 +250,8 @@ export interface Segment<V extends string> {
   icon?: ReactNode
   /** A mark in its corner, as a value that isn't Baseline has. */
   mark?: ReactNode
+  /** What the document must store for it to be chosen; until it does, it's disabled. */
+  part?: Unstorable
 }
 
 /**
@@ -273,6 +275,7 @@ export function Segments<V extends string>({
   options: readonly Segment<V>[]
   onChange: (value: V) => void
 }) {
+  const stores = useContext(StoresContext)
   // The Tab stop: the chosen option, or the one unset comes to, or the first.
   const stop = options.find((option) => option.value === value)?.value ?? faint ?? options[0]?.value
 
@@ -322,8 +325,9 @@ export function Segments<V extends string>({
               aria-label={option.label}
               aria-pressed={pressed}
               tabIndex={option.value === stop ? 0 : -1}
+              disabled={option.part !== undefined && !stores(option.part)}
               onClick={() => onChange(option.value)}
-              className={`h-full rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
+              className={`h-full rounded-sm px-1 text-xs outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
             >
               {/* A sample drawn for the eye (AG, Ag), so the name says what it does. */}
               {option.icon === undefined ? option.label : <span aria-hidden>{option.icon}</span>}
@@ -349,6 +353,8 @@ export function IconSegments<V extends string>({
   options: readonly (Segment<V> & { icon: ReactNode })[]
   onChange: (value: V) => void
 }) {
+  const stores = useContext(StoresContext)
+
   return (
     <ToggleGroup
       variant="outline"
@@ -366,7 +372,12 @@ export function IconSegments<V extends string>({
     >
       {options.map((option) => (
         <Hint key={option.value} label={option.label} detail={option.detail}>
-          <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
+          <ToggleGroupItem
+            value={option.value}
+            aria-label={option.label}
+            disabled={option.part !== undefined && !stores(option.part)}
+            className="h-7 px-2"
+          >
             {option.icon}
           </ToggleGroupItem>
         </Hint>

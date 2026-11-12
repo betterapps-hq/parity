@@ -54,6 +54,7 @@ import {
   stepToken,
   unitButtonClass,
   UnitMenu,
+  Unstored,
   usePercentUnit,
   useTokens,
   useTokenSets,
@@ -97,11 +98,23 @@ export function SizeSection({
   draft,
   set,
   measured,
-  tokensShown
+  tokensShown,
+  modes,
+  takesPercent,
+  mixedAxes,
+  children
 }: SectionProps & {
   /** The layer's drawn size and its parent's width, from the canvas. */
   measured?: Measured
   tokensShown?: TokensShown
+  /** The words W and H take, where the layer can't fill or the style can't hold one. */
+  modes?: readonly SizeMode[]
+  /** Whether W and H take a percentage of the parent. */
+  takesPercent?: boolean
+  /** The axes whose size differs across the selected layers. */
+  mixedAxes?: { width?: boolean; height?: boolean }
+  /** Rows under the size's own, as Align self in a flex parent. */
+  children?: ReactNode
 }) {
   // An unset width shows what the layer comes to, and writes nothing until it's changed.
   const width = draft.width ?? measured?.width ?? 100
@@ -145,27 +158,35 @@ export function SizeSection({
             value={width}
             measured={measured?.width}
             parent={measured?.parent}
+            modes={modes}
+            takesPercent={takesPercent}
+            mixed={mixedAxes?.width}
             limits={{ min: draft.minWidth !== undefined, max: draft.maxWidth !== undefined }}
             onAddLimit={(which) => addLimit("Width", which)}
             onChange={(next) => set({ width: next })}
           />
-          <Hint label={ratio ? "Unlock aspect ratio" : "Lock aspect ratio"}>
-            <Toggle
-              size="sm"
-              className="size-7 min-w-7 p-0"
-              aria-label="Lock aspect ratio"
-              pressed={ratio !== undefined}
-              onPressedChange={lock}
-            >
-              <Link2 />
-            </Toggle>
-          </Hint>
+          <Unstored part="aspect">
+            <Hint label={ratio ? "Unlock aspect ratio" : "Lock aspect ratio"}>
+              <Toggle
+                size="sm"
+                className="size-7 min-w-7 p-0"
+                aria-label="Lock aspect ratio"
+                pressed={ratio !== undefined}
+                onPressedChange={lock}
+              >
+                <Link2 />
+              </Toggle>
+            </Hint>
+          </Unstored>
           <SizeField
             axis="Height"
             tokensShown={tokensShown}
             value={height}
             measured={measured?.height}
             parent={undefined}
+            modes={modes}
+            takesPercent={takesPercent}
+            mixed={mixedAxes?.height}
             setBy={ratio ? "Aspect ratio" : undefined}
             limits={{ min: draft.minHeight !== undefined, max: draft.maxHeight !== undefined }}
             onAddLimit={(which) => addLimit("Height", which)}
@@ -204,6 +225,7 @@ export function SizeSection({
             <RatioField aspect={draft.aspect} onChange={(aspect) => set({ aspect })} />
           </Field>
         )}
+        {children}
       </div>
     </PanelSection>
   )
@@ -652,7 +674,17 @@ type CornerRadii = [Radius?, Radius?, Radius?, Radius?]
  * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
  * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
  */
-export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
+export function AppearanceSection({
+  draft,
+  set,
+  tokensOnly,
+  mixed,
+  changed,
+  children
+}: SectionProps & {
+  /** Rows under Radius, as the Design tab adds Opacity and Clip content. */
+  children?: ReactNode
+}) {
   const radii: CornerRadii = Array.isArray(draft.radius)
     ? draft.radius
     : [draft.radius, draft.radius, draft.radius, draft.radius]
@@ -669,20 +701,24 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
           onReset={changed?.onReset}
           action={
             <>
-              <CornerStyle value={draft.cornerStyle} onChange={(cornerStyle) => set({ cornerStyle })} />
-              <EachToggle
-                label="Each corner"
-                parts="corners"
-                pressed={each}
-                onClick={() => {
-                  // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
-                  if (each && alike && Array.isArray(draft.radius)) {
-                    set({ radius: radii[0] })
-                  }
+              <Unstored part="cornerShape">
+                <CornerStyle value={draft.cornerStyle} onChange={(cornerStyle) => set({ cornerStyle })} />
+              </Unstored>
+              <Unstored part="eachCorner">
+                <EachToggle
+                  label="Each corner"
+                  parts="corners"
+                  pressed={each}
+                  onClick={() => {
+                    // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
+                    if (each && alike && Array.isArray(draft.radius)) {
+                      set({ radius: radii[0] })
+                    }
 
-                  setEach(!each)
-                }}
-              />
+                    setEach(!each)
+                  }}
+                />
+              </Unstored>
             </>
           }
         >
@@ -716,6 +752,7 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
             />
           )}
         </Field>
+        {children}
       </div>
     </PanelSection>
   )
@@ -1143,6 +1180,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
         <Field label="Color">
           <ColorInput
             label="Stroke"
+            alphaPart="alpha"
             tokensOnly={tokensOnly}
             used={usedColors}
             value={draft.border}
@@ -1158,6 +1196,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
           together="one"
           sides={widths}
           tokensOnly={tokensOnly}
+          eachSide="eachSide"
           onChange={(next) => {
             const change: Partial<Draft> = { borderWidth: next }
 
@@ -1174,51 +1213,53 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
           label="Position"
           hint="In layout, the stroke is a border, which takes up room. Out of it, it's an outline, drawn inside, centered on or outside the edge, and takes none."
         >
-          <div className="flex items-center gap-1">
-            <div className="min-w-0 flex-1">
-              <ChoiceInput
-                label="Stroke position"
-                value={position}
-                options={strokePositions}
-                onChange={(next) => {
-                  if (!next || next === position) {
-                    return
-                  }
+          <Unstored part="strokePosition">
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <ChoiceInput
+                  label="Stroke position"
+                  value={position}
+                  options={strokePositions}
+                  onChange={(next) => {
+                    if (!next || next === position) {
+                      return
+                    }
 
-                  // Center and Outside are outlines, which stroke every side at one width.
-                  if (next !== "inside") {
-                    set({ strokeInLayout: false, strokePosition: next, borderWidth: outlined })
-                  } else {
-                    set({ strokePosition: inLayout ? undefined : "inside" })
-                  }
-                }}
-              />
-            </div>
-            <Hint
-              label="Include in layout"
-              detail={
-                inLayout
-                  ? "On: a border, which takes up room in the layout"
-                  : "Off: an outline, which takes no room in the layout"
-              }
-            >
-              <Toggle
-                size="sm"
-                className="size-7 min-w-7 shrink-0 p-0"
-                aria-label="Include in layout"
-                pressed={inLayout}
-                onPressedChange={(on) => {
-                  set(
-                    on
-                      ? { strokeInLayout: undefined, strokePosition: undefined }
-                      : { strokeInLayout: false, strokePosition: "inside", borderWidth: outlined }
-                  )
-                }}
+                    // Center and Outside are outlines, which stroke every side at one width.
+                    if (next !== "inside") {
+                      set({ strokeInLayout: false, strokePosition: next, borderWidth: outlined })
+                    } else {
+                      set({ strokePosition: inLayout ? undefined : "inside" })
+                    }
+                  }}
+                />
+              </div>
+              <Hint
+                label="Include in layout"
+                detail={
+                  inLayout
+                    ? "On: a border, which takes up room in the layout"
+                    : "Off: an outline, which takes no room in the layout"
+                }
               >
-                <LayoutTemplate />
-              </Toggle>
-            </Hint>
-          </div>
+                <Toggle
+                  size="sm"
+                  className="size-7 min-w-7 shrink-0 p-0"
+                  aria-label="Include in layout"
+                  pressed={inLayout}
+                  onPressedChange={(on) => {
+                    set(
+                      on
+                        ? { strokeInLayout: undefined, strokePosition: undefined }
+                        : { strokeInLayout: false, strokePosition: "inside", borderWidth: outlined }
+                    )
+                  }}
+                >
+                  <LayoutTemplate />
+                </Toggle>
+              </Hint>
+            </div>
+          </Unstored>
         </Field>
       </div>
     </PanelSection>
@@ -1253,7 +1294,8 @@ function TagLabel({ label, tag }: { label: string; tag: string }) {
   )
 }
 
-export function TextSection({ draft, set }: SectionProps) {
+/** The element a text layer is, from Paragraph (unset) to Strong, each with the tag it writes. */
+export function TagField({ tag, onChange }: { tag: string | undefined; onChange: (tag: string | undefined) => void }) {
   // Unset is a paragraph, which is what the text is written as.
   const items = [
     { value: "__unset", label: <TagLabel label="Paragraph" tag="p" /> },
@@ -1264,25 +1306,31 @@ export function TextSection({ draft, set }: SectionProps) {
   ]
 
   return (
+    <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
+      <Select
+        items={items}
+        value={tag ?? "__unset"}
+        onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : next)}
+      >
+        <SelectTrigger size="sm" aria-label="Tag" className="h-7 w-full text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <PanelSelectContent>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </PanelSelectContent>
+      </Select>
+    </Field>
+  )
+}
+
+export function TextSection({ draft, set }: SectionProps) {
+  return (
     <PanelSection title="Text" description="The headline inside Plans.">
-      <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
-        <Select
-          items={items}
-          value={draft.tag ?? "__unset"}
-          onValueChange={(next) => set({ tag: next === null || next === "__unset" ? undefined : next })}
-        >
-          <SelectTrigger size="sm" aria-label="Tag" className="h-7 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <PanelSelectContent>
-            {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </PanelSelectContent>
-        </Select>
-      </Field>
+      <TagField tag={draft.tag} onChange={(tag) => set({ tag })} />
     </PanelSection>
   )
 }

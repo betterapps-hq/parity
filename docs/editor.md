@@ -3045,28 +3045,34 @@ lengths to a row, can still clip a value in an inspector narrower than its usual
 
 ### The style sections on the approved controls (PAR-923)
 
-The Design tab's style sections use the controls settled in Storybook (PAR-186), from
-`apps/desktop/src/renderer/inspector/controls`. They edit the selected layers' `NodeStyle` through the style editor.
-Each section shows what the document holds today. What `NodeStyle` can't hold yet isn't offered; PAR-924 to PAR-935 add
-it.
+The Design tab's style sections are the sections settled in Storybook (PAR-186), from
+`apps/desktop/src/renderer/inspector/controls`, drawn as their stories draw them. They edit the selected layers'
+`NodeStyle` through the style editor. A control for something `NodeStyle` can't hold yet is there but disabled and
+dimmed, so each section matches its story; PAR-924 to PAR-935 turn them on as the document learns to hold them.
 
-- **Layout:** Type (vertical, horizontal or grid), and Wrap into columns in a vertical layout's menu; the alignment box,
-  which shows a spread (between, around, evenly) as an Auto gap; Gap and the row gap; and a grid's Columns and Rows as
-  counts, with Rows Auto when unset.
-- **Size:** W and H, with the Sizing menu: Hug, Fill where the layer can fill, and Min and Max to add. An unset size is
-  Auto, set by its layout. Each limit has a row of its own, with a button to remove it. Align self and a grid layer's
-  Span stay here until Grid placement is built.
+- **Layout:** the alignment box, with Type (vertical, horizontal, wrap or grid) and Gap beside it, and a grid's Columns
+  and Rows under them as counts, Rows Auto when unset, as many as the layer's children need. A spread (between, around,
+  evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Disabled: Reverse direction, Lines for
+  wrapped lines, lining up text baselines, Fill gaps, a grid's track sizes, Each column and Each row, and Fit.
+- **Size:** W and H on one line, with the Sizing menu: Hug, Fill where the layer can fill, and Min and Max to add, each
+  a row of its own. Align self and a grid layer's Span stay here until Grid placement is built. Disabled: the aspect
+  lock.
 - **Spacing:** the box model, padding inside margin, or padding alone for a design's root. Editing a side changes only
   that side of each selected layer.
-- **Position:** Placement, in its layout or absolute, and an absolutely placed layer's insets. Insets are measured from
-  the layer's containing block, inside its border, as nudging measures them.
-- **Appearance:** Radius from the project's radius tokens, Opacity, and Clip content (clip or scroll).
+- **Position:** Placement, in its layout or absolute, beside Layer order once the layer is absolute or has one, and an
+  absolutely placed layer's inset box. Insets are measured in whole pixels from the layer's containing block, inside its
+  border, as nudging measures them. Disabled: Fixed, Sticky, Relative, centering and Scale.
+- **Appearance:** Radius from the project's radius tokens, Opacity, and Clip content. Disabled: Corner shape, Each
+  corner, Blend mode, and Scroll always.
 - **Text** (Text inside on a layout, a component or an instance): color, font, size, weight with italic, line height,
-  letter spacing, align, decoration and case, with Resizing and Max lines for a text layer.
-- **Stroke:** a button adds or removes it; it has a color, one width and a style: solid, dashed or dotted.
+  letter spacing, align, decoration and case, with Resizing, Max lines and Tag for a text layer. Disabled: Typography
+  preset, the color's opacity, Small caps and Tag.
+- **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Disabled: the color's
+  opacity, Each side and Position.
 
-Layer order (PAR-925), Fill (PAR-931) and Effects (PAR-933) make their edits through the style editor as each comes, so
-they don't preview while typing; `StyleSections` gives only the sections above the live edits.
+Layer order (PAR-925) has no section of its own: the table lists it with Position, for the same layers, and it draws
+inside Position. Fill (PAR-931) and Effects (PAR-933) make their edits through the style editor as each comes, so they
+don't preview while typing; `StyleSections` gives only the sections above the live edits.
 
 How the controls work with the document:
 
@@ -3092,10 +3098,12 @@ but not in the field until it's made.
 Code: `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, from
 `inspector/sections/`, one file per section. `useSectionEdits` in `inspector/sections/section-edits.ts` sends a
 control's change to the canvas preview, to a run of presses (`GestureRun`) or to the document, through
-`LiveEditsContext` in `inspector/controls/field-parts.tsx`. `projectTokenSets` in `inspector/token-sets.ts` turns the
-project's tokens into the controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's
-values as the controls show them, and writes the controls' values back as the style holds them. `placeNode` in
-`chrome/LayerPanel.tsx` measures an absolutely placed layer, through the style editor's `place`.
+`LiveEditsContext` in `inspector/controls/field-parts.tsx`. `StoresContext` and `Unstored` there disable what the
+document can't hold yet: the stories store everything, and `StyleSections` stores none of it. `projectTokenSets` in
+`inspector/token-sets.ts` turns the project's tokens into the controls' sets, given through `ProjectTokens`.
+`inspector/style-values.ts` reads a style's values as the controls show them, and writes the controls' values back as
+the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an absolutely placed layer, through the style
+editor's `place`.
 
 Tests:
 
@@ -3105,15 +3113,16 @@ Tests:
   written as its number; and keywords the style doesn't take left out.
 - `inspector/token-sets.test.ts` (7): the project's tokens under their real names; the spacing scale left out; Full as a
   radius; a text size paired with its line height; weights named in words, with Tailwind's hundreds when the project has
-  none; a font named by its first family; and nothing offered for what the style can't hold.
+  none; a font named by its first family; and nothing offered for what the style can't hold. The z-index tokens come
+  from `projectZIndexTokens`, tested in `layer-order.test.ts`.
 - `chrome/StyleSections.stories.tsx`: every section on Pricing's and Sign in's layers, with PickingAColor,
   PickingASpacing, PickingAWeight and PickingASizing opening their pickers by name. The Layer stories
   (`chrome/LayerPanel.stories.tsx`, Parity/Inspector/Layer) show the sections each kind of layer gets.
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
 Gaps: the sections were driven in an isolated copy of the app on 2026-11-11. A direction, a gap, opacity, a radius, a
-stroke and its width, a padding side, a text size landing on `text-xl`, uppercase, absolute placement and a pinned inset
-each made the edit shown. `Mixed+N` on the new controls is a follow-up.
+stroke and its width, a padding side, a text size landing on `text-xl`, uppercase, absolute placement with whole-pixel
+insets, a pinned inset, a layer order and a grid each made the edit shown. `Mixed+N` on the new controls is a follow-up.
 
 ### Token pickers' names (PAR-722)
 
@@ -3259,7 +3268,7 @@ a grid parent together give neither's controls, and one layer that takes no styl
 
 ### Layer order (PAR-925)
 
-Layer order sets a layer's `z-index`, in its own section under Position, on every layer but a design's root. It's
+Layer order sets a layer's `z-index`, beside Placement in Position (PAR-923), on every layer but a design's root. It's
 PAR-186's approved field: a whole number or one of the project's z-index tokens, and Auto, muted, when unset. Up and
 Down step by one, Shift by ten, a token steps through the scale in order, and dragging the icon scrubs it. A fraction is
 refused, with the reason under the field. With several layers whose orders differ, it shows Mixed until one is set for
@@ -3278,8 +3287,8 @@ Down presses each being an undo step of their own until the fields' runs reach t
 
 Code: `nodeStyle.zIndex` in `packages/core/src/document.ts`; `boxCss` in `packages/core/src/render.ts`; the `layerOrder`
 row and `StackingContext` in `packages/editor/src/style-editing.ts`; the agent's check in `packages/agent/src/lint.ts`;
-`LayerOrderSection` and its values (`layer-order.ts`) in `apps/desktop/src/renderer/inspector/sections/`, on
-`LayerOrderField` from `inspector/controls/pin-box.tsx`.
+`PositionSection` and its values (`layer-order.ts`) in `apps/desktop/src/renderer/inspector/sections/`, on
+`PositionSection` from `inspector/controls/pin-box.tsx`.
 
 Tests: `packages/core/src/document.test.ts` (a whole number or a token's name, and 1.5 refused);
 `packages/core/src/render.test.ts` (a number, a negative number and a token written as `z-index`);

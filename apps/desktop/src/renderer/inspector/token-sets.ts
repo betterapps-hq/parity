@@ -16,6 +16,7 @@ import {
   type WeightToken,
   weightTokens
 } from "./controls/tokens.ts"
+import { projectZIndexTokens } from "./sections/layer-order.ts"
 
 /**
  * The project's own tokens as the Design tab's controls offer them (`ProjectTokens`' `sets`), in place of the
@@ -122,7 +123,7 @@ export function projectTokenSets(tokens: readonly Token[], length: (value: strin
     blur: [],
     spacing: lengths("spacing", "spacing"),
     borderWidth: [],
-    zIndex: [],
+    zIndex: projectZIndexTokens(tokens),
     container: lengths("container", "container"),
     breakpoint: lengths("breakpoint", "breakpoint"),
     duration: [],

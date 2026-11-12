@@ -13,7 +13,7 @@ import {
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Unlink } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useContext, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import {
   fieldBox,
@@ -21,7 +21,9 @@ import {
   NotBaselineMark,
   type Reading,
   TokenChip,
+  StoresContext,
   TokenMark,
+  type Unstorable,
   ValueField
 } from "./field-parts.tsx"
 import { Segments, TitleMenu } from "./field-row.tsx"
@@ -45,6 +47,8 @@ export interface KeywordChoice extends KeywordOption {
   more?: boolean
   /** What a token comes to, shown where the other options show the value they write. */
   comesTo?: string
+  /** What the document must store for it to be chosen. */
+  part?: Unstorable
 }
 
 /** Keywords every field takes, shown in words. */
@@ -189,6 +193,7 @@ export function KeywordToggles({
           value: choice.value,
           label: choice.label,
           icon: choice.icon,
+          part: choice.part,
           detail: [
             choice.css,
             value === undefined && !showMixed && choice.value === inherited
@@ -323,6 +328,7 @@ export function KeywordItem({
   keyword,
   drawn,
   browsers,
+  disabled,
   onPreview
 }: {
   value: string
@@ -330,11 +336,13 @@ export function KeywordItem({
   keyword: string
   drawn?: ReactNode
   browsers?: string
+  disabled?: boolean
   onPreview?: (value: string) => void
 }) {
   return (
     <DropdownMenuRadioItem
       value={value}
+      disabled={disabled}
       className="text-xs"
       onPointerEnter={() => onPreview?.(value)}
       onFocus={() => onPreview?.(value)}
@@ -393,6 +401,7 @@ export function KeywordMenu({
   const main = choices.filter((choice) => !choice.token && !choice.more)
   const more = choices.filter((choice) => choice.more)
   const radioValue = chosen?.value ?? ""
+  const stores = useContext(StoresContext)
 
   const item = (choice: KeywordChoice) => (
     <KeywordItem
@@ -402,6 +411,7 @@ export function KeywordMenu({
       keyword={choice.comesTo ?? (choice.token ? `--${property}-${choice.value}` : (choice.css.split(": ")[1] ?? ""))}
       drawn={draw?.(choice)}
       browsers={choice.browsers}
+      disabled={choice.part !== undefined && !stores(choice.part)}
       onPreview={onPreview}
     />
   )
@@ -556,7 +566,13 @@ export const caseChoices: KeywordChoice[] = [
   { value: "uppercase", label: "Uppercase", icon: "AG", css: "text-transform: uppercase", tailwind: "uppercase" },
   { value: "lowercase", label: "Lowercase", icon: "ag", css: "text-transform: lowercase", tailwind: "lowercase" },
   { value: "capitalize", label: "Title case", icon: "Ag", css: "text-transform: capitalize", tailwind: "capitalize" },
-  { value: "small-caps", label: "Small caps", icon: "Aɢ", css: "font-variant-caps: small-caps" }
+  {
+    value: "small-caps",
+    label: "Small caps",
+    icon: "Aɢ",
+    css: "font-variant-caps: small-caps",
+    part: "smallCaps"
+  }
 ]
 
 /** Text's Wrap; Pretty isn't Baseline. */
@@ -670,7 +686,7 @@ export function drawStrokeStyle(choice: KeywordChoice) {
 /** Clip content's modes: Clip doesn't make a scroll container, so a sticky layer inside still sticks. */
 export const clipChoices: KeywordChoice[] = [
   { value: "clip", label: "Clip", css: "overflow: clip", tailwind: "overflow-clip" },
-  { value: "scroll", label: "Scroll", css: "overflow: scroll", tailwind: "overflow-scroll" },
+  { value: "scroll", label: "Scroll", css: "overflow: scroll", tailwind: "overflow-scroll", part: "scrollAlways" },
   { value: "auto", label: "Scroll when needed", css: "overflow: auto", tailwind: "overflow-auto" }
 ]
 
@@ -681,13 +697,10 @@ export const clipChoices: KeywordChoice[] = [
 export function ClipContentField({
   value,
   mixed = false,
-  choices = clipChoices,
   onChange
 }: {
   value: KeywordValue | undefined
   mixed?: boolean
-  /** The ways it clips, in its menu: all three, or those the style holds. */
-  choices?: readonly KeywordChoice[]
   onChange: (value: KeywordValue | undefined) => void
 }) {
   const on = value !== undefined
@@ -713,7 +726,7 @@ export function ClipContentField({
         <KeywordMenu
           label="Clip content"
           property="overflow"
-          choices={choices}
+          choices={clipChoices}
           value={value}
           placeholder="Visible"
           mixed={mixed}

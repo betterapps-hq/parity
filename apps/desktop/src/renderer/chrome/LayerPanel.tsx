@@ -930,10 +930,11 @@ export function placeNode(
   const top = outer.top / scale + parseFloat(border.borderTopWidth)
   const { rect } = found
 
+  // In whole pixels, as an inset pinned from them is typed: the zoom leaves fractions.
   return {
     parent: { width: around.clientWidth, height: around.clientHeight },
-    size: { width: rect.width / scale, height: rect.height / scale },
-    inFlow: { x: rect.left / scale - left, y: rect.top / scale - top }
+    size: { width: Math.round(rect.width / scale), height: Math.round(rect.height / scale) },
+    inFlow: { x: Math.round(rect.left / scale - left), y: Math.round(rect.top / scale - top) }
   }
 }
 

@@ -4,8 +4,8 @@ import { MoveHorizontal, MoveVertical, Scan, Strikethrough, Underline } from "lu
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import type { StyleEditor } from "../../chrome/style-editor.ts"
 import { ColorInput } from "../controls/color-picker.tsx"
-import { Num } from "../controls/controls.tsx"
-import { useTokens } from "../controls/field-parts.tsx"
+import { Num, TagField } from "../controls/controls.tsx"
+import { Unstored, useTokens } from "../controls/field-parts.tsx"
 import { Field, IconSegments } from "../controls/field-row.tsx"
 import {
   FontFamilyField,
@@ -15,6 +15,7 @@ import {
   WeightField
 } from "../controls/font-fields.tsx"
 import { alignChoices, caseChoices, type KeywordChoice, KeywordToggles } from "../controls/keyword-sets.tsx"
+import { PresetPicker } from "../controls/preset-text.tsx"
 import type { FontFamily } from "../controls/text-data.ts"
 import {
   fontOf,
@@ -33,12 +34,10 @@ const textAligns = ["start", "center", "end", "justify"] as const satisfies read
   NodeStyle["textAlign"]
 >[]
 
-/** Case as `NodeStyle` holds it; Small caps is `font-variant-caps`, which it doesn't hold yet. */
+/** Case as `NodeStyle` holds it; Small caps is `font-variant-caps`, which it doesn't hold yet, so it's disabled. */
 const cases = ["uppercase", "lowercase", "capitalize"] as const satisfies readonly NonNullable<
   NodeStyle["textTransform"]
 >[]
-
-const caseOptions = caseChoices.filter((choice) => choice.value !== "small-caps")
 
 const decorations = ["underline", "line-through"] as const satisfies readonly NonNullable<NodeStyle["decoration"]>[]
 
@@ -65,11 +64,11 @@ const decorationChoices: KeywordChoice[] = [
 const everyWeight = [100, 200, 300, 400, 500, 600, 700, 800, 900]
 
 /**
- * Text, on the approved type fields (PAR-186): color, font, size, weight with italic, line height, letter spacing,
- * align, then text's Resizing, decoration and case, and Max lines for a text layer. Set on a layout, a component or an
- * instance, it's Text inside, which the text in it inherits. `NodeStyle` holds type as the project's tokens, so the
- * fields take tokens only, and a size of its own lands on the nearest token. Wrap, the preset and the tag come with
- * PAR-930.
+ * Text, on the approved type fields (PAR-186): the typography preset, color, font, size, weight with italic, line
+ * height, letter spacing, align, then text's Resizing, decoration and case, Max lines and the tag for a text layer. Set
+ * on a layout, a component or an instance, it's Text inside, which the text in it inherits. `NodeStyle` holds type as
+ * the project's tokens, so the fields take tokens only, and a size of its own lands on the nearest token. The preset,
+ * the color's opacity, small caps and the tag are disabled until it holds them (PAR-930).
  */
 export function TextSection({ editor, edit, can, shows }: SectionProps) {
   const { style } = editor.selection
@@ -97,12 +96,17 @@ export function TextSection({ editor, edit, can, shows }: SectionProps) {
       description={can.text ? undefined : "Text in here inherits these unless it sets its own."}
     >
       <div className="flex flex-col gap-2.5">
+        <Field label="Typography preset">
+          <Unstored part="preset">
+            <PresetPicker preset={undefined} overrides={0} onPick={() => undefined} onDetach={() => undefined} />
+          </Unstored>
+        </Field>
         <Field label="Color" {...rowState(editor, "textColor")}>
           <ColorInput
             label="Text color"
             value={style.foreground}
             alpha={undefined}
-            withAlpha={false}
+            alphaPart="alpha"
             tokensOnly
             mixed={mixed("foreground")}
             onChange={(foreground) => edit("textColor", { foreground }, "Change text color")}
@@ -192,7 +196,7 @@ export function TextSection({ editor, edit, can, shows }: SectionProps) {
           <KeywordToggles
             label="Case"
             property="text-transform"
-            choices={caseOptions}
+            choices={caseChoices}
             value={optionShown(style.textTransform)}
             inherited="none"
             mixed={mixed("textTransform")}
@@ -211,6 +215,11 @@ export function TextSection({ editor, edit, can, shows }: SectionProps) {
               onChange={(lines) => edit("lines", { lines }, "Change max lines")}
             />
           </Field>
+        )}
+        {can.text && (
+          <Unstored part="tag">
+            <TagField tag={undefined} onChange={() => undefined} />
+          </Unstored>
         )}
       </div>
     </PanelSection>

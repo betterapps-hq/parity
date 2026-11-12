@@ -1,12 +1,12 @@
 import { DropdownMenuCheckboxItem } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, ArrowUpToLine, Crosshair, Layers, Maximize, Move, MoveDiagonal2, Rows3 } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import { type CSSProperties, type ReactNode, useContext } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SideValue } from "./box-model.tsx"
 import { formatNumber, tint } from "./css-values.ts"
-import { MessageLine, useTokens } from "./field-parts.tsx"
+import { MessageLine, StoresContext, type Unstorable, Unstored, useTokens } from "./field-parts.tsx"
 import { Field, IconSegments, NameToggle, TitleMenu } from "./field-row.tsx"
 import { distances, insetPixels, type Placement, type Position, placed, type Stage } from "./position-writes.ts"
 import { type Side, type SideRules, type Sides, sideNames, sideNumber, sideRules } from "./sides-writes.ts"
@@ -23,23 +23,25 @@ import { setSides, SideField, spreadTo } from "./sides.tsx"
 /** The layer's color, which the canvas draws a selected layer's outline and measurements in. */
 const layerColor = kindColors.layer
 
-export const placements = [
+const placements = [
   { value: "static", label: "In layout", detail: "Placed by its layout, as its children are", Icon: Rows3 },
   { value: "absolute", label: "Absolute", detail: "Placed against its parent, out of the layout", Icon: Crosshair },
   {
     value: "fixed",
+    part: "fixedPlacement",
     label: "Fixed",
     detail: "Placed against the window, so it stays put as the page scrolls",
     Icon: AppWindow
   },
   {
     value: "sticky",
+    part: "fixedPlacement",
     label: "Sticky",
     detail: "In layout, until scrolling would take it past its inset",
     Icon: ArrowUpToLine
   },
   { value: "relative", label: "Relative", detail: "In layout, then moved by its insets", Icon: Move }
-] as const satisfies readonly { value: Placement; label: string; detail: string; Icon: unknown }[]
+] as const satisfies readonly { value: Placement; label: string; detail: string; Icon: unknown; part?: Unstorable }[]
 
 /**
  * What each placement places the layer against, which the inset box names in its corner, and what its insets'
@@ -91,6 +93,7 @@ export function PositionSection({
   onClipInstead?: () => void
 }) {
   const placement = position.placement
+  const stores = useContext(StoresContext)
   const shownPlacements = placements.filter((option) => option.value !== "relative" || placement === "relative")
 
   const layerOrderShown =
@@ -123,6 +126,7 @@ export function PositionSection({
         <TitleMenu label="More position options" menuClassName="w-52">
           <DropdownMenuCheckboxItem
             className="text-xs"
+            disabled={!stores("fixedPlacement")}
             checked={placement === "relative"}
             onCheckedChange={(on) => choose(on ? "relative" : "static")}
           >
@@ -186,26 +190,17 @@ const bandCells = [
  * layer's center lines center it on that axis, Absolute or Fixed, keeping its offset from the center, which the start
  * side holds. Fill and Scale, in the header, pin every side at 0, or at its share of what it's placed against.
  */
-export function InsetBox({
+function InsetBox({
   position,
   placement,
   stage,
   stopped,
-  centers = true,
-  scales = true,
-  rules = sideRules.inset,
   set
 }: {
   position: Position
   placement: Exclude<Placement, "static">
   stage: Stage
   stopped?: string
-  /** Whether the layer's center lines center it, where the style holds an offset from the center. */
-  centers?: boolean
-  /** Whether Scale pins each side at its share, where the style holds a percentage. */
-  scales?: boolean
-  /** What each inset takes. */
-  rules?: SideRules
   set: (position: Position) => void
 }) {
   const spacing = useTokens("spacing").tokens
@@ -315,7 +310,7 @@ export function InsetBox({
       <SideValue
         label={`${name} inset`}
         value={position.insets[index]}
-        rules={rules}
+        rules={sideRules.inset}
         placeholder="Auto"
         unset={{ number: "Auto", name: "Auto" }}
         measured={offsets ? undefined : measured[index]}
@@ -407,11 +402,11 @@ export function InsetBox({
             <NameToggle label={`Fill ${of}`} pressed={filled} onClick={fill}>
               <Maximize />
             </NameToggle>
-            {scales && (
+            <Unstored part="pinScale">
               <NameToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
                 <MoveDiagonal2 />
               </NameToggle>
-            )}
+            </Unstored>
           </>
         )
       }
@@ -426,8 +421,10 @@ export function InsetBox({
           className="relative col-start-2 row-start-2 rounded-sm border bg-background"
           style={{ borderColor: tint(layerColor, 70) }}
         >
-          {!offsets && centers && centerLine(true)}
-          {!offsets && centers && centerLine(false)}
+          <Unstored part="pinCenter">
+            {!offsets && centerLine(true)}
+            {!offsets && centerLine(false)}
+          </Unstored>
         </div>
         {band(1)}
         {band(2)}

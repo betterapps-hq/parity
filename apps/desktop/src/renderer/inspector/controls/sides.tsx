@@ -15,6 +15,8 @@ import {
   tokenStatus,
   usePercentUnit,
   useTokens,
+  type Unstorable,
+  Unstored,
   ValueField
 } from "./field-parts.tsx"
 import { EachToggle, Field, PairGlyph, SideGlyph } from "./field-row.tsx"
@@ -390,6 +392,7 @@ export function FourSidesField({
   hint,
   doesNothing,
   tokensOnly,
+  eachSide,
   onChange,
   onHover
 }: {
@@ -408,6 +411,8 @@ export function FourSidesField({
   /** Why the row does nothing here, which dims it. */
   doesNothing?: string
   tokensOnly?: boolean
+  /** Where a side of its own is something the document may not store yet, as a stroke's width per side. */
+  eachSide?: Unstorable
   onChange: (sides: Sides, cleared: number[]) => void
   onHover?: (sides: number[] | undefined) => void
 }) {
@@ -497,7 +502,15 @@ export function FourSidesField({
       <Field
         label={label}
         hint={[doesNothing, hint].filter(Boolean).join("\n") || undefined}
-        action={<EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />}
+        action={
+          eachSide ? (
+            <Unstored part={eachSide}>
+              <EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />
+            </Unstored>
+          ) : (
+            <EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />
+          )
+        }
       >
         <div className={`grid min-w-0 gap-x-2 gap-y-1 ${together === "one" && !each ? "grid-cols-1" : "grid-cols-2"}`}>
           {fields}

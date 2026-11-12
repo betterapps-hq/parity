@@ -230,7 +230,7 @@ export const presetTokens = bySize.map(presetToken)
  * The preset as every token field holds one: a chip that Backspace takes off, the chevron's list of presets with
  * Detach, and typing to search them, each with its Ag and its name in its own type.
  */
-function PresetPicker({
+export function PresetPicker({
   preset,
   overrides,
   onPick,
