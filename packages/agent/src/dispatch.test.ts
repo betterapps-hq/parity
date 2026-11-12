@@ -377,6 +377,19 @@ describe("dispatch", () => {
     expect(asked.applied).toHaveLength(1)
     expect(asked.applied[0]).toMatchObject({ tab: "tab-1", label: "Outline the button" })
     expect(asked.applied[0]!.changes.designs).toHaveLength(1)
+    expect(answer.createdDesigns).toEqual({})
+  })
+
+  it("names the designs a snippet created apart from the nodes it named (PAR-909)", async () => {
+    const { answer } = await ask("exec", {
+      code: 'const id = CreateDesign({ name: "Plans" }); Insert(id, { type: "text", text: "Plans", name: "Title" })'
+    })
+
+    expect(answer.ok).toBe(true)
+    expect(Object.entries(answer.createdDesigns ?? {})).toEqual(
+      Object.entries(answer.created).filter(([name]) => name === "Plans")
+    )
+    expect(Object.keys(answer.created)).toEqual(["Page", "Plans", "Title"])
   })
 
   it("takes a layer's effects: shadows, filters, the transform and text case (PAR-933)", async () => {
