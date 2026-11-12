@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

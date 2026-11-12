@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 12:29:14 GMT",
+      "version": "0.72.0",
+      "tag": "@parity-app/desktop_v0.72.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b897319e647682322827005a7fe26079e1964ded",
+            "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 12:10:21 GMT",
       "version": "0.71.1",
       "tag": "@parity-app/desktop_v0.71.1",
