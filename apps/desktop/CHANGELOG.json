@@ -2,6 +2,67 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 10:38:14 GMT",
+      "version": "0.70.0",
+      "tag": "@parity-app/desktop_v0.70.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4a5cef30cde24307ede88769a07181361bbc2fcc",
+            "comment": "Parity can tell whether each frame, the nodes in it and its board changed since the project opened, and undoing an edit counts as unchanged again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5aabfd198fbe462351e38e3079dfb8974df453dc",
+            "comment": "States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs() lists states for components alone"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f6ac15a4ad7d0d1516f9fd105799755bac02d9bc",
+            "comment": "Frames in a Tailwind project draw layers with the classes a person would write: m-0, gap-1 and font-medium in place of m-[0], gap-[calc(var(--spacing)_*_1)] and font-[500]"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5dbb43c0fb8d7c4fc0661c3d61b91a4b9ed5eccb",
+            "comment": "Read a frame's scale and its layers' boxes from where they're drawn, so resizing, dragging, nudging, snapping, padding handles, the text editor and Paste here agree at every zoom"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fcdc58e7bae26a9c8f14839139e323518a2911e6",
+            "comment": "An open project keeps one session from opening to closing its tab, so a code change or a reconnect no longer empties its media list or retakes its start page picture"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6bea2c2034f8f56a3bf4f11e12915f27ab2b6f85",
+            "comment": "Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right values and extract cleanly (PAR-998)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "047dba5fb957a0e4facf9157e2703a863cf004f5",
+            "comment": "Check that every request a window sends main comes from Parity's own window, unless the request is one the render windows send too"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "31327249126dc7b7017b7de98ee3dbb887bed23a",
+            "comment": "Rename @parity-app/style to @parity-app/style-schema"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 08:27:06 GMT",
       "version": "0.69.0",
       "tag": "@parity-app/desktop_v0.69.0",

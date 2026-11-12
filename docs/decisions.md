@@ -477,7 +477,8 @@ still need your call.
   than being made non-modal, which would let a left click outside the menu act on the canvas as well as close it.
 - **The menubar greys what the canvas menu greys for layers inside an instance** (PAR-419): Copy, Duplicate, the order,
   Wrap in layout and Hide or show, through one rule (`layerCommands`), and their keys do nothing then. Cut and Delete,
-  which the canvas menu doesn't have, are unchanged.
+  which the canvas menu doesn't have, are unchanged. PAR-971 replaced the rule with `commandStates`, which works out
+  every command's state for every menu (see "Each command's state is worked out once").
 - **A Layers row's menu runs the menubar's commands on the selection** (PAR-571), as the canvas menu does, so a
   right-click on a row selects it first unless it's in the selection. My calls: Rename still renames the row in place
   rather than going through Edit > Rename, which renames a design on its title on the canvas, out of sight from Layers;
@@ -6299,17 +6300,20 @@ valid.
   and duration, and the work the action causes joins its trace.
 - **The wrapper is `run(from)`.** `recordActions` (`chrome/record-actions.ts`) wraps every entry, and the window runs an
   action only through it: keys, the menubar, the canvas and Layers menus, Search actions, the toolbar and panel buttons.
-  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Save for the
-  Tokens panel's project, runs that in the action's place, still recorded under the action's ID.
+  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Rename in
+  place in Layers, runs that in the action's place, still recorded under the action's ID.
 - **One tried while it doesn't apply is recorded as cancelled and doesn't run.** That's a Ctrl shortcut on the canvas or
   any app shortcut. A plain key that doesn't apply still does what it would anyway, such as Tab moving focus, so it
-  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer.
+  isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer. Since PAR-971 it asks
+  `commandStates`, as every menu does.
 - **Selection is counts, not IDs or names.** That's enough to tell an empty selection from many layers. It stays cheap
-  for PAR-647's budget: one `available` call and one count per command.
-- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It reads the source and
-  flags any file that imports a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
-  `QuickInsert.tsx` and calls it anywhere except through `instead`. Search actions' extras with no shortcut (Export all,
-  Snap, Performance stats, Clear bitmap cache, About) aren't in the action list, so they aren't recorded.
+  for PAR-647's budget: one state check and one count per run.
+- **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It read the source and
+  flagged any file that imported a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
+  `QuickInsert.tsx` and called it anywhere except through `instead`. PAR-971 made those functions private to
+  `actions.ts` and replaced the scan with a test of the registry (see "Each command's state is worked out once"). Search
+  actions' extras with no shortcut (Export all, Snap, Performance stats, Clear bitmap cache, About) aren't in the action
+  list, so they aren't recorded.
 
 ## Interface events are recorded by the stores that own them (PAR-634)
 
@@ -7676,6 +7680,32 @@ My calls:
   Parity writes no deploy workflow of its own.
 - **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
 
+## The service searches for signed-in people, and installed copies search through it (PAR-131, PAR-948)
+
+Built as [proposals/service.md](proposals/service.md) agreed. My calls where building it showed more:
+
+- **The token check is Better Apps' WorkOS identity** (`@better-apps/identity-workos`, PAR-615), with a WorkOS client
+  that has the client ID and no API key. The API reads bearer tokens only: a request's cookies are never passed on, so
+  the adapter's cookie password is never used.
+- **`@workos-inc/node` is added, at 12,** which the adapter needs for `verifyAccessToken`. Its published range said 11,
+  which lacks it; Better Apps' range is corrected there.
+- **Each source is held to 50 searches a minute by a rate limiting binding,** not by reading `X-RateLimit-Remaining`: a
+  Worker keeps nothing between requests, Mobbin sends no such header, and 50 is under both sources' limits. The binding
+  counts in each Cloudflare location, so a source can still refuse, which is passed on.
+- **How many searches the key has left is never passed on,** since it's the service's to mind, not one person's.
+- **A connector the service has no key for answers 404 with `no-key`,** and a key or plan the source turns down answers
+  503 with `unavailable`, logged for the owner with the source's name and never the search.
+- **The sources' keys are Worker secrets the owner sets by hand** with `wrangler secret put`, which deploys keep. They
+  aren't in Terraform, so no key passes through a workflow.
+- **The KV namespace is made by the first deploy,** from a binding with no ID, so the deploy token gets Workers KV
+  Storage Write.
+- **Main keeps each account's access token in memory** and hands the current one to the service's client. Refreshes are
+  shared between askers, since a refresh token works once and a second use would end the session.
+- **A development copy with no key asks staging's Worker,** and an installed copy production's. Both take the same
+  sign-in, since every build uses WorkOS's Staging client for now.
+- **Signed out, the library browser shows Sign in where its results would be,** with no other text, and searches again
+  once someone's in. Agents are told to carry on without the source, as with `no-key`.
+
 ## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
 
 PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
@@ -8084,28 +8114,54 @@ interface that gives each node's change status, so a consumer can't read the wro
   `data-changed`, which nothing styles. The yellow outline was only for testing, so it stays local; how changes show is
   for Storybook first.
 
-## The service searches for signed-in people, and installed copies search through it (PAR-131, PAR-948)
+## Each command's state is worked out once, for every place that offers it (PAR-971)
 
-Built as [proposals/service.md](proposals/service.md) agreed. My calls where building it showed more:
+`commandStates` in `chrome/command-state.ts` takes a snapshot of the tab (its selection, designs, notes, whether its
+canvas is drawn, its history, what Repeat would run and whether a reference library is connected) and returns, for every
+command in the keymap, whether it can run and what it's called. The keys, the menubar, Search actions, the toolbar, Zoom
+and the canvas and Layers menus all read it through `commandsFor` in `chrome/actions.ts`. This replaces the one rule
+(`layerCommands`, PAR-419), which only covered the layer commands, and the source scan (PAR-639). My calls:
 
-- **The token check is Better Apps' WorkOS identity** (`@better-apps/identity-workos`, PAR-615), with a WorkOS client
-  that has the client ID and no API key. The API reads bearer tokens only: a request's cookies are never passed on, so
-  the adapter's cookie password is never used.
-- **`@workos-inc/node` is added, at 12,** which the adapter needs for `verifyAccessToken`. Its published range said 11,
-  which lacks it; Better Apps' range is corrected there.
-- **Each source is held to 50 searches a minute by a rate limiting binding,** not by reading `X-RateLimit-Remaining`: a
-  Worker keeps nothing between requests, Mobbin sends no such header, and 50 is under both sources' limits. The binding
-  counts in each Cloudflare location, so a source can still refuse, which is passed on.
-- **How many searches the key has left is never passed on,** since it's the service's to mind, not one person's.
-- **A connector the service has no key for answers 404 with `no-key`,** and a key or plan the source turns down answers
-  503 with `unavailable`, logged for the owner with the source's name and never the search.
-- **The sources' keys are Worker secrets the owner sets by hand** with `wrangler secret put`, which deploys keep. They
-  aren't in Terraform, so no key passes through a workflow.
-- **The KV namespace is made by the first deploy,** from a binding with no ID, so the deploy token gets Workers KV
-  Storage Write.
-- **Main keeps each account's access token in memory** and hands the current one to the service's client. Refreshes are
-  shared between askers, since a refresh token works once and a second use would end the session.
-- **A development copy with no key asks staging's Worker,** and an installed copy production's. Both take the same
-  sign-in, since every build uses WorkOS's Staging client for now.
-- **Signed out, the library browser shows Sign in where its results would be,** with no other text, and searches again
-  once someone's in. Agents are told to carry on without the source, as with `no-key`.
+- **One function returns the whole table, data in and data out.** I considered giving each action `available(context)`
+  and `label(context)` beside its `run`. That keeps a rule next to what it runs, but a menu would still call each one in
+  turn, and a table test would have to load the registry, which brings in React and the canvas. The function is tested
+  as rows of a selection, a command, whether it's enabled and its name, with no window.
+- **The name is the keymap's unless what's selected changes it:** Undo and Redo name the step, Repeat names what it
+  repeats, Make component reads Convert to component or Convert to screen, Go to the main component names it, Hide reads
+  Show, and Lock reads Unlock. With nothing they could act on, Hide and Lock keep the keymap's "Hide or show" and "Lock
+  or unlock". Search actions shows the same name and still finds the keymap's, so "hide" finds Show.
+- **A menu keeps its own fixed wording only for a command whose name never changes,** such as Insert…, Export… and Save
+  a copy…. It decides which items to show, such as the layer items only for layers, and nothing about whether they can
+  run.
+- **What the surfaces disagreed on now follows one rule.** Select all and Zoom to fit need something on the canvas, as
+  the canvas menu had it, and for Zoom to fit a placed reference counts too. Find references needs a reference library,
+  as its key had it, so the canvas menu and the toolbar grey it without one. Rename is unavailable for a layer inside an
+  instance, as the Layers menu had it. Export selected needs a layer or design selected, as the menubar had it and as
+  Copy as PNG already did, so Ctrl+Shift+E with nothing selected does nothing rather than saying what to select. Lock
+  needs layers or designs, so a mode column picked on its own greys it rather than offering a Lock that does nothing.
+- **The Layers menu's Rename also asks the row.** Rename in place renames the row that was right-clicked, so it's greyed
+  on a layer inside an instance even when the selection leads with one of the design's own.
+- **Cut and Delete follow PAR-419's rule for layers** (the architecture review's call, 2026-11-12, for you to overrule).
+  They're greyed for only a design's root or layers inside an instance, and Ctrl+X and Del do nothing then, as PAR-419
+  has it for Copy and Duplicate. PAR-419 left them out because the canvas menu didn't have them, without deciding they
+  should stay available. Everything else recorded points this way: an item that can't act now is greyed, layers inside
+  an instance can't be deleted, and PAR-571's Layers menu already greyed Delete on those rows. Keeping them available
+  would have turned that greyed Delete into one that does nothing. Designs, notes and references can still be cut and
+  deleted.
+- **What each command runs is private to `actions.ts`.** The functions moved there from `commands.ts` unexported, so the
+  module gives the rest of the window only `actions` and `commandsFor`, and nothing can run a command around the
+  wrapper. `commands.ts` keeps what other modules share: the active tab, the `selected…` queries, `exportLayers` for the
+  Export section, Export all, Clear bitmap cache and Exit. The registry test checks those are the module's only exports
+  and that a command runs only when its state says it applies, recorded either way. It replaces the source scan. What
+  the commands build on, such as `createDesign`, `togglePanels` or the editor's operations, can still be imported
+  elsewhere; the scan caught that and the registry test doesn't. That's the brief's call: only the commands' own bodies
+  are kept private.
+- **An action runs on the tab it's given.** `run(from, { session })` checks and runs the command for that tab, else the
+  active one. Zoom's buttons and the Tokens panel's Save pass their own tab, rather than binding a command's function
+  through `instead`. `instead` is left for New screen and New component where the canvas was right-clicked, and Rename
+  in place in Layers.
+- **File > Export selected runs Ctrl+Shift+E's command** (PAR-976). It ran `exportImages("selection")`, which wrote the
+  selected design's states and modes at Settings' export scale, while the shortcut, the canvas menu and the Layers menu
+  exported the selection at the Export section's sizes. The menu now does what they do, and only Export all writes every
+  state and mode. Export all, Snap, Performance stats, Clear bitmap cache and About still have no command, so they
+  aren't recorded, as before.

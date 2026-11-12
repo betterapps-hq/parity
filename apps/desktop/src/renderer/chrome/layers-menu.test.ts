@@ -3,6 +3,7 @@ import { designsSelection, layersSelection, type Selection } from "@parity-app/e
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import type { MenuEntry } from "./canvas-menu.ts"
+import { commandStates } from "./command-state.ts"
 import { keymap } from "./keymap.ts"
 import { layersMenu, type LayersRow, rowSelection } from "./layers-menu.ts"
 
@@ -50,9 +51,21 @@ function labelOf(menu: MenuEntry[], action: string): string | undefined {
   return found?.kind === "item" ? found.label : undefined
 }
 
-/** The menu a right-click on `row` opens, with `current` selected before it. */
+/** The menu a right-click on `row` opens, with `current` selected before it, its items' states as the window has them. */
 function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
-  return layersMenu(row, rowSelection(current, row), entries)
+  const selection = rowSelection(current, row)
+
+  const states = commandStates({
+    selection,
+    entries,
+    notes: 0,
+    placedReferences: 0,
+    canvas: true,
+    history: { canUndo: false, canRedo: false },
+    references: true
+  })
+
+  return layersMenu(row, states, selection)
 }
 
 describe("the Layers row menu", () => {
@@ -88,7 +101,7 @@ describe("the Layers row menu", () => {
     expect(outline(menu)).toEqual(["rename", "duplicate", "---", "lock", "---", "exportSelection", "---", "delete"])
   })
 
-  it("can't duplicate, hide or delete the design's root", () => {
+  it("can't duplicate, hide, lock or delete the design's root", () => {
     expect(outline(rightClick({ design, node: "root" }))).toEqual([
       "rename",
       "duplicate (unavailable)",
@@ -114,6 +127,11 @@ describe("the Layers row menu", () => {
       "---",
       "delete (unavailable)"
     ])
+  })
+
+  it("can't rename a layer inside an instance even when the selection leads with one of the design's own", () => {
+    const both = layersSelection(design, ["users/value", "title"])
+    expect(outline(rightClick({ design, node: "users/value" }, both))[0]).toBe("rename (unavailable)")
   })
 
   it("acts on every selected layer when the row is one of them", () => {

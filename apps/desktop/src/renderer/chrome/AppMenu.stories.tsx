@@ -13,6 +13,7 @@ import {
   openProjects,
   preferring
 } from "../stories/fixtures.tsx"
+import { pickingWith } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
@@ -135,6 +136,30 @@ export const FileWithNothingSelected: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("File")
+  }
+}
+
+/**
+ * File > Export selected runs what Ctrl+Shift+E runs (PAR-976): both export the selected design at the Export section's
+ * sizes, so both ask for the folder that export asks for.
+ */
+export const ExportSelectedAsItsShortcutDoes: Story = {
+  loaders: [pricingSelected],
+  play: async () => {
+    const asked: (string | undefined)[] = []
+    pickingWith({
+      pickFolder: (title) => {
+        asked.push(title)
+
+        return Promise.resolve(undefined)
+      }
+    })
+    await frameDesigns("Pricing")
+    await openMenu("File")
+    await userEvent.click(body().getByRole("menuitem", { name: /^Export selected…/ }))
+    await waitFor(() => expect(asked).toEqual(["Export to"]))
+    await userEvent.keyboard("{Control>}{Shift>}E{/Shift}{/Control}")
+    await waitFor(() => expect(asked).toEqual(["Export to", "Export to"]))
   }
 }
 
@@ -283,17 +308,22 @@ function unavailable(labels: readonly string[]): Record<string, boolean | undefi
 }
 
 /**
- * Edit with a layer inside an instance selected: Copy and Duplicate are unavailable, as the canvas menu has them, since
- * they can't act on it. Pasting over it or to replace it stays, and says why it can't.
+ * Edit with a layer inside an instance selected: Cut, Copy, Duplicate and Delete are unavailable, as the canvas and
+ * Layers menus have them, since they can't act on it (PAR-971). Pasting over it or to replace it stays, and says why it
+ * can't.
  */
 export const EditLayerInInstance: Story = {
   loaders: [valueInUsersCard],
   play: async () => {
     await frameDesigns("Dashboard")
     await openMenu("Edit")
-    await expect(unavailable(["Copy", "Duplicate", "Paste over selection", "Paste to replace"])).toEqual({
+    await expect(
+      unavailable(["Cut", "Copy", "Duplicate", "Delete", "Paste over selection", "Paste to replace"])
+    ).toEqual({
+      Cut: true,
       Copy: true,
       Duplicate: true,
+      Delete: true,
       "Paste over selection": false,
       "Paste to replace": false
     })
@@ -447,6 +477,33 @@ export const SearchActions: Story = {
     await frameDesigns("Pricing", "Dashboard")
     openDialog("actions")
     await enter(await body().findByRole("combobox"), "zoom")
+  }
+}
+
+/**
+ * Search actions with a design locked: Lock or unlock is named Unlock, as the menus name it, and searching "lock" finds it
+ * by the keymap's name (PAR-971).
+ */
+export const SearchActionsNamesWhatItDoes: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      example().selection.set({ design: design("Sign in") })
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Sign in")
+    void actions.lock.run("menu")
+    openDialog("actions")
+    await enter(await body().findByRole("combobox"), "lock")
+    const dialog = await body().findByRole("dialog", { name: "Search" })
+    await waitFor(() =>
+      expect(
+        within(dialog)
+          .getAllByRole("option")
+          .map((option) => option.textContent)
+      ).toContain(`Unlock${formatKeys("Ctrl Shift L")}`)
+    )
   }
 }
 
