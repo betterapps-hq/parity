@@ -1707,16 +1707,32 @@ export class AgentWorkspace {
 
   private async problems(reference: string, options: MatrixOptions = {}): Promise<Problem[]> {
     const { container } = this.findDesign(reference)
-    const found: Problem[] = []
+    const frames = await this.renderEach(reference, container, options, "problems")
 
-    for (const state of this.statesFor(container, options.state)) {
-      for (const mode of this.modesFor(container, options.mode)) {
-        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "problems")
-        found.push(...frameProblems(container, state, mode, frame, this.designName))
-      }
-    }
+    return frames.flatMap(({ state, mode, frame }) => frameProblems(container, state, mode, frame, this.designName))
+  }
 
-    return found
+  /**
+   * Renders every state and mode a check asks for, all at once so the offscreen windows draw them side by side rather
+   * than one after another (PAR-816), and gives them back in order: each state, and each mode within it.
+   */
+  private renderEach(
+    reference: string,
+    container: ContainerSpec,
+    options: NonNullable<MatrixOptions>,
+    look: "screenshot" | "accessibility" | "problems",
+    scale = 1
+  ) {
+    const modes = this.modesFor(container, options.mode)
+    const matrix = this.statesFor(container, options.state).flatMap((state) => modes.map((mode) => ({ state, mode })))
+
+    return Promise.all(
+      matrix.map(async ({ state, mode }) => {
+        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, look, scale)
+
+        return { state, mode, frame }
+      })
+    )
   }
 
   private async screenshot(reference: string, options: z.infer<typeof screenshotOptions> = {}): Promise<number> {
@@ -1724,33 +1740,29 @@ export class AgentWorkspace {
     const scale = Math.min(Math.max(options.scale ?? 1, 0.25), 3)
     let count = 0
 
-    for (const state of this.statesFor(container, options.state)) {
-      for (const mode of this.modesFor(container, options.mode)) {
-        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "screenshot", scale)
-
-        if (frame.error) {
-          this.warn(
-            "render_failed",
-            `failed to render: ${frame.error}`,
-            `${container.name} (${state.name}, ${mode.name})`
-          )
-        }
-
-        if (!frame.png) {
-          continue
-        }
-
-        this.screenshots.push({
-          design: container.id,
-          state: state.id,
-          mode: mode.id,
-          width: frame.width,
-          height: frame.height,
-          png: frame.png,
-          nodes: frame.nodes
-        })
-        count++
+    for (const { state, mode, frame } of await this.renderEach(reference, container, options, "screenshot", scale)) {
+      if (frame.error) {
+        this.warn(
+          "render_failed",
+          `failed to render: ${frame.error}`,
+          `${container.name} (${state.name}, ${mode.name})`
+        )
       }
+
+      if (!frame.png) {
+        continue
+      }
+
+      this.screenshots.push({
+        design: container.id,
+        state: state.id,
+        mode: mode.id,
+        width: frame.width,
+        height: frame.height,
+        png: frame.png,
+        nodes: frame.nodes
+      })
+      count++
     }
 
     return count
@@ -1772,29 +1784,25 @@ export class AgentWorkspace {
     // Each contrast failure on a layer of this design, with what its frame measured.
     const inFrame = new Map<AccessibilityFinding, FrameContrast>()
 
-    for (const state of this.statesFor(container, options.state)) {
-      for (const mode of this.modesFor(container, options.mode)) {
-        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "accessibility")
+    for (const { state, mode, frame } of await this.renderEach(reference, container, options, "accessibility")) {
+      if (frame.error) {
+        this.warn(
+          "render_failed",
+          `failed to render: ${frame.error}`,
+          `${container.name} (${state.name}, ${mode.name})`
+        )
+        continue
+      }
 
-        if (frame.error) {
-          this.warn(
-            "render_failed",
-            `failed to render: ${frame.error}`,
-            `${container.name} (${state.name}, ${mode.name})`
-          )
-          continue
-        }
+      if (frame.contrast) {
+        contrast.push(frame.contrast)
+      }
 
-        if (frame.contrast) {
-          contrast.push(frame.contrast)
-        }
+      const read = accessibilityFindings(names, state, mode, frame)
+      found.push(...read.found)
 
-        const read = accessibilityFindings(names, state, mode, frame)
-        found.push(...read.found)
-
-        for (const [finding, measured] of read.contrast) {
-          inFrame.set(finding, measured)
-        }
+      for (const [finding, measured] of read.contrast) {
+        inFrame.set(finding, measured)
       }
     }
 

@@ -499,6 +499,8 @@ function createWindow(): void {
   watchWindowGone(window, "renderer")
   appLife.mark("windowShown")
   window.once("ready-to-show", () => appLife.mark("firstPaint"))
+  // A window minimized before it paints isn't painted until it's restored (PAR-831).
+  window.once("minimize", () => appLife.interrupted())
   // A key pressed in the window is the person's, so what follows is tagged as theirs, not an agent's (PAR-630).
   window.webContents.on("before-input-event", () => personActed())
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
