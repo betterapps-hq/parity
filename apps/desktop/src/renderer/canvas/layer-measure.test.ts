@@ -52,6 +52,7 @@ function calendar(scale: number): FrameGeometry {
     return {
       ...own,
       box: own.borderBox,
+      hasElement: true,
       parentContentBox: day.contentBox,
       offsetBox: day.paddingBox,
       insets: insetsWithin(own.borderBox, day.paddingBox, day.scale)
@@ -59,7 +60,17 @@ function calendar(scale: number): FrameGeometry {
   }
 
   const nodes = new Map<string, NodeGeometry>([
-    ["day", { ...day, box: day.borderBox, parentContentBox: undefined, offsetBox: undefined, insets: undefined }],
+    [
+      "day",
+      {
+        ...day,
+        box: day.borderBox,
+        hasElement: true,
+        parentContentBox: undefined,
+        offsetBox: undefined,
+        insets: undefined
+      }
+    ],
     ["review", placed({ x: 20, y: 364, w: 200, h: 64 })],
     ["lunch", placed({ x: 20, y: 460, w: 200, h: 48 })],
     // Hidden in this state: an empty box at the frame's corner.

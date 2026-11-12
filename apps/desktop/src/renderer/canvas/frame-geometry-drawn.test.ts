@@ -247,6 +247,33 @@ describe("a frame's geometry as the camera moves", () => {
     expect(drawn.review.insets!.right).toBeCloseTo(265, 1)
   })
 
+  it("counts insets from a containing block outside the frame in the frame's pixels", async () => {
+    // As ModeView draws a companion mode: a positioned outline at the shrunk size, the host inside it scaled by `zoom`.
+    // A layer placed absolutely in an element that isn't positioned has that outline as its containing block, which
+    // the frame doesn't scale, so its own scale is the camera's alone. The insets are still the design's.
+    await draw({ zoom: 2, own: 1 })
+
+    const insets = await page.evaluate(() => {
+      const outline = document.createElement("div")
+      outline.style.cssText = "position: absolute; top: 1000px; left: 0; width: 416px; height: 300px"
+      const host = document.createElement("div")
+      host.style.cssText = "width: 832px; height: 600px; zoom: 0.5"
+      outline.append(host)
+      document.querySelector("#camera")!.append(outline)
+      host.attachShadow({ mode: "open" }).innerHTML = `<div data-canvas-node="root" style="height: 600px">
+        <div data-canvas-node="slot"><span data-canvas-node="placed" style="position: absolute; left: 10px;
+          top: 40px; width: 20px; height: 20px"></span></div></div>`
+      // @ts-expect-error The bundle's global.
+      const { insets } = geometry.frameGeometry(host).node("placed")
+      outline.remove()
+
+      return insets
+    })
+
+    // With the camera at 2, the outline is drawn at 2 and the frame at 1: read at the outline's scale, left was 5.
+    expect(insets).toEqual(near({ left: 10, top: 40, right: 802, bottom: 540 }))
+  })
+
   it("has a scale of 1 standing in for a frame that isn't drawn", async () => {
     const scale = await page.evaluate(() => {
       const host = document.querySelector<HTMLElement>("#host")!

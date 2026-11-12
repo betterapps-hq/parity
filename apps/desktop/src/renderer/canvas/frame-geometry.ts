@@ -61,11 +61,16 @@ export interface ElementGeometry {
 export interface NodeGeometry extends ElementGeometry {
   /** Around everything it draws at its top level, on screen: what outlines and sizes show. */
   readonly box: Rect
+  /** Whether it draws an element. One that draws only text has a box, and nothing to resize. */
+  readonly hasElement: boolean
   /** The content box of the element it's laid out in, on screen. */
   readonly parentContentBox: Rect | undefined
   /** The box its insets count from, on screen: inside the border of its containing block. */
   readonly offsetBox: Rect | undefined
-  /** From that box's sides to its own, in that box's pixels, which are the frame's unless the design transforms it. */
+  /**
+   * From that box's sides to its own, in that box's pixels: the frame's, or the box's own where the design transforms
+   * it. A containing block outside the frame is counted in the frame's pixels, which the layer's insets are written in.
+   */
   readonly insets: Sides | undefined
 }
 
@@ -247,6 +252,7 @@ class DrawnFrame implements FrameGeometry {
   }
 
   node(id: string): NodeGeometry | undefined {
+    // Its box says whether it's drawn at all, so it's read here rather than when it's asked for.
     const box = nodeBox(this.host, id)
 
     return box && new DrawnNode(this, findNodeElement(this.host, id), box)
@@ -257,10 +263,19 @@ class DrawnFrame implements FrameGeometry {
   }
 }
 
+/** An element's box on screen, its computed style and its scale, each read once for an answer. */
+interface Read {
+  rect: Rect
+  style: CSSStyleDeclaration
+  scale: number
+}
+
 class DrawnElement implements ElementGeometry {
   constructor(
     protected readonly frame: FrameGeometry,
-    protected readonly drawn: Element | undefined
+    protected readonly drawn: Element | undefined,
+    /** The scale to measure it at, for an element outside the frame, which the frame doesn't scale. */
+    private readonly at?: number
   ) {}
 
   get borderBox(): Rect {
@@ -268,10 +283,7 @@ class DrawnElement implements ElementGeometry {
   }
 
   get scale(): number {
-    const { drawn } = this
-    const own = drawn && scaleOf(drawn.getBoundingClientRect(), laidOut(drawn, getComputedStyle(drawn)))
-
-    return own ?? this.frame.scale
+    return this.read()?.scale ?? this.at ?? this.frame.scale
   }
 
   get border(): Sides {
@@ -283,13 +295,35 @@ class DrawnElement implements ElementGeometry {
   }
 
   get paddingBox(): Rect {
-    return insideOf(this.borderBox, this.border, this.scale)
+    const read = this.read()
+
+    return read ? insideOf(read.rect, sidesOf(read.style, "border", "-width"), read.scale) : this.borderBox
   }
 
   get contentBox(): Rect {
-    const { scale } = this
+    const read = this.read()
 
-    return insideOf(insideOf(this.borderBox, this.border, scale), this.padding, scale)
+    if (!read) {
+      return this.borderBox
+    }
+
+    const inside = insideOf(read.rect, sidesOf(read.style, "border", "-width"), read.scale)
+
+    return insideOf(inside, sidesOf(read.style, "padding"), read.scale)
+  }
+
+  /** Its box, style and scale, from one read of each. */
+  private read(): Read | undefined {
+    const { drawn } = this
+
+    if (!drawn) {
+      return undefined
+    }
+
+    const rect = drawn.getBoundingClientRect()
+    const style = getComputedStyle(drawn)
+
+    return { rect, style, scale: this.at ?? scaleOf(rect, laidOut(drawn, style)) ?? this.frame.scale }
   }
 }
 
@@ -303,8 +337,20 @@ class DrawnNode extends DrawnElement implements NodeGeometry {
     super(frame, element)
   }
 
+  get hasElement(): boolean {
+    return this.drawn !== undefined
+  }
+
   override get borderBox(): Rect {
     return this.drawn?.getBoundingClientRect() ?? this.box
+  }
+
+  override get paddingBox(): Rect {
+    return this.drawn ? super.paddingBox : this.box
+  }
+
+  override get contentBox(): Rect {
+    return this.drawn ? super.contentBox : this.box
   }
 
   get parentContentBox(): Rect | undefined {
@@ -323,10 +369,22 @@ class DrawnNode extends DrawnElement implements NodeGeometry {
     return around && insetsWithin(this.borderBox, around.paddingBox, around.scale)
   }
 
-  /** Its containing block, which `offsetParent` gives: a transformed or contained ancestor as well as a positioned one. */
+  /**
+   * Its containing block, which `offsetParent` gives: a transformed or contained ancestor as well as a positioned one.
+   * One outside the frame's shadow tree, as the frame's own outline is for a layer with no positioned ancestor in the
+   * design, isn't scaled by the frame, so it's measured at the frame's scale: the layer's insets are written in the
+   * frame's pixels.
+   */
   private offsetParent(): ElementGeometry | undefined {
-    const around = this.drawn instanceof HTMLElement ? this.drawn.offsetParent : undefined
+    const { drawn } = this
+    const around = drawn instanceof HTMLElement ? drawn.offsetParent : undefined
 
-    return around instanceof HTMLElement ? this.frame.element(around) : undefined
+    if (!drawn || !(around instanceof HTMLElement)) {
+      return undefined
+    }
+
+    return around.getRootNode() === drawn.getRootNode()
+      ? this.frame.element(around)
+      : new DrawnElement(this.frame, around, this.frame.scale)
   }
 }

@@ -356,11 +356,12 @@ checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the can
 ### One reading of a frame for every gesture (PAR-967)
 
 Whatever the canvas measures in a frame comes from one place: the outlines' sizes, resizing, dragging and nudging a
-layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here and the panel's sizes. How
-many screen pixels make one of the design's had been worked out three ways in thirteen places: the camera's zoom times
-the frame's own scale, an element's drawn width over its offset width, and the frame's drawn width over the width it was
-given. Nothing checked they agreed, and dragging an absolutely placed layer took its scale from the camera and its
-insets from the page, which agree only once tldraw has drawn the camera's latest move.
+layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes and the
+corners of an agent's scan. Frame skeletons still work theirs out (PAR-996). How many screen pixels make one of the
+design's had been worked out three ways in thirteen places: the camera's zoom times the frame's own scale, an element's
+drawn width over its offset width, and the frame's drawn width over the width it was given. Nothing checked they agreed,
+and dragging an absolutely placed layer took its scale from the camera and its insets from the page, which agree only
+once tldraw has drawn the camera's latest move.
 
 - **The scale is read from where the frame is drawn,** its width on screen over its width as laid out, so it always
   agrees with the boxes beside it, whatever the camera, a companion mode's smaller frame or anything else multiplies
@@ -369,7 +370,9 @@ insets from the page, which agree only once tldraw has drawn the camera's latest
   transform, so the text editor sizes its font, and padding handles their bars, from that. A layer turned on its side
   has no one scale, and the frame's stands in.
 - **Insets are counted in the containing block's pixels,** so a badge in a component drawn a quarter bigger still gives
-  the insets its style writes.
+  the insets its style writes. A layer with no positioned element around it in the design counts from the frame's own
+  outline, outside the frame, which is measured at the frame's scale, so its insets are still the design's in a
+  companion mode's smaller frame.
 - **Nothing is read until it's asked for, and nothing is kept.** A gesture reads the frame when it begins, and the
   overlay reads only what it draws, so nothing is cached in the page's units to go stale while the camera moves
   (PAR-653).
@@ -378,22 +381,25 @@ insets from the page, which agree only once tldraw has drawn the camera's latest
   so an absolutely placed layer moves from where it's seen.
 
 Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` reads a frame's host (its `scale`, `rect`,
-`node` and `element`), and a node's `box`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`, `parentContentBox`,
-`offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the frame's, and
-`areaSpace` takes screen pixels to the overlay's. `canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s
-rules take: `insetSteps`, `resizeBoxes`, `snapScene` and `spacingMeasure`. The host's `data-scale` attribute and
-`frameScale` in `hit.ts` are gone. The calls are in decisions.md, One reading of a frame for every gesture.
+`node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
+`parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
+frame's, and `areaSpace` takes screen pixels to the overlay's. `canvas/layer-measure.ts` turns that into what
+`@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`, `snapScene` and `spacingMeasure`. The host's
+`data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are in decisions.md, One reading of a frame for
+every gesture.
 
 Tests:
 
-- `canvas/frame-geometry-drawn.test.ts` (123), in Chrome: a frame inside a layer the camera scales and pans, as tldraw's
+- `canvas/frame-geometry-drawn.test.ts` (124), in Chrome: a frame inside a layer the camera scales and pans, as tldraw's
   is, at zooms from 5% to 260%, by itself and at half its own size. At each, the frame's scale is the zoom times its
   own, its box is 832 of its pixels wide and counted from the area's corner on the overlay, a layer's box, size, border,
   padding and the boxes inside them come out in the design's pixels, an absolutely placed layer's insets are what its
   style says, a layer drawn a quarter bigger has that scale and a badge in it its insets in the layer's pixels, a layer
   on its side takes the frame's scale, text in a line reads its own, and a layer the frame doesn't draw has nothing. A
-  frame read again after the camera moves gives the new scale and boxes; a frame that isn't drawn has a scale of 1; and
-  a frame at two fifths, whose borders Chrome rounds, gives insets from where they're drawn.
+  frame read again after the camera moves gives the new scale and boxes; a frame that isn't drawn has a scale of 1; a
+  frame at two fifths, whose borders Chrome rounds, gives insets from where they're drawn; and a layer whose containing
+  block is the outline around a half-size frame gives the design's insets, where reading that outline at its own scale
+  gave half of them.
 - `canvas/frame-geometry.test.ts` (15), from numbers: the scale from two sizes, by the longer side, at any zoom times a
   frame's scale, and none for a box that isn't drawn, is turned or stretched; a box inside its sides, never inside out;
   insets between two boxes at any scale; between screen pixels and the frame's; and the overlay's pixels.

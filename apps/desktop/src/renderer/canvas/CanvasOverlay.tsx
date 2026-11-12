@@ -1156,9 +1156,9 @@ function startResize(
   const layer = handles.node
   const frame = store.editFrame(handles)
   // A layer that draws only text has a box and no element, and isn't resized.
-  const measured = layer && findNodeElement(host, layer) ? drawn.node(layer) : undefined
+  const measured = layer ? drawn.node(layer) : undefined
 
-  if (!layer || !measured || !frame) {
+  if (!layer || !measured?.hasElement || !frame) {
     return
   }
 
@@ -1242,9 +1242,9 @@ function resizeLayers(
 
   const starts = layers.flatMap((id) => {
     const shown = resizeStart(entry.container, id, { state: frame.state, viewport: frame.viewport })
-    const measured = shown && findNodeElement(host, id) ? drawn.node(id) : undefined
+    const measured = shown && drawn.node(id)
 
-    if (!shown || !measured) {
+    if (!shown || !measured?.hasElement) {
       return []
     }
 

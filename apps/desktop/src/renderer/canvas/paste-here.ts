@@ -18,7 +18,7 @@ import {
 import { findNodeElement, flowingBoxes, nodeBox } from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { type FrameGeometry, frameGeometry } from "./frame-geometry.ts"
+import { type ElementGeometry, type FrameGeometry, frameGeometry, insideOf } from "./frame-geometry.ts"
 import { type Hit, hitTest, inside, pickedIn } from "./hit.ts"
 
 /**
@@ -172,7 +172,7 @@ function measureLayout(
     layout: layout.id,
     children: drawnChildren(hit, layout.children),
     flow: flowOf(getComputedStyle(element)),
-    origin: corner(frame.element(element).paddingBox),
+    origin: insideBorder(frame.element(element), scale),
     scale,
     unit
   }
@@ -234,7 +234,7 @@ function measureSlot(
     slot: under.slot,
     children: drawnChildren(hit, under.nodes),
     flow: flowOf(getComputedStyle(under.element), flowingBoxes(under.element)),
-    origin: corner(frame.element(under.around).paddingBox),
+    origin: insideBorder(frame.element(under.around), scale),
     scale,
     unit
   }
@@ -261,7 +261,12 @@ function drawnChildren(hit: Hit, nodes: readonly DesignNode[]): HereLayout["chil
   })
 }
 
-/** The corner of the inside of an element's border, on screen, where the insets of what it contains count from. */
-function corner(paddingBox: Rect): Point {
-  return { x: paddingBox.left, y: paddingBox.top }
+/**
+ * The corner inside an element's border, on screen, where the insets of what it contains count from, at the scale the
+ * pointer's distance from it is divided by, so the two agree.
+ */
+function insideBorder(element: ElementGeometry, scale: number): Point {
+  const { left, top } = insideOf(element.borderBox, element.border, scale)
+
+  return { x: left, y: top }
 }
