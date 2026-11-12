@@ -92,6 +92,7 @@ async function run(tab: string, code: string, api: AgentApi): Promise<void> {
   Object.assign(context, api, { console: { log: api.Print, warn: api.Print, error: api.Print } })
   // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote.
   const script = new Script(`(async () => {\n${code}\n})()`, { filename: "snippet.js", lineOffset: -1 })
+  // The timeout bounds only what runs before the snippet's first `await`; what runs after isn't stopped (PAR-1037).
   // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
   await (script.runInContext(context, { timeout: 5000 }) as Promise<void>)
 }

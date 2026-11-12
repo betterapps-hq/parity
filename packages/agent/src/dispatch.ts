@@ -80,7 +80,7 @@ export interface AgentHost {
   console(snapshot: TabSnapshot, clear: boolean): Promise<ConsoleEntry[]>
   /**
    * Keeps a call's screenshots or sheets as PNG files, and says where each went, in order. A name says what the picture
-   * is, for its file's name.
+   * is, for its file's name, and is already safe as one (see `fileName`).
    */
   saveScreenshots(pictures: { name: string; png: string }[]): Promise<string[]>
   /** Puts a contact sheet together: its overlay, with each frame's picture over it, as a base64 PNG (PAR-895). */
@@ -783,7 +783,7 @@ async function execIn(
   const paths =
     screenshots.length > 0
       ? await host.saveScreenshots(
-          screenshots.map((shot) => ({ name: `${shot.design}-${shot.state}-${shot.mode}`, png: shot.png }))
+          screenshots.map((shot) => ({ name: fileName(`${shot.design}-${shot.state}-${shot.mode}`), png: shot.png }))
         )
       : []
 
@@ -877,7 +877,7 @@ async function contactSheets(
 
   const paths =
     sheets.length > 0
-      ? await host.saveScreenshots(sheets.map(({ design, png }) => ({ name: `${design}-sheet`, png })))
+      ? await host.saveScreenshots(sheets.map(({ design, png }) => ({ name: fileName(`${design}-sheet`), png })))
       : []
 
   return sheets.map(({ design, png, layout }, index) => ({
