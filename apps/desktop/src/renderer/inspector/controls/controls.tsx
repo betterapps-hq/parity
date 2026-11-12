@@ -71,7 +71,7 @@ import { isBareNumber, readLength } from "./typing.ts"
 import { oneEverySide, type StrokePosition } from "./writes.ts"
 
 /*
- * The styling controls for PAR-186, each tried on its own in its story (Parity/Inspector/Controls),
+ * The styling controls for PAR-186, each tried on its own in its story (Parity/Inspector/Rows, Fields and Lists),
  * as PAR-652's design options pages specify them. A section here is one control with its rows; LayerPreview is the
  * canvas's stand-in, which measures what Hug and Fill come to.
  */

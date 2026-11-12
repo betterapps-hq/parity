@@ -18,7 +18,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * duration, so its class runs long and it offers Create token first, in its token list and in the note under it.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Unique/Easing and spring",
+  title: "Parity/Inspector/Fields/Easing and spring",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

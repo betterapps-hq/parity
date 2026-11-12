@@ -19,7 +19,7 @@ import { layoutWrites } from "./writes.ts"
  * More holds Fill gaps.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Grid tracks",
+  title: "Parity/Inspector/Rows/Grid tracks",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
