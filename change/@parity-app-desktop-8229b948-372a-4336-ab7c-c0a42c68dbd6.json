@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out (PAR-904)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
