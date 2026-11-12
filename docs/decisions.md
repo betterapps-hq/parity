@@ -68,6 +68,33 @@
   - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
     written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
 
+- **The Tailwind printer takes two values for the same when Tailwind spells both as one class (PAR-1001).** In the
+  running app on 2026-11-11 a layer drew with `m-[0]`, `font-[500]` and `gap-[calc(var(--spacing)_*_1)]`, where a person
+  writes `m-0`, `font-medium` and `gap-1`.
+  - **`canonicalizeCandidates` was already asked, and already gave the right class.** The printer then dropped it,
+    because it read the class back and compared the value as text: `m-0` compiles to `0px`, not `0`; `gap-1` to
+    `var(--spacing)`, not `calc(var(--spacing) * 1)` (every other step keeps the `calc`, which is why `gap-6` came out
+    right); `font-medium` to `var(--font-weight-medium)`, not `500`.
+  - **Where the text differs, Tailwind decides.** The value a class reads back as and the value it's written for are
+    each put to `canonicalizeCandidates` as an arbitrary property, and they're the same value when both come back as one
+    class. The printer still has no table and does no arithmetic of its own. A class is still written only when it reads
+    back as one declaration of the same property in the same place.
+  - **It asks both ways, which is stricter than taking Tailwind's spelling.** Tailwind works a value out from its theme,
+    and a project can set a theme variable somewhere Tailwind doesn't look. The example sets `--radius` to 0.625rem in
+    `:root` while Tailwind's theme has 0.25rem, so Tailwind spells `border-radius: 0.25rem` as `rounded-lg`, which draws
+    0.625rem here. `rounded-lg` reads back as `var(--radius)`, which Tailwind doesn't spell as `rounded-lg`, so the
+    printer writes `rounded-[0.25rem]`. For the same reason `var(--radius-md)` stays `rounded-(--radius-md)`, where
+    Tailwind's tools say `rounded-md`.
+  - **A value written as a number can now come out as the token that holds it:** `font-weight: 500` as `font-medium`,
+    `gap: 1rem` as `gap-4`, `color: #fff` as `text-white`, `line-height: 1.5` as `leading-normal`. That's what you asked
+    for, and what Tailwind's own lint suggests. It draws the same unless the project sets that theme variable
+    (`--font-weight-medium`, `--spacing`) outside its theme, as the example does with `--radius`. A variable that's read
+    straight through, as these four are, is one the printer can't catch that for. This is yours to overrule: the
+    stricter rule would keep a number as a number and only take `0` for `0px` and `calc(x * 1)` for `x`.
+  - **`font-size: var(--text-sm)` stays `text-(length:--text-sm)`.** `text-sm` also sets a line height, so it isn't that
+    declaration. Tailwind's own tools give the same spelling. Pixel lengths keep their brackets too (`gap-[4px]`):
+    Tailwind only converts them to its scale when told the root font size, which the printer doesn't assume.
+
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
   draw the classes it writes. `@parity-app/styles-tailwind` has no table of utilities:
@@ -7995,3 +8022,43 @@ any. My calls:
   would have left the file and the editor disagreeing with what the agent may do.
 - **Turning a component into a screen keeps its base state's look** and drops the rest, named in a notice with Undo, as
   turning a design into a frame already does with what a frame can't have.
+
+## The portal's pages are at `tryparity.dev`, blank for now (PAR-1003)
+
+- **`tryparity.dev` serves a blank page from the service's Worker** (your call, 2026-11-12), so the portal's screens
+  have a host before they're built. The page is an empty document titled Parity.
+- **Both hosts reach every route for now** (my call). `tryparity.dev` and `api.tryparity.dev` are two custom domains on
+  one Worker, so the API answers on either. Keeping each host to its own routes waits until there's a page worth keeping
+  apart.
+- **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
+  for an environment.
+
+## One object per open project (PAR-970)
+
+Any change to an open project replaced its `ProjectSession` with a copy (a reconnect, a guest moving, new sources, a
+code change, the canvas mounting), while the media cache and the start page picture keyed on that object, and panel
+state sat in window singletons keyed five ways that nothing cleared when a tab closed. Agreed with Andrew on 2026-11-12,
+and split into PAR-1004 to PAR-1007:
+
+- **`ProjectSession` becomes a class with one instance per open project,** from its tab becoming ready to it closing.
+  The name stays, since renaming it touches every file that takes one for nothing.
+- **What never changes is plain fields:** `id`, `store`, `selection`, `components`, `recovery` and `errors`. What can
+  change is read through getters and changed through `session.update(...)`, which tells the session's listeners: `info`,
+  `loaded` (the guest), `tokens`, `added`, `versions` and `editor`. The workspace updates the session where it used to
+  copy it. `firstFrame` stays a plain field, set as the tab opens and cleared once the canvas draws, since nothing draws
+  from it.
+- **Components get the same object from the context, and `useProject()` subscribes to it,** so they draw again when a
+  changing part changes, as they did when the context's value was a new copy. An effect keyed on the session no longer
+  runs again on each change; one that needs a changing part depends on that part.
+- **Per-project state hangs off the session with `projectPart(make)`,** made the first time it's asked for and disposed
+  of when the session goes: media files, accessibility checks, the console's filter, component previews, the prop being
+  added and slot focus. Previews go when their tab closes rather than with the window, and each tab has its own console
+  filter. The start page picture is the session's too, from opening to closing, not a React effect's.
+- **Reopening a project makes a new session** and disposes of the old one as closing would, since it reads the designs
+  again into a new store.
+- **Functions take the part of the project they use,** a `DesignStore`, a `ProjectInfo` or a
+  `Pick<ProjectSession, "store" | "selection">`, so tests build that part without a cast. Opening, closing and the
+  workspace still take the whole session.
+- **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
+  would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
+  reopened project, which keeps its root, would pick up the last one's state.
