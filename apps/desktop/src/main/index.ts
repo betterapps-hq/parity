@@ -28,9 +28,11 @@ import {
   ipcMain,
   Menu,
   MessageChannelMain,
+  type NativeImage,
   nativeTheme,
   net,
   protocol,
+  type Rectangle,
   safeStorage,
   screen,
   shell,
@@ -71,6 +73,7 @@ import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } fr
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { retryingCapture } from "./capture-retry.ts"
 import { cliTarget, installCli, refreshCli } from "./cli-command.ts"
 import { copiedFiles, rawFormat } from "./clipboard-files.ts"
 import { openInEditor } from "./code-editor.ts"
@@ -1322,6 +1325,20 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
 }
 
 /**
+ * The part of an offscreen window in `box`, taken again once the window has painted when Chromium had no frame to copy
+ * (PAR-880).
+ */
+function captureWindow(window: BrowserWindow, box: Rectangle): Promise<NativeImage> {
+  return retryingCapture(
+    () => window.webContents.capturePage(box),
+    async () => {
+      window.webContents.invalidate()
+      await callPage(window, "window.canvasSettle()", () => undefined)
+    }
+  )
+}
+
+/**
  * Calls into the render page and parses what it gave with `read`, throwing what the page threw as a `PageError` with
  * its own message and stack.
  */
@@ -1351,7 +1368,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
       return { frame }
     }
 
-    const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
+    const image = await captureWindow(window, { x: 0, y: 0, width, height })
 
     // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
     // (PAR-525).
@@ -1386,7 +1403,7 @@ async function renderPreview(
       return { frame: drawn }
     }
 
-    const image = await window.webContents.capturePage(deviceBox(box, job.scale))
+    const image = await captureWindow(window, deviceBox(box, job.scale))
     const { width, height } = image.getSize()
 
     if (drawsNothing(image.toBitmap())) {
