@@ -189,7 +189,7 @@ queue's wiring stay in the main process; the views stay in the app.
 
 ## Calls made here
 
-Recorded in [decisions.md](../decisions.md) under Previews: tokens drawn not rendered; preview kinds and the sections
-they give; motion only while looked at; component pictures as bitmaps of what inserting places, on disk by content;
-stale pictures shown dimmed; the Components tab's three views with List as the default; the hover card and the picker's
-card; and PAR-178's preview clause moving to PAR-208.
+Decided: tokens drawn not rendered; preview kinds and the sections they give; motion only while looked at; component
+pictures as bitmaps of what inserting places, on disk by content; stale pictures shown dimmed; the Components tab's
+three views with List as the default; the hover card and the picker's card; and PAR-178's preview clause moving to
+PAR-208.

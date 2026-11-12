@@ -7,8 +7,8 @@ project in that installed app and checks that the canvas and project service con
 What Parity's canvas editor does, how each part of it works, and the tests that keep it working. You asked on 2026-10-29
 for every piece of editor work to land with tests and a description here, so nothing gets lost or quietly breaks.
 Shortcuts are listed once, in the keymap ([chrome/keymap.ts](../apps/desktop/src/renderer/chrome/keymap.ts)) and the
-Keyboard shortcuts dialog; this page says what they do. What's decided and why is in [decisions.md](decisions.md).
-Features built before 2026-10-29 are being added under PAR-392 in Linear.
+Keyboard shortcuts dialog; this page says what they do. Features built before 2026-10-29 are being added under PAR-392
+in Linear.
 
 ## How to keep it
 
@@ -287,7 +287,7 @@ as the rest of the canvas. Now it rests while nothing moves, and still follows e
 Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/desktop/src/renderer/frame.ts`, registered by
 `ModeView.tsx`. When to measure is `packages/editor/src/overlay-measuring.ts` (`overlayDesigns`, `drawsOver`,
 `settleUntil`, `measuresNext`), and what wakes it is the measuring effect in `canvas/CanvasOverlay.tsx`, with its
-`animates`. The calls are in decisions.md, The selection overlay measures when what it shows can change.
+`animates`.
 
 Tests:
 
@@ -339,8 +339,7 @@ second before.
 Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
 ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`, and the inspector's `tick` in
 `canvas/InspectOverlay.tsx`. `pnpm perf`'s `zoom at 100%`, `zoom hovering a layer` and `zoom with a layer selected` runs
-(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named. The calls are in
-decisions.md, The selection overlay follows the camera in the frame it moves.
+(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named.
 
 Tests:
 
@@ -387,8 +386,7 @@ frame's, and `areaSpace` takes screen pixels to the overlay's. `measureFrame` in
 skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/InspectOverlay.tsx` and `canvas/TabOrderOverlay.tsx`
 place their marks with `areaSpace`; the inspector reads the area's box only once it has a mark to place (PAR-653).
 `canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`,
-`snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are
-in decisions.md, One reading of a frame for every gesture.
+`snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are gone.
 
 Tests:
 
@@ -681,7 +679,7 @@ Code: which rows show, search, and what opens and closes as the selection moves 
 `siblingIds` and `toggleRows` for Alt+click and `*`). Reordering a design is `reorderDesign` in
 `packages/editor/src/design-changes.ts`, applied by `DesignStore.reorderContainer`. The panel is
 `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the board's outline for a hovered row is in
-`canvas/CanvasEditor.tsx`. The calls are in decisions.md, The Layers panel draws only the rows in view.
+`canvas/CanvasEditor.tsx`.
 
 Tests:
 
@@ -725,7 +723,7 @@ and a layer selected inside one, by Ctrl-click on the canvas, had no row to high
 Code: `layersInside`, used by `treeRows`, `searchRows` and `branchIds`, and `revealIds`, in
 `packages/editor/src/layers-tree.ts`. Each row has the layer's `path` (`card/title`, as the selection names it) and the
 components it's inside (`within`). The rows are in `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the menu's
-Rename in `chrome/layers-menu.ts`. The calls are in decisions.md, Main components and instances.
+Rename in `chrome/layers-menu.ts`.
 
 Tests:
 
@@ -1062,8 +1060,8 @@ Dragging layers and designs, where they land, resize handles and duplicates.
 
 ### Where a dragged layer lands (CAN-47)
 
-Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy, as
-decisions.md describes. Where it lands follows the pointer:
+Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy.
+Where it lands follows the pointer:
 
 - **The slot under the pointer.** In a grid or a wrapping row, the line of children the pointer is on comes first (the
   row it's over, or the nearer one in the gap between rows), then, along that line, the layer goes before the first
@@ -1299,7 +1297,7 @@ button as it was.
 
 A selected layout's padding and gaps are handles, as in Figma: a short bar in the middle of each side's padding and of
 each gap between its children, which hatches the space it changes while it's in use. Resize handles also take several
-layers at once, resize from the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
+layers at once, resize from the middle with Alt, and hug or fill on a double-click.
 
 - **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
   target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
@@ -1543,10 +1541,10 @@ too.
 
 ### Snapping a dragged design (PAR-33)
 
-A design dragged on the canvas locks to the designs and notes around it, as decisions.md describes: along each axis, the
-nearest of its left, centre and right (or top, middle and bottom) to any of theirs, within 8 screen pixels at the
-current zoom. Of lines just as near, the first design's wins. A line shows where it locks, spanning both. Ctrl (Cmd on a
-Mac) moves freely, and so does turning snapping off under View; designs dragged together don't snap to each other.
+A design dragged on the canvas locks to the designs and notes around it: along each axis, the nearest of its left,
+centre and right (or top, middle and bottom) to any of theirs, within 8 screen pixels at the current zoom. Of lines just
+as near, the first design's wins. A line shows where it locks, spanning both. Ctrl (Cmd on a Mac) moves freely, and so
+does turning snapping off under View; designs dragged together don't snap to each other.
 
 Code: `snapBox` in `packages/editor/src/snap.ts` takes the boxes and the zoom and returns where the design goes and the
 guides to draw, and `snaps` says whether a drag snaps, from the preference and Ctrl, for designs and layers alike;
@@ -2778,8 +2776,8 @@ Tests:
 ### The video layer (PAR-841)
 
 A video is a layer of its own, beside the image layer: `video` in the design file, with `src`, `alt`, `fit`, `controls`
-and `credit` (decisions.md). It's written to the frame as a `<video>`, with its path resolved against the project's
-builder, as an image's is.
+and `credit`. It's written to the frame as a `<video>`, with its path resolved against the project's builder, as an
+image's is.
 
 - **How it plays:** by itself, without sound, round and round, in its place rather than full screen on a phone
   (`autoplay muted loop playsinline`), as a video behind a page's heading does. A browser plays a video by itself only
@@ -2819,8 +2817,8 @@ test drops or plays a video yet.
 
 ### Importing and finding video files (PAR-841)
 
-MP4 and WebM files import as images do, into `public/videos/` beside `public/images/` (decisions.md), named after the
-file with a short hash of its content, so the same file twice reuses one.
+MP4 and WebM files import as images do, into `public/videos/` beside `public/images/`, named after the file with a short
+hash of its content, so the same file twice reuses one.
 
 - **Dropping** them on the canvas, from Explorer or Finder, lands them as dropped images land (above), up to 100 MB
   each; images stay at 20 MB. The label while dragging counts them as videos ("Add the video here", "New frame with 3
@@ -2870,10 +2868,10 @@ saved: a tile shows the video's own first picture.
 ### Screens from real apps beside a design (PAR-840)
 
 A reference is a screen from a real app, placed on the canvas beside a design to look at, never in it. It's kept in the
-project's `.par` file, in its `references` list beside its notes (decisions.md), with what the search gave: the
-connector and the source's id, the app, its platform, its link, its picture with its size and when its link stops
-working, where it sits, the description that found it, a note, and the agent that placed it. It isn't a design: it has
-no board, states, modes or layers, it isn't in Layers, and code and exports leave it out.
+project's `.par` file, in its `references` list beside its notes, with what the search gave: the connector and the
+source's id, the app, its platform, its link, its picture with its size and when its link stops working, where it sits,
+the description that found it, a note, and the agent that placed it. It isn't a design: it has no board, states, modes
+or layers, it isn't in Layers, and code and exports leave it out.
 
 - **Find references** is one command: R, the toolbar after the review button, Object in the menu bar, the right-click
   menu around designs and on designs, and Search actions. It opens the library browser on the offered connector that
@@ -2983,9 +2981,9 @@ or design selected. The sizes are remembered for every export, not per layer.
 - **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
   left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
   first.
-- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
-  is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
-  and mode it shows, at Settings' export scale. Copy as PNG is below.
+- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05; the icon set's dialog is kept as an
+  exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state and mode it
+  shows, at Settings' export scale. Copy as PNG is below.
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
@@ -3400,13 +3398,12 @@ from the project's gradient tokens, read from their CSS; editing a token's stops
 image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
 then its fit and position. An image dropped on the section adds an image fill.
 
-The document keeps the stack in `fills`, always a list of paints, each with its `type` ([decisions.md](decisions.md)).
-One color token is a list of one solid paint: `[{ type: "solid", color: { token: "card" } }]`. The bottom color is drawn
-as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's dev
-server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill paints
-as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint names any
-color or gradient in it that isn't a token. With several layers selected and fills that differ, the section says so
-and + replaces them all.
+The document keeps the stack in `fills`, always a list of paints, each with its `type`. One color token is a list of one
+solid paint: `[{ type: "solid", color: { token: "card" } }]`. The bottom color is drawn as `background-color` and the
+rest as `background-image` layers. Frames draw a fill's images from the project's dev server, as an image layer's, and
+so does a preview while a paint is dragged. The Media tab counts an image a fill paints as used, so it isn't offered for
+removal. Agents set the same list through `Update` and `Insert`, and the lint names any color or gradient in it that
+isn't a token. With several layers selected and fills that differ, the section says so and + replaces them all.
 
 Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
 paint's alpha, stops and angle are each one undo step per change, not per drag.
@@ -3932,8 +3929,7 @@ What goes through Save and Undo, and where an edit lands when the board shows a 
 
 ### One history, saved together (PAR-164)
 
-Every change people or agents make goes into one history per project, and stays unsaved until Save (Ctrl+S), as
-decisions.md's "Saving is explicit" sets out.
+Every change people or agents make goes into one history per project, and stays unsaved until Save (Ctrl+S).
 
 - **What's undoable:** every edit to a design or a text note, the modes, and token values. An agent's call is one step,
   its designs, modes and tokens together, and undoing it leaves edits made while it ran. What a board shows (the state,
@@ -4807,9 +4803,8 @@ from what the design shows, with fresh ids, to change freely.
   Detach. It can't go to its main component or push overrides to it, as that's in the library; the section names the
   design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call it by the
   design's name, as they do the project's own.
-- **A detached copy** is what Detach makes of a linked instance (see "Main components and instances" in
-  [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
-  step, "Add copy". A library design nested inside stays a linked instance.
+- **A detached copy** is what Detach makes of a linked instance: the root keeps the instance's id, so it's selected the
+  same way, and it's one undo step, "Add copy". A library design nested inside stays a linked instance.
 
 Code: `insertIntoDesign` in `packages/editor/src/insert.ts` (an `instance` item with `detached`), applied by
 `insertItem` in `apps/desktop/src/renderer/canvas/insert.ts`; the library rows' menu in `AssetsPanel.tsx`;
@@ -4894,11 +4889,11 @@ delays, and that a frame which leaves the canvas or changes stops retrying, have
 by reading `useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in
 `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
 so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
-checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy
-(see [decisions.md](decisions.md), Canvas), not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a
-capture failing with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and
-any other failure is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the
-failure came from about one capture in each CI run, and Sentry's count from CI after the change is the check.
+checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy,
+not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken
+again after a repaint until it works, gives up after three tries, and any other failure is thrown at once). That a
+repaint is what lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI
+run, and Sentry's count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
@@ -4992,8 +4987,8 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   last had, the offscreen renderer's from what each guest's last job carried, so it gives only what changed since. Edits
   to a component's code or CSS don't need a new bitmap key: the guest's dev server runs without HMR, so neither the
   canvas nor the offscreen window picks them up until the project's guest loads again at a new address, which changes
-  every key (see decisions.md on PAR-422). Since PAR-165 a save gives the components it touches again with a new version
-  instead, which changes the keys of the frames drawing them (see Failing components, below).
+  every key (PAR-422). Since PAR-165 a save gives the components it touches again with a new version instead, which
+  changes the keys of the frames drawing them (see Failing components, below).
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
@@ -5435,7 +5430,7 @@ shadcn's tooltip reads, set in `styles.css`.
   without its name, as it's inserted (see Inserting, Make component and new designs). On `examples/shadcn-vite`, Avatar,
   AvatarGroupCount, CardHeader and Separator, and nova's MarkerIcon, AttachmentAction, AttachmentMedia, AlertAction and
   Separator, no longer show "Avata", "C" or the like; their new trees give them new keys. ItemSeparator and
-  SidebarSeparator still do, and nova's Card is still a narrow column (see decisions.md).
+  SidebarSeparator still do, and nova's Card is still a narrow column.
 
 Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
 `librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
@@ -5517,9 +5512,8 @@ far zoom: text, edges and the board's own captions blurry, even seconds after th
 somewhere new, the layer goes without the hint for two animation frames (`data-redrawing`), so it's drawn at its scale,
 then composited again from that.
 
-- **Panning is unchanged.** Only a change of zoom redraws, once it has settled, as `--tl-zoom` changes (see "The canvas
-  doesn't restyle its elements while the camera moves" in [decisions.md](decisions.md)). During a zoom the layer is
-  scaled as before.
+- **Panning is unchanged.** Only a change of zoom redraws, once it has settled, as `--tl-zoom` changes. During a zoom
+  the layer is scaled as before.
 - **One redraw at a time.** A zoom settling again while the layer is being drawn again starts the redraw over, and
   closing the canvas ends it.
 
@@ -5643,7 +5637,7 @@ window holds less.
   published, so a stack trace through tldraw reads as before once DevTools maps it.
 - **Measured** on the example project, against an isolated copy of the app: the window's scripts went from 19.3 M
   characters to 14.9 M, lucide-react's from 1.73 M to 0.28 M across 149 files, tldraw's from 3.53 M to 1.68 M, and the
-  heap after a collection from 151 to about 141 MB. [decisions.md](decisions.md) has the calls.
+  heap after a collection from 151 to about 141 MB.
 
 Code: `iconImports` and `iconImportsPlugin` in `apps/desktop/scripts/icon-imports.ts`, and `optimizeDeps` in
 `apps/desktop/vite.config.ts`.
@@ -5682,7 +5676,7 @@ Started again after a full run's measuring, both builds took about 4.7 s.
   production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
 - **Fast Refresh is off,** since it reaches React only through the development build: a change to a component reloads
   the page, as a change to any other module already did.
-- **The dev script prints which build it runs.** [decisions.md](decisions.md) has why development is the default.
+- **The dev script prints which build it runs.** Development is the default.
 - **tldraw still draws,** since the window is on localhost, where tldraw needs no licence key.
 - **Switching builds rebuilds the prebundle:** Vite keys it by the optimizer's options and the aliases, so the other
   build's is never served.
@@ -5711,7 +5705,7 @@ was. Development can request an initial project through its runner. `workspace.t
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
-at the end of the strip. Both are the start page from the explorations (decisions.md, "The start page is built"):
+at the end of the strip. Both are the start page from the explorations:
 
 - **Home** has the account menu (see Signing in), then Search, Open and New project along the top. Below them, the
   Continue where you left off section offers the project opened last, which its picture, Resume or Enter opens, with For
@@ -5797,14 +5791,13 @@ it was with Remove.
 
 Opening a folder or project that has no `.par` file yet opens on a screen named Home, for the app's `/` route. It draws
 the component that renders the app there, live, in the project's primary mode with a phone's mode beside it: Desktop
-Light and Mobile Light with the default modes. There's no empty canvas to start from (decisions.md, "The empty-canvas
-start is dropped").
+Light and Mobile Light with the default modes. There's no empty canvas to start from.
 
-- **What renders `/`:** the page for it, by its router's file names (decisions.md, "Pages get their own section in the
-  Components panel"): Next's `app/page`, also inside a route group such as `app/(marketing)/page`, or an `index` in a
-  `pages` or `routes` folder, a route file's default export over its other parts. Without one, it's the `App` component
-  that Vite's and Create React App's templates mount, by its export name or as `App.tsx`'s default export. When there
-  are several, the one in the fewest folders wins. A library's component is never it.
+- **What renders `/`:** the page for it, by its router's file names: Next's `app/page`, also inside a route group such
+  as `app/(marketing)/page`, or an `index` in a `pages` or `routes` folder, a route file's default export over its other
+  parts. Without one, it's the `App` component that Vite's and Create React App's templates mount, by its export name or
+  as `App.tsx`'s default export. When there are several, the one in the fewest folders wins. A library's component is
+  never it.
 - **Without either,** the screen is a padded page headed Home, as New screen starts one.
 - **The page fills the screen:** the component sits in the screen's root layout, unpadded, on the theme's background.
 - **The mode beside the primary one** is the first mode on a phone, preferring one whose theme and other options match
@@ -5961,8 +5954,7 @@ painted: 8 layouts.
 | Second round                                          | 0.86 to 1.68 s | 0.81 to 0.95 s |
 
 Four reopens each, before and after taking turns, each in a fresh `pnpm perf --open-only --keep` copy on React's
-production build, with other sessions using the machine. What's left of the task, and the issues for it, is in
-decisions.md, Boards measure together as the canvas opens.
+production build, with other sessions using the machine.
 
 Code: `measureTogether` in `apps/desktop/src/renderer/canvas/measure-together.ts`, and the board's measure in
 `canvas/ContainerUtil.tsx`.
@@ -6154,13 +6146,13 @@ it's gone or already reopening, and a failed `project.open` leaves no project to
 
 ### The project service starts under Parity's copy of Electron (PAR-489)
 
-`pnpm dev` runs Electron as `Parity.exe` on Windows (decisions.md, "The app is named Parity"), and that copy starts the
-project service and opens a project just as Electron under its own name does. Electron counts any program not named
-`electron` as packaged, so the copy once looked for the service in `resources\app.asar.unpacked\utility.mjs` beside
-`Parity.exe`, which isn't there: the utility process exited with code 1 before any of the service's code ran, again for
-every window load, and printed nothing, even with `ELECTRON_ENABLE_LOGGING=1`. The dev runner sets `PARITY_DEV_RUNNER`,
-and the main process counts the app as packaged only without it, so the service starts from `out\utility.mjs` beside the
-bundles and update checks stay off. If the service's script is ever missing again, the main process says so: it logs
+`pnpm dev` runs Electron as `Parity.exe` on Windows, and that copy starts the project service and opens a project just
+as Electron under its own name does. Electron counts any program not named `electron` as packaged, so the copy once
+looked for the service in `resources\app.asar.unpacked\utility.mjs` beside `Parity.exe`, which isn't there: the utility
+process exited with code 1 before any of the service's code ran, again for every window load, and printed nothing, even
+with `ELECTRON_ENABLE_LOGGING=1`. The dev runner sets `PARITY_DEV_RUNNER`, and the main process counts the app as
+packaged only without it, so the service starts from `out\utility.mjs` beside the bundles and update checks stay off. If
+the service's script is ever missing again, the main process says so: it logs
 `Project service exited with code 1, since <path> doesn't exist`, naming the path it was given.
 
 Smoke check, on Windows, from a fresh worktree:
@@ -6195,8 +6187,7 @@ How the app's window holds the canvas and the panels around it.
 
 ### One word for each thing (PAR-538)
 
-The editor's labels, menus, hints, toasts and undo labels use the glossary in [decisions.md](decisions.md), "Starting
-from scratch, and what things are called (PAR-537)":
+The editor's labels, menus, hints, toasts and undo labels use one glossary (PAR-537):
 
 - **A thing on the canvas is a screen or a component,** never a design. A label that knows which says so ("Rename
   screen", "Delete 2 components", "Move 3 screens and components"); one that can't says both ("Select a screen or
@@ -6770,10 +6761,10 @@ Parity's 16px. Without a root font size of its own, a frame counts a browser's 1
   size is split, so the body's own `62.5%` stays relative to the root.
 - **Tokens show the values the project wrote,** `0.25rem` rather than the `calc()` frames draw it with. A token's
   previewed value and the theme values the compiled CSS left out are rewritten for frames like the rest.
-- **Not covered** (see [decisions.md](decisions.md), "`rem` measures the project's root font"): a root font size inside
-  a width media query, which applies in no frame, since the root is the container those queries ask; `larger`, `smaller`
-  and the `font` shorthand on the root; a root font size from a variable holding a percentage or `rem`; and a root font
-  set by CSS-in-JS. Fields and spacing steps in the inspector still count 16px to the rem.
+- **Not covered:** a root font size inside a width media query, which applies in no frame, since the root is the
+  container those queries ask; `larger`, `smaller` and the `font` shorthand on the root; a root font size from a
+  variable holding a percentage or `rem`; and a root font set by CSS-in-JS. Fields and spacing steps in the inspector
+  still count 16px to the rem.
 
 Code: `rewriteFrameUnits`, `rewriteSheetFrameUnits`, `rewriteRootFontSize` and `serialize` in
 `packages/core/src/css.ts`, with `remProperty` and `rootFontSizeProperty`; `frameRootSheet` and `registerRootFontSize`
@@ -6812,8 +6803,7 @@ to get Parity's values, since shadcn's names are Parity's too. Now it gets its f
 - **The canvas's own `--frame-height` stays,** set around the host for the canvas's rules on the host itself: it holds a
   sleeping frame at the height it was drawn at, so its board doesn't shrink to its caption zoomed far out.
 - **Registered properties stay the document's.** A name Parity registers with `@property` keeps its initial value in
-  frames, since shadow roots ignore `@property` (see [decisions.md](decisions.md), "Parity's own custom properties stay
-  out of frames").
+  frames, since shadow roots ignore `@property`.
 
 Code: `resetCustomProperties` in `packages/core/src/css.ts`; `keepOutInherited` and `frameRootCss` in
 `apps/desktop/src/renderer/frame.ts`, called by `prepareFrame`.
@@ -6863,8 +6853,7 @@ one's more). Gap: the thumb's color was checked by hand, in Chrome and in the ap
 
 Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a
 stack for every element React makes: on the example project its JS heap is 33 MB smaller, 117 MB rather than 150 MB. The
-project's own modules are still served as in development, and its own dev server isn't touched. What's lost, and the
-numbers, are in [decisions.md](decisions.md) under "Frames run the production builds".
+project's own modules are still served as in development, and its own dev server isn't touched.
 
 - **Dependencies are prebundled as production:** the builder sets `process.env.NODE_ENV` to `production` in the
   dependency optimizer's own `define`, Rolldown's from Vite 8 and esbuild's before. The project's modules keep its mode.
@@ -6964,9 +6953,7 @@ the frame, is described under Popups draw inside their frame.
   scrolls sideways aren't clipped, past the frame or spilling out of the row. `hidden` and `clip` still cut off, and the
   row itself is checked like any node.
 
-The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node
-overflows", "Problems reports a squeezed node and content spilling out of its parent" and "What a container scrolls to
-isn't a problem".
+The CLI puts the layer's name before its id.
 
 Code: `layoutFindings`, `describeLayoutFinding` and `describeSqueeze` in `packages/agent/src/overflow.ts`, used by
 `frameProblems` in `packages/agent/src/frames.ts`; `clipper`, `nodeParent` and `addSqueezes` in
@@ -7008,8 +6995,8 @@ worked out its own height from the width alone, the 800 of the device nearest 12
 
 - **Two heights, kept apart.** A frame's own height is fixed or not: a fixed one clips the frame, and without one the
   frame grows with its content. Its window always has a height: the frame's fixed height, else the viewport's screen,
-  else the device nearest its width (see [decisions.md](decisions.md), "A frame stands for a browser window"). Core's
-  `frameGeometry` gives both, `{ width, height?, viewport }`, and every path draws from it.
+  else the device nearest its width. Core's `frameGeometry` gives both, `{ width, height?, viewport }`, and every path
+  draws from it.
 - **The offscreen job carries the window.** `RenderJob.mode` has the frame's `width` and optional `height` beside its
   `viewport`, and the offscreen page mounts the frame in that viewport rather than working one out. An agent's
   `FrameRequest` carries the viewport too, so a frame an agent asks for is drawn at what the canvas shows.
