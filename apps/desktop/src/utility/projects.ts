@@ -851,7 +851,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function loadClassPrinter(
     adapter: StylesAdapter,
-    info: ProjectInfo,
+    info: Pick<ProjectInfo, "root" | "name">,
     stylesheet: string
   ): Promise<ClassPrinter | undefined> {
     try {
