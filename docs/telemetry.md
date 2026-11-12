@@ -680,7 +680,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | Attribute            | Type                               | Meaning                                                                                   |
 | -------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
 | `zoom`               | `number`                           | The canvas's zoom, where 1 is 100%                                                        |
-| `pixelRatio`         | `number`                           | The screen's device pixel ratio, which moves where the line is                            |
+| `pixelRatio`         | `number`                           | The screen's device pixel ratio                                                           |
 | `frames`             | `integer`                          | Frames in view, leaving out the selected board's, which stay live                         |
 | `bitmaps`            | `integer`                          | Frames in view showing their bitmap                                                       |
 | `skeletons`          | `integer`                          | Frames in view showing their skeleton, measured from the frame, until its bitmap comes    |

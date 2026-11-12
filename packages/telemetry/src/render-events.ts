@@ -121,7 +121,7 @@ export const canvasRestedFar = defineEvent(
   "canvas.restedFar",
   z.object({
     zoom: z.number().positive().describe("The canvas's zoom, where 1 is 100%"),
-    pixelRatio: z.number().positive().describe("The screen's device pixel ratio, which moves where the line is"),
+    pixelRatio: z.number().positive().describe("The screen's device pixel ratio"),
     frames: count("Frames in view, leaving out the selected board's, which stay live"),
     ...showing,
     bitmapsAtRest: showing.bitmaps.describe("Frames in view showing their bitmap as the camera came to rest"),

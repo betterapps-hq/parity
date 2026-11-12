@@ -15,11 +15,23 @@ import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
 import { failedRender } from "./frames-on-screen.ts"
 
-/**
- * How much smaller than a frame its bitmap is. Zoomed out until a frame is drawn no larger than that, the canvas shows
- * the bitmap in its place, which looks the same and costs a fraction of a whole screen's elements to draw.
- */
+/** How much smaller than a frame its bitmap is, so it's sharp wherever the canvas shows it (see `farZoom`). */
 export const bitmapScale = 0.25
+
+/**
+ * The zoom from which the canvas shows frames' bitmaps in their place, the same on every screen: 10%, about where a
+ * design's details stop showing (PAR-954). A bitmap looks the same there, and costs a fraction of a whole screen's
+ * elements to draw. At a quarter of the frame's size, it's sharp at this zoom on screens up to 2.5x.
+ */
+export const farZoom = 0.1
+
+/**
+ * Whether a zoom is far out, showing bitmaps. A canvas that `was` far stays so until a little past the line zooming back
+ * in, so a camera resting on it doesn't flip.
+ */
+export function isFarZoom(zoom: number, was: boolean): boolean {
+  return zoom <= (was ? farZoom * 1.15 : farZoom)
+}
 
 /** How long a frame stays the same before it's captured, so editing doesn't capture every step. */
 const settleMs = 1000
