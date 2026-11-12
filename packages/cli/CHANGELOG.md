@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 05:54:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 07:22:39 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.53.1
+
+Thu, 12 Nov 2026 07:22:39 GMT
+
+### Patches
+
+- Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI
+  (ajcraswell@gmail.com)
 
 ## 0.53.0
 

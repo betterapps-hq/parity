@@ -2,6 +2,27 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 07:22:15 GMT",
+      "version": "0.68.1",
+      "tag": "@parity-app/desktop_v0.68.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7dfe775b6c6056f757b6b3608b99f30866f786ae",
+            "comment": "Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "47c6da3f08643df36e9943595276e3a8e3a51fe2",
+            "comment": "Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 05:54:28 GMT",
       "version": "0.68.0",
       "tag": "@parity-app/desktop_v0.68.0",

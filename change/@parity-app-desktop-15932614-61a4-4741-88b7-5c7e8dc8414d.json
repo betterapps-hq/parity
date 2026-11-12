@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
