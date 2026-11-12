@@ -1,5 +1,20 @@
 # Decisions
 
+- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+  [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
+  `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
+  - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
+    property the later key's value stands, and `from` names that key. What a kind of layer draws before any key is set
+    (a layout's `display: flex`, `position: relative` and `min-width: 0`, text's `margin: 0`) is from the key that would
+    change it, so every declaration has a row to name.
+  - **Render still writes inline styles,** by camel-casing each declaration's property. An image's and a video's
+    `display: block` and `object-fit` stay in render, since they come from the node's `fit`, not its style. PAR-942
+    replaces the inline styles with rules.
+  - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
+    `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
+    itself.
+
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
@@ -11,6 +26,20 @@
   PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
   rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
   to PAR-944.
+
+- **`background` is one color token or a stack of paints (PAR-931).** You approved on 2026-11-11 widening
+  `NodeStyle.background` to `string | Paint[]` rather than adding a `fills` key. A string stays one color token, so
+  every file, override and agent call that sets one keeps working with no migration; a list is the stack, top first, as
+  CSS and the panel order it. A paint is `solid` (a color token and its alpha), `linear`, `radial` or `conic` with its
+  own stops, `gradient` naming a gradient token, or `image` with its fit and position, and any of them can be `hidden`.
+  The fields follow the Paint stack control's model, apart from `conic` for its angular gradient and a token gradient
+  holding only its name, so the file never keeps a stale copy of the token's stops. My calls:
+  - **One plain color is written as its name.** The Fill row writes a stack of one solid with no alpha back as the
+    string, so editing an old file in the panel doesn't change its shape.
+  - **The bottom solid is `background-color`, the rest `background-image` layers.** A solid above another paint is a
+    flat gradient, and an image's size, position and repeat are listed per layer.
+  - **A frame draws a fill's images from the project's dev server,** as it does an image layer's `src`, and the Media
+    tab counts an image a fill paints as used.
 
 - **One table picks a layer's sections and controls, and the controls move into the app in steps (PAR-892).** You agreed
   on 2026-11-11 to [design-panel-sections.md](proposals/design-panel-sections.md): the panel works out what a layer can
@@ -3151,8 +3180,8 @@ undo. Reading the stylesheet each time a guest loads keeps both as they are.
 - `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
   sets `data-theme` itself keeps its value.
 - An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
-  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
-  `docs/support.md`.
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach. PAR-896, below, lists
+  it.
 
 ## Agent calls merge per design (PAR-278)
 
@@ -7295,6 +7324,17 @@ and `transform` was text case. Your calls on 2026-11-11:
   called it a miss in the UX work, and PAR-937 adds them to the Transform control.
 - **Text case is renamed `textTransform`, and a file with the old key is rejected,** by the Fix forward rule. Stale
   prototype data is disposable.
+
+## A mode sets a theme's attribute written on the root (PAR-896)
+
+My call: `themeAttributes` lists an attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) as
+it lists one on its own, so the default Dark option's `dark` class sets `data-theme="dark"` on the frame's body. PAR-819
+already draws `:root[data-theme="dark"]` on the body as well as on the host, but nothing set the attribute there, so a
+project that switches its dark theme by attribute on the root still drew light values in a Dark frame. `:root.dark` and
+`html.dark` needed nothing more: the mode's `dark` class reaches the body already.
+
+Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
+a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
 
 ## Agents declare a component's params directly (PAR-901)
 

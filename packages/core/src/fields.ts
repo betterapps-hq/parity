@@ -1,4 +1,4 @@
-import { isNamedLength } from "./document.ts"
+import { isNamedLength } from "@parity-app/style"
 
 /**
  * What the inspector's number and length fields read from what's typed, and how they step. A field reads a number, a

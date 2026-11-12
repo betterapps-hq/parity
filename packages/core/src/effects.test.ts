@@ -1,6 +1,7 @@
+import { filterCss, type NodeStyle, shadowCss, transformCss } from "@parity-app/style"
 import { describe, expect, it } from "vite-plus/test"
-import { type DesignNode, type NodeStyle, parseDesignNode } from "./document.ts"
-import { filterCss, resolveDesign, shadowCss, transformCss } from "./render.ts"
+import { type DesignNode, parseDesignNode } from "./document.ts"
+import { resolveDesign } from "./render.ts"
 
 // Effects (PAR-933): a stack of shadows, the layer's filters and those behind it, and a transform.
 
@@ -87,7 +88,7 @@ describe("drawing effects", () => {
       rotate: "45deg",
       scale: "-1 1.5",
       transform: "skewX(10deg)",
-      transformOrigin: "50% 0%"
+      "transform-origin": "50% 0%"
     })
     expect(transformCss({ y: 4 })).toEqual({ translate: "0 calc(var(--spacing) * 4)" })
   })
