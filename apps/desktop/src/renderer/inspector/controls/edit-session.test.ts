@@ -137,6 +137,13 @@ describe("a run of Up and Down presses", () => {
     const { effects } = run([step("padding 5"), { type: "target", target: "frame-2" }, step("padding 3", "frame-2")])
 
     expect(effects.map((effect) => effect.type)).toEqual(["beginRun", "make", "endRun", "beginRun", "make"])
+    expect(effects[2]).toEqual({ type: "endRun", selection: true })
+  })
+
+  it("ends as text it can't read is typed, so Escape then takes back only what's typed", () => {
+    const { effects } = run([step("padding 5"), { type: "hide" }, { type: "cancel" }, step("padding 6")])
+
+    expect(effects.map((effect) => effect.type)).toEqual(["beginRun", "make", "endRun", "beginRun", "make"])
   })
 
   it("stays the same run while the selection is the same", () => {
@@ -169,6 +176,11 @@ describe("relativeUpdate", () => {
     expect([add?.(10), add?.(24)]).toEqual([18, 32])
     expect([double?.(10), double?.(24)]).toEqual([20, 48])
     expect([less?.(10), less?.(24)]).toEqual([6, 20])
+  })
+
+  it("reads pixels written out, as the field's numbers are pixels", () => {
+    expect(relativeUpdate("+8px", "Width")?.(10)).toBe(18)
+    expect(relativeUpdate("Mixed * 2 px", "Width")?.(10)).toBe(20)
   })
 
   it("leaves text that sets one value for every layer to the field", () => {

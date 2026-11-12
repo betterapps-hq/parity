@@ -368,6 +368,26 @@ describe("reverting to a checkpoint", () => {
     expect(store.getHistory().canUndo).toBe(false)
   })
 
+  it("says whether something besides the gesture changed its design since, which reverting would take back", () => {
+    const { store } = setup()
+    const checkpoint = start(store)
+    rename(store, "During", "resize")
+    store.addContainer("app.par", design("about"))
+    rename(store, "Still during", "resize")
+    expect(store.changedBesides(checkpoint)).toBe(false)
+    // An agent renames the design itself mid-gesture.
+    expect(
+      store.reloadDocument(
+        "app.par",
+        { version: 3, containers: [{ ...design("home"), name: "Agent" }, design("about")] },
+        true
+      )
+    ).toBe(true)
+    expect(store.changedBesides(checkpoint)).toBe(true)
+    rename(store, "After", "resize")
+    expect(store.changedBesides(checkpoint)).toBe(true)
+  })
+
   it("changes nothing when nothing changed since it", () => {
     const { store } = setup()
     rename(store, "Before")

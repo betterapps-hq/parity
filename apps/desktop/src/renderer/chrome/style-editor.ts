@@ -51,8 +51,12 @@ export interface StyleEditor {
    */
   preview: (changes: readonly StyleChange[]) => void
   endPreview: () => void
-  /** Where the design is now, for a gesture's changes to go back to: `revert` takes them back as though never made. */
-  checkpoint: (gesture: string) => { revert: () => void } | undefined
+  /**
+   * Where the design is now, for a gesture's changes to go back to: `revert` takes them back as though never made, and
+   * says whether it did. It doesn't once something else has changed the design since, as an agent editing the same
+   * file, which reverting would take back too.
+   */
+  checkpoint: (gesture: string) => { revert: () => boolean } | undefined
   tokens: Token[]
   /** Pixels per spacing step. */
   unit: number
@@ -255,7 +259,19 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     checkpoint: (gesture) => {
       const point = store.checkpoint(entry.key, gesture)
 
-      return point && { revert: () => store.revert(point) }
+      return (
+        point && {
+          revert: () => {
+            if (store.changedBesides(point)) {
+              return false
+            }
+
+            store.revert(point)
+
+            return true
+          }
+        }
+      )
     },
     tokens,
     unit,

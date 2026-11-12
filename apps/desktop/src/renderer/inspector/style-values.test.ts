@@ -74,16 +74,25 @@ describe("an edit worked out from each layer's own length, as Mixed+8 is", () =>
     expect(eachLength("spacing-lg", add8, unit, spacing)).toBe(8)
   })
 
-  it("leaves what has no pixels to work from, and never goes below 0", () => {
+  it("leaves what has no pixels to work from, and holds the rest at the least it takes", () => {
     expect(eachLength("fill", add8, unit, spacing)).toBeUndefined()
     expect(eachLength("hug", add8, unit, spacing)).toBeUndefined()
     expect(eachLength(undefined, add8, unit, spacing)).toBeUndefined()
     expect(eachLength(1, (px) => px - 20, unit, spacing)).toBe(0)
+    expect(eachLength(1, (px) => px - 20, unit, spacing, 1)).toBe(0.25)
   })
 
-  it("changes only the side edited, counting an unset side as 0", () => {
-    expect(eachSideOf([2, 4, 2, 4], 1, add8, unit, spacing)).toEqual([2, 6, 2, 4])
-    expect(eachSideOf(undefined, 0, add8, unit, spacing)).toEqual([2, 0, 0, 0])
+  it("changes only the sides reached, counting an unset side as 0", () => {
+    expect(eachSideOf([2, 4, 2, 4], [1], add8, unit, spacing)).toEqual([2, 6, 2, 4])
+    expect(eachSideOf([2, 4, 2, 4], [1, 3], add8, unit, spacing)).toEqual([2, 6])
+    expect(eachSideOf(undefined, [0], add8, unit, spacing)).toEqual([2, 0, 0, 0])
+  })
+
+  it("takes a margin below 0, and keeps padding at 0", () => {
+    const less = (px: number) => px - 16
+
+    expect(eachSideOf([-1, 0, 0, 0], [0], less, unit, spacing, -Infinity)).toEqual([-5, 0, 0, 0])
+    expect(eachSideOf([1, 0, 0, 0], [0], less, unit, spacing)).toBe(0)
   })
 })
 

@@ -514,7 +514,7 @@ export function scrub(
   apply: (value: number, keys: ScrubKeys) => void,
   by: ScrubBy,
   live?: LiveEdits,
-  each?: (update: (own: number) => number) => void
+  each?: (update: (own: number) => number, keys: ScrubKeys) => void
 ): (event: ReactPointerEvent<Element>) => void {
   // A value held to the field's limits, to a ten-thousandth.
   const settle = (value: number) => Math.round(clamp(value, by.min ?? -Infinity, by.max ?? Infinity) * 10_000) / 10_000
@@ -536,7 +536,7 @@ export function scrub(
         const keys = { shift, alt }
         const value = settle(scrubbed(start, dx, keys, by))
         // Where the layers differ, each moves from its own value.
-        const change = each ? () => each((own) => settle(scrubbed(own, dx, keys, by))) : () => apply(value, keys)
+        const change = each ? () => each((own) => settle(scrubbed(own, dx, keys, by)), keys) : () => apply(value, keys)
 
         if (live) {
           last = change
@@ -630,6 +630,15 @@ export function drag(
   let last = at(event)
   target.setPointerCapture(event.pointerId)
   const moveTo = (point: DragPoint) => (runs ? runs.send({ type: "step" }, () => move(point)) : move(point))
+
+  // A field focused before the press ends its own edit as it loses focus, before the drag's run begins, so it can't end
+  // the run halfway, as it would once the press moves the focus.
+  if (runs && target instanceof HTMLElement && target.tabIndex >= 0) {
+    target.focus()
+  } else if (runs && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur()
+  }
+
   runs?.send({ type: "end" })
 
   if (press) {
@@ -2219,9 +2228,14 @@ export interface ValueFieldProps<T> {
   /**
    * Where the layers differ (`mixed`), what works from the value there is worked out for each layer from its own, as
    * `Mixed+8` adds 8 to each: maths that uses the value (`+8`, `*2`), Up and Down, and a scrub. `update` takes a
-   * layer's own number, in the field's units, and gives its next.
+   * layer's own number, in the field's units, and gives its next; `keys` are those held for a step or a scrub.
    */
-  each?: (update: (own: number) => number) => void
+  each?: (update: (own: number) => number, keys?: ScrubKeys) => void
+  /**
+   * How Up or Down moves a layer's own number where `each` works it out for each layer, where a press moves it
+   * differently from a drag of its label, as a side's does. Without it, a press moves it as a drag of a step does.
+   */
+  stepEach?: (own: number, up: boolean, keys: ScrubKeys) => number
   /** The value shows faintly, as one set by another control does. */
   muted?: boolean
   /** Slot 2: the token the field holds, as a chip in the value's place. */
@@ -2500,6 +2514,7 @@ export function ValueField<T>({
   placeholder = "",
   mixed = false,
   each,
+  stepEach,
   muted = false,
   chip,
   unit,
@@ -2589,7 +2604,11 @@ export function ValueField<T>({
     onCommit: (typedValue) => ("each" in typedValue ? perLayer?.(typedValue.each) : onCommit(typedValue.value)),
     onStep:
       perLayer && scrubbing && onStep
-        ? (up, shift, alt) => perLayer((own) => pressed(own, up, { shift, alt }, scrubbing.by))
+        ? (up, shift, alt) =>
+            perLayer(
+              (own) => (stepEach ?? ((at, to, keys) => pressed(at, to, keys, scrubbing.by)))(own, up, { shift, alt }),
+              { shift, alt }
+            )
         : onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
     line,
     quiet: locked !== undefined

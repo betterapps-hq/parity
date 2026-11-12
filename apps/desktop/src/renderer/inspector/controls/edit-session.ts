@@ -59,9 +59,12 @@ export type SessionEffect<E> =
   | { type: "make"; edits: readonly E[]; inRun: boolean }
   /** Begin a run: a gesture, and a checkpoint to take it back to. */
   | { type: "beginRun" }
-  /** End the run, keeping what it made as one undo step. */
-  | { type: "endRun" }
-  /** Take the run back to its checkpoint, as though it was never made, and end it. */
+  /** End the run, keeping what it made as one undo step; `selection` when another selection ended it. */
+  | { type: "endRun"; selection?: true }
+  /**
+   * Take the run back to its checkpoint, as though it was never made, and end it; or, where something else has changed
+   * the design since, keep it as one undo step, so that change isn't lost.
+   */
   | { type: "revertRun" }
 
 export interface SessionUpdate<E> {
@@ -100,9 +103,10 @@ export function reduceSession<E>(state: SessionState, event: SessionEvent<E>): S
 
       return { state: { previewing: true }, effects }
     case "hide":
+      endRun()
       unpreview()
 
-      return { state: { ...state, previewing: false }, effects }
+      return { state: { previewing: false }, effects }
     case "make":
       endRun()
 
@@ -145,7 +149,7 @@ export function reduceSession<E>(state: SessionState, event: SessionEvent<E>): S
       return { state: { previewing: false }, effects }
     case "target":
       if (state.run && state.run.target !== event.target) {
-        return { state: { previewing: state.previewing }, effects: [{ type: "endRun" }] }
+        return { state: { previewing: state.previewing }, effects: [{ type: "endRun", selection: true }] }
       }
 
       return { state, effects }
@@ -158,7 +162,8 @@ export function reduceSession<E>(state: SessionState, event: SessionEvent<E>): S
  */
 export function relativeUpdate(text: string, label: string): ((own: number) => number) | undefined {
   const rules: FieldRules = { kind: "number", label }
-  const typed = readFieldInput(text, rules)
+  // The field's numbers are pixels, so `+8px` is `+8`.
+  const typed = readFieldInput(text.replaceAll(/(\d)\s*px\b/gi, "$1"), rules)
 
   if (typed.type !== "maths" || !typed.relative) {
     return undefined

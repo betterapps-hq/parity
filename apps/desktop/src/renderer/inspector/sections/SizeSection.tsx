@@ -34,6 +34,7 @@ export function SizeSection({ editor, edit, shows }: SectionProps) {
   const { unit } = editor
   const mixed = mixedOf(editor)
   const spacing = useTokens("spacing").tokens
+  const containers = useTokens("container").tokens
   const modes: SizeMode[] = shows("sizeFill") ? ["hug", "fill"] : ["hug"]
 
   const measured = (axis: "width" | "height") => {
@@ -84,7 +85,8 @@ export function SizeSection({ editor, edit, shows }: SectionProps) {
         edit(
           axis,
           (layer, edited) => {
-            const next = eachLength(layer[axis], update, unit, spacing)
+            // As the layer shows it, so a size it fills by growing stays Fill; at least 1px, as typing allows.
+            const next = eachLength(shownSize(layer, axis, parent), update, unit, [...spacing, ...containers], 1)
 
             return next === undefined ? {} : styleValues(sizeEdit(axis, next, parent), layer, edited)
           },

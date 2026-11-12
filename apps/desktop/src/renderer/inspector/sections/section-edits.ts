@@ -106,16 +106,16 @@ export function useEditSession(editor: StyleEditor): SectionEdits {
 }
 
 /** What a session's effects are run against, as of the last render. */
-interface SessionTarget {
-  editor: StyleEditor
+export interface SessionTarget {
+  editor: Pick<StyleEditor, "preview" | "endPreview" | "make" | "checkpoint">
   target: string | undefined
 }
 
 /** Keeps a session's state, and runs what it asks for against the style editor and the store's gestures. */
-class SessionRunner {
+export class SessionRunner {
   private state = initialSession
-  /** The run of presses under way: its gesture, and the checkpoint Escape takes it back to. */
-  private open: { gesture: string; checkpoint?: { revert: () => void } } | undefined
+  /** The run of presses under way: its gesture, the checkpoint Escape takes it back to, and whether it's made a step. */
+  private open: { gesture: string; checkpoint?: { revert: () => boolean }; stepped: boolean } | undefined
 
   constructor(
     private readonly run: GestureRun | undefined,
@@ -139,11 +139,25 @@ class SessionRunner {
         return editor.preview(effect.edits)
       case "unpreview":
         return editor.endPreview()
-      case "make":
-        return editor.make(effect.edits, effect.inRun ? this.open?.gesture : undefined)
+      case "make": {
+        const open = effect.inRun ? this.open : undefined
+
+        // Each step after the first is another press of the run, which `gesture.ended` counts.
+        if (open?.stepped) {
+          this.run?.gesture(target)
+        }
+
+        if (open) {
+          open.stepped = true
+        }
+
+        return editor.make(effect.edits, open?.gesture)
+      }
+
       case "beginRun": {
         const gesture = this.run?.gesture(target)
-        this.open = gesture === undefined ? undefined : { gesture, checkpoint: editor.checkpoint(gesture) }
+        this.open =
+          gesture === undefined ? undefined : { gesture, checkpoint: editor.checkpoint(gesture), stepped: false }
 
         return
       }
@@ -151,12 +165,13 @@ class SessionRunner {
       case "endRun":
         this.open = undefined
 
-        return this.run?.end()
-      case "revertRun":
-        this.open?.checkpoint?.revert()
+        return effect.selection ? this.run?.select(target) : this.run?.end()
+      case "revertRun": {
+        const reverted = this.open?.checkpoint?.revert() ?? false
         this.open = undefined
 
-        return this.run?.cancel()
+        return reverted ? this.run?.cancel() : this.run?.end()
+      }
     }
   }
 }

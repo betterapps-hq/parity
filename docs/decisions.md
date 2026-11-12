@@ -7980,6 +7980,8 @@ layer. My calls:
 - **A run of Up and Down presses is made as it goes, in one gesture, and Escape reverts it to a checkpoint.** We dropped
   previewing the run and making it at the end: the controls step from the value they're given, so steps not yet made
   would never advance, and the field would show a stale value.
+- **Escape keeps a run once something else has changed its design,** such as an agent editing the same file
+  (`changedBesides`), rather than reverting it: reverting would take that change back too. The run stays one step.
 - **A scrub previews and makes its last value on release,** as before, and Escape or the pointer being cancelled takes
   it back.
 - **A drag inside a control is a run too,** made as it goes so the control follows the pointer: a color's square and
@@ -7987,6 +7989,9 @@ layer. My calls:
   spots. A stop dragged off its bar is removed in the same step.
 - **A change that works from the value there is worked out for each layer only where the panel shows Mixed numbers,** W,
   H and padding's and margin's sides, through `ValueField`'s `each`. A layer with no pixels there (Hug, Fill) keeps its
-  value. Type sizes and radii land on tokens, so they take one value for every layer.
-- **The old field's lifecycle stays for now:** `NumberField` and `number-field.ts` in `chrome/` still serve component
-  props' number fields in `PropsSection`. They go when those move to the approved controls.
+  value, and each keeps the field's own limits and spreads: margin below 0, padding to 0, sizes to 1px, Alt and
+  Alt+Shift reaching more sides. Type sizes and radii land on tokens, so they take one value for every layer. The note
+  over several layers names the rows where `Mixed+8` works.
+- **The old field's lifecycle stays for now:** `NumberField`, `NumberValueInput` and `number-field.ts` in `chrome/`
+  still serve one row, a number prop's default in a component design's Props section (`ValueInput` in
+  `ComponentsSection.tsx`). They go when that row moves to the approved number field, as number props did.

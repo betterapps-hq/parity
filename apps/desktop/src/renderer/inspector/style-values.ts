@@ -72,37 +72,46 @@ export function paddingOf(
 
 /**
  * A length or size worked out from its own pixels, as `Mixed+8` works on each selected layer, in steps of the spacing
- * scale; undefined where it has no pixels to work from (Fill, Hug, unset, a token that isn't a length), so it stays.
+ * scale, and held at `min` pixels or more, as the field holds what's typed; undefined where it has no pixels to work
+ * from (Fill, Hug, unset, a token that isn't a length), so it stays.
  */
 export function eachLength(
   length: Size | undefined,
   update: (px: number) => number,
   unit: number,
-  tokens: readonly LengthToken[]
+  tokens: readonly LengthToken[],
+  min = 0
 ): number | undefined {
   const px = length === "fill" || length === "hug" ? undefined : lengthPx(length, unit, tokens)
 
-  return px === undefined ? undefined : exact(Math.max(0, update(px)) / unit)
+  return px === undefined ? undefined : exact(Math.max(min, update(px)) / unit)
 }
 
-/** Padding or margin with one side worked out from its own pixels (`eachLength`); unset sides count as 0. */
+/**
+ * Padding or margin with the sides an edit reached each worked out from its own pixels (`eachLength`); unset sides
+ * count as 0. `min` is the least a side takes: 0 for padding, none for margin, which can be negative.
+ */
 export function eachSideOf(
   own: Padding | undefined,
-  index: number,
+  reached: readonly number[],
   update: (px: number) => number,
   unit: number,
-  tokens: readonly LengthToken[]
+  tokens: readonly LengthToken[],
+  min = 0
 ): Padding | undefined {
   const lengths: [Length, Length, Length, Length] = [...(sidesOf(own) ?? [0, 0, 0, 0])]
-  const next = eachLength(lengths[index], update, unit, tokens)
+  let changed = false
 
-  if (next === undefined) {
-    return own
+  for (const index of reached) {
+    const next = eachLength(lengths[index], update, unit, tokens, min)
+
+    if (next !== undefined) {
+      lengths[index] = next
+      changed = true
+    }
   }
 
-  lengths[index] = next
-
-  return tidySides(lengths)
+  return changed ? tidySides(lengths) : own
 }
 
 /** A width or height as W and H show it: pixels, Fill or Hug, or a token. */

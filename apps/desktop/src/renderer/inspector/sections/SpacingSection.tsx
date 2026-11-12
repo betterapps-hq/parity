@@ -61,11 +61,13 @@ export function SpacingSection({ editor, edit, shows }: SectionProps) {
         rules={rules}
         onPadding={sidesEdit("padding")}
         onMargin={sidesEdit("margin")}
-        onEach={(name, index, update) =>
+        onEach={(name, reached, update) =>
           edit(
             name,
             (layer) => {
-              const next = eachSideOf(layer[name], index, update, unit, spacing)
+              // Margin can go below 0; padding can't.
+              const min = rules[name].negatives ? -Infinity : 0
+              const next = eachSideOf(layer[name], reached, update, unit, spacing, min)
 
               return name === "padding" ? { padding: next } : { margin: next }
             },

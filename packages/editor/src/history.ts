@@ -295,6 +295,28 @@ export function revertTo(history: DesignHistory, checkpoint: Checkpoint): Design
   return restore({ ...history, past, future }, keepViews(withDesign(current), current))
 }
 
+/**
+ * Whether something besides the checkpoint's gesture has changed its design since, as an agent editing the same file
+ * does: `revertTo` would take that change back with the gesture's. Changes to other designs and files don't count,
+ * since reverting keeps them.
+ */
+export function changedBesides(history: DesignHistory, checkpoint: Checkpoint): boolean {
+  const { path, container, gesture } = checkpoint
+  const earlier = new Set(checkpoint.past.map((step) => step.before))
+
+  const designIn = (snapshot: DesignSnapshot) =>
+    snapshot.documents.get(path)?.containers.find((each) => each.id === container.id)
+
+  // What each step changed to: the next one's before, or what's there now. A gesture's change after another's starts
+  // a step of its own (`recordChange`), so this is never one of its own later changes.
+  const after = [...history.past.slice(1).map((step) => step.before), history.current]
+
+  return history.past.some(
+    (step, index) =>
+      !earlier.has(step.before) && step.gesture !== gesture && designIn(step.before) !== designIn(after[index])
+  )
+}
+
 /** Goes back a step, keeping what each design shows. Undefined when there's nothing to undo. */
 export function undoChange(history: DesignHistory): DesignStep | undefined {
   const entry = history.past.at(-1)

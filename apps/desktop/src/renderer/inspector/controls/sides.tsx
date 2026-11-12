@@ -1,6 +1,6 @@
 import { scrubSteps } from "@parity-app/core"
 import { type ReactNode, useState } from "react"
-import { formatNumber, sameValue, stepSpacing } from "./css-values.ts"
+import { formatNumber, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   asToken,
   type MenuKeywords,
@@ -94,8 +94,11 @@ type SideEntry = { side: Side } | { shorthand: Sides }
 export interface SideFieldProps {
   /** The accessible name, which says which side: Top padding. */
   label: string
-  /** Where the layers differ, works out what uses the value there from each one's own pixels (`ValueField`'s). */
-  each?: (update: (px: number) => number) => void
+  /**
+   * Where the layers differ, works out what uses the value there from each one's own pixels (`ValueField`'s), on the
+   * sides `spread` reaches.
+   */
+  each?: (update: (px: number) => number, spread: Spread) => void
   /** A short label inside, which scrubs: T, or an icon. */
   inner?: ReactNode
   rules: SideRules
@@ -277,7 +280,13 @@ export function SideField({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
-      each={each}
+      each={each && ((update, keys) => each(update, keys ? spreadFrom(keys) : "side"))}
+      stepEach={(own, up, keys) => {
+        const by = stepCount(up, keys.shift && !(spreads && keys.alt))
+        const next = rules.stepBy === "spacing" ? stepSpacing(own, by) : own + by
+
+        return rules.negatives ? next : Math.max(0, next)
+      }}
       chip={chip}
       unit={shownUnit}
       unitName={rules.percent ? unitNow : undefined}
