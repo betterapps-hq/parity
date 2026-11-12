@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Selection headers no longer offer Open in editor; its design is kept as an exploration",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -49,7 +49,6 @@ import { InstanceSection as InstanceControls, type PropRow } from "../inspector/
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
-import { componentFile, viewCode } from "./code-editor.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
@@ -110,7 +109,7 @@ export function LayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; nod
 
 /**
  * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and opens a code
- * component in Storybook or the editor.
+ * component in Storybook.
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
@@ -122,7 +121,6 @@ function LayerActions({ node }: { node: DesignNode }) {
     node,
     {
       stories: component !== undefined && hasStories(session.info, component),
-      code: component !== undefined && componentFile(session.info, component) !== undefined,
       design: design !== undefined
     },
     session.info.libraries
@@ -134,8 +132,6 @@ function LayerActions({ node }: { node: DesignNode }) {
       revealSelection(session)
     } else if (action === "open-in-storybook" && component) {
       void openInStorybook(session.id, component)
-    } else if (action === "open-in-editor" && component) {
-      void viewCode(session.info, component)
     }
   }
 
