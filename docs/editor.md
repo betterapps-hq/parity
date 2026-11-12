@@ -4922,7 +4922,17 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   the lockfiles above it, skipping dependencies, build output, dot-folders and designs, with the guest module Parity
   draws it with and a format number. It's taken when each address is first served and kept for that address, since the
   page never loads a module twice: a builder started again on the same port keeps it. Any edit to code, CSS or config
-  gives a new name, so a bitmap of old code is never shown for new.
+  gives a new name, so a bitmap of old code is never shown for new as current.
+- **Each frame's latest bitmap is kept too, and stands in while its new one is captured (PAR-993).** Beside the file
+  named for the code, every capture is written as `latest-<name>.webp`, named by `bitmapName` alone. When a frame has
+  none for the code it's drawn with, as after a branch switch, an edit, a dependency update or in a new worktree, which
+  each give every file in the project a new name, `frames.stored` answers with its latest, marked `stale`. The frame
+  shows it at once, at the height kept with it, without drawing its design, and is captured for the new code straight
+  away, the new bitmap replacing it when it comes. So boards keep their sizes and no frame waits on a placeholder. A
+  stale bitmap never stands for the frame's key: the canvas doesn't sleep on it, exports and the project's picture
+  capture the frame as it is now, and `bitmapCache.used` counts it as a miss. Measured on the example project in a
+  development build, after touching one file: every one of the 119 frames showed a bitmap 25 ms after the canvas
+  mounted, with no board changing height, where a profile with nothing kept showed placeholders for 10.4 seconds.
 - **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
   a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
@@ -4950,10 +4960,11 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   page and the project's modules, and all close a minute after the last job. A capture takes about 150 ms in its window:
   drawing the frame (the 30 ms wait, components loading on demand, two animation frames), the window made as tall as the
   frame and two more animation frames, then the capture and its PNG.
-- **What's kept is cleaned up** when the service starts and after every 50 writes: partial files a write left behind
-  over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and then the least recently
-  shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap cache**, also in the
-  actions search, removes them all; bitmaps on the canvas now are taken again when their frames next change.
+- **What's kept is cleaned up** when the service starts and after every 50 writes, latest bitmaps with the rest: partial
+  files a write left behind over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and
+  then the least recently shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap
+  cache**, also in the actions search, removes them all; bitmaps on the canvas now are taken again when their frames
+  next change.
 
 Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
 `packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
@@ -4974,31 +4985,33 @@ and one with a recent bitmap keeps its older ones, the least recently used go pa
 limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
 `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
 edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
-`apps/desktop/src/utility/bitmap-store.test.ts` (6: a bitmap kept from one address is found from another with its
-frame's height, none for a file without a height, none for other code, no partial file left behind, an old project and
-an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2 for
-`drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same whether
-served or given; for `bitmapName`, among the names' 9: the same from another address, for a field the job or its mode
-gains and for a check, new with the tree, the mode, the size, the window, the scale and the tokens previewed, the same
-for a guest given a component and one served it but new for one served it from another file, and the same as the name
-before PAR-575 for a job the service has checked; 3 for the scale: the window in whole device pixels, at least one, a
-crop covering its box, and boxes and heights measured back in CSS pixels). `packages/core/src/webp-text.test.ts` (5:
-text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
-images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
-the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (6: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, frames with the same key share a read, frames asking together share one request and each gets its
-own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the read wins).
-Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test of their
-own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
-`examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
-shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
-millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
-the read, the service answered after the 1-second wait, so every frame was captured again anyway. The four windows were
-checked against one in debug copies on fresh profiles: of the 119 bitmaps both kept, 117 were the same file byte for
-byte, and 2 differed by at most 6 of 255 in a channel around a card's shadow, which is how they rasterize; a third
-differs between two runs with the same number of windows. That captures go to separate windows has no automated test;
-the end-to-end suite starts each copy on a fresh profile, so it captures its frames this way.
+`apps/desktop/src/utility/bitmap-store.test.ts` (7: a bitmap kept from one address is found from another with its
+frame's height, none for a file without a height, the frame's latest as stale for other code (PAR-993), none for a frame
+never kept, no partial file left behind, an old project and an old partial file swept, and nothing once cleared).
+`apps/desktop/src/shared/render-job.test.ts` (2 for `drawnComponents`: the components a tree draws, nested in slots and
+props, by where they come from, and the same whether served or given; for `bitmapName`, among the names' 9: the same
+from another address, for a field the job or its mode gains and for a check, new with the tree, the mode, the size, the
+window, the scale and the tokens previewed, the same for a guest given a component and one served it but new for one
+served it from another file, and the same as the name before PAR-575 for a job the service has checked; 3 for the scale:
+the window in whole device pixels, at least one, a crop covering its box, and boxes and heights measured back in CSS
+pixels). `packages/core/src/webp-text.test.ts` (5: text kept after the image behind the extended header a plain WebP
+needs, with its size and alpha, for lossless and lossy images; replaced under the same keyword and kept under others;
+none without it, and what isn't a WebP left alone; and the size read from either header).
+`apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in for its key, with its height, so no
+capture is asked for, the frame's latest from other code comes as stale and the frame is still captured (PAR-993),
+frames with the same key share a read, frames asking together share one request and each gets its own bitmap, none when
+the service couldn't say, none when none was kept, and a capture taken during the read wins). Gaps: that a frame waits
+for the read before its capture, and the fingerprint kept per address, have no test of their own; both were checked by
+reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on `examples/shadcn-vite`: the first session kept
+119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were shown from disk with no capture, about 2 seconds
+after the window loaded, the service answering each read in about a millisecond once it reached it; Clear bitmap cache
+emptied the folder and showed its toast. Before the fix to wait for the read, the service answered after the 1-second
+wait, so every frame was captured again anyway. The four windows were checked against one in debug copies on fresh
+profiles: of the 119 bitmaps both kept, 117 were the same file byte for byte, and 2 differed by at most 6 of 255 in a
+channel around a card's shadow, which is how they rasterize; a third differs between two runs with the same number of
+windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
+profile, so it captures its frames this way.
 
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
