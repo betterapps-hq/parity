@@ -8083,3 +8083,37 @@ interface that gives each node's change status, so a consumer can't read the wro
 - **The canvas reads changes through `useFrameChange` and `useDesignChange`,** and marks a changed board with
   `data-changed`, which nothing styles. The yellow outline was only for testing, so it stays local; how changes show is
   for Storybook first.
+
+## The Design tab's field edits through one session (PAR-968)
+
+The rebuilt sections' field (`ValueField`) could preview while typing, but sections wired it each their own way, Fill,
+Effects and Motion not at all, Escape didn't cancel a scrub or a run, and a mixed selection got one value for every
+layer. My calls:
+
+- **The session is data in, data out,** `reduceSession` in `inspector/controls/edit-session.ts`: what happened in a
+  field and the edits its change came to go in, and what to do with them comes out. `useEditSession` runs it against the
+  style editor, once for every section, and a section makes every edit through its `edit`.
+- **A run of Up and Down presses is made as it goes, in one gesture, and Escape reverts it to a checkpoint.** We dropped
+  previewing the run and making it at the end: the controls step from the value they're given, so steps not yet made
+  would never advance, and the field would show a stale value.
+- **Escape keeps a run once something else has changed its design,** such as an agent editing the same file
+  (`changedBesides`), rather than reverting it: reverting would take that change back too. The run stays one step.
+- **A scrub previews and makes its last value on release,** as before, and Escape or the pointer being cancelled takes
+  it back.
+- **A drag inside a control is a run too,** made as it goes so the control follows the pointer: a color's square and
+  strips, a gradient's stops and midpoints, an angle's dial, an easing's curve, a shadow's offset and the position
+  spots. A stop dragged off its bar is removed in the same step.
+- **A change that works from the value there is worked out for each layer only where the panel shows Mixed numbers,** W,
+  H and padding's and margin's sides, through `ValueField`'s `each`. A layer with no pixels there (Hug, Fill) keeps its
+  value, and each keeps the field's own limits and spreads: margin below 0, padding to 0, sizes to 1px, Alt and
+  Alt+Shift reaching more sides. Type sizes and radii land on tokens, so they take one value for every layer. The note
+  over several layers names the rows where `Mixed+8` works.
+- **A number field is `ValueField` with rules, not a reader of its own.** `NumberField` takes what a number takes as
+  `NumberRules` (range, whole, what empty and a number past either end do, unit, words) and builds its reading, steps
+  and reasons from them, so every number says what it takes in one form ("Weight takes a whole number from 1 to 1000").
+  `PercentField` and the number props sit on it, and a prop's default moved from the old field to `NumberProp`, so the
+  old field, its reducer and `number-field.ts` are gone. Numbers past either end stop there unless a field needs
+  refusing (Weight, Steps, a curve's handles), as before. A field that mixes numbers with words or chips, a grid's lines
+  and a track's count, keeps its own reader.
+- **`Num` is `PixelField`:** every use was a length in pixels, so it's named for that and lost its unused count mode. It
+  sits beside `NumberField` as the length layer, since a length reads `rem`, `spacing-4` and a unit menu.

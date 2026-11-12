@@ -22,7 +22,8 @@ import {
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
 import { FieldGrid, nameButton } from "../inspector/controls/field-row.tsx"
-import { type PropPreview, type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
+import { type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
+import type { PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import {

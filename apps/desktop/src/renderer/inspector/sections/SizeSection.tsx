@@ -1,8 +1,8 @@
-import { shownSize, sizeEdit, type StyleValues } from "@parity-app/editor"
+import { shownSize, sizeEdit, styleValues, type StyleValues } from "@parity-app/editor"
 import { SizeSection as ApprovedSize } from "../controls/controls.tsx"
 import type { Draft, SizeMode } from "../controls/data.ts"
 import { useTokens } from "../controls/field-parts.tsx"
-import { lengthPx, sizeOf, sizeShown } from "../style-values.ts"
+import { eachLength, lengthPx, sizeOf, sizeShown } from "../style-values.ts"
 import { mixedOf, type SectionProps } from "./section-edits.ts"
 
 const limits = [
@@ -34,6 +34,7 @@ export function SizeSection({ editor, edit, shows }: SectionProps) {
   const { unit } = editor
   const mixed = mixedOf(editor)
   const spacing = useTokens("spacing").tokens
+  const containers = useTokens("container").tokens
   const modes: SizeMode[] = shows("sizeFill") ? ["hug", "fill"] : ["hug"]
 
   const measured = (axis: "width" | "height") => {
@@ -80,6 +81,18 @@ export function SizeSection({ editor, edit, shows }: SectionProps) {
       modes={modes}
       takesPercent={false}
       mixedAxes={{ width: mixed("width") || mixed("grow"), height: mixed("height") }}
+      eachAxis={(axis, update) =>
+        edit(
+          axis,
+          (layer, edited) => {
+            // As the layer shows it, so a size it fills by growing stays Fill; at least 1px, as typing allows.
+            const next = eachLength(shownSize(layer, axis, parent), update, unit, [...spacing, ...containers], 1)
+
+            return next === undefined ? {} : styleValues(sizeEdit(axis, next, parent), layer, edited)
+          },
+          `Change ${axis}`
+        )
+      }
     />
   )
 }

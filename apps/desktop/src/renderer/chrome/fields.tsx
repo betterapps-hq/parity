@@ -17,54 +17,21 @@ import {
   SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  applyFieldInput,
-  type FieldNote,
-  type FieldRules,
-  formatFieldValue,
-  readFieldInput,
-  scrubSteps,
-  stepFieldValue,
-  summarizeFieldNotes,
-  type TokenCategory
-} from "@parity-app/core"
+import { type TokenCategory } from "@parity-app/core"
 import { isSecretName } from "@parity-app/telemetry"
 import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
-import {
-  type ComponentProps,
-  createContext,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react"
-import { ProjectContext } from "../canvas/context.ts"
-import { GestureRun } from "../canvas/gesture.ts"
+import { type ComponentProps, createContext, type ReactNode, useContext, useId, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
+import { NumberProp, type PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
 import { NameInput } from "./Name.tsx"
-import {
-  type FieldEffect,
-  type FieldEvent,
-  fieldText,
-  initialFieldState,
-  type Reading,
-  reduceField
-} from "./number-field.ts"
 import {
   numberValue,
   plainText,
   type PropValue,
   readValue,
   showValue,
-  textValue,
   type ValueKind,
   valueKind
 } from "./prop-values.ts"
@@ -112,90 +79,14 @@ function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-
   return name ? { "aria-label": name } : { "aria-labelledby": labelId }
 }
 
-/** Starts scrubbing a field from a pointer pressed on a label. */
-type Scrub = (event: ReactPointerEvent<HTMLElement>) => void
-
-/** Number fields in a row without a label of their own, which the row's label scrubs. */
-const ScrubContext = createContext<((scrub: Scrub) => () => void) | undefined>(undefined)
-
-/** What ends a field's run of Up and Down presses, which is one undo step. */
-const runEnders = new Set<FieldEvent["type"]>(["type", "enter", "blur", "escape", "scrubStart"])
-
-/**
- * What a field says under itself: why it can't read what's typed, what it did with a value, or something to know about
- * the value it holds, such as a length off the spacing scale, with a button that deals with it.
- */
-interface FieldMessage {
-  tone: "error" | "note" | "flag"
-  text: string
-  action?: FieldAction
-}
-
-/** A button beside what a field says. `name` is its accessible name when the label alone doesn't say which field. */
-interface FieldAction {
-  label: string
-  name?: string
-  run: () => void
-}
-
-/** Something to know about the value a field holds, said under its row while it isn't being edited. */
-export interface FieldFlag {
-  text: string
-  action?: FieldAction
-}
-
-/** Lets a row's fields say things under the whole row, where there's room, by the id each describes itself with. */
-const MessageContext = createContext<((id: string, message: FieldMessage | undefined) => void) | undefined>(undefined)
-
 /**
  * One property row: label, control, and a reset button when a state overrides it. The label names the inputs inside
  * that aren't given a name of their own (see `useFieldName`); controls with their own name, such as a button with
- * text, keep it. When the row holds one number field without a label of its own, dragging the row's label scrubs it,
- * as Figma's labels do. What its fields say shows under the row.
+ * text, keep it.
  */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
   const firstState = useContext(FirstStateName)
   const labelId = useId()
-  const scrubs = useRef(new Set<Scrub>())
-  const [scrub, setScrub] = useState<Scrub>()
-
-  const register = useCallback((added: Scrub) => {
-    scrubs.current.add(added)
-    const only = () => setScrub(() => (scrubs.current.size === 1 ? [...scrubs.current][0] : undefined))
-    only()
-
-    return () => {
-      scrubs.current.delete(added)
-      only()
-    }
-  }, [])
-
-  const [messages, setMessages] = useState<ReadonlyMap<string, FieldMessage>>(new Map())
-
-  const say = useCallback((id: string, message: FieldMessage | undefined) => {
-    setMessages((current) => {
-      const was = current.get(id)
-
-      if (
-        was?.text === message?.text &&
-        was?.tone === message?.tone &&
-        was?.action?.label === message?.action?.label &&
-        was?.action?.name === message?.action?.name
-      ) {
-        return current
-      }
-
-      const next = new Map(current)
-
-      if (message) {
-        next.set(id, message)
-      } else {
-        next.delete(id)
-      }
-
-      return next
-    })
-  }, [])
 
   return (
     // Replay shows a field named as a secret, such as `apiKey`, as stars (replay.ts, PAR-679).
@@ -206,16 +97,13 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
       <div className="flex min-w-0 items-center gap-0.5">
         <Hint
           label={changed ? `${label}: changed in this state` : label}
-          detail={[mixed && "Different across the selected layers", hint, scrub && "Drag to change it"]
-            .filter(Boolean)
-            .join("\n")}
+          detail={[mixed && "Different across the selected layers", hint].filter(Boolean).join("\n")}
           wait
         >
           <span
             id={labelId}
-            className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
+            className="truncate text-xs text-muted-foreground"
             style={changed ? { color: kindColors.agent } : undefined}
-            onPointerDown={scrub}
           >
             {label}
           </span>
@@ -236,59 +124,9 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
       </div>
       <div className="min-w-0">
         <FieldLabelContext value={labelId}>
-          <ScrubContext value={register}>
-            <MessageContext value={say}>
-              <MixedContext value={mixed}>{children}</MixedContext>
-            </MessageContext>
-          </ScrubContext>
+          <MixedContext value={mixed}>{children}</MixedContext>
         </FieldLabelContext>
       </div>
-      {messages.size > 0 && (
-        <div className="col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
-          {[...messages].map(([id, message]) => (
-            <FieldMessageLine key={id} id={id} message={message} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-const messageTones: Record<FieldMessage["tone"], string> = {
-  error: "text-destructive",
-  note: "text-muted-foreground",
-  flag: "text-amber-700 dark:text-amber-400"
-}
-
-function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }) {
-  const { action } = message
-
-  const text = (
-    <p
-      id={id}
-      role={message.tone === "error" ? "alert" : "status"}
-      className={`type-message min-w-0 ${messageTones[message.tone]}`}
-    >
-      {message.text}
-    </p>
-  )
-
-  if (!action) {
-    return text
-  }
-
-  // The button sits at the line's end, so a flag on each of a row's fields lines its buttons up.
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      {text}
-      <button
-        type="button"
-        onClick={action.run}
-        aria-label={action.name}
-        className="type-message shrink-0 rounded-sm font-medium whitespace-nowrap text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
-      >
-        {action.label}
-      </button>
     </div>
   )
 }
@@ -355,455 +193,6 @@ export function TextInput({
           event.currentTarget.blur()
         }
       }}
-    />
-  )
-}
-
-/** What a number or length field holds: a number in what it stores (steps for lengths), a token's name, or nothing. */
-export type FieldValue = number | string | undefined
-
-/**
- * An edit from a number field, worked out from a layer's own value: the same for every layer unless what was typed
- * uses the value there (`+8`, `Mixed*2`, `50%`, a step or a scrub). A value it can't work from stays as it is.
- */
-export type FieldUpdate = (current: FieldValue) => FieldValue
-
-export interface NumberFieldProps {
-  /** What it holds; undefined when unset, or when the selected layers differ (then it shows Mixed). */
-  value: FieldValue
-  rules: FieldRules
-  /** Its accessible name, where its field's label doesn't name it, as for one of a row's several fields. */
-  title?: string
-  /** Length token names it takes as typed. */
-  tokens?: readonly string[]
-  placeholder?: string
-  /** What an unset value counts as when an edit works from it: 0 for padding, a layer's measured width. */
-  blank?: () => number | undefined
-  /** A letter or two inside the field, which scrubs it when dragged. Without one, the row's label does. */
-  inner?: string
-  /** Inside the field, after the value. */
-  suffix?: ReactNode
-  /** Inside the field's border, at its end, such as a token picker. */
-  after?: ReactNode
-  /** Shows a token name in a code font. */
-  mono?: boolean
-  className?: string
-  /** Said on hovering the field, such as the step a length is. */
-  hint?: string
-  /** Said under the row about the value it holds, while it isn't being typed in, such as a length off the scale. */
-  flag?: FieldFlag
-  /** Shows an edit on the canvas while it's typed or scrubbed, without making it. */
-  onPreview?: (update: FieldUpdate) => void
-  /** Takes the preview back. */
-  onCancel?: () => void
-  /**
-   * Makes the edit, as one undo step. A run of Up and Down presses passes the gesture it's in, so the whole run is one
-   * step.
-   */
-  onCommit: (update: FieldUpdate, gesture?: string) => void
-}
-
-/**
- * A number or length field that takes what people type: units, maths, the value there (`+8`, `Mixed+8`), Up and Down
- * (Shift for ten), and dragging its label to scrub. The canvas previews while typing or scrubbing; Enter commits and
- * keeps focus; input it can't read stays, with the reason under it; and what's typed survives the value changing
- * underneath. The rules are in `@parity-app/core`'s fields.ts and the behaviour in number-field.ts.
- */
-export function NumberField({
-  value,
-  rules,
-  title,
-  tokens,
-  placeholder,
-  blank,
-  inner,
-  suffix,
-  after,
-  mono = false,
-  className = "",
-  hint,
-  flag,
-  onPreview,
-  onCancel,
-  onCommit
-}: NumberFieldProps) {
-  const mixed = useMixed()
-  const named = useFieldName(title)
-  const register = useContext(ScrubContext)
-  const say = useContext(MessageContext)
-  const store = useContext(ProjectContext)?.store
-  const target = useContext(FieldTarget)
-  /**
-   * The run of Up and Down presses the field's edits are in, keyed by its target (see `GestureRun`). A
-   * run lasts while only Up and Down are pressed on one target: typing, Enter, Escape, leaving the field, scrubbing or
-   * the target changing ends it.
-   */
-  const presses = useMemo(() => (store ? new GestureRun(store, "fieldNudge") : undefined), [store])
-  const endGesture = () => presses?.end()
-  const beginGesture = () => presses?.gesture(target)
-  const input = useRef<HTMLInputElement>(null)
-  const messageId = useId()
-  const [state, setState] = useState(initialFieldState)
-  useEffect(() => say?.(messageId, state.message), [say, messageId, state.message])
-  useEffect(() => () => say?.(messageId, undefined), [say, messageId])
-  // The flag is about the value there, so it waits while something else is typed, and its button runs the latest one.
-  const flagId = useId()
-  const flagAction = useRef(flag?.action?.run)
-  flagAction.current = flag?.action?.run
-  const flagText = flag?.text
-  const flagLabel = flag?.action?.label
-  const flagName = flag?.action?.name
-
-  const flagMessage = useMemo(() => {
-    if (flagText === undefined) {
-      return undefined
-    }
-
-    const message: FieldMessage = { tone: "flag", text: flagText }
-
-    if (flagLabel) {
-      message.action = { label: flagLabel, name: flagName, run: () => flagAction.current?.() }
-    }
-
-    return message
-  }, [flagText, flagLabel, flagName])
-
-  const flagShown = state.draft === undefined && state.scrubbing === undefined ? flagMessage : undefined
-  useEffect(() => say?.(flagId, flagShown), [say, flagId, flagShown])
-  useEffect(() => () => say?.(flagId, undefined), [say, flagId])
-  const current = useRef(state)
-  const previewing = useRef(false)
-  const [selecting, setSelecting] = useState(0)
-  const shown = mixed && value === undefined ? "Mixed" : formatFieldValue(value, rules)
-
-  /** A value as a number to work from: its own, or what unset counts as; a token has none. */
-  const numeric = (from: FieldValue) => {
-    const own = numberValue.safeParse(from)
-
-    if (own.success) {
-      return own.data
-    }
-
-    return from === undefined ? blank?.() : undefined
-  }
-
-  const read = (text: string): Reading => {
-    const typed = readFieldInput(text, rules, tokens)
-
-    if (typed.type === "unreadable") {
-      return { ok: false, reason: typed.reason }
-    }
-
-    // With layers that differ, what works from the value is worked out for each; it can't be checked against one.
-    if (mixed && value === undefined && typed.type === "maths" && typed.relative) {
-      return { ok: true }
-    }
-
-    const outcome = applyFieldInput(typed, numeric(value), rules)
-
-    return outcome.ok ? { ok: true } : { ok: false, reason: outcome.reason }
-  }
-
-  /**
-   * The edit for some text, then `step` steps from what it comes to, and what it did to values that didn't fit,
-   * gathered as it's worked out. Without text, it steps from the value there.
-   */
-  const editFor = (text: string | undefined, step = 0) => {
-    const typed = text === undefined ? undefined : readFieldInput(text, rules, tokens)
-    const notes: FieldNote[] = []
-    const kept: string[] = []
-
-    const update: FieldUpdate = (from) => {
-      if (!typed && step === 0) {
-        return from
-      }
-
-      let base = numeric(from)
-
-      if (typed) {
-        const outcome = applyFieldInput(typed, base, rules)
-
-        if (!outcome.ok) {
-          kept.push(outcome.reason)
-
-          return from
-        }
-
-        if (step === 0) {
-          if (outcome.note) {
-            notes.push(outcome.note)
-          }
-
-          return outcome.value
-        }
-
-        base = numberValue.safeParse(outcome.value).data
-      }
-
-      return base === undefined ? from : stepFieldValue(base, step, rules)
-    }
-
-    const summary = () => {
-      const note = summarizeFieldNotes(notes, rules)
-
-      const skipped =
-        kept.length > 0
-          ? `${kept.length === 1 ? "A layer" : `${kept.length} layers`} kept its value: ${kept[0]}`
-          : undefined
-
-      return [note, skipped].filter(Boolean).join(". ") || undefined
-    }
-
-    return { update, summary }
-  }
-
-  const run = (effect: FieldEffect) => {
-    switch (effect.type) {
-      case "preview":
-        previewing.current = true
-        onPreview?.(editFor(effect.text).update)
-
-        return
-      case "cancel":
-        if (previewing.current) {
-          onCancel?.()
-        }
-
-        previewing.current = false
-
-        return
-      case "commit": {
-        const { update, summary } = editFor(effect.text)
-        onCommit(update)
-        previewing.current = false
-
-        return dispatch({ type: "committed", note: summary() })
-      }
-
-      case "step": {
-        const { update, summary } = editFor(effect.from, effect.count)
-        onCommit(update, beginGesture())
-        previewing.current = false
-
-        return dispatch({ type: "committed", note: summary() })
-      }
-
-      case "select":
-        return setSelecting((count) => count + 1)
-      case "blur":
-        return input.current?.blur()
-    }
-  }
-
-  function dispatch(event: FieldEvent) {
-    if (runEnders.has(event.type)) {
-      endGesture()
-    }
-
-    const update = reduceField(current.current, event, read)
-    current.current = update.state
-    setState(update.state)
-
-    for (const effect of update.effects) {
-      run(effect)
-    }
-  }
-
-  // Enter keeps the field, with its text selected once the committed value shows.
-  useLayoutEffect(() => {
-    if (selecting > 0) {
-      input.current?.select()
-    }
-  }, [selecting])
-
-  // A preview doesn't outlive its field, as when the selection changes while typing, and neither does a run of steps.
-  const cancel = useRef(onCancel)
-  cancel.current = onCancel
-  useEffect(
-    () => () => {
-      if (previewing.current) {
-        cancel.current?.()
-      }
-    },
-    []
-  )
-  useEffect(() => () => presses?.end(), [presses])
-  // A run ends as its target changes, so its step takes nothing more, as well as at the next press.
-  useEffect(() => presses?.select(target), [presses, target])
-
-  const scrub = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0) {
-      return
-    }
-
-    event.preventDefault()
-    const handle = event.currentTarget
-    handle.setPointerCapture(event.pointerId)
-    const start = event.clientX
-    let steps = 0
-    let update: FieldUpdate | undefined
-    // A scrub ends any run of Up and Down presses, and previews until it's let go, when it makes its edit once: one
-    // undo step without a gesture of its own.
-    dispatch({ type: "scrubStart" })
-
-    const move = (moveEvent: PointerEvent) => {
-      const next = scrubSteps(moveEvent.clientX - start, moveEvent.shiftKey)
-
-      if (next === steps) {
-        return
-      }
-
-      steps = next
-      update = editFor(undefined, steps).update
-      previewing.current = true
-      onPreview?.(update)
-      const own = mixed && value === undefined ? undefined : update(value)
-      dispatch({ type: "scrubMove", text: own === undefined ? shown : formatFieldValue(own, rules) })
-    }
-
-    const stop = (commit: boolean) => {
-      handle.removeEventListener("pointermove", move)
-      handle.removeEventListener("pointerup", up)
-      handle.removeEventListener("pointercancel", cancelled)
-      window.removeEventListener("keydown", key, true)
-      dispatch({ type: "scrubEnd" })
-
-      if (commit && steps !== 0) {
-        const { update: final, summary } = editFor(undefined, steps)
-        onCommit(final)
-        previewing.current = false
-        dispatch({ type: "committed", note: summary() })
-      } else {
-        run({ type: "cancel" })
-      }
-
-      // A press without a drag is a click: on a label inside the field, it goes to the field.
-      if (steps === 0 && inner) {
-        input.current?.focus()
-      }
-    }
-
-    const up = () => stop(true)
-    const cancelled = () => stop(false)
-
-    const key = (keyEvent: KeyboardEvent) => {
-      if (keyEvent.key !== "Escape") {
-        return
-      }
-
-      keyEvent.preventDefault()
-      keyEvent.stopPropagation()
-      stop(false)
-    }
-
-    handle.addEventListener("pointermove", move)
-    handle.addEventListener("pointerup", up)
-    handle.addEventListener("pointercancel", cancelled)
-    window.addEventListener("keydown", key, true)
-  }
-
-  // Without a label of its own, the row's label scrubs it.
-  const latest = useRef(scrub)
-  latest.current = scrub
-  useEffect(() => (inner || !register ? undefined : register((event) => latest.current(event))), [inner, register])
-
-  const error = state.message?.tone === "error"
-
-  const box = (
-    <div
-      data-invalid={error ? "" : undefined}
-      className="group flex h-7 min-w-0 items-center rounded-md border border-input shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 data-[invalid]:border-destructive data-[invalid]:ring-destructive/20 dark:bg-input/30"
-    >
-      {inner && (
-        <span
-          className="shrink-0 cursor-ew-resize touch-none pl-1.5 text-2xs text-muted-foreground select-none"
-          onPointerDown={scrub}
-        >
-          {inner}
-        </span>
-      )}
-      <Input
-        ref={input}
-        {...named}
-        aria-invalid={error || undefined}
-        aria-describedby={[state.message && messageId, flagShown && flagId].filter(Boolean).join(" ") || undefined}
-        value={fieldText(state, shown)}
-        placeholder={placeholder}
-        spellCheck={false}
-        autoComplete="off"
-        // The kit's input turns to 14px from the md breakpoint, which every window is past; md:text-xs keeps it 12px.
-        className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none md:text-xs focus-visible:ring-0 aria-invalid:ring-0 dark:bg-transparent ${
-          mono || textValue.safeParse(value).success ? "font-mono" : "tabular-nums"
-        }`}
-        onChange={(event) => dispatch({ type: "type", text: event.currentTarget.value })}
-        onBlur={() => dispatch({ type: "blur" })}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault()
-            dispatch({ type: "enter" })
-          } else if (event.key === "Escape") {
-            event.preventDefault()
-            dispatch({ type: "escape" })
-          } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-            event.preventDefault()
-            dispatch({ type: "step", count: (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1) })
-          }
-        }}
-      />
-      {suffix && (
-        <span className="pointer-events-none shrink-0 pr-1.5 text-2xs text-muted-foreground group-focus-within:hidden">
-          {suffix}
-        </span>
-      )}
-      {after}
-    </div>
-  )
-
-  return (
-    <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
-      {hint ? (
-        <Hint label={hint} wait>
-          {box}
-        </Hint>
-      ) : (
-        box
-      )}
-      {/* In a row, the row says it, under its whole width. */}
-      {state.message && !say && <FieldMessageLine id={messageId} message={state.message} />}
-      {flagShown && !say && <FieldMessageLine id={flagId} message={flagShown} />}
-    </div>
-  )
-}
-
-/** A number on its own, such as opacity or max lines, with what it's in after it (`%`). */
-export function NumberInput({
-  value,
-  rules,
-  title,
-  onCommit,
-  onPreview,
-  onCancel,
-  blank,
-  suffix,
-  placeholder
-}: Pick<
-  NumberFieldProps,
-  "value" | "rules" | "title" | "onCommit" | "onPreview" | "onCancel" | "blank" | "placeholder"
-> & {
-  suffix?: string
-}) {
-  return (
-    <NumberField
-      value={value}
-      rules={rules}
-      title={title}
-      placeholder={placeholder}
-      blank={blank}
-      suffix={suffix}
-      className="w-24"
-      onCommit={onCommit}
-      onPreview={onPreview}
-      onCancel={onCancel}
     />
   )
 }
@@ -877,82 +266,8 @@ export function SwitchInput({
   return <Switch size="sm" checked={value} {...named} onCheckedChange={onChange} />
 }
 
-/** Rules for a number a prop or param takes: any number, with maths. */
-const numberRules: FieldRules = { kind: "number" }
-
-/** A number value previewed on the canvas, before it's made. */
-export interface NumberPreview {
-  onPreview: (value: number | undefined) => void
-  /** Takes the preview back. */
-  onCancel: () => void
-}
-
-/**
- * A number a prop or param takes, with maths, Up and Down and scrubbing. Given `preview`, it shows on the canvas while
- * it's typed or scrubbed. A preview is made in the design while it shows (see `ChangePreview`), so the value the field
- * gets then is the preview's: edits work from the value as it was before it, so `+8` doesn't add to itself.
- */
-export function NumberValueInput({
-  value,
-  title,
-  placeholder,
-  blank,
-  preview,
-  onCommit
-}: {
-  value: PropValue | undefined
-  /** Its accessible name, where its field's label doesn't name it. */
-  title?: string
-  placeholder?: string
-  /** What an unset value counts as when an edit works from it, such as the prop's default. */
-  blank?: () => number | undefined
-  preview?: NumberPreview
-  onCommit: (value: number | undefined, gesture?: string) => void
-}) {
-  const current = numberValue.safeParse(value).data
-  const before = useRef<{ value: number | undefined }>(undefined)
-  const from = () => (before.current ? before.current.value : current)
-
-  return (
-    <NumberInput
-      value={current}
-      rules={numberRules}
-      title={title}
-      placeholder={placeholder}
-      blank={blank}
-      onPreview={
-        preview &&
-        ((update) => {
-          const base = from()
-          before.current = { value: base }
-          preview.onPreview(numberOrUnset(update(base)))
-        })
-      }
-      onCancel={
-        preview &&
-        (() => {
-          before.current = undefined
-          preview.onCancel()
-        })
-      }
-      onCommit={(update, gesture) => {
-        const base = from()
-        const previewed = before.current !== undefined
-        before.current = undefined
-        const next = numberOrUnset(update(base))
-
-        if (next !== base) {
-          onCommit(next, gesture)
-        } else if (previewed) {
-          preview?.onCancel()
-        }
-      }}
-    />
-  )
-}
-
-/** A number field's value as a number prop takes it; number rules give no token names. */
-function numberOrUnset(value: FieldValue): number | undefined {
+/** A prop's value as a number field holds it: a number, or unset. */
+function numberOrUnset(value: PropValue | undefined): number | undefined {
   return numberValue.safeParse(value).data
 }
 
@@ -972,7 +287,7 @@ export function ValueInput({
   /** Its accessible name, where its field's label doesn't name it. */
   title?: string
   kind?: ValueKind
-  preview?: NumberPreview
+  preview?: PropPreview
   onCommit: (value: PropValue | undefined, gesture?: string) => void
 }) {
   if (kind === "boolean") {
@@ -980,7 +295,7 @@ export function ValueInput({
   }
 
   if (kind === "number") {
-    return <NumberValueInput value={value} title={title} preview={preview} onCommit={onCommit} />
+    return <NumberProp label={title ?? "Value"} value={numberOrUnset(value)} preview={preview} onChange={onCommit} />
   }
 
   if (kind === "text") {

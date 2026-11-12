@@ -1,18 +1,18 @@
 import { useMemo } from "react"
 import { PanelGroup } from "../../chrome/PanelSection.tsx"
-import type { StyleEditor } from "../../chrome/style-editor.ts"
 import { ProjectTokens } from "../controls/field-parts.tsx"
 import { FilterList } from "../controls/filter-list.tsx"
 import { ShadowList } from "../controls/shadow-list.tsx"
 import { effectTokenSets } from "./effect-tokens.ts"
 import { filterEntriesOf, filterStyleOf, shadowEntriesOf, shadowStyleOf } from "./effects-values.ts"
+import type { SectionProps } from "./section-edits.ts"
 
 /**
  * Effects (PAR-933): the approved Shadow list, then the Filter list under it as Filters, editing the layers' `shadow`,
  * `filter` and `backdropFilter`, with the project's own colors, shadows and blurs. Each list's edit replaces every
  * selected layer's list, as a mixed list says it will. Transform is in Position.
  */
-export function EffectsSection({ editor }: { editor: StyleEditor }) {
+export function EffectsSection({ editor, edit }: SectionProps) {
   const { style, mixed } = editor.selection
   const sets = useMemo(() => effectTokenSets(editor.tokens), [editor.tokens])
 
@@ -31,14 +31,14 @@ export function EffectsSection({ editor }: { editor: StyleEditor }) {
         <ShadowList
           entries={shadowsMixed ? [] : shadowEntriesOf(style)}
           mixed={shadowsMixed}
-          onChange={(entries) => editor.set("shadow", (layer) => shadowStyleOf(entries, layer), "Change shadows")}
+          onChange={(entries) => edit("shadow", (layer) => shadowStyleOf(entries, layer), "Change shadows")}
         />
         <FilterList
           entries={filtersMixed ? [] : filterEntriesOf(style)}
           title="Filters"
           dropShadows={false}
           tokensOnly
-          onChange={(entries) => editor.set("filters", (layer) => filterStyleOf(entries, layer), "Change filters")}
+          onChange={(entries) => edit("filters", (layer) => filterStyleOf(entries, layer), "Change filters")}
         />
       </PanelGroup>
     </ProjectTokens>

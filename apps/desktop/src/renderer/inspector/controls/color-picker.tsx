@@ -34,13 +34,13 @@ import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { clamp, mixColor, stepCount } from "./css-values.ts"
+import { clamp, mixColor } from "./css-values.ts"
 import {
   arrowMoves,
   drag,
+  useLiveEdits,
   type Message,
   MessageLine,
-  PercentField,
   type Reading,
   type SharedLine,
   type ScrubKeys,
@@ -55,6 +55,8 @@ import {
   ValueField
 } from "./field-parts.tsx"
 import { overChecker as drawnOverChecker } from "./list-parts.tsx"
+import { PercentField } from "./number-field.tsx"
+import { type NumberRules, readNumberText, stepNumber } from "./number-rules.ts"
 import { type ColorToken, colorToken } from "./tokens.ts"
 import { optionNamed } from "./typing.ts"
 
@@ -373,18 +375,15 @@ function ChannelField({
   onChange: (value: number) => void
   line: SharedLine
 }) {
-  const typed = useTyped<number>({
+  // What it takes, as every number field says it: from 0 to its most, there whatever's typed.
+  const rules: NumberRules = { label, min: 0, max, places, required: true, step }
+
+  const typed = useTyped<number | undefined>({
     label,
     shown: places === 0 ? String(Math.round(value)) : value.toFixed(places).replace(/^0/, ""),
-    read: (text) => {
-      const number = Number(text)
-
-      return text.trim() !== "" && Number.isFinite(number)
-        ? { value: clamp(number, 0, max) }
-        : { reason: `${label} goes from 0 to ${max}` }
-    },
-    onCommit: onChange,
-    onStep: (up, shift) => onChange(clamp(value + step * stepCount(up, shift), 0, max)),
+    read: (text) => readNumberText(text, rules, value),
+    onCommit: (next) => next !== undefined && onChange(next),
+    onStep: (up, shift) => onChange(stepNumber(value, up, { shift, alt: false }, rules)),
     line
   })
 
@@ -422,6 +421,8 @@ function Strip2d({
   onMove: (x: number, y: number) => void
   onKey: (dx: number, dy: number) => void
 }) {
+  const live = useLiveEdits()
+
   return (
     <div
       role="slider"
@@ -442,7 +443,7 @@ function Strip2d({
         onKey(move[0] * keyStep(event), move[1] * keyStep(event))
       }}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) =>
-        drag(event, { move: (point) => onMove(point.x, point.y), press: true })
+        drag(event, { runs: live, move: (point) => onMove(point.x, point.y), press: true })
       }
       className="relative h-36 cursor-crosshair touch-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ background }}
@@ -473,6 +474,7 @@ function Strip({
   overChecker?: boolean
   onChange: (value: number) => void
 }) {
+  const live = useLiveEdits()
   const style = overChecker ? drawnOverChecker(background) : { background }
 
   return (
@@ -496,7 +498,7 @@ function Strip({
         onChange(clamp(value + (move[0] - move[1]) * keyStep(event), 0, max))
       }}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) =>
-        drag(event, { move: (point) => onChange(point.x * max), press: true })
+        drag(event, { runs: live, move: (point) => onChange(point.x * max), press: true })
       }
       className="relative h-3 cursor-ew-resize touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={style}

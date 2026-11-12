@@ -78,6 +78,7 @@ export function SideValue({
   side = "top",
   className = "",
   onChange,
+  onEach,
   onShorthand,
   onHover
 }: {
@@ -99,6 +100,8 @@ export function SideValue({
   side?: "top" | "bottom"
   className?: string
   onChange: (value: Side, spread: Spread) => void
+  /** Where the layers differ, works out what uses the value there from each one's own pixels, on the sides spread to. */
+  onEach?: (update: (px: number) => number, spread: Spread) => void
   onShorthand?: (sides: Sides) => void
   /** Hovered, or its popover open, for the canvas to highlight the side. */
   onHover?: (on: boolean) => void
@@ -165,6 +168,7 @@ export function SideValue({
           measured={measured}
           percentOf={percentOf}
           placeholder={placeholder}
+          each={onEach}
           onChange={onChange}
           onShorthand={onShorthand}
         />
@@ -192,6 +196,7 @@ function BoxSide({
   mixed,
   measured,
   onChange,
+  onEach,
   onHover
 }: {
   box: "padding" | "margin"
@@ -201,6 +206,7 @@ function BoxSide({
   mixed: boolean
   measured?: number
   onChange: (sides: Sides, cleared: number[]) => void
+  onEach?: (update: (px: number) => number, reached: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
   return (
@@ -216,6 +222,7 @@ function BoxSide({
         const reached = spreadTo([index], spread)
         onChange(setSides(sides, reached, next), reached)
       }}
+      onEach={onEach && ((update, spread) => onEach(update, spreadTo([index], spread)))}
       onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
       onHover={(on) => onHover?.(on ? { box, sides: [index] } : undefined)}
     />
@@ -238,6 +245,7 @@ export function BoxModel({
   rules = sideRules,
   onPadding,
   onMargin,
+  onEach,
   onHover
 }: {
   padding: Sides
@@ -253,6 +261,11 @@ export function BoxModel({
   rules?: Pick<Record<SideKind, SideRules>, "padding" | "margin">
   onPadding: (sides: Sides, cleared: number[]) => void
   onMargin?: (sides: Sides, cleared: number[]) => void
+  /**
+   * Where the layers differ on a side, works out what uses the value there (`+8`, Up and Down, a scrub) from each
+   * layer's own pixels on the sides it reached: that side, or with Alt and Alt+Shift the opposite one or all four.
+   */
+  onEach?: (box: "padding" | "margin", reached: number[], update: (px: number) => number) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
   const side = (box: "padding" | "margin", index: number) => (
@@ -264,6 +277,7 @@ export function BoxModel({
       mixed={(box === "padding" ? paddingMixed : marginMixed)[index] ?? false}
       measured={box === "margin" ? measuredMargin?.[index] : undefined}
       onChange={box === "padding" ? onPadding : (onMargin ?? noChange)}
+      onEach={onEach && ((update, reached) => onEach(box, reached, update))}
       onHover={onHover}
     />
   )

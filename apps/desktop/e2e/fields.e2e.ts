@@ -129,10 +129,22 @@ describe("stepping and scrubbing", () => {
     }
 
     expect(await width().inputValue()).toBe("72")
-    await width().press("Escape")
-    await width().press("Escape")
+    // Leaving keeps the run, and one Undo takes it all back.
+    await width().press("Tab")
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
+  })
+
+  it("takes a run of Up and Down back on Escape, leaving nothing to undo (PAR-968)", async () => {
+    await selectBrand()
+    await width().click()
+    await width().press("ArrowUp")
+    await width().press("ArrowUp")
+    await expect.poll(brandWidth).toBe(10)
+    await width().press("Escape")
+    await expect.poll(brandWidth).toBe(8)
+    expect(await width().inputValue()).toBe("32")
+    expect(await app.undoLabel()).toBeUndefined()
   })
 
   it("scrubs W a spacing step per two pixels, previewing on the canvas, and makes one undo step on release", async () => {
@@ -152,6 +164,22 @@ describe("stepping and scrubbing", () => {
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
   })
+
+  it("puts a scrub back on Escape, making nothing (PAR-968)", async () => {
+    await selectBrand()
+    const label = app.page.getByText("W", { exact: true }).first()
+    const box = (await label.boundingBox())!
+    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    await app.page.mouse.move(from.x, from.y)
+    await app.page.mouse.down()
+    await app.page.mouse.move(from.x + 20, from.y, { steps: 5 })
+    await expect.poll(drawnWidth).toBe(72)
+    await app.page.keyboard.press("Escape")
+    await expect.poll(drawnWidth).toBe(32)
+    await app.page.mouse.up()
+    expect(await brandWidth()).toBe(8)
+    expect(await app.undoLabel()).toBeUndefined()
+  })
 })
 
 describe("several layers", () => {
@@ -162,12 +190,30 @@ describe("several layers", () => {
     await expect.poll(() => width().getAttribute("placeholder")).toBe("Mixed")
     expect(await width().inputValue()).toBe("")
     expect(await app.page.getByText("Different across these layers").textContent()).toContain(
-      "What you set goes to every layer"
+      "adds 8 to each layer's own value"
     )
     await typeOver(width(), "48")
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(12)
     expect((await app.style("Pricing", plans)).width).toBe(12)
+  })
+
+  it("works +8 and Up out from each layer's own width, as one undo step each (PAR-968)", async () => {
+    await selectBrand()
+    await app.toggleInLayers("Pricing", plans)
+    await expect.poll(() => width().getAttribute("placeholder")).toBe("Mixed")
+    const plansWidth = async () => (await app.style("Pricing", plans)).width
+    const before = await plansWidth()
+    await typeOver(width(), "+8")
+    await width().press("Enter")
+    await expect.poll(brandWidth).toBe(10)
+    expect(await plansWidth()).toBe(Number(before) + 2)
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(brandWidth).toBe(8)
+    await width().click()
+    await width().press("ArrowUp")
+    await expect.poll(brandWidth).toBe(9)
+    expect(await plansWidth()).toBe(Number(before) + 1)
   })
 })
 

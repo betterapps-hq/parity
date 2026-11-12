@@ -457,7 +457,7 @@ function LayerSections({
   node: DesignNode
   /** What the state, variant or copy being edited changes about it, to mark and reset. */
   override: NodePatch | undefined
-  /** Makes a change, as part of a gesture's one undo step when given (see `NumberField`). */
+  /** Makes a change, as part of a gesture's one undo step when given, as a run of Up and Down presses in a field. */
   change: LayerChange
   reset: (field?: PatchField) => void
   /** Inside an instance, where an image's file and description belong to the component. */
