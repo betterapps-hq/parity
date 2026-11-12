@@ -54,31 +54,50 @@ describe("the frame bitmap store", () => {
   it("has none for a file without its frame's height, as an earlier version kept", async () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
-    const [name] = await readdir(join(folder, project!))
-    await writeFile(join(folder, project!, name!), webp)
+
+    for (const name of await readdir(join(folder, project!))) {
+      await writeFile(join(folder, project!, name), webp)
+    }
+
     expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
   })
 
   // What else names a bitmap, `bitmapName` says, and its tests check.
-  it("has none for other code", async () => {
+  it("gives the frame's latest for other code, with its height, as stale (PAR-993)", async () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
-    expect(await store.storedBitmap(code("code-2"), job("http://localhost:5001"))).toBeUndefined()
+    await store.storeBitmap(code("code-2"), job("http://localhost:5001"), webp, 140)
+    expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toMatchObject({ height: 100 })
+    expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).not.toHaveProperty("stale")
+    expect(await store.storedBitmap(code("code-3"), job("http://localhost:5001"))).toMatchObject({
+      height: 140,
+      stale: true
+    })
+  })
+
+  it("has none for a frame never kept, whatever the code", async () => {
+    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
+    const other = { ...job("http://localhost:5001"), tree: [{ nodeId: "b", type: "text", text: "Sign up" }] }
+    expect(await store.storedBitmap(code("code-2"), other)).toBeUndefined()
   })
 
   it("leaves no partial file behind a write", async () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
-    const names = await readdir(join(folder, project!))
-    expect(names).toHaveLength(1)
+    const names = (await readdir(join(folder, project!))).sort()
+    expect(names).toHaveLength(2)
     expect(names[0]).toMatch(/^[0-9a-f]{40}\.webp$/)
+    expect(names[1]).toMatch(/^latest-[0-9a-f]{40}\.webp$/)
   })
 
   it("sweeps away a project not used for over 30 days, and a partial file a write left", async () => {
     await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
     const [project] = await readdir(folder)
-    const [name] = await readdir(join(folder, project!))
     const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
-    await utimes(join(folder, project!, name!), old, old)
+
+    for (const name of await readdir(join(folder, project!))) {
+      await utimes(join(folder, project!, name), old, old)
+    }
+
     await writeFile(join(folder, project!, "left.webp.1.x.partial"), "x")
     await utimes(join(folder, project!, "left.webp.1.x.partial"), old, old)
     await store.sweepBitmaps()

@@ -22,7 +22,9 @@ import { environment } from "./environment.ts"
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
  * They live in Parity's app data, which main names (`PARITY_BITMAP_DIR`), one folder per project, as lossless WebP
  * (PAR-535). A frame bitmap is named by what it shows: the project's code as the guest drawing it was loaded
- * (`codeSnapshot`) and the render job, as `bitmapName` names it. Each carries its frame's height. Component previews are in the project's `previews`
+ * (`codeSnapshot`) and the render job, as `bitmapName` names it, and each frame's latest beside it, named by the job
+ * alone, which stands in while the frame is captured again for new code (PAR-993). Each carries its frame's height.
+ * Component previews are in the project's `previews`
  * folder, two pictures each, named by `previewKey`, with an index of each component's latest. Without a folder, as in
  * tests, nothing is kept.
  */
@@ -47,20 +49,36 @@ let sweeping: Promise<void> | undefined
 /** The text the frame's height is kept under, inside the WebP. */
 const heightKeyword = "parity:height"
 
+/** A kept bitmap, as a lossless WebP in base64, with its frame's height when it was captured. */
+export interface StoredBitmap {
+  webp: string
+  height: number
+  /** It's the frame's latest, drawn from other code, which stands in until it's captured for this code (PAR-993). */
+  stale?: true
+}
+
 /**
- * The bitmap a job draws, as a lossless WebP in base64, and the frame's height when it was captured, if one was kept for
- * the code it's drawn with. Showing it counts as using it.
+ * The bitmap a job draws, and the frame's height when it was captured: the one kept for the code it's drawn with, or
+ * else the frame's latest, drawn from other code, as stale. Showing it counts as using it.
  */
-export async function storedBitmap(
-  served: ServedCode,
-  job: RenderJob
-): Promise<{ webp: string; height: number } | undefined> {
+export async function storedBitmap(served: ServedCode, job: RenderJob): Promise<StoredBitmap | undefined> {
   if (!folder) {
     return undefined
   }
 
-  const file = bitmapFile(await served.fingerprint, served, job)
+  const current = await readBitmap(bitmapFile(await served.fingerprint, served, job))
 
+  if (current) {
+    return current
+  }
+
+  const latest = await readBitmap(latestBitmapFile(served, job))
+
+  return latest && { ...latest, stale: true }
+}
+
+/** A kept bitmap's file, with the frame's height read from inside it, which marks it as one this version wrote. */
+async function readBitmap(file: string): Promise<StoredBitmap | undefined> {
   try {
     const webp = await readFile(file)
     const height = Number(webpText(webp, heightKeyword))
@@ -80,8 +98,9 @@ export async function storedBitmap(
 }
 
 /**
- * Keeps a captured bitmap, as a lossless WebP, with the frame's height in its own CSS pixels inside it. It's written
- * beside its name and then renamed, so a reader never finds half a file.
+ * Keeps a captured bitmap, as a lossless WebP, with the frame's height in its own CSS pixels inside it, for the code
+ * it's drawn with and as the frame's latest. Each is written beside its name and then renamed, so a reader never finds
+ * half a file.
  */
 export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint8Array, height: number): Promise<void> {
   if (!folder) {
@@ -89,8 +108,9 @@ export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint
   }
 
   try {
-    const file = bitmapFile(await served.fingerprint, served, job)
-    await writeWhole(file, withWebpText(webp, heightKeyword, String(height)))
+    const kept = withWebpText(webp, heightKeyword, String(height))
+    await writeWhole(bitmapFile(await served.fingerprint, served, job), kept)
+    await writeWhole(latestBitmapFile(served, job), kept)
   } catch (error) {
     degraded("frame_bitmap", "couldn't keep a frame bitmap", error, job.projectId)
 
@@ -385,4 +405,11 @@ function bitmapFile(fingerprint: string, served: ServedCode, job: RenderJob): st
     .digest("hex")
 
   return join(projectFolder(job.projectId), `${name.slice(0, 40)}.webp`)
+}
+
+/** A frame's latest bitmap's file, named by the job alone, whatever code drew it (PAR-993). */
+function latestBitmapFile(served: ServedCode, job: RenderJob): string {
+  const name = createHash("sha256").update("latest ").update(bitmapName(job, served.sources)).digest("hex")
+
+  return join(projectFolder(job.projectId), `latest-${name.slice(0, 40)}.webp`)
 }

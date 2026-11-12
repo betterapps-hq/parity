@@ -166,10 +166,16 @@ const handlers: Handlers<ServiceMethods> = {
         const kept = served && (await storedBitmap(served, job))
 
         if (served) {
-          cacheUse.frame(kept !== undefined)
+          cacheUse.frame(kept !== undefined && !kept.stale)
         }
 
-        return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
+        if (!kept) {
+          return {}
+        }
+
+        const answer = { src: `data:image/webp;base64,${kept.webp}`, height: kept.height }
+
+        return kept.stale ? { ...answer, stale: true as const } : answer
       })
     )
   }),
