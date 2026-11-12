@@ -908,7 +908,8 @@ export function placeNode(
     return undefined
   }
 
-  const scale = session.editor.getZoomLevel() * frameScale(host)
+  // Screen pixels per the frame's own: the zoom times the frame's scale (PAR-967).
+  const { scale } = frameGeometry(host)
   const border = getComputedStyle(around)
   const outer = around.getBoundingClientRect()
   const left = outer.left / scale + parseFloat(border.borderLeftWidth)
