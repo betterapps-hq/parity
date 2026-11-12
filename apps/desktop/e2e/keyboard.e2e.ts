@@ -254,11 +254,11 @@ describe("next and previous design", () => {
   })
 
   it("goes round from the last design to the first, components first", async () => {
-    // Members is the last screen the project lists, and Member row its first component.
+    // Members is the last screen the project lists, and Button its first component.
     await app.show("Members", 0.5)
     await app.selectDesign("Members")
     await app.page.keyboard.press("n")
-    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Member row"))
+    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Button"))
     await app.page.keyboard.press("Shift+N")
     await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Members"))
   })
