@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 12:53:06 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 14:06:12 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.0
+
+Thu, 12 Nov 2026 14:06:12 GMT
+
+### Minor changes
+
+- Sign in before anything else: the sign-in screen shows whenever you're signed out, with no way past it
+  (ajcraswell@gmail.com)
 
 ## 0.73.0
 

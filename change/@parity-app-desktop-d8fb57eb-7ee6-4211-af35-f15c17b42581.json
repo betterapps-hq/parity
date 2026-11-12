@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Move main's close flow, project service, render pool and process metrics into modules with tests",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
