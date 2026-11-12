@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 07:22:15 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 07:49:23 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.68.2
+
+Thu, 12 Nov 2026 07:49:23 GMT
+
+### Patches
+
+- A frame in a Tailwind project no longer loses classes when it asks for more before the last ask is answered, which
+  could put a layer in the wrong place. (ajcraswell@gmail.com)
+- A frame shows its last picture, at its size, while it's captured again after the project's code changes, rather than a
+  placeholder (ajcraswell@gmail.com)
 
 ## 0.68.1
 
