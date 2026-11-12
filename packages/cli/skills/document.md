@@ -38,6 +38,13 @@ A box that lays out its `children`: a flex box by default, or a grid. Most struc
 { "type": "layout", "name": "Actions", "style": { "direction": "row", "gap": 2, "justify": "end" }, "children": [] }
 ```
 
+A layout or text can take accessibility `props`: `role`, `id` and `aria-*`, written on its element as code writes them.
+Name what reads wrong to a screen reader, or point `aria-labelledby` at another layer's `id`:
+
+```json
+{ "type": "layout", "name": "Chart", "props": { "role": "img", "aria-labelledby": "chart-title" }, "children": [] }
+```
+
 ### `component`
 
 One of the project's components. `component` is a name from `Components()`; `props` are its props; `slots` hold child
@@ -58,6 +65,20 @@ nodes, where `children` is what goes between its tags and any other slot becomes
 ```
 
 Text that's only a component's label can be its `children` prop instead: `"props": { "children": "Export" }`.
+
+A prop that takes a `Date` (a Calendar's `selected`, a date picker's `defaultValue`) is `{ "$date": ... }`, which the
+component gets as `new Date(...)` would make it in code. Give a date and time without a zone for a day, since a
+date-only string is midnight UTC and lands on the day before west of UTC, as it does in code:
+
+```json
+{
+  "type": "component",
+  "component": "nova/Calendar",
+  "props": { "mode": "single", "selected": { "$date": "2026-11-19T00:00:00" } }
+}
+```
+
+A date can sit inside other values too: `"disabled": { "before": { "$date": "2026-11-12T00:00:00" } }`.
 
 ### `instance`
 
@@ -88,6 +109,9 @@ drawn as a block, so the style works in a component's slot or a table cell too; 
 ```json
 { "type": "text", "tag": "h2", "text": "Recent activity", "style": { "size": "text-lg", "weight": 600 } }
 ```
+
+An en dash in a table cell reads as "en dash"; give it the words it stands for:
+`{ "type": "text", "tag": "span", "text": "–", "props": { "aria-label": "Doesn't apply" } }`.
 
 ### `image`
 

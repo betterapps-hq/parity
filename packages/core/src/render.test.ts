@@ -301,6 +301,50 @@ describe("resolveDesign", () => {
     expect(card.slots.children?.[0]).not.toHaveProperty("props.children")
   })
 
+  it("writes a layout's and a text's accessibility props on its element, as a state changes them (PAR-913)", () => {
+    const page: DesignNode = {
+      type: "layout",
+      id: "chart",
+      props: { role: "img", "aria-labelledby": "chart-title" },
+      children: [
+        { type: "text", id: "title", text: "Bookings", props: { id: "chart-title" } },
+        {
+          type: "text",
+          id: "dash",
+          tag: "span",
+          text: "–",
+          props: { "aria-label": "Doesn't apply", "aria-hidden": false }
+        }
+      ]
+    }
+
+    const state = {
+      id: "quiet",
+      name: "Quiet",
+      overrides: { dash: { props: { "aria-hidden": true }, unset: { props: ["aria-label"] } } }
+    }
+
+    expect(resolveDesign(page, undefined, "desktop")[0]).toMatchObject({
+      attributes: { role: "img", "aria-labelledby": "chart-title" },
+      children: [
+        { tag: "p", attributes: { id: "chart-title" } },
+        { tag: "span", attributes: { "aria-label": "Doesn't apply", "aria-hidden": "false" } }
+      ]
+    })
+    expect(resolveDesign(page, state, "desktop")[0]).toMatchObject({
+      children: [{}, { attributes: { "aria-hidden": "true" } }]
+    })
+    expect(resolveDesign(page, state, "desktop")[0]).not.toHaveProperty("children.1.attributes.aria-label")
+  })
+
+  it("keeps an empty layout's accessibility props beside the empty-layout mark", () => {
+    const empty: DesignNode = { type: "layout", id: "spacer", props: { "aria-hidden": "true" }, children: [] }
+
+    expect(resolveDesign(empty, undefined, "desktop")[0]).toMatchObject({
+      attributes: { "aria-hidden": "true", "data-canvas-empty-layout": "width height" }
+    })
+  })
+
   it("rounds radius-full as fully as the box allows, unless the project declares --radius-full (PAR-458)", () => {
     const full = "var(--radius-full, calc(infinity * 1px))"
 
@@ -431,6 +475,28 @@ describe("parseCanvasDocument", () => {
     })
     const bad = [{ id: "plain", name: "Plain", overrides: { page: { unset: { style: ["colour"] } } } }]
     expect(() => parseCanvasDocument(document({ states: bad }))).toThrow("/overrides/page/unset/style/0")
+  })
+
+  it("takes only accessibility props on a layout or text layer (PAR-913)", () => {
+    const named = { ...root, props: { role: "region", "aria-label": "Team" } }
+    expect(parseCanvasDocument(document({ root: named })).containers[0]?.root).toEqual(named)
+    const bad = { ...root, props: { onClick: "save" } }
+    expect(() => parseCanvasDocument(document({ root: bad }))).toThrow(
+      '/containers/0/root/props/onClick: a layout or text layer takes role, id and aria-* props, not "onClick"'
+    )
+  })
+
+  it("refuses a component's date prop that `new Date` can't read (PAR-912)", () => {
+    const calendar = {
+      type: "component",
+      id: "calendar",
+      component: "Calendar",
+      props: { selected: { $date: "soon" } }
+    }
+
+    expect(() => parseCanvasDocument(document({ root: { ...root, children: [calendar] } }))).toThrow(
+      "/containers/0/root/children/0/props/selected/$date: expected a date"
+    )
   })
 
   it("rejects overrides for nodes that don't exist", () => {

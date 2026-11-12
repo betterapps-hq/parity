@@ -2,14 +2,17 @@
 // no zod, and none of core's other modules. `grammar.ts` checks values with zod when their file loads; this works them
 // out, typed from that grammar.
 import type { ComponentSample, SampleElement, SampleRender } from "../library.ts"
-import type { FrameValue, FunctionValue, GlobalValue, ImportedValue, MadeValue } from "./grammar.ts"
+import type { DateValue, FrameValue, FunctionValue, GlobalValue, ImportedValue, MadeValue } from "./grammar.ts"
 
 /** The keys that mark an object as one of the value forms rather than plain JSON. */
-export const valueForms = ["$import", "$call", "$global", "$frame", "$function"] as const
+export const valueForms = ["$import", "$call", "$global", "$frame", "$function", "$date"] as const
+
+/** The forms a sample's value, and so a design node's prop, can hold. */
+export const sampleForms = ["$call", "$date"] as const
 
 /**
- * Which grammar a value follows: a decorator's, with all five forms, or a sample's, which a design node's props copy,
- * where only `$call` is a form and the other keys are data as written.
+ * Which grammar a value follows: a decorator's, with all six forms, or a sample's, which a design node's props copy,
+ * where only `$call` and `$date` are forms and the other keys are data as written.
  */
 export type ValueKind = "decorator" | "sample"
 
@@ -64,6 +67,18 @@ export function isMadeValue(value: unknown): value is MadeValue {
   return isComposite(call) && "import" in call && isText(call.import)
 }
 
+/** Whether a value is a date, which works out to what `new Date(value.$date)` makes in the project's code. */
+export function isDateValue(value: unknown): value is DateValue {
+  if (!isComposite(value) || !("$date" in value)) {
+    return false
+  }
+
+  const date = value.$date
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the guest checks values without zod, and a time is a primitive
+  return isText(date) || typeof date === "number"
+}
+
 /** Whether a sample's child or prop value is a render function. */
 export function isSampleRender(value: unknown): value is SampleRender {
   return isComposite(value) && "$render" in value && Array.isArray(value.$render)
@@ -89,6 +104,10 @@ export function evaluateValue(value: unknown, host: ValueHost, kind: ValueKind =
 
   if (isMadeValue(value)) {
     return made(value, host, kind)
+  }
+
+  if (isDateValue(value)) {
+    return dated(value, host)
   }
 
   if (kind === "sample") {
@@ -190,6 +209,25 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
   host.made.set(key, result)
 
   return result
+}
+
+/**
+ * A date value's `Date`, made as `new Date(value.$date)` in the project's code makes it: a date-only string is midnight
+ * UTC and a date and time without a zone is local time, as JavaScript reads them. Each is made once for as long as the
+ * host keeps what it made, so a prop keeps its identity between draws.
+ */
+function dated(value: DateValue, host: ValueHost): Date {
+  const key = JSON.stringify(value)
+  const kept = host.made.get(key)
+
+  if (kept instanceof Date) {
+    return kept
+  }
+
+  const date = new Date(value.$date)
+  host.made.set(key, date)
+
+  return date
 }
 
 /** The modules a value imports from, each once, in the order they first appear. Plain JSON imports none. */

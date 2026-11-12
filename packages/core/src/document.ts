@@ -3,6 +3,7 @@ import { z } from "zod"
 import { modeSettings } from "./modes.ts"
 import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
+import { sampleProps } from "./values/grammar.ts"
 
 // A project file is checked by the schemas below, leaves first. Rules that span fields are refinements on the object
 // that holds those fields, each reported at the field at fault.
@@ -204,7 +205,7 @@ export type PatchUnset = z.infer<typeof patchUnset>
 const nodePatch = fileObject({
   hidden: z.boolean().optional(),
   text: z.string().optional(),
-  props: plainObject.optional(),
+  props: sampleProps.optional(),
   style: nodeStyle.optional(),
   /** What the patch takes away from what's under it, so a state can turn off a prop or style the design sets. */
   unset: patchUnset.optional()
@@ -247,8 +248,31 @@ const nodeBase = fileObject({
   bind: nodeBinding.optional()
 })
 
+/**
+ * Whether a layout or text layer can take a prop: an accessibility attribute, `role`, `id` or `aria-*`, which lands on
+ * its element as the project's code would write it (PAR-913). `id` is there so `aria-labelledby` and
+ * `aria-describedby` can point at a layer.
+ */
+export function isAccessibilityProp(name: string): boolean {
+  return name === "role" || name === "id" || /^aria-[a-z]+$/.test(name)
+}
+
+/** What a layout or text layer's accessibility attributes say, written on its element as text. */
+const accessibilityValue = z.union([z.string(), finiteNumber, z.boolean()])
+
+/** A layout or text layer's props: accessibility attributes alone, by their HTML names. */
+const accessibilityProps = z.record(z.string(), accessibilityValue).superRefine((props, context) => {
+  for (const name of Object.keys(props)) {
+    if (!isAccessibilityProp(name)) {
+      problem(context, [name], `a layout or text layer takes role, id and aria-* props, not "${name}"`)
+    }
+  }
+})
+
 const layoutNode = nodeBase.extend({
   type: z.literal("layout"),
+  /** Accessibility attributes on its element (`isAccessibilityProp`). */
+  props: accessibilityProps.optional(),
   /**
    * In a component design: the slot this layout is, `children` for the default one or a name such as `actions`. Each
    * instance can fill it with layers of its own; until one does, its children show as placeholder content.
@@ -265,7 +289,8 @@ export type LayoutNode = z.infer<typeof layoutNode>
 const componentNode = nodeBase.extend({
   type: z.literal("component"),
   component: z.string(),
-  props: plainObject.optional(),
+  /** JSON, values the package makes (`$call`) and dates (`$date`), as a sample's props hold them. */
+  props: sampleProps.optional(),
   /** Child nodes by slot. `children` is the default slot; other names become node-valued props. */
   get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
     return z.record(z.string(), z.array(designNode)).optional()
@@ -284,7 +309,9 @@ export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
 const textNode = nodeBase.extend({
   type: z.literal("text"),
   text: z.string(),
-  tag: z.enum(textTags).optional()
+  tag: z.enum(textTags).optional(),
+  /** Accessibility attributes on its element (`isAccessibilityProp`). */
+  props: accessibilityProps.optional()
 })
 
 export type TextNode = z.infer<typeof textNode>

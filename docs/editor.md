@@ -3450,6 +3450,34 @@ Tests:
 Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
 2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
 
+### A prop that takes a date (PAR-912)
+
+A component's prop can be a date, written `{ "$date": "2026-11-19T00:00:00" }`, and the component gets the `Date` that
+`new Date("2026-11-19T00:00:00")` makes in the project's code: a nova Calendar's `selected` day, a date picker's
+`defaultValue`, or `disabled: { before: ... }`. `$date` takes text JavaScript reads as a date, or milliseconds
+since 1970. A date-only string is midnight UTC, as it is in code, so the docs give agents a date and time without a zone
+for a day.
+
+- **Read back as written.** The design keeps `{ "$date": ... }`, so `Get` and the Props section show what was set, as
+  JSON, and editing it there keeps it a date.
+- **Made once.** The frame makes each date once, as it makes a `$call`'s value, so the prop keeps its identity between
+  draws and a component that watches it doesn't redraw for nothing.
+- **Checked when the file loads.** A component's props follow the sample grammar, where `$call` and `$date` are the
+  forms: a `$date` that `new Date` can't read ("next Thursday") is refused with where it is. Decorators take `$date`
+  too.
+
+Code: `isDateValue` and `evaluateValue` in `packages/core/src/values/evaluate.ts`, `dateValue` and `sampleValue` in
+`packages/core/src/values/grammar.ts`, and a component node's `props` in `packages/core/src/document.ts`; the guest
+works them out in `madeProps` in `packages/renderer-react/src/guest.ts`.
+
+Tests: `packages/core/src/values/values.test.ts` (3: a date in a sample and a decorator, from text and a number, made as
+`new Date` makes it; each date made once; a date `new Date` can't read refused) and `packages/core/src/render.test.ts`
+("refuses a component's date prop that `new Date` can't read").
+
+Gaps: the guest's tree has no automated test. In an isolated copy of the app on `examples/shadcn-vite`, on 2026-11-11, a
+nova Calendar given `selected`, `month` and `disabled: { before }` dates drew November 2026 with the 19th selected and
+the days before the 12th disabled, and `Get` read the props back as written.
+
 ### Adding a prop, and a layer using one
 
 A component design's props can be made by hand as well as by Extract component. **Add** in Props offers Text, Number and
@@ -4362,6 +4390,32 @@ text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as th
 CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings
 in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so a state that
 sets its own `foreground` keeps it.
+
+### Naming a layout or text layer (PAR-913)
+
+A layout or text layer can take accessibility props, `role`, `id` and `aria-*`, and each lands on the layer's element as
+the attribute the project's code would write: an en dash in a table cell given `aria-label="Doesn't apply"`, or a chart
+drawn from layouts given `role="img"` and `aria-labelledby` pointing at its title's `id`. axe-core reads them like any
+other attribute, so `parity a11y` stops reporting a name once it's given.
+
+- **Only accessibility attributes.** The file refuses any other prop on a layout or text, with where it is, and an
+  agent's `Update` refuses one in a state's patch too. A boolean or a number is written as text, as React writes
+  `aria-hidden={true}`.
+- **Like a component's props.** States, viewports and instance overrides patch them, `unset` takes one away, and `null`
+  in an `Update` removes one.
+
+Code: `isAccessibilityProp` and the layout and text nodes' `props` in `packages/core/src/document.ts`;
+`accessibilityAttributes`, `resolveTree` and `applyPatch` in `packages/core/src/render.ts`; `applyChange` and `ownProps`
+in `packages/core/src/edit.ts`; `checkLayerProps` in `packages/agent/src/workspace.ts`.
+
+Tests: `packages/core/src/render.test.ts` (3: attributes on a layout and a text, changed by a state; an empty layout's
+attributes beside its empty-layout mark; the file refusing another prop) and `packages/agent/src/workspace.test.ts` (4:
+naming a layer in the design and in a state, taking a name away with null, and refusing another prop from `Update` and
+`Insert`).
+
+Gaps: the inspector doesn't list a layout's or text's props yet; agents set them. In an isolated copy of the app on
+2026-11-11, `parity a11y` reported `role-img-alt` on a layout given `role="img"`, and came back clean once its
+`aria-labelledby` pointed at a text layer given that `id`.
 
 ## Libraries
 

@@ -1,5 +1,16 @@
 # Decisions
 
+- **A date prop is `{ "$date": ... }`, made as `new Date(...)` (PAR-912).** Props are JSON, so a `Date` needs a form.
+  `$date` joins the value grammar beside `$call`, in samples and decorators, and a component node's props now follow the
+  sample grammar, which the decision on the value module said they did. The component gets exactly what
+  `new Date(value)` makes in the project's code, a date-only string at midnight UTC included, rather than a reading of
+  our own that code wouldn't match; the agent docs say to give a day as a date and time without a zone. A string
+  `new Date` can't read is refused when the file loads. The guest makes each date once per host, like a `$call`.
+- **A layout or text layer takes accessibility props, written as its element's attributes (PAR-913).** `role`, `id` and
+  `aria-*` alone, under `props`, so `Update`, states, overrides and `unset` work as they do for a component. `id` is
+  there so `aria-labelledby` and `aria-describedby` can point at a layer. Other attributes and screen-reader-only text
+  are left out: a visually hidden text needs a class or style of its own, which is a separate decision.
+
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
   draw the classes it writes. `@parity-app/styles-tailwind` has no table of utilities:
