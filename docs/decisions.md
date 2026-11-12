@@ -7998,3 +7998,13 @@ skipped the sender check. My calls:
   for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
   stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
   map, its handler, and its line in the bridge, and the compiler holds the three together.
+
+## The portal's pages are at `tryparity.dev`, blank for now (PAR-1003)
+
+- **`tryparity.dev` serves a blank page from the service's Worker** (your call, 2026-11-12), so the portal's screens
+  have a host before they're built. The page is an empty document titled Parity.
+- **Both hosts reach every route for now** (my call). `tryparity.dev` and `api.tryparity.dev` are two custom domains on
+  one Worker, so the API answers on either. Keeping each host to its own routes waits until there's a page worth keeping
+  apart.
+- **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
+  for an environment.
