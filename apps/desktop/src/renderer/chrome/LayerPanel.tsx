@@ -32,7 +32,7 @@ import {
   type VideoNode
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
-import { BookOpen, Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
+import { Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
@@ -47,6 +47,7 @@ import { InstanceSection as InstanceControls, type PropRow } from "../inspector/
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
+import { componentFile, viewCode } from "./code-editor.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
@@ -66,14 +67,14 @@ import {
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { layerKind } from "./layer-kind.ts"
+import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
 import { booleanValue, numberValue, plainText, type PropValue, readPropValue, textValue } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
-import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
@@ -95,6 +96,40 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
   const slot = slotAtPath(entry.container.root, nodeId, projectLibrary(store))
 
   return slot ? <SlotPanel entry={entry} {...slot} /> : <InnerLayerPanel entry={entry} path={nodeId} />
+}
+
+/**
+ * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and opens a code
+ * component in Storybook or the editor.
+ */
+function LayerActions({ node }: { node: DesignNode }) {
+  const session = useProject()
+  const entries = useContainerEntries(session.store)
+  const component = node.type === "component" ? node.component : undefined
+  const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
+
+  const actions = layerActions(
+    node,
+    {
+      stories: component !== undefined && hasStories(session, component),
+      code: component !== undefined && componentFile(session, component) !== undefined,
+      design: design !== undefined
+    },
+    session.info.libraries
+  )
+
+  const act = (action: HeaderAction) => {
+    if (action === "go-to-component" && design) {
+      session.selection.set({ design: design.key })
+      revealSelection(session)
+    } else if (action === "open-in-storybook" && component) {
+      void openInStorybook(session, component)
+    } else if (action === "open-in-editor" && component) {
+      void viewCode(session, component)
+    }
+  }
+
+  return <HeaderActions actions={actions} onAction={act} />
 }
 
 /** One of the design's own layers. */
@@ -187,14 +222,17 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           kind={kind.label}
           detail={kind.description}
           action={
-            <VisibleToggle
-              entry={entry}
-              nodeId={nodeId}
-              node={node}
-              override={override}
-              change={change}
-              reset={reset}
-            />
+            <>
+              <LayerActions node={location.node} />
+              <VisibleToggle
+                entry={entry}
+                nodeId={nodeId}
+                node={node}
+                override={override}
+                change={change}
+                reset={reset}
+              />
+            </>
           }
         />
         <StateTarget entry={entry} state={state} target={target} />
@@ -307,7 +345,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
           icon={<NodeIcon node={inner.node} className={headingIcon} />}
-          color={kindColors.component}
+          color={nodeColor(inner.node)}
           name={
             <Name className={`px-1.5 ${headingName}`}>
               {layerLabel(inner.node, entries, store.getComponentLibrary(), session.info.libraries)}
@@ -316,15 +354,18 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           kind={kind.label}
           detail={kind.description}
           action={
-            <VisibleToggle
-              entry={entry}
-              nodeId={path}
-              node={node}
-              override={override}
-              change={change}
-              reset={reset}
-              inner
-            />
+            <>
+              <LayerActions node={inner.node} />
+              <VisibleToggle
+                entry={entry}
+                nodeId={path}
+                node={node}
+                override={override}
+                change={change}
+                reset={reset}
+                inner
+              />
+            </>
           }
         />
         {editsDesign(container, target) ? (
@@ -472,19 +513,6 @@ function LayerSections({
         />
       )}
 
-      {node.type === "component" && hasStories(session, node.component) && (
-        <div className="px-4 pb-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => void openInStorybook(session, node.component)}
-          >
-            <BookOpen /> Open {node.component} in Storybook
-          </Button>
-        </div>
-      )}
-
       {node.type === "component" && components[node.component]?.takesStyle === false && (
         <NoStyleNote component={node.component} wrap={!inner} />
       )}
@@ -532,7 +560,7 @@ function VisibleToggle({
       <Button
         size="icon"
         variant="ghost"
-        className="size-7 text-muted-foreground"
+        className="size-6 text-muted-foreground"
         style={changed ? { color: kindColors.agent } : undefined}
         aria-label={label}
         onClick={() => change("Toggle visibility", { hidden: !node.hidden })}

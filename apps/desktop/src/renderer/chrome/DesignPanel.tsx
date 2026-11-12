@@ -6,6 +6,7 @@ import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
+import { openSource } from "./code-editor.ts"
 import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
@@ -16,7 +17,7 @@ import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { ReferencePanel } from "./ReferencePanel.tsx"
-import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -81,7 +82,8 @@ function SelectedPanel() {
 }
 
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
-  const { store } = useProject()
+  const session = useProject()
+  const { store } = session
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { primary } = containerModes(settings, container)
@@ -112,6 +114,12 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                   event.currentTarget.blur()
                 }
               }}
+            />
+          }
+          action={
+            <HeaderActions
+              actions={["open-in-editor"]}
+              onAction={() => void openSource(session, { path: entry.path, line: 1, column: 1 })}
             />
           }
         />

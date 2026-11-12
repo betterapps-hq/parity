@@ -1,6 +1,6 @@
 import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { iconName, isIconLayer, layerKind, unnamedIconLabel } from "./layer-kind.ts"
+import { iconName, isIconLayer, layerActions, layerKind, unnamedIconLabel } from "./layer-kind.ts"
 
 const designs = new Map([["plan-card", "Plan card"]])
 const designName = (id: string) => designs.get(id)
@@ -49,13 +49,16 @@ describe("layerKind", () => {
     expect(kind({ type: "instance", id: "j", design: "deleted-card" }).description).toBe("Instance of deleted-card")
   })
 
-  it("names a library's component and icon without the library's prefix, by the library they come from", () => {
+  it("calls a placed code component a Component instance, as an instance of a design is", () => {
     expect(kind({ type: "component", id: "c", component: "Button" })).toEqual({
-      label: "Component",
+      label: "Component instance",
       description: "Button component"
     })
+  })
+
+  it("names a library's component and icon without the library's prefix, by the library they come from", () => {
     expect(kind({ type: "component", id: "n", component: "nova/Card" })).toEqual({
-      label: "Component",
+      label: "Component instance",
       description: "Card component from Shadcn Nova"
     })
     expect(kind({ type: "component", id: "l", component: "lucide/Check" })).toEqual({
@@ -65,6 +68,33 @@ describe("layerKind", () => {
     expect(kind({ type: "component", id: "h", component: "heroicons/16/solid/CogIcon" }).description).toBe(
       "Cog icon from Heroicons"
     )
+  })
+})
+
+describe("layerActions", () => {
+  const all = { stories: true, code: true, design: true }
+  const none = { stories: false, code: false, design: false }
+  const actions = (node: DesignNode, has = all) => layerActions(node, has, libraries)
+
+  it("goes to the component from an instance of a design, when the design is the project's", () => {
+    expect(actions({ type: "instance", id: "i", design: "plan-card" })).toEqual(["go-to-component"])
+    expect(actions({ type: "instance", id: "i", design: "plan-card" }, none)).toEqual([])
+  })
+
+  it("opens a code component in Storybook and the editor, each only where the project has it", () => {
+    expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual([
+      "open-in-storybook",
+      "open-in-editor"
+    ])
+    expect(actions({ type: "component", id: "n", component: "nova/Card" }, { ...none, code: true })).toEqual([
+      "open-in-editor"
+    ])
+  })
+
+  it("offers nothing for an icon or a layer that isn't a component", () => {
+    expect(actions({ type: "component", id: "l", component: "lucide/Check" })).toEqual([])
+    expect(actions({ type: "text", id: "t", text: "Plans" })).toEqual([])
+    expect(actions({ type: "layout", id: "a", children: [] })).toEqual([])
   })
 })
 

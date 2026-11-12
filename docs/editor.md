@@ -3339,10 +3339,12 @@ Design: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
-The Design tab starts with what's selected: its icon and kind together in the kind's color, then its name on a line of
-its own, to rename it. The kind is a word or two that never repeats the name: Screen, Component or Frame for a design;
-Text, Image, Horizontal layout, Vertical layout, Grid layout, Slot, Component, Icon or Instance for a layer. Hovering
-the kind says more, and screen readers hear that instead of the kind:
+The Design tab starts with what's selected: its kind's icon on a tile in the kind's tint, its name beside it, to rename
+it, and under the name its kind in the kind's color. What it does sits at the end of the row. The kind is a word or two
+that never repeats the name: Screen, Component or Frame for a design; Text, Image, Video, Horizontal layout, Vertical
+layout, Grid layout, Slot, Icon or Component instance for a layer. A placed component is a Component instance whether
+its component is code or a design, with the instance's Diamond, in Layers too. Hovering the kind says more, and screen
+readers hear that instead of the kind:
 
 - **Which component.** An instance says which design it's of ("Instance of Plan card"), a component its name ("Button
   component"), and a library's component or icon which library, without its prefix ("Check icon from Lucide").
@@ -3351,19 +3353,31 @@ the kind says more, and screen readers hear that instead of the kind:
 
 Where a layer sits isn't said, since Layers shows it, nor a text layer's tag. A layout's word follows its direction, as
 the insert picker names it, so it agrees with the icon; a grid gets the Layout section's grid icon, in Layers too. A
-layer inside an instance says the same, in the component color.
+layer inside an instance has the header its kind has, in its kind's color; only its name can't change there, since the
+component's design names it.
+
+The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye
+(`layerActions`):
+
+- **Open in editor** on a design, at the file it's saved in, and on a code component where the project has its code.
+- **Open in Storybook** on a code component that has stories. A component design has no stories of its own yet, so it
+  offers none.
+- **Go to component** on an instance of one of the project's component designs, which selects the design and shows it.
+
+An icon and a layer that isn't a component have only the eye.
 
 A text layer's color is green, its own (PAR-792), where other layers are the layer blue: its T in Layers, this heading,
 the Code and Accessibility panels, states, search and the canvas menu, and its outline, chip and text-editing outline on
 the canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
-(`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). A text layer inside an instance is
-still drawn in the component color.
+(`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). On the canvas, a text layer inside an
+instance is still drawn in the component color.
 
 An icon layer, a component from one of the project's icon sets, shows Smile, the Icons tab's icon, whatever it draws
 (PAR-793, PAR-794), in the component purple: in Layers, this heading, the Code, Accessibility and States panels, search
 and the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWindow, or look like a button in its row,
-such as X or Plus; its name says which icon it is. A library's other components keep the Box. Search actions is drawn
-outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come from the tab.
+such as X or Plus; its name says which icon it is. A library's other components are instances, with the Diamond. Search
+actions is drawn outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come
+from the tab.
 
 An unnamed icon layer is called by its icon, without its set's path or a trailing "Icon" (PAR-796): Plus for
 `lucide/Plus`, Cog for `heroicons/16/solid/CogIcon`, where it used to show the component's id. That's its name in
@@ -3371,19 +3385,22 @@ Layers, the inspector, Search actions, the canvas chip, Select layer, and the Co
 and the name of a component made from it. A layer named by hand keeps its name, and a library's other components keep
 their ids. `layerLabel` takes the project's libraries for this, since which libraries are icon sets is the project's.
 
-Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
-headers in `LayerPanel.tsx`; `layerKind`, `isIconLayer`, `iconName` and `unnamedIconLabel` in `chrome/layer-kind.ts`;
-`NodeIcon`, `nodeColor` and `layerLabel` in `canvas/kinds.tsx`; Select layer's labels in `chrome/canvas-menu.ts`.
+Code: `SelectionHeading` and `HeaderActions` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by
+`DesignPanel.tsx`, both headers in `LayerPanel.tsx` and `ReferencePanel.tsx`; `layerKind`, `layerActions`,
+`isIconLayer`, `iconName` and `unnamedIconLabel` in `chrome/layer-kind.ts`; `NodeIcon`, `nodeColor` and `layerLabel` in
+`canvas/kinds.tsx`; Select layer's labels in `chrome/canvas-menu.ts`.
 
-Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (9: text whatever its tag; layouts by direction and grids;
-a slot; an instance's component only in full; a library's components and icons named by the library; icon sets told from
-other libraries and the project's own components; a library matched by its whole id; an icon's name without its path or
+Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (13: text whatever its tag; layouts by direction and grids;
+a slot; an instance's component only in full; a placed code component a Component instance; a library's components and
+icons named by the library; an instance of a design goes to it; a code component opens in Storybook and the editor only
+where the project has each; an icon or a layer that isn't a component offers nothing; icon sets told from other
+libraries and the project's own components; a library matched by its whole id; an icon's name without its path or
 "Icon"; only an unnamed icon layer named by its icon), `apps/desktop/src/renderer/canvas/kinds.test.ts` (6: a text layer
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
-project's tab, beside a component's Box; and outside a tab when it's given the libraries; an unnamed icon's label is its
-icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select layer names an
-unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer
-Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
+label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds,
+Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
 
 ### Which sections a layer gets (PAR-892)
 

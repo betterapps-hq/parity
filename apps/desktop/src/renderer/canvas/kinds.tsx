@@ -7,7 +7,6 @@ import {
 } from "@parity-app/core"
 import {
   AppWindow,
-  Box,
   Columns3,
   Component,
   Diamond,
@@ -137,7 +136,8 @@ export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKi
 
 /**
  * A layer's kind as an icon. An icon layer shows Smile, the Icons tab's icon, whatever it draws (PAR-793): its own glyph
- * could be one of these kinds' icons, or look like a button in its row. Which libraries are icon sets comes from the
+ * could be one of these kinds' icons, or look like a button in its row. Any other placed component is an instance, its
+ * component code or a design, and shows the instance's Diamond. Which libraries are icon sets comes from the
  * project of the tab it's drawn in, or from `libraries` where it's drawn outside one, as Search actions is.
  */
 export function NodeIcon({
@@ -160,7 +160,7 @@ export function NodeIcon({
   }
 
   if (node.type === "component") {
-    return isIconLayer(node, libraries ?? project?.info.libraries ?? []) ? <Smile {...props} /> : <Box {...props} />
+    return isIconLayer(node, libraries ?? project?.info.libraries ?? []) ? <Smile {...props} /> : <Diamond {...props} />
   }
 
   if (node.type === "instance") {

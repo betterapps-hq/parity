@@ -10,7 +10,8 @@ export interface LayerKind {
 
 /**
  * What a selected layer is, for its header in the inspector. Where it sits isn't said, since Layers shows that, nor a
- * text layer's tag. A component from a library is named without the library's prefix, by the library it comes from.
+ * text layer's tag. A placed component is a Component instance whether its component is code or a design, and which one
+ * is said in full; one from a library is named without the library's prefix, by the library it comes from.
  * Layouts are named by direction as the insert picker names them, so the word agrees with the icon, and a slot as one.
  */
 export function layerKind(
@@ -38,14 +39,17 @@ export function layerKind(
     const library = libraryOf(node.component, libraries)
 
     if (!library) {
-      return { label: "Component", description: `${node.component} component` }
+      return { label: "Component instance", description: `${node.component} component` }
     }
 
     if (library.kind === "icons") {
       return { label: "Icon", description: `${iconName(node.component)} icon from ${library.name}` }
     }
 
-    return { label: "Component", description: `${exportName(node.component)} component from ${library.name}` }
+    return {
+      label: "Component instance",
+      description: `${exportName(node.component)} component from ${library.name}`
+    }
   }
 
   let layout = node.style?.direction === "row" ? "Horizontal layout" : "Vertical layout"
@@ -60,6 +64,47 @@ export function layerKind(
   }
 
   return plain(layout)
+}
+
+/** What a selection's header does at the end of its row, before a layer's eye. */
+export type HeaderAction = "open-in-storybook" | "open-in-editor" | "go-to-component"
+
+/** What the project has for a layer's component: stories for it, its code, and a design of it to go to. */
+export interface ComponentHas {
+  stories: boolean
+  code: boolean
+  design: boolean
+}
+
+/**
+ * What a layer's header offers: an instance of a design goes to the component, and a code component opens in Storybook
+ * where it has stories and in the editor where the project has its code. An icon and a layer that isn't a component
+ * offer nothing but the eye.
+ */
+export function layerActions(
+  node: DesignNode,
+  has: ComponentHas,
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
+): HeaderAction[] {
+  if (node.type === "instance") {
+    return has.design ? ["go-to-component"] : []
+  }
+
+  if (node.type !== "component" || isIconLayer(node, libraries)) {
+    return []
+  }
+
+  const actions: HeaderAction[] = []
+
+  if (has.stories) {
+    actions.push("open-in-storybook")
+  }
+
+  if (has.code) {
+    actions.push("open-in-editor")
+  }
+
+  return actions
 }
 
 /** The library a component comes from: the one whose id begins the component's, as `lucide` begins `lucide/Check`. */
