@@ -8,11 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Select,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+  Input
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   type ModeSettings,
@@ -39,7 +35,7 @@ import { useMemo } from "react"
 import { useProject } from "../canvas/context.ts"
 import { useModeSettings } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
-import { PanelSelectContent } from "./fields.tsx"
+import { AppSelect } from "./AppSelect.tsx"
 import { Hint } from "./Hint.tsx"
 import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
@@ -312,18 +308,14 @@ function VariableSelect({ icon, variable, value, onChange }: VariableSelectProps
         {icon}
         {variable.name}
       </span>
-      <Select items={items} value={value} onValueChange={(next) => next && onChange(next)}>
-        <SelectTrigger size="sm" className="w-full min-w-0 overflow-hidden text-xs" aria-label={variable.name}>
-          <SelectValue />
-        </SelectTrigger>
-        <PanelSelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </PanelSelectContent>
-      </Select>
+      <AppSelect
+        variant="panel"
+        aria-label={variable.name}
+        className="w-full min-w-0 overflow-hidden"
+        items={items}
+        value={value}
+        onValueChange={(next) => next && onChange(next)}
+      />
     </>
   )
 }

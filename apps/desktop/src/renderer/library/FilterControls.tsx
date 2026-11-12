@@ -4,17 +4,13 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { Filter, FilterValue } from "@parity-app/connectors"
 import { Monitor, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Smartphone, Square } from "lucide-react"
+import { AppSelect } from "../chrome/AppSelect.tsx"
 
 /** A filter with no value chosen, in a select. */
 const any = "any"
@@ -105,28 +101,24 @@ export function FilterControl({ filter, value, named, onChange }: FilterControlP
     filter.values.find((each) => each.id === id)?.name ?? `Any ${filter.name.toLowerCase()}`
 
   return (
-    <Select<string>
+    <AppSelect<string>
+      variant="dialog"
+      aria-label={filter.name}
+      className="h-9 w-36"
+      items={[
+        ...(filter.default ? [] : [{ value: any, label: nameOf(any) }]),
+        ...filter.values.map((each) => ({
+          value: each.id,
+          label: (
+            <span className="flex items-center gap-2">
+              <ValueMark value={each} /> {each.name}
+            </span>
+          )
+        }))
+      ]}
       value={value ?? filter.default ?? any}
       onValueChange={(next) => onChange(!next || next === any ? undefined : next)}
-    >
-      <SelectTrigger aria-label={filter.name} className="h-9 w-36">
-        <SelectValue>
-          {(id: string) => (
-            <span className="flex items-center gap-2">
-              <ValueMark value={filter.values.find((each) => each.id === id)} /> {nameOf(id)}
-            </span>
-          )}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {!filter.default && <SelectItem value={any}>{nameOf(any)}</SelectItem>}
-        {filter.values.map((each) => (
-          <SelectItem key={each.id} value={each.id}>
-            <ValueMark value={each} /> {each.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    />
   )
 }
 
