@@ -515,6 +515,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `update.downloaded`       | info  | all  | main                                    | An update finishes downloading.                                                                                                              |
 | `update.failed`           | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                                                     |
 | `update.installed`        | info  | all  | main                                    | The app quits to install a downloaded update.                                                                                                |
+| `window.gone`             | error | all  | main                                    | A window's renderer crashes or exits abnormally. The editor's makes the next start offer a crash report (PAR-956).                           |
 | `window.hang_started`     | warn  | all  | main                                    | A window stops answering, which Electron reports once it has been stuck for a few seconds (PAR-804).                                         |
 | `window.hung`             | warn  | all  | main                                    | A window that stopped answering answers again, is closed, or the app quits or exits while it's stuck.                                        |
 
@@ -1307,6 +1308,13 @@ Some failures are recorded for you, so code doesn't record them again:
 | `channel`   | `"stable" \| "beta"` | The update channel this install takes |
 | `version`   | `string`             | The version running now               |
 | `available` | `string`             | The version being installed           |
+
+### `window.gone`
+
+| Attribute | Type                                                                              | Meaning                                                                                                  |
+| --------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"`                                                          | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames                  |
+| `reason`  | `"crashed" \| "oom" \| "abnormal-exit" \| "launch-failed" \| "integrity-failure"` | Why, as Electron says it: it `crashed`, ran out of memory (`oom`), exited abnormally, or failed to start |
 
 ### `window.hang_started`
 

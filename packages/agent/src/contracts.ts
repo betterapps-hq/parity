@@ -566,6 +566,10 @@ const execReply = z.looseObject({
   details: z.unknown().optional(),
   editId: z.string().optional(),
   created: z.record(z.string(), z.string()).describe("Names of designs and nodes created, mapped to their ids."),
+  createdDesigns: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("Names of the designs created, mapped to their ids. Missing from a copy older than PAR-909."),
   discarded: z
     .array(discarded)
     .optional()

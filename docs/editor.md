@@ -1100,6 +1100,25 @@ and Escape are covered under "Snapping layers while moving and resizing".
 
 Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
 
+### A component placed between both edges (PAR-899)
+
+An absolutely placed component or instance with a left and a right inset and no width spans between them, as an element
+with no width of its own does in CSS; with a top and a bottom and no height, it spans those too. A component's root
+often brings its own size in its classes, such as a separator's `w-full`, which would win over the insets and run it
+past its parent, so the layer's style writes `width: auto` (or `height: auto`) over it. A width or height the layer sets
+keeps it at that size. Layouts and text span between their insets already, and an image or a video keeps the size of its
+picture unless it's given one.
+
+Code: `stretchBetweenEdges` in `packages/style/src/declare.ts`, which `packages/core/src/render.ts` draws as the
+component's inline style, over its own.
+
+Tests: `packages/style/src/declare.test.ts`, declarations: a component placed against all four sides writing an auto
+width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose own
+style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
+
+Gaps: none known. Checked in an isolated copy of the app on 2026-11-11: a Separator placed at left 14, right 0 in an
+80-step layout was drawn from 56px in to the layout's right edge, 264px wide, where it had run past it.
+
 ### Resize handles (CAN-47)
 
 A selected layer has square handles on its corners and invisible strips along its sides, as in Figma, and a selected
@@ -3676,6 +3695,33 @@ the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected
 step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
 maximum still wraps.
 
+### Inline text, alignment and long words (PAR-898)
+
+A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
+component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lines: 1` would do nothing
+there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
+in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
+already draws its own box, which clamps it. A `p` or a heading is a block anyway.
+
+`overflowWrap` says where a word too long for its line breaks, such as a web address in a narrow column: `anywhere`,
+which also lets a table cell or a hugging layout narrow to fit, or `break-word`, which breaks it only once it can't fit
+on a line of its own. Set on a layout, the text inside takes it. Unset, a long word runs out of its box. The Text
+section has no control for it yet; agents set it.
+
+Code: `text` (with `boxKeys`) and `type` in `packages/style/src/declare.ts`, the `overflowWrap` key in
+`packages/style/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's tag is
+inline.
+
+Tests: `packages/style/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
+alignment, drawn as a block; several lines keeping the box that clamps them; inline text with nothing that needs a box
+staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: in a component's slot, a `span` aligned
+to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
+
+Gaps: no warning says when a style has no effect for another reason. Checked in an isolated copy of the app on
+2026-11-11, in a shadcn table: a `span` with `maxWidth: 40` and `lines: 1` in a cell was cut off with an ellipsis at
+160px, a `span` aligned to the end lined up at its cell's end, and a web address with `overflowWrap: "anywhere"` wrapped
+onto three lines in a 224px column.
+
 ## Saving and undo
 
 What goes through Save and Undo, and where an edit lands when the board shows a state or a variant.
@@ -5792,17 +5838,21 @@ as a replay, the last hour of the local log, the versions of Parity and the syst
 off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is, even
 while it's sent (PAR-813). What was written loses its secrets, as every event does. A sent report says thanks and
 nothing more: no link, since only the team can open it. A report that can't be sent says to check the connection, and
-keeps what was written. When the last run of an installed build ended without quitting, Parity offers the same dialog as
-it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in place of Cancel. Opened from a
-part's fallback, the list starts with the error that part caught, named by the part's title: "The error from Layers"
-(PAR-757). It's listed only when the report is linked to that error, which a thrown string or number can't be.
-`parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+keeps what was written. When the last run of an installed build crashed, Parity offers the same dialog as it starts,
+titled "Parity closed unexpectedly", with the crash in the list and Not now in place of Cancel. A run counts as crashed
+when its editor window's renderer went, or when it ended without quitting and left a minidump, a hang still open or a
+`fatal` event. One that an agent, the CLI, a dev runner or a force-quit stopped left none of those, so nothing is
+offered after it (PAR-956). Opened from a part's fallback, the list starts with the error that part caught, named by the
+part's title: "The error from Layers" (PAR-757). It's listed only when the report is linked to that error, which a
+thrown string or number can't be. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
 
 `@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
-recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and
-the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
-zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, from a
-fallback, sending, sent and failed, with Send moving from one to the next.
+recorded), telling one that crashed from one that was stopped (PAR-956), reading the local log's lines, and the files a
+report takes: the last hour of events, versions, projects and the crash. The desktop's `main/report.test.ts` covers
+offering the crash once, and nothing after a run that was stopped. `chrome/report-time.test.ts` covers how the crash's
+time reads. The CLI's `diagnostics.test.ts` covers the zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows
+the dialog empty, written, after a crash, from a fallback, sending, sent and failed, with Send moving from one to the
+next.
 
 ### Install the parity command (PAR-906)
 
@@ -6141,6 +6191,38 @@ the project's values, as on the page; and the host still has `--frame-height`. E
 every board keeps its size zoomed far out. Gap: a variable Parity first defines after a frame is prepared isn't tested;
 it reaches the frame until it's prepared again.
 
+### Phone and tablet frames take thin scrollbars (PAR-900)
+
+A phone's or a tablet's browser draws a thin scrollbar, but a frame drew Chromium's 15px Windows scrollbar, with arrows.
+In a phone mode a row that scrolled sideways lost 15px of its height to it, enough to make it scroll down too. Frames
+that stand for a phone or a tablet now take Parity's own scrollbars: a 6px rounded thumb on no track, in the element's
+text color. Chromium can't draw a scrollbar over the content for one element alone, so they still take 6px.
+
+- **One stylesheet for both.** Parity's scrollbars are in `scrollbars.css`, which Parity's page imports and touch frames
+  adopt. Parity's page colors the thumb with its `--foreground`; in a frame it takes the scrolling element's text color.
+- **Only phones and tablets.** A mode is touch when its viewport's device is a phone or a tablet, or, for a viewport
+  that doesn't say, when its width suggests one (core's `isTouchMode`). Desktop and laptop frames keep the browser's
+  scrollbars, since Parity's page's rules don't reach into a frame.
+- **Offscreen frames too.** A render job carries `touch`, which the service's check passes on, so bitmaps, previews,
+  agents' screenshots and exports draw what the canvas draws. Bitmaps already kept for a touch mode go by a new name, so
+  they're drawn again once.
+- **The project's scrollbars win.** The rules are in a layer after the frame's root, so the project's own
+  `::-webkit-scrollbar` rules beat them, in a layer or not. Chromium also skips them on an element that sets
+  `scrollbar-width` or `scrollbar-color`.
+
+Code: `modeDevice` and `isTouchMode` in `packages/core/src/modes.ts`; `apps/desktop/src/renderer/scrollbars.css`;
+`frameTouchSheet` and `prepareFrame` in `apps/desktop/src/renderer/frame.ts`; `ModeView.tsx`; `renderJobMode`,
+`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's check in `service-checks.ts`.
+
+Tests: `packages/core/src/modes.test.ts` (1: a viewport's device, or the one its width suggests, with phones and tablets
+as touch). `apps/desktop/src/shared/render-job.test.ts` (1, and a case in 2 others: the default tablet and mobile modes'
+jobs are touch, and desktop's isn't; `touch` passes the service's check between processes; and it changes a frame's
+names in memory and on disk). `apps/desktop/src/renderer/frame.test.ts` (2), in Chrome with scrollbars drawn: a desktop
+frame's scrolling element gives the browser's scrollbars more than 6px each way and a touch frame's gives 6px; and a
+project's 12px `::-webkit-scrollbar` rule, unlayered or in a layer, and its `scrollbar-width: none`, win in a touch
+frame. `apps/desktop/src/renderer/render.test.ts` (1: an offscreen touch frame's scrolling element takes 6px, a desktop
+one's more). Gap: the thumb's color was checked by hand, in Chrome and in the app.
+
 ### Frames run React's production build (PAR-198)
 
 Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a
@@ -6224,7 +6306,7 @@ Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
 
-### Which node overflows what (PAR-456, PAR-886)
+### Which node overflows what (PAR-456, PAR-886, PAR-904)
 
 Agents' `Measure` gives each node's box with the node it's drawn inside (`parent`), the ancestor that clips it when one
 cuts it off (`clip`, with its box), whether the layout leaves its box alone (`outOfFlow`), what's squeezed narrower than
@@ -6241,9 +6323,14 @@ the frame, is described under Popups draw inside their frame.
   card's corner does.
 - `squeezed` gives how wide the node, or an element its component draws, is drawn and how wide its width makes it, as
   "its sidebar-gap element is drawn 134px wide, 122px narrower than its 256px width, squeezed by what's beside it".
+- What an ancestor scrolls to isn't a problem. A node reaching past an ancestor whose overflow is `scroll` or `auto` on
+  that axis has `inView`, its box trimmed to that ancestor's, and only that part is checked, so the days of a row that
+  scrolls sideways aren't clipped, past the frame or spilling out of the row. `hidden` and `clip` still cut off, and the
+  row itself is checked like any node.
 
-The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node overflows"
-and "Problems reports a squeezed node and content spilling out of its parent".
+The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node
+overflows", "Problems reports a squeezed node and content spilling out of its parent" and "What a container scrolls to
+isn't a problem".
 
 Code: `layoutFindings`, `describeLayoutFinding` and `describeSqueeze` in `packages/agent/src/overflow.ts`, used by
 `frameProblems` in `packages/agent/src/frames.ts`; `clipper`, `nodeParent` and `addSqueezes` in
@@ -6252,12 +6339,13 @@ node; `describeProblems` in `packages/cli/src/client.ts` and the problems schema
 
 Tests:
 
-- `packages/agent/src/overflow.test.ts` (17): a node narrower than the frame that its position takes past the right
+- `packages/agent/src/overflow.test.ts` (19): a node narrower than the frame that its position takes past the right
   edge; the half-pixel tolerance; a positioned badge past a parent that doesn't clip isn't reported; a table spilling
   out of its card is, without its rows; a spill inside an ancestor that clips without cutting it, and a cut where one
   does; nested clipping names the nearest ancestor at each level; a clipping element outside the layers; children going
   no further than their reported parent left out, one going further kept; a bottom edge only with a fixed height; nodes
-  drawn at no size; the sentences, for spilling and squeezing too.
+  drawn at no size; days past the edge of a row that scrolls left out, while the row sticking out of the frame and a
+  hidden overflow's cut are still found; the sentences, for spilling and squeezing too.
 - `packages/agent/src/frames.test.ts` (4 of its 7): a clean frame, then a render error, an unknown component and a node
   past the edge named by its layer, a squeezed node with both widths, and content wider than the frame that no node
   accounts for.
@@ -6581,6 +6669,22 @@ Tests: `packages/core/src/edit.test.ts` ("keeps an override that matches the bas
 own layers and inside an instance, and `Update` in a state; "Responsive merging with a viewport's earlier patch": style
 and props merged, `null` taking a style key and `hidden` away; "instance overrides keyed by a layer's name": names and
 ids stored as ids through a nested instance, and a name the component doesn't have refused).
+
+### A viewport's patch over states (PAR-902)
+
+A viewport's responsive patch is a breakpoint, so it applies in every state, as a media query does. Its style, and
+hiding a node, win over the variant options, the state, an instance's overrides and a screen's states reaching into an
+instance. Its text and props, and showing a node the design hides, sit under them, so a state still changes the words or
+hides what phones show. A desktop menu hidden on mobile stays hidden there when a state opens it.
+
+Implementation: `nodePatch` in `packages/core/src/render.ts`, which `drawnNode`, `resolveDesign` and `effectiveNode` go
+through.
+
+Tests: `packages/core/src/effective.test.ts` ("a viewport's patch over states, variants and instances": the menu hidden
+on mobile in a state that opens it, a menu button phones show hidden by a state, the viewport's gap over a state's, a
+state's text over the viewport's, the viewport taking away a style a state sets, a component's patch over its instance's
+overrides and the screen's state, and `resolveDesign` drawing the same); `packages/core/src/render.test.ts` ("takes away
+what a state unsets from the design, but not what the viewport's patch sets").
 
 ### Agents taking a prop away with null, and node paths that can't be right (PAR-885)
 

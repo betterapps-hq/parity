@@ -1,5 +1,50 @@
 # Decisions
 
+- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
+  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
+  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+  `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
+  rules it would have written and keeps the rest as text.
+  - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
+    can't load one. css-tree, already there for `validate`, parses a stylesheet in plain JavaScript, so reading needed
+    no new dependency. This is yours to overrule: the reader is the only part that would change.
+  - **One printer for code and for the canvas.** The selector is whatever the rules are for, a class in a project's code
+    or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
+  - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
+    written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
+
+- **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
+  Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
+  draw the classes it writes. `@parity-app/styles-tailwind` has no table of utilities:
+  - **Every declaration starts as an arbitrary property** (`[padding:calc(var(--spacing)*4)]`), which Tailwind always
+    takes. `canonicalizeCandidates` then spells it as Tailwind's tools would (`p-4`, `flex`, `md:grid`,
+    `focus-visible:…`).
+  - **A token's variable is tried as the utility's own value first** (`bg-primary` for `var(--primary)`), then the
+    variable shorthand, bare and with each type it can name (`text-(length:--text-lg)`), then the value in brackets,
+    then the arbitrary property.
+  - **A class is written only when reading it back gives the declaration it came from,** property, value and where it
+    applies. Reading is `candidatesToAst`: one rule of plain declarations, with its variants read from the end of its
+    selector and the `@media` around it. So a class that means something else in a project is never written. In the
+    example project, whose theme is inline, `rounded-md` holds the radius itself, so `var(--radius-md)` is written
+    `rounded-(--radius-md)`.
+  - **The printer loads the project's Tailwind twice.** Asking a design system for a spelling changes what it compiles
+    afterwards (`bg-primary` is `var(--primary)` before and `var(--color-primary)` after, in 4.3.3), so one copy only
+    spells and the other compiles, reads and sorts. `design-system.test.ts` pins this and each part of the unstable
+    design system the adapter uses, against Tailwind 4.3.
+  - **The contract changed from the proposal in three ways,** set out there: a printer is made per project and takes no
+    tokens, `print` also returns what it couldn't write, and `when` is in CSS's terms (a state's selector, a viewport's
+    least width, a theme's name).
+  - **Exact before idiomatic.** Today's declarations aren't always what Tailwind's utilities write, so some classes are
+    plainer than a developer's: `[background:var(--card)]` since `bg-card` writes `background-color`,
+    `[border-width:1px]` since `border` goes through `--tw-border-style`, `p-[--spacing(2)_--spacing(4)]` for
+    `px-4 py-2`, `[box-shadow:var(--shadow-md)]`, and a font size without its line height. PAR-941 and PAR-942 change
+    what a style declares, which is where these get their utilities. Alpha modifiers, `group-` and `peer-` states,
+    ranges of widths and Save as token from [design-options-code.md](proposals/design-options-code.md) aren't written
+    yet either; what the reader meets of them is kept as unread.
+  - **Nothing calls it yet.** Copy as Tailwind and the hint live in the controls kit in Storybook, in the window, where
+    a project's Tailwind can't load; they get the printer through the project service as each control moves into the
+    app.
+
 - **The ledger's grammars are the W3C's, matched by css-tree, and both packages are used (PAR-940).** You approved
   `@webref/css` or `css-tree`, with `web-features`, on 2026-11-11 and left the pick to this step. Neither is enough
   alone:
@@ -775,8 +820,10 @@ section has the details. The user asked for "variants, instance overrides and th
 
 - **Variants are params of type `variant`,** not `enum` as the proposal had it. Each option has an id, a name and
   patches like a state's, and an instance picks one through its args.
-- **Patches apply in a fixed order:** responsive, then variant options, then the state, then the instance's overrides,
-  then patches reaching in from outside, such as a screen's states with `instance/inner` keys.
+- **Patches apply in a fixed order:** variant options, then the state, then the instance's overrides, then patches
+  reaching in from outside, such as a screen's states with `instance/inner` keys. A viewport's responsive patch was
+  first; since PAR-902 its style and hiding come last and its text and props first (see "A breakpoint wins over a
+  state").
 - **Instance overrides live on the instance** as `overrides: { innerId: NodePatch }`, with `nested/inner` keys for
   nested instances.
 - **An edit inside an instance changes only that copy** in the base state, and belongs to the state in any other state.
@@ -1966,6 +2013,18 @@ recommended answer to each of its questions.
   "Content is wider than the frame" now shows only when no node accounts for it. The old "wider than the frame" finding
   on each node is replaced by frame overflow, which also catches a node pushed out by its position.
 
+- **What a container scrolls to isn't a problem** (PAR-904). A row of seven day buttons with `overflow: "scroll"` in a
+  390px frame had each button past its edge reported as clipped, so the page could never get a clean `problems` run,
+  though the advice for a spill is to give the parent a scroll. An ancestor whose overflow is `scroll` or `auto` on an
+  axis doesn't cut off what reaches past it on that axis: Measure gives such a node `inView`, its box trimmed to that
+  ancestor's on the axes it scrolls, and the layout checks judge that part. So a day past the row's edge is neither
+  clipped, nor sticking out of the frame, nor spilling out of the row.
+  - **`hidden` and `clip` still cut off.** Only the axis that's cut counts: a node past the bottom of a row that scrolls
+    sideways and hides vertical overflow is still clipped. CSS turns a `visible` axis beside a scrolling or hidden one
+    into `auto`, so that axis scrolls too, as the browser draws it.
+  - **The scrolling container is still checked** as any node is. A row that scrolls but is itself wider than the frame
+    sticks out of it, and that's reported on the row; its days go no further, so they're left out.
+
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's
@@ -3083,11 +3142,12 @@ layering patches its own way, and none applying a viewport's responsive patch ou
     `{ path, node, slot?, children }`. Hidden layers stay in, marked hidden. An instance's child is its component's
     root, at `instance/rootId`, which the canvas draws under the instance's id.
 - **The order, later winning:** the node's own values, then the params it binds (args), then its responsive patch, then
-  the variant options in param order, then the state. A patch's text, props and visibility win over a bound value.
-  Inside an instance: the component's variant options, then its state, then the instance's overrides, then the outer
-  layers' `instance/inner` patches. Args on a board are each param's default, then the variant options shown; inside an
-  instance, the component's defaults, then the instance's args, then props patched over the instance (a responsive patch
-  included), then the variant options they pick.
+  the variant options in param order, then the state. Since PAR-902 only the responsive patch's text, props and
+  `hidden: false` sit there; its style and `hidden: true` go over everything (see "A breakpoint wins over a state"). A
+  patch's text, props and visibility win over a bound value. Inside an instance: the component's variant options, then
+  its state, then the instance's overrides, then the outer layers' `instance/inner` patches. Args on a board are each
+  param's default, then the variant options shown; inside an instance, the component's defaults, then the instance's
+  args, then props patched over the instance (a responsive patch included), then the variant options they pick.
 - **`editNode` keeps its own subset of layers,** since a state's or variant's patch is kept against the node as it shows
   without that patch.
 - **A design that places itself is expanded as `resolveDesign` draws it:** an instance stops only when its component is
@@ -6179,7 +6239,8 @@ the zip hold the same things. My calls:
 - **The person never sees Sentry:** no link, no Sentry wording, and a failure says to check the connection. The
   feedback's ID goes into the local log as `report.sent`, for the team.
 - **A crash is a run that didn't quit:** main records `app.quit` as it quits, so a run of main's with none crashed or
-  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
+  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time. PAR-956
+  narrowed this: see "A run that was stopped isn't a crash" below.
 - **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
   says so. It writes the zip with Node's own zlib, with no dependency.
 
@@ -7491,6 +7552,60 @@ My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
 - **The service's preview comments its own URL,** apart from the one comment the other previews share.
 - **TanStack Router's generated route tree is committed,** since types are checked against it, and kept from the
   formatter and the linter, as it asks.
+
+## A run that was stopped isn't a crash (PAR-956)
+
+Agents drive installed builds through the CLI and MCP and stop them, so the next start kept offering to report a crash
+that never happened. My calls, replacing "A crash is a run that didn't quit" under PAR-635:
+
+- **A run that ended without quitting crashed only if it left a sign:** a minidump Crashpad wrote while it ran, a hang
+  still open as it exited (main's or a window's open-hang file), or a `fatal` event in its local copy. Without one,
+  something stopped it on purpose: an agent, the CLI, `taskkill`, a signal, Task Manager or a dev runner. Windows ends a
+  process with no event to tell those apart, so the signs are what's left to go by.
+- **The signs count only from while the run ran,** by their files' times against its first event, so one an older run
+  left doesn't count against this one.
+- **Minidumps are read before Sentry starts,** since it sends and deletes the ones it finds.
+- **The editor window's renderer going counts even when the run then quit,** recorded as `window.gone`. The person could
+  only close the dead window, so the run quit, and it was never offered before. An offscreen window drawing frames is
+  opened again by itself, so it doesn't count.
+- **An uncaught error in main isn't a sign.** Electron shows its dialog and keeps running, so it doesn't end the run.
+- **`parity diagnostics` still takes the latest run that didn't quit,** now `lastUnfinishedRun`, since a zip filed by
+  hand wants that run whatever ended it.
+
+## A breakpoint wins over a state (PAR-902)
+
+A design is one component tree, as the code written from it is: its states are the data and props it's in, its modes are
+the screens and themes it's drawn at, and its responsive patches are its breakpoints. A responsive patch used to sit
+under the variant options and the state, so a state that showed a desktop menu showed it on phones too, though the
+mobile patch hid it. The Better Booking run worked round that with a zero-sized wrapper. The real code is
+`isOpen && <Menu className="max-md:hidden" />`: the menu shows when it's open and the screen allows it. You rejected
+patches per state and viewport, which treat each screen as its own design. So each key of a responsive patch now applies
+as the code it stands for would:
+
+- **Style is CSS, and a breakpoint's style wins.** A media query's class applies whatever classes the app's state picks,
+  so the responsive patch's `style` and `unset.style` apply after the variant options, the state, an instance's
+  overrides and patches reaching in from outside. A state that changes a gap the mobile patch also sets changes it on
+  the other screens only.
+- **A node shows only when nothing hides it.** The responsive patch's `hidden: true` hides the node whatever any patch
+  over it says, as a `hidden` class does whether or not React renders the element. Its `hidden: false` still sits under
+  the patches: a node the design hides and phones show, such as a menu button, can still be hidden by a state, as
+  `!isOpen && <MenuButton className="md:hidden" />` is.
+- **Text and props are the app's,** so a responsive patch's `text`, `props` and `unset.props` stay under the variant
+  options and the state. Code shows different words per screen with two elements and breakpoint classes, and a state
+  that renders other words replaces both. A responsive prop on an instance still picks its variant on that screen.
+
+Combining `hidden` alone, as the issue offered, would have left a state's style over a breakpoint's, which no CSS does.
+Moving the whole patch last would have let a viewport's text replace a state's, and its `hidden: false` show what a
+state hides.
+
+No design in this repository draws differently: every design in `examples/shadcn-vite`, the Storybook example and the
+registry's libraries renders the same in each state, variant option and viewport. Better Booking draws two frames
+differently, both the bug: its account menu wrapper in "Account menu open" and its sidebar in "Member who can't change
+it" are hidden on phones now, as their mobile patches say.
+
+Editing is unchanged: an edit in a viewport's frame still lands in the base design or the state. So where the viewport's
+patch sets a style key, editing that key in its frame shows no change in any state, as it already did in the base
+design. `nodePatch` in `packages/core/src/render.ts` holds the order, and every reader goes through it.
 
 ## Unsaved changes are kept outside the project until they're saved (PAR-905)
 

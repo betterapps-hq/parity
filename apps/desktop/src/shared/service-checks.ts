@@ -33,7 +33,8 @@ const renderJob = z.object({
     viewport: z.object({ width: finiteNumber, height: finiteNumber }),
     classNames: z.array(z.string()),
     attributes: stringRecord,
-    globals: stringRecord.optional()
+    globals: stringRecord.optional(),
+    touch: z.literal(true).optional()
   }),
   scale: finiteNumber.positive(),
   audit: z.boolean().optional(),

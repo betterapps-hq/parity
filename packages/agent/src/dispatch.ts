@@ -735,10 +735,17 @@ async function exec(
   request: ExecRequest,
   caller?: Caller
 ): Promise<Answer<"exec">> {
-  // What changed is for the editor and for placing, not the agent's answer.
-  const { changes: _changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
+  // What changed is for the editor and for placing, not the agent's answer, which names just the designs it created.
+  const { changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
 
-  return answer
+  return { ...answer, createdDesigns: createdDesigns(changes) }
+}
+
+/** The designs a call created, by name: those the change set adds rather than changes. */
+function createdDesigns(changes: AgentChangeSet): Record<string, string> {
+  return Object.fromEntries(
+    changes.designs.flatMap(({ base, after }) => (base === null && after ? [[after.name, after.id]] : []))
+  )
 }
 
 async function execIn(

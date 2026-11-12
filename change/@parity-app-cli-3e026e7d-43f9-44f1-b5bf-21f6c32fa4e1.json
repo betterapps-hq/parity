@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and shows design/node",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

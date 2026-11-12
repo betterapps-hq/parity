@@ -265,6 +265,12 @@ export interface MeasuredNode extends FrameBox {
   /** The nearest ancestor that clips and cuts part of the node off: its box, and the node it belongs to, if any. */
   clip?: FrameBox & { node?: string }
   /**
+   * The part of the node in view, when it reaches past an ancestor that scrolls (its `overflow` is `scroll` or `auto` on
+   * that axis): its box trimmed to that ancestor's on the axes it scrolls. The rest is scrolled to, not cut off, so the
+   * layout checks judge this part (PAR-904).
+   */
+  inView?: FrameBox
+  /**
    * Where the project's code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`, from
    * the development guest (PAR-167). None for Parity's own layers, libraries' elements and production builds.
    */

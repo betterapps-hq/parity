@@ -299,8 +299,8 @@ export interface VariantView {
 }
 
 /**
- * Applies the viewport's responsive patches, then the variants' and the state's, maps tokens to CSS, and expands
- * instances of component designs with their args bound.
+ * Applies the variants', the state's and the viewport's responsive patches, as `nodePatch` orders them, maps tokens to
+ * CSS, and expands instances of component designs with their args bound.
  */
 export function resolveDesign(
   root: DesignNode,
@@ -353,17 +353,73 @@ function boardScope(
 }
 
 /**
- * Everything patched over one node in a scope: its responsive patch for the viewport, under every layer's patch for
- * it. Layers are keyed by the node's own id, since an instance's scope keys them by the paths below it.
+ * Everything patched over one node in a scope, as the code it stands for would draw it (PAR-902). A viewport's
+ * responsive patch is a breakpoint, CSS that applies whatever the app's state is, so its style wins over every layer's
+ * patch for the node, and its `hidden: true` hides the node whatever a layer shows. Text, props and `hidden: false` are
+ * the app's to change, so they sit under the layers: a state, variant or instance can still change the words or hide
+ * what the viewport shows. Layers are keyed by the node's own id, since an instance's scope keys them by the paths
+ * below it.
  */
 export function nodePatch(layers: readonly PatchLayer[], node: DesignNode, viewport?: string): NodePatch {
-  return layeredPatch(layers, node.id, viewport === undefined ? undefined : node.responsive?.[viewport])
+  const responsive = viewport === undefined ? undefined : node.responsive?.[viewport]
+
+  if (!responsive) {
+    return layeredPatch(layers, node.id)
+  }
+
+  const { under, over } = splitResponsive(responsive)
+
+  return mergePatches(layeredPatch(layers, node.id, under), over)
 }
 
 /**
- * One node as it's drawn in a scope: its own values, then the params it binds from `args`, then its responsive
- * patch, the variant options and the state, later ones winning. Every node goes through this step, on a board, inside
- * an instance and in `resolveDesign`.
+ * A responsive patch in two parts: what the app's state can change (text, props, and showing a node the design hides),
+ * and what the breakpoint decides over it (style, and hiding a node).
+ */
+interface ResponsiveParts {
+  /** Applied under the layers, which can change it. */
+  under: NodePatch
+  /** Applied over the layers, whatever they say. */
+  over: NodePatch
+}
+
+function splitResponsive(patch: NodePatch): ResponsiveParts {
+  const under: NodePatch = {}
+  const over: NodePatch = {}
+
+  if (patch.hidden === false) {
+    under.hidden = false
+  } else if (patch.hidden === true) {
+    over.hidden = true
+  }
+
+  if (patch.text !== undefined) {
+    under.text = patch.text
+  }
+
+  if (patch.props) {
+    under.props = patch.props
+  }
+
+  if (patch.unset?.props) {
+    under.unset = { props: patch.unset.props }
+  }
+
+  if (patch.style) {
+    over.style = patch.style
+  }
+
+  if (patch.unset?.style) {
+    over.unset = { style: patch.unset.style }
+  }
+
+  return { under, over }
+}
+
+/**
+ * One node as it's drawn in a scope: its own values, then the params it binds from `args`, then everything patched
+ * over it, as `nodePatch` orders the variant options, the state and its responsive patch. Every node goes through this
+ * step, on a board, inside an instance and in `resolveDesign`.
  */
 export function drawnNode(node: DesignNode, scope: EvalScope, viewport?: string): DesignNode {
   return applyPatch(node, nodePatch(scope.layers, node, viewport), scope.args)
@@ -603,7 +659,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: shown.tag ?? "p",
-            style: inlineStyle(style, "text", parent),
+            style: inlineStyle(style, "text", parent, inlineTags.has(shown.tag ?? "p")),
             children: [{ kind: "text", text: shown.text }]
           }
         ]
@@ -707,14 +763,17 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
   return resolve(root)
 }
 
+/** Text tags drawn inline, which take a width or alignment only once drawn as a block. */
+const inlineTags: ReadonlySet<string> = new Set(["span", "strong"])
+
 /**
  * A layer's style as an element's inline style: its declarations, each property camel-cased as the DOM's `style` names
  * it (`align-self` as `alignSelf`, `-webkit-line-clamp` as `WebkitLineClamp`).
  */
-function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined): InlineStyle {
+function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined, inline = false): InlineStyle {
   const css: InlineStyle = {}
 
-  for (const { property, value } of declarations(style, { kind, parent })) {
+  for (const { property, value } of declarations(style, { kind, parent, inline })) {
     css[property.replaceAll(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = value
   }
 

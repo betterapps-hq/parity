@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Each builder adapter names the config files detection follows, so adding or removing one detects an open project again",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

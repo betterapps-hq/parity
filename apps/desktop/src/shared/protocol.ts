@@ -618,6 +618,8 @@ export interface RenderJob {
     attributes: Record<string, string>
     /** The mode's options by variable, for decorators. */
     globals?: Record<string, string>
+    /** The mode stands for a phone or a tablet, whose frames take thin scrollbars (core's `isTouchMode`). */
+    touch?: true
   }
   scale: number
   /** Also check the frame with axe-core. */

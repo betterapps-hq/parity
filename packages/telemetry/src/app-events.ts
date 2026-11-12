@@ -134,6 +134,26 @@ export const windowHangStarted = defineEvent("window.hang_started", z.object({ w
   when: "A window stops answering, which Electron reports once it has been stuck for a few seconds (PAR-804)."
 })
 
+/** Why a window's renderer went, as Electron says it, for the reasons that are a crash. */
+export const crashedRendererReasons = ["crashed", "oom", "abnormal-exit", "launch-failed", "integrity-failure"] as const
+
+export const windowGone = defineEvent(
+  "window.gone",
+  z.object({
+    window: hungWindow,
+    reason: z
+      .enum(crashedRendererReasons)
+      .describe(
+        "Why, as Electron says it: it `crashed`, ran out of memory (`oom`), exited abnormally, or failed to start"
+      )
+  }),
+  {
+    level: "error",
+    sentBy: ["main"],
+    when: "A window's renderer crashes or exits abnormally. The editor's makes the next start offer a crash report (PAR-956)."
+  }
+)
+
 /** What the project service can stop doing while it keeps running: the values of `service.degraded`'s `feature`. */
 export const degradedFeatures = [
   "watch",
@@ -268,6 +288,7 @@ export const appEvents = [
   serviceLag,
   serviceExited,
   windowHangStarted,
+  windowGone,
   serviceDegraded,
   windowHung,
   mainBlocked,

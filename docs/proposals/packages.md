@@ -8,8 +8,9 @@ models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and
 (PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
 `@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
 (PAR-618), on 2026-11-05. `@parity-app/style` holds the stored style and its CSS declarations (PAR-939), and the ledger
-of CSS properties and `validate` (PAR-940), on 2026-11-11. The rule and the first items are in
-[decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints and reads
+classes through (PAR-943), on 2026-11-11. The rule and the first items are in [decisions.md](../decisions.md) and in
+Linear's Package boundaries stream.
 
 ## In one line
 

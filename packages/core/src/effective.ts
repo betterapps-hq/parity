@@ -17,7 +17,7 @@ export interface EffectiveLocation {
   chain: InstanceNode[]
   /** The layers and args the node is evaluated with. */
   scope: EvalScope
-  /** Everything patched over the node: its responsive patch, then every layer's. */
+  /** Everything patched over the node: every layer's patch and its responsive patch, as `nodePatch` orders them. */
   patch: NodePatch
   /** The node as it's drawn. */
   shown: DesignNode
