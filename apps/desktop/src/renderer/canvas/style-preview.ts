@@ -3,6 +3,9 @@ import { useEffect, useMemo } from "react"
 import { findFrames, findNodeElement } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 
+/** A root-relative `url()`. */
+const rootUrl = /url\(\s*(["']?)(\/(?!\/)[^"')]*)\1\s*\)/g
+
 interface Written {
   /** Each property's inline value before the preview wrote it, empty when it had none. */
   was: Map<string, string>
@@ -49,12 +52,14 @@ export class StylePreview {
 
           const values = now.get(element) ?? new Map<string, string>()
 
-          for (const [name, value] of Object.entries(change.set)) {
-            values.set(cssName(name), value)
-          }
-
+          // What's taken away goes first, so taking away a shorthand, as a fill's `background` going to a stack's
+          // `background-color` and `background-image`, doesn't clear the longhands set after it.
           for (const name of change.unset) {
             values.set(cssName(name), "")
+          }
+
+          for (const [name, value] of Object.entries(change.set)) {
+            values.set(cssName(name), name === "backgroundImage" ? this.projectUrls(value) : value)
           }
 
           now.set(element, values)
@@ -100,6 +105,19 @@ export class StylePreview {
         this.written.delete(element)
       }
     }
+  }
+
+  /**
+   * A fill's images against the project's dev server, as a frame draws them: frames are in the canvas's page, where
+   * `url("/images/a.png")` would be the canvas's own (PAR-931).
+   */
+  private projectUrls(value: string): string {
+    const origin = new URL(this.session.info.guestUrl).origin
+
+    return value.replace(
+      rootUrl,
+      (_match, quote: string, path: string) => `url(${quote}${new URL(path, origin).href}${quote})`
+    )
   }
 
   /** Puts every element back as it was before the preview. */

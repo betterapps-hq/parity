@@ -125,7 +125,8 @@ type name a token from `GetTokens()`, without the `--`.
 | `colSpan`, `rowSpan`                             | Grid cells to span                                                        |
 | `position`, `top`, `right`, `bottom`, `left`     | `absolute`, placed against the parent's edges by lengths                  |
 | `zIndex`                                         | Layer order: a whole number, higher in front, or a z-index token          |
-| `background`, `foreground`, `border`             | A colour token                                                            |
+| `background`                                     | A colour token, or a stack of paints (below)                              |
+| `foreground`, `border`                           | A colour token                                                            |
 | `borderWidth`                                    | Pixels: 0, 1, 2, 4 or 8                                                   |
 | `borderStyle`                                    | `solid`, `dashed` or `dotted`                                             |
 | `radius`                                         | A radius token, such as `radius-lg`                                       |
@@ -175,6 +176,39 @@ A `fill` across the parent with a `maxWidth` takes the parent's width up to that
 parent's `align` puts it, as `w-full max-w-… mx-auto` does: a content column centred at 160 steps is
 `{ width: "fill", maxWidth: 160, self: "center" }`, and it still narrows on a phone. `hug` with `self` stays as wide as
 its content.
+
+### Fill
+
+`background` is one colour token, or a list of paints, top first, for gradients, images and colours laid over each
+other. The bottom paint shows through the ones above where they're transparent. Each paint has a `kind`:
+
+| `kind`                      | Takes                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `solid`                     | `color`, a colour token, and `alpha`, 0 to 100                                          |
+| `linear`, `radial`, `conic` | `stops`: two or more of `{ color, alpha, position }`, position in %; `angle` in degrees |
+|                             | (linear's direction, 180 is down; conic's start), `center` `[x, y]` in %, `repeat`      |
+| `gradient`                  | `token`: a gradient token from `GetTokens()`                                            |
+| `image`                     | `src`, a file in the project; `fit`: `fill`, `fit`, `crop` (at `scale` %) or `tile`;    |
+|                             | `position` `[x, y]` in %                                                                |
+
+Any paint takes `hidden: true` to keep it without drawing it. Prefer a gradient token to stops of your own.
+
+```json
+{
+  "background": [
+    {
+      "kind": "linear",
+      "angle": 180,
+      "stops": [
+        { "color": "primary", "alpha": 0, "position": 0 },
+        { "color": "primary", "position": 100 }
+      ]
+    },
+    { "kind": "image", "src": "/images/hero.jpg", "fit": "fill" },
+    { "kind": "solid", "color": "muted" }
+  ]
+}
+```
 
 Type set on a layout applies to the text inside it. A component's own look comes from its props, so reach for a variant
 (`variant: "secondary"`) before styling a component from outside.

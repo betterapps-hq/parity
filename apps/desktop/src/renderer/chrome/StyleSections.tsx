@@ -68,6 +68,7 @@ import {
 import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
+import { FillSection } from "../inspector/sections/FillSection.tsx"
 import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import {
   ChoiceInput,
@@ -154,8 +155,8 @@ interface SectionProps {
 }
 
 /**
- * Each section the app draws, by the table's name for it. The table's other sections (Grid placement, Fill, Motion,
- * Raw CSS) aren't built yet, and draw nothing.
+ * Each section the app draws, by the table's name for it. The table's other sections (Grid placement, Motion, Raw
+ * CSS) aren't built yet, and draw nothing.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
@@ -167,6 +168,7 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   spacing: SpacingSection,
   appearance: AppearanceSection,
   text: TextSection,
+  fill: FillSection,
   stroke: StrokeSection,
   effects: EffectsSection
 }
@@ -791,15 +793,6 @@ function AppearanceSection({ editor }: SectionProps) {
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-1">
-        <Field label="Fill" {...rowOf(editor, "fill")}>
-          <TokenInput
-            label="Fill"
-            value={style.background}
-            tokens={tokens}
-            categories={["color"]}
-            onChange={(background) => set("fill", { background }, "Change fill")}
-          />
-        </Field>
         <Field label="Radius" {...rowOf(editor, "radius")}>
           <TokenInput
             label="Radius"

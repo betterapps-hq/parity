@@ -3167,9 +3167,9 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement, Fill, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size, and fill in
-  Appearance, until they are. A frame's Frame size is today's Size, whose width and height are the frame's. Align self
-  in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays as it was.
+- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A
+  frame's Frame size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the
+  agreed table, which has it only in Grid placement; it stays as it was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3215,6 +3215,39 @@ order, from opacity and from the root, and none for layers in different ones); `
 with `Update`, read with `Get`, a fraction refused); `packages/agent/src/lint.test.ts` (a name that isn't a token);
 `apps/desktop/src/renderer/inspector/sections/layer-order.test.ts` (the project's z-index tokens in order, what the
 field shows and stores, the hint's names).
+
+### Filling a layer with colors, gradients and images (PAR-931)
+
+The Fill section is the approved Paint stack: a layer's paints, top first, each a color, a linear, radial or angular
+gradient, a gradient token or an image, with its alpha, an eye that keeps it without drawing it, and a handle to drag it
+past the others. + adds a paint on top in the project's own colors, and opens its editor. A gradient's editor starts
+from the project's gradient tokens, read from their CSS; editing a token's stops makes the gradient the layer's own. An
+image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
+then its fit and position. An image dropped on the section adds an image fill.
+
+The document keeps the stack in `background`: one color token is a string, as it always was, and a stack a list of
+paints ([decisions.md](decisions.md)). A stack of one plain color is written back as its token's name. The bottom color
+is drawn as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's
+dev server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill
+paints as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint
+names any color or gradient in it that isn't a token. With several layers selected and fills that differ, the section
+says so and + replaces them all.
+
+Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
+paint's alpha, stops and angle are each one undo step per change, not per drag.
+
+Code: `paint.ts` in `@parity-app/core` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
+`packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
+the document's paints to the control's and reading gradient tokens; `ImageSource` in
+`inspector/controls/image-fill.tsx`.
+
+Tests: `packages/core/src/paint.test.ts` (10): an old single color reads as it did, a stack round-trips, bad stops, fits
+and alphas are refused, the CSS each kind writes, and a render draws it. `packages/editor/src/style-editing.test.ts`
+(the Fill row's edit), `packages/editor/src/project-images.test.ts` (an image a fill paints is used),
+`packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it back, and hears about a color that
+isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against the project), and
+`apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back, ids kept so an open
+editor stays open, and gradient tokens read from CSS.
 
 ### Effects: shadows, filters and transform (PAR-933)
 
@@ -3549,7 +3582,8 @@ Tests:
   widths as before.
 - `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
   whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
-  doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging.
+  doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
+  and `fill` in `packages/style/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -3631,8 +3665,8 @@ decisions.md's "Saving is explicit" sets out.
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
   `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
-  on the root (`:root[data-theme="dark"]`) isn't set this way: it applies only where the mode or a decorator sets it, as
-  below.
+  on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since frames draw that rule on their body as
+  well, as below.
 - **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
   `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
   after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
@@ -3709,8 +3743,9 @@ Tests:
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, a
   `prefers-color-scheme` block's included, as written and as frames draw it, and the same CSS read alike by libgen and
   the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests: vite7-js's `[data-theme='dark']`, an
-  attribute beside a class, none for a class theme, the light theme, the root, a conditional rule, a colour-scheme block
-  or a component's own attribute, and a mode's own attribute winning) and its colour scheme (PAR-138).
+  attribute beside a class, an attribute on the root (PAR-896), none for a class theme, the light theme, a conditional
+  rule, a colour-scheme block or a component's own attribute, and a mode's own attribute winning) and its colour scheme
+  (PAR-138).
 - `prefers-color-scheme` blocks (PAR-138): `packages/tokens/src/tokens.test.ts`, mantine's stylesheet read as a dark
   theme with its light defaults, and a `.dark` value beating the block; `packages/tokens/src/stylesheet.test.ts`, a dark
   value written into the block, added to it and taken out again, and a new default value going to the root outside it;
@@ -3721,6 +3756,9 @@ Tests:
   `html[data-theme=dark] .card` and `:root:not(.dark), .x` drawn as the frame's host and body, a plain `:root` left as
   `:host` ("draws the root with a class or attribute on it as the frame's host and body"); a qualified root's font size
   setting the frame's `rem` where only the body has the qualifier; and the rule kept as written for reading tokens.
+  `apps/desktop/src/renderer/frame.test.ts` (4, PAR-896), in Chrome: `:root.dark`, `html.dark`, `:root[data-theme=dark]`
+  and `html[data-theme='dark']` drawn dark in the default Dark mode, with the attributes the app sets, and light in
+  Light.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).

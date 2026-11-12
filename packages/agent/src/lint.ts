@@ -4,6 +4,7 @@ import {
   type ComponentInfo,
   type ComponentLibrary,
   type DesignNode,
+  fillTokens,
   type NodeStyle,
   type PropValues,
   radiusKeywords,
@@ -253,6 +254,13 @@ function styleTokens(style: NodeStyle | undefined): StyleToken[] {
     if (value && !Array.isArray(value)) {
       found.push({ name, value, category: nearestCategories[name] })
     }
+  }
+
+  // A fill's stack names its colors and gradient tokens under `background` (PAR-931).
+  if (Array.isArray(style.background)) {
+    const { colors, gradients } = fillTokens(style.background)
+    found.push(...colors.map((value): StyleToken => ({ name: "background", value, category: "color" })))
+    found.push(...gradients.map((value): StyleToken => ({ name: "background", value })))
   }
 
   const shadowTokens = (entry: Shadow, at: string) => {

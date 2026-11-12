@@ -88,6 +88,44 @@ describe("projectImages", () => {
     expect(findImage(images, "hero.png")?.alt).toBe("A desk by a window")
   })
 
+  it("finds an image a layer's fill paints, in the design and in a state, so it isn't counted unused (PAR-931)", () => {
+    const filled: ContainerSpec = {
+      id: "hero",
+      name: "Hero",
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: "banner",
+        style: {
+          background: [
+            { kind: "image", src: "/images/team.png", fit: "fill" },
+            { kind: "solid", color: "muted" }
+          ]
+        },
+        children: []
+      },
+      states: [
+        { id: "default", name: "Default" },
+        {
+          id: "night",
+          name: "Night",
+          overrides: { banner: { style: { background: [{ kind: "image", src: "/images/night.png", fit: "tile" }] } } }
+        }
+      ]
+    }
+
+    const found = projectImages({
+      files: [{ path: "public/images/team.png", bytes: 10 }],
+      references: [],
+      documents: [{ path: "app.par", document: { version: 3, containers: [filled] } }]
+    })
+
+    expect(found.map((image) => [image.src, image.kind, image.usedBy.map((use) => use.node)])).toEqual([
+      ["/images/team.png", "file", ["banner"]],
+      ["/images/night.png", "missing", ["banner"]]
+    ])
+  })
+
   it("finds the lines of code that name a file, from an <img> or a CSS url()", () => {
     expect(findImage(images, "logo.svg")?.usedInCode).toEqual([{ path: "src/App.tsx", line: 2 }])
     expect(findImage(images, "hero.png")?.usedInCode).toEqual([{ path: "src/index.css", line: 2 }])

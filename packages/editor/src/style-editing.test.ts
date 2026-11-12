@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { boardReader } from "./shown.ts"
 import {
   fieldEdit,
+  fillEdit,
   layoutTypeEdit,
   placementEdit,
   rowKeys,
@@ -312,5 +313,27 @@ describe("rows' edits", () => {
 
     expect(styleOf(edited, "label")).toEqual({ width: 11, height: 4 })
     expect(styleOf(edited, "box")).toEqual({})
+  })
+})
+
+describe("the Fill row's edit", () => {
+  it("writes one plain color as its token's name, as a file before paint stacks held it", () => {
+    expect(fillEdit([{ kind: "solid", color: "card" }])).toEqual({ background: "card" })
+  })
+
+  it("writes a stack, or one color with alpha or hidden, as paints, and nothing for no paints", () => {
+    const stack = [
+      { kind: "gradient" as const, token: "gradient-brand" },
+      { kind: "solid" as const, color: "card" }
+    ]
+
+    expect(fillEdit(stack)).toEqual({ background: stack })
+    expect(fillEdit([{ kind: "solid", color: "card", alpha: 40 }])).toEqual({
+      background: [{ kind: "solid", color: "card", alpha: 40 }]
+    })
+    expect(fillEdit([{ kind: "solid", color: "card", hidden: true }])).toEqual({
+      background: [{ kind: "solid", color: "card", hidden: true }]
+    })
+    expect(fillEdit([])).toEqual({ background: undefined })
   })
 })

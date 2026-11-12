@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url"
-import type { MountHandle, prepareCanvasCss } from "@parity-app/core"
+import { collectCustomProperties, type MountHandle, type prepareCanvasCss } from "@parity-app/core"
 import type { createGuest } from "@parity-app/renderer-react/guest"
+import { frameAttributes, themeAttributes } from "@parity-app/tokens"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import type { ComponentType } from "react"
@@ -395,6 +396,30 @@ describe("a frame's colour scheme (PAR-138)", () => {
 
     expect(await drawn("dark")).toEqual({ background: "rgb(0, 0, 0)", color: "rgb(255, 255, 255)" })
   })
+})
+
+describe("a frame's theme on the root (PAR-896)", () => {
+  /** The background a frame's body draws in a mode with these classes, given the attributes the app would set. */
+  async function drawn(theme: string, classNames: string[]) {
+    const css = `:root { --surface: #fff; }\n${theme}\nbody { background: var(--surface); }`
+    const attributes = frameAttributes({ classNames, attributes: {} }, themeAttributes(collectCustomProperties(css)))
+
+    await frameWith(css, "", "", { ...attributes, class: classNames.join(" ") })
+
+    return page.evaluate(() => {
+      const body = document.querySelector("#host")!.shadowRoot!.querySelector("[data-canvas-body]")!
+
+      return getComputedStyle(body).backgroundColor
+    })
+  }
+
+  it.each([":root.dark", "html.dark", ":root[data-theme=dark]", "html[data-theme='dark']"])(
+    "draws %s in the default Dark mode, and not in Light",
+    async (selector) => {
+      expect(await drawn(`${selector} { --surface: #000; }`, ["dark"])).toBe("rgb(0, 0, 0)")
+      expect(await drawn(`${selector} { --surface: #000; }`, [])).toBe("rgb(255, 255, 255)")
+    }
+  )
 })
 
 describe("a frame's viewport", () => {
