@@ -1,5 +1,6 @@
 import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
 import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
+import { transitionCss } from "./motion.ts"
 import { fillCss } from "./paint.ts"
 
 /** One CSS declaration a style comes to. */
@@ -273,6 +274,12 @@ function box(css: Sheet, style: NodeStyle, parent: Direction | undefined): void 
 
   effects(css, style)
   type(css, style)
+
+  const transition = transitionCss(style.transitions)
+
+  if (transition) {
+    css.set("transition", transition, "transitions")
+  }
 }
 
 /** Filters, the backdrop's filters and the transform. */
@@ -353,7 +360,8 @@ function size(css: Sheet, axis: "width" | "height", style: NodeStyle, parent: Di
   if (length === "hug") {
     css.set(axis, "fit-content", axis)
   } else if (length === "fill") {
-    fill(css, axis, parent, axis)
+    const placed = style.self !== undefined || style[axis === "width" ? "maxWidth" : "maxHeight"] !== undefined
+    fill(css, axis, parent, axis, placed)
   } else {
     css.set(axis, spacing(length), axis)
 
@@ -363,12 +371,26 @@ function size(css: Sheet, axis: "width" | "height", style: NodeStyle, parent: Di
   }
 }
 
-function fill(css: Sheet, axis: "width" | "height", parent: Direction | undefined, from: StyleKey): void {
+/**
+ * Across the parent, a fill stretches, unless the node is `placed`, with its own `self` or a maximum on this axis:
+ * `self` would replace the stretch and leave it as wide as its content, and a stretched node stops at its maximum at
+ * the start, ignoring the parent's alignment. Those take the whole parent instead, up to the maximum, and sit where
+ * `self` or the parent's alignment puts them, as `w-full max-w-… mx-auto` does.
+ */
+function fill(
+  css: Sheet,
+  axis: "width" | "height",
+  parent: Direction | undefined,
+  from: StyleKey,
+  placed = false
+): void {
   if (parent === undefined) {
     css.set(axis, "100%", from)
   } else if ((axis === "width") === (parent === "row")) {
     css.set("flex", "1 1 0%", from)
     css.set(axis === "width" ? "min-width" : "min-height", "0", from)
+  } else if (placed) {
+    css.set(axis, "100%", from)
   } else {
     css.set("align-self", "stretch", from)
   }

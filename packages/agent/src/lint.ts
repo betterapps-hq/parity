@@ -5,6 +5,10 @@ import {
   type ComponentLibrary,
   type DesignNode,
   fillTokens,
+  isEasingFunction,
+  isEasingKeyword,
+  isSpring,
+  isTimeToken,
   type NodeStyle,
   type PropValues,
   radiusKeywords,
@@ -285,6 +289,34 @@ function styleTokens(style: NodeStyle | undefined): StyleToken[] {
         shadowTokens(entry.shadow, `${key}[${index}].shadow`)
       }
     })
+  }
+
+  found.push(...transitionTokens(style).map(([name, value]): StyleToken => ({ name, value })))
+
+  return found
+}
+
+/**
+ * The token names a style's transitions use, by where they are (`transitions[0].duration`): a duration or delay given
+ * as a name, and an easing that's neither Tailwind's own, a curve of its own nor a spring.
+ */
+function transitionTokens(style: NodeStyle): [string, string][] {
+  const found: [string, string][] = []
+
+  for (const [index, transition] of (style.transitions ?? []).entries()) {
+    for (const key of ["duration", "delay"] as const) {
+      const time = transition[key]
+
+      if (time !== undefined && isTimeToken(time)) {
+        found.push([`transitions[${index}].${key}`, time])
+      }
+    }
+
+    const easing = transition.easing
+
+    if (easing !== undefined && !isSpring(easing) && !isEasingKeyword(easing) && !isEasingFunction(easing)) {
+      found.push([`transitions[${index}].easing`, easing])
+    }
   }
 
   return found

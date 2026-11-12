@@ -7355,6 +7355,35 @@ part built once, such as an app's sidebar, meant building throwaway copies. You 
   outside a component design. Nothing checked binds before.
 - **The editor's Props and Variants sections need no change;** they show whatever params a design has.
 
+## A layer's transitions are a list in its style (PAR-934)
+
+The approved Transition list edits each entry's property, duration, easing and delay, and its eye turns one off.
+`NodeStyle` keeps them as `transitions`, in the document's usual forms: a number is a step, and a string names a token.
+My calls:
+
+- **What changes is a string.** It's one of Tailwind's sets (`all`, `colors`, `opacity`, `transform`, `shadow`), or a
+  CSS property of its own (`width`). A set wins over the property of the same name, as Tailwind's `transition-opacity`
+  and `transition-transform` do.
+- **A time is milliseconds or a duration token's name.** A time typed or read in seconds is stored in milliseconds
+  (`0.2s` is 200). The list can't show a unit the document doesn't keep, so the field shows milliseconds.
+- **An easing is a string or a spring.** The string is one of Tailwind's easings (`ease-out`), an easing token's name,
+  or a curve or steps of its own (`cubic-bezier(…)`, `steps(…)`). A spring is kept as its settings,
+  `{ spring: { duration, bounce } }` or `{ spring: { stiffness, damping, mass } }`, since the `linear()` it's drawn with
+  can't be read back into them. Its settle time is the transition's duration, whatever `duration` says.
+- **An entry hidden with the eye stays,** with `hidden: true`, and isn't drawn. It's named as Fill's paints and a
+  layer's `hidden` are.
+- **The canvas draws it inline, with Tailwind's values to fall back on.** A frame may not define `--ease-out` or
+  `--default-transition-duration`, since Tailwind writes theme variables only when they're used. So the canvas writes
+  `var(--ease-out, cubic-bezier(0, 0, 0.2, 1))`, and the curve still plays when the variable is missing.
+- **It plays whenever a frame's look changes.** The board draws each state as its own frame, so a transition doesn't
+  play between them on the canvas. A frame plays it when an edit changes how that frame looks, such as opacity changed
+  in its state. Showing one frame going from state to state is a feature of its own.
+- **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
+  offer Create token, and the Design tab's other fields don't either.
+- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
+  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
+  spring maths from there.
+
 ## The service's app is `apps/portal`, deployed through the shared web templates (PAR-947)
 
 My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
