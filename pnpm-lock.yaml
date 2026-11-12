@@ -291,6 +291,9 @@ importers:
       cn:
         specifier: ^0.5.1
         version: 0.5.1
+      css-tree:
+        specifier: 'catalog:'
+        version: 3.2.1
       lucide-react:
         specifier: ^1.66.0
         version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
