@@ -125,9 +125,15 @@ and how long it took, as `connectors.searched` does, and never the query or who 
 
 ## Mobbin
 
-**Pixabay first** (my recommendation; your call). The API takes any connector, so adding Mobbin is one line and a
-secret. Mobbin's key belongs to a paid Team plan, and its terms need reading before every user's searches go through it.
-Until then Mobbin searches only in a development copy.
+**Both from the start** (your call, 2026-11-11): the service searches Mobbin and Pixabay, each with its own key as a
+secret.
+
+- **Mobbin's key belongs to a paid Team plan,** so every person's searches draw on that plan. It allows 60 requests a
+  minute and says nothing of what's left until it refuses with a 429, so the service counts Mobbin's searches itself and
+  answers `rate-limited` before the source would.
+- **Mobbin's answers are kept for 24 hours too,** to spare the plan, unless its terms say otherwise.
+- **A search that pages by `exclude`,** as Mobbin's does, has the excluded ids in its cache key, so later pages are
+  shared less often than first ones.
 
 ## Where the code goes
 
@@ -153,14 +159,15 @@ TanStack Start 1.0 is reported to need Vite 8; that's checked against this repos
 - The Worker's size limit. Cloudflare's limits page was read as 64 MiB before compression, which is far more than this
   needs, but the figure wasn't confirmed.
 - Whether the rate limiting binding costs anything. Its page doesn't say.
-- Mobbin's API terms.
+- Mobbin's API terms, read before the route ships: whether one key may serve every user, and what it asks about keeping
+  answers.
 - Whether Better Apps' WorkOS identity can be installed in this repository, or its check is written here on `fetch` and
   zod as `@parity-app/account` was.
 
 ## Decisions needed from you
 
 1. **Who can call it: decided, signed-in people only** (your call, 2026-11-11).
-2. **Mobbin:** after a check of its terms (recommended), from the start, or not at all.
+2. **Mobbin: decided, from the start,** with Pixabay (your call, 2026-11-11).
 3. **The domain: decided, `api.tryparity.dev`** (your call, 2026-11-11), a custom domain on the Worker, on the zone
    Cloudflare already holds. The portal's pages get their own host on the same Worker later.
 4. **The three new dependencies** above.
