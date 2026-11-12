@@ -8008,3 +8008,33 @@ skipped the sender check. My calls:
   apart.
 - **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
   for an environment.
+
+## One object per open project (PAR-970)
+
+Any change to an open project replaced its `ProjectSession` with a copy (a reconnect, a guest moving, new sources, a
+code change, the canvas mounting), while the media cache and the start page picture keyed on that object, and panel
+state sat in window singletons keyed five ways that nothing cleared when a tab closed. Agreed with Andrew on 2026-11-12,
+and split into PAR-1004 to PAR-1007:
+
+- **`ProjectSession` becomes a class with one instance per open project,** from its tab becoming ready to it closing.
+  The name stays, since renaming it touches every file that takes one for nothing.
+- **What never changes is plain fields:** `id`, `store`, `selection`, `components`, `recovery` and `errors`. What can
+  change is read through getters and changed through `session.update(...)`, which tells the session's listeners: `info`,
+  `loaded` (the guest), `tokens`, `added`, `versions` and `editor`. The workspace updates the session where it used to
+  copy it. `firstFrame` stays a plain field, set as the tab opens and cleared once the canvas draws, since nothing draws
+  from it.
+- **Components get the same object from the context, and `useProject()` subscribes to it,** so they draw again when a
+  changing part changes, as they did when the context's value was a new copy. An effect keyed on the session no longer
+  runs again on each change; one that needs a changing part depends on that part.
+- **Per-project state hangs off the session with `projectPart(make)`,** made the first time it's asked for and disposed
+  of when the session goes: media files, accessibility checks, the console's filter, component previews, the prop being
+  added and slot focus. Previews go when their tab closes rather than with the window, and each tab has its own console
+  filter. The start page picture is the session's too, from opening to closing, not a React effect's.
+- **Reopening a project makes a new session** and disposes of the old one as closing would, since it reads the designs
+  again into a new store.
+- **Functions take the part of the project they use,** a `DesignStore`, a `ProjectInfo` or a
+  `Pick<ProjectSession, "store" | "selection">`, so tests build that part without a cast. Opening, closing and the
+  workspace still take the whole session.
+- **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
+  would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
+  reopened project, which keeps its root, would pick up the last one's state.
