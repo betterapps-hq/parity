@@ -67,7 +67,7 @@ export function StatusBar() {
           icon={<BookOpen className="size-3.5" />}
           hint={titled(info, "storybook", "Storybook")}
           detail={`${plural(stories, "component")} with stories. Click to open it`}
-          onClick={() => void openInStorybook(session)}
+          onClick={() => void openInStorybook(session.id)}
         >
           <strong className="font-medium text-foreground">{stories}</strong>
           <Words> in Storybook</Words>

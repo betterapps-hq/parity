@@ -82,7 +82,7 @@ export const QuittingWithSeveralUnsaved: Story = {
       await openAlso(...others.slice(0, 2).map(blankProjectAt))
 
       for (const root of others.slice(0, 2)) {
-        addNote(sessionAt(root), "Check the spacing on mobile")
+        addNote(sessionAt(root).store, "Check the spacing on mobile")
       }
     }
   ],
@@ -99,7 +99,7 @@ export const QuittingWithTwoUnsaved: Story = {
     async () => {
       await exampleEdited()
       await openAlso(blankProjectAt(others[3]!))
-      addNote(sessionAt(others[3]!), "Check the spacing on mobile")
+      addNote(sessionAt(others[3]!).store, "Check the spacing on mobile")
     }
   ],
   play: async () => {

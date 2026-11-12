@@ -3,7 +3,6 @@ import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/t
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
-import type { ProjectSession } from "../workspace.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 
@@ -93,8 +92,7 @@ describe("component.changed (PAR-728)", () => {
 
   it("records layers made a component, with the component made", () => {
     const store = setup()
-    // SAFETY: making a component reads only the session's store, and its editor, which a test leaves out.
-    const key = extractIntoComponent({ store } as ProjectSession, store.getEntry("app.par#home")!, ["note"], "Note")
+    const key = extractIntoComponent({ store, editor: undefined }, store.getEntry("app.par#home")!, ["note"], "Note")
     const made = store.getEntry(key)!.container
     expect(made).toMatchObject({ name: "Note", kind: "component" })
     expect(recorded()).toEqual([{ action: "extract", design: "app.par#home", layers: ["note"], component: made.id }])

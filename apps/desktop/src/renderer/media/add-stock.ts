@@ -9,6 +9,7 @@ import {
 import type { ImageDetails } from "@parity-app/core"
 import { keepImageDetails, mediaWords } from "@parity-app/editor"
 import { toast } from "sonner"
+import type { DesignStore } from "../design-store.ts"
 import { openLibraryBrowser } from "../library/library-browser.ts"
 import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
@@ -26,7 +27,10 @@ import { mediaFilesOf } from "./project-media.ts"
 export const stockLibrary: ConnectorInfo | undefined = offered.find(({ info }) => info.finds.includes("photos"))?.info
 
 /** Opens the library browser on the stock library, on a search when one is given, to add what's picked. */
-export function findStock(session: ProjectSession, query?: string): void {
+export function findStock(
+  session: Pick<ProjectSession, "id" | "info" | "store" | "untilClosed">,
+  query?: string
+): void {
   const library = stockLibrary
 
   if (!library) {
@@ -66,7 +70,7 @@ function pickedWords(picked: readonly Found[]): string {
  * counts as used once, and they arrive on the wall marked. Any that fail to save are named, and the rest are kept.
  */
 export async function addStock(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "id" | "info" | "store" | "untilClosed">,
   library: ConnectorInfo,
   picked: readonly Found[]
 ): Promise<void> {
@@ -109,7 +113,7 @@ export async function addStock(
     return
   }
 
-  keepDetails(session, library, saved)
+  keepDetails(session.store, library, saved)
 
   for (const { found, path } of saved) {
     void window.canvasHost.connectors.placed({
@@ -127,8 +131,7 @@ export async function addStock(
 }
 
 /** Records what each saved picture or video shows and who made it in the project's main file, as one step. */
-function keepDetails(session: ProjectSession, library: ConnectorInfo, saved: readonly Saved[]): void {
-  const { store } = session
+function keepDetails(store: DesignStore, library: ConnectorInfo, saved: readonly Saved[]): void {
   const main = store.getDocuments().find((entry) => entry.path === store.mainPath)
 
   if (!main) {

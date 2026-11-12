@@ -22,7 +22,7 @@ import { errorMessage, reportError } from "../report-error.ts"
 import type { Tool } from "../selection.ts"
 import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
-import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
+import { homeTab, type ProjectDesigns, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import { openDialog } from "./app-dialogs.ts"
 import {
   align,
@@ -77,7 +77,10 @@ export interface Action {
  * What the commands' states depend on in `session`, read as it is now. `repeat` false leaves out what Repeat would run,
  * for asking whether that applies, which asks this again.
  */
-function contextOf(session: ProjectSession | undefined, repeat = true): CommandContext {
+function contextOf(
+  session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined,
+  repeat = true
+): CommandContext {
   const history = session?.store.getHistory()
   const last = repeat ? lastAction() : undefined
 
@@ -102,7 +105,9 @@ function contextOf(session: ProjectSession | undefined, repeat = true): CommandC
  * Whether each command can run in `session`, the active tab unless another is given, and what it's called there, for
  * the menus, the search and the keys to read before running one.
  */
-export function commandsFor(session = activeSession()): CommandStates {
+export function commandsFor(
+  session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined = activeSession()
+): CommandStates {
   return commandStates(contextOf(session))
 }
 
@@ -124,7 +129,7 @@ async function openProjectFile(): Promise<void> {
 }
 
 /** Writes every file with unsaved changes and says which ones it wrote. */
-async function save(session: ProjectSession | undefined): Promise<void> {
+async function save(session: Pick<ProjectSession, "id" | "store"> | undefined): Promise<void> {
   if (!session) {
     return
   }
@@ -148,7 +153,7 @@ async function save(session: ProjectSession | undefined): Promise<void> {
  * keep. The project keeps working from its own files. It suggests a place outside the project, since a `.par` inside
  * it would show up as more designs.
  */
-async function saveCopy(session: ProjectSession | undefined): Promise<void> {
+async function saveCopy(session: Pick<ProjectSession, "info" | "store"> | undefined): Promise<void> {
   if (!session) {
     return
   }
@@ -189,7 +194,9 @@ type PicturedLayer = ServiceMethods["layers.picture"]["params"]["layers"][number
  * each named as the Layers panel names it. The command is greyed with nothing selected; if the selected layers are gone
  * by the time it runs, it says to select something.
  */
-async function exportSelected(session: ProjectSession | undefined): Promise<void> {
+async function exportSelected(
+  session: (ProjectDesigns & Pick<ProjectSession, "id" | "info">) | undefined
+): Promise<void> {
   if (!session) {
     return
   }
@@ -202,7 +209,7 @@ async function exportSelected(session: ProjectSession | undefined): Promise<void
     return
   }
 
-  await exportLayers(session, targets, getPreferences().exportSizes)
+  await exportLayers(session.id, targets, getPreferences().exportSizes)
 }
 
 /**
@@ -210,7 +217,9 @@ async function exportSelected(session: ProjectSession | undefined): Promise<void
  * layers, or else the selected designs, where they sit on the canvas. A toast says it's copied, or warns of any it
  * couldn't draw.
  */
-async function copySelectedAsPng(session: ProjectSession | undefined): Promise<void> {
+async function copySelectedAsPng(
+  session: (ProjectDesigns & Pick<ProjectSession, "id" | "info">) | undefined
+): Promise<void> {
   if (!session) {
     return
   }
@@ -292,16 +301,16 @@ function closeTab(id = workspace.getActiveId()): void {
   }
 }
 
-function undo(session: ProjectSession | undefined): void {
+function undo(session: Pick<ProjectSession, "store"> | undefined): void {
   session?.store.undo()
 }
 
-function redo(session: ProjectSession | undefined): void {
+function redo(session: Pick<ProjectSession, "store"> | undefined): void {
   session?.store.redo()
 }
 
 /** Duplicates the selected layers, or the selected designs. */
-function duplicateSelection(session: ProjectSession | undefined): void {
+function duplicateSelection(session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined): void {
   if (!session) {
     return
   }
@@ -321,7 +330,7 @@ function duplicateSelection(session: ProjectSession | undefined): void {
 }
 
 /** Deletes the selected layers, designs, text note or reference. */
-function deleteSelection(session: ProjectSession | undefined): void {
+function deleteSelection(session: ProjectDesigns | undefined): void {
   if (!session) {
     return
   }
@@ -342,63 +351,69 @@ function deleteSelection(session: ProjectSession | undefined): void {
   }
 }
 
-async function copy(session: ProjectSession | undefined): Promise<void> {
+async function copy(session: (ProjectDesigns & Pick<ProjectSession, "info">) | undefined): Promise<void> {
   if (session) {
     await copySelection(session)
   }
 }
 
-async function cut(session: ProjectSession | undefined): Promise<void> {
+async function cut(session: (ProjectDesigns & Pick<ProjectSession, "info">) | undefined): Promise<void> {
   if (session && (await copySelection(session))) {
     deleteSelection(session)
   }
 }
 
-async function paste(session: ProjectSession | undefined): Promise<void> {
+async function paste(
+  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id" | "info">) | undefined
+): Promise<void> {
   if (session) {
     await pasteClipboard(session)
   }
 }
 
-async function pasteOver(session: ProjectSession | undefined): Promise<void> {
+async function pasteOver(
+  session: (ProjectDesigns & Pick<ProjectSession, "components" | "id">) | undefined
+): Promise<void> {
   if (session) {
     await pasteOverSelection(session)
   }
 }
 
-async function pasteReplace(session: ProjectSession | undefined): Promise<void> {
+async function pasteReplace(
+  session: (ProjectDesigns & Pick<ProjectSession, "components" | "id">) | undefined
+): Promise<void> {
   if (session) {
     await pasteToReplace(session)
   }
 }
 
-function copySelectionStyle(session: ProjectSession | undefined): void {
+function copySelectionStyle(session: ProjectDesigns | undefined): void {
   if (session) {
     copyStyle(session)
   }
 }
 
-function pasteSelectionStyle(session: ProjectSession | undefined): void {
+function pasteSelectionStyle(session: ProjectDesigns | undefined): void {
   if (session) {
     pasteStyle(session)
   }
 }
 
-function selectEverything(session: ProjectSession | undefined): void {
+function selectEverything(session: ProjectDesigns | undefined): void {
   if (session) {
     selectAll(session)
   }
 }
 
 /** Ctrl+Shift+A: what Select all would select, less what's selected. */
-function selectInverse(session: ProjectSession | undefined): void {
+function selectInverse(session: ProjectDesigns | undefined): void {
   if (session) {
     session.selection.set(inverseSelection(session.store, session.selection.get()))
   }
 }
 
 /** Ctrl+Alt+A: every layer in the design like the selected ones, or every design of the same kind. */
-function selectMatching(session: ProjectSession | undefined): void {
+function selectMatching(session: ProjectDesigns | undefined): void {
   const next = session && matchingSelection(session.store, session.selection.get())
 
   if (next) {
@@ -410,7 +425,10 @@ function selectMatching(session: ProjectSession | undefined): void {
  * N and Shift+N, as Figma's Zoom to next frame: select the next or previous design, in the Layers panel's order, and
  * zoom to it as Zoom to selection does.
  */
-function selectAdjacentDesign(step: 1 | -1, session: ProjectSession | undefined): void {
+function selectAdjacentDesign(
+  step: 1 | -1,
+  session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined
+): void {
   if (!session) {
     return
   }
@@ -429,7 +447,10 @@ function selectAdjacentDesign(step: 1 | -1, session: ProjectSession | undefined)
  * The arrows: nudge the selected layers, designs or note, by the arrow pressed, further with Shift. A layer stays in
  * view as it moves.
  */
-function nudge(event: KeyboardEvent | undefined, session: ProjectSession | undefined): void {
+function nudge(
+  event: KeyboardEvent | undefined,
+  session: (ProjectDesigns & Pick<ProjectSession, "editor" | "tokens">) | undefined
+): void {
   const arrow = event && arrowOf(event.key)
 
   if (!session || !arrow) {
@@ -461,35 +482,41 @@ function nudge(event: KeyboardEvent | undefined, session: ProjectSession | undef
   }
 }
 
-function wrapSelection(session: ProjectSession | undefined): void {
+function wrapSelection(session: ProjectDesigns | undefined): void {
   if (session) {
     wrapLayers(session)
   }
 }
 
-function unwrapSelection(session: ProjectSession | undefined): void {
+function unwrapSelection(session: ProjectDesigns | undefined): void {
   if (session) {
     unwrapLayer(session)
   }
 }
 
-function alignSelection(alignment: Alignment, session: ProjectSession | undefined): void {
+function alignSelection(
+  alignment: Alignment,
+  session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined
+): void {
   if (session) {
     align(session, alignment)
   }
 }
 
-function distributeSelection(axis: "horizontal" | "vertical", session: ProjectSession | undefined): void {
+function distributeSelection(
+  axis: "horizontal" | "vertical",
+  session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined
+): void {
   if (session) {
     distribute(session, axis)
   }
 }
 
-function renameSelection(session: ProjectSession | undefined): void {
+function renameSelection(session: Pick<ProjectSession, "selection"> | undefined): void {
   session?.selection.requestRename()
 }
 
-function zoomToSelection(session: ProjectSession | undefined): void {
+function zoomToSelection(session: Pick<ProjectSession, "editor" | "selection"> | undefined): void {
   const current = session?.selection.get()
   const key = current?.note ?? current?.reference ?? current?.design
   const bounds = key ? session?.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
@@ -499,19 +526,19 @@ function zoomToSelection(session: ProjectSession | undefined): void {
   }
 }
 
-function zoomIn(session: ProjectSession | undefined): void {
+function zoomIn(session: Pick<ProjectSession, "editor"> | undefined): void {
   session?.editor?.zoomIn()
 }
 
-function zoomOut(session: ProjectSession | undefined): void {
+function zoomOut(session: Pick<ProjectSession, "editor"> | undefined): void {
   session?.editor?.zoomOut()
 }
 
-function zoomTo100(session: ProjectSession | undefined): void {
+function zoomTo100(session: Pick<ProjectSession, "editor"> | undefined): void {
   session?.editor?.resetZoom()
 }
 
-function zoomToFit(session: ProjectSession | undefined): void {
+function zoomToFit(session: Pick<ProjectSession, "editor"> | undefined): void {
   session?.editor?.zoomToFit({ animation: { duration: 200 } })
 }
 
@@ -543,7 +570,7 @@ function toggleDeveloperTools(): void {
  * Escape: stops editing text, then puts a review tool down, back on the tool before it, then goes back to the select
  * tool, then selects the parent, then nothing, one step a press.
  */
-function stepBack(session: ProjectSession | undefined): void {
+function stepBack(session: ProjectDesigns | undefined): void {
   if (!session) {
     return
   }
@@ -564,7 +591,7 @@ function stepBack(session: ProjectSession | undefined): void {
 }
 
 /** The layer the selected one sits in, or the design when it's at the top. */
-function selectParent(session: ProjectSession | undefined): void {
+function selectParent(session: ProjectDesigns | undefined): void {
   if (!session) {
     return
   }
@@ -589,7 +616,7 @@ function selectParent(session: ProjectSession | undefined): void {
  * Enter, as in Figma: starts editing the selected text layer, or selects every layer inside the selected layers, or
  * inside the selected design (see `enterTarget`).
  */
-function selectChildren(session: ProjectSession | undefined): void {
+function selectChildren(session: ProjectDesigns | undefined): void {
   if (!session) {
     return
   }
@@ -608,7 +635,7 @@ function selectChildren(session: ProjectSession | undefined): void {
 }
 
 /** The next layer beside the selected one, or the one before it with a step of -1. */
-function selectSibling(step: 1 | -1, session: ProjectSession | undefined): void {
+function selectSibling(step: 1 | -1, session: ProjectDesigns | undefined): void {
   if (!session) {
     return
   }
@@ -628,26 +655,26 @@ function selectSibling(step: 1 | -1, session: ProjectSession | undefined): void 
   }
 }
 
-function orderSelection(order: Order, session: ProjectSession | undefined): void {
+function orderSelection(order: Order, session: ProjectDesigns | undefined): void {
   if (session) {
     orderLayer(session, order)
   }
 }
 
-function hideSelection(session: ProjectSession | undefined): void {
+function hideSelection(session: ProjectDesigns | undefined): void {
   if (session) {
     toggleHiddenLayers(session)
   }
 }
 
-function lockSelection(session: ProjectSession | undefined): void {
+function lockSelection(session: ProjectDesigns | undefined): void {
   if (session) {
     toggleLockedSelection(session)
   }
 }
 
 /** Turns the selected design into a component, or a component back into a screen. */
-function toggleComponent(session: ProjectSession | undefined): void {
+function toggleComponent(session: ProjectDesigns | undefined): void {
   const entry = selectedDesign(session)
 
   if (session && entry) {
@@ -656,7 +683,7 @@ function toggleComponent(session: ProjectSession | undefined): void {
 }
 
 /** The one layer selected, when it's one of its design's own layers, not the root or a layer inside an instance. */
-function selectedOwnLayer(session: ProjectSession | undefined) {
+function selectedOwnLayer(session: ProjectDesigns | undefined) {
   const current = session?.selection.get()
   const entry = current?.design ? session?.store.getEntry(current.design) : undefined
 
@@ -670,7 +697,7 @@ function selectedOwnLayer(session: ProjectSession | undefined) {
  * Ctrl+Alt+K, as in Figma: a design selected on its own becomes a component, or a screen again; a selected layer is
  * extracted into a new component design named after it, as the inspector's Make component does.
  */
-function makeComponent(session: ProjectSession | undefined): void {
+function makeComponent(session: (ProjectDesigns & Pick<ProjectSession, "editor" | "info">) | undefined): void {
   if (!session) {
     return
   }
@@ -703,7 +730,7 @@ function makeComponent(session: ProjectSession | undefined): void {
 }
 
 /** The selected layer, when it's one instance of a component. */
-function selectedInstance(session: ProjectSession | undefined) {
+function selectedInstance(session: ProjectDesigns | undefined) {
   const current = session?.selection.get()
   const entry = current?.design ? session?.store.getEntry(current.design) : undefined
 
@@ -714,7 +741,7 @@ function selectedInstance(session: ProjectSession | undefined) {
 }
 
 /** Turns the selected instance into plain layers, unlinked from its component. */
-function detachSelection(session: ProjectSession | undefined): void {
+function detachSelection(session: ProjectDesigns | undefined): void {
   const instance = selectedInstance(session)
 
   if (!session || !instance) {
@@ -725,7 +752,7 @@ function detachSelection(session: ProjectSession | undefined): void {
 }
 
 /** Selects the component the selected instance is a copy of, and shows it. */
-function goToMainComponent(session: ProjectSession | undefined): void {
+function goToMainComponent(session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined): void {
   const instance = selectedInstance(session)
 
   if (!session || !instance) {
@@ -756,7 +783,7 @@ function join(folder: string, name: string): string {
 /** Makes an empty screen or component in the tab, right of everything (see `createDesign`). */
 const newDesign =
   (kind: ContainerKind) =>
-  (session: ProjectSession | undefined): void => {
+  (session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined): void => {
     if (session) {
       createDesign(session, kind)
     }

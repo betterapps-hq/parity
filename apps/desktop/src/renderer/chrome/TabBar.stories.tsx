@@ -104,7 +104,7 @@ export const UnsavedChanges: Story = {
       await openProjects("example", "empty")
       await openAlso(blankProjectAt(folders[0]!))
       renameDesign("Pricing", "Pricing (annual)")
-      addNote(sessionAt(folders[0]!), "Hero copy needs a final pass")
+      addNote(sessionAt(folders[0]!).store, "Hero copy needs a final pass")
     }
   ],
   play: async () => {

@@ -150,8 +150,8 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 
 ### Stock media from Pixabay
 
-- **Pixabay is the stock library** (decisions.md, "Pixabay finds photos in place of Unsplash"). Unsplash's connector and
-  its stories are kept, and it isn't offered. Turning it on later is one line, since the browser is the same.
+- **Pixabay is the stock library** in place of Unsplash. Unsplash's connector and its stories are kept, and it isn't
+  offered. Turning it on later is one line, since the browser is the same.
 - **Add, beside the Media tab's search, opens it,** as "Find on Pixabay" under Pixabay's own mark, above "Choose files".
   Searching the project's media for something it doesn't have offers to look for the same words on Pixabay.
 - **It's the same browser.** Results come in every shape, so they pack into columns, each with its contributor's name

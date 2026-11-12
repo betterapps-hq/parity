@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Canvas functions take the parts of the project they read instead of the whole session",
+  "comment": "Drop references to the deleted decisions record from comments",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

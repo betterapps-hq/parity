@@ -222,7 +222,7 @@ function MenuItems({ opened }: { opened: Opened }) {
 
       if (entry.kind === "open-source") {
         return (
-          <ContextMenuItem key="open-source" onClick={() => void openSource(session, entry.source)}>
+          <ContextMenuItem key="open-source" onClick={() => void openSource(session.info, entry.source)}>
             {entry.label}
             <ContextMenuShortcut className="font-mono">{shortSource(entry.source)}</ContextMenuShortcut>
           </ContextMenuItem>
@@ -328,7 +328,7 @@ function onCanvas(target: EventTarget): boolean {
  * pick.ts), or around its frames. A text note on top is the canvas's, not the design's.
  */
 function designUnder(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "store">,
   area: HTMLElement,
   point: Point,
   before: Selection,

@@ -47,8 +47,7 @@ and writing back after that. Tests, coverage, the gaps report and performance wa
 - **Canvas objects and links.** `.par` gains kinds for tables, operations and routes, and typed links between them, such
   as screen → route → operation → table. The models themselves are read from the project every time and never copied
   into `.par`. It keeps only what a person decides: where objects sit on the canvas, a link drawn by hand, or a choice
-  between two sources. Its keys are `objects`, `links` and `sources`, set out in
-  [decisions.md](../decisions.md#app-lenses) (PAR-16).
+  between two sources. Its keys are `objects`, `links` and `sources`, set out in PAR-16.
 - **Defined models.** Each lens's model (tables, operations, routes, scenarios, links) is a versioned JSON Schema, as
   `.lib.par` is today, so adapters and agents target the model rather than Parity's code. They stay private until you
   decide to open them up.
@@ -196,9 +195,9 @@ comes later and builds on this.
 You've decided that standards come first and adapters after. These are the choices inside that:
 
 1. **The order: decided.** Standards first, then adapters: "We focus on standards first, then adapters/plugins." The
-   lenses come in the order you set in [decisions.md](../decisions.md) (databases, the API, routes and mock data, then
-   telemetry). Each lens's first adapter comes right after its standards pass and before telemetry, then links from
-   code, then writing back. Tests, coverage, the gaps report and performance come "after everything else".
+   lenses come in the order you set (databases, the API, routes and mock data, then telemetry). Each lens's first
+   adapter comes right after its standards pass and before telemetry, then links from code, then writing back. Tests,
+   coverage, the gaps report and performance come "after everything else".
 2. **Data in designs: decided, bindings.** A layer's text, or a repeated layer, binds to fields of an operation's
    response, filled by the design state's scenario.
 3. **Database connections: decided, local and development databases first,** with production only as an opt-in,

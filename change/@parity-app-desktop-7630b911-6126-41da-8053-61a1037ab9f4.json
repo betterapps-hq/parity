@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Stop a project's Storybook and its workers when Parity quits or restarts its project service, on Windows, macOS and Linux",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

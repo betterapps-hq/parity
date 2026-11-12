@@ -1,9 +1,7 @@
 # Proposal: Parity's service, starting with stock media search
 
-Status: agreed, 2026-11-11 (PAR-131), and recorded in decisions.md. The app, its two search routes and the desktop's
-side are built (PAR-947, PAR-131, PAR-948); what changed from this page as they were built is in decisions.md. It says
-where Parity's server code runs, how it grows, and what its first route does. Calls already made are in
-[decisions.md](../decisions.md#keys-are-the-app-owners-and-parity-reports-uses-itself-par-829); the connectors it serves
+Status: agreed, 2026-11-11 (PAR-131). The app, its two search routes and the desktop's side are built (PAR-947, PAR-131,
+PAR-948). It says where Parity's server code runs, how it grows, and what its first route does. The connectors it serves
 are in [connectors.md](../connectors.md).
 
 ## In one line
@@ -110,9 +108,9 @@ counted for an install id, which anyone can make up.
   comes with the routes for organizations (PAR-616).
 - **Signed out, the app doesn't ask the service.** Main answers `signed-out` itself, the library browser shows Sign in
   where its results would be, and an agent is told to carry on without the source, as with `no-key`.
-- **Sign-in is heading towards required for the whole app** (your direction, 2026-11-11). Today it's optional
-  (decisions.md, "Signing in is optional"), so this route handles a signed-out copy. Once the app requires it, that
-  state goes away. Changing that decision is its own piece of work, not part of PAR-131.
+- **Sign-in is heading towards required for the whole app** (your direction, 2026-11-11). Today it's optional, so this
+  route handles a signed-out copy. Once the app requires it, that state goes away. Changing that decision is its own
+  piece of work, not part of PAR-131.
 - **A token that expires mid-search is refreshed and the search sent once more.** WorkOS's tokens last 5 minutes and
   main already refreshes them.
 - **An installed copy has to be able to sign in first.** PAR-612 left that untried, so it's the first thing to prove.
@@ -183,5 +181,4 @@ Each is its own issue and pull request:
 3. `@parity-app/service` and the two routes, with the session check and Mobbin's and Pixabay's keys as secrets.
 4. Main's `SearchService` and the `signed-out` problem, with Sign in in the library browser, designed in Storybook
    first. This is what makes an installed copy search.
-5. [connectors.md](../connectors.md), [editor.md](../editor.md), [support.md](../support.md) and
-   [decisions.md](../decisions.md).
+5. [connectors.md](../connectors.md), [editor.md](../editor.md) and [support.md](../support.md).
