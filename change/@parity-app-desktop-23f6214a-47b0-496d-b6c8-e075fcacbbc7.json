@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Sign in before anything else: the sign-in screen shows whenever you're signed out, with no way past it",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

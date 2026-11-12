@@ -84,11 +84,6 @@ export function AppWindow() {
   const account = useAccount()
   const signInScreen = account.place === "screen"
   useAppShortcuts()
-  useEffect(() => {
-    if (signInScreen && tabs.length > 0) {
-      accountActions.leaveScreen()
-    }
-  }, [signInScreen, tabs.length])
 
   return (
     <TooltipProvider>
@@ -101,21 +96,28 @@ export function AppWindow() {
         >
           <TabBar />
         </ErrorBoundary>
-        {signInScreen && tabs.length === 0 && (
+        {/* Over everything while this copy needs someone signed in: what's open stays as it is underneath. */}
+        {signInScreen && (
           <ErrorBoundary name="sign-in" label="Sign in" kind="page">
             <SignInScreen state={account.state} />
           </ErrorBoundary>
         )}
-        <ErrorBoundary name="home" label="Home" kind="page" hidden={!home || (signInScreen && tabs.length === 0)}>
-          <HomePage active={home && !(signInScreen && tabs.length === 0)} />
+        <ErrorBoundary name="home" label="Home" kind="page" hidden={!home || signInScreen}>
+          <HomePage active={home && !signInScreen} />
         </ErrorBoundary>
         {tabs.map((tab) =>
           tab.blank ? (
-            <ErrorBoundary key={tab.id} name="new-tab" label="New tab" kind="page" hidden={tab.id !== active}>
-              <NewTabPage active={tab.id === active} />
+            <ErrorBoundary
+              key={tab.id}
+              name="new-tab"
+              label="New tab"
+              kind="page"
+              hidden={tab.id !== active || signInScreen}
+            >
+              <NewTabPage active={tab.id === active && !signInScreen} />
             </ErrorBoundary>
           ) : (
-            <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />
+            <ProjectView key={tab.id} id={tab.id} active={tab.id === active && !signInScreen} />
           )
         )}
       </div>

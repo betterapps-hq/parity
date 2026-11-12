@@ -37,6 +37,12 @@ const mainEnvironment = z.object({
     .string()
     .regex(/^[0-9a-f]{40}$/, "expected a full commit hash")
     .optional(),
+  /**
+   * Someone to start signed in as, as JSON, for a copy with its own user data folder, which has no kept session: the
+   * end-to-end tests, `pnpm perf` and the checks of a built copy. `{"email":"ada@example.com"}`.
+   * A stand-in with no tokens, which never asks WorkOS, so nothing Parity's service guards works as them.
+   */
+  PARITY_SIGNED_IN_AS: nonBlankString.optional(),
   /** The dev runner's process id, which it sets on the copy it runs. */
   PARITY_DEV_RUNNER: wholeNumber.pipe(z.int().min(1)).optional(),
   /** Names a test pass, so its events, errors and replays group together in Sentry (PAR-630). */

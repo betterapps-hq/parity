@@ -13,6 +13,7 @@ import { accountActions, useAccount } from "./account.ts"
 import {
   ChooseOrganizationPanel,
   glow,
+  Legal,
   ProblemPanel,
   SessionEndedPanel,
   SignInPanel,
@@ -113,8 +114,8 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
 }
 
 /**
- * The sign-in screen, the first time Parity opens: centered, with nothing but the ways in, and a way to go on without
- * signing in, which opens the folder picker over Home.
+ * The sign-in screen: centered, with nothing but the ways in, and at its foot the line that says Parity never sees a
+ * password. There's no way past it without signing in (PAR-1008).
  */
 export function SignInScreen({ state }: { state: AccountState }) {
   const form = !state.attempt && !state.ended
@@ -129,13 +130,9 @@ export function SignInScreen({ state }: { state: AccountState }) {
         <SignInFlow state={state} />
       </div>
       {form && (
-        <button
-          type="button"
-          onClick={accountActions.skip}
-          className="mt-8 shrink-0 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Open a folder on this computer without signing in
-        </button>
+        <div className="mt-8 shrink-0">
+          <Legal />
+        </div>
       )}
     </main>
   )
