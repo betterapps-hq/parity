@@ -3,6 +3,7 @@ import {
   type DesignNode,
   defaultModeSettings,
   findNode,
+  lengthSteps,
   type NodeStyle,
   type NoteSpec,
   type ReferenceSpec
@@ -27,9 +28,9 @@ function card(): ContainerSpec {
       type: "layout",
       id: "root",
       children: [
-        { type: "layout", id: "actions", style: { direction: "row" }, children: [text("save"), text("cancel")] },
+        { type: "layout", id: "actions", style: { flexDirection: "row" }, children: [text("save"), text("cancel")] },
         text("title"),
-        text("badge", { style: { position: "absolute", top: 2, left: 2 } }),
+        text("badge", { style: { position: "absolute", top: { step: 2 }, left: { step: 2 } } }),
         text("body"),
         { type: "instance", id: "stat", design: "stat" }
       ]
@@ -64,7 +65,7 @@ function session() {
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [card(), { ...card(), id: "other", name: "Other" }],
           notes: [note],
           references: [reference]
@@ -81,8 +82,8 @@ function session() {
 
 /** The badge's top, in pixels: 8 to begin with, 2 steps of 4px. */
 function topPixels(store: DesignStore): number {
-  // SAFETY: the badge is placed in steps, a number, by the example and by every nudge.
-  return (findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top as number) * 4
+  // The badge is placed in steps by the example and by every nudge.
+  return lengthSteps(findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top)! * 4
 }
 
 afterEach(() => {

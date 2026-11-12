@@ -9,9 +9,14 @@ const keyed = (transitions: Transition[]) =>
 describe("Motion's transitions", () => {
   it("round-trip every form the document holds through the Transition list's entries", () => {
     const transitions: Transition[] = [
-      { property: "colors", duration: 200, easing: "ease-out", delay: 75 },
-      { property: "width", duration: "duration-fast", easing: "ease-snappy", delay: 12.5 },
-      { property: "opacity", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", hidden: true },
+      { property: "colors", duration: { step: 200 }, easing: { keyword: "ease-out" }, delay: { step: 75 } },
+      {
+        property: "width",
+        duration: { token: "duration-fast" },
+        easing: { token: "ease-snappy" },
+        delay: { step: 12.5 }
+      },
+      { property: "opacity", easing: { value: "cubic-bezier(0.2, 0.8, 0.2, 1)" }, off: true },
       { property: "transform", easing: { spring: { duration: 500, bounce: 0.3 } } }
     ]
 
@@ -31,7 +36,7 @@ describe("Motion's transitions", () => {
 
   it("stores a time typed or read in seconds as milliseconds, and clears the list once it's empty", () => {
     expect(transitionsOf([{ id: "a", property: "all", duration: { value: "0.2s" } }])).toEqual([
-      { property: "all", duration: 200 }
+      { property: "all", duration: { step: 200 } }
     ])
     expect(transitionsOf([])).toBeUndefined()
   })

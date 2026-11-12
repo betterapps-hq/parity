@@ -45,7 +45,7 @@ describe("library files", () => {
     await write("node_modules/@acme/ui/package.json", { name: "@acme/ui", version: "1.0.0", types: "index.d.ts" })
     await write("node_modules/@acme/ui/index.d.ts", "export function Menu(): unknown")
     await write("node_modules/@acme/ui/acme.lib.par", {
-      version: 3,
+      version: 4,
       id: "acme",
       name: "Acme UI",
       edits: "acme.edits.json",
@@ -79,7 +79,7 @@ describe("library files", () => {
       "export function Button(): unknown\nexport function Chip(): unknown"
     )
     await write("registry/acme.lib.par", {
-      version: 3,
+      version: 4,
       id: "acme",
       name: "Acme UI",
       package: { name: "@acme/ui", version: "1.4.0", range: "^1.0.0" },

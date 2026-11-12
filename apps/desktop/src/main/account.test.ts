@@ -721,3 +721,55 @@ describe("several accounts", () => {
     expect(keptFor(store, work)?.refreshToken).toBe("refresh_work_2")
   })
 })
+
+describe("the access token", () => {
+  async function signedIn() {
+    const test = setUp()
+    await test.account.signIn({ provider: "GitHubOAuth" })
+    const first = session("refresh_1", test.now())
+    test.answer(200, first)
+    await test.account.takeLink(test.callback({ code: "1" }))
+
+    return { test, first }
+  }
+
+  it("is the one WorkOS gave the account you are in, without asking again", async () => {
+    const { test, first } = await signedIn()
+
+    expect(await test.account.accessToken()).toBe(first.access_token)
+    expect(test.requests).toHaveLength(1)
+  })
+
+  it("is none when nobody is signed in", async () => {
+    expect(await setUp().account.accessToken()).toBeUndefined()
+  })
+
+  it("is refreshed first when the service turned the last one down", async () => {
+    const { test } = await signedIn()
+    const next = session("refresh_2", test.now(), { sid: "sid_2" })
+    test.answer(200, next)
+
+    expect(await test.account.accessToken(true)).toBe(next.access_token)
+    expect(test.requests.at(-1)).toMatchObject({ grant_type: "refresh_token", refresh_token: "refresh_1" })
+  })
+
+  it("shares one refresh between askers, since a refresh token works once", async () => {
+    const { test } = await signedIn()
+    const next = session("refresh_2", test.now(), { sid: "sid_2" })
+    test.answer(200, next)
+
+    const tokens = await Promise.all([test.account.accessToken(true), test.account.accessToken(true)])
+
+    expect(tokens).toEqual([next.access_token, next.access_token])
+    expect(test.requests).toHaveLength(2)
+    expect(test.account.state().account).not.toBeNull()
+  })
+
+  it("is none once the session has ended", async () => {
+    const { test } = await signedIn()
+    test.answer(400, { error: "invalid_grant", error_description: "Session has already ended." })
+
+    expect(await test.account.accessToken(true)).toBeUndefined()
+    expect(test.account.state().account).toBeNull()
+  })
+})

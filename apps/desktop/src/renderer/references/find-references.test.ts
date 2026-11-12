@@ -2,13 +2,16 @@ import type { Found } from "@parity-app/connectors"
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { newDesign } from "@parity-app/editor"
 import { describe, expect, it, vi } from "vite-plus/test"
-import { deleteSelection } from "../chrome/commands.ts"
+import { actions } from "../chrome/actions.ts"
 import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { placeReferences } from "./find-references.ts"
 
 vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key }))
+
+// The insert picker draws previews, which need a window; deleting never opens it.
+vi.mock("../chrome/QuickInsert.tsx", () => ({ openQuickInsert: () => undefined }))
 
 function screen(id: string, platform: "web" | "ios" = "web"): Found {
   return {
@@ -25,7 +28,7 @@ function screen(id: string, platform: "web" | "ios" = "web"): Found {
 
 function session(containers: ContainerSpec[] = []): ProjectSession {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers } }],
+    [{ path: "app.par", document: { version: 4, containers } }],
     defaultModeSettings,
     "app.par",
     {
@@ -34,7 +37,8 @@ function session(containers: ContainerSpec[] = []): ProjectSession {
     }
   )
 
-  // SAFETY: placing and deleting references read only the store, the selection and the canvas, which isn't drawn here.
+  // SAFETY: placing and deleting references, and whether Delete applies, read only the store, the selection and the
+  // canvas, which isn't drawn here.
   return { store, selection: new SelectionStore() } as ProjectSession
 }
 
@@ -69,7 +73,7 @@ describe("placing references", () => {
     const { store } = placing
 
     placeReferences(placing, [screen("ledgerly")])
-    deleteSelection(placing)
+    void actions.delete.run("key", { session: placing })
 
     expect(store.getReferences()).toEqual([])
     store.undo()

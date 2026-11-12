@@ -81,7 +81,7 @@ const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "type" |
           alt: "Four people around a laptop, planning a launch",
           fit: "contain",
           credit: { name: "Brooke Cagle", url: "https://unsplash.com/@brookecagle", source: "Unsplash" },
-          style: { width: "fill", height: 60, radius: "radius-xl" },
+          style: { width: { size: "fill" }, height: { step: 60 }, borderRadius: { token: "radius-xl" } },
           ...layer
         },
         { index: 3 }

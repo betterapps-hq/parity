@@ -9,10 +9,10 @@ import type { SectionProps } from "./section-edits.ts"
 
 /**
  * Transform (PAR-933), the approved section, inside Position: + adds it, then Move, Scale with its flips, and the rest,
- * editing the layers' `transform`. It moves how the layer is drawn, not where the layout puts it.
+ * editing the layers' `translate`, `scale` and `transformOrigin`. It moves how the layer is drawn, not where the layout puts it.
  */
 export function TransformSection({ editor }: SectionProps) {
-  const { style, mixed } = editor.selection
+  const { style } = editor.selection
   const sets = useMemo(() => effectTokenSets(editor.tokens), [editor.tokens])
 
   // ProjectTokens takes the project's tokens when it's made, so it's made again when they change.
@@ -31,21 +31,17 @@ export function TransformSection({ editor }: SectionProps) {
 
   // Scale X and Y apart is the panel's until they differ, which the transform then says.
   const [apart, setApart] = useState(false)
-  const transform = transformValueOf(style.transform, editor.unit, tokenPx)
+  const transform = transformValueOf(style, editor.unit, tokenPx)
   const linked = !apart && transform.scaleLinked !== false
 
   return (
     <ProjectTokens key={tokensKey} tokens={sets}>
       <ApprovedTransform
         value={{ ...transform, scaleLinked: linked ? undefined : false }}
-        mixed={mixed.includes("transform")}
+        mixed={editor.selection.differs("transform")}
         onChange={(value) => {
           setApart(value.scaleLinked === false)
-          editor.set(
-            "transform",
-            (layer) => ({ transform: transformOf(value, layer.transform, editor.unit) }),
-            "Change transform"
-          )
+          editor.set("transform", (layer) => transformOf(value, layer, editor.unit, tokenPx), "Change transform")
         }}
       />
     </ProjectTokens>

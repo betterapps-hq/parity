@@ -1,3 +1,5 @@
+import { borderWidthPixels, tokenColor } from "@parity-app/core"
+import { colorText, fieldColor } from "../color-values.ts"
 import { StrokeSection as ApprovedStroke } from "../controls/controls.tsx"
 import type { Draft } from "../controls/data.ts"
 import type { Sides } from "../controls/sides-writes.ts"
@@ -30,32 +32,39 @@ function oneWidth(sides: Sides | undefined): number | undefined {
 export function StrokeSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
 
+  const width = borderWidthPixels(style.borderWidth)
+
   const draft: Draft = {
-    border: style.border,
-    borderWidth: style.borderWidth === undefined ? undefined : everySide(style.borderWidth)
+    border: style.borderColor && colorText(style.borderColor),
+    borderWidth: width === undefined ? undefined : everySide(width)
   }
 
   const set = (change: Partial<Draft>) => {
     // + and − set the color and the width together.
     if ("border" in change && "borderWidth" in change) {
       if (change.border === undefined) {
-        edit("stroke", { border: undefined, borderWidth: undefined, borderStyle: undefined }, "Remove stroke")
+        edit("stroke", { borderColor: undefined, borderWidth: undefined, borderStyle: undefined }, "Remove stroke")
       } else {
-        edit("stroke", { border: change.border, borderWidth: oneWidth(change.borderWidth) ?? 1 }, "Add stroke")
+        edit(
+          "stroke",
+          { borderColor: tokenColor(change.border), borderWidth: { step: oneWidth(change.borderWidth) ?? 1 } },
+          "Add stroke"
+        )
       }
 
       return
     }
 
     if ("border" in change) {
-      edit("strokeColor", { border: change.border }, "Change stroke color")
+      const text = change.border
+      edit("strokeColor", (layer) => ({ borderColor: fieldColor(text, layer.borderColor) }), "Change stroke color")
     }
 
     if ("borderWidth" in change) {
-      const width = oneWidth(change.borderWidth)
+      const next = oneWidth(change.borderWidth)
 
-      if (width !== undefined || change.borderWidth === undefined) {
-        edit("strokeWidth", { borderWidth: width }, "Change stroke width")
+      if (next !== undefined || change.borderWidth === undefined) {
+        edit("strokeWidth", { borderWidth: next === undefined ? undefined : { step: next } }, "Change stroke width")
       }
     }
   }

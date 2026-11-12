@@ -535,7 +535,7 @@ const warningGroup = z.looseObject({
     .string()
     .describe(
       "Stable: render_failed, unknown_component, unknown_component_design, unknown_prop, invalid_option, " +
-        "not_a_token, not_a_length_token, overlap, title_clearance, canvas_overlaps, kind_changed or " +
+        "not_a_token, not_a_length_token, invalid_value, overlap, title_clearance, canvas_overlaps, kind_changed or " +
         "unnamed_layout. overlap and title_clearance cover boards this call created, changed or moved: " +
         "overlap when two boards collide, title_clearance when they're clear but one's title covers the other. " +
         "canvas_overlaps counts the rest of the canvas's; call Overlaps() to check every board."
@@ -882,7 +882,7 @@ const foundReply = z.looseObject({
       code: z
         .string()
         .describe(
-          "no-key, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+          "no-key, signed-out, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
         ),
       message: z.string(),
       retryAfter: number.optional().describe("Seconds to wait before searching again.")

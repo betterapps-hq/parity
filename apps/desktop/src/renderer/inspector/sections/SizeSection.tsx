@@ -17,7 +17,7 @@ type LimitKey = (typeof limits)[number]["key"]
 /** One limit set, or taken off, as the style holds it: steps of the spacing scale. */
 function limitValues(key: LimitKey, steps: number | undefined): StyleValues {
   const values: StyleValues = {}
-  values[key] = steps
+  values[key] = steps === undefined ? undefined : { step: steps }
 
   return values
 }
@@ -42,12 +42,16 @@ export function SizeSection({ editor, edit, shows }: SectionProps) {
     return steps === undefined ? undefined : Math.round(steps * unit)
   }
 
+  // A layer that grows along its parent's direction fills, whatever width or height it holds.
+  const shown = (axis: "width" | "height") =>
+    shownSize(style, axis, parent) === "fill" ? "fill" : sizeShown(style[axis], unit)
+
   const width = measured("width")
   const height = measured("height")
 
   const draft: Draft = {
-    width: sizeShown(shownSize(style, "width", parent), unit),
-    height: sizeShown(shownSize(style, "height", parent), unit),
+    width: shown("width"),
+    height: shown("height"),
     minWidth: lengthPx(style.minWidth, unit, spacing),
     maxWidth: lengthPx(style.maxWidth, unit, spacing),
     minHeight: lengthPx(style.minHeight, unit, spacing),

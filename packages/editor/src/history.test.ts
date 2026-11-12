@@ -2,6 +2,7 @@ import {
   type CanvasDocument,
   type ContainerSpec,
   defaultModeSettings,
+  lengthSteps,
   type ModeSettings,
   parseCanvasDocument
 } from "@parity-app/core"
@@ -48,7 +49,7 @@ function design(id: string): ContainerSpec {
 
 function open(home = design("home")): DesignHistory {
   return withStylesheet(
-    openDesigns([{ path: "app.par", document: { version: 3, containers: [home] } }], defaultModeSettings, "app.par"),
+    openDesigns([{ path: "app.par", document: { version: 4, containers: [home] } }], defaultModeSettings, "app.par"),
     "src/index.css"
   )
 }
@@ -205,16 +206,18 @@ describe("gestures", () => {
 
   const home = { path: "app.par", id: "home" }
   const shown = (history: DesignHistory) => history.current.documents.get("app.par")!.containers[0]!
-  const width = (container: ContainerSpec) => (container.root.type === "layout" ? container.root.style?.width : 0)
+
+  const width = (container: ContainerSpec) =>
+    container.root.type === "layout" ? lengthSteps(container.root.style?.width) : 0
 
   const withWidth = (value: number) => (container: ContainerSpec) =>
     container.root.type === "layout"
-      ? { ...container, root: { ...container.root, style: { ...container.root.style, width: value } } }
+      ? { ...container, root: { ...container.root, style: { ...container.root.style, width: { step: value } } } }
       : container
 
   const withOpacity = (value: number) => (container: ContainerSpec) =>
     container.root.type === "layout"
-      ? { ...container, root: { ...container.root, style: { ...container.root.style, opacity: value } } }
+      ? { ...container, root: { ...container.root, style: { ...container.root.style, opacity: { step: value } } } }
       : container
 
   const moveTo = (x: number) => (container: ContainerSpec) => moveDesign(container, { x, y: 0 })
@@ -336,7 +339,7 @@ describe("gestures", () => {
 
   it("puts a file reloaded mid-gesture in a step of its own, between the gesture's", () => {
     let history = taken(write(open(), "Move design", moveTo(10), "drag"))
-    history = taken(reloadFile(history, "more.par", { version: 3, containers: [design("about")] }))
+    history = taken(reloadFile(history, "more.par", { version: 4, containers: [design("about")] }))
     history = taken(write(history, "Move design", moveTo(20), "drag"))
     expect(history.past.map((step) => step.label)).toEqual(["Move design", "Reload more.par", "Move design"])
     history = taken(undoChange(history))
@@ -415,7 +418,7 @@ describe("unsaved files", () => {
 })
 
 describe("files changed outside the canvas", () => {
-  const fromDisk: CanvasDocument = { version: 3, containers: [design("home"), design("pricing")] }
+  const fromDisk: CanvasDocument = { version: 4, containers: [design("home"), design("pricing")] }
 
   it("are taken as saved, as one step, and not written back", () => {
     const step = reloadFile(open(), "app.par", fromDisk)
@@ -680,11 +683,11 @@ describe("the merged project file", () => {
   it("holds every file's designs and notes, and the modes when they aren't the defaults", () => {
     let history = openDesigns(
       [
-        { path: "app.par", document: { version: 3, containers: [design("home")] } },
+        { path: "app.par", document: { version: 4, containers: [design("home")] } },
         {
           path: "more.par",
           document: {
-            version: 3,
+            version: 4,
             containers: [design("about")],
             notes: [{ id: "n", text: "Hi", position: { x: 0, y: 0 } }]
           }
@@ -695,7 +698,7 @@ describe("the merged project file", () => {
     )
 
     expect(mergedDocument(history)).toEqual({
-      version: 3,
+      version: 4,
       containers: [design("home"), design("about")],
       notes: [{ id: "n", text: "Hi", position: { x: 0, y: 0 } }]
     })
@@ -725,12 +728,12 @@ describe("the merged project file", () => {
       [
         {
           path: "app.par",
-          document: { version: 3, containers: [], objects: [users], links: [reads], sources: { data: "migrations" } }
+          document: { version: 4, containers: [], objects: [users], links: [reads], sources: { data: "migrations" } }
         },
         {
           path: "more.par",
           document: {
-            version: 3,
+            version: 4,
             containers: [],
             objects: [{ ...users, position: { x: 9, y: 9 } }, route],
             links: [{ ...reads, type: "writes" }, shows],
@@ -744,7 +747,7 @@ describe("the merged project file", () => {
 
     const merged = mergedDocument(history)
     expect(merged).toEqual({
-      version: 3,
+      version: 4,
       containers: [],
       objects: [users, route],
       links: [reads, shows],

@@ -151,7 +151,7 @@ const tokens = [
 
 const start = (
   handle: SpacingEditStart["handle"],
-  style: NodeStyle = { padding: [4, 6], gap: 3 },
+  style: NodeStyle = { padding: [{ step: 4 }, { step: 6 }], gap: { step: 3 } },
   fields: Partial<SpacingEditStart> = {}
 ): SpacingEditStart => ({
   handle,
@@ -168,79 +168,106 @@ const still = { opposite: false, every: false }
 describe("dragging a padding or gap handle", () => {
   it("grows padding as its handle goes outwards, away from the content, on every side", () => {
     expect(spacingDrag(start({ kind: "padding", side: "top" }))({ dx: 0, dy: -8, ...still })?.change).toEqual({
-      padding: [6, 6, 4, 6]
+      padding: [{ step: 6 }, { step: 6 }, { step: 4 }, { step: 6 }]
     })
     expect(spacingDrag(start({ kind: "padding", side: "bottom" }))({ dx: 0, dy: 8, ...still })?.change).toEqual({
-      padding: [4, 6, 6, 6]
+      padding: [{ step: 4 }, { step: 6 }, { step: 6 }, { step: 6 }]
     })
     expect(spacingDrag(start({ kind: "padding", side: "left" }))({ dx: -8, dy: 0, ...still })?.change).toEqual({
-      padding: [4, 6, 4, 8]
+      padding: [{ step: 4 }, { step: 6 }, { step: 4 }, { step: 8 }]
     })
     expect(spacingDrag(start({ kind: "padding", side: "right" }))({ dx: 8, dy: 0, ...still })?.change).toEqual({
-      padding: [4, 8, 4, 6]
+      padding: [{ step: 4 }, { step: 8 }, { step: 4 }, { step: 6 }]
     })
     // Inwards, it shrinks.
     expect(spacingDrag(start({ kind: "padding", side: "right" }))({ dx: -8, dy: 0, ...still })?.change).toEqual({
-      padding: [4, 4, 4, 6]
+      padding: [{ step: 4 }, { step: 4 }, { step: 4 }, { step: 6 }]
     })
   })
 
   it("grows a gap as its handle goes right in a row or down in a column", () => {
     expect(spacingDrag(start({ kind: "gap", direction: "row" }))({ dx: 8, dy: 30, ...still })).toEqual({
-      change: { gap: 5 },
+      change: { gap: { step: 5 } },
       px: 20
     })
     expect(spacingDrag(start({ kind: "gap", direction: "column" }))({ dx: 30, dy: -8, ...still })?.change).toEqual({
-      gap: 1
+      gap: { step: 1 }
     })
   })
 
   it("changes nothing until the pointer has gone four pixels towards or away from the space", () => {
     const drag = spacingDrag(start({ kind: "padding", side: "left" }))
     expect(drag({ dx: -3, dy: 40, ...still })).toBeUndefined()
-    expect(drag({ dx: -4, dy: 0, ...still })?.change).toEqual({ padding: [4, 6, 4, 7] })
+    expect(drag({ dx: -4, dy: 0, ...still })?.change).toEqual({
+      padding: [{ step: 4 }, { step: 6 }, { step: 4 }, { step: 7 }]
+    })
     // Once started, coming back within four pixels goes on following the pointer.
-    expect(drag({ dx: -1, dy: 0, ...still })?.change).toEqual({ padding: [4, 6] })
+    expect(drag({ dx: -1, dy: 0, ...still })?.change).toEqual({ padding: [{ step: 4 }, { step: 6 }] })
   })
 
   it("goes in whole steps of the scale, never below 0, counting the zoom", () => {
-    const drag = spacingDrag(start({ kind: "padding", side: "top" }, { padding: [4, 6] }, { scale: 0.5 }))
+    const drag = spacingDrag(
+      start({ kind: "padding", side: "top" }, { padding: [{ step: 4 }, { step: 6 }] }, { scale: 0.5 })
+    )
+
     // 5 screen pixels at 50% is 10 layout pixels: 26, which rounds to 7 steps.
-    expect(drag({ dx: 0, dy: -5, ...still })?.change).toEqual({ padding: [7, 6, 4, 6] })
-    expect(drag({ dx: 0, dy: 100, ...still })).toMatchObject({ change: { padding: [0, 6, 4, 6] }, px: 0 })
+    expect(drag({ dx: 0, dy: -5, ...still })?.change).toEqual({
+      padding: [{ step: 7 }, { step: 6 }, { step: 4 }, { step: 6 }]
+    })
+    expect(drag({ dx: 0, dy: 100, ...still })).toMatchObject({
+      change: { padding: [{ step: 0 }, { step: 6 }, { step: 4 }, { step: 6 }] },
+      px: 0
+    })
   })
 
   it("gives the opposite side the same value, or every side", () => {
     const drag = spacingDrag(start({ kind: "padding", side: "left" }))
     expect(drag({ dx: -8, dy: 0, opposite: true, every: false })).toEqual({
-      change: { padding: [4, 8] },
+      change: { padding: [{ step: 4 }, { step: 8 }] },
       px: 32,
       sides: ["left", "right"]
     })
-    expect(drag({ dx: -8, dy: 0, opposite: true, every: true })?.change).toEqual({ padding: 8 })
+    expect(drag({ dx: -8, dy: 0, opposite: true, every: true })?.change).toEqual({ padding: { step: 8 } })
     // Letting go puts the other sides back.
-    expect(drag({ dx: -8, dy: 0, ...still })?.change).toEqual({ padding: [4, 6, 4, 8] })
+    expect(drag({ dx: -8, dy: 0, ...still })?.change).toEqual({
+      padding: [{ step: 4 }, { step: 6 }, { step: 4 }, { step: 8 }]
+    })
   })
 
   it("keeps a value bound to a token bound wherever it lands on a token's value, its own first", () => {
     const drag = spacingDrag(
-      start({ kind: "padding", side: "top" }, { padding: "card-padding" }, { drawn: { padding: sides(24), gap: 12 } })
+      start(
+        { kind: "padding", side: "top" },
+        { padding: { token: "card-padding" } },
+        { drawn: { padding: sides(24), gap: 12 } }
+      )
     )
 
     // 24 + 8 is 32: card-padding-lg and gutter are both 32; the first listed wins.
     expect(drag({ dx: 0, dy: -8, ...still })).toMatchObject({
-      change: { padding: ["card-padding-lg", "card-padding", "card-padding", "card-padding"] },
+      change: {
+        padding: [
+          { token: "card-padding-lg" },
+          { token: "card-padding" },
+          { token: "card-padding" },
+          { token: "card-padding" }
+        ]
+      },
       token: "card-padding-lg"
     })
     // Between tokens it's steps, and back on its own value it's its own token again.
     expect(drag({ dx: 0, dy: -4, ...still })?.change).toEqual({
-      padding: [7, "card-padding", "card-padding", "card-padding"]
+      padding: [{ step: 7 }, { token: "card-padding" }, { token: "card-padding" }, { token: "card-padding" }]
     })
-    expect(drag({ dx: 0, dy: 0, ...still })?.change).toEqual({ padding: "card-padding" })
+    expect(drag({ dx: 0, dy: 0, ...still })?.change).toEqual({ padding: { token: "card-padding" } })
 
     // Its own token comes before another with the same value.
     const gutter = spacingDrag(
-      start({ kind: "padding", side: "top" }, { padding: "gutter" }, { drawn: { padding: sides(32), gap: 12 } })
+      start(
+        { kind: "padding", side: "top" },
+        { padding: { token: "gutter" } },
+        { drawn: { padding: sides(32), gap: 12 } }
+      )
     )
 
     expect(gutter({ dx: 0, dy: 4, ...still })).toMatchObject({ px: 28 })
@@ -249,44 +276,82 @@ describe("dragging a padding or gap handle", () => {
 
   it("keeps a number a number, though it lands on a token's value", () => {
     const drag = spacingDrag(
-      start({ kind: "gap", direction: "row" }, { gap: 1 }, { drawn: { padding: sides(0), gap: 4 } })
+      start({ kind: "gap", direction: "row" }, { gap: { step: 1 } }, { drawn: { padding: sides(0), gap: 4 } })
     )
 
-    expect(drag({ dx: 8, dy: 0, ...still })).toEqual({ change: { gap: 3 }, px: 12 })
+    expect(drag({ dx: 8, dy: 0, ...still })).toEqual({ change: { gap: { step: 3 } }, px: 12 })
+  })
+
+  it("takes a value written out, which has no steps, to steps from where it's drawn, as a token off its value", () => {
+    const written = start(
+      { kind: "padding", side: "top" },
+      { padding: [{ value: "10px" }, { expr: "calc(1rem + 2px)" }], gap: { keyword: "normal" } },
+      { drawn: { padding: sides(10, 18), gap: 0 } }
+    )
+
+    // 10px drawn and 8px more is 18px, which rounds to 5 steps; the sides it doesn't change stay as they're written.
+    expect(spacingDrag(written)({ dx: 0, dy: -8, ...still })).toEqual({
+      change: {
+        padding: [{ step: 5 }, { expr: "calc(1rem + 2px)" }, { value: "10px" }, { expr: "calc(1rem + 2px)" }]
+      },
+      px: 20,
+      sides: ["top"]
+    })
+    expect(spacingStep({ ...written, handle: { kind: "gap", direction: "row" } }, 1, still)).toEqual({
+      change: { gap: { step: 1 } },
+      px: 4
+    })
   })
 
   it("starts a side that's unset from 0", () => {
     const drag = spacingDrag(start({ kind: "padding", side: "left" }, {}, { drawn: { padding: sides(0), gap: 0 } }))
-    expect(drag({ dx: -8, dy: 0, ...still })?.change).toEqual({ padding: [0, 0, 0, 2] })
+    expect(drag({ dx: -8, dy: 0, ...still })?.change).toEqual({
+      padding: [{ step: 0 }, { step: 0 }, { step: 0 }, { step: 2 }]
+    })
   })
 })
 
 describe("stepping a padding or gap handle from the keyboard", () => {
   it("moves one step, from a half step to the whole step beside it, on the sides held", () => {
-    expect(spacingStep(start({ kind: "gap", direction: "row" }), 1, still)).toEqual({ change: { gap: 4 }, px: 16 })
-    expect(spacingStep(start({ kind: "gap", direction: "row" }), 10, still).change).toEqual({ gap: 13 })
-    const half = start({ kind: "padding", side: "top" }, { padding: 1.5 }, { drawn: { padding: sides(6), gap: 0 } })
-    expect(spacingStep(half, -1, still).change).toEqual({ padding: [1, 1.5, 1.5, 1.5] })
-    expect(spacingStep(half, 1, { opposite: true, every: true }).change).toEqual({ padding: 2 })
+    expect(spacingStep(start({ kind: "gap", direction: "row" }), 1, still)).toEqual({
+      change: { gap: { step: 4 } },
+      px: 16
+    })
+    expect(spacingStep(start({ kind: "gap", direction: "row" }), 10, still).change).toEqual({ gap: { step: 13 } })
+
+    const half = start(
+      { kind: "padding", side: "top" },
+      { padding: { step: 1.5 } },
+      { drawn: { padding: sides(6), gap: 0 } }
+    )
+
+    expect(spacingStep(half, -1, still).change).toEqual({
+      padding: [{ step: 1 }, { step: 1.5 }, { step: 1.5 }, { step: 1.5 }]
+    })
+    expect(spacingStep(half, 1, { opposite: true, every: true }).change).toEqual({ padding: { step: 2 } })
     expect(
       spacingStep(
-        start({ kind: "gap", direction: "row" }, { gap: 0 }, { drawn: { padding: sides(0), gap: 0 } }),
+        start({ kind: "gap", direction: "row" }, { gap: { step: 0 } }, { drawn: { padding: sides(0), gap: 0 } }),
         -1,
         still
       ).change
     ).toEqual({
-      gap: 0
+      gap: { step: 0 }
     })
   })
 
   it("keeps a token-bound value bound when the step lands on a token", () => {
     const bound = start(
       { kind: "gap", direction: "row" },
-      { gap: "stack-gap" },
+      { gap: { token: "stack-gap" } },
       { drawn: { padding: sides(0), gap: 8 } }
     )
 
-    expect(spacingStep(bound, 1, still)).toEqual({ change: { gap: "stack-gap" }, px: 12, token: "stack-gap" })
+    expect(spacingStep(bound, 1, still)).toEqual({
+      change: { gap: { token: "stack-gap" } },
+      px: 12,
+      token: "stack-gap"
+    })
   })
 })
 
@@ -294,11 +359,17 @@ describe("typing a value after clicking a handle", () => {
   const top = start({ kind: "padding", side: "top" })
 
   it("reads pixels, rem, maths and tokens as the inspector's fields do", () => {
-    expect(typedSpacing(top, "20", still)).toMatchObject({ change: { padding: [5, 6, 4, 6] }, px: 20 })
-    expect(typedSpacing(top, "1.5rem", still)).toMatchObject({ change: { padding: [6, 6, 4, 6] }, px: 24 })
+    expect(typedSpacing(top, "20", still)).toMatchObject({
+      change: { padding: [{ step: 5 }, { step: 6 }, { step: 4 }, { step: 6 }] },
+      px: 20
+    })
+    expect(typedSpacing(top, "1.5rem", still)).toMatchObject({
+      change: { padding: [{ step: 6 }, { step: 6 }, { step: 4 }, { step: 6 }] },
+      px: 24
+    })
     expect(typedSpacing(top, "+8", still)).toMatchObject({ px: 24 })
     expect(typedSpacing(top, "card-padding", still)).toEqual({
-      change: { padding: ["card-padding", 6, 4, 6] },
+      change: { padding: [{ token: "card-padding" }, { step: 6 }, { step: 4 }, { step: 6 }] },
       px: 24,
       token: "card-padding",
       sides: ["top"]
@@ -306,11 +377,16 @@ describe("typing a value after clicking a handle", () => {
   })
 
   it("changes the sides held at the click", () => {
-    expect(typedSpacing(top, "8", { opposite: true, every: false })).toMatchObject({ change: { padding: [2, 6] } })
+    expect(typedSpacing(top, "8", { opposite: true, every: false })).toMatchObject({
+      change: { padding: [{ step: 2 }, { step: 6 }] }
+    })
   })
 
   it("takes an empty box to 0, and says why it can't read something", () => {
-    expect(typedSpacing(top, "", still)).toMatchObject({ change: { padding: [0, 6, 4, 6] }, px: 0 })
+    expect(typedSpacing(top, "", still)).toMatchObject({
+      change: { padding: [{ step: 0 }, { step: 6 }, { step: 4 }, { step: 6 }] },
+      px: 0
+    })
     expect(typedSpacing(top, "abc", still)).toEqual({ reason: `"abc" isn't a valid number` })
     expect(typedSpacing(top, "-8", still)).toMatchObject({ px: 0 })
   })
@@ -319,8 +395,12 @@ describe("typing a value after clicking a handle", () => {
 describe("picking a value from the list beside the box", () => {
   it("writes a token by name or a number of steps", () => {
     const gap = start({ kind: "gap", direction: "row" })
-    expect(pickedSpacing(gap, "stack-gap", still)).toEqual({ change: { gap: "stack-gap" }, px: 12, token: "stack-gap" })
-    expect(pickedSpacing(gap, 2.5, still)).toEqual({ change: { gap: 2.5 }, px: 10 })
+    expect(pickedSpacing(gap, "stack-gap", still)).toEqual({
+      change: { gap: { token: "stack-gap" } },
+      px: 12,
+      token: "stack-gap"
+    })
+    expect(pickedSpacing(gap, 2.5, still)).toEqual({ change: { gap: { step: 2.5 } }, px: 10 })
   })
 })
 

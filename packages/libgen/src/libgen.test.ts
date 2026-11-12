@@ -578,16 +578,16 @@ describe("loading a package", () => {
 
 describe("regenerating", () => {
   it("keeps what a person wrote in the file being replaced, and stops at one that doesn't read", () => {
-    const existing = { $schema: "./lib.schema.json", version: 3, name: "Acme", description: "Ours", styles: "old.css" }
-    expect(mergeManifest(existing, { version: 3, name: "acme", styles: "new.css" })).toEqual({
-      version: 3,
+    const existing = { $schema: "./lib.schema.json", version: 4, name: "Acme", description: "Ours", styles: "old.css" }
+    expect(mergeManifest(existing, { version: 4, name: "acme", styles: "new.css" })).toEqual({
+      version: 4,
       name: "Acme",
       styles: "new.css",
       $schema: "./lib.schema.json",
       description: "Ours"
     })
-    expect(mergeManifest(undefined, { version: 3, name: "acme" })).toEqual({ version: 3, name: "acme" })
-    expect(() => mergeManifest({ version: 3, name: 1 }, { version: 3, name: "acme" })).toThrow(
+    expect(mergeManifest(undefined, { version: 4, name: "acme" })).toEqual({ version: 4, name: "acme" })
+    expect(() => mergeManifest({ version: 4, name: 1 }, { version: 4, name: "acme" })).toThrow(
       "The library file being replaced doesn't read, so fix or delete it first: /name: expected a string"
     )
   })

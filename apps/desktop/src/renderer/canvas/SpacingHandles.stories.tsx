@@ -1,4 +1,4 @@
-import { isNamedLength, type Length, type NodeStyle } from "@parity-app/core"
+import { isFill, isHug, lengthSteps, lengthToken, type NodeStyle, type Size } from "@parity-app/core"
 import {
   type Edge,
   type LayerResizeStart,
@@ -75,7 +75,7 @@ const card = (id: string, name: string, text: string, style: NodeStyle = {}): La
 export const PaddingAndGap: Story = {
   args: {
     scene: {
-      layout: { direction: "row", padding: [4, 6], gap: 3 },
+      layout: { flexDirection: "row", padding: [{ step: 4 }, { step: 6 }], gap: { step: 3 } },
       children: [
         card("revenue", "Revenue", "$48,200"),
         card("users", "Users", "1,284"),
@@ -98,7 +98,12 @@ export const BoundToTokens: Story = {
       { name: "card-padding-lg", px: 32 }
     ],
     scene: {
-      layout: { direction: "column", padding: "card-padding", gap: "stack-gap", width: 64 },
+      layout: {
+        flexDirection: "column",
+        padding: { token: "card-padding" },
+        gap: { token: "stack-gap" },
+        width: { step: 64 }
+      },
       children: [
         card("title", "Title", "Pro plan"),
         card("price", "Price", "$24 a month"),
@@ -112,7 +117,7 @@ export const BoundToTokens: Story = {
 export const NoPadding: Story = {
   args: {
     scene: {
-      layout: { direction: "row" },
+      layout: { flexDirection: "row" },
       children: [card("save", "Save", "Save"), card("cancel", "Cancel", "Cancel")]
     }
   }
@@ -127,11 +132,11 @@ export const SeveralLayers: Story = {
   args: {
     selected: ["revenue", "users", "uptime"],
     scene: {
-      layout: { direction: "row", padding: 4, gap: 3 },
+      layout: { flexDirection: "row", padding: { step: 4 }, gap: { step: 3 } },
       children: [
-        card("revenue", "Revenue", "$48,200", { width: 28 }),
-        card("users", "Users", "1,284", { width: 28 }),
-        card("uptime", "Uptime", "99.9%", { width: 28 })
+        card("revenue", "Revenue", "$48,200", { width: { step: 28 } }),
+        card("users", "Users", "1,284", { width: { step: 28 } }),
+        card("uptime", "Uptime", "99.9%", { width: { step: 28 } })
       ]
     }
   }
@@ -226,7 +231,7 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
             }
           })()
         : (() => {
-            const direction = sceneRef.current.layout.direction ?? "column"
+            const direction = sceneRef.current.layout.flexDirection ?? "column"
             const layers = layerIds.map((id) => sceneRef.current.children.find((layer) => layer.id === id)!)
 
             const resize = layersResize(
@@ -259,7 +264,7 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
     if (selected === "layout") {
       editLayout(layerSizeReset(edge, fill))
     } else {
-      const direction = sceneRef.current.layout.direction ?? "column"
+      const direction = sceneRef.current.layout.flexDirection ?? "column"
       editLayers(
         new Map(
           layerIds.map((id) => {
@@ -275,7 +280,7 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
   }
 
   const handles = measured && selected === "layout" ? spacingHandles(measured.spacing) : []
-  const row = (scene.layout.direction ?? "column") === "row"
+  const row = (scene.layout.flexDirection ?? "column") === "row"
 
   return (
     <div className="flex min-h-screen flex-wrap gap-6 bg-neutral-100 p-6 text-neutral-900">
@@ -479,7 +484,7 @@ function measure(
     })
   )
 
-  const direction = scene.layout.direction ?? "column"
+  const direction = scene.layout.flexDirection ?? "column"
 
   return {
     layout: rect,
@@ -494,7 +499,7 @@ function measure(
       padding,
       children: scene.children.map((layer) => childRects[layer.id]!).filter(Boolean),
       direction,
-      oneLine: !scene.layout.wrap
+      oneLine: !scene.layout.flexWrap
     }
   }
 }
@@ -516,20 +521,22 @@ const toBox = (rect: Rect) => ({ x: rect.left, y: rect.top, w: rect.right - rect
 
 // Drawing the stand-in from its style, as Tailwind would: lengths in steps of 4px, or a token's value.
 
-function px(length: Length | undefined, tokens: readonly LengthToken[]): number {
-  if (length !== undefined && !isNamedLength(length)) {
-    return length * unit
+function px(length: Size | undefined, tokens: readonly LengthToken[]): number {
+  const steps = lengthSteps(length)
+
+  if (steps !== undefined) {
+    return steps * unit
   }
 
-  return tokens.find((token) => token.name === length)?.px ?? 0
+  return tokens.find((token) => token.name === lengthToken(length))?.px ?? 0
 }
 
-function size(length: Length | undefined, tokens: readonly LengthToken[]): string | undefined {
-  if (length === undefined || length === "hug") {
+function size(length: Size | undefined, tokens: readonly LengthToken[]): string | undefined {
+  if (length === undefined || isHug(length)) {
     return "max-content"
   }
 
-  if (length === "fill") {
+  if (isFill(length)) {
     return undefined
   }
 
@@ -537,16 +544,16 @@ function size(length: Length | undefined, tokens: readonly LengthToken[]): strin
 }
 
 function layoutCss(style: NodeStyle, tokens: readonly LengthToken[]): CSSProperties {
-  const [top, right, bottom, left] = (sidesOf(style.padding) ?? [0, 0, 0, 0]).map((side) => px(side, tokens))
+  const [top, right, bottom, left] = (sidesOf(style.padding) ?? []).map((side) => px(side, tokens))
 
   return {
-    flexDirection: style.direction ?? "column",
-    padding: `${top}px ${right}px ${bottom}px ${left}px`,
+    flexDirection: style.flexDirection ?? "column",
+    padding: `${top ?? 0}px ${right ?? 0}px ${bottom ?? 0}px ${left ?? 0}px`,
     gap: px(style.gap, tokens),
-    width: style.width === "fill" ? "100%" : size(style.width, tokens),
-    height: style.height === "fill" ? "100%" : size(style.height, tokens),
-    alignSelf: style.width === "fill" ? "stretch" : undefined,
-    flex: style.height === "fill" ? "1 1 0" : undefined
+    width: isFill(style.width) ? "100%" : size(style.width, tokens),
+    height: isFill(style.height) ? "100%" : size(style.height, tokens),
+    alignSelf: isFill(style.width) ? "stretch" : undefined,
+    flex: isFill(style.height) ? "1 1 0" : undefined
   }
 }
 
@@ -556,10 +563,10 @@ function childCss(style: NodeStyle, row: boolean, tokens: readonly LengthToken[]
 
   // A size that fills is left to `flex` along the layout and to `align-self` across it.
   return {
-    width: style.width === "fill" ? undefined : size(style.width, tokens),
-    height: style.height === "fill" ? undefined : size(style.height, tokens),
-    flex: main === "fill" ? "1 1 0" : "none",
-    alignSelf: cross === "fill" ? "stretch" : "flex-start"
+    width: isFill(style.width) ? undefined : size(style.width, tokens),
+    height: isFill(style.height) ? undefined : size(style.height, tokens),
+    flex: isFill(main) ? "1 1 0" : "none",
+    alignSelf: isFill(cross) ? "stretch" : "flex-start"
   }
 }
 
@@ -599,7 +606,7 @@ function valueOf(handle: SpacingHandle, style: NodeStyle, measured: Measured, to
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
   const drawn = handle.kind === "gap" ? measured.gap : measured.padding[handle.side]
 
-  const named = isNamedLength(written) ? written : undefined
+  const named = lengthToken(written)
   const token = tokens.some((candidate) => candidate.name === named) ? named : undefined
 
   const value: SpacingValue = { px: drawn }

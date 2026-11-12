@@ -18,7 +18,7 @@ afterEach(async () => {
 const copy: RecoveryCopy = {
   version: 1,
   keptAt: 1,
-  documents: [{ path: "shop.par", document: { version: 3, containers: [] } }],
+  documents: [{ path: "shop.par", document: { version: 4, containers: [] } }],
   tokens: []
 }
 

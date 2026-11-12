@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { actions } from "../chrome/actions.ts"
+import { actions, commandsFor } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
 import type { ProjectSession } from "../workspace.ts"
 
@@ -105,7 +105,7 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
         const action = actions[command]
 
         // A key that doesn't apply now does what it would anyway, as Enter on a button, unless it's a Ctrl shortcut.
-        if (action.available?.() === false) {
+        if (!commandsFor()[command].enabled) {
           if (!mod) {
             return
           }

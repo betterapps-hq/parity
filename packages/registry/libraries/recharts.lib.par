@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "recharts",
   "name": "Recharts",
   "description": "Charts, axes, series and grids to compose, as shadcn's charts are.",

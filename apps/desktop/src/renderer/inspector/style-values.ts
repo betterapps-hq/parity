@@ -1,44 +1,89 @@
-import type { Length, Padding, Size } from "@parity-app/core"
+import {
+  type FieldLength,
+  type FontWeight,
+  isFill,
+  isHug,
+  type Length,
+  type LineHeight as StoredLineHeight,
+  lengthSteps,
+  lengthToken,
+  type Named,
+  type Opacity as StoredOpacity,
+  opacityPercent,
+  type Padding,
+  type Size
+} from "@parity-app/core"
 import { sidesOf, tidySides } from "@parity-app/editor"
-import { numberValue } from "../chrome/prop-values.ts"
-import { isLengthToken, isTokenSize, type Radius, type Size as ControlSize } from "./controls/data.ts"
+import { isFixedSize, isLengthToken, isTokenSize, type Radius, type Size as ControlSize } from "./controls/data.ts"
 import type { Side, Sides } from "./controls/sides-writes.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, Opacity, WeightValue } from "./controls/text-writes.ts"
-import type { LeadingToken, LengthToken, SizeToken, TrackingToken, WeightToken } from "./controls/tokens.ts"
+import type { LeadingToken, LengthToken, SizeToken, TrackingToken } from "./controls/tokens.ts"
 
 /*
  * The Design tab's controls take values in PAR-652's forms: lengths in pixels, tokens as `{ token }`, keywords as
- * `{ option }`. `NodeStyle` holds lengths as steps of the spacing scale, and colors, radii and type as token names.
- * These read a style's value as a control shows it, and write what the control gives back as the style holds it.
- * Where a control gives a value the style can't hold as it is, a size of its own for a type value, it takes the token
- * nearest it, as a length off the spacing scale lands on its nearest step.
+ * `{ option }`. `NodeStyle` holds each value with its form (PAR-941): lengths as `{ step }` of the spacing scale, tokens
+ * as `{ token }`, and what's written out as `{ value }` or `{ keyword }`. These read a style's value as a control shows
+ * it, and write what the control gives back as the style holds it. Where a control gives a type value the style's
+ * fields don't take yet, a size of its own, it takes the token nearest it, as a length off the spacing scale lands on
+ * its nearest step.
  */
 
 /** Steps to the fourth place, so pixels typed come back as the steps they were. */
 const exact = (steps: number) => Math.round(steps * 10_000) / 10_000
 
-/** A length as a side shows it: its pixels, or its token. */
+/** A percentage a length is written as (`{ value: "50%" }`). */
+function percentOf(length: Size): number | undefined {
+  if (!("value" in length)) {
+    return undefined
+  }
+
+  const match = /^(-?\d*\.?\d+)%$/.exec(length.value)
+
+  return match ? Number(match[1]) : undefined
+}
+
+const isAuto = (length: Size) => "keyword" in length && length.keyword === "auto"
+
+/** A length as a side shows it: its pixels, its token, a percentage, or Auto. What else is written out shows nothing. */
 export function sideOf(length: Length | undefined, unit: number): Side {
   if (length === undefined) {
     return undefined
   }
 
-  const steps = numberValue.safeParse(length)
+  const steps = lengthSteps(length)
+  const token = lengthToken(length)
+  const percent = percentOf(length)
 
-  return steps.success ? { number: exact(steps.data * unit) } : { token: String(length) }
+  if (steps !== undefined) {
+    return { number: exact(steps * unit) }
+  }
+
+  if (token !== undefined) {
+    return { token }
+  }
+
+  if (percent !== undefined) {
+    return { percent }
+  }
+
+  return isAuto(length) ? "auto" : undefined
 }
 
-/** A side as the style holds it: steps of the spacing scale, or a token's name. Auto and percentages it can't hold. */
+/** A side as the style holds it: steps of the spacing scale, a token, a percentage, or Auto. */
 export function lengthOf(side: Side, unit: number): Length | undefined {
-  if (side === undefined || side === "auto") {
+  if (side === undefined) {
     return undefined
   }
 
-  if ("number" in side) {
-    return exact(side.number / unit)
+  if (side === "auto") {
+    return { keyword: "auto" }
   }
 
-  return "token" in side ? side.token : undefined
+  if ("number" in side) {
+    return { step: exact(side.number / unit) }
+  }
+
+  return "token" in side ? { token: side.token } : { value: `${side.percent}%` }
 }
 
 /** Padding or margin as the four sides a box model shows, from the top, clockwise. */
@@ -47,6 +92,8 @@ export function sidesShown(padding: Padding | undefined, unit: number): Sides {
 
   return [sideOf(sides?.[0], unit), sideOf(sides?.[1], unit), sideOf(sides?.[2], unit), sideOf(sides?.[3], unit)]
 }
+
+const zero: Length = { step: 0 }
 
 /**
  * Four sides as the style writes them, in its shortest form, from what each layer had: only the sides an edit reached
@@ -58,43 +105,56 @@ export function paddingOf(
   reached: readonly number[],
   unit: number
 ): Padding | undefined {
-  const next = sidesOf(own) ?? [0, 0, 0, 0]
+  const next = sidesOf(own) ?? [zero, zero, zero, zero]
   const lengths: [Length, Length, Length, Length] = [...next]
 
   for (const index of reached) {
-    lengths[index] = lengthOf(sides[index], unit) ?? 0
+    lengths[index] = lengthOf(sides[index], unit) ?? zero
   }
 
-  return lengths.every((length) => length === 0) && own === undefined && sides.every((side) => side === undefined)
+  return lengths.every((length) => lengthSteps(length) === 0) &&
+    own === undefined &&
+    sides.every((side) => side === undefined)
     ? undefined
     : tidySides(lengths)
 }
 
-/** A width or height as W and H show it: pixels, Fill or Hug, or a token. */
+/** A width or height as W and H show it: pixels, Fill or Hug, a percentage, or a token. */
 export function sizeShown(size: Size | undefined, unit: number): ControlSize | undefined {
   if (size === undefined) {
     return undefined
   }
 
-  if (size === "fill" || size === "hug") {
-    return size
+  if (isFill(size) || isHug(size)) {
+    return size.size
   }
 
-  const steps = numberValue.safeParse(size)
+  const steps = lengthSteps(size)
+  const token = lengthToken(size)
+  const percent = percentOf(size)
 
-  return steps.success ? exact(steps.data * unit) : { token: String(size) }
+  if (steps !== undefined) {
+    return exact(steps * unit)
+  }
+
+  if (token !== undefined) {
+    return { token }
+  }
+
+  return percent === undefined ? undefined : { percent }
 }
 
-/** A size from W or H as the style holds it; the forms it can't hold yet, a percentage or content's, aren't offered. */
-export function sizeOf(size: ControlSize, unit: number): Size | undefined {
+/**
+ * A size from W or H as a size field holds it, for `sizeEdit`: steps, a token's name, or Fill or Hug. A percentage and
+ * content's sizes aren't offered.
+ */
+export function sizeOf(size: ControlSize, unit: number): FieldLength | undefined {
   if (size === "fill" || size === "hug") {
     return size
   }
 
-  const pixels = numberValue.safeParse(size)
-
-  if (pixels.success) {
-    return exact(pixels.data / unit)
+  if (isFixedSize(size)) {
+    return exact(size / unit)
   }
 
   return isTokenSize(size) ? size.token : undefined
@@ -102,13 +162,10 @@ export function sizeOf(size: ControlSize, unit: number): Size | undefined {
 
 /** A length's pixels, for what a limit starts at: its steps', or its token's. */
 export function lengthPx(length: Length | undefined, unit: number, tokens: readonly LengthToken[]): number | undefined {
-  if (length === undefined) {
-    return undefined
-  }
+  const steps = lengthSteps(length)
+  const token = lengthToken(length)
 
-  const steps = numberValue.safeParse(length)
-
-  return steps.success ? steps.data * unit : tokens.find((token) => token.name === length)?.px
+  return steps === undefined ? tokens.find((each) => each.name === token)?.px : steps * unit
 }
 
 /** The token whose measure is nearest `to`, by name. */
@@ -131,28 +188,44 @@ export function nearestName<T extends { name: string; deprecated?: string }>(
   return nearest?.name
 }
 
-/** A radius token's name from Radius: a token as it is, or the token nearest a length of its own. */
-export function radiusOf(value: Radius | undefined, tokens: readonly LengthToken[]): string | undefined {
+/** A token's name as the style holds it. */
+const named = (name: string | undefined): { token: string } | undefined =>
+  name === undefined ? undefined : { token: name }
+
+/** A radius from Radius: a token as it is, or the token nearest a length of its own. */
+export function radiusOf(value: Radius | undefined, tokens: readonly LengthToken[]): Named | undefined {
   if (value === undefined) {
     return undefined
   }
 
   if (isLengthToken(value)) {
-    return value
+    return { token: value }
   }
 
-  return "px" in value
-    ? nearestName(tokens, (token) => token.px, value.px)
-    : nearestName(tokens, (token) => token.px, 9999)
+  return named(
+    "px" in value ? nearestName(tokens, (token) => token.px, value.px) : nearestName(tokens, (token) => token.px, 9999)
+  )
 }
 
-/** Opacity as its field shows it: a percentage of its own. */
-export const opacityShown = (opacity: number | undefined): Opacity | undefined =>
-  opacity === undefined ? undefined : { percent: opacity }
+/** Opacity as its field shows it: a token, or a percentage of its own. */
+export function opacityShown(opacity: StoredOpacity | undefined): Opacity | undefined {
+  if (opacity === undefined) {
+    return undefined
+  }
 
-/** Opacity as the style holds it: a percentage. The project's opacity tokens aren't offered yet. */
-export const opacityOf = (value: Opacity | undefined): number | undefined =>
-  value !== undefined && "percent" in value ? value.percent : undefined
+  const percent = opacityPercent(opacity)
+
+  return percent === undefined ? named("token" in opacity ? opacity.token : undefined) : { percent }
+}
+
+/** Opacity as the style holds it: a token, or a percentage. */
+export function opacityOf(value: Opacity | undefined): StoredOpacity | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return "token" in value ? { token: value.token } : { step: value.percent }
+}
 
 /** A keyword from a set as the style holds it, where it's one the style takes; a custom keyword it can't hold. */
 export function optionOf<T extends string>(
@@ -162,72 +235,82 @@ export function optionOf<T extends string>(
   return value !== undefined && "option" in value ? takes.find((each) => each === value.option) : undefined
 }
 
-/** A type token the style holds, as its field shows it. */
-export const tokenShown = (name: string | undefined) => (name === undefined ? undefined : { token: name })
+/** A type value the style holds, as its field shows it: its token. What's written out shows nothing. */
+export const tokenShown = (value: Named | StoredLineHeight | undefined) =>
+  value !== undefined && "token" in value ? { token: value.token } : undefined
 
-/** Font as the style holds it: a font token's name. A stack of its own isn't offered, as the field takes tokens only. */
-export const fontOf = (value: FontValue | undefined): string | undefined =>
-  value !== undefined && "token" in value ? value.token : undefined
+/** Font as the style holds it: a font token. A stack of its own isn't offered, as the field takes tokens only. */
+export const fontOf = (value: FontValue | undefined): Named | undefined =>
+  value !== undefined && "token" in value ? { token: value.token } : undefined
 
-/** A text size token's name: the token, or the one nearest pixels of its own. */
-export function fontSizeOf(value: FontSize | undefined, tokens: readonly SizeToken[]): string | undefined {
+/** A text size: the token, or the one nearest pixels of its own. */
+export function fontSizeOf(value: FontSize | undefined, tokens: readonly SizeToken[]): Named | undefined {
   if (value === undefined) {
     return undefined
   }
 
-  return "token" in value ? value.token : nearestName(tokens, (token) => token.px, value.px)
+  return "token" in value ? { token: value.token } : named(nearestName(tokens, (token) => token.px, value.px))
 }
 
-/** A weight as its field shows it: the number the style holds. */
-export const weightShown = (weight: number | undefined): WeightValue | undefined =>
-  weight === undefined ? undefined : { value: weight }
+/** A weight as its field shows it: the number or the token the style holds. */
+export function weightShown(weight: FontWeight | undefined): WeightValue | undefined {
+  if (weight === undefined) {
+    return undefined
+  }
 
-/** A weight as the style holds it: its number, or a weight token's. */
-export function weightOf(value: WeightValue | undefined, tokens: readonly WeightToken[]): number | undefined {
+  if ("value" in weight) {
+    return { value: weight.value }
+  }
+
+  return "token" in weight ? { token: weight.token } : undefined
+}
+
+/** A weight as the style holds it: its number, or its token. */
+export function weightOf(value: WeightValue | undefined): FontWeight | undefined {
   if (value === undefined) {
     return undefined
   }
 
-  return "token" in value ? tokens.find((token) => token.name === value.token)?.weight : value.value
+  return "token" in value ? { token: value.token } : { value: value.value }
 }
 
 /**
- * A leading token's name: the token, or the one nearest a multiple or pixels at the text's size. Auto (`normal`) is
- * what unset comes to.
+ * A line height: the token, or the one nearest a multiple or pixels at the text's size. Auto (`normal`) is what unset
+ * comes to.
  */
 export function leadingOf(
   value: LineHeight | undefined,
   tokens: readonly LeadingToken[],
   fontPx: number
-): string | undefined {
+): StoredLineHeight | undefined {
   if (value === undefined || "keyword" in value) {
     return undefined
   }
 
   if ("token" in value) {
-    return value.token
+    return { token: value.token }
   }
 
   const multiple = "multiple" in value ? value.multiple : value.px / fontPx
 
-  return nearestName(tokens, (token) => token.multiple, multiple)
+  return named(nearestName(tokens, (token) => token.multiple, multiple))
 }
 
-/** A tracking token's name: the token, or the one nearest em or pixels at the text's size. */
+/** Letter spacing: the token, or the one nearest em or pixels at the text's size. */
 export function trackingOf(
   value: LetterSpacing | undefined,
   tokens: readonly TrackingToken[],
   fontPx: number
-): string | undefined {
+): Named | undefined {
   if (value === undefined) {
     return undefined
   }
 
   if ("token" in value) {
-    return value.token
+    return { token: value.token }
   }
 
   const em = "em" in value ? value.em : value.px / fontPx
 
-  return nearestName(tokens, (token) => token.em, em)
+  return named(nearestName(tokens, (token) => token.em, em))
 }

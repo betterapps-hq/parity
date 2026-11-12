@@ -1,4 +1,4 @@
-import { boardTarget, editNode, isNamedLength, type Length, type NodeStyle } from "@parity-app/core"
+import { boardTarget, editNode, type FieldLength, lengthToken, type NodeStyle } from "@parity-app/core"
 import {
   type LengthToken,
   paddingSides,
@@ -154,7 +154,9 @@ export function spacingValue(
   const style: NodeStyle = edit?.start.style ?? {}
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
 
-  return isNamedLength(written) ? { px: drawn, token: written } : { px: drawn }
+  const token = lengthToken(written)
+
+  return token === undefined ? { px: drawn } : { px: drawn, token }
 }
 
 function write(
@@ -266,7 +268,7 @@ export function pickSpacing(
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
-  value: Length,
+  value: FieldLength,
   keys: SpacingKeys
 ): void {
   const edit = editStart(session, target, handle, measure)

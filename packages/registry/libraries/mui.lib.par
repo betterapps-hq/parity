@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "mui",
   "name": "Material UI",
   "description": "Google's Material Design in React, styled with Emotion.",

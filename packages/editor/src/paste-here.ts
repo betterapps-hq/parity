@@ -2,6 +2,7 @@ import {
   type ContainerSpec,
   type DesignNode,
   insertNode,
+  lengthSteps,
   locateNode,
   nodeIds,
   type NodeStyle,
@@ -10,7 +11,6 @@ import {
 } from "@parity-app/core"
 import { fitBindings, type Pasted } from "./clipboard.ts"
 import { type Box, type Flow, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
-import { lengthSteps } from "./lengths.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -182,7 +182,7 @@ export function placedAt(node: DesignNode, at: { left: number; top: number }): D
   const stretched = (start: "left" | "top", end: "right" | "bottom", size: "width" | "height") =>
     style[start] !== undefined && style[end] !== undefined && style[size] === undefined
 
-  const placed: NodeStyle = { ...own, position: "absolute", left: at.left, top: at.top }
+  const placed: NodeStyle = { ...own, position: "absolute", left: { step: at.left }, top: { step: at.top } }
 
   if (stretched("left", "right", "width")) {
     placed.right = style.right

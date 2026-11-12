@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "chakra",
   "name": "Chakra UI",
   "description": "Accessible components with style props, on Emotion.",

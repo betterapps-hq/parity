@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "phosphor",
   "name": "Phosphor",
   "description": "A flexible icon family with six weights, picked with the weight prop.",

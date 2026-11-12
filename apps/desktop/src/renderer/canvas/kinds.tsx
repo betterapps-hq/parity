@@ -176,7 +176,7 @@ export function NodeIcon({
     return <Grid3x3 {...props} />
   }
 
-  return node.style?.direction === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
+  return node.style?.flexDirection === "row" ? <Columns3 {...props} /> : <Rows3 {...props} />
 }
 
 /** Focuses an element when it mounts: for inline rename fields that appear where the person double-clicked. */

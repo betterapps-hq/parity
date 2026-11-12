@@ -1,4 +1,4 @@
-import type { ComponentInfo, ContainerSpec } from "@parity-app/core"
+import type { ComponentInfo, ContainerSpec, NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { type LintContext, lintDocument, propWarnings } from "./lint.ts"
 
@@ -24,7 +24,7 @@ const context: LintContext = {
 }
 
 function design(root: ContainerSpec["root"], states: ContainerSpec["states"] = [{ id: "default", name: "Default" }]) {
-  return { version: 3 as const, containers: [{ id: "home", name: "Home", position: { x: 0, y: 0 }, root, states }] }
+  return { version: 4 as const, containers: [{ id: "home", name: "Home", position: { x: 0, y: 0 }, root, states }] }
 }
 
 describe("lintDocument", () => {
@@ -32,7 +32,12 @@ describe("lintDocument", () => {
     const root = {
       type: "layout" as const,
       id: "page",
-      style: { background: "primary", radius: "radius-full", gap: "gutter", padding: 4 },
+      style: {
+        fills: [{ type: "solid" as const, color: { token: "primary" } }],
+        borderRadius: { token: "radius-full" },
+        gap: { token: "gutter" },
+        padding: { step: 4 }
+      },
       children: [
         { type: "component" as const, id: "save", component: "Button" },
         { type: "component" as const, id: "heart", component: "lucide/Heart" }
@@ -47,17 +52,17 @@ describe("lintDocument", () => {
       type: "layout" as const,
       id: "page",
       style: {
-        background: [
-          { kind: "gradient" as const, token: "gradient-sunset" },
+        fills: [
+          { type: "gradient" as const, token: "gradient-sunset" },
           {
-            kind: "linear" as const,
+            type: "linear" as const,
             stops: [
-              { color: "primary", position: 0 },
-              { color: "#ff00aa", position: 100 }
+              { color: { token: "primary" }, position: 0 },
+              { color: { value: "#ff00aa" }, position: 100 }
             ]
           },
-          { kind: "image" as const, src: "/images/hero.jpg", fit: "fill" as const },
-          { kind: "solid" as const, color: "primary" }
+          { type: "image" as const, src: "/images/hero.jpg", fit: "fill" as const },
+          { type: "solid" as const, color: { token: "primary" } }
         ]
       },
       children: []
@@ -68,14 +73,14 @@ describe("lintDocument", () => {
       {
         id: "dark",
         name: "Dark",
-        overrides: { page: { style: { background: [{ kind: "solid" as const, color: "ink" }] } } }
+        overrides: { page: { style: { fills: [{ type: "solid" as const, color: { token: "ink" } }] } } }
       }
     ]
 
     expect(lintDocument(design(root, states), context).map((warning) => warning.message)).toEqual([
-      `background "#ff00aa" isn't a token. Use a name from GetTokens({ nearest: "#ff00aa", category: "color" }), which lists the nearest first.`,
-      `background "gradient-sunset" isn't a token. Use a name from GetTokens().`,
-      `background "ink" isn't a token. The project's only color token is primary. Use it, or add ink with SetTokens.`
+      `fills "#ff00aa" isn't a token. Use a name from GetTokens({ nearest: "#ff00aa", category: "color" }), which lists the nearest first.`,
+      `fills "gradient-sunset" isn't a token. Use a name from GetTokens().`,
+      `fills "ink" isn't a token. The project's only color token is primary. Use it, or add ink with SetTokens.`
     ])
   })
 
@@ -84,8 +89,12 @@ describe("lintDocument", () => {
       type: "layout" as const,
       id: "page",
       name: "Page",
-      style: { background: "pink", width: "wide", zIndex: "front" },
-      responsive: { mobile: { style: { foreground: "teal" } } },
+      style: {
+        fills: [{ type: "solid" as const, color: { token: "pink" } }],
+        width: { token: "wide" },
+        zIndex: { token: "front" }
+      },
+      responsive: { mobile: { style: { color: { token: "teal" } } } },
       children: [
         { type: "component" as const, id: "card", component: "Card" },
         { type: "instance" as const, id: "nav", design: "navbar" }
@@ -94,28 +103,28 @@ describe("lintDocument", () => {
 
     const states = [
       { id: "default", name: "Default" },
-      { id: "dark", name: "Dark", overrides: { page: { style: { border: "ink" } } } }
+      { id: "dark", name: "Dark", overrides: { page: { style: { borderColor: { token: "ink" } } } } }
     ]
 
     expect(lintDocument(design(root, states), context)).toEqual([
       {
         category: "not_a_token",
-        message: `background "pink" isn't a token. The project's only color token is primary. Use it, or add pink with SetTokens.`,
+        message: `fills "pink" isn't a token. The project's only color token is primary. Use it, or add pink with SetTokens.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `zIndex "front" isn't a token. Use a whole number instead.`,
+        message: `zIndex "front" isn't a token. Use a whole number ({ step: 10 }) instead.`,
         at: "home/page"
       },
       {
         category: "not_a_length_token",
-        message: `width "wide" isn't a length token. Use a spacing step (a number) instead.`,
+        message: `width "wide" isn't a length token. Use spacing steps ({ step: 4 }) instead.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `foreground "teal" isn't a token. The project's only color token is primary. Use it, or add teal with SetTokens.`,
+        message: `color "teal" isn't a token. The project's only color token is primary. Use it, or add teal with SetTokens.`,
         at: "home/page"
       },
       {
@@ -126,7 +135,7 @@ describe("lintDocument", () => {
       { category: "unknown_component_design", message: `no component design "navbar"`, at: "home/nav" },
       {
         category: "not_a_token",
-        message: `border "ink" isn't a token. The project's only color token is primary. Use it, or add ink with SetTokens.`,
+        message: `borderColor "ink" isn't a token. The project's only color token is primary. Use it, or add ink with SetTokens.`,
         at: "home state dark/page"
       }
     ])
@@ -137,10 +146,15 @@ describe("lintDocument", () => {
       type: "layout" as const,
       id: "page",
       style: {
-        transitions: [
-          { property: "colors", duration: 200, easing: "ease-out", delay: "duration-fast" },
-          { property: "transform", easing: "ease-snappy" },
-          { property: "width", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+        transition: [
+          {
+            property: "colors",
+            duration: { step: 200 },
+            easing: { keyword: "ease-out" as const },
+            delay: { token: "duration-fast" }
+          },
+          { property: "transform", easing: { token: "ease-snappy" } },
+          { property: "width", easing: { value: "cubic-bezier(0.2, 0.8, 0.2, 1)" } },
           { property: "opacity", easing: { spring: { duration: 400, bounce: 0.2 } } }
         ]
       },
@@ -152,46 +166,46 @@ describe("lintDocument", () => {
       {
         id: "hover",
         name: "Hover",
-        overrides: { page: { style: { transitions: [{ property: "all", duration: "slow" }] } } }
+        overrides: { page: { style: { transition: [{ property: "all", duration: { token: "slow" } }] } } }
       }
     ]
 
     expect(lintDocument(design(root, states), { ...context, tokens: [{ name: "ease-snappy" }] })).toEqual([
       {
         category: "not_a_token",
-        message: `transitions[0].delay "duration-fast" isn't a token. Use a name from GetTokens().`,
+        message: `transition[0].delay "duration-fast" isn't a token. Use a name from GetTokens().`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `transitions[0].duration "slow" isn't a token. Use a name from GetTokens().`,
+        message: `transition[0].duration "slow" isn't a token. Use a name from GetTokens().`,
         at: "home state hover/page"
       }
     ])
   })
 
-  it("names tokens inside shadows, filters and the transform that the project doesn't have (PAR-933)", () => {
+  it("names tokens inside shadows, filters and the translate that the project doesn't have (PAR-933)", () => {
     const root = {
       type: "layout" as const,
       id: "page",
       style: {
-        shadow: [
-          { kind: "drop" as const, token: "shadow-huge", color: { color: "primary" } },
-          { kind: "ring" as const, width: 1, color: { color: "#ff0000" } }
+        boxShadow: [
+          { type: "drop" as const, token: "shadow-huge", color: { token: "primary" } },
+          { type: "ring" as const, width: 1, color: { value: "#ff0000" } }
         ],
-        filter: [{ kind: "dropShadow" as const, shadow: { kind: "drop" as const, token: "drop-shadow-xl" } }],
-        backdropFilter: [{ kind: "blur" as const, value: "blur-max" }],
-        transform: { x: "gutter", y: "far" }
+        filter: [{ type: "dropShadow" as const, shadow: { type: "drop" as const, token: "drop-shadow-xl" } }],
+        backdropFilter: [{ type: "blur" as const, value: { token: "blur-max" } }],
+        translate: { x: { token: "gutter" }, y: { token: "far" } }
       },
       children: []
     }
 
     expect(lintDocument(design(root), context).map(({ message }) => message)).toEqual([
-      `shadow[0].token "shadow-huge" isn't a token, and the project has no shadow tokens. Add shadow-huge with SetTokens.`,
-      `shadow[1].color "#ff0000" isn't a token. Use a name from GetTokens({ nearest: "#ff0000", category: "color" }), which lists the nearest first.`,
+      `boxShadow[0].token "shadow-huge" isn't a token, and the project has no shadow tokens. Add shadow-huge with SetTokens.`,
+      `boxShadow[1].color "#ff0000" isn't a token. Use a name from GetTokens({ nearest: "#ff0000", category: "color" }), which lists the nearest first.`,
       `filter[0].shadow.token "drop-shadow-xl" isn't a token, and the project has no shadow tokens. Add drop-shadow-xl with SetTokens.`,
       `backdropFilter[0].value "blur-max" isn't a token. Use a name from GetTokens().`,
-      `transform.y "far" isn't a length token. Use a spacing step (a number) instead.`
+      `translate.y "far" isn't a length token. Use spacing steps ({ step: 4 }) instead.`
     ])
   })
 
@@ -199,24 +213,29 @@ describe("lintDocument", () => {
     const root = {
       type: "layout" as const,
       id: "page",
-      // A color where a length goes, and a length where a color goes, can't be compared, so they get the plain hint.
-      style: { background: "#2f6fed", radius: "6px", size: "#ffffff", foreground: "13px" },
+      // A color named where a length goes, and a length where a color goes, can't be compared, so they get the plain hint.
+      style: {
+        fills: [{ type: "solid" as const, color: { value: "#2f6fed" } }],
+        borderRadius: { value: "6px" },
+        fontSize: { token: "#ffffff" },
+        color: { token: "13px" }
+      },
       children: []
     }
 
     const states = [
       { id: "default", name: "Default" },
-      { id: "dark", name: "Dark", overrides: { page: { style: { border: "oklch(0.3 0 0)" } } } }
+      { id: "dark", name: "Dark", overrides: { page: { style: { borderColor: { value: "oklch(0.3 0 0)" } } } } }
     ]
 
     const tokens = [...context.tokens, { name: "radius-md", category: "radius" }]
 
     expect(lintDocument(design(root, states), { ...context, tokens }).map((warning) => warning.message)).toEqual([
-      `background "#2f6fed" isn't a token. Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`,
-      `foreground "13px" isn't a token. The project's only color token is primary. Use it.`,
-      `radius "6px" isn't a token. Use a name from GetTokens({ nearest: "6px", category: "radius" }), which lists the nearest first.`,
-      `size "#ffffff" isn't a token, and the project has no font-size tokens. Add one with SetTokens.`,
-      `border "oklch(0.3 0 0)" isn't a token. Use a name from GetTokens({ nearest: "oklch(0.3 0 0)", category: "color" }), which lists the nearest first.`
+      `fills "#2f6fed" isn't a token. Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`,
+      `color "13px" isn't a token. The project's only color token is primary. Use it.`,
+      `borderRadius "6px" isn't a token. Use a name from GetTokens({ nearest: "6px", category: "radius" }), which lists the nearest first.`,
+      `fontSize "#ffffff" isn't a token, and the project has no font-size tokens. Add one with SetTokens.`,
+      `borderColor "oklch(0.3 0 0)" isn't a token. Use a name from GetTokens({ nearest: "oklch(0.3 0 0)", category: "color" }), which lists the nearest first.`
     ])
   })
 
@@ -224,13 +243,19 @@ describe("lintDocument", () => {
     const root = {
       type: "layout" as const,
       id: "page",
-      style: { size: "text-2xl", shadow: "shadow-md", background: "pink", radius: "6px", leading: "1.2 !important" },
+      style: {
+        fontSize: { token: "text-2xl" },
+        boxShadow: [{ type: "drop" as const, token: "shadow-md" }],
+        fills: [{ type: "solid" as const, color: { token: "pink" } }],
+        borderRadius: { value: "6px" },
+        lineHeight: { token: "1.2 !important" }
+      },
       children: []
     }
 
     const states = [
       { id: "default", name: "Default" },
-      { id: "big", name: "Big", overrides: { page: { style: { size: "text-3xl" } } } }
+      { id: "big", name: "Big", overrides: { page: { style: { fontSize: { token: "text-3xl" } } } } }
     ]
 
     // A compiled kit's stylesheet: three sizes, no shadows or radii, and more colors than a warning lists.
@@ -243,34 +268,194 @@ describe("lintDocument", () => {
     expect(lintDocument(design(root, states), { ...context, tokens })).toEqual([
       {
         category: "not_a_token",
-        message: `background "pink" isn't a token. Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`,
+        message: `fills "pink" isn't a token. Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `radius "6px" isn't a token, and the project has no radius tokens. Add one with SetTokens.`,
+        message: `borderRadius "6px" isn't a token, and the project has no radius tokens. Add one with SetTokens.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `shadow "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`,
+        message: `boxShadow[0].token "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`,
+        message: `fontSize "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `leading "1.2 !important" isn't a token. The project's only leading token is leading-tight. Use it.`,
+        message: `lineHeight "1.2 !important" isn't a token. The project's only leading token is leading-tight. Use it.`,
         at: "home/page"
       },
       {
         category: "not_a_token",
-        message: `size "text-3xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-3xl with SetTokens.`,
+        message: `fontSize "text-3xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-3xl with SetTokens.`,
         at: "home state big/page"
       }
+    ])
+  })
+
+  it("warns about a color, radius or type value written out where a token goes, as it does a name that isn't one", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: {
+        color: { value: "#111827", alpha: { token: "opacity-muted" } },
+        borderRadius: { value: "6px" },
+        fontFamily: { value: "Inter, sans-serif" },
+        fontSize: { value: "13px" },
+        lineHeight: { value: "1.4" },
+        letterSpacing: { value: "0.02em" }
+      },
+      children: [
+        {
+          type: "text" as const,
+          id: "title",
+          text: "Plans",
+          // Steps of the spacing scale, a keyword and an expression aren't tokens' to give.
+          style: {
+            lineHeight: { step: 6 },
+            color: { keyword: "currentColor" },
+            fontSize: { expr: "clamp(1rem, 2vw, 2rem)" }
+          }
+        }
+      ]
+    }
+
+    const tokens = [
+      ...context.tokens,
+      { name: "radius-md", category: "radius" },
+      { name: "font-sans", category: "font" },
+      { name: "text-sm", category: "font-size" },
+      { name: "leading-tight", category: "leading" }
+    ]
+
+    expect(lintDocument(design(root), { ...context, tokens })).toEqual([
+      {
+        category: "not_a_token",
+        message: `color "#111827" isn't a token. Use a name from GetTokens({ nearest: "#111827", category: "color" }), which lists the nearest first.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `color.alpha "opacity-muted" isn't a token. Use a name from GetTokens().`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `borderRadius "6px" isn't a token. Use a name from GetTokens({ nearest: "6px", category: "radius" }), which lists the nearest first.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `fontFamily "Inter, sans-serif" isn't a token. The project's only font token is font-sans. Use it.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `fontSize "13px" isn't a token. Use a name from GetTokens({ nearest: "13px", category: "font-size" }), which lists the nearest first.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `lineHeight "1.4" isn't a token. The project's only leading token is leading-tight. Use it.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `letterSpacing "0.02em" isn't a token, and the project has no tracking tokens. Add one with SetTokens.`,
+        at: "home/page"
+      }
+    ])
+  })
+
+  it("names a value its CSS property doesn't take, in a key and in the CSS map, and a property that isn't one", () => {
+    const root: ContainerSpec["root"] = {
+      type: "layout",
+      id: "page",
+      style: {
+        display: "grid",
+        gridTemplateColumns: [{ fr: 1 }, { value: "240px" }, { value: "wide" }],
+        gap: { expr: "rgb(0 0 0)" },
+        width: { value: "50%" },
+        maxWidth: { keyword: "none" },
+        padding: [{ step: 4 }, { value: "red" }],
+        color: { value: "13px" },
+        backdropFilter: [{ type: "blur", value: { value: "4px" } }],
+        transition: [{ property: "opacity", easing: { value: "cubic-bezier(0.2, 0.8)" } }],
+        css: {
+          "scroll-snap-type": { value: "x mandatory" },
+          "scroll-behavior": { value: "gliding", off: true },
+          "scrol-margin": { value: "4px" },
+          "--card-accent": { value: "anything at all" }
+        }
+      },
+      children: []
+    }
+
+    const states = [
+      { id: "default", name: "Default" },
+      { id: "wide", name: "Wide", overrides: { page: { style: { minWidth: { value: "bold" } } } } }
+    ]
+
+    expect(lintDocument(design(root, states), context)).toEqual([
+      { category: "invalid_value", message: `color "13px" isn't a value color takes.`, at: "home/page" },
+      {
+        category: "invalid_value",
+        message: `transition[0].easing "cubic-bezier(0.2, 0.8)" isn't a value transition-timing-function takes.`,
+        at: "home/page"
+      },
+      { category: "invalid_value", message: `gap "rgb(0 0 0)" isn't a value gap takes.`, at: "home/page" },
+      { category: "invalid_value", message: `padding "red" isn't a value padding takes.`, at: "home/page" },
+      {
+        category: "invalid_value",
+        message: `gridTemplateColumns "wide" isn't a value grid-template-columns takes.`,
+        at: "home/page"
+      },
+      {
+        category: "invalid_value",
+        message: `css.scroll-behavior "gliding" isn't a value scroll-behavior takes.`,
+        at: "home/page"
+      },
+      { category: "invalid_value", message: `css "scrol-margin" isn't a CSS property.`, at: "home/page" },
+      {
+        category: "invalid_value",
+        message: `minWidth "bold" isn't a value min-width takes.`,
+        at: "home state wide/page"
+      }
+    ])
+  })
+
+  it("names an opacity, border width or font weight token the project doesn't have, and passes their numbers", () => {
+    const layout = (style: NodeStyle) => ({ type: "layout" as const, id: "page", style, children: [] })
+
+    expect(
+      lintDocument(
+        design(layout({ opacity: { step: 50 }, borderWidth: { step: 2 }, fontWeight: { value: 600 } })),
+        context
+      )
+    ).toEqual([])
+
+    const named = lintDocument(
+      design(
+        layout({
+          opacity: { token: "faint" },
+          borderWidth: { token: "hairline" },
+          fontWeight: { token: "heavy" }
+        })
+      ),
+      context
+    )
+
+    expect(named.map((warning) => warning.category)).toEqual(["not_a_token", "not_a_token", "not_a_token"])
+    expect(named.map((warning) => warning.message.split(" isn't")[0])).toEqual([
+      'opacity "faint"',
+      'borderWidth "hairline"',
+      'fontWeight "heavy"'
     ])
   })
 

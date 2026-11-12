@@ -52,7 +52,7 @@ export function layerKind(
     }
   }
 
-  let layout = node.style?.direction === "row" ? "Horizontal layout" : "Vertical layout"
+  let layout = node.style?.flexDirection === "row" ? "Horizontal layout" : "Vertical layout"
 
   if (node.style?.display === "grid") {
     layout = "Grid layout"

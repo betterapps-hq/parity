@@ -147,14 +147,17 @@ export type ConsoleResponse = z.output<typeof consoleResult>
 
 export type TokensResponse = z.output<typeof tokensResult>
 
+/** Problems that mean this copy can't search a source at all: it has no key for it, or nobody is signed in. */
+const unsearchable: readonly string[] = ["no-key", "signed-out"]
+
 /**
  * How a search for screens, pictures or videos is routed and read. Any running copy can search: main holds the keys, whatever
  * projects are open (PAR-829). --json and structuredContent leave the previews' base64 out; MCP shows them as images,
- * and the CLI names their files. A copy with no key for the source isn't a failure: the agent carries on without it.
+ * and the CLI names their files. A copy that can't search the source isn't a failure: the agent carries on without it.
  */
 const finding: Options<FindResponse> = {
   routing: "tab-or-any",
-  failed: (result) => result.problem !== undefined && result.problem.code !== "no-key",
+  failed: (result) => result.problem !== undefined && !unsearchable.includes(result.problem.code),
   structured: (result) => ({
     ...result,
     found: result.found.map(({ preview, ...item }) => {

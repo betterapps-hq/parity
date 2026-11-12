@@ -28,10 +28,12 @@ describe("layerKind", () => {
 
   it("names a layout by its direction, as the insert picker does, and a grid as a grid", () => {
     expect(kind({ type: "layout", id: "a", children: [] }).label).toBe("Vertical layout")
-    expect(kind({ type: "layout", id: "b", style: { direction: "row" }, children: [] }).label).toBe("Horizontal layout")
-    expect(kind({ type: "layout", id: "c", style: { display: "grid", direction: "row" }, children: [] }).label).toBe(
-      "Grid layout"
+    expect(kind({ type: "layout", id: "b", style: { flexDirection: "row" }, children: [] }).label).toBe(
+      "Horizontal layout"
     )
+    expect(
+      kind({ type: "layout", id: "c", style: { display: "grid", flexDirection: "row" }, children: [] }).label
+    ).toBe("Grid layout")
   })
 
   it("calls a layout that's a slot a slot, with its name and direction in full", () => {

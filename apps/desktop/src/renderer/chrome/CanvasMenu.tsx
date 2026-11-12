@@ -24,7 +24,7 @@ import { useContainerEntries, useNotes } from "../design-store.ts"
 import { allFrames } from "../frame.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { actions } from "./actions.ts"
+import { actions, commandsFor } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
 import { createDesign } from "./create.ts"
@@ -211,39 +211,42 @@ function MenuItems({ opened }: { opened: Opened }) {
   const session = useProject()
   const selection = useSelection(session.selection)
   const entries = useContainerEntries(session.store)
-  const notes = useNotes(session.store)
+  // Select all and Zoom to fit have something to act on once the canvas holds a note.
+  useNotes(session.store)
 
-  return canvasMenu(opened.target, selection, entries, notes.length, session.info.libraries).map((entry, index) => {
-    if (entry.kind === "separator") {
-      return <ContextMenuSeparator key={`line-${index}`} />
-    }
+  return canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(
+    (entry, index) => {
+      if (entry.kind === "separator") {
+        return <ContextMenuSeparator key={`line-${index}`} />
+      }
 
-    if (entry.kind === "open-source") {
+      if (entry.kind === "open-source") {
+        return (
+          <ContextMenuItem key="open-source" onClick={() => void openSource(session, entry.source)}>
+            {entry.label}
+            <ContextMenuShortcut className="font-mono">{shortSource(entry.source)}</ContextMenuShortcut>
+          </ContextMenuItem>
+        )
+      }
+
+      if (entry.kind === "select-layer") {
+        return opened.target ? (
+          <SelectLayer key="select-layer" label={entry.label} choices={entry.choices} target={opened.target} />
+        ) : null
+      }
+
       return (
-        <ContextMenuItem key="open-source" onClick={() => void openSource(session, entry.source)}>
+        <ContextMenuItem
+          key={entry.action}
+          disabled={!entry.enabled}
+          onClick={() => run(session, entry.action, opened.point)}
+        >
           {entry.label}
-          <ContextMenuShortcut className="font-mono">{shortSource(entry.source)}</ContextMenuShortcut>
+          {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
         </ContextMenuItem>
       )
     }
-
-    if (entry.kind === "select-layer") {
-      return opened.target ? (
-        <SelectLayer key="select-layer" label={entry.label} choices={entry.choices} target={opened.target} />
-      ) : null
-    }
-
-    return (
-      <ContextMenuItem
-        key={entry.action}
-        disabled={!entry.enabled}
-        onClick={() => run(session, entry.action, opened.point)}
-      >
-        {entry.label}
-        {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
-      </ContextMenuItem>
-    )
-  })
+  )
 }
 
 /**
@@ -298,10 +301,11 @@ function run(session: ProjectSession, action: MenuAction, point: Point): void {
     const { editor } = session
     const kind = action === "newScreen" ? "screen" : "component"
     void actions[action].run("canvasMenu", {
+      session,
       instead: () => void createDesign(session, kind, editor.screenToPage(point))
     })
   } else {
-    void actions[action].run("canvasMenu")
+    void actions[action].run("canvasMenu", { session })
   }
 }
 

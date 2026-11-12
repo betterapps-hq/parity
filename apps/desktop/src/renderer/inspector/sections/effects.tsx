@@ -8,7 +8,7 @@ import { effectTokenSets } from "./effect-tokens.ts"
 import { filterEntriesOf, filterStyleOf, shadowEntriesOf, shadowStyleOf } from "./effects-values.ts"
 
 /**
- * Effects (PAR-933): the approved Shadow list, then the Filter list under it as Filters, editing the layers' `shadow`,
+ * Effects (PAR-933): the approved Shadow list, then the Filter list under it as Filters, editing the layers' `boxShadow`,
  * `filter` and `backdropFilter`, with the project's own colors, shadows and blurs. Each list's edit replaces every
  * selected layer's list, as a mixed list says it will. Transform is in Position.
  */
@@ -22,7 +22,7 @@ export function EffectsSection({ editor }: { editor: StyleEditor }) {
     [editor.tokens]
   )
 
-  const shadowsMixed = mixed.includes("shadow") || mixed.includes("filter")
+  const shadowsMixed = mixed.includes("boxShadow") || mixed.includes("filter")
   const filtersMixed = mixed.includes("filter") || mixed.includes("backdropFilter")
 
   return (

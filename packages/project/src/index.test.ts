@@ -87,14 +87,14 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/ui/acme.lib.par",
       JSON.stringify({
-        version: 3,
+        version: 4,
         id: "acme",
         name: "Acme UI",
         styles: "styles.css",
         breakpoints: [{ id: "md", name: "Medium", width: 768 }]
       })
     )
-    await write("packages/other/other.lib.par", JSON.stringify({ version: 3, name: "Another package" }))
+    await write("packages/other/other.lib.par", JSON.stringify({ version: 4, name: "Another package" }))
 
     const project = await discoverProject(root, renderer, pkg)
     expect(project.libraries).toEqual([
@@ -122,7 +122,7 @@ describe("libraries", () => {
     await write("node_modules/@acme/ui/index.d.ts", "")
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", tokens: "tokens/acme.tokens.json" })
+      JSON.stringify({ version: 4, id: "acme", name: "Acme UI", tokens: "tokens/acme.tokens.json" })
     )
     await write(
       "node_modules/@acme/ui/tokens/acme.tokens.json",
@@ -130,7 +130,7 @@ describe("libraries", () => {
     )
     await write(
       "kit.lib.par",
-      JSON.stringify({ version: 3, name: "Kit", tokens: { brand: { $type: "color", $value: "#ff0000" } } })
+      JSON.stringify({ version: 4, name: "Kit", tokens: { brand: { $type: "color", $value: "#ff0000" } } })
     )
 
     const project = await discoverProject(root, renderer, pkg)
@@ -157,7 +157,7 @@ describe("libraries", () => {
     await write("node_modules/@acme/ui/index.d.ts", "")
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", tokens })
+      JSON.stringify({ version: 4, id: "acme", name: "Acme UI", tokens })
     )
 
     const project = await discoverProject(root, renderer, pkg)
@@ -169,7 +169,7 @@ describe("libraries", () => {
 
   it("names a library's own components by its id, so its canvas's designs refer to them as apps do", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
-    await write("nova.lib.par", JSON.stringify({ version: 3, id: "nova", name: "Shadcn Nova" }))
+    await write("nova.lib.par", JSON.stringify({ version: 4, id: "nova", name: "Shadcn Nova" }))
     const project = await discoverProject(root, renderer, { name: "@buildkitgg/shadcn-baseui-nova" })
     expect(project.namespace).toBe("nova")
     expect(project.components).toEqual({
@@ -177,7 +177,7 @@ describe("libraries", () => {
     })
 
     // Without an id, the package's name names them, as it does in the apps that install the library.
-    await write("nova.lib.par", JSON.stringify({ version: 3, name: "Shadcn Nova" }))
+    await write("nova.lib.par", JSON.stringify({ version: 4, name: "Shadcn Nova" }))
     const unnamed = await discoverProject(root, renderer, { name: "@acme/charts" })
     expect(Object.keys(unnamed.components)).toEqual(["charts/Button"])
   })
@@ -198,7 +198,7 @@ describe("libraries", () => {
     const screen = { ...row, id: "showcase", name: "Showcase", kind: "screen" }
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", canvas: { version: 3, containers: [row, screen] } })
+      JSON.stringify({ version: 4, id: "acme", name: "Acme UI", canvas: { version: 4, containers: [row, screen] } })
     )
     const project = await discoverProject(root, renderer, pkg)
     expect(project.libraries[0]?.designs).toEqual([{ ...row, id: "acme/settings-row" }])
@@ -239,7 +239,7 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/kit/real.lib.par",
       JSON.stringify({
-        version: 3,
+        version: 4,
         id: "real",
         name: "Real",
         components: {
@@ -295,7 +295,7 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/icons/icons.lib.par",
       JSON.stringify({
-        version: 3,
+        version: 4,
         name: "Icons",
         id: "icons",
         icons: {

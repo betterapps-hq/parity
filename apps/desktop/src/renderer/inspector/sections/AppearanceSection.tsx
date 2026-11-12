@@ -1,14 +1,11 @@
 import { AppearanceSection as ApprovedAppearance } from "../controls/controls.tsx"
 import type { Draft } from "../controls/data.ts"
 import { useTokens } from "../controls/field-parts.tsx"
-import { opacityOf, opacityShown, optionOf, radiusOf } from "../style-values.ts"
+import { opacityOf, opacityShown, optionOf, radiusOf, tokenShown } from "../style-values.ts"
 import { mixedOf, rowState, type SectionProps } from "./section-edits.ts"
 
-/**
- * How Clip content clips, as `NodeStyle` holds it: Clip is `overflow: hidden`, and Scroll when needed is its `scroll`,
- * which the canvas draws as `overflow: auto`.
- */
-const overflowOf = { clip: "hidden", auto: "scroll" } as const
+/** How Clip content clips, as `NodeStyle` holds it: Clip is `overflow: hidden`, and Scroll when needed `overflow: auto`. */
+const overflowOf = { clip: "hidden", auto: "auto" } as const
 
 /**
  * Appearance, the approved section (PAR-186) as Storybook has it: Opacity beside Blend mode, Radius with Corner shape
@@ -25,13 +22,13 @@ export function AppearanceSection({ editor, edit }: SectionProps) {
 
   if (style.overflow === "hidden") {
     clip = { option: "clip" }
-  } else if (style.overflow === "scroll") {
+  } else if (style.overflow === "auto") {
     clip = { option: "auto" }
   }
 
   const set = (change: Partial<Draft>) => {
     if ("radius" in change && !Array.isArray(change.radius)) {
-      edit("radius", { radius: radiusOf(change.radius, radii) }, "Change radius")
+      edit("radius", { borderRadius: radiusOf(change.radius, radii) }, "Change radius")
     }
 
     if ("opacity" in change) {
@@ -46,10 +43,10 @@ export function AppearanceSection({ editor, edit }: SectionProps) {
 
   return (
     <ApprovedAppearance
-      draft={{ radius: style.radius, opacity: opacityShown(style.opacity), clip }}
+      draft={{ radius: tokenShown(style.borderRadius)?.token, opacity: opacityShown(style.opacity), clip }}
       set={set}
       tokensOnly
-      mixed={mixed("radius")}
+      mixed={mixed("borderRadius")}
       changed={radius.changed ? { onReset: radius.onReset } : undefined}
     />
   )

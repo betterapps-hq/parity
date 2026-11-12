@@ -15,12 +15,12 @@ import { entriesOf, motionTokens, transitionsOf } from "../motion-values.ts"
 export function MotionSection({ editor }: { editor: StyleEditor }) {
   const { style } = editor.selection
   const differs = editor.selection.differs("transitions")
-  const entries = useKeyedEntries(differs ? undefined : style.transitions)
+  const entries = useKeyedEntries(differs ? undefined : style.transition)
   const sets = { ...useTokenSets(), ...motionTokens(editor.tokens) }
 
   const change = (next: TransitionEntry[]) => {
     entries.remember(next)
-    editor.set("transitions", { transitions: transitionsOf(next) }, "Change transitions")
+    editor.set("transitions", { transition: transitionsOf(next) }, "Change transitions")
   }
 
   return (

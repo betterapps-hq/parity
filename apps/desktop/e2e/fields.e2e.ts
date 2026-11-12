@@ -18,7 +18,7 @@ const brand = "aP9rK"
 const plans = "Wre7g"
 
 const width = () => app.page.locator('input[aria-label="Width"]').first()
-const brandWidth = async () => (await app.style("Pricing", brand)).width
+const brandWidth = () => app.steps("Pricing", brand, "width")
 const drawnWidth = async () => (await app.size("Pricing", brand))?.width
 
 async function selectBrand(): Promise<void> {
@@ -96,7 +96,7 @@ describe("typing in a length field", () => {
       e2e.session().store.updateContainer(e2e.key("Pricing"), "Agent", (container) => {
         const edit = (node: typeof container.root): typeof container.root => {
           if (node.id === brand) {
-            return { ...node, style: { ...node.style, width: 10 } }
+            return { ...node, style: { ...node.style, width: { step: 10 } } }
           }
 
           return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
@@ -167,7 +167,7 @@ describe("several layers", () => {
     await typeOver(width(), "48")
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(12)
-    expect((await app.style("Pricing", plans)).width).toBe(12)
+    expect(await app.steps("Pricing", plans, "width")).toBe(12)
   })
 })
 
