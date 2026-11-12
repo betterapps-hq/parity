@@ -89,6 +89,9 @@ module "portal" {
     manage_environment = false
     write_account_id   = false
   }
+
+  # Deploys bind the KV namespaces below to the Workers, so the token can write KV too (PAR-131).
+  token_permissions = ["Workers Scripts Write", "Workers KV Storage Write"]
 }
 
 # The portal's pages are served at tryparity.dev by the same production Worker (PAR-1003). The module takes one custom
@@ -102,4 +105,17 @@ resource "cloudflare_workers_custom_domain" "portal_pages" {
 
 output "portal" {
   value = module.portal.environments
+}
+
+# Where the service keeps each search's answer for a day (PAR-131), one namespace for production and one that staging
+# and its previews share. They're made here, not by a deploy, since a preview can't make one: apps/portal/wrangler.jsonc
+# names them by the IDs this outputs, which aren't secret.
+resource "cloudflare_workers_kv_namespace" "search_cache" {
+  for_each   = toset(["production", "staging"])
+  account_id = "544b5bfd594cd02a5da4b79a2038cc9f"
+  title      = "parity-portal-search-cache-${each.key}"
+}
+
+output "search_cache" {
+  value = { for name, namespace in cloudflare_workers_kv_namespace.search_cache : name => namespace.id }
 }
