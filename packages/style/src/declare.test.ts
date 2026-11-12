@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { type Declaration, declarations, type StyleContext } from "./declare.ts"
+import { owned, setsForOthers } from "./ledger.ts"
 import { type NodeStyle, styleKeys } from "./model.ts"
 
 /** A component draws nothing of its own, so its declarations are only what the style's keys write. */
@@ -458,6 +459,16 @@ describe("declarations", () => {
     const covered = new Set(cases.flatMap(([, style]) => Object.keys(style)))
 
     expect(styleKeys.filter((key) => !covered.has(key))).toEqual([])
+  })
+
+  it("writes only properties the key owns, or sets for the key that does", () => {
+    const strays = cases.flatMap(([, style, context]) =>
+      declarations(style, context).flatMap(({ property, from }) =>
+        owned[from].includes(property) || setsForOthers[from]?.includes(property) ? [] : [`${from} writes ${property}`]
+      )
+    )
+
+    expect(strays).toEqual([])
   })
 
   it("draws an image, a video and an instance as it draws a component", () => {
