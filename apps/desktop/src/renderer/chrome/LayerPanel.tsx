@@ -1,6 +1,5 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  type BindableField,
   boardTarget,
   changesField,
   type ContainerSpec,
@@ -53,7 +52,6 @@ import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
-import { FieldWithProp } from "./field-prop.tsx"
 import { Field, SwitchInput, TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
@@ -80,6 +78,7 @@ import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
+import { TextWithProp } from "./text-prop.tsx"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
@@ -225,14 +224,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           action={
             <>
               <LayerActions node={location.node} />
-              <VisibleToggle
-                entry={entry}
-                nodeId={nodeId}
-                node={node}
-                override={override}
-                change={change}
-                reset={reset}
-              />
+              <VisibleToggle node={node} override={override} change={change} reset={reset} />
             </>
           }
         />
@@ -357,15 +349,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           action={
             <>
               <LayerActions node={inner.node} />
-              <VisibleToggle
-                entry={entry}
-                nodeId={path}
-                node={node}
-                override={override}
-                change={change}
-                reset={reset}
-                inner
-              />
+              <VisibleToggle node={node} override={override} change={change} reset={reset} />
             </>
           }
         />
@@ -472,16 +456,16 @@ function LayerSections({
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
   const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
-  // A component design's own layers can use its props for their text and visibility; a copy's can't.
+  // A component design's own text layers can show one of its text props; a copy's can't.
   const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
 
-  const withProp = (field: BindableField, input: ReactNode) =>
-    usesProps ? (
-      <FieldWithProp entry={entry} nodeId={nodeId} field={field} bound={node.bind?.[field]}>
-        {input}
-      </FieldWithProp>
+  const withTextProp = (field: ReactNode) =>
+    usesProps && node.type === "text" ? (
+      <TextWithProp entry={entry} nodeId={nodeId} bound={node.bind?.text}>
+        {field}
+      </TextWithProp>
     ) : (
-      input
+      field
     )
 
   return (
@@ -493,7 +477,7 @@ function LayerSections({
           onText={(text) => change("Edit text", { text })}
           onTag={() => undefined}
           textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
-          aroundText={(field) => withProp("text", field)}
+          aroundText={(field) => withTextProp(field)}
         />
       )}
 
@@ -533,25 +517,18 @@ function LayerSections({
 
 /**
  * Whether the layer shows, as the eye at the end of its name's row, crossed out while it's hidden, as Layers draws it.
- * Changed in the state being edited, it's in the change color with a reset arrow before it. A component design's own
- * layer can use one of the component's props for it instead, with the button beside it.
+ * Changed in the state being edited, it's in the change color with a reset arrow before it.
  */
 function VisibleToggle({
-  entry,
-  nodeId,
   node,
   override,
   change,
-  reset,
-  inner = false
+  reset
 }: {
-  entry: ContainerEntry
-  nodeId: string
   node: DesignNode
   override: NodePatch | undefined
   change: LayerChange
   reset: (field?: PatchField) => void
-  inner?: boolean
 }) {
   const changed = override?.hidden !== undefined
   const label = node.hidden ? "Show layer" : "Hide layer"
@@ -571,8 +548,6 @@ function VisibleToggle({
     </Hint>
   )
 
-  const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
-
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       {changed && (
@@ -588,13 +563,7 @@ function VisibleToggle({
           </Button>
         </Hint>
       )}
-      {usesProps ? (
-        <FieldWithProp entry={entry} nodeId={nodeId} field="visible" bound={node.bind?.visible}>
-          {eye}
-        </FieldWithProp>
-      ) : (
-        eye
-      )}
+      {eye}
     </div>
   )
 }

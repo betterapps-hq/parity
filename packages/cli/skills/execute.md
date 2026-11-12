@@ -406,8 +406,9 @@ rather than in each state. A text node's words are its `text`; a component's are
 
 ### FindRepeats
 
-Returns parts of a design that repeat with the same structure: each has the root ids of its occurrences (`nodes`), a
-starting `name`, and the `params`, which are what differs between occurrences (texts, props, whether a node shows).
+Returns parts of a design that repeat with the same structure, the layers inside that show included: each has the root
+ids of its occurrences (`nodes`), a starting `name`, and the `params`, which are what differs between occurrences (texts
+and props).
 
 ### ExtractComponent
 
@@ -437,8 +438,8 @@ optional `description`. A variant also has `options`, each with a `name`, an `id
 one, and `overrides`: what that option changes, keyed by node id or name, as `AddState` takes `changes`. A variant's
 `default` is an option's id or name; without one it's the first option.
 
-Declare them in `CreateDesign`, and bind nodes to them in `root`: `bind.text` for a text node's words, `bind.visible`
-for whether a node shows (a boolean param), and `bind.props` for a code component's props.
+Declare them in `CreateDesign`, and bind nodes to them in `root`: `bind.text` for a text node's words and `bind.props`
+for a code component's props.
 
 ```js
 const sidebar = CreateDesign({
@@ -448,14 +449,10 @@ const sidebar = CreateDesign({
     type: "layout",
     name: "Sidebar",
     style: { gap: { step: 4 } },
-    children: [
-      { type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } },
-      { type: "text", name: "Beta", text: "Beta", bind: { visible: "showBeta" } }
-    ]
+    children: [{ type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } }]
   },
   params: {
     workspace: { type: "text", default: "Acme" },
-    showBeta: { type: "boolean", default: false },
     density: {
       type: "variant",
       options: [{ name: "Comfortable" }, { name: "Compact", overrides: { Sidebar: { style: { gap: { step: 2 } } } } }]
@@ -465,8 +462,8 @@ const sidebar = CreateDesign({
 ```
 
 Change them afterwards with `AddParam`, `UpdateParam` and `DeleteParam`, and bind or unbind a node with
-`Update(path, { bind: { text: "workspace", visible: null } })`, in the base design only. Unbinding a field leaves the
-node showing the param's default as its own value.
+`Update(path, { bind: { text: "workspace", props: { size: null } } })`, in the base design only. Unbinding a field
+leaves the node showing the param's default as its own value.
 
 - `UpdateParam` with `name` renames the param. The nodes that bind it, the option the board shows, and every instance's
   `args` and patches in the tab change with it.

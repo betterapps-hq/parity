@@ -83,12 +83,10 @@ const id = CreateDesign({
   name: "App sidebar",
   kind: "component",
   root: { type: "layout", name: "Sidebar", children: [
-    { type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } },
-    { type: "text", name: "Badge", text: "Beta", bind: { visible: "showBadge" } }
+    { type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } }
   ] },
   params: {
     workspace: { type: "text", default: "Acme" },
-    showBadge: { type: "boolean", default: false },
     density: { type: "variant", default: "Compact", options: [
       { name: "Comfortable" },
       { name: "Compact", overrides: { Sidebar: { style: { gap: { step: 2 } } } } }
@@ -103,7 +101,6 @@ Print(id)`)
 
     expect(sidebar.params).toEqual({
       workspace: { type: "text", default: "Acme" },
-      showBadge: { type: "boolean", default: false },
       density: {
         type: "variant",
         default: "compact",
