@@ -23,7 +23,9 @@ single state and mode to read small text.
 - **Overflow.** A node that sticks out of the frame, by its width or where it's placed, usually a row that needs to wrap
   or stack on mobile. The finding gives the node, its box, the frame's, and how many pixels past which edge.
 - **Clipping.** A node cut off by an ancestor with `overflow: hidden` or a fixed size, named in the finding with its
-  box. A node that only spills past a parent that doesn't clip still shows, so it isn't listed.
+  box. What an ancestor with `overflow: scroll` scrolls to isn't cut off, so a row of chips or days that scrolls
+  sideways is clean, as long as the row itself fits the frame. A node that only spills past a parent that doesn't clip
+  still shows, so it isn't listed.
 - **Unknown components.** A name that isn't in `Components()`; it draws as a placeholder.
 
 `Measure` gives every node's box in one frame, for checking alignment or sizes by numbers. It takes one state and one

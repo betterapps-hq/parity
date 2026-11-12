@@ -83,12 +83,16 @@ Then have the agent read the skill first, with the `read_skill` tool or `parity 
 ## Execute contract
 
 CLI `exec` and MCP `execute` share one operation. CLI file/stdin becomes MCP's `input`; `--label` becomes `description`;
-`--tab`, `--edit-id` and parsed `--edits` have the same meaning in both. The default task label is `Edit designs`, and
-an omitted tab uses the open project the current folder is in, else the active tab.
+`--tab`, `--edit-id`, `--quiet` and parsed `--edits` have the same meaning in both. The default task label is
+`Edit designs`, and an omitted tab uses the open project the current folder is in, else the active tab.
 
 Send a nonblank snippet or a failed call's `editId`, not both. Retry patches need a nonempty `find`, a string `replace`
 (which can be empty), and optional boolean `all`; omitted patches default to an empty list. Invalid requests are
 rejected before reaching the desktop. Caller identity and session IDs travel separately from operation inputs.
+
+The result names every node the snippet created with a `name`, under "Created" and in `created`. `quiet` leaves those
+out, in the text and the structured result, and lists just the designs created, under "Designs created" and in
+`createdDesigns`. It changes only the answer, so the CLI and MCP server read it and never send it to the desktop.
 
 CLI failures exit with 1; MCP failures set `isError` and include the same failure and retry details, as the structured
 `error` below. CLI `--json` omits screenshot image data; MCP returns image content blocks.

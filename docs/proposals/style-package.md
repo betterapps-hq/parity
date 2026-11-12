@@ -1,9 +1,10 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1 and 2 are built: the package holds the stored style and
-`declarations`, which render calls (PAR-939), and the ledger and `validate` (PAR-940). The rest isn't built yet. It sets
-where the rules for what a layer's style means live, so the canvas, Copy as code, writing components (PAR-265) and
-reading code back all follow one set.
+Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2, 5 and 6 are built: the package holds the stored
+style and `declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the adapter contract, which
+`@parity-app/styles-tailwind` implements (PAR-943), and the plain CSS printer and reader (PAR-944). The rest isn't built
+yet. It sets where the rules for what a layer's style means live, so the canvas, Copy as code, writing components
+(PAR-265) and reading code back all follow one set.
 
 ## In one line
 
@@ -132,16 +133,23 @@ interface StylePrinter<Output> {
 }
 ```
 
+As built (PAR-943), the contract is in `adapter.ts` and differs in three ways. A printer takes no tokens: it's made for
+one project, with what it needs of that project already in hand, as the Tailwind printer is made from the project's
+design system. `print` returns its output with the declarations it had no way to write (`unwritten`), such as one for a
+theme the project's code has no variant for. And `when` is in CSS's terms, so every adapter reads it alike: a state is
+the selector that follows the layer (`:hover`, `[data-state="open"]`), a viewport the least width it applies from
+(`48rem`), a theme its name.
+
 `StylesAdapter` in core gains a printer beside `detect` and `loadTheme`. Detection doesn't change: the stylesheet regex
 picks the adapter, and a project with none gets plain CSS.
 
 ## The adapters
 
-| Adapter     | Where                         | Prints                                                                                            | Reads back                                  |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                                  |
-| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations                   |
-| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with Lightning CSS |
+| Adapter     | Where                         | Prints                                                                                            | Reads back                             |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
+| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations              |
+| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
 
 **The Tailwind adapter leans on Tailwind rather than a table of its own.** It already loads the project's design system
 to read the theme. That object, in Tailwind 4.3.3, also has:

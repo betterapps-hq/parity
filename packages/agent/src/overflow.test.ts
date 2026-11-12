@@ -175,6 +175,47 @@ describe("layoutFindings", () => {
     expect(layoutFindings(nodes, phone).map((finding) => finding.kind)).toEqual(["frame-overflow"])
   })
 
+  it("leaves out days past the edge of a row that scrolls, judging the part in view (PAR-904)", () => {
+    const days = { x: 16, y: 100, width: 343, height: 56 }
+    const inDays = (x: number, width: number) => ({ x: Math.min(Math.max(x, 16), 359), y: 100, width, height: 56 })
+
+    const nodes: MeasuredNode[] = [
+      { id: "page", x: 0, y: 0, width: 375, height: 400 },
+      { id: "days", parent: "page", ...days },
+      { id: "wed", parent: "days", x: 288, y: 100, width: 64, height: 56 },
+      // Partly past the row's right edge, and wholly past it: what's past is scrolled to.
+      { id: "thu", parent: "days", x: 352, y: 100, width: 64, height: 56, inView: inDays(352, 7) },
+      { id: "fri", parent: "days", x: 424, y: 100, width: 64, height: 56, inView: inDays(424, 0) }
+    ]
+
+    expect(layoutFindings(nodes, phone)).toEqual([])
+  })
+
+  it("still finds a row that scrolls sticking out of the frame, and what a hidden overflow cuts off (PAR-904)", () => {
+    const days = { x: 16, y: 100, width: 420, height: 56 }
+
+    const nodes: MeasuredNode[] = [
+      { id: "days", ...days },
+      { id: "sun", parent: "days", x: 400, y: 100, width: 64, height: 56, inView: { ...days, x: 400, width: 36 } },
+      {
+        id: "label",
+        parent: "sun",
+        x: 400,
+        y: 100,
+        width: 64,
+        height: 80,
+        inView: { x: 400, y: 100, width: 36, height: 80 },
+        clipped: true,
+        clip: { x: 400, y: 100, width: 64, height: 56 }
+      }
+    ]
+
+    expect(layoutFindings(nodes, phone).map(({ kind, node, overflow }) => ({ kind, node, overflow }))).toEqual([
+      { kind: "frame-overflow", node: "days", overflow: { right: 61 } },
+      { kind: "clipped", node: "label", overflow: { bottom: 24 } }
+    ])
+  })
+
   it("leaves out nodes drawn at no size", () => {
     expect(layoutFindings([{ id: "input", x: 500, y: 0, width: 0, height: 0 }], phone)).toEqual([])
   })

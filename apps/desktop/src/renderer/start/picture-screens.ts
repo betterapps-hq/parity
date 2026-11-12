@@ -1,4 +1,4 @@
-import { type ContainerSpec, deviceForWidth, type ModeSettings, type ResolvedMode } from "@parity-app/core"
+import { type ContainerSpec, type ModeSettings, modeDevice, type ResolvedMode } from "@parity-app/core"
 import { containerModes } from "../canvas/view.ts"
 
 /** How many screens a project's picture holds: the ones its card flips through. */
@@ -44,7 +44,5 @@ export function picturedScreens(
 
 /** Whether a mode draws a phone's screen: its viewport says so, or else its width suggests it. */
 export function isPhone(mode: ResolvedMode): boolean {
-  const option = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
-
-  return (option?.device ?? deviceForWidth(mode.width)) === "phone"
+  return modeDevice(mode) === "phone"
 }

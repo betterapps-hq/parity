@@ -360,10 +360,13 @@ export function describeExec(result: ExecResponse): string {
     lines.push("", "Output:", ...result.output)
   }
 
-  const created = Object.entries(result.created)
+  // A quiet result has no named nodes, so it lists just the designs created (PAR-909).
+  const [heading, created] = result.created
+    ? ["Created:", Object.entries(result.created)]
+    : ["Designs created:", Object.entries(result.createdDesigns ?? {})]
 
   if (created.length > 0) {
-    lines.push("", "Created:", ...created.map(([name, id]) => `  ${name} = ${id}`))
+    lines.push("", heading, ...created.map(([name, id]) => `  ${name} = ${id}`))
   }
 
   lines.push(...describeWarnings(result))

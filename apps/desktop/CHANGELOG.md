@@ -1,8 +1,29 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 02:22:04 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 03:17:27 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.64.0
+
+Thu, 12 Nov 2026 03:17:27 GMT
+
+### Minor changes
+
+- parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it
+  created (PAR-909) (ajcraswell@gmail.com)
+- Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style
+  breaks long words; an absolutely placed component with left and right stretches between them (ajcraswell@gmail.com)
+
+### Patches
+
+- Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out
+  (PAR-904) (ajcraswell@gmail.com)
+- Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas
+  and offscreen (ajcraswell@gmail.com)
+- Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity (ajcraswell@gmail.com)
+- A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query
+  wins over app state; its text and props stay under them (PAR-902). (ajcraswell@gmail.com)
 
 ## 0.63.0
 

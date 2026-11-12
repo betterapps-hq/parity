@@ -25,6 +25,10 @@ held.
 - A snippet has 5 seconds of computing time. Rendering (screenshots and checks) doesn't count against it.
 - To retry a failed snippet, send `editId` with `edits`, each an exact `{ find, replace }` on the snippet text (`all` to
   replace every match). Omitted edits default to an empty list. Do not send a new snippet with `editId`.
+- The result lists every node you created with a `name` under "Created". A snippet that builds a whole screen can name a
+  hundred. Send `quiet: true` (`parity exec --quiet`) to leave them out: you still get whether it worked, the `editId`
+  to retry with, the output, warnings and suggestions, and the designs it created under "Designs created". Name nodes by
+  `design/name` in later snippets instead of their ids.
 - Both CLI and MCP validate the same request: a nonblank snippet or `editId`, nonblank label and tab when supplied, and
   patches with a nonempty `find`, string `replace` (which can be empty), and optional boolean `all`. Invalid requests
   are rejected before reaching the app.
@@ -119,7 +123,7 @@ A design is named by its id or its name. A node is named by `design/node`, where
 by its id alone when only one design has that id. A path never lists the node's parents: `profile/heading`, not
 `profile/page/heading`. Only `Update`, and `Get` with a `state` or `mode`, go further, to a layer inside an instance.
 Names aren't unique, so prefer ids once you have them; `Insert`, `Copy` and `CreateDesign` return them, and nodes you
-create with a `name` are listed under "Created" in the result.
+create with a `name` are listed under "Created" in the result, unless you send `quiet`.
 
 A state is named by its id only, as `Designs()` lists it and `AddState` returns it. A state's name in its place fails
 with `unknown_state`, and the error names the id it belongs to.
@@ -270,6 +274,27 @@ Update("avatar", { style: { width: 10, height: 10, radius: "radius-full" } })
 What the person has selected: the design's id, and the node and mode when they picked one. "This", "here" and "the
 selected one" usually mean it.
 
+## How a design fits together
+
+Parity builds the real app, and each design is one component tree, as its code is. Its states are the data and props the
+tree is in, its modes are the screens and themes it's drawn at, and its responsive patches are its breakpoints. Build
+one tree and patch it; never copy a design per screen or per state. When you're unsure how something should draw, ask
+what the code would do.
+
+A desktop menu that opens, while phones have a menu of their own, is `isOpen && <Menu className="max-md:hidden" />` in
+code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity:
+
+```js
+Update("header/Menu", { hidden: true }) // closed in the base design
+AddState("header", { name: "Menu open", changes: { Menu: { hidden: false } } })
+Responsive("header/Menu", "mobile", { hidden: true }) // never on phones, open or not
+```
+
+The open menu shows on desktop and not on mobile. A viewport's patch works like CSS: its `style` wins over states,
+variant options and an instance's overrides, and its `hidden: true` hides a node whatever they say. Its `text`, `props`
+and `hidden: false` are the app's to change, so a state still changes the words, or hides a menu button that only phones
+show.
+
 ## Designs
 
 ### CreateDesign
@@ -375,7 +400,8 @@ Responsive(stats, "mobile", { style: { direction: "column" } })
 Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a
 viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`,
 `text`, `props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to
-remove it. `null` for the patch removes all of it.
+remove it. `null` for the patch removes all of it. The patch applies in every state, as
+[How a design fits together](#how-a-design-fits-together) describes.
 
 ## States
 
@@ -397,8 +423,9 @@ AddState("team-members", {
 })
 ```
 
-Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A text
-node's words are its `text`; a component's are usually its `children` prop.
+Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A state
+can't show a node that a viewport's patch hides, so to keep a part off one screen, hide it there with `Responsive`
+rather than in each state. A text node's words are its `text`; a component's are usually its `children` prop.
 
 ## Components
 
@@ -525,6 +552,7 @@ token values not yet saved show, the person's edits and this call's own `SetToke
 
 `Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
 with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
+A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its box in view.
 A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a negative
 margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element the
 project's code writes, such as a component's, has `source`: the file, line and column, as
@@ -533,7 +561,8 @@ errors, overflow, clipping, squeezing, unknown components and content drawn outs
 `kind`:
 
 - `frame-overflow`: the node sticks out of the frame, by its position or its width.
-- `clipped`: an ancestor that hides overflow cuts it off.
+- `clipped`: an ancestor that hides overflow cuts it off. What an ancestor scrolls to isn't a problem, so the items of a
+  row that scrolls sideways aren't reported; the row itself is still checked.
 - `parent-overflow`: it spills out of its parent, which doesn't clip, so it's drawn over what's beside it. Only a node
   in the layout's flow counts; an `outOfFlow` one, such as a badge over a card's corner, may reach past its parent. Let
   it wrap or shrink (`min-w-0`, `truncate`), or give the parent a scroll.

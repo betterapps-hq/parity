@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
   defaultModeSettings,
+  isTouchMode,
   type ModeSettings,
   modeAppearance,
+  modeDevice,
   parseModeSettings,
   previewMode,
   type ResolvedMode,
@@ -30,6 +32,31 @@ describe("default modes", () => {
   it("round-trip through the parser", () => {
     // oxlint-disable-next-line unicorn/prefer-structured-clone -- settings are saved as JSON, so the test goes through it
     expect(parseModeSettings(JSON.parse(JSON.stringify(defaultModeSettings)))).toEqual(defaultModeSettings)
+  })
+})
+
+describe("modeDevice", () => {
+  it("takes a viewport's device, or else the one its width suggests, and phones and tablets are touch", () => {
+    const settings: ModeSettings = {
+      version: 1,
+      variables: [
+        {
+          id: "viewport",
+          name: "Viewport",
+          kind: "viewport",
+          options: [
+            { id: "wide-phone", name: "Wide phone", width: 700, device: "phone" },
+            { id: "narrow", name: "Narrow", width: 360 },
+            { id: "laptop", name: "Laptop", width: 1280 }
+          ]
+        }
+      ],
+      modes: ["wide-phone", "narrow", "laptop"].map((id) => ({ id, name: id, values: { viewport: id } }))
+    }
+
+    const modes = resolveModes(settings)
+    expect(modes.map(modeDevice)).toEqual(["phone", "phone", "laptop"])
+    expect(modes.map(isTouchMode)).toEqual([true, true, false])
   })
 })
 

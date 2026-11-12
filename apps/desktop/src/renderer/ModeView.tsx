@@ -1,4 +1,11 @@
-import { type FrameGeometry, type MountHandle, modeGlobals, type RenderNode, type ResolvedMode } from "@parity-app/core"
+import {
+  type FrameGeometry,
+  isTouchMode,
+  type MountHandle,
+  modeGlobals,
+  type RenderNode,
+  type ResolvedMode
+} from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { reportFrameFailures } from "./failures-store.ts"
@@ -90,7 +97,7 @@ export function ModeView({
   const viewportRef = useRef({ width: viewportWidth, height: viewportHeight })
   // A whole screen's tree, so it's written out only when it's a different one.
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
-  const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode)])
+  const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode), isTouchMode(mode)])
   const renderKey = shows ?? `${environmentKey}|${treeKey}`
   // Errors belong to the render that raised them, so a changed design starts clean.
   const [error, setError] = useState<{ key: string; message: string }>()
@@ -176,10 +183,11 @@ export function ModeView({
     }
 
     // SAFETY: `environmentKey` is this tuple as JSON, made above from the mode.
-    const [classNames, attributes, globals] = JSON.parse(environmentKey) as [
+    const [classNames, attributes, globals, touch] = JSON.parse(environmentKey) as [
       string[],
       Record<string, string>,
-      Record<string, string>
+      Record<string, string>,
+      boolean
     ]
 
     const viewport = viewportRef.current
@@ -188,7 +196,8 @@ export function ModeView({
     const target = prepareFrame(host, loaded.sheet, {
       classNames,
       attributes: frameAttributes({ classNames, attributes }, loaded.themeAttributes),
-      viewport
+      viewport,
+      touch
     })
 
     const handle = loaded.guest.mount(target, [], {

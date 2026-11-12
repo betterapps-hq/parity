@@ -47,7 +47,7 @@ const card: ContainerSpec = {
     type: "layout",
     id: "body",
     style: { direction: "column", gap: 4, padding: 4 },
-    // Under the variant: an Inline card stays a row on mobile.
+    // Over the variant's gap, as a breakpoint is: an Inline card stays a row on mobile, with the mobile gap.
     responsive: { mobile: { style: { gap: 2, padding: 2 } } },
     children: [
       {
