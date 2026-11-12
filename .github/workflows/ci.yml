@@ -65,6 +65,7 @@ jobs:
       os: '["windows-latest"]'
       # A group of its own, so it never cancels verify's run on the same system.
       concurrency-key: app-${{ github.ref }}
+      # The start and update checks open fixture projects, so this installs them as verify does, from the same cache.
       prepare: |
         # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
         # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
@@ -74,11 +75,25 @@ jobs:
         echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
         export electron_config_cache="$home/.cache/parity-ci/electron"
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+        missing=
+        for project in fixtures/*/; do
+          if [ ! -d "${project}node_modules" ]; then missing=1; fi
+        done
+        if [ -n "$missing" ]; then
+          tools=$(mktemp -d)
+          npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
+          export PATH="$tools/node_modules/.bin:$PATH"
+          pnpm --filter @parity-app/fixtures install-projects
+        else
+          echo "Every fixture project came from the cache."
+        fi
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
       cache-path: |
+        fixtures/*/node_modules
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
-      # Electron's version is in the app's package.json, so its downloads are fetched again when that changes.
-      cache-key-files: apps/desktop/package.json
+      cache-key-files: fixtures/*/*lock*
       command: |
         pnpm build
         # The startup check launches the production app only in CI, outside the checkout and without a dev server.
@@ -89,6 +104,8 @@ jobs:
         pnpm --filter @parity-app/desktop try-installed
         # Real N -> N+1 updates, including corrupt downloads and unsaved-work cancellation.
         pnpm --filter @parity-app/desktop try-update
+      # A run that installs the fixture projects can outlast the default 30 minutes on Windows, as verify's can.
+      timeout-minutes: 45
       artifact-path: apps/desktop/sourcemaps
       artifact-name: desktop-sourcemaps
       artifact-retention-days: 7
@@ -100,6 +117,7 @@ jobs:
       os: '["ubuntu-latest"]'
       # A group of its own, so it never cancels verify's run on the same system.
       concurrency-key: app-${{ github.ref }}
+      # The start and update checks open fixture projects, so this installs them as verify does, from the same cache.
       prepare: |
         # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
         # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
@@ -109,11 +127,25 @@ jobs:
         echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
         export electron_config_cache="$home/.cache/parity-ci/electron"
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+        missing=
+        for project in fixtures/*/; do
+          if [ ! -d "${project}node_modules" ]; then missing=1; fi
+        done
+        if [ -n "$missing" ]; then
+          tools=$(mktemp -d)
+          npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
+          export PATH="$tools/node_modules/.bin:$PATH"
+          pnpm --filter @parity-app/fixtures install-projects
+        else
+          echo "Every fixture project came from the cache."
+        fi
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
       cache-path: |
+        fixtures/*/node_modules
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
-      # Electron's version is in the app's package.json, so its downloads are fetched again when that changes.
-      cache-key-files: apps/desktop/package.json
+      cache-key-files: fixtures/*/*lock*
       command: |
         pnpm build
         export CSC_IDENTITY_AUTO_DISCOVERY=false

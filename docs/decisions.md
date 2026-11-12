@@ -2734,7 +2734,8 @@ the Repository, CI and releases stream in Linear.
     package the app, each its own ci-verify call that runs beside it: Windows also starts the built app, installs it and
     updates it, Linux updates it, and macOS only packages. Every installer target still has to build before a merge.
     `app-windows` uploads the source maps, and `CI passes` waits on every job.
-  - The app jobs cache only Electron's downloads, keyed on the app's `package.json`, and skip the fixtures.
+  - The Windows and Linux app jobs install the fixture projects as `verify` does, from the same cache, since the start
+    and update checks open them. `app-macos` caches only Electron's downloads, keyed on the app's `package.json`.
   - On Windows, ci-verify runs each job from a copy of the checkout on a trusted ReFS Dev Drive, with TEMP and pnpm's
     store on it, which is faster with many small files. Its `dev-drive` input is on by default for every repository, as
     you asked, since Parity was the only caller running it on Windows.
