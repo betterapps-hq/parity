@@ -46,6 +46,25 @@ describe("startupTimer", () => {
     expect(mark("firstPaint", 2100)?.name).toBe("app.started")
   })
 
+  it("gives nothing after an interruption, since the steps still to come time the wait", () => {
+    const mark = startupTimer(0)
+    mark("mainReady", 300)
+    mark("windowShown", 400)
+    mark("serviceReady", 450)
+    mark("interrupted", 500)
+    expect(mark("firstPaint", 7_300_000)).toBeUndefined()
+    expect(mark("firstProject", 7_301_000, { restored: true })).toBeUndefined()
+  })
+
+  it("keeps what was given before an interruption", () => {
+    const mark = startupTimer(0)
+    mark("mainReady", 300)
+    mark("windowShown", 400)
+    mark("serviceReady", 450)
+    expect(mark("firstPaint", 700)?.name).toBe("app.started")
+    expect(mark("interrupted", 800)).toBeUndefined()
+  })
+
   it("counts a project the person chose as not restored", () => {
     expect(startupTimer(0)("firstProject", 30_000)).toEqual({
       name: "app.first_project",

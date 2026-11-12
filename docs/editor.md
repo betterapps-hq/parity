@@ -6913,6 +6913,19 @@ for state and mode, with nothing rendered; one state and mode still measuring; a
 `packages/cli/src/execute.test.ts` ("explains Measure's single frame the same way in both transports": the agent's error
 as CLI text, `--json` and MCP). `packages/cli/src/skill-examples.test.ts` runs the skill's loop.
 
+### Checks draw their frames at once (PAR-816)
+
+`Screenshot`, `Problems` and `Accessibility` ask for every state and mode they check at once, so the four offscreen
+windows draw them side by side, where they used to draw one after another. The answer keeps the order asked for: each
+state, and each mode within it. A snippet's own loop of `Measure` calls still draws one frame at a time unless it awaits
+them together.
+
+Implementation: `renderEach` in `packages/agent/src/workspace.ts`, called by `problems`, `screenshot` and
+`accessibility`.
+
+Tests: `packages/agent/src/run.test.ts` ("draws every frame a check asks for at once, and answers in the order asked":
+three modes drawing together, finished last first, still answered and screenshotted in the order asked).
+
 ### Warnings grouped by what they found (PAR-460)
 
 An execute call's findings are grouped: one per category and message, with how many places it was found and which.

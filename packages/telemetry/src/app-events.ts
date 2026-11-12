@@ -19,7 +19,13 @@ export const appStarted = defineEvent(
     firstPaintMs: ms("From the process starting to the first window's first paint"),
     serviceReadyMs: ms("From the process starting to the project service starting to run")
   }),
-  { level: "info", sentBy: ["main"], when: "The first window has painted and the project service is running." }
+  {
+    level: "info",
+    sentBy: ["main"],
+    when:
+      "The first window has painted and the project service is running. Not sent when the screen was locked, the " +
+      "computer slept or the window was minimized before then."
+  }
 )
 
 export const appFirstProject = defineEvent(
@@ -30,7 +36,13 @@ export const appFirstProject = defineEvent(
       .boolean()
       .describe("Whether the window opened it as it started, as last time's tabs, rather than the person choosing it")
   }),
-  { level: "info", sentBy: ["main"], when: "The first project opened since the app started has its tab ready to draw." }
+  {
+    level: "info",
+    sentBy: ["main"],
+    when:
+      "The first project opened since the app started has its tab ready to draw. Not sent when the screen was locked, " +
+      "the computer slept or the window was minimized before then."
+  }
 )
 
 export const appQuit = defineEvent(
@@ -381,15 +393,26 @@ export type StartupRecord =
  * Times startup from `origin`, the process starting. Each step counts the first time it's marked. `mark` gives
  * `app.started` once, when its last step is in, and `app.first_project` once, when the first project shows, saying
  * whether it was `restored` from last time.
+ *
+ * Marking `interrupted` says the person couldn't have seen the window yet: the screen was locked, the computer slept
+ * or the window was minimized. A window nobody can see isn't painted, so the steps still to come would time the wait
+ * rather than the start, and neither event is given after it (PAR-831).
  */
 export function startupTimer(
   origin: number
-): (step: StartupStep, at: number, how?: { restored: boolean }) => StartupRecord | undefined {
+): (step: StartupStep | "interrupted", at: number, how?: { restored: boolean }) => StartupRecord | undefined {
   const marks = new Map<StartupStep, number>()
   let sent = false
+  let interrupted = false
 
   return (step, at, how) => {
-    if (marks.has(step)) {
+    if (step === "interrupted") {
+      interrupted = true
+
+      return undefined
+    }
+
+    if (interrupted || marks.has(step)) {
       return undefined
     }
 

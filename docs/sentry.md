@@ -159,7 +159,7 @@ priority, and Critical is Sentry's High, which also emails and files at Urgent.
 | Monitor                                                                                         | Watches                                                      | Window | High      | Critical  |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------ | --------- | --------- |
 | [Crash-free sessions under 99% in production](https://better-apps.sentry.io/monitors/10905109/) | Releases: `crash_free_rate(session)`                         | 1 h    | Under 99% | Under 97% |
-| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/)                 | Spans: `failure_rate()` of `span.op:agent.called`            | 1 h    | Over 5%   | Over 20%  |
+| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/)                 | Spans: `failure_rate()` of `span.op:agent.called`, Parity's¹ | 1 h    | Over 5%   | Over 20%  |
 | [Saves failing](https://better-apps.sentry.io/monitors/10905110/)                               | Logs: `count()` of `message:document.saveFailed`             | 1 h    | 1         | 3         |
 | [Project opens failing](https://better-apps.sentry.io/monitors/10905111/)                       | Logs: `count()` of `message:project.openFailed`              | 1 h    | 5         |           |
 | [Render windows crashing](https://better-apps.sentry.io/monitors/10905113/)                     | Spans: `count()` of `span.op:frame.rendered failure:crashed` | 1 h    | 5         |           |
@@ -180,6 +180,12 @@ priority, and Critical is Sentry's High, which also emails and files at Urgent.
 A count monitor fires at its number or more and resolves below it. The others fire past their threshold and resolve once
 they're back. Log attributes are queried as `tags[durationMs,number]` and `tags[firstPaintMs,number]`, since Sentry
 reads them as strings otherwise.
+
+¹ Failing agent calls count only failures that are Parity's (PAR-873). The query leaves out the codes that mean the
+agent asked for something wrong: `invalid_input`, `unknown_tab`, `unknown_design`, `unknown_node`,
+`ambiguous_reference`, `unknown_state`, `unknown_mode`, `unknown_viewport`, `unknown_component`, `unknown_icon_set`,
+`unknown_edit_id`, `unknown_image`, `image_in_use` and `execution_failed`, a snippet that threw. Every failure in its
+first two weeks was one of those. The dashboards' "Agent error codes by operation" still shows them.
 
 What a filed issue carries:
 
@@ -276,6 +282,8 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
 12. Made the on-call [metric monitors](#metric-monitors) and "Email critical monitor breaches" on 2026-11-09, through
     Sentry's API from a signed-in browser, and turned "Agent calls failing over 5%" on again, scoped to `production`
     with a Critical level over 20% (PAR-779, PAR-714).
+13. Narrowed "Agent calls failing over 5%" to Parity's failures, leaving out the agent's own error codes, with Sentry's
+    MCP server on 2026-11-12 (PAR-873).
 
 PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
 dashboards.
