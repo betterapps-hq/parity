@@ -1,12 +1,13 @@
 import { layersSelection } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
-import { allFrames, findFrames, findNodeElements, nodeOfElement } from "../frame.ts"
-import { useSelection } from "../selection.ts"
-import { useProject } from "./context.ts"
-import { elementsWrittenAt, frameAt, type SourcedElement, shortSource, sourcedElementAt } from "./element-sources.ts"
-import { type AreaSpace, areaSpace, type Box } from "./frame-geometry.ts"
+import { useProject } from "../../canvas/context.ts"
+import { frameAt, type SourcedElement, shortSource, sourcedElementAt } from "../../canvas/element-sources.ts"
+import { type AreaSpace, areaSpace, type Box } from "../../canvas/frame-geometry.ts"
+import { chipColors, kindColors } from "../../canvas/kinds.tsx"
+import { allFrames, findFrames, findNodeElements, nodeOfElement } from "../../frame.ts"
+import { useSelection } from "../../selection.ts"
+import { elementsWrittenAt } from "./element-list.ts"
 import { getInspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"
-import { chipColors, kindColors } from "./kinds.tsx"
 
 /** What the overlay draws: boxes in the canvas area's coordinates, and the label of the one under the pointer. */
 interface Marks {
@@ -18,7 +19,7 @@ const color = kindColors.component
 const none: Marks = { boxes: [] }
 
 /**
- * The canvas's half of picking an element inside a component (PAR-167). While picking, the element a project file
+ * The canvas's half of picking an element inside a component (PAR-167), set aside with the Code panel. While picking, the element a project file
  * wrote under the pointer is outlined with its tag, file and line, and a click picks it, selecting the layer it's in;
  * Escape stops. Otherwise the element picked in the Code section is outlined, and the one hovered in its list dashed,
  * in every frame of the selected layer that draws them.
@@ -144,6 +145,8 @@ export function InspectOverlay() {
       data-inspect-overlay
       aria-hidden
     >
+      {/* Picking, the canvas shows a crosshair, as a browser's developer tools do. */}
+      {inspecting.picking && <style>{".canvas-area[data-inspecting] .tl-canvas { cursor: crosshair; }"}</style>}
       {marks.boxes.map((box, index) => (
         <div
           key={index}
