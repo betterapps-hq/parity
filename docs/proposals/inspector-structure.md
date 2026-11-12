@@ -1,6 +1,6 @@
 # Proposal: the inspector's structure (PAR-1028)
 
-Status: the tree was agreed on 2026-11-12. This page is for review before anything moves.
+Agreed on 2026-11-12.
 
 ## The problem
 
