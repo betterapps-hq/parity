@@ -785,7 +785,7 @@ says so.
   another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
 
 Code: `codeEditors`, `editorsFor`, `commandPaths` and `exportLine` in `packages/core/src/code-editors.ts`;
-`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `canvas:open-in-editor`, whose request
+`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `hostMethods`' `openInEditor`, whose request
 `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile` and `viewCode` in
 `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`; the
 setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
@@ -795,13 +795,14 @@ paths on PATH on Windows and elsewhere; and the export's line for a function, co
 names, a list over several lines, a longer name that isn't it, a default export, a declared one, a missing one, and
 Windows line endings). `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file
 from a Windows or POSIX root, and a library component's declarations, or none).
-`apps/desktop/src/shared/ipc-checks.test.ts` (3: a good request reaches `openInEditor`; a path that isn't absolute, an
-editor Settings doesn't list, an unknown field or a request that isn't an object is refused before it; every listed
-editor is taken). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode, StorybookNotRunning,
-WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and FailingToDraw in
-`chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in `main/code-editor.ts`
-have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
-`function Button`, and Badge's menu said "Starts Storybook" with none running.
+`apps/desktop/src/shared/ipc-checks.test.ts` (2: a request is a file's absolute path and an editor Settings lists, and
+nothing more; every listed editor is taken) and `apps/desktop/src/main/host-methods.test.ts` (a good request reaches its
+handler; a path that isn't absolute, an editor Settings doesn't list, an unknown field or a request that isn't an object
+is refused before it, with the field at fault). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode,
+StorybookNotRunning, WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and
+FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in
+`main/code-editor.ts` have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at
+`button.tsx:43`, its `function Button`, and Badge's menu said "Starts Storybook" with none running.
 
 ## Reading the code
 
@@ -912,14 +913,15 @@ layout.
   and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
 
 Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChanges` in
-`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` with `canvas:console-*` in `shared/channels.ts`,
-checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and `window.canvasHost.console` in the
-preload script; the job's `design` in `shared/render-job.ts` and `shared/protocol.ts`; `captureConsole` and
-`frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`, `projectPlace`, `routeConsoleChange`, `tally`
-and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `renderer/console-feed.ts`; the panel in
-`chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's in `canvas/ConsoleBadge.tsx`; the
-layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
-`packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` behind `hostMethods`' `consoleAnnounce`, `consoleRead`
+and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and
+`window.canvasHost.console` in the preload script; the job's `design` in `shared/render-job.ts` and
+`shared/protocol.ts`; `captureConsole` and `frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`,
+`projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in
+`renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's
+in `canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents:
+`ConsoleEntry` and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in
+`packages/cli/src/client.ts`.
 
 Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
 frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
@@ -5974,9 +5976,9 @@ the beta setting and beta/stable installed builds independently of the preferenc
 toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
-operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
-through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
-`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement, and
+`main/host-handlers.ts` answers the window's update methods, through `preload/index.ts`. `renderer/chrome/updates.tsx`
+shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation

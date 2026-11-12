@@ -1,13 +1,13 @@
 import { isAbsolute } from "node:path"
 import type { CodeEditorChoice } from "@parity-app/core"
-import { nonBlankString, parseData } from "@parity-app/core"
+import { nonBlankString } from "@parity-app/core"
 import { z } from "zod"
 
 /**
- * What the window sends main over `ipcMain.handle` (PAR-592). The project's own code runs in the window's page beside
- * `window.canvasHost`, so it can invoke any of these with anything: each argument is checked before its handler runs,
- * and a bad one is refused with `TypeError` and the field at fault. Only main imports this at run time; the window's
- * types come from it.
+ * The schemas of what the window sends main over IPC (PAR-592), which `hostMethods` gives each method. The project's own
+ * code runs in the window's page beside `window.canvasHost`, so it can send any of these with anything: main's
+ * registration checks each argument before its handler runs, and refuses a bad one with `TypeError` and the field at
+ * fault. Only main imports this at run time; the window's types come from it.
  */
 
 /** An absolute path, which is never read as a command's option, as `-x` would be. */
@@ -68,7 +68,6 @@ export const consoleAnnouncement = z.strictObject({
 /** A project's builder, by its address, whose console messages to read or forget. */
 export const consoleOrigin = z.url()
 
-/** `handler` with its argument checked by `schema` first, so a bad one never reaches it. */
 /** A Sentry ID: a replay's, a trace's or an event's, 32 lowercase hex digits. */
 const sentryId = z.string().regex(/^[0-9a-f]{32}$/)
 
@@ -86,11 +85,3 @@ export const problemReport = z.strictObject({
 })
 
 export type ProblemReport = z.infer<typeof problemReport>
-
-export function checked<Event, Schema extends z.ZodType, Result>(
-  schema: Schema,
-  handler: (event: Event, argument: z.output<Schema>) => Result
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC, parsed here
-): (event: Event, argument: unknown) => Result {
-  return (event, argument) => handler(event, parseData(schema, argument))
-}

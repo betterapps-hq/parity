@@ -4313,9 +4313,10 @@ below. My calls on how they move:
     gives no contrast detail, and axe-core's own message shows instead.
 - **The main process checks its inputs (PAR-592).** My calls:
   - Each `ipcMain.handle` argument has a schema in `shared/ipc-checks.ts`, and `checked(schema, handler)` refuses a bad
-    one with `TypeError` and the pointer before the handler runs. Open in editor's request is a strict object whose
-    `file` must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's
-    types for these come from the schemas, through `import type`, so the window doesn't load zod for them.
+    one with `TypeError` and the pointer before the handler runs. (Since PAR-965, below, `hostMethods` gives each method
+    its schema and main's one registration does the check.) Open in editor's request is a strict object whose `file`
+    must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's types
+    for these come from the schemas, through `import type`, so the window doesn't load zod for them.
   - Main's environment variables are one schema in `main/environment.ts`, read once as main starts. A bad value stops
     main there, naming the variable, since only scripts, tests and the AppImage runtime set them. An empty variable
     counts as unset. `PARITY_WINDOW_SIZE` is read as a width and height, the ports and process ids as numbers.
@@ -5256,7 +5257,7 @@ requests, the worker client and main, and the copies disagreed. Now `@parity-app
   its tree took 0.2 ms, and `previews.lookup` with 300 such previews 23 ms. A save waits on it, which the person doesn't
   see, so it stays.
 - **The `canvas:*` IPC names are declared once,** in `shared/channels.ts`, for the preload script and main. Checking
-  main's IPC arguments is PAR-592.
+  main's IPC arguments is PAR-592. (What a window asks main got its own method map in PAR-965, below.)
 - **The window's answers keep their details on the way to the service,** since the preload passes them through. The
   service's answers keep them on the way to the page too (PAR-580, below).
 
@@ -7886,3 +7887,49 @@ too, and for the hashes to serve change detection, highlighting and affected tes
   per lockfile format; until then a dependency update recaptures everything, as before.
 - **Traces are built in the service, in `utility/frame-traces.ts`, over `contentReader` and `traceDigest` in
   `@parity-app/project`,** so visual tests and change highlighting can take traces of their own from the same parts.
+
+## What a window asks main is one method map (PAR-965)
+
+The window's requests to main were the one link without a method map. Each of 37 handlers was wired by hand in five
+places: its channel's name, its argument's schema, its type in `CanvasHost`, its `invoke` in the preload with the result
+cast, and its `handle` in `main/index.ts` with the check and the sender check, when someone remembered. 16 handlers
+skipped the sender check. My calls:
+
+- **`hostMethods` in `shared/host-methods.ts` declares each method once:** its name, the schema its params are checked
+  with, the type it answers, and who may ask. The types the preload and main use are derived from it. The schemas stay
+  in `shared/ipc-checks.ts`, `shared/account.ts` and `shared/connectors.ts`.
+- **The preload imports the map's types only.** It's sandboxed and can't load zod, so main still does every check, and
+  `preload/index.test.ts` fails if the preload's bundle takes in zod. `ask` and `tell` in `preload/main.ts` send a
+  method by name, typed by the map, so a line of the bridge that sends the wrong thing or promises the page something
+  main doesn't answer doesn't compile. The `InvokeArgument` union and the result casts are gone.
+- **Two IPC channels carry everything,** `canvas:ask` for what the window waits on and `canvas:tell` for what it
+  doesn't, with the method's name first. `shared/channels.ts` keeps those and what main sends a window.
+- **`answerWindows` in `main/host-methods.ts` is the one registration.** It finds the method, checks who's asking,
+  checks the params, then runs the handler in its `request.handled` span. A method main doesn't have is refused before
+  any span, so a made-up name never names one. A method that takes nothing refuses anything sent with it.
+- **The sender check is on unless a method says `from: "any"`.** By default only the Parity window's own page may ask:
+  its main frame, at Parity's address, never a guest or an offscreen render window. `fromParityPage` decides it, and
+  compares the page by its scheme, host and path, so a query or hash can't silently drop the window's close replies and
+  skip its unsaved-changes prompt. A handler is given that window. An open method's handler is given the sender instead,
+  so it can't assume a window. `main/host-methods.test.ts` lists the open methods and refuses every other one from a
+  guest and a render window, so opening one is a choice made twice.
+- **Two methods stay open, since the render windows' preload uses them:** `record`, what a page's telemetry sends main,
+  and `telemetrySecrets`. Who gets the `.env` values is PAR-983's to decide. The other 14 that skipped the check now
+  have it: the three pickers, `showItem`, `copiedFiles`, `openInEditor`, `installCli`, `consoleAnnounce`, `consoleRead`,
+  `consoleClear`, `quit`, `toggleDevTools`, `setTheme` and `metrics`.
+- **One refusal for every method:** "Only the Parity window can ask for `<method>`." The five worded ones went with the
+  checks they belonged to; only a page that isn't Parity's ever gets one.
+- **What a window tells is dropped without a word when it's refused,** whether for its sender or its params, as a
+  console announcement that isn't one already was. What it asks fails with why.
+- **The window's close replies are methods too** (`closePending`, `closeReady`, `closeCancel`), so nothing a window
+  sends is registered outside the map. Each window keeps its close's state as before, and the replies reach it by the
+  window that sent them. `closePending` gets a span now, as the other two had.
+- **The page's telemetry is `record`,** as the service's is, so `handleInSpan` leaves both out of spans by the one name,
+  and `handlerInSpan` is gone. The other methods keep the names their spans had.
+- **Handlers are plain functions.** `hostHandlers` in `main/host-handlers.ts` takes what they need of the app
+  (`HostNeeds`: the account, the connectors, the dialogs, the theme and so on) and `main/index.ts` passes Electron's.
+  Neither module imports Electron, and their tests run without it. `main/ipc-handlers.ts` and `checked` are gone.
+- **`window.canvasHost` keeps its shape.** I considered one `canvasHost.main(method, params)` for the page, as `ask` is
+  for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
+  stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
+  map, its handler, and its line in the bridge, and the compiler holds the three together.
