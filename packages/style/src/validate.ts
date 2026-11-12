@@ -1,4 +1,6 @@
-import { fork } from "css-tree"
+// css-tree's one-file build: its main entry reads its data from disk through `node:module`, which neither a browser
+// nor a bundled app can do.
+import { fork } from "css-tree/dist/csstree.esm"
 import { ledger, namedGrammars } from "./ledger.ts"
 
 /**

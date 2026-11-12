@@ -1,5 +1,5 @@
-// css-tree ships no types. These are the parts `validate.ts` uses.
-declare module "css-tree" {
+// css-tree ships no types. These are the parts `validate.ts` uses, from its one-file build.
+declare module "css-tree/dist/csstree.esm" {
   /** A dictionary of value grammars, by property and by value type, in CSS's value definition syntax. */
   interface Grammars {
     properties?: Record<string, string>
