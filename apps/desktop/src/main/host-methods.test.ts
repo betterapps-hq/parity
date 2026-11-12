@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type HostMethod, hostMethod, hostMethodNames } from "../shared/host-methods.ts"
-import { answerWindows, type HostHandlers } from "./host-methods.ts"
+import { type HostMethod, type HostSent, hostMethod, hostMethodNames } from "../shared/host-methods.ts"
+import { answerWindows, fromParityPage, type HostHandlers } from "./host-methods.ts"
 
 /** Who sent a request: the Parity window's own page, a guest frame in it, or an offscreen render window's page. */
 interface Sender {
@@ -86,6 +86,54 @@ function main() {
   }
 }
 
+/** An announcement `consoleAnnounce`'s schema takes. */
+const announcement: HostSent<"consoleAnnounce"> = { level: "warning", design: "Card" }
+
+/** Params a one-way method's schema takes: the announcement, or nothing for the close replies, which take none. */
+function toldParams(method: HostMethod): HostSent<"consoleAnnounce"> | undefined {
+  return method === "consoleAnnounce" ? announcement : undefined
+}
+
+/** A request from Parity's own page in a development copy, which `fromParityPage` takes. */
+const rendererUrl = "http://localhost:5310/"
+const parityPage = { render: false, mainFrame: true, url: rendererUrl }
+
+describe("Parity's own page", () => {
+  it("is a window's main frame showing the renderer's page", () => {
+    expect(fromParityPage(parityPage, rendererUrl)).toBe(true)
+    expect(fromParityPage({ ...parityPage, url: "parity://app/index.html" }, "parity://app/index.html")).toBe(true)
+  })
+
+  it("isn't an offscreen render window, though it shows the same page", () => {
+    expect(fromParityPage({ ...parityPage, render: true }, rendererUrl)).toBe(false)
+  })
+
+  it("isn't a frame inside the page", () => {
+    expect(fromParityPage({ ...parityPage, mainFrame: false }, rendererUrl)).toBe(false)
+  })
+
+  it("isn't another page, host or scheme", () => {
+    for (const url of [
+      "http://localhost:5310/render.html",
+      "http://localhost:5311/",
+      "http://127.0.0.1:5310/",
+      "https://localhost:5310/",
+      "https://example.com/",
+      "about:blank",
+      "",
+      "not an address"
+    ]) {
+      expect(fromParityPage({ ...parityPage, url }, rendererUrl)).toBe(false)
+    }
+
+    expect(fromParityPage({ ...parityPage, url: "parity://app/render.html" }, "parity://app/index.html")).toBe(false)
+  })
+
+  it("is still itself with a query or hash, so its close replies aren't dropped", () => {
+    expect(fromParityPage({ ...parityPage, url: `${rendererUrl}?tab=2#layers` }, rendererUrl)).toBe(true)
+  })
+})
+
 describe("who may ask", () => {
   it("leaves only what the render windows send open to every sender", () => {
     // Opening a method to every sender is a choice: it's made in `hostMethods` with `from: "any"`, and then here.
@@ -95,19 +143,28 @@ describe("who may ask", () => {
   it("refuses every other method from anything but the Parity window's own page", async () => {
     const { ask, tell, handled } = main()
     const gated = hostMethodNames.map((method) => hostMethod(method)!).filter(({ open }) => !open)
-    expect(gated.length).toBe(hostMethodNames.length - 2)
+    const told = gated.filter(({ oneWay }) => oneWay).map(({ method }) => method)
 
     for (const sender of [guest, render]) {
-      for (const { method } of gated.filter(({ oneWay }) => oneWay)) {
-        tell(sender, method)
+      // Each told with params its schema takes, so only the sender check can drop it.
+      for (const method of told) {
+        tell(sender, method, toldParams(method))
       }
 
+      // The sender is checked before the params, so a refused page learns nothing of what a method takes.
       for (const { method } of gated.filter(({ oneWay }) => !oneWay)) {
         await expect(ask(sender, method)).rejects.toThrow(`Only the Parity window can ask for ${method}.`)
       }
     }
 
     expect(handled).toEqual([])
+
+    // The same words from the Parity window reach every handler, so the params above weren't what dropped them.
+    for (const method of told) {
+      tell(parity, method, toldParams(method))
+    }
+
+    expect(handled.map(({ method }) => method)).toEqual(told)
   })
 
   it("gives a handler the Parity window that asked", async () => {
@@ -138,7 +195,10 @@ describe("what may be asked", () => {
       new TypeError('Main has no method "readFile" to ask')
     )
     await expect(ask(parity, "toString")).rejects.toThrow('Main has no method "toString" to ask')
-    await expect(ask(parity, 7)).rejects.toThrow("Main has no method 7 to ask")
+    // A name that isn't short text isn't echoed: it may be huge, or not even something JSON can write.
+    await expect(ask(parity, 7)).rejects.toThrow("Main has no method of that name to ask")
+    await expect(ask(parity, "x".repeat(10_000))).rejects.toThrow("Main has no method of that name to ask")
+    await expect(ask(parity, 10n)).rejects.toThrow("Main has no method of that name to ask")
     await expect(ask(parity, "closeReady")).rejects.toThrow('Main has no method "closeReady" to ask')
     expect(handled).toEqual([])
     // A name main doesn't know never names a span.

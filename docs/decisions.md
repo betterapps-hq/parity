@@ -7885,9 +7885,11 @@ skipped the sender check. My calls:
   checks the params, then runs the handler in its `request.handled` span. A method main doesn't have is refused before
   any span, so a made-up name never names one. A method that takes nothing refuses anything sent with it.
 - **The sender check is on unless a method says `from: "any"`.** By default only the Parity window's own page may ask:
-  its main frame, at Parity's address, never a guest or an offscreen render window. A handler is given that window. An
-  open method's handler is given the sender instead, so it can't assume a window. `main/host-methods.test.ts` lists the
-  open methods and refuses every other one from a guest and a render window, so opening one is a choice made twice.
+  its main frame, at Parity's address, never a guest or an offscreen render window. `fromParityPage` decides it, and
+  compares the page by its scheme, host and path, so a query or hash can't silently drop the window's close replies and
+  skip its unsaved-changes prompt. A handler is given that window. An open method's handler is given the sender instead,
+  so it can't assume a window. `main/host-methods.test.ts` lists the open methods and refuses every other one from a
+  guest and a render window, so opening one is a choice made twice.
 - **Two methods stay open, since the render windows' preload uses them:** `record`, what a page's telemetry sends main,
   and `telemetrySecrets`. Who gets the `.env` values is PAR-983's to decide. The other 14 that skipped the check now
   have it: the three pickers, `showItem`, `copiedFiles`, `openInEditor`, `installCli`, `consoleAnnounce`, `consoleRead`,

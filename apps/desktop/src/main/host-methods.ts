@@ -1,4 +1,5 @@
 import { parseData } from "@parity-app/core"
+import { z } from "zod"
 import { ipc } from "../shared/channels.ts"
 import {
   type HostMethod,
@@ -52,6 +53,47 @@ export interface HostOptions<Event, Window> {
   around: <Result>(request: { method: string; trace: unknown }, answer: () => Result) => Result | Promise<Result>
 }
 
+/** What the sender check needs to know of the page a request came from. */
+export interface SendingPage {
+  /** Whether it's an offscreen render window's page, which runs project code. */
+  render: boolean
+  /** Whether the request came from the page's main frame, rather than a frame inside it. */
+  mainFrame: boolean
+  /** The page's address now. */
+  url: string
+}
+
+/** A page's address without its query or hash: its scheme, host and path. */
+function pageOf(url: string): string | undefined {
+  if (!URL.canParse(url)) {
+    return undefined
+  }
+
+  const { protocol, host, pathname } = new URL(url)
+
+  return `${protocol}//${host}${pathname}`
+}
+
+/**
+ * Whether a request came from Parity's own page: a window's main frame, not an offscreen render window's, showing the
+ * page at `rendererUrl`. A query or hash doesn't make it another page; another path, host or scheme does.
+ */
+export function fromParityPage(page: SendingPage, rendererUrl: string): boolean {
+  const here = pageOf(page.url)
+
+  return !page.render && page.mainFrame && here !== undefined && here === pageOf(rendererUrl)
+}
+
+/** A method's name as it goes in a refusal: quoted, unless it isn't a short string, so a page can't fill the log. */
+const shortName = z.string().max(64)
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a method's name as a window sent it
+function nameInRefusal(name: unknown): string {
+  const read = shortName.safeParse(name)
+
+  return read.success ? JSON.stringify(read.data) : "of that name"
+}
+
 /**
  * Answers windows over `ipc.ask` and `ipc.tell`. A request is refused for a method main doesn't have, from a sender the
  * method doesn't take, or with params its schema refuses: an asked one fails with why, and a told one is dropped.
@@ -76,7 +118,7 @@ export function answerWindows<Event, Window>({
     const found = hostMethod(name)
 
     if (!found || found.oneWay) {
-      throw new TypeError(`Main has no method ${JSON.stringify(name)} to ask`)
+      throw new TypeError(`Main has no method ${nameInRefusal(name)} to ask`)
     }
 
     return around({ method: found.method, trace }, () => {

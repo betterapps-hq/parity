@@ -31,7 +31,9 @@ function withTrace(params: unknown): unknown[] {
 
 /** Asks main for a method's answer, in the page's trace. Main's handler answers with the result the map names. */
 export function ask<M extends AskedMethod>(method: M, ...[params]: HostArguments<M>): Promise<HostResult<M>> {
-  return ipcRenderer.invoke(ipc.ask, method, ...withTrace(params))
+  // SAFETY: main's handler for `method` is typed by the same `hostMethods` entry, so it answers with `HostResult<M>`,
+  // and main and this script ship together.
+  return ipcRenderer.invoke(ipc.ask, method, ...withTrace(params)) as Promise<HostResult<M>>
 }
 
 /** Tells main a one-way method, in the page's trace, without waiting for an answer. */

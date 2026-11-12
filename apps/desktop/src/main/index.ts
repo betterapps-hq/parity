@@ -69,7 +69,7 @@ import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } fr
 import { readEnvironment } from "./environment.ts"
 import { watchFrame } from "./frame-telemetry.ts"
 import { type CloseReplies, hostHandlers } from "./host-handlers.ts"
-import { answerWindows } from "./host-methods.ts"
+import { answerWindows, fromParityPage } from "./host-methods.ts"
 import { idleClose } from "./idle-close.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
@@ -711,16 +711,17 @@ type HostEvent = Electron.IpcMainInvokeEvent | Electron.IpcMainEvent
 function appWindowOf(event: HostEvent): BrowserWindow | undefined {
   const window = BrowserWindow.fromWebContents(event.sender)
 
-  if (
-    !window ||
-    isRenderWindow(window) ||
-    event.senderFrame !== event.sender.mainFrame ||
-    event.sender.getURL() !== rendererUrl
-  ) {
+  if (!window) {
     return undefined
   }
 
-  return window
+  const page = {
+    render: isRenderWindow(window),
+    mainFrame: event.senderFrame === event.sender.mainFrame,
+    url: event.sender.getURL()
+  }
+
+  return fromParityPage(page, rendererUrl) ? window : undefined
 }
 
 /** The app's windows, as against the offscreen renderers. */
