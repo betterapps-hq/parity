@@ -19,6 +19,7 @@ import {
   Tldraw
 } from "tldraw"
 import { heldBoards } from "../agent/held-boards.ts"
+import { holdWhileZooming } from "../replay.ts"
 import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
@@ -149,13 +150,15 @@ function drawableColor(color: string): string {
  * `zoomSettle`). Every element of every frame inherits it, so each change restyles them all: at 60 designs that was most
  * of each frame while zooming. tldraw's own debounce only holds while frames are quick, since a slow frame outlasts its
  * timeout and counts as the camera stopping. What has to follow the zoom live uses `useZoomStyle`. A zoom that settles
- * somewhere new also draws the camera's layer again, sharp at that zoom (see layer-redraw.ts).
+ * somewhere new also draws the camera's layer again, sharp at that zoom (see layer-redraw.ts). Session Replay doesn't
+ * record the page while the zoom is on its way (see `holdWhileZooming`).
  */
 function settleZoom(editor: Editor): () => void {
   const settled = atom("settled zoom", editor.getZoomLevel())
   let held = zoomHeldFrom(editor.getZoomLevel(), performance.now())
   let frame = 0
   let endRedraw: (() => void) | undefined
+  const recording = holdWhileZooming()
 
   const check = (now: number) => {
     const zoom = editor.getZoomLevel()
@@ -169,8 +172,13 @@ function settleZoom(editor: Editor): () => void {
       }
 
       settled.set(zoom)
+      recording.settled()
       frame = 0
     } else {
+      if (zoom !== settled.get()) {
+        recording.zooming()
+      }
+
       frame = requestAnimationFrame(check)
     }
   }
@@ -186,6 +194,7 @@ function settleZoom(editor: Editor): () => void {
     stop()
     cancelAnimationFrame(frame)
     endRedraw?.()
+    recording.end()
   }
 }
 

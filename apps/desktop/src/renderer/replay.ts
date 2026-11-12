@@ -28,14 +28,14 @@ export const longestHoldMs = 5000
 
 /**
  * Makes holds on recording the page. The first hold pauses the recorder, if it's recording, and it resumes once every
- * hold is let go of, or has lasted `longestMs`. Resuming takes a fresh snapshot of the page, so what changed while it
+ * hold is let go of, or has lasted its longest (`longestMs`, unless the hold says otherwise). Resuming takes a fresh snapshot of the page, so what changed while it
  * was paused shows from then on, all at once, in the same replay. It resumes in a task of its own, so a frame drawn as
  * the last hold is let go of is painted before the snapshot is taken.
  */
 export function pageHolds(
   recorder: () => PageRecorder | undefined,
   { longestMs = longestHoldMs, later = setTimeout, cancel = clearTimeout } = {}
-): () => () => void {
+): (longestHold?: number) => () => void {
   let holds = 0
   let paused: PageRecorder | undefined
 
@@ -52,7 +52,7 @@ export function pageHolds(
     paused = undefined
   }
 
-  return () => {
+  return (longestHold = longestMs) => {
     if (holds++ === 0 && !paused) {
       const current = recorder()
 
@@ -77,7 +77,7 @@ export function pageHolds(
       }
     }
 
-    const timer = later(release, longestMs)
+    const timer = later(release, longestHold)
 
     return release
   }
@@ -90,6 +90,79 @@ export function pageHolds(
  * reached through `_replay`; while diagnostics are off there's none.
  */
 export const holdRecording = pageHolds(() => (recording ? replayRecorder() : undefined))
+
+/** The longest a zoom holds recording, for one that never settles, as when a gesture is stuck. */
+export const longestZoomHoldMs = 60_000
+
+/** How long recording stays held after the zoom settles, so a zoom that starts again soon keeps it held. */
+export const zoomHoldLingerMs = 1000
+
+/** The longest recording waits for the window to be idle once the linger is over, before it resumes anyway. */
+export const zoomHoldIdleMs = 2000
+
+/**
+ * A hold taken while the canvas zooms and let go of after it settles, as `holdWhileZooming` takes on Session Replay.
+ * `zooming` takes it, or keeps it if it hasn't been let go of yet; `settled` lets go of it `lingerMs` later, once the
+ * window is idle, so the snapshot resuming takes waits for the frames a settled zoom wakes; `end` lets go now.
+ */
+export function zoomHold(
+  hold: (longestMs?: number) => () => void,
+  {
+    lingerMs = zoomHoldLingerMs,
+    longestMs = longestZoomHoldMs,
+    later = setTimeout,
+    cancel = clearTimeout,
+    idle = (run: () => void) => requestIdleCallback(run, { timeout: zoomHoldIdleMs }),
+    cancelIdle = cancelIdleCallback
+  } = {}
+) {
+  let release: (() => void) | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let waiting: number | undefined
+
+  const wait = () => {
+    cancel(timer)
+    timer = undefined
+
+    if (waiting !== undefined) {
+      cancelIdle(waiting)
+      waiting = undefined
+    }
+  }
+
+  const end = () => {
+    wait()
+    release?.()
+    release = undefined
+  }
+
+  return {
+    zooming() {
+      wait()
+      release ??= hold(longestMs)
+    },
+    settled() {
+      if (release && timer === undefined && waiting === undefined) {
+        timer = later(() => {
+          timer = undefined
+          waiting = idle(end)
+        }, lingerMs)
+      }
+    },
+    end
+  }
+}
+
+/**
+ * Holds Session Replay's recording of the page while the canvas zooms, until a second after the zoom settles and the
+ * window is idle (PAR-957).
+ * Each frame of a zoom restyles every board's gutters, captions and labels to stay a screen pixel wide, and the recorder
+ * parsed each element's old and new inline style to tell what changed: the largest share of the page's JavaScript while
+ * zooming. A pan restyles only the camera's layer, so it goes on being recorded.
+ */
+export function holdWhileZooming() {
+  return zoomHold(holdRecording)
+}
 
 /** Replay's page recorder, its private `_replay`, when it has one that looks like it. */
 function replayRecorder(): PageRecorder | undefined {
