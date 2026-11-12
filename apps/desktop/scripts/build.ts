@@ -106,12 +106,63 @@ cpSync(dirname(require.resolve("typescript/package.json")), join(out, "node_modu
 
 shipPackage("sharp", appDir)
 
+await shipCli()
+
 // One macOS build packages both Apple Silicon and Intel, from an install that has only the runner's own binaries.
 if (process.platform === "darwin") {
   shipOtherMacBinaries()
 }
 
 checkShippedSharp()
+
+checkShippedCli()
+
+/**
+ * Ships the CLI that npm publishes, for Help > Install the parity command (PAR-906), whose `parity` runs it with the
+ * app's Electron as Node, so it's always the app's version. Its sender's Sentry is bundled into it, as main's is, rather
+ * than shipping `@sentry/node`'s tree; zod and semver go beside the service's packages, where it finds them from its
+ * own folder, as it finds the TypeScript the service ships.
+ */
+async function shipCli(): Promise<void> {
+  const cli = resolve(appDir, "../../packages/cli")
+  const shipped = join(out, "cli")
+
+  execSync("pnpm exec vp pack", { cwd: cli, stdio: "inherit" })
+  cpSync(join(cli, "dist"), join(shipped, "dist"), { recursive: true })
+  cpSync(join(cli, "skills"), join(shipped, "skills"), { recursive: true })
+  await build({
+    ...node,
+    entryPoints: { send: join(shipped, "dist/send.mjs") },
+    outdir: join(shipped, "dist"),
+    allowOverwrite: true,
+    sourcemap: false,
+    // The copy's imports resolve from the CLI's own packages.
+    nodePaths: [join(cli, "node_modules")]
+  })
+  const { version, dependencies } = readManifest(cli)
+  const manifest = { name: "@parity-app/cli", version, private: true }
+  // The CLI reports the version in the package.json beside its dist.
+  writeFileSync(
+    join(shipped, "package.json"),
+    `${JSON.stringify(manifest, null, 2)}
+`
+  )
+
+  for (const name of Object.keys(dependencies ?? {})) {
+    if (name !== "typescript" && name !== "@sentry/node") {
+      shipPackage(name, cli)
+    }
+  }
+}
+
+/** Fails the build unless the shipped CLI runs in Parity's Electron, as the `parity` command runs it. */
+function checkShippedCli(): void {
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+
+  execFileSync(installedElectron(), [join(out, "cli/dist/bin.mjs"), "skill"], { stdio: "ignore", env })
+  // Without an outbox folder, the sender only loads.
+  execFileSync(installedElectron(), [join(out, "cli/dist/send.mjs")], { stdio: "inherit", env })
+}
 
 /**
  * Fails the build unless the sharp it ships loads in Parity's Electron and encodes a lossless WebP, from the files the

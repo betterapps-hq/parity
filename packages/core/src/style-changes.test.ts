@@ -1,5 +1,6 @@
+import type { NodeStyle } from "@parity-app/style"
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerSpec, NodeStyle } from "./document.ts"
+import type { ContainerSpec } from "./document.ts"
 import { resolveDesign } from "./render.ts"
 import { inlineStyles, styleChanges } from "./style-changes.ts"
 

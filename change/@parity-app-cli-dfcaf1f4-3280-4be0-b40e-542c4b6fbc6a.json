@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam change them, and Update binds a node (PAR-901)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

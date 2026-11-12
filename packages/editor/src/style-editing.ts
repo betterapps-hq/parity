@@ -108,7 +108,8 @@ export const styleRows = {
   resizing: textSizingKeys,
   decoration: ["italic", "decoration"],
   case: ["textTransform"],
-  lines: ["lines"]
+  lines: ["lines"],
+  transitions: ["transitions"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
 
 /**

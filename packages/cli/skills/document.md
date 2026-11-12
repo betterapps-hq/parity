@@ -140,6 +140,7 @@ type name a token from `GetTokens()`, without the `--`.
 | `textAlign`                                      | `start`, `center`, `end` or `justify`                                     |
 | `textTransform`, `decoration`, `italic`          | `uppercase` and the like, `underline` or `line-through`, `true`           |
 | `lines`                                          | Lines of text before an ellipsis                                          |
+| `transitions`                                    | How the layer moves when its style changes; see Transitions below         |
 
 Effects stack. `shadow` as a list is drawn top first. Colors there are a color token with an optional `alpha` from 0 to
 100:
@@ -171,6 +172,11 @@ drawing it.
 A text layer sizes as Figma's text does, by its `width` and `height`: `width: "hug"` is auto width, one line as wide as
 its text, wrapped only by a `maxWidth`; any other width, or none, with no `height` is auto height, wrapping at its width
 and growing down; a `height` as well is fixed.
+
+A `fill` across the parent with a `maxWidth` takes the parent's width up to that maximum, then sits where `self` or the
+parent's `align` puts it, as `w-full max-w-… mx-auto` does: a content column centred at 160 steps is
+`{ width: "fill", maxWidth: 160, self: "center" }`, and it still narrows on a phone. `hug` with `self` stays as wide as
+its content.
 
 ### Fill
 
@@ -208,6 +214,26 @@ Any paint takes `hidden: true` to keep it without drawing it. Prefer a gradient 
 Type set on a layout applies to the text inside it. A component's own look comes from its props, so reach for a variant
 (`variant: "secondary"`) before styling a component from outside.
 
+### Transitions
+
+`transitions` is a list, each entry how some properties change when the layer's style does. A board switching to a state
+plays them, so put them on the base and let the state change the look:
+
+```json
+{ "style": { "transitions": [{ "property": "colors", "duration": 200, "easing": "ease-out" }] } }
+```
+
+| Field      | Takes                                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `property` | `all`, `colors`, `opacity`, `transform` or `shadow`, as Tailwind's `transition-*`, or a CSS property (`width`) |
+| `duration` | Milliseconds, or a duration token; Tailwind's 150ms when unset                                                 |
+| `delay`    | Milliseconds, or a duration token                                                                              |
+| `easing`   | `linear`, `ease-in`, `ease-out`, `ease-in-out`, an easing token, `cubic-bezier(…)` or `steps(…)`               |
+| `hidden`   | `true` keeps the entry without playing it                                                                      |
+
+`easing` can also be a spring, `{ "spring": { "duration": 400, "bounce": 0.3 } }` or
+`{ "spring": { "stiffness": 300, "damping": 20, "mass": 1 } }`, whose settle time is the transition's duration.
+
 ## States
 
 A state's `overrides` map node ids to patches of `hidden`, `text`, `props` and `style`. A node a state doesn't mention
@@ -235,7 +261,8 @@ applied in every mode on that viewport:
 
 Inside a component design, a node's `bind` takes its values from the component's params, so each instance shows its own:
 `bind.text` names a text param, `bind.props` maps a prop to a param, and `bind.visible` names a boolean param that shows
-or hides the node. `ExtractComponent` sets all of this up from the occurrences it replaces.
+or hides the node. `ExtractComponent` sets all of this up from the occurrences it replaces; for a component built once,
+`CreateDesign` takes `params` and `AddParam` adds one (see execute.md).
 
 ```json
 { "type": "text", "text": "Revenue", "bind": { "text": "label" } }

@@ -125,6 +125,40 @@ describe("lintDocument", () => {
     ])
   })
 
+  it("names the duration and easing tokens a transition uses that the project doesn't have (PAR-934)", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: {
+        transitions: [
+          { property: "colors", duration: 200, easing: "ease-out", delay: "duration-fast" },
+          { property: "transform", easing: "ease-snappy" },
+          { property: "width", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+          { property: "opacity", easing: { spring: { duration: 400, bounce: 0.2 } } }
+        ]
+      },
+      children: []
+    }
+
+    const states = [
+      { id: "default", name: "Default" },
+      {
+        id: "hover",
+        name: "Hover",
+        overrides: { page: { style: { transitions: [{ property: "all", duration: "slow" }] } } }
+      }
+    ]
+
+    expect(lintDocument(design(root, states), { ...context, tokens: [{ name: "ease-snappy" }] })).toEqual([
+      {
+        category: "not_a_token",
+        message: `transitions[0].delay "duration-fast" isn't a token. Use a name from GetTokens().`,
+        at: "home/page"
+      },
+      { category: "not_a_token", message: `transitions[0].duration "slow" isn't a token`, at: "home state hover/page" }
+    ])
+  })
+
   it("names tokens inside shadows, filters and the transform that the project doesn't have (PAR-933)", () => {
     const root = {
       type: "layout" as const,

@@ -419,6 +419,15 @@ export interface ProblemReportRequest {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 /** A file copied in Explorer or Finder, with its bytes unless it's too large for any type Parity takes. */
+/** Where Help > Install the parity command put it (PAR-906). */
+export interface CliInstall {
+  folder: string
+  /** Whether a terminal finds the folder on PATH; on Linux, `~/.local/bin` is only there when the person's shell adds it. */
+  onPath: boolean
+  /** Whether the folder just joined PATH, which terminals already open don't see. */
+  newTerminal: boolean
+}
+
 export interface CopiedFile {
   name: string
   /** In bytes. */
@@ -517,6 +526,8 @@ export interface CanvasHost {
   copiedFiles(): Promise<CopiedFile[]>
   /** Opens a file in the person's editor, at its export's line when one is named, and says which opened it. */
   openInEditor(request: OpenInEditorRequest): Promise<{ opened: string }>
+  /** Puts a `parity` command on PATH that runs the CLI shipped with the app, and says where. */
+  installCli(): Promise<CliInstall>
   quit(): Promise<void>
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>

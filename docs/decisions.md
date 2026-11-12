@@ -1,5 +1,20 @@
 # Decisions
 
+- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+  [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
+  `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
+  - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
+    property the later key's value stands, and `from` names that key. What a kind of layer draws before any key is set
+    (a layout's `display: flex`, `position: relative` and `min-width: 0`, text's `margin: 0`) is from the key that would
+    change it, so every declaration has a row to name.
+  - **Render still writes inline styles,** by camel-casing each declaration's property. An image's and a video's
+    `display: block` and `object-fit` stay in render, since they come from the node's `fit`, not its style. PAR-942
+    replaces the inline styles with rules.
+  - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
+    `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
+    itself.
+
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
@@ -429,8 +444,9 @@ still need your call.
   stays live, as does everything while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from
   the live frame once it has stayed the same for a second, its text as faded bars in the text's colour and its cards,
   fields, buttons and images as flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured
-  height. A frame not measured yet stays live. Bitmaps and skeletons are kept in memory only, so a code change never
-  shows a stale one. Below about 5%, boards and frames also drop their shadows.
+  height. A frame not measured yet stays live. Skeletons are kept in memory only. Bitmaps are also kept on disk for the
+  next session (PAR-179), named by what they show, the project's code included, so a code change never shows a stale
+  one. Below about 5%, boards and frames also drop their shadows.
 - **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
   its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
   near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
@@ -3165,8 +3181,8 @@ undo. Reading the stylesheet each time a guest loads keeps both as they are.
 - `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
   sets `data-theme` itself keeps its value.
 - An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
-  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
-  `docs/support.md`.
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach. PAR-896, below, lists
+  it.
 
 ## Agent calls merge per design (PAR-278)
 
@@ -7309,3 +7325,89 @@ and `transform` was text case. Your calls on 2026-11-11:
   called it a miss in the UX work, and PAR-937 adds them to the Transform control.
 - **Text case is renamed `textTransform`, and a file with the old key is rejected,** by the Fix forward rule. Stale
   prototype data is disposable.
+
+## A mode sets a theme's attribute written on the root (PAR-896)
+
+My call: `themeAttributes` lists an attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) as
+it lists one on its own, so the default Dark option's `dark` class sets `data-theme="dark"` on the frame's body. PAR-819
+already draws `:root[data-theme="dark"]` on the body as well as on the host, but nothing set the attribute there, so a
+project that switches its dark theme by attribute on the root still drew light values in a Dark frame. `:root.dark` and
+`html.dark` needed nothing more: the mode's `dark` class reaches the body already.
+
+Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
+a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
+
+## The app installs its own `parity` command (PAR-906)
+
+Agents ran the CLI as `npx -y @parity-app/cli@0.31.0 …`, and each call spent most of its time in npx. Measured on
+Windows with the app running: npx resolving the cached package took 1.2–2.8 s, Node starting 0.1–0.25 s, loading the
+CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Print(1)` 0.45–0.7 s. Your call on
+2026-11-11: a menu item installs the command, as Pen's does. My calls:
+
+- **The command runs the CLI shipped inside the app, with the app's Electron as Node,** as VS Code's `code` does. It's
+  always the app's version, so nothing keeps it in step, and it needs no Node or npm. Electron as Node started the CLI
+  about 0.1 s slower than Node itself, and `--prefer-offline` and Node's compile cache didn't speed up npx or loading.
+  Pen's item only opens a docs page.
+- **Help > Install the parity command** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity`
+  shell script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on
+  macOS, asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers
+  it wrote, which carry a marker line, so moving the app keeps the command working.
+- **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
+  bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
+  the CLI and its sender load in Parity's Electron.
+- **The skill sends agents to the MCP tools first, then `parity`, never npx per call** (your call, 2026-11-11: without
+  the CLI, push to MCP). An agent with neither asks for the menu item. The README's MCP configuration runs `parity mcp`,
+  with npx as the fallback, which pays its start-up once per session.
+- **No daemon.** The CLI already talks straight to the app, which answers in about 10 ms; what costs is starting a
+  process, which a client of a daemon still pays. MCP stays the fastest route for agents that have it.
+
+After, with the same app and tab (medians of 5, the machine busy with other sessions): `tabs` went from 2.0 s through
+npx to 0.39 s through the Git Bash launcher and 0.37 s through `parity.cmd`; `exec` of `Print(1)` from 2.45 s to 0.74 s,
+most of which is now the app running the snippet.
+
+## Agents declare a component's params directly (PAR-901)
+
+Agents could only give a component design params through `ExtractComponent`, which needs two or more built copies, so a
+part built once, such as an app's sidebar, meant building throwaway copies. You approved this shape on 2026-11-11:
+
+- **`CreateDesign` takes `params`,** in the `.par` file's shape, and nodes in its `root` bind them with `bind`, as
+  document.md describes, so an agent learns one shape. A variant option's id is made from its name unless given, its
+  changes are keyed by node id or name as `AddState`'s are, and a variant's default can be an option's id or name.
+- **`AddParam`, `UpdateParam` and `DeleteParam` change them afterwards,** as `AddState`, `UpdateState` and `DeleteState`
+  change states, and `Update(path, { bind })` binds or unbinds a node in the base design.
+- **Renaming carries everything with it:** the binds, the board's option, and every instance's args and patches in the
+  tab. A param's type doesn't change; delete it and add it again.
+- **Deleting a param or unbinding a field keeps what it showed,** the param's default as the node's own value, as
+  unbinding in Props does, and instances drop the arg.
+- **A bind that can't work fails the call:** one naming a param the design doesn't have, one of the wrong type, or one
+  outside a component design. Nothing checked binds before.
+- **The editor's Props and Variants sections need no change;** they show whatever params a design has.
+
+## A layer's transitions are a list in its style (PAR-934)
+
+The approved Transition list edits each entry's property, duration, easing and delay, and its eye turns one off.
+`NodeStyle` keeps them as `transitions`, in the document's usual forms: a number is a step, and a string names a token.
+My calls:
+
+- **What changes is a string.** It's one of Tailwind's sets (`all`, `colors`, `opacity`, `transform`, `shadow`), or a
+  CSS property of its own (`width`). A set wins over the property of the same name, as Tailwind's `transition-opacity`
+  and `transition-transform` do.
+- **A time is milliseconds or a duration token's name.** A time typed or read in seconds is stored in milliseconds
+  (`0.2s` is 200). The list can't show a unit the document doesn't keep, so the field shows milliseconds.
+- **An easing is a string or a spring.** The string is one of Tailwind's easings (`ease-out`), an easing token's name,
+  or a curve or steps of its own (`cubic-bezier(…)`, `steps(…)`). A spring is kept as its settings,
+  `{ spring: { duration, bounce } }` or `{ spring: { stiffness, damping, mass } }`, since the `linear()` it's drawn with
+  can't be read back into them. Its settle time is the transition's duration, whatever `duration` says.
+- **An entry hidden with the eye stays,** with `hidden: true`, and isn't drawn. It's named as Fill's paints and a
+  layer's `hidden` are.
+- **The canvas draws it inline, with Tailwind's values to fall back on.** A frame may not define `--ease-out` or
+  `--default-transition-duration`, since Tailwind writes theme variables only when they're used. So the canvas writes
+  `var(--ease-out, cubic-bezier(0, 0, 0.2, 1))`, and the curve still plays when the variable is missing.
+- **It plays whenever a frame's look changes.** The board draws each state as its own frame, so a transition doesn't
+  play between them on the canvas. A frame plays it when an edit changes how that frame looks, such as opacity changed
+  in its state. Showing one frame going from state to state is a feature of its own.
+- **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
+  offer Create token, and the Design tab's other fields don't either.
+- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
+  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
+  spring maths from there.

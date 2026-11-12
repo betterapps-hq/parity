@@ -2,6 +2,44 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 00:46:36 GMT",
+      "version": "0.47.1",
+      "tag": "@parity-app/cli_v0.47.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "47ee852322ebd72fc5e55997fe27e818df0600c2",
+            "comment": "Move the style schema and its CSS into @parity-app/style"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "59bee641a9887ff8ceca7bc6ff88bd6e17b6365c",
+            "comment": "A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 00:27:08 GMT",
+      "version": "0.47.0",
+      "tag": "@parity-app/cli_v0.47.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8392d25aa3ba929e28e9e23b951b538dacfed22e",
+            "comment": "Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color token"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 00:08:16 GMT",
       "version": "0.46.0",
       "tag": "@parity-app/cli_v0.46.0",

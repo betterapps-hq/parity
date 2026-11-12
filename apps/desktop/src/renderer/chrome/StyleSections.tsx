@@ -12,6 +12,7 @@ import { AppearanceSection } from "../inspector/sections/AppearanceSection.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
 import { LayoutSection } from "../inspector/sections/LayoutSection.tsx"
+import { MotionSection } from "../inspector/sections/MotionSection.tsx"
 import { PositionSection } from "../inspector/sections/PositionSection.tsx"
 import { type SectionProps, useSectionEdits } from "../inspector/sections/section-edits.ts"
 import { SizeSection } from "../inspector/sections/SizeSection.tsx"
@@ -23,8 +24,8 @@ import type { StyleEditor } from "./style-editor.ts"
 
 /**
  * Each section the app draws, by the table's name for it. Layer order draws inside Position, beside Placement, as the
- * approved section has it; the table lists them for the same layers. Grid placement, Motion and Raw CSS aren't built
- * yet, and draw nothing: PAR-924 to PAR-935 add them, with what `NodeStyle` can't hold yet.
+ * approved section has it; the table lists them for the same layers. Grid placement and Raw CSS aren't built yet, and
+ * draw nothing: PAR-924 to PAR-935 add them, with what `NodeStyle` can't hold yet.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
@@ -37,12 +38,13 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   text: TextSection,
   fill: FillSection,
   stroke: StrokeSection,
-  effects: EffectsSection
+  effects: EffectsSection,
+  motion: MotionSection
 }
 
 /**
- * The sections whose controls make their edits through `SectionProps`' `edit`, and so preview as they're typed. Fill
- * and Effects make theirs through the style editor itself, as each edit comes.
+ * The sections whose controls make their edits through `SectionProps`' `edit`, and so preview as they're typed. Fill,
+ * Effects and Motion make theirs through the style editor itself, as each edit comes.
  */
 const liveSections = new Set<StyleSection>([
   "frameSize",

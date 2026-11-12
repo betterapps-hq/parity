@@ -1,8 +1,26 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 00:08:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 00:46:36 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.47.1
+
+Thu, 12 Nov 2026 00:46:36 GMT
+
+### Patches
+
+- A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]
+  (ajcraswell@gmail.com)
+
+## 0.47.0
+
+Thu, 12 Nov 2026 00:27:08 GMT
+
+### Minor changes
+
+- Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color
+  token (ajcraswell@gmail.com)
 
 ## 0.46.0
 
