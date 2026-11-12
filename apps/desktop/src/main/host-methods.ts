@@ -9,6 +9,7 @@ import {
   hostMethod,
   type OpenMethod
 } from "../shared/host-methods.ts"
+import { onPage } from "./parity-page.ts"
 
 /**
  * Main's side of `hostMethods` (PAR-965): one registration answers everything a window sends. It finds the method,
@@ -63,25 +64,12 @@ export interface SendingPage {
   url: string
 }
 
-/** A page's address without its query or hash: its scheme, host and path. */
-function pageOf(url: string): string | undefined {
-  if (!URL.canParse(url)) {
-    return undefined
-  }
-
-  const { protocol, host, pathname } = new URL(url)
-
-  return `${protocol}//${host}${pathname}`
-}
-
 /**
  * Whether a request came from Parity's own page: a window's main frame, not an offscreen render window's, showing the
  * page at `rendererUrl`. A query or hash doesn't make it another page; another path, host or scheme does.
  */
 export function fromParityPage(page: SendingPage, rendererUrl: string): boolean {
-  const here = pageOf(page.url)
-
-  return !page.render && page.mainFrame && here !== undefined && here === pageOf(rendererUrl)
+  return !page.render && page.mainFrame && onPage(page.url, rendererUrl)
 }
 
 /** A method's name as it goes in a refusal: quoted, unless it isn't a short string, so a page can't fill the log. */

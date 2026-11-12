@@ -8359,3 +8359,23 @@ PAR-1012 to PAR-1015 moved one each. My calls:
 - **`index.ts` is wiring:** it builds the adapters, creates the four, and connects them to each other and to the app. It
   went from 1,504 lines to about 1,020. The rest of it is the account, the connectors, the theme, the menus and the
   window's handlers, which already had modules of their own.
+
+## Parity's windows stay on Parity's page (PAR-975)
+
+Project code runs in the editor window's page and in the offscreen render windows. Nothing stopped either navigating
+elsewhere, and every load of the editor window was given a port to the project service, so a page a link or script took
+it to would keep the preload bridge and every service method. My calls:
+
+- **Each window shows one page.** The editor window shows `PARITY_RENDERER_URL`: the Vite server's page in development,
+  `parity://app/index.html` installed. A render window shows `render.html` beside it. `onPage` in `main/parity-page.ts`
+  compares by scheme, host and path, as the sender check has since PAR-965, so a query, a hash or a reload is the same
+  page. `fromParityPage` now uses it, so the two can't drift apart.
+- **`will-navigate` and `will-redirect` refuse anywhere else,** through `pageGuard`. A link the editor window refuses
+  opens in the browser when `opensInBrowser` takes it, which is the window-open handler's rule (https, or http on
+  localhost and 127.0.0.1) and now its function too. A refused redirect opens nothing, since no one clicked it, and a
+  render window opens nothing, since no one sees it.
+- **Only the main frame is held.** Frames inside a design, such as an embedded video or map, navigate and redirect as
+  they would in a browser. They don't get the preload bridge, and the sender check already refuses them.
+- **Only Parity's page gets a service port.** `createProjectService` takes `parityPage`, and both `connect` and a
+  restart's reconnecting skip any other page; one that isn't Parity's doesn't start a service either. The guard should
+  mean no other page ever loads, so this is the second lock behind it.

@@ -34,6 +34,11 @@ export interface ProjectServiceOptions<Process extends ServiceProcess, Window> {
   windows: () => Window[]
   /** Whether `window`'s page is loading, so it connects once it has loaded. */
   loading: (window: Window) => boolean
+  /**
+   * Whether `window` shows Parity's own page, the only page given a channel to the service. Project code runs in that
+   * page, so one it navigated to gets none (PAR-975).
+   */
+  parityPage: (window: Window) => boolean
   /** Gives `window`'s page its own channel to `service`. */
   join: (service: Process, window: Window) => void
   /** Whether the app is quitting, so a service that stops isn't started again. */
@@ -62,8 +67,8 @@ export interface ProjectService<Window> {
    */
   start(loaded?: Window): void
   /**
-   * Gives a page its own channel to the service. With none running, as at launch or after a crash, it starts one the way
-   * a restart does, so every other open window gets a channel to it too (PAR-788).
+   * Gives a page its own channel to the service, when it's Parity's own page. With none running, as at launch or after a
+   * crash, it starts one the way a restart does, so every other open window gets a channel to it too (PAR-788).
    */
   connect(window: Window): void
   /** The running service's channel, while one runs. */
@@ -81,6 +86,7 @@ export function createProjectService<Process extends ServiceProcess, Window>({
   handlers,
   windows,
   loading,
+  parityPage,
   join,
   quitting,
   missingEntry,
@@ -169,13 +175,17 @@ export function createProjectService<Process extends ServiceProcess, Window>({
     previous?.kill()
 
     for (const window of windows()) {
-      if (window === loaded || !loading(window)) {
+      if (parityPage(window) && (window === loaded || !loading(window))) {
         connect(window)
       }
     }
   }
 
   const connect = (window: Window) => {
+    if (!parityPage(window)) {
+      return
+    }
+
     if (!running) {
       start(window)
 

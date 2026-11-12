@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep the editor and render windows on Parity's page: links off it open in the browser, and only Parity's page gets a channel to the project service",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
