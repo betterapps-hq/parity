@@ -444,8 +444,9 @@ still need your call.
   stays live, as does everything while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from
   the live frame once it has stayed the same for a second, its text as faded bars in the text's colour and its cards,
   fields, buttons and images as flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured
-  height. A frame not measured yet stays live. Bitmaps and skeletons are kept in memory only, so a code change never
-  shows a stale one. Below about 5%, boards and frames also drop their shadows.
+  height. A frame not measured yet stays live. Skeletons are kept in memory only. Bitmaps are also kept on disk for the
+  next session (PAR-179), named by what they show, the project's code included, so a code change never shows a stale
+  one. Below about 5%, boards and frames also drop their shadows.
 - **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
   its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
   near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
@@ -7363,3 +7364,21 @@ CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Pri
 After, with the same app and tab (medians of 5, the machine busy with other sessions): `tabs` went from 2.0 s through
 npx to 0.39 s through the Git Bash launcher and 0.37 s through `parity.cmd`; `exec` of `Print(1)` from 2.45 s to 0.74 s,
 most of which is now the app running the snippet.
+
+## Agents declare a component's params directly (PAR-901)
+
+Agents could only give a component design params through `ExtractComponent`, which needs two or more built copies, so a
+part built once, such as an app's sidebar, meant building throwaway copies. You approved this shape on 2026-11-11:
+
+- **`CreateDesign` takes `params`,** in the `.par` file's shape, and nodes in its `root` bind them with `bind`, as
+  document.md describes, so an agent learns one shape. A variant option's id is made from its name unless given, its
+  changes are keyed by node id or name as `AddState`'s are, and a variant's default can be an option's id or name.
+- **`AddParam`, `UpdateParam` and `DeleteParam` change them afterwards,** as `AddState`, `UpdateState` and `DeleteState`
+  change states, and `Update(path, { bind })` binds or unbinds a node in the base design.
+- **Renaming carries everything with it:** the binds, the board's option, and every instance's args and patches in the
+  tab. A param's type doesn't change; delete it and add it again.
+- **Deleting a param or unbinding a field keeps what it showed,** the param's default as the node's own value, as
+  unbinding in Props does, and instances drop the arg.
+- **A bind that can't work fails the call:** one naming a param the design doesn't have, one of the wrong type, or one
+  outside a component design. Nothing checked binds before.
+- **The editor's Props and Variants sections need no change;** they show whatever params a design has.
