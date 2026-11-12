@@ -202,3 +202,8 @@ callers sharing a display name. `--label` names the task separately.
 For MCP, Parity uses the client's declared `clientInfo.title`, then `clientInfo.name`, then `Agent` if neither is
 nonblank. Names are trimmed and otherwise preserved; no list of known agents or tool environment detection is needed.
 These display names are self-reported, not authentication.
+
+An MCP session's subagents share its connection, so they share its cursor unless each says who it is. Every MCP tool
+that reaches the app takes an optional `subagent`, a short name the subagent gives itself and passes on each call. A
+call that names one shows as `Header (Claude Code)` with a cursor of its own; a call that names none shows as the
+session.

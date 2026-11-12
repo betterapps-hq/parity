@@ -292,6 +292,58 @@ export const TwoAgents: Story = {
   }
 }
 
+/**
+ * One session's subagents as the app names them once each says who it is (PAR-960): its own name first, then the
+ * session's, with an id under the session's, as `presenceIdentity` in `@parity-app/agent` builds them.
+ */
+const subagent = (name: string) => ({ name: `${name} (Claude Code)`, id: `Claude Code#1a2b3c4d/${name}` })
+const headerPass = subagent("Header")
+const pricingPass = subagent("Pricing")
+const signInPass = subagent("Sign in")
+
+export const ThreeSubagents: Story = {
+  args: {
+    note: "One session's three subagents, each naming itself on its calls: a cursor and a strip each.",
+    calls: [
+      {
+        after: 400,
+        label: "Tighten the heading",
+        agent: headerPass,
+        steps: [
+          { kind: "read", design: settings },
+          { kind: "write", design: settings, node: "heading" }
+        ]
+      },
+      {
+        after: 300,
+        label: "Review the plans",
+        agent: pricingPass,
+        steps: [
+          { kind: "read", design: pricing },
+          { kind: "read", design: pricing, node: "plans" },
+          { kind: "measure", design: pricing, node: "cta" }
+        ]
+      },
+      {
+        after: 300,
+        label: "Check the form",
+        agent: signInPass,
+        steps: [
+          { kind: "read", design: signIn, node: "email" },
+          { kind: "write", design: signIn, node: "submit" }
+        ]
+      },
+      // Each subagent's next call picks up on its own cursor.
+      {
+        after: 5000,
+        label: "Check the heading",
+        agent: headerPass,
+        steps: [{ kind: "screenshot", design: settings }]
+      }
+    ]
+  }
+}
+
 export const EveryKindOfLook: Story = {
   args: {
     note: "Reads, writes, measurements and screenshots all scan their target; a measurement labels its size.",

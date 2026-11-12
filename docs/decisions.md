@@ -7761,3 +7761,26 @@ Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
 - **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
   and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
 - **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.
+
+## A subagent names itself on each call (PAR-960)
+
+One Claude session that handed work to three subagents showed one cursor: subagents share their parent's MCP connection,
+and a cursor is keyed by the id the server makes once, at `initialize`. My calls:
+
+- **The client doesn't say which subagent is calling.** Claude Code 2.1.294 puts `claudecode/agentId` and
+  `claudecode/agentType` in a call's `_meta` only for its own `claude-code-remote` server; every other server gets
+  `claudecode/toolUseId`, which changes with each call. Read from its binary on 2026-11-11, not seen on the wire: its
+  CLI wasn't signed in here, so a session with real subagents couldn't be run against a logging server.
+- **So a call says it itself,** with an optional `subagent` on every MCP tool that reaches the app. Nothing else about a
+  call tells callers apart: a label changes with the task, and calls that overlap can be one agent's.
+- **It's bare in each tool's schema, and explained once** in the server's instructions and the skill. A description on
+  each of 20 tools would cost the tool list about 1 KB (PAR-510); bare, it costs 0.5 KB, and the budget goes from 21 KB
+  to 21.5. Whether subagents fill it in without a description is unmeasured; a description on each tool is the next step
+  if they don't.
+- **It travels beside the caller, not in it.** `/rpc`'s body carries `subagent` next to `agent` and `agentId`, so
+  telemetry still tags the session by its declared name and id, and words an agent made up stay out of its tags. Only
+  the canvas joins them: `Header (Claude Code)`, with the id `<session id>/Header`.
+- **Read leniently,** as the caller's name is: a name that's blank or isn't text is left out rather than failing the
+  call. It's kept to one line and 40 characters.
+- **The CLI has no flag for it.** A terminal's calls are separate processes that already name themselves with
+  `PARITY_AGENT_NAME`, so each subagent sets its own.
