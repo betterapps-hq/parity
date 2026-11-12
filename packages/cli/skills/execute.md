@@ -61,13 +61,13 @@ GetModes(design?): { settings, variables, viewports, modes, designs }   // modes
 Selection(): { design?, node?, mode? }           // what the person has selected
 
 // Designs
-CreateDesign({ name, kind?, root?, x?, y?, width?, height?, file?, baseState? }): string   // the new design's id
+CreateDesign({ name, kind?, root?, x?, y?, width?, height?, file?, baseState?, params? }): string   // the new design's id
 UpdateDesign(design, { name?, kind?, x?, y?, width?, height?, mode?, showModes?, state?, allStates? }): void
 DeleteDesign(design): void
 
 // Nodes
 Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component; an image's src, alt, credit
+Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component, bind; an image's src, alt, credit
 Replace(path, node): string
 Move(path, parent, { index?, slot? }?): void     // within one design
 Copy(path, parent, { index?, slot?, name? }?): string
@@ -82,6 +82,9 @@ DeleteState(design, state): void
 // Components
 FindRepeats(design): Repeat[]                    // parts that repeat with the same structure
 ExtractComponent(design, nodes, { name, params?, file? }): string
+AddParam(design, name, { type, default?, description?, options? }): void
+UpdateParam(design, name, { name?, default?, description?, options? }): void
+DeleteParam(design, name): void
 
 // Modes and tokens
 SetModes(settings): void                         // replaces the project's modes
@@ -271,8 +274,9 @@ selected one" usually mean it.
 
 Makes a design and returns its id. Without `root` it starts as a page layout with padding, a gap and the background and
 foreground colours. Without `x` and `y` it goes into empty space. `kind: "component"` makes a component design, which
-screens place as instances; most component designs come from `ExtractComponent` instead, because that also gives them
-params.
+screens place as instances. When the same part is already built more than once, `ExtractComponent` makes the component
+from those copies instead. A component built once, such as an app's sidebar, declares its `params` here, and its nodes
+bind them (see Params below).
 
 `kind: "frame"` makes a frame, the light kind for sketching an idea before it's a screen or a component: an empty padded
 layout, drawn once at its own `width` and `height` in the project's primary mode. A frame has one state, no params and
@@ -416,6 +420,56 @@ Then, in the next snippet, extract with names that say what each param is:
 const [rows] = repeats
 ExtractComponent("team-members", rows.nodes, { name: "Member row", params: { [rows.params[0].name]: "name" } })
 ```
+
+### Params
+
+A component design's params are what each instance can change, in the shape document.md gives: a `type` (`text`,
+`boolean`, `number`, `value` or `variant`), an optional `default`, which the component's own board shows, and an
+optional `description`. A variant also has `options`, each with a `name`, an `id` made from the name unless you give
+one, and `overrides`: what that option changes, keyed by node id or name, as `AddState` takes `changes`. A variant's
+`default` is an option's id or name; without one it's the first option.
+
+Declare them in `CreateDesign`, and bind nodes to them in `root`: `bind.text` for a text node's words, `bind.visible`
+for whether a node shows (a boolean param), and `bind.props` for a code component's props.
+
+```js
+const sidebar = CreateDesign({
+  name: "App sidebar",
+  kind: "component",
+  root: {
+    type: "layout",
+    name: "Sidebar",
+    style: { gap: 4 },
+    children: [
+      { type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } },
+      { type: "text", name: "Beta", text: "Beta", bind: { visible: "showBeta" } }
+    ]
+  },
+  params: {
+    workspace: { type: "text", default: "Acme" },
+    showBeta: { type: "boolean", default: false },
+    density: {
+      type: "variant",
+      options: [{ name: "Comfortable" }, { name: "Compact", overrides: { Sidebar: { style: { gap: 2 } } } }]
+    }
+  }
+})
+```
+
+Change them afterwards with `AddParam`, `UpdateParam` and `DeleteParam`, and bind or unbind a node with
+`Update(path, { bind: { text: "workspace", visible: null } })`, in the base design only. Unbinding a field leaves the
+node showing the param's default as its own value.
+
+- `UpdateParam` with `name` renames the param. The nodes that bind it, the option the board shows, and every instance's
+  `args` and patches in the tab change with it.
+- `UpdateParam` with `options` replaces a variant's list, in order. An option named as before keeps its id and its
+  `overrides` unless you give new ones. Instances that picked an option that's gone show the default.
+- `default: null` or `description: null` takes it away. A param's type can't change: delete it and add it again.
+- `DeleteParam` leaves each bound node showing the param's default, and takes the param out of every instance's `args`.
+
+A param's name is a prop in code, so it has to start with a letter, have only letters and digits, and not be another
+prop's or slot's. A `bind` that names a param the design doesn't have, or one of the wrong type, fails the call, and so
+does a bind outside a component design.
 
 ## Modes and tokens
 
