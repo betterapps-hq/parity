@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query wins over app state; its text and props stay under them (PAR-902).",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

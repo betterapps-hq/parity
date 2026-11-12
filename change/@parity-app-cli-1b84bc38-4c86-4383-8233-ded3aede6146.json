@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it created (PAR-909)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
