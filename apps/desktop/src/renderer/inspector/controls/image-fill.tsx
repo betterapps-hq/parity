@@ -8,7 +8,16 @@ import {
   SelectValue
 } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, ImagePlus, Search } from "lucide-react"
-import { type DragEvent, type ReactNode, useRef, useState, useSyncExternalStore } from "react"
+import {
+  createContext,
+  type DragEvent,
+  type ReactNode,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -19,7 +28,10 @@ import {
   addProjectImage,
   type ImageFit,
   type ImagePaint,
+  imageName,
+  imagePreview,
   projectImages,
+  type StockPhoto,
   stockPhotos,
   stockSrc,
   watchProjectImages
@@ -59,6 +71,53 @@ const isImage = (file: File) => file.type.startsWith("image/")
  * which stands in here for copying it into `public/images/`.
  */
 export const addImageFile = (file: File): string => addProjectImage(file.name, URL.createObjectURL(file))
+
+/** One of the project's images, by the `src` a fill names it with, with its name and a picture of it to draw. */
+export interface SourceImage {
+  src: string
+  name: string
+  preview: string
+}
+
+/**
+ * Where a fill's images come from: the project's own, a stock library's, and how one is added. The stories use the
+ * stand-ins in lists-data.ts; the Design tab gives the project's (PAR-931).
+ */
+export interface ImageSource {
+  images: readonly SourceImage[]
+  /** Stock photos to link, none where no library is offered here. */
+  stock: readonly StockPhoto[]
+  /** Saves a file into the project, and gives the `src` a fill uses for it. */
+  add: (file: File) => Promise<string>
+  /** A picture of the image a fill names, to draw it with. */
+  preview: (src: string) => string | undefined
+  /** How a fill's row names its image. */
+  name: (src: string) => string
+}
+
+const ImageSourceContext = createContext<ImageSource | undefined>(undefined)
+
+/** Gives the image fills inside their images. */
+export const ImageSourceProvider = ImageSourceContext
+
+/** Where the image fills here take their images from: what's given, or the stand-ins. */
+export function useImageSource(): ImageSource {
+  const given = useContext(ImageSourceContext)
+  const images = useSyncExternalStore(watchProjectImages, projectImages)
+
+  const standIns = useMemo<ImageSource>(
+    () => ({
+      images: images.map((image) => ({ src: `/images/${image.name}`, name: image.name, preview: image.preview })),
+      stock: stockPhotos,
+      add: (file) => Promise.resolve(addImageFile(file)),
+      preview: imagePreview,
+      name: imageName
+    }),
+    [images]
+  )
+
+  return given ?? standIns
+}
 
 /**
  * Where an image can be dropped: whether one's over it now, and the handlers for its element. A drop it takes goes no
@@ -180,7 +239,7 @@ function Results({ title, children }: { title: string; children: ReactNode }) {
 const firstResults = 6
 
 export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: (paint: ImagePaint) => void }) {
-  const images = useSyncExternalStore(watchProjectImages, projectImages)
+  const source = useImageSource()
   const [query, setQuery] = useState("")
   const [said, setSaid] = useState("")
   const browse = useRef<HTMLInputElement>(null)
@@ -188,19 +247,20 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
   const choose = (src: string) => onChange({ ...paint, src })
 
   const add = (file: File) => {
-    const src = addImageFile(file)
-    choose(src)
-    setSaid(`Added ${src.replace("/images/", "")} to the project`)
+    void source.add(file).then((src) => {
+      choose(src)
+      setSaid(`Added ${src.replace("/images/", "")} to the project`)
+    })
   }
 
   const drop = useImageDrop(add)
   const words = query.trim().toLowerCase()
-  const inProject = images.filter((image) => image.name.toLowerCase().includes(words))
+  const inProject = source.images.filter((image) => image.name.toLowerCase().includes(words))
 
   const stock =
     words === ""
-      ? stockPhotos.slice(0, firstResults)
-      : stockPhotos.filter((photo) => [photo.title, ...photo.tags].some((word) => word.toLowerCase().includes(words)))
+      ? source.stock.slice(0, firstResults)
+      : source.stock.filter((photo) => [photo.title, ...photo.tags].some((word) => word.toLowerCase().includes(words)))
 
   return (
     <div
@@ -245,20 +305,16 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
                 </button>
               </Hint>
             )}
-            {inProject.map((image) => {
-              const src = `/images/${image.name}`
-
-              return (
-                <ImageTile
-                  key={image.name}
-                  name={image.name}
-                  preview={image.preview}
-                  hint="In public/images/"
-                  chosen={paint.src === src}
-                  onPick={() => choose(src)}
-                />
-              )
-            })}
+            {inProject.map((image) => (
+              <ImageTile
+                key={image.src}
+                name={image.name}
+                preview={image.preview}
+                hint="In public/images/"
+                chosen={paint.src === image.src}
+                onPick={() => choose(image.src)}
+              />
+            ))}
           </Results>
         )}
         {stock.length > 0 && (

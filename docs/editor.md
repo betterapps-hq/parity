@@ -3063,11 +3063,10 @@ it.
 - **Appearance:** Radius from the project's radius tokens, Opacity, and Clip content (clip or scroll).
 - **Text** (Text inside on a layout, a component or an instance): color, font, size, weight with italic, line height,
   letter spacing, align, decoration and case, with Resizing and Max lines for a text layer.
-- **Fill and Stroke:** Fill is the one color token `NodeStyle` holds, until PAR-931 makes it a list. A button adds or
-  removes the stroke, which has a color, one width and a style: solid, dashed or dotted.
+- **Stroke:** a button adds or removes it; it has a color, one width and a style: solid, dashed or dotted.
 
-Layer order (PAR-925) and Effects (PAR-933) make their edits through the style editor as each comes, so they don't
-preview while typing; `StyleSections` gives only the sections above the live edits.
+Layer order (PAR-925), Fill (PAR-931) and Effects (PAR-933) make their edits through the style editor as each comes, so
+they don't preview while typing; `StyleSections` gives only the sections above the live edits.
 
 How the controls work with the document:
 
@@ -3126,7 +3125,7 @@ Radius, Shadow, Font, Line height and Letter spacing keep their rows' labels. Th
 such as an instance's slot ("sideActions slot, Empty").
 
 Since PAR-923 the style sections use the approved controls instead, whose token chips are named the same way with a
-colon ("Fill: primary", "Radius: md"), and whose pickers are named for their row ("Fill picker").
+colon ("Text color: primary", "Radius: md"), and whose pickers are named for their row ("Text color picker").
 
 Code: `TokenInput` in `apps/desktop/src/renderer/chrome/fields.tsx` takes the `label`, which every caller passes:
 `chrome/fields.stories.tsx` and the typography preset exploration's Text section.
@@ -3136,7 +3135,7 @@ Tests:
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
   names, and the name following a token picked in the picker. Both fail without the change.
 - `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
-  open their pickers by name: "Fill picker" for the first.
+  open their pickers by name: "Fill 1 picker" for the first.
 
 ### Each field's label names its control (PAR-892)
 
@@ -3241,10 +3240,9 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until Grid placement is.
-  Fill holds the one color token `NodeStyle` holds, until PAR-931. A frame's Frame size is today's Size, whose width and
-  height are the frame's. Align self in a flex parent isn't in the agreed table, which has it only in Grid placement; it
-  stays as it was.
+- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A
+  frame's Frame size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the
+  agreed table, which has it only in Grid placement; it stays as it was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3290,6 +3288,39 @@ order, from opacity and from the root, and none for layers in different ones); `
 with `Update`, read with `Get`, a fraction refused); `packages/agent/src/lint.test.ts` (a name that isn't a token);
 `apps/desktop/src/renderer/inspector/sections/layer-order.test.ts` (the project's z-index tokens in order, what the
 field shows and stores, the hint's names).
+
+### Filling a layer with colors, gradients and images (PAR-931)
+
+The Fill section is the approved Paint stack: a layer's paints, top first, each a color, a linear, radial or angular
+gradient, a gradient token or an image, with its alpha, an eye that keeps it without drawing it, and a handle to drag it
+past the others. + adds a paint on top in the project's own colors, and opens its editor. A gradient's editor starts
+from the project's gradient tokens, read from their CSS; editing a token's stops makes the gradient the layer's own. An
+image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
+then its fit and position. An image dropped on the section adds an image fill.
+
+The document keeps the stack in `background`: one color token is a string, as it always was, and a stack a list of
+paints ([decisions.md](decisions.md)). A stack of one plain color is written back as its token's name. The bottom color
+is drawn as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's
+dev server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill
+paints as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint
+names any color or gradient in it that isn't a token. With several layers selected and fills that differ, the section
+says so and + replaces them all.
+
+Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
+paint's alpha, stops and angle are each one undo step per change, not per drag.
+
+Code: `paint.ts` in `@parity-app/core` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
+`packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
+the document's paints to the control's and reading gradient tokens; `ImageSource` in
+`inspector/controls/image-fill.tsx`.
+
+Tests: `packages/core/src/paint.test.ts` (10): an old single color reads as it did, a stack round-trips, bad stops, fits
+and alphas are refused, the CSS each kind writes, and a render draws it. `packages/editor/src/style-editing.test.ts`
+(the Fill row's edit), `packages/editor/src/project-images.test.ts` (an image a fill paints is used),
+`packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it back, and hears about a color that
+isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against the project), and
+`apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back, ids kept so an open
+editor stays open, and gradient tokens read from CSS.
 
 ### Effects: shadows, filters and transform (PAR-933)
 

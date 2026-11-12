@@ -43,7 +43,7 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
 
 /**
  * The sections whose controls make their edits through `SectionProps`' `edit`, and so preview as they're typed. Layer
- * order and Effects make theirs through the style editor itself, as each edit comes.
+ * order, Fill and Effects make theirs through the style editor itself, as each edit comes.
  */
 const liveSections = new Set<StyleSection>([
   "frameSize",
@@ -53,7 +53,6 @@ const liveSections = new Set<StyleSection>([
   "spacing",
   "appearance",
   "text",
-  "fill",
   "stroke"
 ])
 

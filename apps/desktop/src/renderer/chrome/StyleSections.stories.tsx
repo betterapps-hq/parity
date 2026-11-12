@@ -157,7 +157,7 @@ async function opens(canvasElement: HTMLElement, name: string) {
 /** The fill picker open: the project's colors with swatches, searchable, and None. */
 export const PickingAColor: Story = {
   loaders: [pick("Pricing", "Brand mark")],
-  play: async ({ canvasElement }) => opens(canvasElement, "Fill picker")
+  play: async ({ canvasElement }) => opens(canvasElement, "Fill 1 picker")
 }
 
 /** The gap's options open: the project's spacing tokens, with each one's size. */
