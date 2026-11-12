@@ -147,7 +147,8 @@ export const degradedFeatures = [
   "frame_bitmap",
   "component_preview",
   "preview_index",
-  "reopening"
+  "reopening",
+  "recovery"
 ] as const
 
 export type DegradedFeature = (typeof degradedFeatures)[number]
@@ -165,7 +166,8 @@ const degradedMeaning: Record<DegradedFeature, string> = {
   frame_bitmap: "A frame's bitmap can't be kept",
   component_preview: "A component preview can't be kept",
   preview_index: "The component preview index can't be kept",
-  reopening: "The open projects can't be kept, so they don't reopen next time"
+  reopening: "The open projects can't be kept, so they don't reopen next time",
+  recovery: "A project's unsaved changes can't be kept, so a crash or forced quit would lose them"
 }
 
 export const serviceDegraded = defineEvent(

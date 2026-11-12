@@ -4027,6 +4027,37 @@ not in Monthly; and 12 typed in a number param with no default gave the number 1
 
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
 
+### Unsaved changes survive a crash (PAR-905)
+
+A crash, a forced quit or an agent stopping Parity no longer loses unsaved changes. Agents can't save, so long agent
+runs build up a lot of them between the person's saves.
+
+- **A recovery copy is kept** about a second after the changes change, while any are unsaved: each unsaved `.par` as it
+  is on the canvas, the modes when they changed, and token values the stylesheet doesn't have yet. It's kept in Parity's
+  app data, `<userData>/recovery/<hash of the project's folder>.json`, never in the project. The project service writes
+  it, beside a temporary file it renames over the copy.
+- **It's removed once nothing is unsaved:** after Save, after undoing back to what the files hold, when a tab closes,
+  and when quitting after Save or Don't save. A clean quit leaves no copy, so nothing is offered next time.
+- **The next open offers it back.** As the project opens, from the last session's tabs or by hand, "Restore unsaved
+  changes?" says when the changes were made ("Parity closed before you saved your changes at 6:35 PM today") and offers
+  Discard and Restore. Restore is focused; Escape and clicking away do nothing. Restore puts the changes back as one
+  undo step, "Restore unsaved changes", unsaved, so the tab shows its dot, Save writes them and Undo goes back to what
+  the files hold. It goes over whatever the files hold now without asking, since an agent often changes a file with the
+  CLI in between. Discard removes the copy. Projects that open together are asked about one after another. Nothing is
+  kept for the project until it's answered, so the copy can't be written over first.
+
+Tests:
+
+- `packages/editor/src/recovery.test.ts` (8): nothing kept while everything's saved or undone back; each unsaved file,
+  the modes and token edits kept; restoring as one unsaved undo step, tokens with what the stylesheet holds, files made
+  and deleted, and over a file an agent changed since; reading a copy back, and nothing from one that isn't.
+- `apps/desktop/src/renderer/recovery.test.ts` (5): nothing written before the offer is answered, one write after a run
+  of changes, removed after Save, brought up to date at once as the app quits, removed when discarded.
+- `apps/desktop/src/utility/recovery.test.ts` (4): a file per project outside it, removed when there's nothing to keep,
+  nothing read from a copy cut short or from another version, nothing kept without a folder.
+- `apps/desktop/src/renderer/chrome/report-time.test.ts`: how the time reads ("6:35 PM today").
+- `chrome/RestorePrompt.stories.tsx`: Offered, Restored (the tab's dot, and the undo step) and Discarded.
+
 ## Tokens
 
 What the Tokens tab shows, and how a token is copied and edited from it.

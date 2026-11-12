@@ -7491,3 +7491,22 @@ My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
 - **The service's preview comments its own URL,** apart from the one comment the other previews share.
 - **TanStack Router's generated route tree is committed,** since types are checked against it, and kept from the
   formatter and the linter, as it asks.
+
+## Unsaved changes are kept outside the project until they're saved (PAR-905)
+
+A crash, a forced quit or an agent stopping Parity lost every unsaved change. You approved the restore prompt in
+Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
+
+- **The copy is the history's unsaved difference, not its undo history:** each unsaved file as it is, changed modes, and
+  token edits with the value the stylesheet holds. Undo history, the camera and the selection aren't kept. A reopened
+  project starts its history again with one step, the restore.
+- **It's kept in Parity's app data, one file a project, by the service.** The window can't write files, and the service
+  already keeps the open projects there. The project's own files are never written, so agents still can't save.
+- **Written a second after the changes change, removed once none are unsaved.** Saving leaves the history's revision as
+  it is, so the keeper also watches whether anything is unsaved. Quitting brings every copy up to date at once, or
+  removes it after Don't save, before the window closes.
+- **Restore goes over the files without asking.** You decided on 2026-11-11 that a file changed on disk since, as an
+  agent's CLI edit, isn't worth a message: the copy loads, unsaved, and Undo goes back to the file.
+- **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
+  and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
+- **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.

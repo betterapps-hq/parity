@@ -11,6 +11,8 @@ import { ConvertToFrameDialog, stopAskingToConvert } from "./chrome/ConvertToFra
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
 import { closeQuickInsert, QuickInsert } from "./chrome/QuickInsert.tsx"
 import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
+import { restoreAsked } from "./chrome/restore.ts"
+import { RestorePrompt } from "./chrome/RestorePrompt.tsx"
 import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
@@ -150,6 +152,9 @@ export function AppWindow() {
       </ErrorBoundary>
       <ErrorBoundary name="unsaved" label="Save changes" kind="dialog" onClose={cancelUnsaved}>
         <UnsavedPrompt />
+      </ErrorBoundary>
+      <ErrorBoundary name="restore" label="Restore unsaved changes" kind="dialog" onClose={restoreAsked}>
+        <RestorePrompt />
       </ErrorBoundary>
       <ErrorBoundary name="sign-in-dialog" label="Sign in" kind="dialog" onClose={accountActions.close}>
         <SignInDialog />
