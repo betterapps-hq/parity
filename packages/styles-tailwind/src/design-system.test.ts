@@ -106,6 +106,17 @@ describe("the design system Tailwind 4.3 gives", () => {
     ).toEqual(["p-4", "flex", "md:grid", "focus-visible:text-[red]"])
   })
 
+  it("spells two ways of writing one value as the same class, which is how the printer knows they're one value", () => {
+    expect(spelling.canonicalizeCandidates(["[margin:0]"])).toEqual(["m-0"])
+    expect(spelling.canonicalizeCandidates(["[margin:0px]"])).toEqual(["m-0"])
+    expect(spelling.canonicalizeCandidates(["[gap:calc(var(--spacing)_*_1)]"])).toEqual(["gap-1"])
+    expect(spelling.canonicalizeCandidates(["[gap:var(--spacing)]"])).toEqual(["gap-1"])
+    expect(spelling.canonicalizeCandidates(["[font-weight:500]"])).toEqual(["font-medium"])
+    expect(spelling.canonicalizeCandidates(["[font-weight:var(--font-weight-medium)]"])).toEqual(["font-medium"])
+    // A length isn't converted between units, so a pixel value keeps its brackets.
+    expect(spelling.canonicalizeCandidates(["[gap:4px]"])).toEqual(["gap-[4px]"])
+  })
+
   it("compiles differently once it has spelled something, which is why the printer keeps two", async () => {
     const [fresh, spelled] = await Promise.all([load(), load()])
     spelled.canonicalizeCandidates(["p-4"])
