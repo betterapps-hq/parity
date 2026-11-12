@@ -178,7 +178,7 @@ Each is its own issue and pull request:
 
 1. Sign-in tried in an installed build (PAR-612's last step).
 2. `apps/portal` with one health route, deployed through the shared pipelines to `api.tryparity.dev`.
-3. `@parity-app/service` and the two routes, with the session check and Pixabay's key as a secret.
+3. `@parity-app/service` and the two routes, with the session check and Mobbin's and Pixabay's keys as secrets.
 4. Main's `SearchService` and the `signed-out` problem, with Sign in in the library browser, designed in Storybook
    first. This is what makes an installed copy search.
 5. [connectors.md](../connectors.md), [editor.md](../editor.md), [support.md](../support.md) and
