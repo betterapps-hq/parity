@@ -1,8 +1,30 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 21:49:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 22:45:53 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.75.0
+
+Thu, 12 Nov 2026 22:45:53 GMT
+
+### Minor changes
+
+- Rebuild the Design tab's style sections on the approved controls, editing the document's styles with the project's own
+  tokens (ajcraswell@gmail.com)
+- Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and
+  the inspector. Text and props still bind. (ajcraswell@gmail.com)
+- Mark a value changed in the state being edited with a dot on its control (ajcraswell@gmail.com)
+- The Design tab's fields run through one edit session: Escape cancels a scrub, a run of Up and Down or a drag inside a
+  control is one undo step that Escape takes back, Fill, Effects and Motion preview too, and +8, Up and scrubs in a
+  mixed W, H or side work from each layer's own value (ajcraswell@gmail.com)
+
+### Patches
+
+- Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's
+  selected by then, and Paste to replace replaces nothing when the selection changed meanwhile (ajcraswell@gmail.com)
+- Take the Code tab out of the inspector, with the canvas's Inspect picking only it started; the canvas menu's Open in
+  editor stays (ajcraswell@gmail.com)
 
 ## 0.74.4
 

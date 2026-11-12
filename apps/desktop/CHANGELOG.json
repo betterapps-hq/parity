@@ -2,6 +2,53 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 22:45:53 GMT",
+      "version": "0.75.0",
+      "tag": "@parity-app/desktop_v0.75.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "47b9278a2f2722ed307520704327aa3dda6205a7",
+            "comment": "Rebuild the Design tab's style sections on the approved controls, editing the document's styles with the project's own tokens"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "683ec8c151580af88f90748a791c74341c843d9b",
+            "comment": "Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and the inspector. Text and props still bind."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9da3c24f5dbb761704aeab068c218498238513b5",
+            "comment": "Mark a value changed in the state being edited with a dot on its control"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "47b9278a2f2722ed307520704327aa3dda6205a7",
+            "comment": "The Design tab's fields run through one edit session: Escape cancels a scrub, a run of Up and Down or a drag inside a control is one undo step that Escape takes back, Fill, Effects and Motion preview too, and +8, Up and scrubs in a mixed W, H or side work from each layer's own value"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "edbb4794472aa92d91106a856b6e275d20d9d37e",
+            "comment": "Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's selected by then, and Paste to replace replaces nothing when the selection changed meanwhile"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "447092a06a9b0eb477e1925b6cd7893f6c8d81da",
+            "comment": "Take the Code tab out of the inspector, with the canvas's Inspect picking only it started; the canvas menu's Open in editor stays"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 21:49:43 GMT",
       "version": "0.74.4",
       "tag": "@parity-app/desktop_v0.74.4",
