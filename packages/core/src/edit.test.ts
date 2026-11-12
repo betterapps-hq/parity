@@ -11,12 +11,14 @@ import {
   insertNode,
   locateNode,
   mapChildLists,
+  mapNode,
   mapNodes,
   moveNode,
   nodeIds,
   nodeInState,
   nodeLabel,
   propChange,
+  removeNode,
   removeState,
   resetOverride,
   withFreshIds
@@ -321,6 +323,19 @@ describe("mapping every node (PAR-966)", () => {
     const title = findNode(tree, "title")!
     expect(mapChildLists(title, () => [])).toBe(title)
     expect(mapChildLists(row, (nodes) => nodes)).toBe(row)
+  })
+
+  it("lets one node be replaced or removed inside the layers an instance fills its slots with", () => {
+    const replaced = mapNode(tree, "photo", (node) => ({ ...node, hidden: true }))
+    expect(locateNode(replaced, "photo")).toMatchObject({ node: { hidden: true }, slot: "actions" })
+    // The branches beside the change are the same objects.
+    expect(findNode(replaced, "title")).toBe(findNode(tree, "title"))
+    expect(findNode(replaced, "fill")).toBe(findNode(tree, "fill"))
+
+    const removed = removeNode(tree, "name")
+    expect(findNode(removed, "name")).toBeUndefined()
+    expect(findNode(removed, "fill")).toMatchObject({ type: "layout", children: [] })
+    expect(findNode(removed, "photo")).toBe(findNode(tree, "photo"))
   })
 
   it("is how a copy gets fresh ids, the layers an instance fills its slots with included", () => {

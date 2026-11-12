@@ -1,5 +1,9 @@
 # Decisions
 
+- **The style package is `@parity-app/style-schema` (PAR-999).** You found `@parity-app/style` too vague on 2026-11-12
+  and chose this name. Only the name and the folder (`packages/style-schema`) changed: the schema, the ledger,
+  `validate` and the adapter contract are as they were. Entries below written before the rename use the new name.
+
 - **Tokens come in and go out through the styles adapter, and nothing between knows the framework (PAR-911).** You asked
   for this on 2026-11-11, instead of special cases per library. `StylesAdapter` already read a framework's theme
   (`loadTheme`); it now writes token values too (`writeTokens`), and `@parity-app/tokens` keeps only the plain writer
@@ -51,9 +55,9 @@
     Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
     Layer order in a Block layout wait for those.
 
-- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
-  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
-  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+- **Plain CSS is printed and read in `@parity-app/style-schema`, with css-tree's parser, not Lightning CSS (PAR-944).**
+  Step 6 of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for
+  each place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
   `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
   rules it would have written and keeps the rest as text.
   - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
@@ -63,6 +67,33 @@
     or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
   - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
     written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
+
+- **The Tailwind printer takes two values for the same when Tailwind spells both as one class (PAR-1001).** In the
+  running app on 2026-11-11 a layer drew with `m-[0]`, `font-[500]` and `gap-[calc(var(--spacing)_*_1)]`, where a person
+  writes `m-0`, `font-medium` and `gap-1`.
+  - **`canonicalizeCandidates` was already asked, and already gave the right class.** The printer then dropped it,
+    because it read the class back and compared the value as text: `m-0` compiles to `0px`, not `0`; `gap-1` to
+    `var(--spacing)`, not `calc(var(--spacing) * 1)` (every other step keeps the `calc`, which is why `gap-6` came out
+    right); `font-medium` to `var(--font-weight-medium)`, not `500`.
+  - **Where the text differs, Tailwind decides.** The value a class reads back as and the value it's written for are
+    each put to `canonicalizeCandidates` as an arbitrary property, and they're the same value when both come back as one
+    class. The printer still has no table and does no arithmetic of its own. A class is still written only when it reads
+    back as one declaration of the same property in the same place.
+  - **It asks both ways, which is stricter than taking Tailwind's spelling.** Tailwind works a value out from its theme,
+    and a project can set a theme variable somewhere Tailwind doesn't look. The example sets `--radius` to 0.625rem in
+    `:root` while Tailwind's theme has 0.25rem, so Tailwind spells `border-radius: 0.25rem` as `rounded-lg`, which draws
+    0.625rem here. `rounded-lg` reads back as `var(--radius)`, which Tailwind doesn't spell as `rounded-lg`, so the
+    printer writes `rounded-[0.25rem]`. For the same reason `var(--radius-md)` stays `rounded-(--radius-md)`, where
+    Tailwind's tools say `rounded-md`.
+  - **A value written as a number can now come out as the token that holds it:** `font-weight: 500` as `font-medium`,
+    `gap: 1rem` as `gap-4`, `color: #fff` as `text-white`, `line-height: 1.5` as `leading-normal`. That's what you asked
+    for, and what Tailwind's own lint suggests. It draws the same unless the project sets that theme variable
+    (`--font-weight-medium`, `--spacing`) outside its theme, as the example does with `--radius`. A variable that's read
+    straight through, as these four are, is one the printer can't catch that for. This is yours to overrule: the
+    stricter rule would keep a number as a number and only take `0` for `0px` and `calc(x * 1)` for `x`.
+  - **`font-size: var(--text-sm)` stays `text-(length:--text-sm)`.** `text-sm` also sets a line height, so it isn't that
+    declaration. Tailwind's own tools give the same spelling. Pixel lengths keep their brackets too (`gap-[4px]`):
+    Tailwind only converts them to its scale when told the root font size, which the printer doesn't assume.
 
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
@@ -120,7 +151,7 @@
     browser and check nothing without one. A refusal now names the line of the snippet, and the browser is still asked
     after.
 
-- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+- **`@parity-app/style-schema` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
   [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
   `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
   - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
@@ -132,16 +163,16 @@
     replaces the inline styles with rules.
   - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
     `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
-    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
-    itself.
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports
+    `@parity-app/style-schema` itself.
 
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
-  package, `@parity-app/style`, holds the stored style, moved out of core, and turns it into CSS declarations and back;
-  each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling each
-  class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data, gives
-  each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
+  package, `@parity-app/style-schema`, holds the stored style, moved out of core, and turns it into CSS declarations and
+  back; each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling
+  each class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data,
+  gives each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
   package, with the schema leaving core; one format change that renames the keys after their CSS properties, after
   PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
   rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
@@ -3676,6 +3707,37 @@ longer wake the measuring PAR-522 set up; the overlay follows the camera on its 
 - **The element inspector's overlay (PAR-167) reads the canvas area's box only when it has a mark to place.** It
   measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
   through every zoom.
+
+## One reading of a frame for every gesture (PAR-967)
+
+The architecture review of 2026-11-11 found screen pixels per design pixel worked out three ways in thirteen places, and
+one drag mixing two of them (see editor.md, One reading of a frame for every gesture). `canvas/frame-geometry.ts` now
+answers for a frame host. My calls:
+
+- **Read from the DOM, not the camera.** The scale is the frame's drawn width over its laid out width. The camera's zoom
+  times `data-scale` was cheaper but disagrees with the boxes it's used beside until tldraw has drawn the camera, and
+  tldraw writes the camera rounded, so it's off at far zooms too. `editor.getZoomLevel()` stays only where there's no
+  frame to read: drawing a new frame on the canvas, boards, labels and the zoom control. The host's `data-scale` is
+  gone.
+- **Screen pixels throughout, converted once.** Boxes come back in screen pixels, as pointer events, hit testing and
+  tldraw's `screenToPage` speak, and `areaSpace` takes them to the overlay's pixels where it draws. Answering in the
+  overlay's pixels with the area passed in was rejected: every gesture would mix two spaces.
+- **Lazy and kept by nobody.** A `FrameGeometry` reads only what's asked of it, when it's asked, and keeps nothing, so
+  the overlay still chooses what to measure (PAR-577) and nothing is cached in page units (PAR-653). A gesture that
+  wants the frame as it began keeps the numbers it read.
+- **An app module, with its arithmetic apart.** It reads the DOM, so it's the app's. The sums are exported functions
+  tested from numbers, and what gestures make of it, `layer-measure.ts`, takes the geometry as plain boxes, so the
+  consumers are tested in Node. One Chrome suite reads a real frame across zoom, frame scale and a transform.
+- **A node's own scale includes its transforms,** read as its border box on screen over its computed size, which is
+  exact. The text editor and padding handles used `rect.width / offsetWidth`, which rounds to the pixel and ignored a
+  layer turned on its side; one turned or stretched unevenly now takes the frame's scale.
+- **A containing block outside the frame is measured at the frame's scale.** A layer placed absolutely with nothing
+  positioned around it in the design has the frame's outline, `.mode-frame`, as its `offsetParent`, and the frame's
+  `zoom` doesn't scale that outline. Read at its own scale, a companion frame at half size gave half the insets. A
+  review of this change found it before it merged.
+- **Frame skeletons keep their own ratio for now.** `measureFrame` in `canvas/frame-skeletons.ts` divides the frame's
+  drawn width by its width too, but PAR-954 and PAR-955, in progress, work on frames' bitmaps and skeletons, so it moves
+  over in PAR-996 once they land.
 
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
@@ -7587,9 +7649,9 @@ My calls:
   in its state. Showing one frame going from state to state is a feature of its own.
 - **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
   offer Create token, and the Design tab's other fields don't either.
-- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
-  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
-  spring maths from there.
+- **The schema, its CSS and the spring maths are in `@parity-app/style-schema`** (`motion.ts`), beside the rest of the
+  stored style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import
+  the spring maths from there.
 
 ## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
 
@@ -7841,25 +7903,28 @@ the old pictures, "that's the point of the cache", with the screens' sizes. My c
 ## One function maps every node (PAR-966)
 
 Core had `walkNodes` and `childEntries` to visit a tree but nothing to rebuild one, so each caller descended by a node's
-type, and seven of them checked `type === "component"` and stopped at an instance. The layers an instance fills its
+type, and eight of them checked `type === "component"` and stopped at an instance. The layers an instance fills its
 slots with (PAR-84) were skipped. My calls:
 
 - **`mapChildLists` is where a node is known to hold nodes when a tree is rebuilt,** and `childEntries` where it's read:
   a layout's children, a code component's slots, an instance's filled slots. `mapNodes` rebuilds a whole tree on it, a
   node before what it holds, and `mapNode`, `withFreshIds`, Detach, the clipboard's `asShown` and `fitBindings`,
-  `libraryDesigns` and the composition example's numbering all go through it. They sit in `edit.ts` beside `mapNode` and
-  `childEntries`; `walkNodes` stays in `document.ts`, which `edit.ts` imports.
+  `libraryDesigns`, the composition example's numbering and the agent's `drawnLayer` all go through it. They sit in
+  `edit.ts` beside `mapNode` and `childEntries`.
+- **`walkNodes` is left as a second place that knows,** checking types itself. It's in `document.ts`, and calling
+  `childEntries` from there would import `edit.ts`, which imports `render.ts`, which imports `document.ts` back.
 - **What isn't a node tree reads `childEntries` instead.** `structure` in `decompose.ts` makes a string to compare, and
   the agent's `elide` makes a tree that holds `"…"`, so neither maps nodes to nodes. Both now ask `childEntries` where
   the layers are rather than checking the node's type.
-- **Five of the seven were wrong, each shown by a test that failed first.** A copy left an instance's fill as the base
-  state has it; a paste kept the fill's bindings to params the design lacks; a library's design left an instance in a
-  fill pointing at `settings-row` rather than `nova/settings-row`, which the app drew as a missing design; Detach left a
-  nested instance's fill bound, with the component's ids, so detaching two copies gave one design the same id twice; and
-  an agent's `Get` in a state read the fill as stored and ignored `depth` for it.
-- **`findRepeats` was wrong in a way the review didn't name.** It took two instances of one component for the same part
-  whatever filled their slots, then read the values that differ by position, so a shorter fill after a longer one threw
-  a `TypeError`. A fill now counts as structure.
+- **Seven of the eight were wrong, each shown by a test that failed first.** Six as the review reasoned: a copy left an
+  instance's fill as the base state has it; a paste kept the fill's bindings to params the design lacks; a library's
+  design left an instance in a fill pointing at `settings-row` rather than `nova/settings-row`, which the app drew as a
+  missing design; Detach left a nested instance's fill bound, with the component's ids, so detaching two copies gave one
+  design the same id twice; and an agent's `Get` in a state read the fill as stored (`drawnLayer`) and ignored `depth`
+  for it (`elide`).
+- **The seventh, `structure`, broke `findRepeats` in a way the review didn't name.** It took two instances of one
+  component for the same part whatever filled their slots, then read the values that differ by position, so a shorter
+  fill after a longer one threw a `TypeError`. A fill now counts as structure.
 - **The composition example's `numbered` was never wrong.** It's built from a code component's sample, which has no
   instances. It moved onto `mapNodes` so no walker is left that would skip one.
 - **`elide` keeps one difference:** past the depth a layout with nothing in it reads as `[]`, and a slot as `["…"]`
@@ -7933,6 +7998,16 @@ skipped the sender check. My calls:
   for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
   stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
   map, its handler, and its line in the bridge, and the compiler holds the three together.
+
+## The portal's pages are at `tryparity.dev`, blank for now (PAR-1003)
+
+- **`tryparity.dev` serves a blank page from the service's Worker** (your call, 2026-11-12), so the portal's screens
+  have a host before they're built. The page is an empty document titled Parity.
+- **Both hosts reach every route for now** (my call). `tryparity.dev` and `api.tryparity.dev` are two custom domains on
+  one Worker, so the API answers on either. Keeping each host to its own routes waits until there's a page worth keeping
+  apart.
+- **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
+  for an environment.
 
 ## What changed is answered in `@parity-app/change-detection` (PAR-997)
 

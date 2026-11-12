@@ -293,7 +293,6 @@ export function ModeView({
         data-mode={mode.id}
         data-state={state}
         data-primary={primary}
-        data-scale={scale}
         data-viewport={mode.viewport}
         inert={!interactive}
         style={{ width, height, zoom: scale }}

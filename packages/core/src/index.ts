@@ -92,7 +92,7 @@ export * from "./code-editors.ts"
 
 export * from "./element-source.ts"
 
-// The stored style's schema and its CSS are `@parity-app/style`'s. What the rest of Parity reads of them comes through
+// The stored style's schema and its CSS are `@parity-app/style-schema`'s. What the rest of Parity reads of them comes through
 // here, so a package that holds documents needs only core.
 export {
   type EffectColor,
@@ -141,4 +141,4 @@ export {
   type TokenGradientPaint,
   type Transform,
   type Transition
-} from "@parity-app/style"
+} from "@parity-app/style-schema"
