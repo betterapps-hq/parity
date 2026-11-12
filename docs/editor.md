@@ -3418,9 +3418,9 @@ keeps it: one of a row's several fields, such as Min's Minimum width and Minimum
 as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
 token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
 
-Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `ChoiceInput`,
-`SwitchInput` and `ValueInput` take a name only where the row's label doesn't say it. A number field (`NumberField`) is
-named by its own `label`.
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `SwitchInput` and
+`ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label doesn't say it. A number
+field (`NumberField`) is named by its own `label`.
 
 Tests:
 
@@ -3448,6 +3448,25 @@ Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/ins
 Tests: none; it's checked in each control's Changed story in `inspector/controls`: Number field, Color field, Token
 length, Angle, Time, Keyword sets (Align Changed, Cursor Changed), Switch, Icon segments, Component instance, and
 Padding's One Side Changed.
+
+### Selects (PAR-1023)
+
+Every select in the app is one component, `AppSelect`, so they all look and behave alike. Its items sit 4px in from the
+popup's edge, as the app's menus do. A panel's select reads at its field's 12px and opens with the chosen item where the
+value was; a dialog's reads at 13px. A select that can be left unset lists that choice first, in gray, such as Visible
+for Overflow; a select in a row whose layers differ reads Mixed. Keyboard use, focus and names are Base UI's.
+
+Selects built by hand kept missing a part of the kit's Select. Without its `SelectGroup`, for one, the items ran edge to
+edge. So `AppSelect` puts the parts together as shadcn does, and lint stops any other file importing them.
+
+Code: `AppSelect` in `apps/desktop/src/renderer/chrome/AppSelect.tsx`, with `variant` `panel` or `dialog` and `none` for
+the unset item; the `no-restricted-imports` entry for `apps/**` in `vite.config.ts`.
+
+Tests:
+
+- `chrome/AppSelect.stories.tsx` InAPanel and InADialog: each opens its select and checks its items sit in a group
+  padded 4px, at 12px and 13px.
+- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
 
 ### One right edge in the inspector (PAR-552)
 

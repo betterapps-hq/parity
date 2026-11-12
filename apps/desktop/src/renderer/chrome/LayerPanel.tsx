@@ -1,4 +1,4 @@
-import { Button, Kbd, Select, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import {
   type BindableField,
   boardTarget,
@@ -48,13 +48,14 @@ import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldWithProp } from "./field-prop.tsx"
-import { ChoiceInput, Field, PanelSelectContent, SwitchInput, TextInput } from "./fields.tsx"
+import { Field, SwitchInput, TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
   fieldName,
@@ -873,7 +874,9 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
       }
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
-      <Select
+      <AppSelect
+        variant="panel"
+        className="h-6 w-auto max-w-32 shrink-0 gap-1 border-none bg-transparent px-1 shadow-none dark:bg-transparent"
         items={states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
@@ -885,21 +888,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
-      >
-        <SelectTrigger
-          size="sm"
-          className="h-6 w-auto max-w-32 shrink-0 gap-1 border-none bg-transparent px-1 text-xs shadow-none dark:bg-transparent"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <PanelSelectContent>
-          {states.map((candidate) => (
-            <SelectItem key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </SelectItem>
-          ))}
-        </PanelSelectContent>
-      </Select>
+      />
       {/* What edits change wraps rather than spilling past the bar when it doesn't fit beside the state. */}
       <span className="min-w-0 text-muted-foreground">{changes}</span>
     </div>
@@ -1063,15 +1052,16 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
         />
       </Field>
       <Field label="Fit">
-        <ChoiceInput<ImageFit>
+        <AppSelect<ImageFit>
+          variant="panel"
           value={node.fit}
-          placeholder="Cover"
-          options={[
+          none="Cover"
+          items={[
             { value: "cover", label: "Cover, cropped to fill" },
             { value: "contain", label: "Contain, shown whole" },
             { value: "fill", label: "Fill, stretched" }
           ]}
-          onChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit))}
+          onValueChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit ?? undefined))}
         />
       </Field>
       {node.type === "video" && (
