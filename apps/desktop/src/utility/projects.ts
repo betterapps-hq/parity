@@ -69,12 +69,13 @@ import type { ServedCode } from "./bitmap-store.ts"
 import type { BuilderExit, StartedBuilder } from "./builders.ts"
 import { degraded } from "./degraded.ts"
 import type { SavedDetection } from "./detection-cache.ts"
-import { applyProjectEdit } from "./edits.ts"
+import { applyProjectEdit, queued } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
 import { followGuest, type GuestMoved, newGuestPort, type PortFinder, restartPort } from "./guest-ports.ts"
 import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
+import { writeProjectFile } from "./project-files.ts"
 import type { TypeChecker } from "./props.ts"
 
 const require = createRequire(import.meta.url)
@@ -1429,8 +1430,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     },
 
     /**
-     * Writes a project file. Existing ones can be rewritten, and new ones created under the project as long as they
-     * end in `.par`.
+     * Writes a project file whole, after the project's edits and saves before it. Existing ones can be rewritten, and
+     * new ones created under the project as long as they end in `.par`. What it wrote is known once it has landed, so
+     * the watcher takes the change as the service's own.
      */
     async saveDocument({ projectId, path, document }) {
       const project = getProject(projectId)
@@ -1444,14 +1446,16 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       const parsed = parseCanvasDocument(document)
 
-      // A `.lib.par` keeps its designs in `canvas`, beside what its author wrote about the library.
-      const value = path.endsWith(libraryManifestExtension)
-        ? withLibraryCanvas(JSON.parse(await readFile(target, "utf8")), parsed)
-        : parsed
+      await queued(project, async () => {
+        // A `.lib.par` keeps its designs in `canvas`, beside what its author wrote about the library.
+        const value = path.endsWith(libraryManifestExtension)
+          ? withLibraryCanvas(JSON.parse(await readFile(target, "utf8")), parsed)
+          : parsed
 
-      const text = `${JSON.stringify(value, null, 2)}\n`
-      project.known.set(path, text)
-      await writeFile(target, text)
+        const text = `${JSON.stringify(value, null, 2)}\n`
+        await writeProjectFile(project.info.root, path, text)
+        project.known.set(path, text)
+      })
 
       if (entry) {
         entry.document = parsed

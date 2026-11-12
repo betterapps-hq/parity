@@ -45,6 +45,8 @@ export {
 
 export { type CodeSnapshot, codeSnapshot } from "./code-fingerprint.ts"
 
+export { insideProject } from "./inside-project.ts"
+
 export { contentReader, traceDigest } from "./frame-trace.ts"
 
 export {

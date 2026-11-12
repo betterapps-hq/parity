@@ -16,6 +16,7 @@ import {
   mediumOfType,
   videosFolder
 } from "@parity-app/editor"
+import { insideProject } from "@parity-app/project"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit, type EditedProject } from "./edits.ts"
 
@@ -168,7 +169,7 @@ export async function removeImage(
 
   const folder = mediaFolderOf(normalized)
 
-  if (!folder || relative(join(root, folder), full).startsWith("..")) {
+  if (!folder || !insideProject(join(root, folder), full)) {
     throw new Error(`Only files in ${imagesFolder}/ and ${videosFolder}/ can be removed, and ${path} isn't there.`)
   }
 
