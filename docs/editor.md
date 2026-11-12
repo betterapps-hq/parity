@@ -5734,7 +5734,7 @@ Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-p
 `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`, `moduleClosure`
 and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
-and `previews.make` handlers and their checks in `apps/desktop/src/shared/service-checks.ts`,
+and `previews.make` handlers and their params' schemas in `apps/desktop/src/shared/service-params.ts`,
 `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`; `renderJob`, `previewName`,
 `deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
 `apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
@@ -6386,7 +6386,7 @@ Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htm
 `styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
 `packages/builder-vite/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
 `openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
-`shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
+`shared/protocol.ts`, `shared/service-params.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
 `settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
 `renderer/agent/handlers.ts`.
 
@@ -7133,7 +7133,7 @@ text color. Chromium can't draw a scrollbar over the content for one element alo
 
 Code: `modeDevice` and `isTouchMode` in `packages/core/src/modes.ts`; `apps/desktop/src/renderer/scrollbars.css`;
 `frameTouchSheet` and `prepareFrame` in `apps/desktop/src/renderer/frame.ts`; `ModeView.tsx`; `renderJobMode`,
-`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's check in `service-checks.ts`.
+`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's schema in `service-params.ts`.
 
 Tests: `packages/core/src/modes.test.ts` (1: a viewport's device, or the one its width suggests, with phones and tablets
 as touch). `apps/desktop/src/shared/render-job.test.ts` (1, and a case in 2 others: the default tablet and mobile modes'

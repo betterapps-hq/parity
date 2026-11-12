@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Take the project service's param types from their schemas (PAR-992)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
