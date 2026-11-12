@@ -18,11 +18,13 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from 
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
+import { askToRestore } from "./chrome/restore.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
+import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
 import { holdRecording } from "./replay.ts"
 import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
@@ -50,6 +52,8 @@ export interface ProjectSession {
   versions?: Record<string, number>
   /** Design files that couldn't be read. */
   errors: { path: string; error: string }[]
+  /** Keeps a copy of its unsaved changes outside the project, in case Parity closes before they're saved (PAR-905). */
+  recovery: RecoveryKeeper
   /** The tab's canvas, once mounted. */
   editor?: Editor
   /**
@@ -278,6 +282,7 @@ export class Workspace {
       this.settleMove(info.id)
       this.settleDetection(info.id)
       this.remember(info.root)
+      void this.offerRecovery(session)
 
       return this.getTab(info.id)!
     } catch (error) {
@@ -326,16 +331,26 @@ export class Workspace {
     return true
   }
 
-  /** Whether the window can close: asks about every project with unsaved changes at once, and saves if told to. */
+  /**
+   * Whether the window can close: asks about every project with unsaved changes at once, and saves if told to. Once it
+   * can, each project's recovery copy is brought up to date, or removed when its changes were discarded, so a clean
+   * quit leaves nothing to offer back (PAR-905).
+   */
   async confirmQuit(): Promise<boolean> {
-    const unsaved = this.tabs.filter((tab) => tab.session?.store.hasUnsaved())
+    const sessions = this.tabs.flatMap((tab) => (tab.session ? [tab.session] : []))
+    const unsaved = sessions.filter((session) => session.store.hasUnsaved())
+
+    const settle = (discarded: boolean) =>
+      Promise.all(sessions.map((session) => (discarded ? session.recovery.drop() : session.recovery.settle())))
 
     if (unsaved.length === 0) {
+      await settle(false)
+
       return true
     }
 
     const choice = await askAboutUnsaved(
-      unsaved.map((tab) => tab.title),
+      unsaved.map((session) => session.info.name),
       "quit"
     )
 
@@ -344,12 +359,41 @@ export class Workspace {
     }
 
     if (choice === "discard") {
+      await settle(true)
+
       return true
     }
 
-    const saved = await Promise.all(unsaved.map((tab) => saveOrSay(tab.session!)))
+    const saved = await Promise.all(unsaved.map((session) => saveOrSay(session)))
+    await settle(false)
 
     return saved.every(Boolean)
+  }
+
+  /**
+   * Offers back the unsaved changes kept when Parity last closed with the project open (PAR-905), then keeps its own.
+   * Restoring puts them back over whatever its files hold now, unsaved, since an agent often changes a file in between.
+   */
+  private async offerRecovery(session: ProjectSession): Promise<void> {
+    const copy = await request("recovery.read", { projectId: session.id }).catch(() => undefined)
+
+    if (copy) {
+      const choice = await askToRestore({ keptAt: new Date(copy.keptAt).toISOString() })
+
+      // A tab closed while it was asked keeps its copy for the next open. The tab's session is copied as its guest
+      // moves or detection settles, but keeps its store.
+      if (this.getTab(session.id)?.session?.store !== session.store) {
+        return
+      }
+
+      if (choice === "restore") {
+        session.store.restoreRecovery(copy)
+      } else {
+        await request("recovery.keep", { projectId: session.id }).catch(() => undefined)
+      }
+    }
+
+    session.recovery.start()
   }
 
   private closeNow(id: string): void {
@@ -361,6 +405,8 @@ export class Workspace {
 
     const tab = this.tabs[index]!
     this.update(this.tabs.filter((candidate) => candidate !== tab))
+    // Closed after its changes were saved or discarded, so there's nothing left to recover.
+    void tab.session?.recovery.drop()
 
     if (this.activeId === id) {
       this.activeId = (this.tabs[index] ?? this.tabs[index - 1])?.id
@@ -460,6 +506,9 @@ export class Workspace {
       this.endAttempt(attempt, id)
       firstFrameOf(session, asked.ready(info))
       this.replace(id, { id, title: info.name, status: "ready", session })
+      // Its changes were saved before it reopened, so the last session's copy goes and this one keeps its own.
+      void tab.session?.recovery.drop()
+      session.recovery.start()
       recordLoaded()
       this.settleMove(id)
       this.settleDetection(id)
@@ -1121,7 +1170,10 @@ async function createSession(
     components,
     selection: new SelectionStore(),
     tokens: tokenStore(info, loaded, store),
-    errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : []))
+    errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : [])),
+    recovery: keepRecovery(store, (copy) =>
+      request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
+    )
   }
 
   sayWhenSavesFail(session)

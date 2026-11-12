@@ -1,8 +1,25 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 03:17:27 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 04:02:26 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.65.0
+
+Thu, 12 Nov 2026 04:02:26 GMT
+
+### Minor changes
+
+- Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the
+  agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take
+  overrides (ajcraswell@gmail.com)
+- Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take
+  role, id and aria-* props on their elements. (ajcraswell@gmail.com)
+
+### Patches
+
+- Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it
+  settles (ajcraswell@gmail.com)
 
 ## 0.64.0
 

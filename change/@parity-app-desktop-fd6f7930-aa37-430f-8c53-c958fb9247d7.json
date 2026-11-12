@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it settles",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

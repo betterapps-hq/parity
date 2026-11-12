@@ -35,6 +35,7 @@ import { freePort } from "./process-manager.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
+import { createRecovery } from "./recovery.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { checkStartFolders } from "./start-folders.ts"
@@ -93,6 +94,9 @@ const reopening = startReopening({
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
+// Projects' unsaved changes, kept in case Parity closes before they're saved (PAR-905).
+const recovery = createRecovery(environment().PARITY_RECOVERY_DIR)
+
 let secretsRead = 0
 
 function rememberOpen(): void {
@@ -118,6 +122,8 @@ const handlers: Handlers<ServiceMethods> = {
   "project.close": ({ projectId }) => projects.close(projectId).finally(rememberOpen),
   "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
   "document.save": projects.saveDocument,
+  "recovery.keep": ({ projectId, copy }) => recovery.keep(projectId, copy),
+  "recovery.read": ({ projectId }) => recovery.read(projectId),
   "document.saveCopy": saveDocumentCopy,
   "images.import": (params) => importImage(projects.get(params.projectId), params),
   "images.scan": ({ projectId }) => scanImages(projects.get(projectId)),
@@ -182,6 +188,7 @@ const handlers: Handlers<ServiceMethods> = {
   "library.add": (params) => addLibrary(projects.get(params.projectId), params),
   "library.importStyles": (params) => importStyles(projects.get(params.projectId), params),
   "tokens.save": projects.saveTokens,
+  "styles.classes": projects.frameClasses,
   "processes.list": listProcesses,
   "processes.stop": stopProcess,
   "processes.restart": restartProcess,

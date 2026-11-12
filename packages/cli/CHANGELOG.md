@@ -1,8 +1,25 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 03:17:52 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 04:02:39 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.50.0
+
+Thu, 12 Nov 2026 04:02:39 GMT
+
+### Minor changes
+
+- Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the
+  agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take
+  overrides (ajcraswell@gmail.com)
+- Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take
+  role, id and aria-* props on their elements. (ajcraswell@gmail.com)
+
+### Patches
+
+- Say which package Vite came in when a project installs Vite+ as vite, in the detection summary: Vite 8.3.5, shipped by
+  Vite+ 1.4.0 (ajcraswell@gmail.com)
 
 ## 0.49.0
 

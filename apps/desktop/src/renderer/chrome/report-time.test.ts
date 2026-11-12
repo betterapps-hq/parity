@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { crashTime, lowerFirst } from "./report-time.ts"
+import { changeTime, crashTime, lowerFirst } from "./report-time.ts"
 
 describe("crashTime", () => {
   const now = new Date(2026, 10, 6, 15, 0)
@@ -17,5 +17,18 @@ describe("crashTime", () => {
 
   it("reads mid-sentence without lowering the clock's PM", () => {
     expect(lowerFirst("Today at 7:22 PM")).toBe("today at 7:22 PM")
+  })
+})
+
+describe("changeTime", () => {
+  const now = new Date(2026, 10, 6, 15, 0)
+  const at = (day: number, hour: number) => new Date(2026, 10, day, hour, 5)
+  const clock = (time: Date) => time.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+
+  it("puts the clock first, then today, yesterday, or the date", () => {
+    expect(changeTime(at(6, 14).toISOString(), now)).toBe(`${clock(at(6, 14))} today`)
+    expect(changeTime(at(5, 9).toISOString(), now)).toBe(`${clock(at(5, 9))} yesterday`)
+    const date = new Date(2026, 10, 2).toLocaleDateString(undefined, { month: "long", day: "numeric" })
+    expect(changeTime(at(2, 9).toISOString(), now)).toBe(`${clock(at(2, 9))} on ${date}`)
   })
 })

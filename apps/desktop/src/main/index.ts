@@ -304,6 +304,8 @@ function startService(): UtilityProcess {
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
       PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
+      // Projects' unsaved changes, kept outside the projects, so a crash or forced quit doesn't lose them (PAR-905).
+      PARITY_RECOVERY_DIR: join(app.getPath("userData"), "recovery"),
       // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes them
       // into a project.
       PARITY_BITMAP_DIR: bitmapFolder(),

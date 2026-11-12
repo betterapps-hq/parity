@@ -49,64 +49,9 @@ rows.forEach((path, index) => Update(path, { name: `Member row ${index + 1}` }))
 
 ## API
 
-```ts
-// Reading
-Designs(): DesignSummary[]                       // every design: id, name, kind, states, what it shows, size
-GetDesign(design): Design                        // a whole design, as in document.md
-Get(path, { depth?, state?, mode? }?): Node      // a design's root or a node; depth cuts children off with "…"
-Get(path?, visit): any[]                         // walks nodes, collecting what visit returns
-Get(path, visit, { state?, mode? }): any[]       // walks nodes as a frame draws them
-Components(): string[]                           // the components designs can use
-Props(component, { all? }?): PropsInfo           // a component's props, from its source
-Icons(): IconSet[]                               // the project's icon sets, with their styles
-Icons(set, { search?, style?, limit? }): Icon[]  // async: a set's icons, as component nodes name them
-GetTokens({ category?, source?, search?, nearest? }?): Token[]   // nearest: the closest to a colour or length first
-GetModes(design?): { settings, variables, viewports, modes, designs }   // modes resolved; what each design shows
-Selection(): { design?, node?, mode? }           // what the person has selected
-
-// Designs
-CreateDesign({ name, kind?, root?, x?, y?, width?, height?, file?, baseState?, params? }): string   // the new design's id
-UpdateDesign(design, { name?, kind?, x?, y?, width?, height?, mode?, showModes?, state?, allStates? }): void
-DeleteDesign(design): void
-
-// Nodes
-Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component, bind; an image's src, alt, credit
-Replace(path, node): string
-Move(path, parent, { index?, slot? }?): void     // within one design
-Copy(path, parent, { index?, slot?, name? }?): string
-Delete(path): void
-Responsive(path, viewport, patch | null): void   // a patch for one viewport, or null to remove it
-
-// States
-AddState(design, { name, changes? }): string     // changes keyed by node id or name
-UpdateState(design, state, { name?, changes? }): void
-DeleteState(design, state): void
-
-// Components
-FindRepeats(design): Repeat[]                    // parts that repeat with the same structure
-ExtractComponent(design, nodes, { name, params?, file? }): string
-AddParam(design, name, { type, default?, description?, options? }): void
-UpdateParam(design, name, { name?, default?, description?, options? }): void
-DeleteParam(design, name): void
-
-// Modes and tokens
-SetModes(settings): void                         // replaces the project's modes
-SetTokens({ name: value | { theme: value } }): void
-
-// Checking
-Screenshot(design, { state?, mode?, scale? }?): number
-Measure(design, { state?, mode? }?): Layout      // one frame: one state id, one mode id
-Problems(design, { state?, mode? }?): Problem[]
-Accessibility(design, { state?, mode? }?): Finding[]
-
-// The canvas
-FindEmptySpace({ width, height, direction?, near?, padding? }): { x, y }
-Overlaps(design?): Overlap[]
-References(design?): Reference[]                          // what's placed beside designs to look at
-PlaceReference(id, { near?, note?, connector? }): string  // async: a find_references screen beside a design
-Print(...values): void
-```
+`reference.md` lists every function with its signature, what it takes and what it returns, field by field. It's
+generated from the code, so where it and this file differ, it's right. Read it before calling a function whose arguments
+or result you haven't used yet. The sections below say how the functions fit together, with examples.
 
 Every function checks its arguments before it does anything. A wrong one fails the call with an `invalid_input` error
 whose path names it, and the message starts with that path:
@@ -115,7 +60,7 @@ whose path names it, and the message starts with that path:
 - A node by `node` (or `root` in `CreateDesign`) and where in it: `node/fontSize: unknown property`.
 - Any other argument by its name: `design`, `path`, `patch`, `nodes`.
 
-An option a function doesn't take is an error too, so check its spelling against the list above.
+An option a function doesn't take is an error too, so check its spelling against `reference.md`.
 
 ## Paths
 

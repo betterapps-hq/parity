@@ -174,7 +174,7 @@ describe("canvasRender", () => {
   })
 
   it("never scrolls, so text reaching past the frame puts no scrollbar in its capture (PAR-520)", async () => {
-    const separator = { kind: "element", nodeId: "Separator", tag: "div", style: {}, children: [] }
+    const separator = { kind: "element", nodeId: "Separator", tag: "div", declarations: [], children: [] }
     const { frame } = await render({ width: 400, viewport: { width: 400, height: 800 } }, [separator])
     // The frame is the part and the body's margin; the part's name runs below it.
     expect(frame.height).toBeLessThan(20)
@@ -220,7 +220,7 @@ async function renderPortal(inline: boolean) {
     projectId: "portals",
     guestUrl: "http://parity.test/portal-guest.js",
     theme: [],
-    tree: [{ kind: "element", nodeId: "preview", tag: "div", style: {}, children: [] }],
+    tree: [{ kind: "element", nodeId: "preview", tag: "div", declarations: [], children: [] }],
     mode: { width: 656, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
     scale: 1
   }

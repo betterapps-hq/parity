@@ -16,6 +16,20 @@ import {
   withoutEmptyLayoutMarks
 } from "./render.ts"
 
+/** An element's declarations, by CSS property. */
+function css(node: RenderNode | undefined): Record<string, string> {
+  if (node?.kind !== "element") {
+    throw new Error("expected an element")
+  }
+
+  return Object.fromEntries(node.declarations.map(({ property, value }) => [property, value]))
+}
+
+/** Matches an element's declarations that include each of these, by CSS property. */
+function declaring(properties: Record<string, string>): { property: string; value: string }[] {
+  return expect.arrayContaining(Object.entries(properties).map(([property, value]) => ({ property, value })))
+}
+
 const root: DesignNode = {
   type: "layout",
   id: "page",
@@ -54,7 +68,7 @@ describe("resolveDesign", () => {
         {
           tag: "video",
           nodeId: "hero",
-          style: { display: "block", objectFit: "cover", width: "calc(var(--spacing) * 80)" },
+          declarations: declaring({ display: "block", "object-fit": "cover", width: "calc(var(--spacing) * 80)" }),
           attributes: {
             src: "/videos/waves.mp4",
             "aria-label": "Waves",
@@ -67,7 +81,7 @@ describe("resolveDesign", () => {
         {
           tag: "video",
           nodeId: "talk",
-          style: { objectFit: "contain" },
+          declarations: declaring({ "object-fit": "contain" }),
           attributes: { src: "/videos/talk.webm", controls: "", playsinline: "" }
         }
       ]
@@ -82,7 +96,12 @@ describe("resolveDesign", () => {
     expect(page).toMatchObject({
       kind: "element",
       tag: "div",
-      style: { display: "flex", flexDirection: "row", gap: "calc(var(--spacing) * 4)", background: "var(--background)" }
+      declarations: declaring({
+        display: "flex",
+        "flex-direction": "row",
+        gap: "calc(var(--spacing) * 4)",
+        background: "var(--background)"
+      })
     })
 
     if (page?.kind !== "element") {
@@ -91,7 +110,11 @@ describe("resolveDesign", () => {
 
     expect(page.children[0]).toMatchObject({
       tag: "h1",
-      style: { fontSize: "var(--text-2xl)", lineHeight: "var(--text-2xl--line-height, 1.5)", fontWeight: "600" }
+      declarations: declaring({
+        "font-size": "var(--text-2xl)",
+        "line-height": "var(--text-2xl--line-height, 1.5)",
+        "font-weight": "600"
+      })
     })
     expect(page.children[1]).toMatchObject({
       kind: "component",
@@ -200,19 +223,35 @@ describe("resolveDesign", () => {
         kind: "element",
         nodeId: "page",
         tag: "div",
-        style: {},
+        declarations: [],
         children: [
-          { kind: "element", nodeId: "gap", tag: "div", style: { height: "8px" }, attributes: mark, children: [] },
+          {
+            kind: "element",
+            nodeId: "gap",
+            tag: "div",
+            declarations: [{ property: "height", value: "8px" }],
+            attributes: mark,
+            children: []
+          },
           {
             kind: "component",
             nodeId: "card",
             component: "Card",
             props: {},
             slots: {
-              children: [{ kind: "element", nodeId: "body", tag: "div", style: {}, attributes: mark, children: [] }]
+              children: [
+                { kind: "element", nodeId: "body", tag: "div", declarations: [], attributes: mark, children: [] }
+              ]
             }
           },
-          { kind: "element", nodeId: "logo", tag: "img", style: {}, attributes: { src: "/logo.svg" }, children: [] }
+          {
+            kind: "element",
+            nodeId: "logo",
+            tag: "img",
+            declarations: [],
+            attributes: { src: "/logo.svg" },
+            children: []
+          }
         ]
       }
     ]
@@ -225,17 +264,30 @@ describe("resolveDesign", () => {
         kind: "element",
         nodeId: "page",
         tag: "div",
-        style: {},
+        declarations: [],
         children: [
-          { kind: "element", nodeId: "gap", tag: "div", style: { height: "8px" }, children: [] },
+          {
+            kind: "element",
+            nodeId: "gap",
+            tag: "div",
+            declarations: [{ property: "height", value: "8px" }],
+            children: []
+          },
           {
             kind: "component",
             nodeId: "card",
             component: "Card",
             props: {},
-            slots: { children: [{ kind: "element", nodeId: "body", tag: "div", style: {}, children: [] }] }
+            slots: { children: [{ kind: "element", nodeId: "body", tag: "div", declarations: [], children: [] }] }
           },
-          { kind: "element", nodeId: "logo", tag: "img", style: {}, attributes: { src: "/logo.svg" }, children: [] }
+          {
+            kind: "element",
+            nodeId: "logo",
+            tag: "img",
+            declarations: [],
+            attributes: { src: "/logo.svg" },
+            children: []
+          }
         ]
       }
     ])
@@ -257,7 +309,7 @@ describe("resolveDesign", () => {
       throw new Error("expected an element")
     }
 
-    expect(page.style).toMatchObject({ flexDirection: "column", gap: "calc(var(--spacing) * 2)" })
+    expect(css(page)).toMatchObject({ "flex-direction": "column", gap: "calc(var(--spacing) * 2)" })
     expect(page.children).toHaveLength(3)
     const card = page.children[1]
 
@@ -286,11 +338,11 @@ describe("resolveDesign", () => {
     }
 
     // The design's row is taken away, so the layout is a column, as it is by default.
-    expect(page.style).toMatchObject({ flexDirection: "column", gap: "calc(var(--spacing) * 4)" })
-    expect(page.style).not.toHaveProperty("background")
+    expect(css(page)).toMatchObject({ "flex-direction": "column", gap: "calc(var(--spacing) * 4)" })
+    expect(css(page)).not.toHaveProperty("background")
     // A breakpoint's style applies whatever the state is.
-    expect(page.style).toMatchObject({ borderRadius: "var(--radius)" })
-    expect(resolveDesign(rounded, state, "desktop")[0]).not.toHaveProperty("style.borderRadius")
+    expect(css(page)).toMatchObject({ "border-radius": "var(--radius)" })
+    expect(css(resolveDesign(rounded, state, "desktop")[0])).not.toHaveProperty("border-radius")
     const card = page.children[1]
 
     if (card?.kind !== "component") {
@@ -367,11 +419,11 @@ describe("resolveDesign", () => {
       throw new Error("expected elements")
     }
 
-    expect(desktop.style.borderRadius).toBe("var(--radius-md)")
-    expect(mobile.style.borderRadius).toBe(full)
+    expect(css(desktop)["border-radius"]).toBe("var(--radius-md)")
+    expect(css(mobile)["border-radius"]).toBe(full)
     const [small, large, pill] = desktop.children
-    expect(small).toMatchObject({ kind: "element", style: { borderRadius: full } })
-    expect(large).toMatchObject({ kind: "element", style: { borderRadius: full } })
+    expect(small).toMatchObject({ kind: "element", declarations: declaring({ "border-radius": full }) })
+    expect(large).toMatchObject({ kind: "element", declarations: declaring({ "border-radius": full }) })
     // A component takes it on its root, as an inline style.
     expect(pill).toMatchObject({ kind: "component", props: { style: { borderRadius: full } } })
   })
@@ -428,15 +480,11 @@ describe("transitions", () => {
       overrides: { card: { style: { background: "accent", transitions: [{ property: "all", duration: 300 }] } } }
     }
 
-    const style = (state?: typeof hover) => {
-      const [drawn] = resolveDesign(card, state, "desktop")
+    const style = (state?: typeof hover) => css(resolveDesign(card, state, "desktop")[0])
 
-      return drawn?.kind === "element" ? drawn.style : undefined
-    }
-
-    expect(style()?.transition).toMatch(/^color 200ms /)
+    expect(style().transition).toMatch(/^color 200ms /)
     expect(style(hover)).toMatchObject({ background: "var(--accent)" })
-    expect(style(hover)?.transition).toMatch(/^all 300ms /)
+    expect(style(hover).transition).toMatch(/^all 300ms /)
   })
 })
 
@@ -518,44 +566,44 @@ describe("sizing", () => {
       "desktop"
     )
 
-    if (page?.kind !== "element" || page.children[0]?.kind !== "element") {
-      throw new Error("expected elements")
+    if (page?.kind !== "element") {
+      throw new Error("expected an element")
     }
 
-    return page.children[0].style
+    return css(page.children[0])
   }
 
   it("fills along the parent's direction by growing, and across it by stretching", () => {
-    expect(sized("row", { width: "fill" })).toMatchObject({ flex: "1 1 0%", minWidth: "0" })
-    expect(sized("column", { width: "fill" })).toMatchObject({ alignSelf: "stretch" })
-    expect(sized("column", { height: "fill" })).toMatchObject({ flex: "1 1 0%", minHeight: "0" })
+    expect(sized("row", { width: "fill" })).toMatchObject({ flex: "1 1 0%", "min-width": "0" })
+    expect(sized("column", { width: "fill" })).toMatchObject({ "align-self": "stretch" })
+    expect(sized("column", { height: "fill" })).toMatchObject({ flex: "1 1 0%", "min-height": "0" })
   })
 
   it("fills across up to a maximum and then takes its place, as mx-auto max-w-… does", () => {
     // Stretching would give way to `self`, leaving the box as wide as its content.
     expect(sized("column", { width: "fill", maxWidth: 240, self: "center" })).toMatchObject({
       width: "100%",
-      maxWidth: "calc(var(--spacing) * 240)",
-      alignSelf: "center"
+      "max-width": "calc(var(--spacing) * 240)",
+      "align-self": "center"
     })
     // A stretched box stops at its maximum at the start; filling instead leaves it to the parent's alignment.
     const capped = sized("column", { width: "fill", maxWidth: 112 }, { align: "center" })
-    expect(capped).toMatchObject({ width: "100%", maxWidth: "calc(var(--spacing) * 112)" })
-    expect(capped.alignSelf).toBeUndefined()
-    expect(sized("row", { height: "fill", self: "end" })).toMatchObject({ height: "100%", alignSelf: "flex-end" })
+    expect(capped).toMatchObject({ width: "100%", "max-width": "calc(var(--spacing) * 112)" })
+    expect(capped["align-self"]).toBeUndefined()
+    expect(sized("row", { height: "fill", self: "end" })).toMatchObject({ height: "100%", "align-self": "flex-end" })
     // Along the parent, it still grows.
     expect(sized("row", { width: "fill", maxWidth: 240 })).toMatchObject({ flex: "1 1 0%" })
     expect(sized("row", { width: "fill", maxWidth: 240 }).width).toBeUndefined()
     // Hugging still hugs.
     expect(sized("column", { width: "hug", maxWidth: 240, self: "center" })).toMatchObject({
       width: "fit-content",
-      alignSelf: "center"
+      "align-self": "center"
     })
   })
 
   it("keeps fixed sizes from shrinking along the parent's direction only", () => {
-    expect(sized("row", { width: 64 })).toMatchObject({ width: "calc(var(--spacing) * 64)", flexShrink: "0" })
-    expect(sized("column", { width: 64 }).flexShrink).toBeUndefined()
+    expect(sized("row", { width: 64 })).toMatchObject({ width: "calc(var(--spacing) * 64)", "flex-shrink": "0" })
+    expect(sized("column", { width: 64 })["flex-shrink"]).toBeUndefined()
     expect(sized("row", { height: "hug" })).toMatchObject({ height: "fit-content" })
   })
 
@@ -567,18 +615,18 @@ describe("sizing", () => {
         "desktop"
       )
 
-      if (page?.kind !== "element" || page.children[0]?.kind !== "element") {
-        throw new Error("expected elements")
+      if (page?.kind !== "element") {
+        throw new Error("expected an element")
       }
 
-      return page.children[0].style
+      return css(page.children[0])
     }
 
     expect(text({ width: "hug" }).width).toBe("max-content")
     // A maximum still wraps it, as it does in Figma.
     expect(text({ width: "hug", maxWidth: 80 })).toMatchObject({
       width: "max-content",
-      maxWidth: "calc(var(--spacing) * 80)"
+      "max-width": "calc(var(--spacing) * 80)"
     })
     expect(text({ width: 40 }).width).toBe("calc(var(--spacing) * 40)")
     expect(text({}).width).toBeUndefined()
@@ -606,7 +654,7 @@ describe("sizing", () => {
       throw new Error("expected a component")
     }
 
-    const display = cell.slots.children?.map((child) => (child.kind === "element" ? child.style.display : null))
+    const display = cell.slots.children?.map((child) => (child.kind === "element" ? css(child).display : null))
     expect(display).toEqual(["block", undefined, undefined])
   })
 
@@ -650,22 +698,22 @@ describe("sizing", () => {
       })
     ).toMatchObject({
       padding: "calc(var(--spacing) * 1) calc(var(--spacing) * 2) calc(var(--spacing) * 3) calc(var(--spacing) * 4)",
-      borderWidth: "2px",
-      borderStyle: "solid",
-      borderColor: "var(--border)",
-      boxShadow: "var(--shadow-sm)",
+      "border-width": "2px",
+      "border-style": "solid",
+      "border-color": "var(--border)",
+      "box-shadow": "var(--shadow-sm)",
       opacity: "0.5",
-      lineHeight: "var(--leading-tight)",
+      "line-height": "var(--leading-tight)",
       position: "absolute",
       top: "calc(var(--spacing) * 2)"
     })
   })
 
   it("writes a layer order as z-index, from a whole number or a z-index token", () => {
-    expect(sized("row", { zIndex: 10 }).zIndex).toBe("10")
-    expect(sized("row", { zIndex: -5 }).zIndex).toBe("-5")
-    expect(sized("row", { zIndex: "z-overlay" }).zIndex).toBe("var(--z-overlay)")
-    expect(sized("row", {}).zIndex).toBeUndefined()
+    expect(sized("row", { zIndex: 10 })["z-index"]).toBe("10")
+    expect(sized("row", { zIndex: -5 })["z-index"]).toBe("-5")
+    expect(sized("row", { zIndex: "z-overlay" })["z-index"]).toBe("var(--z-overlay)")
+    expect(sized("row", {})["z-index"]).toBeUndefined()
   })
 
   it("sizes frames from the design's own size for a viewport", () => {
@@ -767,16 +815,17 @@ describe("grid, margin and length tokens", () => {
       throw new Error("expected an element")
     }
 
-    expect(page.style).toMatchObject({
+    expect(css(page)).toMatchObject({
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      "grid-template-columns": "repeat(3, minmax(0, 1fr))",
       gap: "calc(var(--spacing) * 4)",
-      rowGap: "var(--spacing-section)",
+      "row-gap": "var(--spacing-section)",
       margin: "calc(var(--spacing) * 2) var(--gutter)"
     })
-    expect(page.style.flexDirection).toBeUndefined()
-    expect(page.children[0]).toMatchObject({
-      style: { gridColumn: "span 2 / span 2", padding: "calc(var(--spacing) * 1)" }
+    expect(css(page)["flex-direction"]).toBeUndefined()
+    expect(css(page.children[0])).toMatchObject({
+      "grid-column": "span 2 / span 2",
+      padding: "calc(var(--spacing) * 1)"
     })
   })
 
@@ -861,5 +910,74 @@ describe("reachableLibrary", () => {
     const next = reachableLibrary(screen, all(edited, card, screen, other), first)
     expect(next).not.toBe(first)
     expect(next.get("button")).toBe(edited)
+  })
+})
+
+describe("what a frame adds to a layout (PAR-942)", () => {
+  const placed = { position: "absolute", top: 0 } as const
+
+  /** A layout holding `children`, as it's drawn. */
+  function box(children: DesignNode[], style: DesignNode["style"] = {}, library = componentLibrary([])) {
+    return css(resolveDesign({ type: "layout", id: "box", style, children }, undefined, "desktop", library)[0])
+  }
+
+  it("is relative only when one of its children is placed against its edges", () => {
+    expect(box([{ type: "text", id: "label", text: "New" }])).not.toHaveProperty("position")
+    expect(box([{ type: "text", id: "label", text: "New", style: placed }])).toMatchObject({ position: "relative" })
+    expect(box([{ type: "component", id: "badge", component: "Badge", style: placed }])).toMatchObject({
+      position: "relative"
+    })
+  })
+
+  it("is relative for an instance placed against its edges, whose place is on its component's root", () => {
+    const badge: ContainerSpec = {
+      id: "badge",
+      name: "Badge",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: [] },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    const instance: DesignNode = { type: "instance", id: "first", design: "badge", style: placed }
+
+    expect(box([instance], {}, componentLibrary([badge]))).toMatchObject({ position: "relative" })
+  })
+
+  it("isn't for a child placed in a layout deeper down, or one that's hidden", () => {
+    const inner: DesignNode = {
+      type: "layout",
+      id: "inner",
+      children: [{ type: "text", id: "label", text: "New", style: placed }]
+    }
+
+    expect(box([inner])).not.toHaveProperty("position")
+    expect(box([{ type: "text", id: "label", text: "New", style: placed, hidden: true }])).not.toHaveProperty(
+      "position"
+    )
+  })
+
+  it("stays placed against its own parent's edges when it's placed itself", () => {
+    expect(box([{ type: "text", id: "label", text: "New", style: placed }], placed)).toMatchObject({
+      position: "absolute"
+    })
+  })
+
+  it("can shrink below its content only when it fills", () => {
+    const row: DesignNode = {
+      type: "layout",
+      id: "row",
+      style: { direction: "row" },
+      children: [
+        { type: "layout", id: "hugs", children: [] },
+        { type: "layout", id: "fills", style: { width: "fill" }, children: [] }
+      ]
+    }
+
+    const [drawn] = resolveDesign(row, undefined, "desktop")
+    const [hugs, fills] = drawn?.kind === "element" ? drawn.children : []
+
+    expect(css(drawn)).not.toHaveProperty("min-width")
+    expect(css(hugs)).not.toHaveProperty("min-width")
+    expect(css(fills)).toMatchObject({ "min-width": "0" })
   })
 })

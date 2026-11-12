@@ -79,6 +79,13 @@ describe("the design system Tailwind 4.3 gives", () => {
     expect(missing).toEqual([])
   })
 
+  it("compiles a class to CSS text, with null for one that compiles to nothing", () => {
+    expect(system.candidatesToCss(["p-4", "not-a-class"])).toEqual([
+      ".p-4 {\n  padding: calc(var(--spacing) * 4);\n}\n",
+      null
+    ])
+  })
+
   it("orders classes as Prettier's plugin does, with null for what it doesn't know", () => {
     const order = new Map(system.getClassOrder(["md:p-6", "flex", "not-a-class", "p-4"]))
 

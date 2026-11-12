@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take overrides",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

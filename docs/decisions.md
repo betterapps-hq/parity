@@ -26,6 +26,31 @@
   there so `aria-labelledby` and `aria-describedby` can point at a layer. Other attributes and screen-reader-only text
   are left out: a visually hidden text needs a class or style of its own, which is a separate decision.
 
+- **Frames draw layers from rules, and from the project's compiled Tailwind classes where it has them (PAR-942).** Step
+  4 of [style-package.md](proposals/style-package.md), with Frames draw rules and Frames add only what code writes from
+  [design-options-code.md](proposals/design-options-code.md). You chose the compiled classes for a Tailwind project on
+  2026-11-11, and both in one pull request. What's drawn is in [editor.md](editor.md), Rendering frames. These calls
+  were mine to make on the way, and each is yours to overrule:
+  - **The rules of a project without a `utilities` layer aren't layered.** design-options-code.md puts every project's
+    rules in `@layer utilities`. In a project whose CSS isn't layered, a layered rule loses to all of it: a reset's
+    `* { padding: 0 }` would take the padding off every layer. So the rules are in `utilities` where the project's own
+    CSS has that layer, and unlayered elsewhere, which is where that project's code would put them.
+  - **A component layer keeps its `style` prop.** A rule can't be sure to reach a component's DOM, and passing classes
+    as `className` would drop a design's size and place on a component that takes no `className`, where today a div is
+    drawn around it. It means a component layer can't draw a state's rule yet. Drawing a component from classes or rules
+    is its own piece of work, and it needs your call on what a component that ignores `className` shows.
+  - **Frames drawn offscreen draw the rules, not the classes.** The compiler is in the project service and a job's tree
+    crosses processes, so a bitmap, a screenshot, an export and a preview draw from the rules. A class is only written
+    when it compiles back to the same declaration, so the two measure the same until rules hold states.
+  - **A layer is drawn by classes only when every one of its declarations has one.** One with a declaration Tailwind
+    can't write keeps its whole rule, so a layer never has half its style in each.
+  - **The class stylesheet is compiled with `candidatesToCss`,** one more of the design system's calls, pinned in
+    `design-system.test.ts`. It gives each class's rule as text; the adapter sorts them as Tailwind's build does and
+    puts them in `@layer utilities`.
+  - **A layout is `relative` only for an Absolute child of its own,** and nothing gets `min-width: 0` but a fill.
+    Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
+    Layer order in a Block layout wait for those.
+
 - **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
   of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
   place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
@@ -2057,6 +2082,19 @@ recommended answer to each of its questions.
   the CLI's and MCP's output schema and keeps a box apart from the node it belongs to. The renderer still measures flat
   boxes; `layoutNode` in `packages/agent/src/frames.ts` reshapes them for Measure, and screenshots keep theirs, which
   don't leave the agent.
+- **The snippet API reference is generated from the code** (PAR-958). execute.md wrote each function's signature and
+  result by hand, and they drifted: PAR-915 found Measure's box shape, `Get`'s visit `parent` and instance overrides
+  described wrongly. `SnippetApi` in `packages/agent/src/snippet-api.ts` now declares every snippet function with a doc
+  comment and a named result type, and `Workspace.api()` is typed with it, so the compiler holds the two together.
+  `packages/cli/skills/reference.md` is generated from it with TypeScript 7's checker (`typescript/unstable/sync`, the
+  compiler the repository already type-checks with, so no new dependency). It prints every function, then every type
+  their arguments and results name. An interface prints as written, with its doc comments. A type inferred from a schema
+  prints as the fields it comes to, calling each named type by name. The document format's types are named and left to
+  document.md. `reference.test.ts` checks the file against a fresh run with `toMatchFileSnapshot`, so a stale reference
+  fails the tests and `-u` writes the new one. execute.md and SKILL.md point to it for exact arguments and results, and
+  keep the prose about how the functions fit together. API Extractor was the other choice. It documents everything a
+  package exports, writes one file per item, and prints `z.infer<…>` as written. The checker's API is marked unstable,
+  so an upgrade can change it; the version is pinned and the test fails loudly if it does.
 
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
@@ -7682,3 +7720,22 @@ of the app. Medians:
 
 The milliseconds are the page's JavaScript per frame. Sampled with `--profile`, none of Sentry's functions are among a
 zoom run's twelve slowest with this change; `board-gutter.ts`'s `apply` and `labels.ts` lead.
+
+## Unsaved changes are kept outside the project until they're saved (PAR-905)
+
+A crash, a forced quit or an agent stopping Parity lost every unsaved change. You approved the restore prompt in
+Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
+
+- **The copy is the history's unsaved difference, not its undo history:** each unsaved file as it is, changed modes, and
+  token edits with the value the stylesheet holds. Undo history, the camera and the selection aren't kept. A reopened
+  project starts its history again with one step, the restore.
+- **It's kept in Parity's app data, one file a project, by the service.** The window can't write files, and the service
+  already keeps the open projects there. The project's own files are never written, so agents still can't save.
+- **Written a second after the changes change, removed once none are unsaved.** Saving leaves the history's revision as
+  it is, so the keeper also watches whether anything is unsaved. Quitting brings every copy up to date at once, or
+  removes it after Don't save, before the window closes.
+- **Restore goes over the files without asking.** You decided on 2026-11-11 that a file changed on disk since, as an
+  agent's CLI edit, isn't worth a message: the copy loads, unsaved, and Undo goes back to the file.
+- **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
+  and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
+- **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.

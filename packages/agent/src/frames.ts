@@ -15,7 +15,7 @@ import type {
   FrameBox,
   FrameContrast,
   FrameResult,
-  LayoutNode,
+  NodeLayout,
   MeasuredNode,
   Problem
 } from "./types.ts"
@@ -112,9 +112,9 @@ export function frameProblems(
  * A measured node as `Measure` gives it, with the names it shows in the layers (`names`, from nodeNames): its box under
  * `box`, and what clips it as `{ node, name, box }`, the shapes `Problems` uses (PAR-915).
  */
-export function layoutNode(node: MeasuredNode, names: ReadonlyMap<string, string>): LayoutNode {
+export function layoutNode(node: MeasuredNode, names: ReadonlyMap<string, string>): NodeLayout {
   const { x: _x, y: _y, width: _width, height: _height, clip, ...rest } = node
-  const laid: LayoutNode = { ...rest, name: names.get(node.id), box: frameBoxOf(node) }
+  const laid: NodeLayout = { ...rest, name: names.get(node.id), box: frameBoxOf(node) }
 
   if (clip) {
     const { node: by, ...box } = clip

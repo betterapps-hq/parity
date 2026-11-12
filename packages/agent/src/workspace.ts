@@ -161,6 +161,7 @@ import {
 import { accessibilityFindings, addContrastFixes, frameProblems, layoutNode, nodeNames } from "./frames.ts"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { lintDocument, propWarnings } from "./lint.ts"
+import type { ReadNode, SnippetApi, Visit } from "./snippet-api.ts"
 import type {
   AccessibilityFinding,
   AgentChangeSet,
@@ -299,7 +300,7 @@ export class AgentWorkspace {
    * The functions a snippet can call, as globals. Each checks its arguments with its schema in `arguments.ts` before it
    * reads them, since a snippet can pass anything.
    */
-  api() {
+  api(): SnippetApi {
     const design = (value: string) => readArgument(designReference, value, "design")
     const path = (value: string) => readArgument(nodeReference, value, "path")
     const parent = (value: string) => readArgument(nodeReference, value, "parent")
@@ -309,14 +310,16 @@ export class AgentWorkspace {
       document: "document",
       Designs: () => this.listDesigns(),
       GetDesign: (reference: string) => this.getDesign(design(reference)),
-      Get: (...args: unknown[]) => this.get(args),
+      // SAFETY: `get` tells Get's overloads apart by the arguments it's given and returns what each one says.
+      Get: ((...args: unknown[]) => this.get(args)) as SnippetApi["Get"],
       Components: () => [...this.snapshot.components].sort(),
       Props: (component: string, options?: z.infer<typeof propsOptions>) =>
         this.componentProps(text(component, "component"), readFields(propsOptions, options, "options")),
-      Icons: (set?: string, options?: z.infer<typeof iconOptions>) =>
+      // SAFETY: without a set it lists the sets, and with one it reads that set's icons, as Icons' overloads say.
+      Icons: ((set?: string, options?: z.infer<typeof iconOptions>) =>
         set === undefined
           ? describeIconSets(this.snapshot.iconSets ?? [])
-          : this.icons(text(set, "set"), readFields(iconOptions, options, "options")),
+          : this.icons(text(set, "set"), readFields(iconOptions, options, "options"))) as SnippetApi["Icons"],
       GetTokens: (filter?: z.infer<typeof tokenFilter>) => this.getTokens(readFields(tokenFilter, filter, "filter")),
       GetModes: (reference?: string) => this.getModes(readArgument(designReference.optional(), reference, "design")),
       Selection: () => this.selection(),
@@ -536,7 +539,7 @@ export class AgentWorkspace {
   }
 
   /** `Get(path, options?)`, `Get(path, visit, options?)` or `Get(visit)`. */
-  private get(args: unknown[]): ElidedNode | unknown[] {
+  private get(args: unknown[]): ReadNode | unknown[] {
     const [first, second, third] = args
     const visitFirst = visitFunction.safeParse(first).data
 
@@ -2255,19 +2258,6 @@ interface FrameOptions {
   mode?: string
 }
 
-/** Where `Get` is in its walk, as a visit function is told. */
-interface VisitContext {
-  design: string
-  path: string
-  depth: number
-  index: number
-  parent?: string
-  skipChildren(): void
-}
-
-// oxlint-disable-next-line anti-slop/no-unknown-returns -- a snippet's visit function returns whatever it likes, which `Get` hands back
-type Visit = (node: DesignNode, context: VisitContext) => unknown
-
 /** A function a snippet passed `Get` to call for every node. */
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the snippet runs in its own vm context, whose functions aren't instances of this one's `Function`
 const visitFunction = z.custom<Visit>((value) => typeof value === "function")
@@ -2504,18 +2494,12 @@ function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: 
   return { ...where, node, children }
 }
 
-/** A node as `Get` gives it to a depth: past the depth, a layout's children and a component's slots are `["…"]`. */
-type ElidedNode = Omit<DesignNode, "children" | "slots"> & {
-  children?: (ElidedNode | "…")[]
-  slots?: Record<string, (ElidedNode | "…")[]>
-}
-
-function elide(node: DesignNode, depth: number | undefined, level = 0): ElidedNode {
+function elide(node: DesignNode, depth: number | undefined, level = 0): ReadNode {
   if (depth === undefined) {
     return node
   }
 
-  const copy: ElidedNode = { ...node }
+  const copy: ReadNode = { ...node }
 
   if (node.type === "layout") {
     if (level < depth) {

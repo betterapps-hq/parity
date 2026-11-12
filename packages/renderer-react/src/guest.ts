@@ -708,8 +708,8 @@ export function createGuest(init: GuestInit): Guest {
 
   /**
    * What a render function passes on (`extra`) goes to the node itself, as cloning the element it returns would, since a
-   * component is wrapped in its boundary: over the node's own props and slots, its style over the node's, and its key
-   * on what's returned.
+   * component is wrapped in its boundary: over the node's own props and slots, its style inline, over what the node's
+   * rule or its own `style` prop gives it, and its key on what's returned.
    */
   const toReact = (node: RenderNode, key?: Key, extra?: Props): ReactNode => {
     const { key: given, style: givenStyle, ...passed } = extra ?? {}
@@ -720,11 +720,16 @@ export function createGuest(init: GuestInit): Guest {
       case "text":
         return node.text
       case "element": {
+        // The element is drawn from the frame's rule for its node, or from its classes, so only what a render function
+        // passes on is an inline style. A class the function passes on joins the element's own.
         const props = {
           ...attributesFor(node.tag, node.attributes),
           ...passed,
           key: keyed,
-          style: withProjectUrls(givenStyle ? Object.assign({}, node.style, givenStyle) : node.style),
+          style: givenStyle ? withProjectUrls(givenStyle) : undefined,
+          className: node.classes?.length
+            ? [node.classes.join(" "), passed.className].filter(isText).join(" ")
+            : passed.className,
           "data-canvas-node": node.nodeId
         }
 

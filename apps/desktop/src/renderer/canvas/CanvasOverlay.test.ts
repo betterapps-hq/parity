@@ -18,6 +18,7 @@ import { atom, react } from "tldraw"
 import { boardRoot, defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "../ModeView.tsx"
+import { frameCss } from "../guest.ts"
 import { DesignStore } from "../design-store.ts"
 import { SelectionStore } from "../selection.ts"
 import { CanvasOverlay } from "./CanvasOverlay.tsx"
@@ -35,7 +36,12 @@ function Checkbox() {
 
 const sheet = new CSSStyleSheet()
 sheet.replaceSync(":host { --spacing: 4px }")
-const loaded = { guest: createGuest({ components: { Checkbox }, css: "" }), sheet, tokens: [] }
+const loaded = {
+  guest: createGuest({ components: { Checkbox }, css: "" }),
+  sheet,
+  tokens: [],
+  ...frameCss("", "http://parity.test")
+}
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 

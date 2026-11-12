@@ -213,3 +213,24 @@ describe("round trips", () => {
     )
   })
 })
+
+describe("compiling classes for a frame", () => {
+  it("gives the classes' rules in Tailwind's order, in its utilities layer", () => {
+    // `px-2` comes after `p-4` in a build whatever order they're asked in, so the narrower one wins.
+    expect(printer().css(["px-2", "p-4", "p-4"])).toBe(
+      "@layer utilities {\n" +
+        ".p-4 {\n  padding: calc(var(--spacing) * 4);\n}\n" +
+        ".px-2 {\n  padding-inline: calc(var(--spacing) * 2);\n}\n" +
+        "}\n"
+    )
+  })
+
+  it("compiles a variant as the build does, inside its own conditions", () => {
+    expect(printer().css(["hover:bg-primary"])).toContain("@media (hover: hover)")
+  })
+
+  it("compiles nothing for a class Tailwind doesn't know", () => {
+    expect(printer().css(["not-a-class"])).toBe("")
+    expect(printer().css([])).toBe("")
+  })
+})

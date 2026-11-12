@@ -1358,7 +1358,7 @@ would size, outlined in dashes, so it can be seen, selected with a click and dro
 Code: core's `emptyLayoutAttribute` in `packages/core/src/render.ts` marks an empty layout's element with the axes its
 content would size (`data-canvas-empty-layout="width height"`), and the frame's root sheet in
 `apps/desktop/src/renderer/frame.ts` gives it its least size (`emptyLayoutSize`) and dashes. The least size is
-`!important`, to beat the `min-width: 0` every layout is drawn with. A render job (`renderJob` in
+`!important`, to beat the `min-width: 0` a layout that fills is drawn with. A render job (`renderJob` in
 `apps/desktop/src/shared/render-job.ts`) takes the attribute out of its tree with core's `withoutEmptyLayoutMarks`
 unless it's marked `canvas`, which only the canvas's bitmaps (`frame-bitmaps.ts`) are. The sheet finds empty layouts by
 that attribute, not by `:empty`: with `:empty` in it, a sheet every frame shares, closing a project with the pointer in
@@ -2947,11 +2947,13 @@ numbers. A component's number props take any number.
   value, and letting go makes it one undo step. Escape takes it back. Pressing a letter without dragging focuses its
   field. These are my calls, as the smallest step from Figma, whose labels scrub at four speeds.
 - **The canvas previews while typing or scrubbing.** Each readable keystroke shows on the canvas at once, without
-  changing the design: the edit's inline styles are written straight onto the elements already drawn, in every frame of
-  the design, worked out for each frame's state and viewport as the frame works out its own. The side panels follow once
-  the change is made. Something it can't read keeps the last preview while typing, since `16p` is on its way to `16px`.
-  A component previews only when it renders the design's props on its root, as only then does it take the style; one
-  that doesn't changes once the edit is made, as before.
+  changing the design, in every frame of the design, worked out for each frame's state and viewport as the frame works
+  out its own. An element's edit is a rule laid over its frame's rules and its classes (PAR-942), which the frame takes
+  away as it draws the change; a property the edit takes off is rolled back with `revert-layer`, so the rule or class
+  that set it is passed over. A component's edit is written onto its element, since its style is its `style` prop. The
+  side panels follow once the change is made. Something it can't read keeps the last preview while typing, since `16p`
+  is on its way to `16px`. A component previews only when it renders the design's props on its root, as only then does
+  it take the style; one that doesn't changes once the edit is made, as before.
 - **Number props preview too** (PAR-203), typed or scrubbed, such as a Progress bar's `value`. A prop has to draw the
   component again, which inline styles can't do, so the preview is made in the design, in a gesture of its own, as a
   resize writes as the pointer moves, and each keystroke takes the last one back first. Maths works from the value as it
@@ -2980,8 +2982,9 @@ Code:
   (`stepFieldValue`), scrubbing (`scrubSteps`), showing a value (`formatFieldValue`) and what the field says
   (`describeFieldNote`, `summarizeFieldNotes`). It takes data and returns data; it can move to `@parity-app/editor` when
   PAR-7 makes it.
-- `packages/core/src/style-changes.ts`: which inline styles an edit changes between two renders of a design
-  (`styleChanges`).
+- `packages/core/src/frame-rules.ts`: the rules that show an edit over a frame's own (`previewRules`), and
+  `packages/core/src/style-changes.ts`: which of a component's inline styles an edit changes between two renders of a
+  design (`styleChanges`).
 - `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
   leaving, Escape, steps and scrubs, and the effects it asks for.
 - `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
@@ -3004,8 +3007,9 @@ Code:
   `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx` previews through
   `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its checkpoint unless it's
   made. `chrome/MultiPanel.tsx` has the note on what differs.
-- `canvas/style-preview.ts`: `StylePreview`, which writes previews onto the frames, takes them back, and settles them
-  for the change. `chrome/style-editor.ts` wires it into the inspector.
+- `canvas/style-preview.ts`: `StylePreview`, which lays previews over the frames' rules (`previewFrameRules` in
+  `frame.ts`) and writes a component's onto its element, takes them back, and settles them for the change.
+  `chrome/style-editor.ts` wires it into the inspector.
 
 Tests:
 
@@ -3039,9 +3043,10 @@ Tests:
   commit, in a gesture from the press to the release, and Escape during a scrub; `Mixed+8` on two layers; and a number
   prop whose preview the value it's given holds (PAR-203): `/20` previewed and committed from 70, Escape and Enter on
   the value it started with taking the preview back, and a scrub from 70.
-- `apps/desktop/src/renderer/canvas/style-preview.test.ts` (6), in Chrome: a preview drawn in each state's frame, a
-  state that sets its own width left alone, a later preview putting back what it doesn't change, taking it back exactly,
-  settling for the change, and nothing written for no change.
+- `apps/desktop/src/renderer/canvas/style-preview.test.ts` (8), in Chrome: a preview drawn in each state's frame as a
+  rule, never inline, a state that sets its own width left alone, a later preview putting back what it doesn't change,
+  taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
+  settling for the change, which the frame takes away as it draws it, and nothing shown for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
 - `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
   inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
@@ -4100,6 +4105,37 @@ off left Pricing clean; the Stat card showed one trend icon, and Ctrl+Shift+H on
 not in Monthly; and 12 typed in a number param with no default gave the number 12. Known limits:
 
 - The stylesheet changing on disk isn't read back into the tokens until the project reopens, as before.
+
+### Unsaved changes survive a crash (PAR-905)
+
+A crash, a forced quit or an agent stopping Parity no longer loses unsaved changes. Agents can't save, so long agent
+runs build up a lot of them between the person's saves.
+
+- **A recovery copy is kept** about a second after the changes change, while any are unsaved: each unsaved `.par` as it
+  is on the canvas, the modes when they changed, and token values the stylesheet doesn't have yet. It's kept in Parity's
+  app data, `<userData>/recovery/<hash of the project's folder>.json`, never in the project. The project service writes
+  it, beside a temporary file it renames over the copy.
+- **It's removed once nothing is unsaved:** after Save, after undoing back to what the files hold, when a tab closes,
+  and when quitting after Save or Don't save. A clean quit leaves no copy, so nothing is offered next time.
+- **The next open offers it back.** As the project opens, from the last session's tabs or by hand, "Restore unsaved
+  changes?" says when the changes were made ("Parity closed before you saved your changes at 6:35 PM today") and offers
+  Discard and Restore. Restore is focused; Escape and clicking away do nothing. Restore puts the changes back as one
+  undo step, "Restore unsaved changes", unsaved, so the tab shows its dot, Save writes them and Undo goes back to what
+  the files hold. It goes over whatever the files hold now without asking, since an agent often changes a file with the
+  CLI in between. Discard removes the copy. Projects that open together are asked about one after another. Nothing is
+  kept for the project until it's answered, so the copy can't be written over first.
+
+Tests:
+
+- `packages/editor/src/recovery.test.ts` (8): nothing kept while everything's saved or undone back; each unsaved file,
+  the modes and token edits kept; restoring as one unsaved undo step, tokens with what the stylesheet holds, files made
+  and deleted, and over a file an agent changed since; reading a copy back, and nothing from one that isn't.
+- `apps/desktop/src/renderer/recovery.test.ts` (5): nothing written before the offer is answered, one write after a run
+  of changes, removed after Save, brought up to date at once as the app quits, removed when discarded.
+- `apps/desktop/src/utility/recovery.test.ts` (4): a file per project outside it, removed when there's nothing to keep,
+  nothing read from a copy cut short or from another version, nothing kept without a folder.
+- `apps/desktop/src/renderer/chrome/report-time.test.ts`: how the time reads ("6:35 PM today").
+- `chrome/RestorePrompt.stories.tsx`: Offered, Restored (the tab's dot, and the undo step) and Discarded.
 
 ## Tokens
 
@@ -6191,6 +6227,77 @@ installed build, which hasn't been tried yet.
 ## Rendering frames
 
 How the project's code runs in the canvas's frames.
+
+### Frames draw layers from rules and classes (PAR-942)
+
+A frame draws a layout, a text, an image or a video from CSS rules, not from an inline style, so the canvas has the
+cascade the project's code will have, and a rule can hold what an inline style can't: a state's pseudo-class, a
+container query, a `group-hover:` rule.
+
+- **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
+  project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
+  The classes are the Tailwind printer's (`packages/styles-tailwind`), which writes a class only when it compiles back
+  to the declaration it came from, so a layer measures the same by its classes as by its rule. Their CSS is one
+  stylesheet for the project's frames, in Tailwind's `utilities` layer and in Tailwind's order.
+- **Otherwise, and until the classes are written, a layer is drawn from a rule for its node:** one rule set for each
+  element, found by its id (`[data-canvas-node="…"]`), holding its declarations in order. The window asks the project
+  service for classes, since the service holds the project's Tailwind; a layer shows from its rule at once and from its
+  classes when the answer comes, and looks the same in both. A layer with a declaration Tailwind has no class for keeps
+  its rule whole.
+- **The rules sit where the code's classes would.** In a project whose CSS has a `utilities` cascade layer, as
+  Tailwind's does, they're in that layer, over its base styles. Any other project's CSS isn't layered, and a layered
+  rule would lose to all of it, a reset's `* { padding: 0 }` included, so its rules aren't layered either.
+- **A component's own style is still its `style` prop.** Its DOM is its own, and no rule of the frame's is sure to reach
+  it, so what a design sets on a component (its size, its place) goes to the component as before, and so does the div
+  drawn around one that puts its style on an inner element (PAR-201).
+- **Frames drawn offscreen draw the rules,** not the classes: a frame's bitmap, an agent's screenshot and `Measure`,
+  exports and component previews. They measure the same, and a bitmap is named by its tree, which doesn't change when
+  the classes arrive.
+- **A frame adds only what code writes.** A layout is `position: relative` only when one of its children is placed
+  against its edges (Absolute), the design's root included, and never when it's Absolute itself. No layout gets
+  `min-width: 0` unless it fills along its parent's direction, which writes it. Before, every layout had both, which
+  developers don't write, and the blanket `min-width: 0` let a hugging layout shrink below its content in a crowded row.
+- **Lengths and addresses are the frame's.** The rules and the classes' CSS are prepared as the project's own CSS is
+  (`prepareCanvasCss`): `rem` and viewport units measure the frame, a width media query asks the frame's width, and a
+  root-relative `url()` is the project's.
+
+Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style`'s
+`declarations`, and marks a layout whose child is Absolute (`anchors`). `packages/core/src/frame-rules.ts` has
+`frameRules` (a tree's rules, through `cssPrinter`), `previewRules`, `withClasses` and `writeClasses`.
+`apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and one for a preview, after the
+project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes a tree's rules in the
+project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
+the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
+again since (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles
+adapter's `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
+offscreen one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and
+no style.
+
+Tests:
+
+- `packages/core/src/frame-rules.test.ts` (21): a rule for each element in the tree's order, none for a component or an
+  element with classes, the cascade layer, ids with quotes and slashes; preview rules for what an edit changes, with
+  `revert-layer` first for what it takes away; classes put on the elements a framework wrote them for; and classes
+  written one declaration at a time, compiled together with the ones the frames already have.
+- `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
+- `packages/style/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a child
+  is placed in is `relative`; an Absolute one stays Absolute.
+- `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
+  its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
+  `candidatesToCss`.
+- `apps/desktop/src/renderer/ModeView.test.ts`, a frame in a project whose styling framework writes classes (2), in
+  Chrome: a layer drawn from its rule, then from its classes once the service answers, the same size and with no inline
+  style; and a layer with a declaration the framework can't write keeping its rule.
+- `apps/desktop/src/renderer/frame-nodes.test.ts`, in Chrome: frames mounted with their rules, and an element a render
+  function draws taking its node's rule and the style it's given inline.
+- `apps/desktop/src/renderer/canvas/style-preview.test.ts` (8), in Chrome: see Typing, stepping and scrubbing.
+
+Gaps: no end-to-end test compares a layer drawn from its rule with the same layer drawn from compiled classes, as
+[style-package.md](proposals/style-package.md) asks; the Chrome test does it with a stand-in for Tailwind. Checked in
+`pnpm dev` on the example project on 2026-11-11: the Plan card's layouts and text were drawn with `flex flex-col gap-6`
+and the like and no inline style, from a 17 KB stylesheet of classes the example's Tailwind compiled; typing 10 in Gap
+showed a rule over the class, Enter drew `gap-2.5`, and undo drew `gap-6` again. A component layer still can't draw a
+state's rule, since its style is inline.
 
 ### rem follows the project's root font (PAR-156)
 

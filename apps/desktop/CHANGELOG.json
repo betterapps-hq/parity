@@ -2,6 +2,49 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 04:02:26 GMT",
+      "version": "0.65.0",
+      "tag": "@parity-app/desktop_v0.65.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0d3f13e42602272b668ee9f21374db9e1ecb2eeb",
+            "comment": "Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take overrides"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "48261bcd8e27a18d85f5f7e555fa57daef8b0608",
+            "comment": "Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take role, id and aria-* props on their elements."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "803709527c8f576be6ad842fa32c1aa74e0ad07e",
+            "comment": "Undo this branch's status bar change; nothing ships"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "227c91f1afead13c9f7000f6b4e5fc56297cd944",
+            "comment": "Print style declarations as plain CSS rules and read them back; nothing in the app calls it yet"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "28e3ae97ad57472edee28a4bc4e00f4b1f322fad",
+            "comment": "Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it settles"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 03:17:27 GMT",
       "version": "0.64.0",
       "tag": "@parity-app/desktop_v0.64.0",

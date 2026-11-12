@@ -19,7 +19,8 @@ const design: ContainerSpec = {
   },
   states: [
     { id: "default", name: "Default" },
-    { id: "wide", name: "Wide", overrides: { title: { style: { width: 20 } } } }
+    { id: "wide", name: "Wide", overrides: { title: { style: { width: 20 } } } },
+    { id: "faint", name: "Faint", overrides: { button: { style: { opacity: 20 } } } }
   ]
 }
 
@@ -41,34 +42,39 @@ function withStyle(id: string, style: NodeStyle): ContainerSpec["root"] {
 }
 
 describe("styleChanges", () => {
-  it("lists only what a style edit changes, node by node", () => {
-    const changes = styleChanges(render(design.root), render(withStyle("title", { width: 80 })))
-    expect(changes).toEqual([{ nodeId: "title", set: { width: "calc(var(--spacing) * 80)" }, unset: [] }])
-  })
-
-  it("takes off what the edit removes", () => {
-    const changes = styleChanges(render(design.root), render(withStyle("root", { gap: undefined })))
-    expect(changes).toEqual([{ nodeId: "root", set: {}, unset: ["gap"] }])
-  })
-
   it("changes a component's inline style, which lands on its root", () => {
     const changes = styleChanges(render(design.root), render(withStyle("button", { opacity: 40 })))
     expect(changes).toEqual([{ nodeId: "button", set: { opacity: "0.4" }, unset: [] }])
   })
 
+  it("lists only what a style edit changes, component by component", () => {
+    const changes = styleChanges(render(design.root), render(withStyle("button", { width: 80 })))
+    expect(changes).toEqual([{ nodeId: "button", set: { width: "calc(var(--spacing) * 80)" }, unset: [] }])
+  })
+
+  it("takes off what the edit removes", () => {
+    const changes = styleChanges(render(design.root), render(withStyle("button", { opacity: undefined })))
+    expect(changes).toEqual([{ nodeId: "button", set: {}, unset: ["opacity"] }])
+  })
+
   it("follows the state each render shows", () => {
-    const wide = design.states[1]
-    // In Wide, the state's own width wins over the base design's, so a base edit to it changes nothing there.
-    expect(styleChanges(render(design.root, wide), render(withStyle("title", { width: 80 }), wide))).toEqual([])
+    const faint = design.states[2]
+    // In Faint, the state's own opacity wins over the base design's, so a base edit to it changes nothing there.
+    expect(styleChanges(render(design.root, faint), render(withStyle("button", { opacity: 40 }), faint))).toEqual([])
+  })
+
+  it("leaves elements out, since rules draw them", () => {
+    expect(styleChanges(render(design.root), render(withStyle("title", { width: 80 })))).toEqual([])
+    expect(styleChanges(render(design.root), render(withStyle("root", { gap: undefined })))).toEqual([])
   })
 
   it("is empty when nothing changes", () => {
     expect(styleChanges(render(design.root), render(design.root))).toEqual([])
   })
 
-  it("reads every node's inline style, components included", () => {
+  it("reads every component's inline style, and no element's", () => {
     const styles = inlineStyles(render(design.root))
-    expect([...styles.keys()]).toEqual(["root", "title", "button"])
+    expect([...styles.keys()]).toEqual(["button"])
     expect(styles.get("button")).toEqual({ opacity: "0.5" })
   })
 })

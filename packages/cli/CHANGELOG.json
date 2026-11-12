@@ -2,6 +2,43 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 04:02:39 GMT",
+      "version": "0.50.0",
+      "tag": "@parity-app/cli_v0.50.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "227c91f1afead13c9f7000f6b4e5fc56297cd944",
+            "comment": "Print style declarations as plain CSS rules and read them back; nothing in the app calls it yet"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0d3f13e42602272b668ee9f21374db9e1ecb2eeb",
+            "comment": "Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take overrides"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "48261bcd8e27a18d85f5f7e555fa57daef8b0608",
+            "comment": "Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take role, id and aria-* props on their elements."
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "803709527c8f576be6ad842fa32c1aa74e0ad07e",
+            "comment": "Say which package Vite came in when a project installs Vite+ as vite, in the detection summary: Vite 8.3.5, shipped by Vite+ 1.4.0"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 03:17:52 GMT",
       "version": "0.49.0",
       "tag": "@parity-app/cli_v0.49.0",

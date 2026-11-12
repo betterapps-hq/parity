@@ -1,5 +1,6 @@
 import type { Checks } from "@parity-app/channel"
 import { CodedError, canvasDocument, detectionCorrections, finiteNumber, jsonText, parseInput } from "@parity-app/core"
+import { recoveryCopySchema } from "@parity-app/editor"
 import { z } from "zod"
 import type { ServiceMethods } from "./protocol.ts"
 
@@ -53,6 +54,16 @@ const projectPicture = z.object({
 })
 
 const project = z.object({ projectId: z.string() })
+
+/** A declaration a frame asks the project's classes for, as `@parity-app/style` has them. */
+const cssDeclaration = z.object({
+  property: z.string(),
+  value: z.string(),
+  when: z
+    .object({ state: z.string().optional(), viewport: z.string().optional(), theme: z.string().optional() })
+    .optional()
+})
+
 const processId = z.object({ id: z.string() })
 const roots = z.object({ roots: z.array(z.string()) })
 
@@ -67,6 +78,8 @@ const serviceParams = {
   "library.add": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
+  "recovery.keep": project.extend({ copy: recoveryCopySchema.optional() }),
+  "recovery.read": project,
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
   "images.scan": project,
   "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),
@@ -112,6 +125,7 @@ const serviceParams = {
   "accessibility.check": project.extend({ design: z.string() }),
   "code.read": project.extend({ path: z.string() }),
   "tokens.save": project.extend({ changes: z.array(tokenWrite) }),
+  "styles.classes": project.extend({ declarations: z.array(cssDeclaration), written: z.array(z.string()) }),
   "processes.list": z.object({}),
   "processes.stop": processId,
   "processes.restart": processId,

@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Undo this branch's status bar change; nothing ships",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

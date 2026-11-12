@@ -390,13 +390,23 @@ export interface StylesAdapter {
    * The framework's way of writing a layer's declarations, and of reading its code back, as the project's own copy
    * means it. Its code is a list of classes.
    */
-  loadPrinter(root: string, stylesheet: string): Promise<StylePrinter<string[]>>
+  loadPrinter(root: string, stylesheet: string): Promise<ClassPrinter>
   /**
    * Writes token values into the stylesheet's source where the framework keeps them, and takes out those without a
    * value, keeping everything else as written. `theme` is what `loadTheme` read. A project no adapter reads has plain
    * custom properties, which `writeTokenChanges` in `@parity-app/tokens` writes.
    */
   writeTokens(source: string, writes: readonly TokenWrite[], theme: readonly ThemeVariable[]): string
+}
+
+/** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
+export interface ClassPrinter extends StylePrinter<string[]> {
+  /**
+   * The CSS these classes compile to in this project, as one stylesheet in the framework's own cascade layer and
+   * order, so a frame that gives its elements the classes draws them as the project's built CSS would (PAR-942). A
+   * class the framework doesn't know compiles to nothing.
+   */
+  css(classes: readonly string[]): string
 }
 
 /** A theme variable without its `--`, as the framework defines it. */
