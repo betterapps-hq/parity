@@ -1,5 +1,20 @@
 # Decisions
 
+- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+  [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
+  `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
+  - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
+    property the later key's value stands, and `from` names that key. What a kind of layer draws before any key is set
+    (a layout's `display: flex`, `position: relative` and `min-width: 0`, text's `margin: 0`) is from the key that would
+    change it, so every declaration has a row to name.
+  - **Render still writes inline styles,** by camel-casing each declaration's property. An image's and a video's
+    `display: block` and `object-fit` stay in render, since they come from the node's `fit`, not its style. PAR-942
+    replaces the inline styles with rules.
+  - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
+    `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
+    itself.
+
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
