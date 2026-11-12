@@ -4596,7 +4596,10 @@ Code: `useAwake` in `apps/desktop/src/renderer/canvas/frame-sleep.ts`; `FrameTil
 decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height,
 and shows the placeholder, with the `.frame-placeholder` rule in `styles.css`; the board's `near` and `dormant` signals
 in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`;
-`capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture.
+`capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture; `captureWindow` in
+`apps/desktop/src/main/index.ts`, which takes a capture up to three times, after the offscreen window paints again, when
+Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component previews and
+exports all capture through it.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
@@ -4615,7 +4618,10 @@ by reading `useFrameBitmap`, and the full suite passed four times under extra lo
 `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
 so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
 checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy
-(see [decisions.md](decisions.md), Canvas), not by the suite.
+(see [decisions.md](decisions.md), Canvas), not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a
+capture failing with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and
+any other failure is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the
+failure came from about one capture in each CI run, and Sentry's count from CI after the change is the check.
 
 ### A hidden tab's frames sleep (PAR-153)
 
