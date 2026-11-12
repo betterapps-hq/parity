@@ -5900,9 +5900,13 @@ interrupting work (PAR-490). Startup checks remain quiet when no update is avail
 also restores a previously dismissed download or restart notice. About stays available separately through Help.
 
 Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. About labels installed beta builds with `(Beta)` independently of the selected Update channel; the
-preference describes which future releases to accept. It also shows the available version. Development builds and
-extracted Linux folders do not download or install updates.
+allowing downgrades. A beta check names electron-updater's beta channel, so it takes the newest version tag in GitHub's
+releases feed and passes over the `@parity-app/*` tags the release workflows push without release files; taking the
+feed's first entry made every beta check fail while one of those came first (PAR-825). A failure records its first line
+and electron-updater's error code, as Sentry redacts the whole message when its HTTP headers follow. About labels
+installed beta builds with `(Beta)` independently of the selected Update channel; the preference describes which future
+releases to accept. It also shows the available version. Development builds and extracted Linux folders do not download
+or install updates.
 
 The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
 release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
@@ -5922,12 +5926,15 @@ through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `
 `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
-progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
-decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
-before React subscribes and replacing its listener without losing the next action. `chrome/updates.test.ts` covers
-manual checks without a dialog, quiet startup results, repeated checks, retry and dismissed progress becoming a ready
-notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
-unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
+progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
+failure resetting the close decision, disabled development builds and the Mac fallback. `main/update-channel.test.ts`
+runs electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping
+stable on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
+`preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
+losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
+checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
+real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation and relaunch as the
+newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 
@@ -5968,9 +5975,9 @@ time reads. The CLI's `diagnostics.test.ts` covers the zip and its files. `chrom
 the dialog empty, written, after a crash, from a fallback, sending, sent and failed, with Send moving from one to the
 next.
 
-### Install the parity command (PAR-906)
+### Install the Parity CLI (PAR-906)
 
-Help > Install the parity command puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
+Help > Install the Parity CLI puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
 with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
 second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
 and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
@@ -6640,6 +6647,38 @@ name the badge showed Terminal; with `PARITY_AGENT_NAME=DeepSeek Harness` it sho
 without design edits, and the badges were checked in screenshots. Concurrent long-name MCP cursors have not been checked
 visually; their id truncation regression is covered by `caller.test.ts`.
 
+### A cursor for each subagent (PAR-960)
+
+A session's subagents share its MCP connection, so their calls carry one name and one id and move one cursor. A call
+that passes `subagent`, a short name the subagent gives itself, gets a cursor and a strip of its own, shown as
+`Header (Claude Code)`: the subagent first, since that's what tells them apart, then the session. The same name on a
+later call picks up the same cursor, and a call that names no subagent is the session's own, as before. The server's
+instructions and the skill ask an agent to give each subagent that works at once a name to pass. In a terminal each
+subagent sets its own `PARITY_AGENT_NAME`.
+
+- **Every MCP tool that reaches the app takes it,** as a bare string beside the tool's own fields. `get_logs` and
+  `read_skill` answer without the app and show no cursor, so they don't.
+- **A name that's blank or isn't text is left out,** not refused. One is kept to a line and 40 characters.
+- **Telemetry still names the session.** The subagent travels beside the caller in the request, and only the canvas
+  joins them.
+- **An older app ignores it,** and shows one cursor as it did.
+
+Implementation: `withSubagent` and `splitSubagent` in `packages/cli/src/mcp.ts` publish it and take it out of a call's
+arguments; `callAs` in `client.ts` sends it in the body; `callerIdentity` and `presenceIdentity` in
+`packages/agent/src/caller.ts` read it and name the cursor, which `dispatch` puts on each presence event.
+
+Tests: `packages/agent/src/caller.test.ts` (3: a subagent kept on one line and 40 characters, and left out when blank or
+not text; the session's name and id without one; three subagents named and keyed apart, the same one keeping its id, and
+another session's of the same name apart). `packages/agent/src/dispatch.test.ts` (1: a body's subagent shown as its own
+caller under the session's id, with telemetry told the session each time). `packages/cli/src/execute.test.ts` (2,
+through the real MCP server: a named subagent reaching the app beside the caller and out of the params, with blank and
+numeric ones left out; `subagent` on every listed tool but the two that answer alone).
+`packages/cli/src/operations.test.ts` (2: each listed tool's schema is its contract's with `subagent` beside its fields;
+the tool list stays within 21.5 KB).
+
+Gap: not tried with real subagents. Claude Code's CLI wasn't signed in where this was built, so nothing here shows that
+subagents pass the name. The story Agent/Behavior, Three subagents, plays what the canvas shows when they do.
+
 ### Shared execute contract (PAR-451)
 
 CLI `exec` and MCP `execute` use the same operation in `packages/cli/src/execute.ts`. Both default the task label to
@@ -6907,6 +6946,19 @@ Tests: `packages/agent/src/run.test.ts` ("explains that Measure draws one frame"
 for state and mode, with nothing rendered; one state and mode still measuring; a frame listing only its primary mode).
 `packages/cli/src/execute.test.ts` ("explains Measure's single frame the same way in both transports": the agent's error
 as CLI text, `--json` and MCP). `packages/cli/src/skill-examples.test.ts` runs the skill's loop.
+
+### Checks draw their frames at once (PAR-816)
+
+`Screenshot`, `Problems` and `Accessibility` ask for every state and mode they check at once, so the four offscreen
+windows draw them side by side, where they used to draw one after another. The answer keeps the order asked for: each
+state, and each mode within it. A snippet's own loop of `Measure` calls still draws one frame at a time unless it awaits
+them together.
+
+Implementation: `renderEach` in `packages/agent/src/workspace.ts`, called by `problems`, `screenshot` and
+`accessibility`.
+
+Tests: `packages/agent/src/run.test.ts` ("draws every frame a check asks for at once, and answers in the order asked":
+three modes drawing together, finished last first, still answered and screenshotted in the order asked).
 
 ### Warnings grouped by what they found (PAR-460)
 

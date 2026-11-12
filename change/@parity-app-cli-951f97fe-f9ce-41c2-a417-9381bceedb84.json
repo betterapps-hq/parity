@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "`open_project` and `parity open` now say that opening an open project detects it again, and ask agents not to kill Parity to pick up changes (PAR-817, PAR-818).",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

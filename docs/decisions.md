@@ -7054,6 +7054,26 @@ The plan attached the last log file to a crash, and main's hangs said how long b
   from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
 - **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
 
+## A main hang outside JavaScript says where main resumed (PAR-890)
+
+The watchdog's main hangs were filed as bugs named after a frame: `processTimers`, `emit`, `isPackaged`, `write`, the
+heartbeat's own `postMessage` (PAR-890, PAR-828, PAR-876). 82 of the 89 `hang:main` events in the 30 days to 2026-11-11
+came from CI, most 2.0 to 2.2 seconds long, and their frames were wherever main next ran JavaScript: the inspector can't
+pause main while it's in native code or idle under Chromium's own work, so the pause lands once it's back. Tried in
+Electron 45, a JavaScript loop paused in 6 to 9 ms with its own function on the stack; a 2.9-second `execSync` paused
+1,421 ms after asking, in an unrelated stream write. My calls:
+
+- **How long the pause takes tells them apart,** under 100 ms for JavaScript (`pausesInJavaScriptMs`). Running
+  JavaScript, main pauses at its next call or loop, 5 to 30 ms measured. A pause that never lands counts as native too.
+- **The event says which, and keeps the stack either way:** a `stuck_in` tag, `pausedAfterMs` in its extra data, and,
+  outside JavaScript, the title "Main stopped answering outside JavaScript, then resumed in …". The stack still shows
+  what ran first, which can be the caller of a slow native call.
+- **`main.blocked` gets `where` only from JavaScript,** since a resume point isn't where main was stuck.
+- **Main's own "Main was blocked for …" gets a fingerprint,** `main-was-blocked`, as the watchdog's did in PAR-879: it
+  had been three Sentry issues, one per build's line (PAR-673).
+- **No blocking work was moved off main here.** No first-party frame repeats across the events, and the CI hangs barely
+  pass the 2-second threshold on 4-core runners drawing in software. The next hangs say whether main was in JavaScript.
+
 ## Connectors search outside services from main (PAR-829)
 
 You asked on 2026-11-09 to build the Mobbin integration with patterns that make Unsplash and later sources easier. My
@@ -7506,10 +7526,10 @@ CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Pri
   always the app's version, so nothing keeps it in step, and it needs no Node or npm. Electron as Node started the CLI
   about 0.1 s slower than Node itself, and `--prefer-offline` and Node's compile cache didn't speed up npx or loading.
   Pen's item only opens a docs page.
-- **Help > Install the parity command** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity`
-  shell script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on
-  macOS, asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers
-  it wrote, which carry a marker line, so moving the app keeps the command working.
+- **Help > Install the Parity CLI** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity` shell
+  script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on macOS,
+  asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers it
+  wrote, which carry a marker line, so moving the app keeps the command working.
 - **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
   bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
   the CLI and its sender load in Parity's Electron.
@@ -7741,3 +7761,59 @@ Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
 - **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
   and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
 - **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.
+
+## Builds people run file Sentry's bugs, and a crashed service says why (PAR-950, PAR-951)
+
+Two Linear bugs filed on 2026-11-12 weren't bugs anyone could hit. PAR-951 was a `ReferenceError` from a dev copy hot
+reloading a half-saved file. PAR-950, titled `emit`, was a pull request's CI run whose packaged project service couldn't
+find a module; the pull request fixed it before merging. You decided on 2026-11-12 to clean up the noise they showed.
+
+- **Only `preview`, `beta` and `production` file Linear bugs,** one Sentry alert each, so an issue counts as new in each
+  environment. `development` and `ci` still send to Sentry. How it's set up is in [sentry.md](sentry.md#alerts).
+- **`release` is now `beta`,** since it's the published version before promotion, which only the beta update channel and
+  npm's `next` get. Beside `production` it read as the same thing. Events sent before keep `release`.
+- **A project service that exits unexpectedly is reported as an error named by what it printed,** such as
+  `The project service exited with code 1: Error: Cannot find module '../data/patch.json'`, with its last 50 lines of
+  output, and grouped by that error. Its output is piped through main rather than inherited, and still printed there.
+  Sentry's own `'Utility' process exited with 'abnormal-exit'` is dropped: it carried no cause, and its stack made
+  Sentry title it `emit`. The service is the only utility process Parity starts.
+
+## A subagent names itself on each call (PAR-960)
+
+One Claude session that handed work to three subagents showed one cursor: subagents share their parent's MCP connection,
+and a cursor is keyed by the id the server makes once, at `initialize`. My calls:
+
+- **The client doesn't say which subagent is calling.** Claude Code 2.1.294 puts `claudecode/agentId` and
+  `claudecode/agentType` in a call's `_meta` only for its own `claude-code-remote` server; every other server gets
+  `claudecode/toolUseId`, which changes with each call. Read from its binary on 2026-11-11, not seen on the wire: its
+  CLI wasn't signed in here, so a session with real subagents couldn't be run against a logging server.
+- **So a call says it itself,** with an optional `subagent` on every MCP tool that reaches the app. Nothing else about a
+  call tells callers apart: a label changes with the task, and calls that overlap can be one agent's.
+- **It's bare in each tool's schema, and explained once** in the server's instructions and the skill. A description on
+  each of 20 tools would cost the tool list about 1 KB (PAR-510); bare, it costs 0.5 KB, and the budget goes from 21 KB
+  to 21.5. Whether subagents fill it in without a description is unmeasured; a description on each tool is the next step
+  if they don't.
+- **It travels beside the caller, not in it.** `/rpc`'s body carries `subagent` next to `agent` and `agentId`, so
+  telemetry still tags the session by its declared name and id, and words an agent made up stay out of its tags. Only
+  the canvas joins them: `Header (Claude Code)`, with the id `<session id>/Header`.
+- **Read leniently,** as the caller's name is: a name that's blank or isn't text is left out rather than failing the
+  call. It's kept to one line and 40 characters.
+- **The CLI has no flag for it.** A terminal's calls are separate processes that already name themselves with
+  `PARITY_AGENT_NAME`, so each subagent sets its own.
+
+## Session Replay records the window's canvases (PAR-964)
+
+Replays showed Sentry's "This replay contains a canvas element" banner, with each `<canvas>` drawn as an empty box,
+though PAR-624 added `replayCanvasIntegration`. `followTelemetry` added Replay first and the canvas recorder after it.
+An integration added after `init` is set up at once, and Replay looks for `ReplayCanvas` only then
+(`_maybeLoadFromReplayCanvasIntegration` in `@sentry/replay` 11.8.0), so it never found it and recorded without
+`recordCanvas`. My calls:
+
+- **The canvas recorder is added first,** and a test in `renderer/replay.test.ts` fails if Replay is set up without it.
+  A development copy's replay on 2026-11-12 (`9c29cb08…`) has no banner and shows the selection overlay.
+- **It records at Sentry's medium quality:** a WebP of each canvas that changed, twice a second at most, at quality 0.4
+  and 1,280 pixels at most a side. The window has one canvas at rest, tldraw's overlay; agents' scan effect adds a WebGL
+  one while it runs. Ten seconds of moving the pointer over the canvas recorded 13 pictures, 83 KB, and taking each
+  bitmap took under 0.1 ms.
+- **The holds from PAR-758 and PAR-957 cover it.** Replay's canvas manager stops with the page recorder while it's
+  paused, so a canvas isn't recorded while a project mounts or the canvas zooms either.

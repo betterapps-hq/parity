@@ -918,6 +918,46 @@ Print(JSON.stringify({ measured: { box: title.box, clip: title.clip }, problem: 
     }
   })
 
+  it("draws every frame a check asks for at once, and answers in the order asked", async () => {
+    const modes = ["desktop-light", "tablet-light", "mobile-light"]
+    const waiting: (() => void)[] = []
+    let drawing = 0
+    let mostAtOnce = 0
+
+    // Each frame is held until none starts for a moment, then they finish last first.
+    const render: AgentHooks["render"] = async (request) => {
+      drawing++
+      mostAtOnce = Math.max(mostAtOnce, drawing)
+      await new Promise<void>((resolve) => {
+        waiting.push(resolve)
+        setTimeout(() => {
+          for (const finish of waiting.splice(0).reverse()) {
+            finish()
+          }
+        }, 20)
+      })
+      drawing--
+
+      return hooks().render(request)
+    }
+
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const found = await Accessibility("signup", {mode: ${JSON.stringify(modes)}})
+Print(JSON.stringify(found.map((finding) => finding.mode)))
+Print(await Screenshot("signup", {mode: ${JSON.stringify(modes)}}))`
+      },
+      snapshot(),
+      { ...hooks(), render }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(mostAtOnce).toBe(modes.length)
+    expect([...new Set(printed(result.output[0], z.array(z.string())))]).toEqual(modes)
+    expect(result.screenshots.map((shot) => shot.mode)).toEqual(modes)
+  })
+
   it("checks accessibility in each mode, naming the layers", async () => {
     const events: AgentEvent[] = []
 

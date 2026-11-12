@@ -3,7 +3,7 @@ export type UpdateState = { beta: boolean } & (
   | { phase: "disabled" | "idle" | "checking" | "current" }
   | { phase: "downloading"; version: string; percent: number; transferred: number; total: number }
   | { phase: "ready" | "manual" | "installing"; version: string }
-  | { phase: "error"; message: string }
+  | { phase: "error"; message: string; code?: string }
 )
 
 export type UpdateEvent =
@@ -13,7 +13,7 @@ export type UpdateEvent =
   | { type: "progress"; transferred: number; total: number }
   | { type: "downloaded" }
   | { type: "install" }
-  | { type: "error"; message: string }
+  | { type: "error"; message: string; code?: string | undefined }
   | { type: "beta"; beta: boolean }
 
 /** Late progress and duplicate checks cannot replace a ready update or change its release channel. */
@@ -58,8 +58,12 @@ export function updateState(state: UpdateState, event: UpdateEvent): UpdateState
       return state.phase === "downloading" ? { beta, phase: "ready", version: state.version } : state
     case "install":
       return state.phase === "ready" ? { beta, phase: "installing", version: state.version } : state
-    case "error":
-      return { beta, phase: "error", message: event.message }
+    case "error": {
+      const failed = { beta, phase: "error" as const, message: event.message }
+
+      return event.code ? { ...failed, code: event.code } : failed
+    }
+
     case "beta":
       if (["checking", "downloading", "installing"].includes(state.phase) || beta === event.beta) {
         return state

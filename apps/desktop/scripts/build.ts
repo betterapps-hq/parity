@@ -118,7 +118,7 @@ checkShippedSharp()
 checkShippedCli()
 
 /**
- * Ships the CLI that npm publishes, for Help > Install the parity command (PAR-906), whose `parity` runs it with the
+ * Ships the CLI that npm publishes, for Help > Install the Parity CLI (PAR-906), whose `parity` runs it with the
  * app's Electron as Node, so it's always the app's version. Its sender's Sentry is bundled into it, as main's is, rather
  * than shipping `@sentry/node`'s tree; zod and semver go beside the service's packages, where it finds them from its
  * own folder, as it finds the TypeScript the service ships.

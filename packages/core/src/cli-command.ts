@@ -1,5 +1,5 @@
 /**
- * Help > Install the parity command (PAR-906) puts a `parity` command on the person's PATH that runs the CLI shipped
+ * Help > Install the Parity CLI (PAR-906) puts a `parity` command on the person's PATH that runs the CLI shipped
  * inside the app, with the app's own Electron as Node. It's always the app's version, needs no Node or npm, and starts
  * about a second and a half faster than `npx @parity-app/cli`, which resolves the package on every call.
  */
@@ -23,8 +23,7 @@ export interface CliTarget {
 }
 
 /** The first line after the interpreter's, which marks a launcher as Parity's, so the app only rewrites its own. */
-export const cliMarker =
-  "Written by Parity (Help > Install the parity command). It runs the CLI that ships with the app."
+export const cliMarker = "Written by Parity (Help > Install the Parity CLI). It runs the CLI that ships with the app."
 
 /** Where the command goes: a folder of Parity's own on Windows, which joins PATH, and one already on it elsewhere. */
 export function cliFolder({

@@ -1,8 +1,40 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 04:24:53 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 05:54:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.68.0
+
+Thu, 12 Nov 2026 05:54:28 GMT
+
+### Minor changes
+
+- Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name (ajcraswell@gmail.com)
+
+## 0.67.0
+
+Thu, 12 Nov 2026 05:19:08 GMT
+
+### Minor changes
+
+- SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Report a crashed project service with what it printed, and name the pre-promotion environment beta
+  (ajcraswell@gmail.com)
+- Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame
+  to copy (ajcraswell@gmail.com)
+- Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports
+  electron-updater's error code (ajcraswell@gmail.com)
+- parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a
+  builder stopped by a signal isn't sent to Sentry as an error (ajcraswell@gmail.com)
+- Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a
+  minimized window (ajcraswell@gmail.com)
+- Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's
+  own blocked reports group as one Sentry issue. (ajcraswell@gmail.com)
 
 ## 0.66.0
 

@@ -1,8 +1,38 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 04:25:08 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 05:54:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.53.0
+
+Thu, 12 Nov 2026 05:54:47 GMT
+
+### Minor changes
+
+- Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name (ajcraswell@gmail.com)
+
+## 0.52.0
+
+Thu, 12 Nov 2026 05:19:24 GMT
+
+### Minor changes
+
+- SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Report a crashed project service with what it printed, and name the pre-promotion environment beta
+  (ajcraswell@gmail.com)
+- Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a
+  minimized window (ajcraswell@gmail.com)
+- Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's
+  own blocked reports group as one Sentry issue. (ajcraswell@gmail.com)
+- parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a
+  builder stopped by a signal isn't sent to Sentry as an error (ajcraswell@gmail.com)
+- `open_project` and `parity open` now say that opening an open project detects it again, and ask agents not to kill
+  Parity to pick up changes (PAR-817, PAR-818). (ajcraswell@gmail.com)
 
 ## 0.51.0
 

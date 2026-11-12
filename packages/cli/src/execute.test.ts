@@ -4,6 +4,7 @@ import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
 import { replies } from "@parity-app/agent/contracts"
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
 import {
@@ -29,6 +30,14 @@ const success: ExecReply = {
 const structuredSuccess = structuredExec(execResponse(success))
 const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
+
+/** The MCP server's listed tools, as far as these tests read them: each one's name and its input's properties. */
+const listedTools = z.array(
+  z.looseObject({
+    name: z.string(),
+    inputSchema: z.looseObject({ properties: z.record(z.string(), z.unknown()).optional() })
+  })
+)
 
 /** What reaches the app: the request, with the tab the CLI routed it to. */
 function expectRequests(params: JsonObject) {
@@ -59,6 +68,45 @@ describe("execute transport contract", processTests, () => {
       { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two", transport: "cli" }
     ])
   })
+  it("sends the subagent an MCP call names beside the session's caller, apart from the operation's params", async () => {
+    fixture.response = { result: emptyState(fixtureTab) }
+    const header = await mcp({ subagent: " Header pass " }, "get_app_state")
+    const blank = await mcp({ subagent: "  " }, "get_app_state")
+    const number = await mcp({ subagent: 3 }, "get_app_state")
+    const unnamed = await mcp({}, "get_app_state")
+
+    for (const protocol of [header, blank, number, unnamed]) {
+      expect(toolReply(protocol.stdout)?.result?.isError).toBe(false)
+    }
+
+    // Each is its own MCP session, with the caller's name and a session id; only the first names a subagent, and a
+    // name that's blank or isn't text is left out rather than refused.
+    const session = { method: "state", params: { tab: fixtureTab.id }, agent: "Contract Caller", transport: "mcp" }
+    expect(requests).toEqual([
+      expect.objectContaining({ ...session, subagent: "Header pass" }),
+      expect.objectContaining(session),
+      expect.objectContaining(session),
+      expect.objectContaining(session)
+    ])
+    expect(requests.filter((request) => "subagent" in request)).toHaveLength(1)
+  })
+
+  it("takes a subagent on every MCP tool that reaches the app, and on none that answers alone", async () => {
+    const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
+    const tools = listedTools.parse(toolReply(result.stdout)?.result?.tools)
+    const takes = (name: string) => tools.find((tool) => tool.name === name)?.inputSchema.properties?.subagent
+    const alone = ["get_logs", "read_skill"]
+
+    for (const tool of tools) {
+      expect([tool.name, takes(tool.name)]).toEqual([
+        tool.name,
+        alone.includes(tool.name) ? undefined : { type: "string" }
+      ])
+    }
+
+    expect(tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([...alone, "get_app_state", "execute"]))
+  })
+
   it("publishes execute defaults and patch constraints through MCP discovery", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     expect(toolReply(result.stdout)).toEqual(

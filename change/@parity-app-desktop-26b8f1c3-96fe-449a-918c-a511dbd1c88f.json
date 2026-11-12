@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame to copy",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
