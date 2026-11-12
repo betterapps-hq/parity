@@ -43,6 +43,8 @@ export function standInAccount(person: AccountPerson, changed: (state: AccountSt
   return {
     state,
     restore: async () => changed(state()),
+    // No token, so Parity's service answers a search as it would for someone signed out (PAR-131).
+    accessToken: async () => undefined,
     signIn: async () => undefined,
     reopen: async () => undefined,
     cancel: () => undefined,
