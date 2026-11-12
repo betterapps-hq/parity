@@ -147,7 +147,7 @@ describe("stepping and scrubbing", () => {
     const opacity = app.page.locator('input[aria-label="Opacity"]')
     await typeOver(opacity, "50-10")
     await opacity.press("Enter")
-    await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toBe(40)
+    await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toEqual({ step: 40 })
   })
 
   it("scrubs the Width label a step per 2px, previewing, and makes one undo step on release", async () => {
