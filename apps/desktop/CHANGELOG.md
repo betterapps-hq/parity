@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 04:02:26 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 04:24:53 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.66.0
+
+Thu, 12 Nov 2026 04:24:53 GMT
+
+### Minor changes
+
+- Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and
+  result, and every type they name, with their doc comments (ajcraswell@gmail.com)
+- Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit (ajcraswell@gmail.com)
+- Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a
+  layout is relative only when a child is placed in it (ajcraswell@gmail.com)
 
 ## 0.65.0
 
