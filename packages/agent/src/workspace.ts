@@ -96,14 +96,15 @@ import {
 import { validate } from "@parity-app/style"
 import {
   builtOn,
-  categorize,
   checkTokenEdit,
   type CssSupports,
   defaultValues,
   nearestTokens,
   previewKind,
   readNearValue,
-  substituteReferences
+  substituteReferences,
+  type Token,
+  withTokenChanges
 } from "@parity-app/tokens"
 import { z } from "zod"
 import {
@@ -731,13 +732,24 @@ export class AgentWorkspace {
    * `source: "keyword"`. A keyword the project declares a variable for is its token instead.
    */
   private tokensAndKeywords(): { name: string; category: string; source: string; values: Record<string, string> }[] {
-    const names = new Set(this.snapshot.tokens.map((token) => token.name))
+    const tokens = this.tokensNow()
+    const names = new Set(tokens.map((token) => token.name))
 
     const keywords = Object.entries(radiusKeywords)
       .filter(([name]) => !names.has(name))
       .map(([name, value]) => ({ name, category: "radius", source: "keyword", values: { default: value } }))
 
-    return [...this.snapshot.tokens, ...keywords]
+    return [...tokens, ...keywords]
+  }
+
+  /**
+   * The project's tokens as this call leaves them: its own `SetTokens` values over the project's, and a token it added
+   * among them, so the rest of the snippet can list it and use it without a warning.
+   */
+  private tokensNow(): Token[] {
+    return this.tokenChanges.length === 0
+      ? this.snapshot.tokens
+      : withTokenChanges(this.snapshot.tokens, this.tokenChanges)
   }
 
   /**
@@ -1486,22 +1498,8 @@ export class AgentWorkspace {
    * base times its factor. A token the project doesn't have yet takes its kind from its name and value.
    */
   private tokenReading(changes: readonly TokenChange[]) {
-    const tokens = new Map(this.snapshot.tokens.map((token) => [token.name, { ...token, values: { ...token.values } }]))
-
-    for (const change of [...this.snapshot.tokenOverrides, ...changes]) {
-      const token = tokens.get(change.name)
-
-      if (token) {
-        token.values[change.theme] = change.value
-      } else {
-        tokens.set(change.name, {
-          name: change.name,
-          category: categorize(change.name, change.value),
-          source: "semantic",
-          values: { [change.theme]: change.value }
-        })
-      }
-    }
+    const laid = withTokenChanges(this.snapshot.tokens, [...this.snapshot.tokenOverrides, ...changes])
+    const tokens = new Map(laid.map((token) => [token.name, token]))
 
     const comesTo = (name: string, theme: string, depth = 0): string | undefined => {
       const token = tokens.get(name)
@@ -2243,7 +2241,7 @@ export class AgentWorkspace {
   private lint(document: CanvasDocument): Warning[] {
     return lintDocument(document, {
       components: this.snapshot.components,
-      tokens: this.snapshot.tokens,
+      tokens: this.tokensNow(),
       iconSets: this.snapshot.iconSets,
       library: this.library(),
       props: this.snapshot.props,

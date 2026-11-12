@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { readDesignTokens } from "./dtcg.ts"
-import { describedCategories, describedTokenCss, extractTokens } from "./tokens.ts"
+import { describedCategories, describedTokenCss, extractTokens, type Token, withTokenChanges } from "./tokens.ts"
 
 describe("extractTokens", () => {
   it("collects root and theme values and categorizes them", () => {
@@ -95,5 +95,41 @@ describe("library tokens in frames", () => {
     expect(byName.fontSizeBase300?.category).toBe("font-size")
     expect(byName.lineHeightBase300?.category).toBe("leading")
     expect(byName.spacingHorizontalM?.values.default).toBe("16px")
+  })
+})
+
+describe("withTokenChanges", () => {
+  const tokens: Token[] = [
+    { name: "primary", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
+    { name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }
+  ]
+
+  it("lays values over the tokens they're for, the latest winning, and leaves the rest as they were", () => {
+    const next = withTokenChanges(tokens, [
+      { name: "primary", theme: "default", value: "red" },
+      { name: "primary", theme: "default", value: "blue" }
+    ])
+
+    expect(next[0]?.values).toEqual({ default: "blue", dark: "white" })
+    expect(next[1]).toBe(tokens[1])
+    expect(tokens[0]?.values.default).toBe("black")
+  })
+
+  it("adds a token none of them is, in the category its name and value say (PAR-911)", () => {
+    const next = withTokenChanges(tokens, [
+      { name: "text-2xl", theme: "default", value: "1.5rem" },
+      { name: "warning", theme: "default", value: "oklch(0.86 0.14 85)" },
+      { name: "warning", theme: "dark", value: "oklch(0.36 0.07 65)" }
+    ])
+
+    expect(next.slice(2)).toEqual([
+      { name: "text-2xl", category: "font-size", source: "semantic", values: { default: "1.5rem" } },
+      {
+        name: "warning",
+        category: "color",
+        source: "semantic",
+        values: { default: "oklch(0.86 0.14 85)", dark: "oklch(0.36 0.07 65)" }
+      }
+    ])
   })
 })

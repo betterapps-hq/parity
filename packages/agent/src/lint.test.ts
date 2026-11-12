@@ -13,7 +13,10 @@ const button: ComponentInfo = {
 
 const context: LintContext = {
   components: ["Button"],
-  tokens: [{ name: "primary" }, { name: "gutter" }],
+  tokens: [
+    { name: "primary", category: "color" },
+    { name: "gutter", category: "spacing" }
+  ],
   iconSets: [{ id: "lucide" }],
   library: new Map(),
   props: { Button: button },
@@ -72,7 +75,7 @@ describe("lintDocument", () => {
     expect(lintDocument(design(root, states), context).map((warning) => warning.message)).toEqual([
       `background "#ff00aa" isn't a token. Use a name from GetTokens({ nearest: "#ff00aa", category: "color" }), which lists the nearest first.`,
       `background "gradient-sunset" isn't a token. Use a name from GetTokens().`,
-      `background "ink" isn't a token`
+      `background "ink" isn't a token. The project's only color token is primary. Use it, or add ink with SetTokens.`
     ])
   })
 
@@ -97,7 +100,7 @@ describe("lintDocument", () => {
     expect(lintDocument(design(root, states), context)).toEqual([
       {
         category: "not_a_token",
-        message: `background "pink" isn't a token. Use a name from GetTokens().`,
+        message: `background "pink" isn't a token. The project's only color token is primary. Use it, or add pink with SetTokens.`,
         at: "home/page"
       },
       {
@@ -112,7 +115,7 @@ describe("lintDocument", () => {
       },
       {
         category: "not_a_token",
-        message: `foreground "teal" isn't a token. Use a name from GetTokens().`,
+        message: `foreground "teal" isn't a token. The project's only color token is primary. Use it, or add teal with SetTokens.`,
         at: "home/page"
       },
       {
@@ -121,7 +124,11 @@ describe("lintDocument", () => {
         at: "home/card"
       },
       { category: "unknown_component_design", message: `no component design "navbar"`, at: "home/nav" },
-      { category: "not_a_token", message: `border "ink" isn't a token`, at: "home state dark/page" }
+      {
+        category: "not_a_token",
+        message: `border "ink" isn't a token. The project's only color token is primary. Use it, or add ink with SetTokens.`,
+        at: "home state dark/page"
+      }
     ])
   })
 
@@ -155,7 +162,11 @@ describe("lintDocument", () => {
         message: `transitions[0].delay "duration-fast" isn't a token. Use a name from GetTokens().`,
         at: "home/page"
       },
-      { category: "not_a_token", message: `transitions[0].duration "slow" isn't a token`, at: "home state hover/page" }
+      {
+        category: "not_a_token",
+        message: `transitions[0].duration "slow" isn't a token. Use a name from GetTokens().`,
+        at: "home state hover/page"
+      }
     ])
   })
 
@@ -176,9 +187,9 @@ describe("lintDocument", () => {
     }
 
     expect(lintDocument(design(root), context).map(({ message }) => message)).toEqual([
-      `shadow[0].token "shadow-huge" isn't a token. Use a name from GetTokens().`,
+      `shadow[0].token "shadow-huge" isn't a token, and the project has no shadow tokens. Add shadow-huge with SetTokens.`,
       `shadow[1].color "#ff0000" isn't a token. Use a name from GetTokens({ nearest: "#ff0000", category: "color" }), which lists the nearest first.`,
-      `filter[0].shadow.token "drop-shadow-xl" isn't a token. Use a name from GetTokens().`,
+      `filter[0].shadow.token "drop-shadow-xl" isn't a token, and the project has no shadow tokens. Add drop-shadow-xl with SetTokens.`,
       `backdropFilter[0].value "blur-max" isn't a token. Use a name from GetTokens().`,
       `transform.y "far" isn't a length token. Use a spacing step (a number) instead.`
     ])
@@ -198,12 +209,68 @@ describe("lintDocument", () => {
       { id: "dark", name: "Dark", overrides: { page: { style: { border: "oklch(0.3 0 0)" } } } }
     ]
 
-    expect(lintDocument(design(root, states), context).map((warning) => warning.message)).toEqual([
+    const tokens = [...context.tokens, { name: "radius-md", category: "radius" }]
+
+    expect(lintDocument(design(root, states), { ...context, tokens }).map((warning) => warning.message)).toEqual([
       `background "#2f6fed" isn't a token. Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`,
-      `foreground "13px" isn't a token. Use a name from GetTokens().`,
+      `foreground "13px" isn't a token. The project's only color token is primary. Use it.`,
       `radius "6px" isn't a token. Use a name from GetTokens({ nearest: "6px", category: "radius" }), which lists the nearest first.`,
-      `size "#ffffff" isn't a token. Use a name from GetTokens().`,
+      `size "#ffffff" isn't a token, and the project has no font-size tokens. Add one with SetTokens.`,
       `border "oklch(0.3 0 0)" isn't a token. Use a name from GetTokens({ nearest: "oklch(0.3 0 0)", category: "color" }), which lists the nearest first.`
+    ])
+  })
+
+  it("lists the project's tokens of the kind a style takes, or says it has none, and that SetTokens adds one (PAR-911)", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: { size: "text-2xl", shadow: "shadow-md", background: "pink", radius: "6px", leading: "1.2 !important" },
+      children: []
+    }
+
+    const states = [
+      { id: "default", name: "Default" },
+      { id: "big", name: "Big", overrides: { page: { style: { size: "text-3xl" } } } }
+    ]
+
+    // A compiled kit's stylesheet: three sizes, no shadows or radii, and more colors than a warning lists.
+    const tokens = [
+      ...["text-base", "text-sm", "text-xs"].map((name) => ({ name, category: "font-size" })),
+      ...Array.from({ length: 9 }, (_, index) => ({ name: `chart-${index + 1}`, category: "color" })),
+      { name: "leading-tight", category: "leading" }
+    ]
+
+    expect(lintDocument(design(root, states), { ...context, tokens })).toEqual([
+      {
+        category: "not_a_token",
+        message: `background "pink" isn't a token. Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `radius "6px" isn't a token, and the project has no radius tokens. Add one with SetTokens.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `shadow "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `leading "1.2 !important" isn't a token. The project's only leading token is leading-tight. Use it.`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `size "text-3xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-3xl with SetTokens.`,
+        at: "home state big/page"
+      }
     ])
   })
 

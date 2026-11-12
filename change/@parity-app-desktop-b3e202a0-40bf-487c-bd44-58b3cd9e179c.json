@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

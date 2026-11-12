@@ -1435,9 +1435,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     },
 
     /**
-     * Writes token values into the project's stylesheet: semantic tokens into `:root` or their theme class, theme
-     * scale tokens into an `@theme` block, editing declarations in place where they already exist. A change without a
-     * value takes the declaration out, and a block it leaves empty.
+     * Writes token values into the project's stylesheet, as the styling framework that read it keeps them (its
+     * adapter's `writeTokens`: Tailwind's theme in `@theme`), or as plain custom properties when no adapter read it:
+     * into `:root` or their theme's block, editing declarations in place where they already exist and adding the
+     * rest. A change without a value takes the declaration out, and a block it leaves empty.
      */
     async saveTokens({ projectId, changes }) {
       const project = getProject(projectId)
@@ -1447,9 +1448,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         throw new Error("The project has no stylesheet to write tokens to")
       }
 
-      const themeNames = new Set(project.info.theme.map((variable) => variable.name))
+      const adapter = adapters.styles.find((candidate) => candidate.id === project.info.styles?.id)
       const source = await readFile(join(project.info.root, stylesheet), "utf8")
-      const content = writeTokenChanges(source, changes, themeNames)
+
+      const content = adapter
+        ? adapter.writeTokens(source, changes, project.info.theme)
+        : writeTokenChanges(source, changes)
 
       const edit = await applyProjectEdit(project, {
         label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,

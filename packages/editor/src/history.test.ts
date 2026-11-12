@@ -617,7 +617,7 @@ describe("token values", () => {
 
     /** The stylesheet after a save, as `saveTokens` writes it. */
     const written = (stylesheet: string, write: FileWrite) =>
-      write.kind === "tokens" ? writeTokenChanges(stylesheet, write.changes, new Set()) : stylesheet
+      write.kind === "tokens" ? writeTokenChanges(stylesheet, write.changes) : stylesheet
 
     const step = (overrides: readonly TokenChange[], from: DesignHistory, to: DesignHistory) =>
       withTokenOverrides(overrides, tokenDifferences(from.current.tokens, to.current.tokens), loaded)

@@ -1,4 +1,4 @@
-import type { EnclosingAtRule } from "@parity-app/core"
+import type { EnclosingAtRule, TokenWrite } from "@parity-app/core"
 import { isUnconditional, themeOfSelector } from "./policy.ts"
 
 /** A block in a stylesheet's source, with offsets so it can be edited in place. */
@@ -46,51 +46,37 @@ export interface TokenChange {
   value: string
 }
 
-/**
- * A token value Save writes in one theme, as `TokenChange` gives it, or `value` undefined to take the token's
- * declaration out of that theme: a value the theme didn't have, undone after it was saved.
- */
-export interface TokenWrite {
-  name: string
-  theme: string
-  value: string | undefined
-}
+export type { TokenWrite }
 
 /**
- * Writes token values into a stylesheet's source: semantic tokens into the root or their theme's block (`.dark` or
- * `[data-theme="dark"]`, whichever the stylesheet uses, else a new `.dark`), theme scale tokens (those `themeNames`
- * holds) into an `@theme` block, editing declarations in place where they already exist. A write without a value
- * takes the declaration out of the same blocks, and a block it leaves empty with it.
+ * Writes token values into a plain stylesheet's source, as custom properties: a default value into the root, a theme's
+ * into its block (`.dark` or `[data-theme="dark"]`, whichever the stylesheet uses, else a new `.dark`), editing
+ * declarations in place where they already exist and adding the rest, so a token the stylesheet never declared is
+ * added. A write without a value takes the declaration out of the same blocks, and a block it leaves empty with it.
+ * A styling framework that keeps tokens elsewhere writes them through its adapter's `writeTokens` instead.
  */
-export function writeTokenChanges(
-  source: string,
-  changes: readonly TokenWrite[],
-  themeNames: ReadonlySet<string>
-): string {
+export function writeTokenChanges(source: string, changes: readonly TokenWrite[]): string {
   let content = source
 
-  for (const { name, theme, value } of changes) {
-    const options = tokenBlocks(theme, themeNames.has(name))
-    content =
-      value === undefined
-        ? removeCustomProperty(content, name, options)
-        : setCustomProperty(content, name, value, options)
+  for (const change of changes) {
+    content = writeCustomProperty(content, change, tokenBlocks(change.theme))
   }
 
   return content
 }
 
-/** Where a token's value lives in a theme: a theme scale token (`isTheme`) in `@theme`, others in the root or theme. */
-function tokenBlocks(theme: string, isTheme: boolean): SetPropertyOptions {
-  if (theme !== "default") {
-    return { blocks: [], theme, create: `.${theme}` }
-  }
+/** Writes one value into the blocks `options` names, or takes its declaration out of them when it has no value. */
+export function writeCustomProperty(source: string, write: TokenWrite, options: SetPropertyOptions): string {
+  return write.value === undefined
+    ? removeCustomProperty(source, write.name, options)
+    : setCustomProperty(source, write.name, write.value, options)
+}
 
-  if (isTheme) {
-    return { blocks: ["@theme", "@theme inline", "@theme static"], theme: "default", create: "@theme" }
-  }
-
-  return { blocks: [], theme: "default", create: ":root" }
+/** Where a token's value lives in a theme: the root, or the theme's own block. */
+function tokenBlocks(theme: string): SetPropertyOptions {
+  return theme === "default"
+    ? { blocks: [], theme: "default", create: ":root" }
+    : { blocks: [], theme, create: `.${theme}` }
 }
 
 /**

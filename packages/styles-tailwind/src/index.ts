@@ -1,11 +1,12 @@
 import type { StylesAdapter, ThemeVariable } from "@parity-app/core"
 import { loadDesignSystem } from "./design-system.ts"
 import { tailwindPrinter } from "./printer.ts"
+import { writeTailwindTokens } from "./tokens.ts"
 
 /**
  * Tailwind CSS v4. The theme comes from the project's own Tailwind (through `@tailwindcss/node`, which its Vite or
  * PostCSS plugin installs), so plugins, `@theme` blocks and imported presets all count, and classes are written and read
- * by what they compile to there.
+ * by what they compile to there. Token values are written into `@theme` where Tailwind makes a utility from them.
  */
 export const tailwindStyles: StylesAdapter = {
   id: "tailwind",
@@ -30,5 +31,6 @@ export const tailwindStyles: StylesAdapter = {
     ])
 
     return tailwindPrinter({ compiles, spells })
-  }
+  },
+  writeTokens: writeTailwindTokens
 }
