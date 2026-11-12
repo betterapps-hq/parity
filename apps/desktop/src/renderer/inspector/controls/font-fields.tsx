@@ -29,11 +29,9 @@ import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from
 import {
   type FontToken,
   fontToken,
-  fontTokens,
   type LeadingToken,
   leadingToken,
   type SizeToken,
-  sizeTokens,
   type TrackingToken,
   trackingToken,
   type WeightToken
@@ -46,7 +44,7 @@ import {
  */
 
 /** What a font value draws as: its first family's name, its stack, its token, and whether the frame can load it. */
-export function resolveFont(value: FontValue | undefined, tokens: readonly FontToken[] = fontTokens) {
+export function resolveFont(value: FontValue | undefined, tokens: readonly FontToken[]) {
   if (value === undefined) {
     return undefined
   }
@@ -893,7 +891,7 @@ export function LineHeightField({
 }
 
 /** A text size in pixels: a token's, or its own. */
-export function sizePx(size: FontSize, tokens: readonly SizeToken[] = sizeTokens): number {
+export function sizePx(size: FontSize, tokens: readonly SizeToken[]): number {
   return "token" in size ? (tokens.find((token) => token.name === size.token)?.px ?? 16) : size.px
 }
 

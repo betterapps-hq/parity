@@ -1,6 +1,7 @@
 import type { Padding } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { leadingToken, lengthToken, sizeTokens, trackingToken } from "./controls/tokens.ts"
+import { sizeTokens } from "./controls/stand-in-tokens.ts"
+import { leadingToken, lengthToken, trackingToken } from "./controls/tokens.ts"
 import {
   eachLength,
   eachSideOf,

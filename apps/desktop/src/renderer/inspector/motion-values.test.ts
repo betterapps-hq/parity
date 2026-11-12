@@ -1,7 +1,6 @@
 import type { Transition } from "@parity-app/core"
-import type { Token } from "@parity-app/tokens"
 import { describe, expect, it } from "vite-plus/test"
-import { entriesOf, motionTokens, transitionsOf } from "./motion-values.ts"
+import { entriesOf, transitionsOf } from "./motion-values.ts"
 
 const keyed = (transitions: Transition[]) =>
   entriesOf(transitions).map((entry, index) => ({ ...entry, id: `entry-${index}` }))
@@ -39,28 +38,5 @@ describe("Motion's transitions", () => {
       { property: "all", duration: { step: 200 } }
     ])
     expect(transitionsOf([])).toBeUndefined()
-  })
-
-  it("offers the project's durations and easings, leaving out Tailwind's presets and defaults", () => {
-    const token = (name: string, value: string): Token => ({
-      name,
-      category: "motion",
-      source: "theme",
-      values: { default: value }
-    })
-
-    const { duration, easing } = motionTokens([
-      token("duration-fast", "150ms"),
-      token("duration-slow", "0.4s"),
-      token("ease-snappy", "cubic-bezier(0.2, 0.8, 0.2, 1)"),
-      token("ease-out", "cubic-bezier(0, 0, 0.2, 1)"),
-      token("default-transition-duration", "150ms")
-    ])
-
-    expect(duration.map((each) => [each.name, each.ms])).toEqual([
-      ["duration-fast", 150],
-      ["duration-slow", 400]
-    ])
-    expect(easing.map((each) => [each.name, each.curve])).toEqual([["ease-snappy", [0.2, 0.8, 0.2, 1]]])
   })
 })

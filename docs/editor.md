@@ -3266,7 +3266,8 @@ section with the group's own title leads it without a title of its own, and its 
   Size, Weight with italic, Line height and Letter spacing, from the project's type tokens, and the text's Color. A
   layer with type of its own and no preset is offered the preset it matches, or the nearest within three steps summed
   over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
-  spacing). A layer that sets no type of its own is offered none. Not saved: Preset, and the color's opacity.
+  spacing). A layer that sets no type of its own is offered none. The presets listed are still the stand-in project's,
+  measured with the project's type tokens. Not saved: Preset, and the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content. Not saved: Blend
   mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
@@ -3286,8 +3287,13 @@ through the one edit session `StyleSections` runs for them all (PAR-968, below).
 How the controls work with the document:
 
 - **The project's own tokens.** Every picker lists the project's tokens by the names the style holds (`radius-lg`,
-  `text-xl`), with what each comes to. Spacing steps aren't listed, since a length shows in pixels. Tokens are made in
-  the Tokens panel, not here.
+  `text-xl`), with what each comes to. Spacing steps aren't listed, since a length shows in pixels. A kind the project
+  has none of lists nothing; no picker falls back to the stories' stand-ins. Tokens are made in the Tokens panel, not
+  here: no field offers Create token (PAR-969), and where a value is written as one arbitrary value the field says why
+  without it. A new shadow names Tailwind's usual token for its kind (`shadow-sm`, `inset-shadow-sm`, `drop-shadow-md`)
+  and the `black` and `ring` colors only where the project has them, and is otherwise a shadow of its own.
+- **In this design.** A color picker offers the colors the design's layers write out, most used first, beside the
+  project's color tokens.
 - **Lengths keep what's typed.** Width, Height, limits, padding, margin, gaps and insets keep any number of pixels, so
   281 stays 281px (70.25 steps). Type, radius and colors are tokens in the style, so a size, line height, letter spacing
   or radius typed as a value lands on the nearest token.
@@ -3330,10 +3336,14 @@ size changes. The Component instance section and the props rows are `InstanceSec
 `inspector/controls/instance-section.tsx`, with their stories in `Instance.stories.tsx`; `chrome/LayerPanel.tsx` gives
 an instance's params as rows (`instanceRows`), `chrome/PropsSection.tsx` a code component's, and `ParamRows` in
 `chrome/ComponentsSection.tsx` a component design's own. The preset offered is `closestPreset` in
-`inspector/controls/preset-data.ts`. `projectTokenSets` in `inspector/token-sets.ts` turns the project's tokens into the
-controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's values as the controls show
-them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an
-absolutely placed layer, through the style editor's `place`.
+`inspector/controls/preset-data.ts`. The sections take what they offer from the project through one `ProjectData` in
+`inspector/controls/field-parts.tsx`, which `StyleSections` gives: the project's tokens, turned into the controls' sets
+once by `projectTokenSets` in `inspector/token-sets.ts`; the design's colors, from `designColors` in
+`packages/editor/src/design-colors.ts`; and its images, from `useProjectImages` in `inspector/image-source.ts`. A field
+drawn outside it throws. The stories give the stand-ins in `inspector/controls/stand-in-tokens.ts` through the same
+`ProjectData` (`useStandInProject` in `playground.tsx`). `inspector/style-values.ts` reads a style's values as the
+controls show them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx`
+measures an absolutely placed layer, through the style editor's `place`.
 
 Tests:
 
@@ -3358,10 +3368,15 @@ Tests:
   keeping its other sides; a length or the sides an edit reached worked out from each layer's own pixels or token, Fill,
   Hug and unset left, held at the least each takes, with margin below 0; a radius, text size, line height and letter
   spacing landing on the nearest token; a weight written as its number; and keywords the style doesn't take left out.
-- `inspector/token-sets.test.ts` (7): the project's tokens under their real names; the spacing scale left out; Full as a
-  radius; a text size paired with its line height; weights named in words, with Tailwind's hundreds when the project has
-  none; a font named by its first family; and nothing offered for what the style can't hold. The z-index tokens come
-  from `projectZIndexTokens`, tested in `layer-order.test.ts`.
+- `inspector/token-sets.test.ts` (26): one table of every set the controls offer from one project, each token under its
+  real name with what it comes to: colors, radii with Full, spacing without the scale's base and steps, containers,
+  breakpoints, text sizes, weights, line heights, letter spacing, fonts, shadows of each kind with their layers read,
+  blurs, layer orders in the order they stack, gradients, durations and easings without Tailwind's own, and nothing for
+  the kinds the project can't have yet; then a text size's paired line height, Tailwind's hundreds for a project with no
+  weights, and a shadow value's layers.
+- `inspector/controls/stand-in-tokens.test.ts` (1): nothing `StyleSections` draws imports the stand-in tokens.
+- `packages/editor/src/design-colors.test.ts` (4): the colors a design writes out, most used first and each once however
+  it's written; color tokens and other values left out; a limit; and none for a design with no colors.
 - `chrome/StyleSections.stories.tsx`: every section on Pricing's and Sign in's layers, with PickingAColor,
   PickingASpacing, PickingAWeight and PickingASizing opening their pickers by name. The Layer stories
   (`chrome/LayerPanel.stories.tsx`, Parity/Inspector/Layer) show the sections each kind of layer gets.
@@ -3377,7 +3392,12 @@ Escape took back.
 
 Gaps: the sections were driven in an isolated copy of the app on 2026-11-11. A direction, a gap, opacity, a radius, a
 stroke and its width, a padding side, a text size landing on `text-xl`, uppercase, absolute placement with whole-pixel
-insets, a pinned inset, a layer order and a grid each made the edit shown.
+insets, a pinned inset, a layer order and a grid each made the edit shown. On 2026-11-12, after the panel took its
+tokens through `ProjectData` (PAR-969): on shadcn-vite's Stat card, Radius listed the project's radii (`radius`,
+`radius-3xl`), picking `radius-lg` showed its chip, a new drop shadow named `shadow-sm`, a new fill listed the project's
+colors, and Easing listed Tailwind's presets with no durations, which the project has none of. On the headless fixture,
+which has no Tailwind theme, Radius listed only its `radius` and Full, and a new drop shadow was a shadow of its own in
+black.
 
 ### Token pickers' names (PAR-722)
 
@@ -3570,8 +3590,8 @@ Tests: `packages/core/src/document.test.ts` (a whole number or a token's name, a
 `packages/editor/src/style-editing.test.ts` (edited, differing and reset as its row; the stacking context from a layer
 order, from opacity and from the root, and none for layers in different ones); `packages/agent/src/run.test.ts` (set
 with `Update`, read with `Get`, a fraction refused); `packages/agent/src/lint.test.ts` (a name that isn't a token);
-`apps/desktop/src/renderer/inspector/sections/layer-order.test.ts` (the project's z-index tokens in order, what the
-field shows and stores, the hint's names).
+`apps/desktop/src/renderer/inspector/sections/layer-order.test.ts` (what the field shows and stores, the hint's names);
+`apps/desktop/src/renderer/inspector/token-sets.test.ts` (the project's z-index tokens in order).
 
 ### Filling a layer with colors, gradients and images (PAR-931)
 
@@ -3639,7 +3659,7 @@ Code: the schema (`boxShadow`, `filter`, `backdropFilter`, the transform keys an
 `packages/editor/src/style-editing.ts`; tokens inside shadows, filters and the transform in
 `packages/agent/src/lint.ts`. In the app, `EffectsSection` in
 `apps/desktop/src/renderer/inspector/sections/effects.tsx`, with the document's values turned into the controls' in
-`effects-values.ts` and the project's tokens in `effect-tokens.ts`. The agent's skill describes them in
+`effects-values.ts` and the project's tokens in `inspector/token-sets.ts`. The agent's skill describes them in
 `packages/cli/skills/document.md`.
 
 Tests:
@@ -3655,8 +3675,8 @@ Tests:
   token and the filter's drop shadows, written back as they were; a drop shadow that follows the shape written to the
   filter; the Filter list's entries, written back with the drop shadows kept; a blur with no token; and Transform's
   moves, flips, a length token's move, and the rotation and skew it keeps.
-- `apps/desktop/src/renderer/inspector/sections/effect-tokens.test.ts` (3): a shadow value's layers, and the project's
-  colors, shadows by kind and blurs.
+- `apps/desktop/src/renderer/inspector/token-sets.test.ts`: a shadow value's layers, and the project's colors, shadows
+  by kind and blurs.
 
 Gaps: the section's wiring has no automated DOM test. In the running app on 2026-11-11, on shadcn-vite's Stat card,
 adding a drop shadow, a background blur, a move of 16px and a flip by keyboard drew `var(--shadow-sm)`,
@@ -3696,8 +3716,9 @@ out an entry turned off. `packages/core/src/render.test.ts`: a state's own trans
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
-`apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's entries and back, seconds
-stored as milliseconds, and the project's tokens the fields offer.
+`apps/desktop/src/renderer/inspector/motion-values.test.ts` (2): every form through the list's entries and back, and
+seconds stored as milliseconds. `apps/desktop/src/renderer/inspector/token-sets.test.ts`: the project's durations and
+easings the fields offer.
 
 ## Component props
 

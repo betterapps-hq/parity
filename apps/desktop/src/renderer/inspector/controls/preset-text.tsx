@@ -38,6 +38,7 @@ import {
   type TypeField,
   typeFields,
   type TypePreset,
+  type TypeTokens,
   typeOf,
   typePresets,
   type TypeValues,
@@ -200,6 +201,7 @@ function PresetRow({
   onDetach: () => void
 }) {
   const preset = presetNamed(layer.preset)
+  const sets = useTokenSets()
 
   // The rows a wider viewport changes, by name, in the order the preset sets them.
   const changes = Object.keys(preset?.wider?.values ?? {}).flatMap((key) => {
@@ -218,30 +220,31 @@ function PresetRow({
           <PresetPicker preset={preset} overrides={overridesOf(layer).length} onPick={onPick} onDetach={onDetach} />
         </Unstored>
       </Field>
-      <ClosestPreset match={closestPreset(layer)} onUse={onPick} />
+      <ClosestPreset match={closestPreset(layer, sets)} onUse={onPick} />
     </>
   )
 }
 
 const valueCount = (count: number) => (count === 1 ? "1 value" : `${count} values`)
 
-/** The presets smallest first, as a scale reads, in every list of them. */
-const bySize = typePresets.toSorted((a, b) => measured(presetType(a)).size - measured(presetType(b)).size)
+/** The presets smallest first, as a scale reads, in every list of them, measured with the project's `tokens`. */
+const bySize = (tokens: TypeTokens) =>
+  typePresets.toSorted((a, b) => measured(presetType(a), tokens).size - measured(presetType(b), tokens).size)
 
 /** A preset as the field's token list draws it: Ag in its family and weight, its size and line height after. */
-function presetToken(preset: TypePreset): FieldToken {
-  const values = measured(presetType(preset))
+function presetToken(preset: TypePreset, tokens: TypeTokens): FieldToken {
+  const values = measured(presetType(preset), tokens)
 
   return {
     name: preset.name,
     kind: "type-style",
     value: `${values.weight} ${values.size}px/${values.lineHeight}px ${values.stack}`,
-    detail: summary(preset)
+    detail: summary(preset, tokens)
   }
 }
 
 /** The presets as tokens, smallest first, for a list of them. */
-export const presetTokens = bySize.map(presetToken)
+export const presetTokens = (tokens: TypeTokens) => bySize(tokens).map((preset) => presetToken(preset, tokens))
 
 /**
  * The preset as every token field holds one: a chip that Backspace takes off, the chevron's list of presets with
@@ -258,15 +261,17 @@ export function PresetPicker({
   onPick: (name: string | undefined) => void
   onDetach: () => void
 }) {
+  const sets = useTokenSets()
+
   const options = (text: string): (SearchOption & { value: string | undefined })[] => {
     const searched = text.trim().toLowerCase()
 
-    return bySize.flatMap((each) => {
+    return bySize(sets).flatMap((each) => {
       if (searched !== "" && !each.name.toLowerCase().includes(searched)) {
         return []
       }
 
-      const token = presetToken(each)
+      const token = presetToken(each, sets)
 
       return [
         {
@@ -309,7 +314,7 @@ export function PresetPicker({
       chip={
         preset && {
           name: preset.name,
-          token: presetToken(preset),
+          token: presetToken(preset, sets),
           overridden: overrides > 0,
           onRemove: () => onPick(undefined),
           onDetach,
@@ -317,7 +322,7 @@ export function PresetPicker({
         }
       }
       tokens={{
-        list: presetTokens,
+        list: presetTokens(sets),
         current: preset?.name,
         none: "None",
         name: "Presets",
@@ -326,7 +331,7 @@ export function PresetPicker({
       search={{ label: "Presets", options, empty: () => "No preset matches", tall: true }}
       hint={{
         label: preset ? `Preset: ${preset.name}` : "Preset: none",
-        detail: preset ? `${summary(preset)}${overridden}` : undefined
+        detail: preset ? `${summary(preset, sets)}${overridden}` : undefined
       }}
       inputMode="text"
       selectOnFocus
@@ -342,6 +347,7 @@ export function PresetPicker({
  */
 function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse: (name: string) => void }) {
   const stores = useContext(StoresContext)
+  const sets = useTokenSets()
 
   // Where the document can't hold a preset yet, there's none to offer.
   if (!match || !stores("preset")) {
@@ -350,7 +356,7 @@ function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse
 
   const { preset, differs } = match
   const values = presetType(preset)
-  const changes = differs.map((field) => `${fieldLabel(field)} becomes ${valueWords(field, values)}`)
+  const changes = differs.map((field) => `${fieldLabel(field)} becomes ${valueWords(field, values, sets)}`)
 
   return (
     <MessageLine
@@ -362,7 +368,7 @@ function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse
           label: (
             <Hint label={`Use ${preset.name}`} detail={changes.join("\n") || undefined}>
               <span>
-                Use {preset.name} <span className="font-normal text-muted-foreground">{summary(preset)}</span>
+                Use {preset.name} <span className="font-normal text-muted-foreground">{summary(preset, sets)}</span>
               </span>
             </Hint>
           ),
@@ -386,17 +392,19 @@ function Summary({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const sets = useTokenSets()
+
   return (
     <button
       type="button"
       data-preset-summary
       aria-expanded={open}
-      aria-label={`${open ? "Hide" : "Show"} what ${preset.name} sets: ${summary(preset)}, locked`}
+      aria-label={`${open ? "Hide" : "Show"} what ${preset.name} sets: ${summary(preset, sets)}, locked`}
       onClick={() => onOpenChange(!open)}
       className="col-span-2 -mt-1.5 flex min-w-0 items-center gap-1 rounded-sm py-0.5 text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ChevronRight aria-hidden className={`size-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
-      <span className="min-w-0 flex-1 truncate">{summary(preset)}</span>
+      <span className="min-w-0 flex-1 truncate">{summary(preset, sets)}</span>
       {/* Lined up with the rows' locks, at the end of their names' rows. */}
       <Lock aria-hidden className="mr-1 size-3 shrink-0" />
     </button>
@@ -429,7 +437,8 @@ function TypeRow({
   const label = fieldLabel(field)
   const { source } = shownValue(layer, field)
   const half = halfRows.has(field)
-  const viewports = viewportsOf(preset, field)
+  const sets = useTokenSets()
+  const viewports = viewportsOf(preset, field, sets)
 
   const control = (
     <TypeControl field={field} layer={layer} inheritsFrom={inheritsFrom} onChange={(next) => onChange(next)} />
@@ -450,7 +459,7 @@ function TypeRow({
         half={half}
         overrides={preset.name}
         viewports={viewports}
-        hint={`${preset.name} gives ${valueWords(field, presetType(preset))}`}
+        hint={`${preset.name} gives ${valueWords(field, presetType(preset), sets)}`}
         onReset={() => onChange(resetValue(layer, field), true)}
       >
         {control}
@@ -505,7 +514,7 @@ function LockedValue({ field, preset }: { field: TypeField; preset: TypePreset }
   let unit: string | undefined
 
   if (field === "weight") {
-    shown = <span className="min-w-0 truncate">{valueWords(field, values)}</span>
+    shown = <span className="min-w-0 truncate">{valueWords(field, values, sets)}</span>
   } else if (value !== undefined && "token" in value) {
     const list: readonly FieldToken[] = sets[tokenSetOf[field]]
     const token = list.find((each) => each.name === value.token)
@@ -520,7 +529,7 @@ function LockedValue({ field, preset }: { field: TypeField; preset: TypePreset }
       />
     )
   } else {
-    const words = valueWords(field, values)
+    const words = valueWords(field, values, sets)
     unit = /(px|%)$/.exec(words)?.[1]
     shown = <span className="min-w-0 flex-1 truncate tabular-nums">{unit ? words.slice(0, -unit.length) : words}</span>
   }
@@ -550,10 +559,10 @@ function TypeControl({
   inheritsFrom: string
   onChange: (layer: PresetLayer) => void
 }) {
-  const type = typeOf(layer)
-  const numbers = measured(type)
-  const set = <F extends TypeField>(name: F, value: TypeValues[F] | undefined) => onChange(setValue(layer, name, value))
   const sets = useTokenSets()
+  const type = typeOf(layer)
+  const numbers = measured(type, sets)
+  const set = <F extends TypeField>(name: F, value: TypeValues[F] | undefined) => onChange(setValue(layer, name, value))
 
   if (field === "font") {
     return (
@@ -570,7 +579,7 @@ function TypeControl({
     return (
       <FontSizeField
         value={shownValue(layer, "size").value}
-        inherited={measured(inherited).size}
+        inherited={measured(inherited, sets).size}
         onChange={(next) => set("size", next)}
       />
     )

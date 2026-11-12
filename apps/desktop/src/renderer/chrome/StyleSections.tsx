@@ -1,13 +1,16 @@
 import type { ContainerSpec } from "@parity-app/core"
 import {
   type CapabilityDesign,
+  designColors,
   selectionCapabilities,
   type StyleSection,
   styleParts,
   type TakesStyle
 } from "@parity-app/editor"
 import { type ComponentType, type ReactNode, useMemo } from "react"
-import { LiveEditsContext, ProjectTokens } from "../inspector/controls/field-parts.tsx"
+import { useProject } from "../canvas/context.ts"
+import { LiveEditsContext, ProjectData, type ProjectDataValue } from "../inspector/controls/field-parts.tsx"
+import { useProjectImages } from "../inspector/image-source.ts"
 import { AppearanceSection } from "../inspector/sections/AppearanceSection.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
@@ -60,8 +63,9 @@ const noRoot: CapabilityDesign = { root: { id: "" } }
 
 /**
  * Every style section the selected layers get, in the order `@parity-app/editor`'s `styleTable` gives, from what
- * they can do (`selectionCapabilities`), on the approved controls in `inspector/controls`. They offer the project's own
- * tokens, and edit the layers' `NodeStyle` through one edit session for them all (`useEditSession`): what's typed or
+ * they can do (`selectionCapabilities`), on the approved controls in `inspector/controls`. They take what they offer
+ * from the project through one `ProjectData`: its tokens, converted once here (`projectTokenSets`), the colors the
+ * design uses, and its images. They edit the layers' `NodeStyle` through one edit session for them all (`useEditSession`): what's typed or
  * scrubbed previews on the canvas until it's made, a run of Up and Down presses is one undo step, and Escape puts the
  * value back. Components get the same controls as layouts:
  * what's set on them lands on their root element, over the component's own styles.
@@ -80,7 +84,11 @@ export function StyleSections({
   const can = selectionCapabilities(container ?? noRoot, editor.selection.layers, takesStyle)
   const { sections, controls } = styleParts(can)
   const { edit, live } = useEditSession(editor)
-  const sets = useMemo(() => projectTokenSets(editor.tokens), [editor.tokens])
+  const tokens = useMemo(() => projectTokenSets(editor.tokens), [editor.tokens])
+  const root = container?.root
+  const usedColors = useMemo(() => (root ? designColors(root) : []), [root])
+  const images = useProjectImages(useProject())
+  const project = useMemo<ProjectDataValue>(() => ({ tokens, usedColors, images }), [tokens, usedColors, images])
 
   const props: SectionProps = { editor, can, edit, shows: (control) => controls.has(control) }
 
@@ -100,7 +108,7 @@ export function StyleSections({
   )
 
   return (
-    <ProjectTokens sets={sets}>
+    <ProjectData value={project}>
       <LiveEditsContext value={live}>
         {sections.map((section) => {
           const group = groups[section]
@@ -121,6 +129,6 @@ export function StyleSections({
           return view(section)
         })}
       </LiveEditsContext>
-    </ProjectTokens>
+    </ProjectData>
   )
 }

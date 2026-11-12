@@ -10,8 +10,8 @@ import { type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { Field, SectionButton } from "./field-row.tsx"
 import type { Move, TransformValue } from "./motion-data.ts"
 import { PercentField } from "./number-field.tsx"
-import { Card, drawnStyle, PreviewStage } from "./playground.tsx"
 import { PositionInBox } from "./position-box.tsx"
+import { Card, drawnStyle, PreviewStage } from "./preview-card.tsx"
 import { isBareNumber, readLength } from "./typing.ts"
 
 /*

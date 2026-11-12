@@ -45,15 +45,9 @@ import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.ts
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
 import { type FieldSessionEvent, relativeUpdate } from "./edit-session.ts"
 import { useRowScrub } from "./field-row.tsx"
+import type { ImageSource } from "./image-fill.tsx"
 import { inScaleOrder, tokenNamed } from "./token-scale.ts"
-import {
-  type FieldToken,
-  type LengthToken,
-  lengthToken,
-  type TokenSetName,
-  type TokenSets,
-  tokenSets
-} from "./tokens.ts"
+import { type FieldToken, type LengthToken, lengthToken, type TokenSetName, type TokenSets } from "./tokens.ts"
 
 /*
  * The one field every styling control builds on, as PAR-652's design-options-fields.md sets its anatomy: an inner
@@ -1907,36 +1901,37 @@ export function nearestToken<T extends FieldToken>(tokens: readonly T[], measure
   return current.reduce((best, token) => (Math.abs(measure(token) - to) < Math.abs(measure(best) - to) ? token : best))
 }
 
-interface ProjectTokensValue {
-  sets: TokenSets
-  /** Adds a token made with Create token; unset where the tokens are the project's own, which it doesn't make here. */
+/**
+ * What the Design tab's fields take from the project, which whatever draws them must give (`ProjectData`): every set
+ * of its tokens, converted once where they enter (`projectTokenSets` in the app, the stand-ins in a story), the colors
+ * the design uses, and where image fills take their images from.
+ */
+export interface ProjectDataValue {
+  tokens: TokenSets
+  /** The colors the design uses, which a color picker offers under In this design. */
+  usedColors: readonly string[]
+  images: ImageSource
+  /**
+   * Adds a token made with Create token. Only the stories hold one, in their state: the Design tab doesn't offer Create
+   * token, since a token it made would be in the design and not in the project's stylesheet.
+   */
   create?: <K extends TokenSetName>(set: K, token: TokenSets[K][number]) => void
 }
 
-const TokensContext = createContext<ProjectTokensValue | undefined>(undefined)
+const ProjectDataContext = createContext<ProjectDataValue | undefined>(undefined)
 
-/**
- * The project's tokens for what's inside: tokens.ts's stand-ins, and those made with Create token, held in state so
- * every field and preview inside sees a new one, and nothing outside does. Playground holds one for each story. Given
- * `sets`, the fields offer those as they are, and none offers Create token: the Design tab passes the project's own.
- */
-export function ProjectTokens({
-  tokens,
-  sets: given,
-  children
-}: {
-  /** Sets the project starts with in place of the stand-ins, as `{ duration: [] }` for a project with no durations. */
-  tokens?: Partial<TokenSets>
-  /** Every set, as the project has them now, in place of the stand-ins and Create token. */
-  sets?: TokenSets
-  children: ReactNode
-}) {
-  const [sets, setSets] = useState<TokenSets>(() => ({ ...tokenSets, ...tokens }))
+/** Gives the fields inside the project's tokens, colors and images. */
+export const ProjectData = ProjectDataContext
 
-  const create = <K extends TokenSetName>(set: K, token: TokenSets[K][number]) =>
-    setSets((current) => ({ ...current, [set]: [...current[set], token] }))
+/** What the fields take from the project; a field drawn outside `ProjectData` is a mistake, and says so. */
+export function useProjectData(): ProjectDataValue {
+  const given = useContext(ProjectDataContext)
 
-  return <TokensContext value={given ? { sets: given } : { sets, create }}>{children}</TokensContext>
+  if (!given) {
+    throw new Error("A Design panel field was drawn outside ProjectData, which gives it the project's tokens")
+  }
+
+  return given
 }
 
 /** One set of the project's tokens, and how to add to it (Create token) where the project can. */
@@ -1945,25 +1940,21 @@ export interface ProjectTokenSet<K extends TokenSetName> {
   create?: (token: TokenSets[K][number]) => void
 }
 
-/**
- * One set of the project's tokens, and how to add to it (Create token). Outside `ProjectTokens` it's the stand-ins, and
- * nothing can be added.
- */
+/** One set of the project's tokens, and how to add to it (Create token) where that's offered. */
 export function useTokens<K extends TokenSetName>(set: K): ProjectTokenSet<K> {
-  const context = useContext(TokensContext)
+  const { tokens, create } = useProjectData()
 
-  if (!context) {
-    return { tokens: tokenSets[set] }
-  }
-
-  const { create } = context
-
-  return { tokens: context.sets[set], create: create && ((token) => create(set, token)) }
+  return { tokens: tokens[set], create: create && ((token) => create(set, token)) }
 }
 
 /** Every set of the project's tokens, for a preview that draws what the fields hold. */
 export function useTokenSets(): TokenSets {
-  return useContext(TokensContext)?.sets ?? tokenSets
+  return useProjectData().tokens
+}
+
+/** The colors the design uses, for a color picker's In this design. */
+export function useUsedColors(): readonly string[] {
+  return useProjectData().usedColors
 }
 
 /* The field */

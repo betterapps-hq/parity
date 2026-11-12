@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AppearanceSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
-import { CardPreview, Playground, useDraft } from "./playground.tsx"
+import { Playground, useDraft } from "./playground.tsx"
+import { CardPreview } from "./preview-card.tsx"
 import { inState, mixedWrites, radiusWrites } from "./writes.ts"
 
 /**

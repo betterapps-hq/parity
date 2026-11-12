@@ -54,7 +54,7 @@ import {
 } from "./motion-data.ts"
 import { easingClass, easingIsLong } from "./motion-writes.ts"
 import { NumberField } from "./number-field.tsx"
-import { Card, PreviewStage } from "./playground.tsx"
+import { Card, PreviewStage } from "./preview-card.tsx"
 import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.ts"
 import { optionNamed } from "./typing.ts"
 
@@ -295,7 +295,7 @@ export function EasingField({
           defaultTab={defaultTab}
           onChange={onChange}
           isTaken={isTaken}
-          onSave={saveToken}
+          onSave={create && saveToken}
         />
       </PopoverContent>
     </Popover>
@@ -342,7 +342,7 @@ export function EasingField({
           namespace={namespace}
           placeholder="springy"
           isTaken={isTaken}
-          onSave={saveToken}
+          onSave={create && saveToken}
         />
       )}
     </div>
@@ -402,7 +402,7 @@ function EasingEditor({
   onChange: (value: Easing) => void
   isTaken: (full: string) => boolean
   /** Makes a token of the easing, by the whole name given. */
-  onSave: (full: string) => void
+  onSave?: (full: string) => void
 }) {
   const [tab, setTab] = useState<EditorTab>(() => {
     if (value !== undefined && "spring" in value) {

@@ -28,7 +28,7 @@ import {
   transitionProperties,
   transitionSets
 } from "./motion-data.ts"
-import { durationTokens } from "./tokens.ts"
+import type { DurationToken } from "./tokens.ts"
 import { noWrites, type StoredObject, type Writes } from "./writes.ts"
 
 /** Position's Rotation: `rotate-45`, `-rotate-12`, or `rotate-[22.5deg]` for a value of its own. */
@@ -168,9 +168,13 @@ function storedEntry(entry: TransitionEntry): StoredObject {
  * Motion's Transitions. Tailwind takes one transition property, duration, easing and delay per element, so one entry
  * is utilities, entries with one timing merge into one property list, and entries with different timings are one
  * arbitrary value. An entry that's off isn't written. Saved as a transition token, which has no Tailwind namespace, the
- * list writes the token's variable.
+ * list writes the token's variable. A duration token is read among the project's `durations`.
  */
-export function transitionsWrites(entries: readonly TransitionEntry[], savedAs?: string): Writes {
+export function transitionsWrites(
+  entries: readonly TransitionEntry[],
+  durations: readonly DurationToken[],
+  savedAs?: string
+): Writes {
   if (savedAs !== undefined) {
     return {
       stored: { transitions: { token: `transition-${savedAs}` } },
@@ -193,9 +197,9 @@ export function transitionsWrites(entries: readonly TransitionEntry[], savedAs?:
       transitionProperties(entry.property).map((property) =>
         [
           property,
-          `${timeMs(entry.duration, durationTokens) ?? defaultDuration}ms`,
+          `${timeMs(entry.duration, durations) ?? defaultDuration}ms`,
           entry.easing ? easingCss(entry.easing) : "var(--default-transition-timing-function)",
-          entry.delay ? `${timeMs(entry.delay, durationTokens)}ms` : ""
+          entry.delay ? `${timeMs(entry.delay, durations)}ms` : ""
         ]
           .filter(Boolean)
           .join(" ")

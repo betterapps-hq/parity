@@ -42,7 +42,8 @@ export function TransitionsSection({
   entries: readonly TransitionEntry[]
   /** The transition token the list was saved as, which it now writes; Detach writes the entries again. */
   savedAs?: string
-  onSaveToken: (name: string | undefined) => void
+  /** Saves the list as a transition token, or detaches it; without it, the list doesn't offer Create token. */
+  onSaveToken?: (name: string | undefined) => void
   onChange: (entries: TransitionEntry[]) => void
 }) {
   const form = transitionForm(entries)
@@ -75,7 +76,7 @@ export function TransitionsSection({
                 variant="ghost"
                 size="sm"
                 className="ml-auto h-6 px-2 text-xs"
-                onClick={() => onSaveToken(undefined)}
+                onClick={() => onSaveToken?.(undefined)}
               >
                 Detach
               </Button>
@@ -98,7 +99,7 @@ export function TransitionsSection({
                 says="Mixed timings are written as one arbitrary value."
                 placeholder="card-hover"
                 isTaken={() => false}
-                onSave={(name) => onSaveToken(name.replace(/^transition-/, ""))}
+                onSave={onSaveToken && ((name) => onSaveToken(name.replace(/^transition-/, "")))}
               />
             </div>
           )}

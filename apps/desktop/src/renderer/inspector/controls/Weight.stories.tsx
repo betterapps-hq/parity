@@ -3,10 +3,10 @@ import { useState } from "react"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont, WeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
+import { fontTokens, weightTokens } from "./stand-in-tokens.ts"
 import { findFont, projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites, type WeightValue, weightWrites } from "./text-writes.ts"
-import { weightTokens } from "./tokens.ts"
 import type { StoredObject, Writes } from "./writes.ts"
 
 /**
@@ -64,7 +64,7 @@ function Weight({
   const [italic, setItalic] = useState(italicStart)
   const [preview, setPreview] = useState<number>()
   const [fontPreview, setFontPreview] = useState<FontValue>()
-  const resolved = resolveFont(fontPreview ?? font)
+  const resolved = resolveFont(fontPreview ?? font, fontTokens)
   const family = (resolved && findFont(resolved.name)) ?? geist
 
   const token =

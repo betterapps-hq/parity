@@ -6,7 +6,6 @@ import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { PixelField } from "./controls.tsx"
 import { shadowCss } from "./css-values.ts"
-import { usedColors } from "./data.ts"
 import {
   MessageLine,
   MissingMark,
@@ -17,6 +16,7 @@ import {
   TokenMark,
   tokenNamed,
   useTokens,
+  useUsedColors,
   ValueField
 } from "./field-parts.tsx"
 import { Field, FieldGrid, SectionButton, type Segment, Segments, SwitchRow, TitleMenu } from "./field-row.tsx"
@@ -44,9 +44,9 @@ import {
   type ShadowLayer
 } from "./lists-data.ts"
 import { shadowDrawing, shadowsFitSlots, shadowTarget } from "./lists-writes.ts"
-import { Card } from "./playground.tsx"
+import { Card } from "./preview-card.tsx"
 import type { Carried } from "./sortable.ts"
-import { type ShadowToken, shadowToken } from "./tokens.ts"
+import { type ColorToken, type ShadowToken, shadowToken } from "./tokens.ts"
 
 /*
  * Effects' shadow list (design-options-values.md, Shadow list): drop shadows, inner shadows and rings, in two groups,
@@ -99,25 +99,38 @@ const inGroups = (entries: ShadowEntry[]) => [
   ...entries.filter((entry) => groupOf(entry) === "follow")
 ]
 
-const defaultLayer: ShadowLayer = { x: 0, y: 4, blur: 12, spread: -2, color: "black", alpha: 10 }
+/** What a new shadow names, where the project has it: Tailwind's small shadow of each kind, its `ring` and `black`. */
+interface NewShadowTokens {
+  shadows: readonly ShadowToken[]
+  colors: readonly ColorToken[]
+}
 
-/** What + and the section's menu add, as the list's usual entries. */
-function newEntry(kind: ShadowKind | "follow", onText: boolean): ShadowEntry {
+/**
+ * What + and the section's menu add, as the list's usual entries. Each names Tailwind's usual token for its kind and
+ * color only where the project has it; otherwise its layer is its own, in plain black.
+ */
+function newEntry(kind: ShadowKind | "follow", onText: boolean, { shadows, colors }: NewShadowTokens): ShadowEntry {
   const id = newId("shadow")
+  const has = (name: string) => shadows.some((token) => token.name === name)
+  const named = (name: string) => (has(name) ? name : undefined)
+  const black = colors.some((token) => token.name === "black") ? "black" : "#000000"
+  const layer: ShadowLayer = { x: 0, y: 4, blur: 12, spread: -2, color: black, alpha: 10 }
 
   if (kind === "ring") {
-    return { id, kind: "ring", width: 1, layer: { ...defaultLayer, color: "ring", alpha: undefined } }
+    const ring = colors.some((token) => token.name === "ring")
+
+    return { id, kind: "ring", width: 1, layer: ring ? { ...layer, color: "ring", alpha: undefined } : layer }
   }
 
   if (kind === "inner") {
-    return { id, kind: "inner", token: "inset-shadow-sm", layer: defaultLayer }
+    return { id, kind: "inner", token: named("inset-shadow-sm"), layer }
   }
 
   if (kind === "follow") {
-    return { id, kind: "drop", follow: true, token: "drop-shadow-md", layer: defaultLayer }
+    return { id, kind: "drop", follow: true, token: named("drop-shadow-md"), layer }
   }
 
-  return { id, kind: "drop", token: onText ? "text-shadow-sm" : "shadow-sm", layer: defaultLayer }
+  return { id, kind: "drop", token: named(onText ? "text-shadow-sm" : "shadow-sm"), layer }
 }
 
 export interface ShadowText {
@@ -147,6 +160,7 @@ export function ShadowList({
   openId?: string
 }) {
   const { all, create } = useShadowTokens()
+  const { tokens: colors } = useTokens("color")
   const ordered = inGroups(entries)
   const list = entryList(ordered, onChange)
   const onText = text !== undefined && text.shadowOf === "text"
@@ -159,7 +173,7 @@ export function ShadowList({
   }
 
   const add = (kind: ShadowKind | "follow") => {
-    const added = newEntry(kind, onText)
+    const added = newEntry(kind, onText, { shadows: all, colors })
 
     if (mixed) {
       onChange([added])
@@ -213,11 +227,12 @@ export function ShadowList({
       shadowToken(
         "shadow",
         name,
-        box.flatMap((entry) => boxLayersOf(entry, all))
+        box.flatMap((entry) => boxLayersOf(entry, all)),
+        colors
       )
     )
     onChange([
-      { id: newId("shadow"), kind: "drop", token: name, layer: defaultLayer },
+      { ...newEntry("drop", false, { shadows: all, colors }), token: name },
       ...ordered.filter((entry) => !box.includes(entry))
     ])
   }
@@ -384,6 +399,8 @@ function ShadowRow({
   gutter: boolean
   onRemove: () => void
 }) {
+  const shadows = useShadowTokens().all
+  const { tokens: colors } = useTokens("color")
   const onText = text !== undefined && text.shadowOf === "text"
   const name = `${kindNames[entry.kind]} ${index + 1}`
   const spread = entry.kind !== "drop" || (!entry.follow && !onText)
@@ -419,7 +436,7 @@ function ShadowRow({
                 value={entry.kind}
                 options={types}
                 onChange={(kind) => {
-                  const next = newEntry(kind, onText)
+                  const next = newEntry(kind, onText, { shadows, colors })
                   onChange({
                     kind: next.kind,
                     token: next.token,
@@ -470,6 +487,7 @@ export function ShadowEditor({
 }) {
   const onText = text !== undefined && text.shadowOf === "text"
   const { all, offered } = useShadowTokens()
+  const usedColors = useUsedColors()
   const tokens = offered(entry, onText)
   const layer = entry.layer
   const setLayer = (change: Partial<ShadowLayer>) => onChange({ layer: { ...layer, ...change } })
@@ -706,6 +724,7 @@ function TokenParts({
 }) {
   const [open, setOpen] = useState(true)
   const token = useShadowTokens().all.find((option) => option.name === entry.token)
+  const usedColors = useUsedColors()
   const own = token?.layers[0] ?? entry.layer
   const color: ListColor = entry.colorOverride ?? { color: own.color, alpha: own.alpha }
   const overridden = entry.colorOverride !== undefined

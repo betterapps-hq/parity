@@ -5,6 +5,7 @@ import { TokenList } from "./field-parts.tsx"
 import { Playground } from "./playground.tsx"
 import { measured, type PresetLayer, presetWrites, type TypeField, typeOf } from "./preset-data.ts"
 import { presetTokens, PresetTextSection } from "./preset-text.tsx"
+import { standInTokenSets } from "./stand-in-tokens.ts"
 import { TextSample } from "./text-preview.tsx"
 
 /**
@@ -29,7 +30,7 @@ type Story = StoryObj<typeof meta>
 function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boolean; unlocked?: TypeField[] }) {
   const [layer, setLayer] = useState(start)
   const [color, setColor] = useState<string | undefined>("foreground")
-  const type = measured(typeOf(layer))
+  const type = measured(typeOf(layer), standInTokenSets)
 
   return (
     <Playground
@@ -174,7 +175,7 @@ function Densities() {
           >
             <TokenList
               label="Typography preset"
-              tokens={presetTokens}
+              tokens={presetTokens(standInTokenSets)}
               current={current}
               none="None"
               compact={compact}

@@ -1,8 +1,6 @@
-import { isEasingKeyword, isTransitionSet, type Time as StoredTime, type Transition } from "@parity-app/core"
-import { defaultValues, previewKind, type Token } from "@parity-app/tokens"
+import { isTransitionSet, type Time as StoredTime, type Transition } from "@parity-app/core"
 import { z } from "zod"
-import { readEasingValue, splitUnit, type Time, timeMs, type TransitionEntry } from "./controls/motion-data.ts"
-import { durationToken, type DurationToken, easingToken, type EasingToken } from "./controls/tokens.ts"
+import { type Time, timeMs, type TransitionEntry } from "./controls/motion-data.ts"
 
 /*
  * Motion's transitions between the forms `NodeStyle` holds them in and the forms the Transition list edits: a time is
@@ -99,39 +97,4 @@ function storedTime(time: Time | undefined): StoredTime | undefined {
   const ms = timeMs(time, [])
 
   return ms === undefined ? undefined : { step: ms }
-}
-
-/**
- * The project's durations and easings as Motion's fields offer them. Tailwind's own easings (`ease-out`) are its
- * presets, and its defaults (`default-transition-duration`) are what an unset time or easing is, so neither is listed.
- */
-export function motionTokens(tokens: readonly Token[]) {
-  const lookup = defaultValues(tokens)
-  const duration: DurationToken[] = []
-  const easing: EasingToken[] = []
-
-  for (const token of tokens) {
-    if (token.name.startsWith("default-") || isEasingKeyword(token.name)) {
-      continue
-    }
-
-    const kind = previewKind(token, undefined, lookup)
-    const value = lookup(token.name)?.trim() ?? ""
-
-    if (kind === "duration") {
-      const split = splitUnit(value)
-      const ms = split && (split.unit === "s" ? split.number * 1000 : split.number)
-
-      if (ms !== undefined && Number.isFinite(ms)) {
-        duration.push(durationToken(token.name, ms))
-      }
-    }
-
-    if (kind === "easing") {
-      const plot = readEasingValue(value)
-      easing.push(easingToken(token.name, plot?.kind === "bezier" ? plot.curve : undefined))
-    }
-  }
-
-  return { duration, easing }
 }
