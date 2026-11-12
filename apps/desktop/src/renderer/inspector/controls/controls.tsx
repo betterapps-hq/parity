@@ -7,16 +7,12 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, LayoutTemplate, Link2, Monitor, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
@@ -1155,11 +1151,13 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
         >
           <div className="flex items-center gap-1">
             <div className="min-w-0 flex-1">
-              <ChoiceInput
-                label="Stroke position"
+              <AppSelect
+                variant="panel"
+                none="Default"
+                aria-label="Stroke position"
                 value={position}
-                options={strokePositions}
-                onChange={(next) => {
+                items={strokePositions}
+                onValueChange={(next) => {
                   if (!next || next === position) {
                     return
                   }
@@ -1245,22 +1243,14 @@ export function TextSection({ draft, set }: SectionProps) {
   return (
     <PanelSection title="Text" description="The headline inside Plans.">
       <Field label="Tag" hint="The element the text is: what screen readers and search engines read it as">
-        <Select
+        <AppSelect
+          variant="panel"
+          aria-label="Tag"
+          className="w-full"
           items={items}
           value={draft.tag ?? "__unset"}
           onValueChange={(next) => set({ tag: next === null || next === "__unset" ? undefined : next })}
-        >
-          <SelectTrigger size="sm" aria-label="Tag" className="h-7 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <PanelSelectContent>
-            {items.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </PanelSelectContent>
-        </Select>
+        />
       </Field>
     </PanelSection>
   )
