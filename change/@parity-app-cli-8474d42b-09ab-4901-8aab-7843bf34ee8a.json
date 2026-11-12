@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take role, id and aria-* props on their elements.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
