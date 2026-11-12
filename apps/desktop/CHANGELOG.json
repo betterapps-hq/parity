@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 12:53:06 GMT",
+      "version": "0.73.0",
+      "tag": "@parity-app/desktop_v0.73.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "23b45b3b0b49a017b1f053b82e1e9870760115fa",
+            "comment": "A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says which file and why, with one Close button"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c8b6e459553861709e9d51ed3ece0e9537ed1c75",
+            "comment": "Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project with one check (PAR-973)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 12:29:14 GMT",
       "version": "0.72.0",
       "tag": "@parity-app/desktop_v0.72.0",

@@ -8315,3 +8315,33 @@ could leave half a file, and four modules each decided what's inside the project
   written whole or not at all.
 - **Saves wait their turn with the project's edits,** in the same queue, so two saves made at once land in the order
   they were made and a `.lib.par` save reads the manifest no other write is partway through.
+
+## Main's lifecycles are modules with tests (PAR-972)
+
+`main/index.ts` held four lifecycles at its module scope, where they ran only inside Electron and no test reached them:
+the window's close and quit, the project service process, the offscreen render windows and the performance stats.
+PAR-1012 to PAR-1015 moved one each. My calls:
+
+- **Each is a `createX(options)` module that takes what it needs of Electron as adapters,** as `createAccount` and
+  `createConnectorHub` already did: `createCloseFlow` in `main/close-flow.ts`, `createProjectService` in
+  `main/project-service.ts`, `createRenderPool` in `main/render-pool.ts` and `createProcessUsage` in
+  `main/process-usage.ts`. None imports Electron, so their tests run without it, against fakes.
+- **An adapter is a small object `index.ts` builds from Electron's own,** not the `BrowserWindow` or `UtilityProcess`
+  itself: a closing window is its id, `crashed`, `destroyed`, `ask`, `close`, `onClose` and `onClosed`. A fake then has
+  only what the module uses, and the module can't reach past it.
+- **The render pool hands back the windows it opened,** each carrying its `BrowserWindow`, so `index.ts` still tells a
+  render window from an app window, and the performance stats still name the offscreen renderers.
+- **The service's handlers stay in `index.ts`.** They connect the service to the account, the connectors, the console
+  log and the render pool, which is wiring. The lifecycle takes them whole and gives them to each fresh service's
+  channel.
+- **Timers are real `setTimeout`s,** and the tests use Vitest's fake timers, as `idle-close.test.ts` does. The service's
+  clock for how long it ran is an option, since fake timers don't move `performance.now()` by default.
+- **Behaviour didn't change.** The close flow keeps the five flags and the three-second wait, the service its back-off
+  (PAR-788), and the render pool its crash reopen (PAR-681) and idle close. One quirk stays as it was: a page that says
+  its window may close for an update without first saying it's deciding, whose install then fails, has its window closed
+  by the three-second wait. The preload always says it's deciding first, so the window doesn't close.
+- **The close flow's test is a table** over how a close starts (closing, quitting, restarting for an update) and what
+  the page answers, with each row's outcome: closed, quit, installed, failed, still quitting and called off.
+- **`index.ts` is wiring:** it builds the adapters, creates the four, and connects them to each other and to the app. It
+  went from 1,504 lines to about 1,020. The rest of it is the account, the connectors, the theme, the menus and the
+  window's handlers, which already had modules of their own.

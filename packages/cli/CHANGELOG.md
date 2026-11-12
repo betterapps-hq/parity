@@ -1,8 +1,22 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 12:29:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 12:53:23 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.58.0
+
+Thu, 12 Nov 2026 12:53:23 GMT
+
+### Minor changes
+
+- A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says
+  which file and why, with one Close button (ajcraswell@gmail.com)
+
+### Patches
+
+- Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project
+  with one check (PAR-973) (ajcraswell@gmail.com)
 
 ## 0.57.0
 

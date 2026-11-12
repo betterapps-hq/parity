@@ -4,22 +4,10 @@ import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
-import { type Channel, createChannel, nodePort } from "@parity-app/channel"
 import { keysFromEnvironment, keyVariable, offered, placeableKinds, withoutKeys } from "@parity-app/connectors"
-import {
-  CodedError,
-  drawsNothing,
-  fitInside,
-  type JsonValue,
-  offscreenWindows,
-  parseData,
-  previewSizes,
-  type RenderPriority,
-  renderQueue,
-  serviceRestarts
-} from "@parity-app/core"
+import { CodedError, type JsonValue, parseData } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
-import { outputTail, type Span, telemetryFileName } from "@parity-app/telemetry"
+import { telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -28,11 +16,9 @@ import {
   ipcMain,
   Menu,
   MessageChannelMain,
-  type NativeImage,
   nativeTheme,
   net,
   protocol,
-  type Rectangle,
   safeStorage,
   screen,
   shell,
@@ -42,43 +28,33 @@ import {
 } from "electron"
 import type { AccountState } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
-import { codedErrors } from "../shared/coded-errors.ts"
 import { connectorFind, connectorPlaced } from "../shared/connectors.ts"
 import { logNote } from "../shared/log.ts"
-import type { ConsoleContext, ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
-import { deviceBox, devicePixels } from "../shared/render-job.ts"
-import type {
-  BuilderReading,
-  ConnectMessage,
-  MainMethods,
-  PreviewDrawn,
-  PreviewPictures,
-  ServiceProcessMethods
-} from "../shared/service.ts"
+import type { ConnectMessage } from "../shared/service.ts"
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
-import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "../shared/tracing.ts"
+import { handleInSpan, traceWith } from "../shared/tracing.ts"
 import { type Account, createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
-import { retryingCapture } from "./capture-retry.ts"
 import { cliTarget, installCli, refreshCli } from "./cli-command.ts"
 import { copiedFiles, rawFormat } from "./clipboard-files.ts"
+import { createCloseFlow } from "./close-flow.ts"
 import { openInEditor } from "./code-editor.ts"
 import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
-import { watchFrame } from "./frame-telemetry.ts"
-import { type CloseReplies, hostHandlers } from "./host-handlers.ts"
+import { hostHandlers } from "./host-handlers.ts"
 import { answerWindows, fromParityPage } from "./host-methods.ts"
-import { idleClose } from "./idle-close.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { localPlacements } from "./placements.ts"
 import { privateMemory } from "./private-memory.ts"
+import { createProcessUsage } from "./process-usage.ts"
+import { createProjectService, type ServiceProcess } from "./project-service.ts"
 import { createRemoteSearch } from "./remote-search.ts"
-import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, renderResult } from "./render-results.ts"
+import { createRenderPool, type RenderWindow } from "./render-pool.ts"
 import { createReports, offersCrashReports } from "./report.ts"
 import { localHistory } from "./search-history.ts"
 import { sessionStore } from "./session-store.ts"
@@ -216,18 +192,10 @@ const appLife = recordAppLife(events.telemetry, async () =>
   (await processUsage()).map(({ role, memory }) => ({ role, memory }))
 )
 
-let service: UtilityProcess | undefined
 let updates: UpdateSession | undefined
-const updateRestarts = new Set<number>()
 
-/** Each window's close, which its page's replies settle, by the window's id. */
-const closeReplies = new Map<number, CloseReplies>()
-
-/** Services replaced by a fresh one; their exit is expected. */
-const retired = new WeakSet<UtilityProcess>()
-
-/** Each service's channel, which its requests to draw and read consoles come over. */
-const serviceChannels = new WeakMap<UtilityProcess, Channel<MainMethods, ServiceProcessMethods>>()
+/** Closing windows and quitting, which each window's page decides on, and restarting to install an update. */
+const closeFlow = createCloseFlow({ quit: () => app.quit(), updates: () => updates, quitCancelled })
 
 /** The app's theme is kept here too, so the window opens in it before the page loads. */
 const themeFile = join(app.getPath("userData"), "theme.json")
@@ -277,200 +245,128 @@ const serviceEntry = join(serviceDirectory, "utility.mjs")
 /** When this copy started, which its agent registry entry gives. */
 const appStarted = Date.now()
 
-/** How many services this copy has started, so a second is reported as a restart. */
-let serviceStarts = 0
-
-/** Whether, and when, a crashed service is started again, backing off when it keeps crashing (PAR-788). */
-const restarts = serviceRestarts()
-
-/** A crashed service's restart waiting out its back-off, which any service that starts first cancels. */
-let pendingRestart: ReturnType<typeof setTimeout> | undefined
-
-/** Builders, file access, agents and other heavy work run here, never in the UI process. */
-function startService(): UtilityProcess {
-  serviceStarted(serviceStarts++ > 0)
-  clearTimeout(pendingRestart)
-  pendingRestart = undefined
-  const forked = performance.now()
-
-  const child = utilityProcess.fork(serviceEntry, [], {
-    serviceName,
-    // Piped, not inherited, so a crash is reported with what it printed. It's still passed on to main's own output.
-    stdio: "pipe",
-    env: {
-      // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
-      ...withoutKeys(process.env),
-      PARITY_ALLOWED_ORIGINS: rendererOrigin,
-      // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
-      PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
-      // Projects' unsaved changes, kept outside the projects, so a crash or forced quit doesn't lose them (PAR-905).
-      PARITY_RECOVERY_DIR: join(app.getPath("userData"), "recovery"),
-      // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes them
-      // into a project.
-      PARITY_BITMAP_DIR: bitmapFolder(),
-      // Projects' pictures for the start page, kept apart from the bitmaps so clearing that cache leaves them (PAR-607).
-      PARITY_PICTURE_DIR: join(app.getPath("userData"), "pictures"),
-      // Names this copy's entry in the agent registry, so a restarted service writes the same one, and says how long
-      // the copy has been running: a project open in two copies goes to the older (PAR-514).
-      PARITY_APP_PID: String(process.pid),
-      PARITY_APP_STARTED: String(appStarted),
-      [telemetryRunVariable]: telemetryRun
-    }
-  })
-
-  const channel = createChannel<MainMethods, ServiceProcessMethods>({
-    errors: codedErrors,
-    handlers: {
-      render: ({ job, capture }) => renderFrame(job, capture),
-      preview: ({ job, crop, priority }) => renderPreview(job, crop, priority),
-      // Agents get the entries without the id windows keep them by.
-      console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
-      // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
-      // An agent's search: main holds the keys, so it runs here (PAR-829). The service passes on what an agent sent.
-      connectorFind: (params) => {
-        const { connector, request } = parseData(connectorFind, params)
-
-        return connectorHub.find(request, "agent", connector)
-      },
-      connectorResult: ({ connector, id }) => {
-        const given = connectorHub.result(connector, id)
-
-        return given ? { ...given, placeable: placeableKinds.includes(given.kind) } : null
-      },
-      // Reporting a placement is the source's count, not something the agent waits on.
-      connectorPlaced: (params) => {
-        const { connector, id, ...where } = parseData(connectorPlaced, params)
-        const placed = connectorHub.result(connector, id)
-
-        if (placed) {
-          void connectorHub.placed(placed, { ...where, from: "agent" })
-        }
-
-        return undefined
-      },
-      signInLink: ({ link }) => {
-        const taken = account.owns(link)
-
-        if (taken) {
-          void account.takeLink(link)
-        }
-
-        return { taken }
-      },
-      record: (envelope) => void recordForwarded(envelope),
-      // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
-      secrets: (secrets) => {
-        projectSecrets = secrets.filter(isText)
-        scrubber.use([...projectSecrets, ...connectorSecrets])
-
-        for (const window of BrowserWindow.getAllWindows()) {
-          window.webContents.send(ipc.telemetrySecretsChanged, projectSecrets)
-        }
-
-        return undefined
-      },
-      agentCalled: (caller) => agentCalled(caller),
-      // An agent's report, with the editor window's screenshot (PAR-646).
-      report: (problem) => reports.sendForAgent(editorWindow(), problem)
+/**
+ * Electron's utility process, as the project service's lifecycle takes it. What it prints is piped, not inherited, so a
+ * crash is reported with it, and it's still passed on to main's own output.
+ */
+function forkedService(child: UtilityProcess): ServiceProcess & { readonly messages: UtilityProcess } {
+  return {
+    messages: child,
+    onOutput(listener) {
+      for (const [stream, out] of [
+        [child.stdout, process.stdout],
+        [child.stderr, process.stderr]
+      ] as const) {
+        stream?.on("data", (chunk: Buffer) => {
+          out.write(chunk)
+          listener(chunk.toString())
+        })
+      }
     },
-    disconnected: () => new Error("The project service stopped"),
-    trace: currentTraceHeaders,
-    around: handleInSpan
-  })
-
-  const output = outputTail()
-
-  for (const [stream, out] of [
-    [child.stdout, process.stdout],
-    [child.stderr, process.stderr]
-  ] as const) {
-    stream?.on("data", (chunk: Buffer) => {
-      out.write(chunk)
-      output.add(chunk.toString())
-    })
+    onSpawn: (listener) => void child.once("spawn", listener),
+    onExit: (listener) => void child.on("exit", listener),
+    kill: () => void child.kill()
   }
+}
 
-  channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
-  serviceChannels.set(child, channel)
-  child.once("spawn", () => appLife.mark("serviceReady"))
-  child.on("exit", (code) => {
-    channel.close(new Error("The project service stopped"))
-
-    if (service === child) {
-      service = undefined
-    }
-
-    const ranMs = performance.now() - forked
-    const restartInMs = restarts.exited({ exitCode: code, ranMs, expected: retired.has(child) || quitting })
-    serviceExited({ exitCode: code, ranMs, replaced: retired.has(child) || restartInMs !== undefined, quitting })
-
-    if (code === 0 || retired.has(child)) {
-      return
-    }
-
-    // A utility process whose script is missing exits with code 1 and prints nothing, even with Electron's logging on,
-    // so the path it was given is named (PAR-489).
-    const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
-    console.error(`Project service exited with code ${code}${missing}`)
-    serviceCrashed({
-      exitCode: code,
-      output: output.text(),
-      expected: quitting,
-      missing: missing ? serviceEntry : undefined
-    })
-
-    // A crashed service is started again through the same path a code change takes, so open windows reconnect without
-    // reloading. A service that starts first, such as one a window's load starts, cancels it (PAR-788).
-    if (restartInMs !== undefined) {
-      pendingRestart = setTimeout(() => {
-        pendingRestart = undefined
-
-        if (!quitting) {
-          restartService()
+/** Builders, file access, agents and other heavy work run in the project service, never in the UI process. */
+const projectService = createProjectService({
+  fork: () =>
+    forkedService(
+      utilityProcess.fork(serviceEntry, [], {
+        serviceName,
+        stdio: "pipe",
+        env: {
+          // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
+          ...withoutKeys(process.env),
+          PARITY_ALLOWED_ORIGINS: rendererOrigin,
+          // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
+          PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
+          // Projects' unsaved changes, kept outside the projects, so a crash or forced quit doesn't lose them (PAR-905).
+          PARITY_RECOVERY_DIR: join(app.getPath("userData"), "recovery"),
+          // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes
+          // them into a project.
+          PARITY_BITMAP_DIR: bitmapFolder(),
+          // Projects' pictures for the start page, kept apart from the bitmaps so clearing that cache leaves them
+          // (PAR-607).
+          PARITY_PICTURE_DIR: join(app.getPath("userData"), "pictures"),
+          // Names this copy's entry in the agent registry, so a restarted service writes the same one, and says how
+          // long the copy has been running: a project open in two copies goes to the older (PAR-514).
+          PARITY_APP_PID: String(process.pid),
+          PARITY_APP_STARTED: String(appStarted),
+          [telemetryRunVariable]: telemetryRun
         }
-      }, restartInMs)
-    }
-  })
+      })
+    ),
+  handlers: {
+    render: ({ job, capture }) => renderPool.render(job, capture),
+    preview: ({ job, crop, priority }) => renderPool.preview(job, crop, priority),
+    // Agents get the entries without the id windows keep them by.
+    console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
+    // An agent's search: main holds the keys, so it runs here (PAR-829). The service passes on what an agent sent.
+    connectorFind: (params) => {
+      const { connector, request } = parseData(connectorFind, params)
 
-  return child
-}
+      return connectorHub.find(request, "agent", connector)
+    },
+    connectorResult: ({ connector, id }) => {
+      const given = connectorHub.result(connector, id)
 
-/**
- * Gives a page its own channel to the service. With none running, as at launch or after a crash, it starts one the way
- * a restart does, so every other open window gets a channel to it too (PAR-788).
- */
-function connectWindow(window: BrowserWindow): void {
-  if (!service) {
-    restartService(window)
+      return given ? { ...given, placeable: placeableKinds.includes(given.kind) } : null
+    },
+    // Reporting a placement is the source's count, not something the agent waits on.
+    connectorPlaced: (params) => {
+      const { connector, id, ...where } = parseData(connectorPlaced, params)
+      const placed = connectorHub.result(connector, id)
 
-    return
+      if (placed) {
+        void connectorHub.placed(placed, { ...where, from: "agent" })
+      }
+
+      return undefined
+    },
+    // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
+    signInLink: ({ link }) => {
+      const taken = account.owns(link)
+
+      if (taken) {
+        void account.takeLink(link)
+      }
+
+      return { taken }
+    },
+    record: (envelope) => void recordForwarded(envelope),
+    // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
+    secrets: (secrets) => {
+      projectSecrets = secrets.filter(isText)
+      scrubber.use([...projectSecrets, ...connectorSecrets])
+
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(ipc.telemetrySecretsChanged, projectSecrets)
+      }
+
+      return undefined
+    },
+    agentCalled: (caller) => agentCalled(caller),
+    // An agent's report, with the editor window's screenshot (PAR-646).
+    report: (problem) => reports.sendForAgent(editorWindow(), problem)
+  },
+  windows: () => appWindows(),
+  loading: (window) => window.webContents.isLoading(),
+  join(service, window) {
+    const { port1, port2 } = new MessageChannelMain()
+    service.messages.postMessage({ type: "connect" } satisfies ConnectMessage, [port1])
+    window.webContents.postMessage(ipc.port, null, [port2])
+  },
+  quitting: () => closeFlow.quitting(),
+  missingEntry: () => (existsSync(serviceEntry) ? undefined : serviceEntry),
+  telemetry: {
+    started: serviceStarted,
+    spawned: () => appLife.mark("serviceReady"),
+    exited: serviceExited,
+    crashed: serviceCrashed
   }
-
-  const { port1, port2 } = new MessageChannelMain()
-  service.postMessage({ type: "connect" } satisfies ConnectMessage, [port1])
-  window.webContents.postMessage(ipc.port, null, [port2])
-}
-
-/**
- * Replaces the service with a fresh one and reconnects every window to it. Pages reopen their projects and keep their
- * designs and unsaved changes, so changing the service's code doesn't close anything.
- */
-function restartService(loaded?: BrowserWindow): void {
-  const previous = service
-
-  if (previous) {
-    retired.add(previous)
-  }
-
-  service = startService()
-  previous?.kill()
-
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!isRenderWindow(window) && (window === loaded || !window.webContents.isLoading())) {
-      connectWindow(window)
-    }
-  }
-}
+})
 
 function createWindow(): void {
   const mac = process.platform === "darwin"
@@ -528,91 +424,17 @@ function createWindow(): void {
     announced.take(contents, level)
   )
   // Every page load gets its own channel to the service.
-  window.webContents.on("did-finish-load", () => connectWindow(window))
-  // The page decides whether the window closes: it may ask about unsaved changes first, or finish saving. It answers
-  // at once that it's deciding; a page that doesn't (hung or still loading) doesn't keep the window open.
-  let ready = false
-  let deciding = false
-  /** Notes that the page answered the close it's being asked about now. */
-  let acknowledge: (() => void) | undefined
-  window.on("close", (event) => {
-    if (ready || window.webContents.isCrashed()) {
-      return
-    }
-
-    event.preventDefault()
-
-    if (deciding) {
-      return
-    }
-
-    deciding = true
-    let acknowledged = false
-    acknowledge = () => {
-      acknowledged = true
-    }
-
-    window.webContents.send(ipc.closing)
-    setTimeout(() => {
-      if (acknowledged || ready || window.isDestroyed()) {
-        return
-      }
-
-      if (updateRestarts.delete(window.id)) {
-        deciding = false
-        updates?.fail(new Error("The window did not answer. Try restarting the update again."))
-
-        return
-      }
-
-      ready = true
-      window.close()
-
-      if (quitting) {
-        app.quit()
-      }
-    }, 3000)
+  window.webContents.on("did-finish-load", () => projectService.connect(window))
+  // The page decides whether the window closes, through `hostMethods`' close methods, which only its own page may send.
+  closeFlow.watch({
+    id: window.id,
+    crashed: () => window.webContents.isCrashed(),
+    destroyed: () => window.isDestroyed(),
+    ask: () => window.webContents.send(ipc.closing),
+    close: () => window.close(),
+    onClose: (listener) => void window.on("close", (event) => listener(() => event.preventDefault())),
+    onClosed: (listener) => void window.on("closed", listener)
   })
-  // The page's replies come as `hostMethods`' close methods, which only this window's own page may send.
-  const windowId = window.id
-  closeReplies.set(windowId, {
-    pending: () => acknowledge?.(),
-    cancel: () => {
-      updateRestarts.delete(window.id)
-      deciding = false
-      quitting = false
-      quitCancelled()
-    },
-    ready: () => {
-      if (ready) {
-        return
-      }
-
-      ready = true
-
-      if (updateRestarts.delete(window.id)) {
-        const resetClose = () => {
-          ready = false
-          deciding = false
-          quitting = false
-          quitCancelled()
-        }
-
-        if (!updates?.install(resetClose)) {
-          resetClose()
-        }
-
-        return
-      }
-
-      window.close()
-
-      if (quitting) {
-        app.quit()
-      }
-    }
-  })
-  window.on("closed", () => closeReplies.delete(windowId))
   // Links open in the person's browser, never in a new app window.
   window.webContents.setWindowOpenHandler(({ url }) => {
     // Web pages, and dev servers on this machine such as the project's Storybook.
@@ -623,16 +445,11 @@ function createWindow(): void {
     return { action: "deny" }
   })
   // The hidden render windows would otherwise keep the app running.
-  window.on("closed", closeRenderWindows)
-  window.on("closed", () => updateRestarts.delete(window.id))
+  window.on("closed", () => renderPool.closeAll())
   void window.loadURL(rendererUrl)
 }
 
-let quitting = false
-
-app.on("before-quit", () => {
-  quitting = true
-})
+app.on("before-quit", () => closeFlow.quitStarted())
 
 /**
  * The window's menus are drawn by the app itself, in its title bar. The application menu only keeps what the system
@@ -890,180 +707,29 @@ const reports = createReports({
   level: () => telemetrySetting.get().level
 })
 
-/** The service's last answer, for when it's too busy to answer in time. */
-let lastBuilders: BuilderReading[] = []
-
-/** Each project's builder's CPU and memory, from the service, which runs each builder in a process of its own. */
-function builderReadings(): Promise<BuilderReading[]> {
-  const channel = service && serviceChannels.get(service)
-
-  if (!channel) {
-    return Promise.resolve([])
-  }
-
-  let timer: ReturnType<typeof setTimeout> | undefined
-
-  const late = new Promise<BuilderReading[]>((resolve) => {
-    timer = setTimeout(() => resolve(lastBuilders), 1000)
-  })
-
-  const asked = channel.request("builders", undefined).then(
-    (builders) => (lastBuilders = builders),
-    () => lastBuilders
-  )
-
-  return Promise.race([asked, late]).finally(() => clearTimeout(timer))
-}
-
-// The performance stats: each process's CPU and memory, named by what it does. Storybook and other programs the
-// project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
-// in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
-// counts it (see private-memory.ts), and its working set where the system won't say.
-/** Each process's CPU and memory, with `asker` named as this window. */
-async function processUsage(asker?: Electron.WebContents): Promise<ProcessUsage[]> {
-  const cores = availableParallelism()
-  const pages = new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents]))
-  const metrics = app.getAppMetrics()
-  const builders = await builderReadings()
-  const privates = await privateMemory([...metrics.map((metric) => metric.pid), ...builders.map(({ pid }) => pid)])
-
-  const usage = metrics.map((metric): ProcessUsage => {
-    const page = pages.get(metric.pid)
-    let role: ProcessUsage["role"]
-
-    if (metric.type === "Browser") {
-      role = "app"
-    } else if (metric.type === "GPU") {
-      role = "gpu"
-    } else if (metric.name === serviceName) {
-      role = "service"
-    } else if (page && renderWindows.some((render) => render?.window.webContents === page)) {
-      role = "offscreen"
-    } else if (page && page === asker) {
-      role = "this-window"
-    } else {
-      role = page ? "window" : "helper"
-    }
-
-    const names: Record<ProcessUsage["role"], string> = {
-      app: "Parity",
-      "this-window": "This window",
-      window: page?.getTitle() || "Another window",
-      offscreen: "Offscreen renderer",
-      service: "Project service",
-      builder: "Builder",
-      gpu: "GPU",
-      helper: metric.name || metric.serviceName || metric.type
-    }
-
-    return {
-      role,
-      name: names[role],
-      pid: metric.pid,
-      cpu: metric.cpu.percentCPUUsage / cores,
-      memory: privates.get(metric.pid) ?? metric.memory.workingSetSize * 1024
-    }
-  })
-
-  const builderUsage = builders.map((builder): ProcessUsage => ({
-    role: "builder",
-    ...builder,
-    memory: privates.get(builder.pid) ?? builder.memory
-  }))
-
-  return [...usage, ...builderUsage]
-}
-
-// Agents measure and capture frames offscreen, so their work never moves the person's camera. A few windows draw at once,
-// so a project's bitmaps are taken in a fraction of the time one window took (PAR-523).
-const renderWindows: ({ window: BrowserWindow; loaded: Promise<void> } | undefined)[] = []
-
-// One job in each window, canvas bitmaps and agents' renders before component previews (PAR-207).
-const offscreen = renderQueue(offscreenWindows)
-
-// Each window holds its page and every project module graph it imported, which only closing it returns, so they close
-// a minute after the last job and the next job opens them again.
-const renderIdle = idleClose(60_000, closeRenderWindows)
-
-// What projects' code writes to the console, in every window: agents read it with `parity console`, and editor windows
-// show it in the Console panel as it comes (PAR-147).
-const consoleLog = createConsoleLog()
-
-// Which frame each editor window said its next message comes from.
-const announced = announcedContexts()
-
-// The design each offscreen window is drawing, for what it writes meanwhile.
-const drawing = new Map<BrowserWindow, ConsoleContext>()
-
-consoleLog.subscribe(
-  batchedChanges((change) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed() && !isRenderWindow(window)) {
-        window.webContents.send(ipc.consoleChanged, change)
-      }
-    }
-  })
-)
-
-function consoleContextOf(design: NonNullable<RenderJob["design"]>): ConsoleContext {
-  const context: ConsoleContext = { design: design.key }
-
-  if (design.state) {
-    context.state = design.state
-  }
-
-  if (design.mode) {
-    context.mode = design.mode
-  }
-
-  return context
-}
-
-/** The editor window, which agents' calls go through: Parity's own page, not an offscreen renderer. */
-function editorWindow(): BrowserWindow {
-  const window = BrowserWindow.getAllWindows().find(
-    (candidate) => !isRenderWindow(candidate) && candidate.webContents.getURL() === rendererUrl
-  )
-
-  if (!window) {
-    throw new CodedError("Parity's window isn't open", { code: "not_answering", retryable: true })
-  }
-
-  return window
-}
-
-function isRenderWindow(window: BrowserWindow): boolean {
-  return renderWindows.some((render) => render?.window === window)
-}
-
-function closeRenderWindows(): void {
-  renderIdle.cancel()
-  const closing = renderWindows.splice(0)
-
-  for (const render of closing) {
-    if (render && !render.window.isDestroyed()) {
-      render.window.destroy()
-    }
-  }
-}
-
 /**
- * Whether `window`'s renderer crashed. Electron keeps the window, and every call into it fails from then on, so it's
- * opened again for the next job (PAR-681).
+ * Each process's CPU and memory, for the performance stats, named by what it does, with the window that asks as this
+ * one.
  */
-function rendererCrashed(window: BrowserWindow): boolean {
-  return !window.isDestroyed() && window.webContents.isCrashed()
+const processUsage = createProcessUsage<Electron.WebContents>({
+  cores: availableParallelism(),
+  metrics: () => app.getAppMetrics(),
+  pages: () => new Map(webContents.getAllWebContents().map((contents) => [contents.getOSProcessId(), contents])),
+  serviceName,
+  offscreen: (page) => renderPool.windows().some((render) => render.window.webContents === page),
+  title: (page) => page.getTitle(),
+  builders: () => projectService.channel()?.request("builders", undefined),
+  privateMemory
+})
+
+/** An offscreen window as the render pool takes it, with the window itself, which the rest of main tells apart. */
+interface OffscreenWindow extends RenderWindow {
+  readonly window: BrowserWindow
 }
 
-/** Offscreen window `index`, opened and loaded if it isn't, or opened again if its renderer crashed. */
-function ensureRenderWindow(index: number): Promise<BrowserWindow> {
-  let render = renderWindows[index]
-
-  if (render && rendererCrashed(render.window)) {
-    render.window.destroy()
-  }
-
-  if (!render || render.window.isDestroyed()) {
+// Agents measure and capture frames offscreen, so their work never moves the person's camera (PAR-523).
+const renderPool = createRenderPool<OffscreenWindow>({
+  open(drawing) {
     const window = new BrowserWindow({
       show: false,
       width: 1280,
@@ -1081,223 +747,55 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
     watchWindowHangs(window, "offscreen renderer", "render", () => appLife.windowHung())
     watchWindowGone(window, "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
-    recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
-    render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }
-    renderWindows[index] = render
-  }
+    recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, drawing)
 
-  const { window, loaded } = render
-
-  return loaded.then(() => window)
-}
-
-/**
- * The part of an offscreen window in `box`, taken again once the window has painted when Chromium had no frame to copy
- * (PAR-880).
- */
-function captureWindow(window: BrowserWindow, box: Rectangle): Promise<NativeImage> {
-  return retryingCapture(
-    () => window.webContents.capturePage(box),
-    async () => {
-      window.webContents.invalidate()
-      await callPage(window, "window.canvasSettle()", () => undefined)
+    return {
+      window,
+      loaded: window.loadURL(new URL("render.html", rendererUrl).href),
+      destroyed: () => window.isDestroyed(),
+      crashed: () => window.webContents.isCrashed(),
+      destroy: () => window.destroy(),
+      setContentSize: (width, height) => window.setContentSize(width, height),
+      execute: (script) => window.webContents.executeJavaScript(script, true),
+      capture: (box) => window.webContents.capturePage(box),
+      invalidate: () => window.webContents.invalidate()
     }
+  },
+  keepFailedFrame
+})
+
+// What projects' code writes to the console, in every window: agents read it with `parity console`, and editor windows
+// show it in the Console panel as it comes (PAR-147).
+const consoleLog = createConsoleLog()
+
+// Which frame each editor window said its next message comes from.
+const announced = announcedContexts()
+
+consoleLog.subscribe(
+  batchedChanges((change) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed() && !isRenderWindow(window)) {
+        window.webContents.send(ipc.consoleChanged, change)
+      }
+    }
+  })
+)
+
+/** The editor window, which agents' calls go through: Parity's own page, not an offscreen renderer. */
+function editorWindow(): BrowserWindow {
+  const window = BrowserWindow.getAllWindows().find(
+    (candidate) => !isRenderWindow(candidate) && candidate.webContents.getURL() === rendererUrl
   )
-}
 
-/**
- * Calls into the render page and parses what it gave with `read`, throwing what the page threw as a `PageError` with
- * its own message and stack.
- */
-async function callPage<Result>(
-  window: BrowserWindow,
-  call: string,
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the render page gave, which `read` parses
-  read: (value: unknown) => Result
-): Promise<Result> {
-  return read(pageAnswer(await window.webContents.executeJavaScript(pageCall(call), true)))
-}
-
-function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
-  return renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
-    if (job.audit) {
-      const audited = await callPage(
-        window,
-        `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`,
-        auditResult
-      )
-
-      frame.issues = audited.issues
-      frame.contrast = audited.contrast
-    }
-
-    if (!capture) {
-      return { frame }
-    }
-
-    const image = await captureWindow(window, { x: 0, y: 0, width, height })
-
-    // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
-    // (PAR-525).
-    if (job.mode.height === undefined) {
-      const canvasHeight = await callPage(window, "window.canvasHeight()", canvasHeightResult)
-
-      if (canvasHeight !== undefined) {
-        frame.canvasHeight = canvasHeight
-      }
-    }
-
-    return { frame, png: image.toPNG().toString("base64") }
-  })
-}
-
-/**
- * Draws a component preview and crops it to the element `crop` names, scaled down to the two sizes previews are kept
- * at (PAR-207). A component that fails to draw gives its error.
- */
-async function renderPreview(
-  job: RenderJob,
-  crop: string,
-  priority: Exclude<RenderPriority, "render">
-): Promise<PreviewDrawn> {
-  let pictures: PreviewPictures | undefined
-  let empty = false
-
-  const { frame } = await renderOffscreen(priority, job, true, async (window, drawn) => {
-    const box = drawn.nodes.find((node) => node.id === crop)
-
-    if (!box) {
-      return { frame: drawn }
-    }
-
-    const image = await captureWindow(window, deviceBox(box, job.scale))
-    const { width, height } = image.getSize()
-
-    if (drawsNothing(image.toBitmap())) {
-      empty = true
-
-      return { frame: drawn }
-    }
-
-    const scaled = (size: { width: number; height: number }) => {
-      const fitted = fitInside(width, height, size)
-
-      return fitted.width === width && fitted.height === height ? image : image.resize({ ...fitted, quality: "best" })
-    }
-
-    const large = scaled(previewSizes.large)
-    pictures = {
-      thumb: scaled(previewSizes.thumbnail).toPNG().toString("base64"),
-      large: large.toPNG().toString("base64"),
-      ...large.getSize()
-    }
-
-    return { frame: drawn }
-  })
-
-  if (frame?.error) {
-    return { error: frame.error }
+  if (!window) {
+    throw new CodedError("Parity's window isn't open", { code: "not_answering", retryable: true })
   }
 
-  if (empty) {
-    return { empty: true }
-  }
-
-  if (!pictures) {
-    return { error: "It drew nothing to take a picture of" }
-  }
-
-  return { pictures }
+  return window
 }
 
-/**
- * Draws a job in a free offscreen window when its turn comes (see `renderQueue`). When it's to be looked at whole, as a
- * capture or a check does, the window is made as tall as the frame and left to settle before `then`.
- */
-function renderOffscreen(
-  priority: RenderPriority,
-  job: RenderJob,
-  whole: boolean,
-  then: (
-    window: BrowserWindow,
-    frame: RenderedFrame,
-    width: number,
-    height: number
-  ) => Promise<{ frame: RenderedFrame; png?: string }>
-): Promise<{ frame: RenderedFrame; png?: string }> {
-  // Held from the moment it's queued, so the window never closes under a job or with one waiting.
-  const done = renderIdle.use()
-  // Drawn under the trace it was queued in, with how long it waited for a window (PAR-629), and timed (PAR-638).
-  const parent = currentTrace()
-  const queued = performance.now()
-
-  const run = (index: number) =>
-    inSpan(
-      "frame.rendered",
-      { priority, queuedMs: Math.round(performance.now() - queued), whole },
-      (span) => draw(index, span),
-      parent
-    )
-
-  const draw = async (index: number, span: Span | undefined) => {
-    const window = await ensureRenderWindow(index)
-    const width = devicePixels(job.mode.width, job.scale)
-    window.setContentSize(width, 800)
-
-    if (job.design) {
-      drawing.set(window, consoleContextOf(job.design))
-    }
-
-    // A frame that fails is pictured as the window shows it, for the errors about it (PAR-812).
-    const watch = watchFrame(job, priority, span, () => {
-      if (window.isDestroyed() || rendererCrashed(window)) {
-        return
-      }
-
-      void window.webContents
-        .capturePage()
-        .then((image) => keepFailedFrame(image.toPNG(), span?.traceId))
-        .catch(() => undefined)
-    })
-
-    try {
-      const result = await callPage(window, `window.canvasRender(${JSON.stringify(job)})`, renderResult)
-      watch.rendered(result)
-      // The guest's stack is telemetry's alone; agents get the message.
-      const { errorStack: _stack, ...frame } = result
-
-      if (!whole || frame.error) {
-        watch.end(frame)
-
-        return { frame }
-      }
-
-      // The whole frame is in view, so a capture or a contrast check sees all of it.
-      const height = devicePixels(frame.height, job.scale)
-      window.setContentSize(width, height)
-      await callPage(window, "window.canvasSettle()", () => undefined)
-      const done = await then(window, frame, width, height)
-      watch.end(frame)
-
-      return done
-    } catch (error) {
-      if (error instanceof PageError) {
-        watch.threw(error.failure)
-      }
-      // The call it was waiting on fails as the renderer goes, so the canvas tries the frame again, in a window opened
-      // afresh.
-      else if (rendererCrashed(window)) {
-        watch.crashed()
-      }
-
-      watch.end(undefined, true)
-      throw error
-    } finally {
-      drawing.delete(window)
-    }
-  }
-
-  return offscreen.add(priority, run).finally(done)
+function isRenderWindow(window: BrowserWindow): boolean {
+  return renderPool.windows().some((render) => render.window === window)
 }
 
 /** Where kept frame bitmaps and component previews go, under the app's own data. */
@@ -1376,10 +874,7 @@ answerWindows<HostEvent, BrowserWindow>({
         await updates?.check()
       },
       setBeta: (beta) => updates?.setBeta(beta),
-      restart: (window) => {
-        updateRestarts.add(window.id)
-        window.close()
-      }
+      restart: (window) => closeFlow.restartForUpdate(window)
     },
     pickPath: async (window, options) => {
       const result = await dialog.showOpenDialog(window, options)
@@ -1412,7 +907,7 @@ answerWindows<HostEvent, BrowserWindow>({
       read: (origin) => consoleLog.read(origin),
       clear: (origin) => consoleLog.clear(origin)
     },
-    closing: (window) => closeReplies.get(window.id)
+    closing: (window) => closeFlow.replies(window.id)
   })
 })
 
@@ -1452,7 +947,7 @@ void app.whenReady().then(() => {
       }
     }
   }, environment)
-  service = startService()
+  projectService.start()
   createWindow()
   // The keychain is only ready once the app is.
   void account.restore()
@@ -1474,7 +969,7 @@ app.on("window-all-closed", () => {
 })
 
 app.on("quit", () => {
-  service?.kill()
+  projectService.stop()
   // The service writes the entry, but quitting ends it outright, before it could clean up.
   removeEntry(agentRegistry(process.env, homedir()), process.pid)
 })
@@ -1504,7 +999,7 @@ if (devRunner !== undefined) {
 
       running = next
       logNote("[dev] project service changed, restarting it")
-      restartService()
+      projectService.start()
     }, 300)
   })
   // A runner that's gone can't restart or stop this app, so it quits rather than lingering.
