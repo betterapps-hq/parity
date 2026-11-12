@@ -99,7 +99,7 @@ export const PropsNotReadYet: Story = {
   ]
 }
 
-/** Props a state changes, Button's in Outline: their names in the agent color, each with a reset. */
+/** Props a state changes, Button's in Outline: each control with the change dot, and a reset. */
 export const ChangedInAState: Story = { loaders: [pick("Button", "Button", "outline")] }
 
 /** A variant's options open: every option, and the default to go back to. */

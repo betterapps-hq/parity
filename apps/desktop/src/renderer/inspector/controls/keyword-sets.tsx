@@ -16,6 +16,7 @@ import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Un
 import { type ReactNode, useContext, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import {
+  ChangeMark,
   fieldBox,
   NotBaseline,
   NotBaselineMark,
@@ -24,6 +25,7 @@ import {
   StoresContext,
   TokenMark,
   type Unstorable,
+  useChanged,
   ValueField
 } from "./field-parts.tsx"
 import { Segments, TitleMenu } from "./field-row.tsx"
@@ -292,6 +294,8 @@ export function KeywordTrigger({
   chip?: ReactNode
   onClear?: () => void
 }) {
+  const changed = useChanged()
+
   return (
     <Hint label={`${label}: ${shown}`} detail={detail} wait>
       <DropdownMenuTrigger
@@ -304,6 +308,7 @@ export function KeywordTrigger({
         }}
         className={`${fieldBox(false, `${compact ? "w-7 justify-center" : `${className} justify-between`} pr-1 outline-none`)} data-popup-open:ring-2 data-popup-open:ring-ring`}
       >
+        {changed && <ChangeMark />}
         {!compact && chip}
         {!compact && chip === undefined && (
           <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? "" : "text-muted-foreground"}`}>

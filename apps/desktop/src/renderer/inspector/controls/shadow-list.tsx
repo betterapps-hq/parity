@@ -690,7 +690,7 @@ function detach(entry: ShadowEntry, tokens: ShadowToken[], onChange: (change: Pa
 
 /**
  * A composite token's parts (design-options-values.md, Composite token). Its color is a row of its own, which can be
- * overridden on the layer, shown in the override color with a reset arrow and a dot on the chip. Its layers fold under
+ * overridden on the layer, shown with the change dot, a reset arrow and a dot on the chip. Its layers fold under
  * a disclosure in the token's color, as a table of their offsets, blur and spread; those can't be changed in Tailwind,
  * so Detach, in the token field's list, makes them the entry's own.
  */

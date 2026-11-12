@@ -15,8 +15,8 @@ import { mixedWrites } from "./writes.ts"
  * shadows; the section's menu adds an inner shadow, a ring, or a drop shadow that follows the shape. Each entry's row,
  * its card, type and token or numbers, opens its editor: its type menu, then the token, or X, Y, blur, spread and color
  * with the offset pad to drag. A shadow token is a chip
- * whose layers fold under a disclosure (Composite token): its color can be overridden, shown in the override color with
- * a reset arrow and a dot on the chip, and the rest offers Detach. It's written into Tailwind's four box-shadow slots,
+ * whose layers fold under a disclosure (Composite token): its color can be overridden, shown with the change dot, a
+ * reset arrow and a dot on the chip, and the rest offers Detach. It's written into Tailwind's four box-shadow slots,
  * or as one arbitrary value when it doesn't fit them.
  */
 const meta = {
@@ -119,8 +119,8 @@ export const Empty: Story = { render: () => <Shadows start={[]} /> }
 export const Token: Story = { render: () => <Shadows start={[drop("md", "shadow-md")]} /> }
 
 /**
- * A composite token with a part overridden: `shadow-lg`'s color set to primary at 20% on this layer. The color shows in
- * the override color with its reset arrow, and the chip has a dot: `shadow-lg shadow-primary/20`.
+ * A composite token with a part overridden: `shadow-lg`'s color set to primary at 20% on this layer. The color's field
+ * has the change dot and its reset arrow, and the chip has a dot: `shadow-lg shadow-primary/20`.
  */
 export const TokenWithOverriddenColor: Story = {
   render: () => (

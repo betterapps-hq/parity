@@ -11,7 +11,7 @@ import { TextSample } from "./text-preview.tsx"
  * Typography preset (PAR-186, call 6): Text's first row picks a preset, and the rows it sets fold into a summary under
  * it ("Geist 20/28 Semibold"), with a lock. Opened, they're locked to the preset, each with Unlock at the end of its
  * name's row, and their values drawn faintly and read-only. Unlocked, a row is the ordinary field; changing it overrides
- * the preset there, in the override color with a reset arrow, and it stays shown while the summary is closed, with a
+ * the preset there, with the change dot and a reset arrow, and it stays shown while the summary is closed, with a
  * dot on the preset's pill. Picking the preset again takes back every override. The field holds the preset as any token
  * field does: Backspace takes it off, typing searches the presets, and its chevron lists them with Detach, which keeps
  * every value it gave. A layer with no preset says which it matches, or is near, with Use. A dot after a row's
@@ -74,8 +74,8 @@ export const Unlocked: Story = {
 }
 
 /**
- * Line height overridden at 24px, folded: the row stays shown, its name and value in the override color with a reset
- * arrow back to Heading's 28px, and the preset's pill has a dot. `type-heading leading-6`.
+ * Line height overridden at 24px, folded: the row stays shown, its field with the change dot and a reset arrow back to
+ * Heading's 28px, and the preset's pill has a dot. `type-heading leading-6`.
  */
 export const Overriding: Story = {
   render: () => <PresetStory start={{ preset: "heading", own: { lineHeight: { px: 24 } } }} />

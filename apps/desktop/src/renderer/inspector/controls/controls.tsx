@@ -40,6 +40,7 @@ import {
   usedColors
 } from "./data.ts"
 import {
+  ChangeMark,
   type FieldChip,
   moveThroughRows,
   nearestToken,
@@ -1350,23 +1351,26 @@ export function TextContentField({
   return (
     <Field label="Text" changed={changed !== undefined} onReset={changed?.onReset}>
       {around(
-        <textarea
-          key={text}
-          aria-label="Text"
-          defaultValue={text}
-          rows={1}
-          onBlur={(event) => event.currentTarget.value !== text && onChange(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.currentTarget.value = text
-              event.currentTarget.blur()
-            } else if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault()
-              event.currentTarget.blur()
-            }
-          }}
-          className={`${wrappingText} min-h-7 w-full resize-y rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-snug outline-none ring-inset hover:not-focus:ring-1 hover:not-focus:ring-border focus:ring-1 focus:ring-ring dark:bg-input/40`}
-        />
+        <div className="relative flex min-w-0 flex-1">
+          <textarea
+            key={text}
+            aria-label="Text"
+            defaultValue={text}
+            rows={1}
+            onBlur={(event) => event.currentTarget.value !== text && onChange(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.currentTarget.value = text
+                event.currentTarget.blur()
+              } else if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault()
+                event.currentTarget.blur()
+              }
+            }}
+            className={`${wrappingText} min-h-7 w-full resize-y rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-snug outline-none ring-inset hover:not-focus:ring-1 hover:not-focus:ring-border focus:ring-1 focus:ring-ring dark:bg-input/40`}
+          />
+          {changed && <ChangeMark />}
+        </div>
       )}
     </Field>
   )

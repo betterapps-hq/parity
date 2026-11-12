@@ -3,6 +3,7 @@ import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { ColorInput } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { CardPreview, Playground, useDraft } from "./playground.tsx"
 import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
@@ -161,4 +162,13 @@ export const InvalidAsTyped: Story = {
     await userEvent.click(field)
     await userEvent.type(field, "blurple{Enter}")
   }
+}
+
+/** Changed from what it comes from (PAR-1020): the dot on the box's corner, beside the token's pill. */
+export const Changed: Story = {
+  render: () => (
+    <MarkChanged>
+      <ColorField value="primary" />
+    </MarkChanged>
+  )
 }

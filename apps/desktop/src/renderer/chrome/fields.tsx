@@ -22,7 +22,7 @@ import { isSecretName } from "@parity-app/telemetry"
 import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import { type ComponentProps, createContext, type ReactNode, useContext, useId, useState } from "react"
-import { kindColors } from "../canvas/kinds.tsx"
+import { Changed } from "../inspector/controls/field-parts.tsx"
 import { NumberProp, type PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
 import { NameInput } from "./Name.tsx"
@@ -80,9 +80,9 @@ function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-
 }
 
 /**
- * One property row: label, control, and a reset button when a state overrides it. The label names the inputs inside
- * that aren't given a name of their own (see `useFieldName`); controls with their own name, such as a button with
- * text, keep it.
+ * One property row: label, control, and a reset button when a state overrides it, whose control then draws the change
+ * mark (PAR-1020). The label names the inputs inside that aren't given a name of their own (see `useFieldName`);
+ * controls with their own name, such as a button with text, keep it.
  */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
   const firstState = useContext(FirstStateName)
@@ -100,11 +100,7 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
           detail={[mixed && "Different across the selected layers", hint].filter(Boolean).join("\n")}
           wait
         >
-          <span
-            id={labelId}
-            className="truncate text-xs text-muted-foreground"
-            style={changed ? { color: kindColors.agent } : undefined}
-          >
+          <span id={labelId} className="truncate text-xs text-muted-foreground">
             {label}
           </span>
         </Hint>
@@ -124,7 +120,7 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
       </div>
       <div className="min-w-0">
         <FieldLabelContext value={labelId}>
-          <MixedContext value={mixed}>{children}</MixedContext>
+          <MixedContext value={mixed}>{changed ? <Changed>{children}</Changed> : children}</MixedContext>
         </FieldLabelContext>
       </div>
     </div>

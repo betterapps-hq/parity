@@ -3,6 +3,7 @@ import { useState } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { HoverCard } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import {
   bezierCss,
@@ -168,4 +169,13 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "soon{Enter}")
   }
+}
+
+/** Changed from what it comes from (PAR-1020): the dot on the box's corner. */
+export const Changed: Story = {
+  render: () => (
+    <MarkChanged>
+      <Timing start={{ value: "0.2s" }} />
+    </MarkChanged>
+  )
 }

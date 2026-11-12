@@ -8438,3 +8438,18 @@ it to would keep the preload bridge and every service method. My calls:
 - **Only Parity's page gets a service port.** `createProjectService` takes `parityPage`, and both `connect` and a
   restart's reconnecting skip any other page; one that isn't Parity's doesn't start a service either. The guard should
   mean no other page ever loads, so this is the second lock behind it.
+
+## A changed value is marked on its control (PAR-1020)
+
+The Design tab said a value differed from what it comes from three ways: a dot on a token's pill when a part of the
+token was changed, the row's name in the component color when it was set over a token or preset, and the name in the
+agent's amber when a state changed it. My calls:
+
+- **One mark, on the control:** the dot a token's pill had, on the corner of whatever holds the value. The name stays
+  grey and the reset arrow stays (your call).
+- **The component color for all of them,** not the agent's amber, which is the agent's own color: its pointer and its
+  presence. The pen in Layers, the Editing bar and the note over a state's fields use it too.
+- **A context marks the controls,** so a row marks its control, or one part of it, without a prop through every field. A
+  row with no change leaves a mark from outside it alone.
+- **A row marks its whole control for now,** since the editor says which rows a state changes, not which properties:
+  Padding changed at the bottom marks all four sides in the app, though `changedSides` can already mark one.
