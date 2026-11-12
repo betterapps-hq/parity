@@ -28,6 +28,8 @@ interface Tool {
   majors: [major: number, released: string][]
   /** How majors are written, such as Tailwind's `v4`. */
   prefix?: string
+  /** Packages that ship the tool and may be installed in its place, with their names for people. */
+  distributions?: Record<string, string>
   /** Where its config file is, relative to the root, for tools whose builder doesn't report one. */
   config?(root: string, pkg: PackageManifest): Promise<string | undefined>
 }
@@ -52,6 +54,7 @@ const tools: Tool[] = [
     name: "Vite",
     packages: ["vite"],
     uses: (dependency) => dependency === "vite",
+    distributions: { "@voidzero-dev/vite-plus-core": "Vite+" },
     majors: [
       [2, "2021-02-16"],
       [3, "2022-07-13"],
@@ -142,7 +145,7 @@ async function detectTool(
   const file = builder?.config ?? (await tool.config?.(root, pkg))
   const config = file ? { config: file } : {}
 
-  let aliased: { from: string; alias: string } | undefined
+  let aliased: { from: string; via: Via } | undefined
 
   for (const name of new Set([...tool.packages, ...dependencies])) {
     const installed = await findPackage(root, name).catch(() => undefined)
@@ -156,21 +159,27 @@ async function detectTool(
 
     // An alias, such as Vite+ installing `@voidzero-dev/vite-plus-core` as `vite`, has its own version: the tool's is
     // the one it says it ships.
-    const alias =
-      manifest.name && manifest.name !== name ? `${manifest.name} ${manifest.version ?? ""}`.trim() : undefined
+    const via: Via | undefined =
+      manifest.name && manifest.name !== name
+        ? {
+            name: tool.distributions?.[manifest.name] ?? manifest.name,
+            package: manifest.name,
+            version: manifest.version
+          }
+        : undefined
 
-    const version = alias ? manifest.bundledVersions?.[name] : manifest.version
+    const version = via ? manifest.bundledVersions?.[name] : manifest.version
 
     if (!version) {
-      aliased ??= alias ? { from, alias } : undefined
+      aliased ??= via ? { from, via } : undefined
       continue
     }
 
-    return toolDetection(tool, version, { from, ...config }, today, alias)
+    return toolDetection(tool, version, { from, ...config }, today, via)
   }
 
   if (builder?.version) {
-    return toolDetection(tool, builder.version, config, today)
+    return toolDetection(tool, builder.version, config, today, aliased?.via)
   }
 
   if (aliased) {
@@ -179,7 +188,7 @@ async function detectTool(
       name: tool.name,
       from: aliased.from,
       ...config,
-      summary: `${tool.name} from ${aliased.from}, installed as ${aliased.alias}, which doesn't say which ${tool.name} version it ships`
+      summary: `${tool.name} from ${aliased.from}, installed as ${described(aliased.via)}, which doesn't say which ${tool.name} version it ships`
     }
   }
 
@@ -194,18 +203,32 @@ async function detectTool(
   }
 }
 
-/** A tool's detection at a version. `alias` names the package that's installed in its place, when one is. */
+/** A package installed in a tool's place: its name for people, its package name and its own version. */
+interface Via {
+  name: string
+  package: string
+  version?: string
+}
+
+/** A package installed in a tool's place as a summary names it: `Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)`. */
+function described(via: Via): string {
+  const named = `${via.name}${via.version ? ` ${via.version}` : ""}`
+
+  return via.name === via.package ? named : `${named} (${via.package})`
+}
+
+/** A tool's detection at a version. `via` is the package that's installed in its place, when one is. */
 function toolDetection(
   tool: Tool,
   version: string,
   where: { from?: string; config?: string },
   today: Date,
-  alias?: string
+  via?: Via
 ): Detection {
   const found = [
     `${tool.name} ${version}`,
     where.from ? ` from ${where.from}` : "",
-    alias ? ` (${alias})` : "",
+    via ? `, shipped by ${described(via)}` : "",
     where.config ? `, config ${where.config}` : ""
   ].join("")
 

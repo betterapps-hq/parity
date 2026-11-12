@@ -184,8 +184,10 @@ its content.
 hugging layout narrow to fit it, and `break-word` breaks it only once it can't fit on a line of its own. Set on a
 layout, the text inside takes it.
 
-An absolutely placed node with both `left` and `right` and no `width` spans between them, components included, over any
-width their own classes give them; `top` and `bottom` with no `height` do the same.
+`position` takes only `absolute`, which places the node against its parent's edges; the parent needs nothing set,
+because every layout is a positioning context. An absolutely placed node with both `left` and `right` and no `width`
+spans between them, components included, over any width their own classes give them; `top` and `bottom` with no `height`
+do the same.
 
 ### Fill
 

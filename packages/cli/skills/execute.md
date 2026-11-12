@@ -157,8 +157,9 @@ Print(Get("profile/person/title", { state: "selected", mode: "mobile-light" }).t
 ```
 
 `Get(path, visit)` walks the nodes under `path`, or every design without one, and returns what `visit` returns for each.
-`visit(node, { design, path, depth, index, parent, skipChildren })`. Return `undefined` to collect nothing. Given a
-path, `Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
+`visit(node, { design, path, depth, index, parent, skipChildren })`. `parent` is the id of the node it's in, a string,
+and `undefined` for the first node visited. Return `undefined` to collect nothing. Given a path,
+`Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
 
 ```js
 // Every Button in the project, with where it is.
@@ -550,12 +551,13 @@ Frames draw as the canvas does: instances of a library's component designs (from
 token values not yet saved show, the person's edits and this call's own `SetTokens` alike, so
 `SetTokens({ primary: "red" }); await Screenshot(id)` shows the new value in the same call.
 
-`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
-with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
-A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its box in view.
-A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a negative
-margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element the
-project's code writes, such as a component's, has `source`: the file, line and column, as
+`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node with
+its `box` (`x`, `y`, `width`, `height` from the frame's top left) and the node it's drawn inside (`parent`). A node an
+ancestor cuts off has `clipped`, and that ancestor in `clip` as `{ node, name, box }`, the shape of a problem's
+`container`. A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its
+box in view. A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a
+negative margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element
+the project's code writes, such as a component's, has `source`: the file, line and column, as
 `src/components/ui/button.tsx:44:5`, to open or edit. Parity's own layers have none. `Problems` checks frames for render
 errors, overflow, clipping, squeezing, unknown components and content drawn outside the frame. Each problem has its
 `kind`:
@@ -586,7 +588,7 @@ const layout = await Measure(id)
 Print(
   layout.state,
   layout.mode,
-  layout.nodes.map((node) => `${node.id} in ${node.parent}`)
+  layout.nodes.map((node) => `${node.id} in ${node.parent} at ${node.box.x}, ${node.box.y}`)
 )
 ```
 
