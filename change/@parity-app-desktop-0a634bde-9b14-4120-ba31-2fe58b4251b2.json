@@ -1,7 +1,7 @@
 {
-  "type": "none",
-  "comment": "The Tailwind printer writes a value Tailwind writes another way as its own class (m-0, gap-1, font-medium)",
+  "type": "patch",
+  "comment": "Frames in a Tailwind project draw layers with the classes a person would write: m-0, gap-1 and font-medium in place of m-[0], gap-[calc(var(--spacing)_*_1)] and font-[500]",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
+  "dependentChangeType": "patch"
 }
