@@ -12,8 +12,10 @@ import {
 import type { DesignStore } from "../design-store.ts"
 import { findNodeElement, flowingBoxes } from "../frame.ts"
 import { type SelectionStore } from "../selection.ts"
+import { frameGeometry } from "./frame-geometry.ts"
 import { GestureRun } from "./gesture.ts"
 import { selectionFrame } from "./hit.ts"
+import { insetSteps } from "./layer-measure.ts"
 
 /**
  * The arrow keys, through the keymap: the selection nudged by `@parity-app/editor`'s rules (`nudgeLayers`,
@@ -136,27 +138,9 @@ export function frameDrawn(
       return parent ? flowOf(getComputedStyle(parent), flowingBoxes(parent)) : undefined
     },
     insets(layer) {
-      const placed = element(layer)
-      const parent = placed?.offsetParent
-      const width = host ? parseFloat(host.style.width) : NaN
+      const insets = host && frameGeometry(host).node(layer)?.insets
 
-      if (!host || !placed || !(parent instanceof HTMLElement) || !(width > 0)) {
-        return undefined
-      }
-
-      // Screen pixels to the frame's own: the canvas's zoom times the frame's scale.
-      const scale = host.getBoundingClientRect().width / width
-      const box = placed.getBoundingClientRect()
-      const around = parent.getBoundingClientRect()
-      const border = getComputedStyle(parent)
-      const steps = (px: number, edge: string) => Math.round(((px / scale - parseFloat(edge)) / unit) * 2) / 2
-
-      return {
-        left: steps(box.left - around.left, border.borderLeftWidth),
-        right: steps(around.right - box.right, border.borderRightWidth),
-        top: steps(box.top - around.top, border.borderTopWidth),
-        bottom: steps(around.bottom - box.bottom, border.borderBottomWidth)
-      }
+      return insets && insetSteps(insets, unit)
     }
   }
 }

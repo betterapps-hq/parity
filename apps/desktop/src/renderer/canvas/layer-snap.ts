@@ -1,6 +1,5 @@
-import { childEntries, type ContainerSpec, locateNode } from "@parity-app/core"
+import type { ContainerSpec } from "@parity-app/core"
 import {
-  EvenSpacing,
   type LayerSnapped,
   type LayerSnapScene,
   type LayerSnapStart,
@@ -12,7 +11,8 @@ import {
 } from "@parity-app/editor"
 import type { Editor, GapsSnapIndicator, PointsSnapIndicator } from "tldraw"
 import { getPreferences } from "../chrome/preferences.ts"
-import { findNodeElement, nodeBox } from "../frame.ts"
+import { type FrameGeometry, toScreen } from "./frame-geometry.ts"
+import { snapScene } from "./layer-measure.ts"
 import { clearSnaps } from "./snap.ts"
 
 /**
@@ -40,9 +40,7 @@ export function getSnapMeasures(): readonly SnapMeasure[] {
 export class LayerSnapping implements LayerSnapStart {
   private constructor(
     private readonly editor: Editor | undefined,
-    private readonly host: HTMLElement,
-    /** Screen pixels per pixel of the frame. */
-    private readonly scale: number,
+    private readonly frame: FrameGeometry,
     /** The layer's box when the gesture began. */
     readonly box: SnapBox,
     /** What it snaps to: its siblings' boxes and its parent's. */
@@ -50,65 +48,18 @@ export class LayerSnapping implements LayerSnapStart {
   ) {}
 
   /**
-   * Measures, in the frame `host` draws at `scale`, the layer's box, the boxes of its siblings that are drawn, and the
-   * box its insets count from, inside its border: its containing block, which `offsetParent` gives, a transformed or
-   * contained ancestor as well as a positioned one. That's the parent's own box when the parent is a layout, as layouts
-   * are always positioned; only in a component's slot can it be another, whatever the component's elements make the
-   * containing block, since that's where the layer's insets are written from. Snapped to that box's edge, a side's inset
-   * is 0. The gesture that measures it says when it ends, with `clear`.
+   * Measures what the layer snaps to in the frame (see `snapScene`). The gesture that measures it says when it ends,
+   * with `clear`.
    */
   static measure(
     editor: Editor | undefined,
-    host: HTMLElement,
+    frame: FrameGeometry,
     container: ContainerSpec,
-    layer: string,
-    scale: number
+    layer: string
   ): LayerSnapping | undefined {
-    const location = locateNode(container.root, layer)
-    const parent = location?.ancestors.at(-1)
-    const element = findNodeElement(host, layer)
-    const around = element?.offsetParent
-    const own = nodeBox(host, layer)
+    const measured = snapScene(frame, container, layer)
 
-    if (!location || !parent || !own || !(around instanceof HTMLElement)) {
-      return undefined
-    }
-
-    const origin = host.getBoundingClientRect()
-
-    const toBox = (rect: DOMRect): SnapBox => ({
-      x: (rect.left - origin.left) / scale,
-      y: (rect.top - origin.top) / scale,
-      w: rect.width / scale,
-      h: rect.height / scale
-    })
-
-    const siblings = (childEntries(parent).find((entry) => entry.slot === location.slot)?.nodes ?? [])
-      .filter((node) => node.id !== layer)
-      .flatMap((node) => {
-        const rect = nodeBox(host, node.id)
-
-        return rect && (rect.width > 0 || rect.height > 0) ? [toBox(rect)] : []
-      })
-
-    const style = getComputedStyle(around)
-    // The border is in the frame's own pixels, as the boxes are.
-    const border = (side: string) => parseFloat(style.getPropertyValue(`border-${side}-width`)) || 0
-    const outer = toBox(around.getBoundingClientRect())
-
-    const inner = {
-      x: outer.x + border("left"),
-      y: outer.y + border("top"),
-      w: outer.w - border("left") - border("right"),
-      h: outer.h - border("top") - border("bottom")
-    }
-
-    // The siblings stay where they are through the gesture, so where they'd space the layer evenly is kept.
-    return new LayerSnapping(editor, host, scale, toBox(own), {
-      siblings,
-      parent: inner,
-      spacing: new EvenSpacing(siblings)
-    })
+    return measured && new LayerSnapping(editor, frame, measured.box, measured.scene)
   }
 
   /** Whether the layer snaps with these keys held: when snapping is turned on, unless Ctrl (Cmd on a Mac) is held. */
@@ -124,12 +75,9 @@ export class LayerSnapping implements LayerSnapStart {
       return
     }
 
-    const origin = this.host.getBoundingClientRect()
-
-    const client = (point: SnapPoint) => ({
-      x: origin.left + point.x * this.scale,
-      y: origin.top + point.y * this.scale
-    })
+    // Where the frame is now, so the guides stay on it if the canvas moved since the gesture began.
+    const drawn = { rect: this.frame.rect, scale: this.frame.scale }
+    const client = (point: SnapPoint) => toScreen(drawn, point)
 
     measures = snapped.distances.map(({ from, to, length }) => ({ from: client(from), to: client(to), length }))
     const editor = this.editor

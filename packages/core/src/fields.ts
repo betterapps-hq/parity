@@ -1,4 +1,4 @@
-import { isNamedLength } from "@parity-app/style"
+import { isNamedLength } from "@parity-app/style-schema"
 
 /**
  * What the inspector's number and length fields read from what's typed, and how they step. A field reads a number, a

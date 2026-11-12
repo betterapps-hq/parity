@@ -9,18 +9,18 @@ built yet. It sets where the rules for what a layer's style means live, so the c
 
 ## In one line
 
-A new pure package, `@parity-app/style`, owns the translation layer: a layer's style becomes CSS declarations, by the
-CSS spec, and each framework's adapter turns declarations into its own code and back. CSS is the spec in the middle;
+A new pure package, `@parity-app/style-schema`, owns the translation layer: a layer's style becomes CSS declarations, by
+the CSS spec, and each framework's adapter turns declarations into its own code and back. CSS is the spec in the middle;
 Tailwind is one adapter, not the model.
 
 ```text
 style (in the .par file)
-  → declarations              # @parity-app/style: what the style means, in CSS's own terms
+  → declarations              # @parity-app/style-schema: what the style means, in CSS's own terms
       → canvas rules          # what a frame draws
       → Tailwind classes      # @parity-app/styles-tailwind
       → plain CSS rules       # projects without Tailwind
   ← declarations              # each adapter reads its code back
-← style                       # @parity-app/style: back into keys, or into the CSS map
+← style                       # @parity-app/style-schema: back into keys, or into the CSS map
 ```
 
 ## Why
@@ -69,11 +69,11 @@ it's checked. Its Tailwind sections become the Tailwind adapter's specification.
 
 ## The package
 
-`@parity-app/style` is pure, as [packages.md](packages.md) sets out: it takes data and returns data, with no Node, React
-or Electron, and its tests run on their own.
+`@parity-app/style-schema` is pure, as [packages.md](packages.md) sets out: it takes data and returns data, with no
+Node, React or Electron, and its tests run on their own.
 
 ```text
-packages/style/src/
+packages/style-schema/src/
 ├── model.ts        # the stored style schema (zod), moved from core's document.ts
 ├── ledger.ts       # every CSS property: its owning key, section, token kinds and Baseline mark
 ├── declare.ts      # style → declarations
@@ -148,9 +148,9 @@ picks the adapter, and a project with none gets plain CSS.
 
 | Adapter     | Where                         | Prints                                                                                            | Reads back                             |
 | ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
+| Canvas      | `@parity-app/style-schema`    | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
 | Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations              |
-| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
+| Plain CSS   | `@parity-app/style-schema`    | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
 
 **The Tailwind adapter leans on Tailwind rather than a table of its own.** It already loads the project's design system
 to read the theme. That object, in Tailwind 4.3.3, also has:
@@ -195,16 +195,16 @@ web-features are read only when `spec.json` is generated, so only css-tree ships
 
 ## Where it sits
 
-| Package                         | Role in this                                                                                 |
-| ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `@parity-app/style` (new, pure) | The model, the ledger, declarations both ways, validation, the canvas and plain CSS printers |
-| `@parity-app/core`              | Documents hold a style from `@parity-app/style`; render calls `declarations` for each layer  |
-| `@parity-app/editor`            | Style editing writes keys through the model, and the panel's rows come from the ledger       |
-| `@parity-app/styles-tailwind`   | The Tailwind printer and reader, at the edge since it loads the project's Tailwind           |
-| `@parity-app/code`              | Writing a component (PAR-265) and reading an edited one back call the project's printer      |
-| `@parity-app/agent`             | The agent's style tools validate through `@parity-app/style`                                 |
+| Package                                | Role in this                                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `@parity-app/style-schema` (new, pure) | The model, the ledger, declarations both ways, validation, the canvas and plain CSS printers       |
+| `@parity-app/core`                     | Documents hold a style from `@parity-app/style-schema`; render calls `declarations` for each layer |
+| `@parity-app/editor`                   | Style editing writes keys through the model, and the panel's rows come from the ledger             |
+| `@parity-app/styles-tailwind`          | The Tailwind printer and reader, at the edge since it loads the project's Tailwind                 |
+| `@parity-app/code`                     | Writing a component (PAR-265) and reading an edited one back call the project's printer            |
+| `@parity-app/agent`                    | The agent's style tools validate through `@parity-app/style-schema`                                |
 
-`@parity-app/style` depends on nothing but zod and the spec data. Core depends on it, not the other way.
+`@parity-app/style-schema` depends on nothing but zod and the spec data. Core depends on it, not the other way.
 
 ## Testing
 
@@ -243,8 +243,8 @@ Each is its own issue and pull request:
 
 Andrew accepted all four recommendations on 2026-11-11:
 
-1. **The package:** `@parity-app/style`, with the schema moving out of core, since the schema is the part every adapter
-   depends on.
+1. **The package:** `@parity-app/style-schema`, with the schema moving out of core, since the schema is the part every
+   adapter depends on.
 2. **When the format changes:** once, after PAR-925, PAR-931, PAR-933 and PAR-934 land, rather than with each issue.
 3. **What the canvas draws in a Tailwind project:** the project's compiled classes, so the canvas is the code, with
    Parity's own rules from the declarations as the fallback.

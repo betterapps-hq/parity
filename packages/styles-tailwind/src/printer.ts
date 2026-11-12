@@ -6,7 +6,7 @@ import {
   type Printed,
   type ReadBack,
   sameCondition
-} from "@parity-app/style"
+} from "@parity-app/style-schema"
 import type { CssNode, DesignSystem } from "./design-system.ts"
 
 // Declarations as Tailwind classes, and classes back into declarations, by the rules in

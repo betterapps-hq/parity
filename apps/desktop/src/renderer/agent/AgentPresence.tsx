@@ -2,6 +2,7 @@ import { LoaderCircle, Sparkles } from "lucide-react"
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { areaSpace, frameGeometry } from "../canvas/frame-geometry.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { type AgentPalette, agentColors, agentPalettes } from "./agent-colors.ts"
 import { ActionIcon, AgentBadge, AgentPointer } from "./AgentPointer.tsx"
@@ -485,8 +486,11 @@ function cornerRadius(target: Target): number {
   }
 
   const radius = Number.parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0
+  // In a frame it's drawn at the frame's scale and its own; outside the frames, at the window's.
+  const root = element.getRootNode()
+  const host = root instanceof ShadowRoot ? root.host : undefined
 
-  return radius * (target.box().w / element.offsetWidth)
+  return host instanceof HTMLElement ? radius * frameGeometry(host).element(element).scale : radius
 }
 
 /** Runs `frame` with progress from 0 to 1 over `ms`, one call per animation frame. */
@@ -528,11 +532,7 @@ function locate(area: HTMLElement, event: PresenceEvent): Target | undefined {
     return undefined
   }
 
-  const relative = (rect: DOMRect): Box => {
-    const areaRect = area.getBoundingClientRect()
-
-    return { x: rect.left - areaRect.left, y: rect.top - areaRect.top, w: rect.width, h: rect.height }
-  }
+  const relative = (rect: DOMRect): Box => areaSpace(area).box(rect)
 
   let last = relative(element.getBoundingClientRect())
   const { width, height } = area.getBoundingClientRect()

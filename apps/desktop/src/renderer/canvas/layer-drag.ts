@@ -21,11 +21,12 @@ import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
+import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { type Drag, followPress, gestures } from "./gesture.ts"
-import { frameAt, frameScale, type Point } from "./hit.ts"
+import { frameAt, type Point } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
+import { insetSteps } from "./layer-measure.ts"
 import { LayerSnapping } from "./layer-snap.ts"
-import { frameDrawn } from "./nudge.ts"
 import { StylePreview } from "./style-preview.ts"
 
 /**
@@ -112,7 +113,7 @@ export function pressLayers(
     primary &&
     boardReader(entry.container, { state, viewport })(primary).style?.position === "absolute"
 
-  const origin = area.getBoundingClientRect()
+  const space = areaSpace(area)
   let target: MoveTarget | undefined
 
   let preview: DropPreview | undefined
@@ -128,7 +129,7 @@ export function pressLayers(
     cursor: "grabbing",
     start(drag) {
       if (absolute) {
-        placed = followAbsolute(session, area, entry, ids[0]!, host, drag)
+        placed = followAbsolute(session, entry, ids[0]!, host, drag)
       } else {
         layouts.measure(host, entry.container.root)
         preview = new DropPreview(elements)
@@ -144,12 +145,12 @@ export function pressLayers(
         return
       }
 
-      const ghost = {
-        x: union.left + delta.x - origin.left,
-        y: union.top + delta.y - origin.top,
-        w: union.right - union.left,
-        h: union.bottom - union.top
-      }
+      const ghost = space.box({
+        left: union.left + delta.x,
+        top: union.top + delta.y,
+        right: union.right + delta.x,
+        bottom: union.bottom + delta.y
+      })
 
       const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
       target = found?.target
@@ -158,7 +159,7 @@ export function pressLayers(
       view = { ghost }
 
       if (found && !shown) {
-        view.line = { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top }
+        view.line = { ...found.line, ...space.point(found.line) }
       }
     },
     // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
@@ -359,7 +360,6 @@ export function moveLayers(
  */
 function followAbsolute(
   session: ProjectSession,
-  area: ParentNode,
   entry: ContainerEntry,
   id: string,
   host: HTMLElement,
@@ -376,14 +376,16 @@ function followAbsolute(
   }
 
   const { state, viewport } = edited
-  // Screen pixels per pixel of the design.
-  const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
-  const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)
+  // The scale, where the layer's sides are drawn and what it snaps to, all read from the frame as it's drawn now.
+  const frame = frameGeometry(host)
+  const { scale } = frame
+  const insets = frame.node(id)?.insets
+  const snapping = LayerSnapping.measure(editor, frame, entry.container, id)
 
   const follow = absoluteDrag({
     style: boardReader(entry.container, { state, viewport })(location.node).style ?? {},
     // Where its sides are drawn, for those set by a token or not at all.
-    drawn: frameDrawn(area, entry.key, current, unit).insets(id),
+    drawn: insets && insetSteps(insets, unit),
     unit,
     scale,
     snapping
