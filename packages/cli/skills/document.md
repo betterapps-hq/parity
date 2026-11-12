@@ -82,7 +82,8 @@ state.
 ### `text`
 
 Words. `tag` is `p` (the default), `span`, `h1` to `h4` or `strong`, and sets what the text is, not how it looks; size
-and weight come from `style`.
+and weight come from `style`. A `span` or `strong` given a width, a minimum or maximum, `textAlign` or `lines: 1` is
+drawn as a block, so the style works in a component's slot or a table cell too; without them it stays in the line.
 
 ```json
 { "type": "text", "tag": "h2", "text": "Recent activity", "style": { "size": "text-lg", "weight": 600 } }
@@ -140,6 +141,7 @@ type name a token from `GetTokens()`, without the `--`.
 | `textAlign`                                      | `start`, `center`, `end` or `justify`                                     |
 | `textTransform`, `decoration`, `italic`          | `uppercase` and the like, `underline` or `line-through`, `true`           |
 | `lines`                                          | Lines of text before an ellipsis                                          |
+| `overflowWrap`                                   | Where a word too long for its line breaks: `anywhere` or `break-word`     |
 | `transitions`                                    | How the layer moves when its style changes; see Transitions below         |
 
 Effects stack. `shadow` as a list is drawn top first. Colors there are a color token with an optional `alpha` from 0 to
@@ -177,6 +179,13 @@ A `fill` across the parent with a `maxWidth` takes the parent's width up to that
 parent's `align` puts it, as `w-full max-w-… mx-auto` does: a content column centred at 160 steps is
 `{ width: "fill", maxWidth: 160, self: "center" }`, and it still narrows on a phone. `hug` with `self` stays as wide as
 its content.
+
+`overflowWrap` breaks a long word, such as a web address, so it stays in its box: `anywhere` also lets a table cell or a
+hugging layout narrow to fit it, and `break-word` breaks it only once it can't fit on a line of its own. Set on a
+layout, the text inside takes it.
+
+An absolutely placed node with both `left` and `right` and no `width` spans between them, components included, over any
+width their own classes give them; `top` and `bottom` with no `height` do the same.
 
 ### Fill
 

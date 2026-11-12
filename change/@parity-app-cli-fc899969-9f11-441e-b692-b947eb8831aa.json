@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion and by agents (PAR-934)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

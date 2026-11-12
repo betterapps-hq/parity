@@ -10,6 +10,8 @@ allowBuilds:
   msw: false
   # sentry-cli's binary comes from its platform package; its install script only downloads one when that is missing.
   "@sentry/cli": false
+  # workerd, the Workers runtime Wrangler runs locally, comes from its platform package too.
+  workerd: false
 minimumReleaseAgeExclude:
   - electron@45.1.0
   - "@tldraw/driver@5.5.4"
@@ -25,6 +27,9 @@ minimumReleaseAgeExclude:
   - skills@1.7.6
   - "@buildkitgg/shadcn-baseui-nova@0.5.0"
   - "@buildkitgg/storybook-config@0.2.0"
+  - "@cloudflare/vite-plugin@1.69.0"
+  - miniflare@5.20261110.1-beta
+  - wrangler@4.160.1
 verifyDepsBeforeRun: error
 # pnpm shortens node_modules/.pnpm's folder names to 60 characters on Windows and 120 elsewhere. The same length on every
 # system keeps the source maps' paths, and so each bundle's Sentry debug ID, the same, so maps built on Ubuntu match

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that maximum and then sits where it's aligned, instead of hugging its content (PAR-897).",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

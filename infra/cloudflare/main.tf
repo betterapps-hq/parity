@@ -1,7 +1,6 @@
 # Parity's Cloudflare services, from the shared modules: the Worker each pull request's Storybook is a preview of
-# (PAR-113), the token that deploys it, and the preview environment's settings that preview.yml's publish-storybook and
-# preview-cleanup.yml's unpublish-storybook read. The terraform-apply workflow runs it with its state in R2, beside
-# infra/github's.
+# (PAR-113) and the Workers Parity's service runs in (PAR-947), with the tokens that deploy them and the settings the
+# workflows read. The terraform-apply workflow runs it with its state in R2, beside infra/github's.
 terraform {
   required_version = "= 1.16.6"
   required_providers {
@@ -52,4 +51,46 @@ module "storybook" {
 
 output "storybook" {
   value = module.storybook.environments
+}
+
+# The zone the service's API is served on. Its ID is looked up by name, so it's written nowhere.
+data "cloudflare_zone" "tryparity" {
+  filter = {
+    name = "tryparity.dev"
+  }
+}
+
+# Parity's service, apps/portal (PAR-947, docs/proposals/service.md): a Worker for staging and one for production, the
+# token that deploys them, and the settings cd-portal.yml's and preview.yml's web templates read. Production is served
+# at api.tryparity.dev only. A pull request's preview is a preview of staging's Worker.
+module "portal" {
+  source = "git::https://github.com/betterapps-hq/pipelines.git//terraform/cloudflare-web?ref=main"
+
+  account_id  = "544b5bfd594cd02a5da4b79a2038cc9f"
+  repository  = "parity"
+  name_prefix = "parity-portal"
+
+  environments = {
+    # Nothing else uses staging, so the module makes and owns it.
+    staging = { manage_environment = true }
+    # production exists already, so the module only writes its WEB_ settings into it.
+    production = {
+      custom_domain = {
+        zone_id  = data.cloudflare_zone.tryparity.zone_id
+        hostname = "api.tryparity.dev"
+      }
+      workers_dev  = false
+      preview_urls = false
+    }
+  }
+
+  # The Storybook module owns the preview environment and writes its account ID, so this one only adds to it.
+  previews = {
+    manage_environment = false
+    write_account_id   = false
+  }
+}
+
+output "portal" {
+  value = module.portal.environments
 }
