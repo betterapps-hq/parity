@@ -239,6 +239,12 @@ export default defineConfig({
                     "SelectValue"
                   ],
                   message: "Use AppSelect from apps/desktop/src/renderer/chrome/AppSelect.tsx."
+                },
+                {
+                  // Fields of tags kept copying the chips' box and chip, as Selects did their parts (AppChips).
+                  name: "@buildkitgg/shadcn-baseui-kit",
+                  importNames: ["ComboboxChips", "ComboboxChip", "ComboboxChipsInput"],
+                  message: "Use AppChips, AppChip and AppChipsInput from apps/desktop/src/renderer/chrome/AppChips.tsx."
                 }
               ]
             }
@@ -246,7 +252,7 @@ export default defineConfig({
         }
       },
       {
-        files: ["apps/desktop/src/renderer/chrome/AppSelect.tsx"],
+        files: ["apps/desktop/src/renderer/chrome/AppSelect.tsx", "apps/desktop/src/renderer/chrome/AppChips.tsx"],
         rules: { "eslint/no-restricted-imports": "off" }
       },
       {
