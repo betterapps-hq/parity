@@ -452,7 +452,10 @@ still need your call.
     menu (CAN-39). Paste over keeps the selection: the copies go once, just after the last selected layer, beside a
     selected layout or component rather than inside it, at an absolutely placed layer's insets, and copied designs go at
     the selected designs' top-left, drawn on top. Paste to replace swaps each selected layer for its own copy. A paste
-    that doesn't fit (layers over designs, designs over layers) says what to copy instead.
+    that doesn't fit (layers over designs, designs over layers) says what to copy instead. Both read the selection again
+    once an image they paste is saved (PAR-981): Paste over goes over the layers selected by then, since it removes
+    nothing and one undo takes it back, while Paste to replace replaces nothing when the selection changed meanwhile, so
+    it never removes layers the person didn't pick for it.
   - **Select inverse (Ctrl+Shift+A) selects what Select all would, minus the selection;** Select matching layers
     (Ctrl+Alt+A) selects, within the design, layers that are the same component, the same main component, or text with
     the same tag, and styled the same apart from place and size. Content doesn't count. With designs selected, it

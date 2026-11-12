@@ -2481,13 +2481,17 @@ nothing.
   with it.
 - **It needs layers selected,** and replaces only with layers: copied designs or text notes get a message. Layers inside
   an instance can't be replaced, and a message says so.
+- **An image takes a while to save,** so both read the selection again once it's saved (PAR-981). Paste over goes over
+  the layers selected by then. Paste to replace removes layers, so it replaces only the layers selected when it was
+  asked for: with others selected by then, it replaces nothing and says so. Either pastes nothing, with a message, when
+  no layers are selected by then. The saved image stays in `public/images/`.
 - **The key is free.** Ctrl+R renames, and nothing else in Parity takes Ctrl+Shift+R: the keymap's test fails if two
   commands share keys, and the main process's menu adds no keys of its own (its Developer items, including Reload, are
   built with `registerAccelerator: false`, and Electron's default menu, whose Force Reload took it, is replaced).
 
-Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt` and `replaceLayers`) and, in
+Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt`, `replaceLayers` and `selectionToPasteOn`) and, in
 `apps/desktop/src/renderer/canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard
-(`readClipboard`) and saving an image (`importImage`) shared with Paste.
+(`readClipboard`) and saving an image (`importMedia`) shared with Paste.
 
 Tests: `packages/editor/src/paste-over.test.ts`. Paste over selection: after the selected layer with nothing removed,
 once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, at the
@@ -2495,7 +2499,13 @@ insets a viewport's patch gives and not elsewhere, a binding kept only for a par
 slot, leaving the root and instances' layers alone, designs at the selection's corner as they sat, and new ids for
 designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states' changes dropped, each of
 several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the root and instances'
-layers alone. `apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
+layers alone. The selection once the image is saved (`selectionToPasteOn`): Paste over goes over what's selected by
+then, Paste to replace goes ahead while the same layers are selected however they were picked, and stops when others or
+the same in another state are, and neither goes ahead with no layers selected.
+`apps/desktop/src/renderer/canvas/clipboard.test.ts`, changing the selection while the image saves: Paste over lands
+over the layer selected by then, and pastes nothing with no layers selected; Paste to replace replaces the layer still
+selected, and replaces nothing, with a message and no undo step, when another was selected meanwhile.
+`apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
 
 End to end (PAR-202), with a stand-in for the clipboard on the page, `apps/desktop/e2e/keyboard.e2e.ts` (6):
 Ctrl+Shift+V after a link in Pricing's footer, removing nothing, and one undo; Ctrl+Shift+R in the link's place, without

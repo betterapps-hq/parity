@@ -11,6 +11,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { copyDesigns, fitBindings, type Pasted } from "./clipboard.ts"
+import { type Selection, selectedNodes, selectionKey } from "./selection.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -137,4 +138,18 @@ export function replaceLayers(
   }
 
   return { container: next, copies }
+}
+
+/**
+ * The selection Paste over or Paste to replace acts on once what it pastes is ready, which takes a while for an image
+ * it saves into the project first (PAR-981). Paste over goes over the layers selected by then, as it removes nothing.
+ * Paste to replace replaces only the layers selected when it was asked for, so it never removes layers picked meanwhile.
+ * Undefined when it shouldn't go ahead: the selection changed before Paste to replace, or no layers are selected now.
+ */
+export function selectionToPasteOn(how: "over" | "replace", asked: Selection, now: Selection): Selection | undefined {
+  if (selectedNodes(now).length === 0) {
+    return undefined
+  }
+
+  return how === "over" || selectionKey(asked) === selectionKey(now) ? now : undefined
 }
