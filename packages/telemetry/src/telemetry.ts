@@ -75,7 +75,7 @@ export interface Telemetry<Events extends readonly EventDefinition[]> {
 
 /**
  * The telemetry for one process: it checks, samples, scrubs secrets from and sends each event to every sink, and keeps
- * the most recent ones (decisions.md, "Telemetry's event model is data in and data out in `@parity-app/telemetry`").
+ * the most recent ones.
  * Attributes are scrubbed; the envelope's own fields are Parity's IDs, names and paths.
  */
 export function createTelemetry<const Events extends readonly EventDefinition[]>(

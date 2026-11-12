@@ -1,7 +1,6 @@
 # Proposal: the public repository, CI and releases
 
-Status: draft, 2026-10-29. The work is the Repository, CI and releases stream in Linear, and the calls made are in
-[decisions.md](../decisions.md) under "Repository and releases".
+Status: draft, 2026-10-29. The work is the Repository, CI and releases stream in Linear.
 
 ## In one line
 
@@ -40,11 +39,11 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
 - **The type-aware lint rules are on** (PAR-396), checked with types on push and in CI. One test file turns
-  `no-implied-eval` off in `lint.overrides`, since it runs generated source; decisions.md says why.
+  `no-implied-eval` off in `lint.overrides`, since it runs generated source.
 - **`pnpm check:unused` runs knip** (PAR-395) for unused files, dependencies and exports, from `knip.jsonc`. CI's checks
   job runs it; `pnpm verify` doesn't.
 - **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
-  fixtures or the Vite+ toolchain. decisions.md has the calls.
+  fixtures or the Vite+ toolchain.
 - **npm delivery is configured** (PAR-14, PAR-10). `cd-npm.yml` publishes `@parity-app/cli` through npm's trusted
   publishing with provenance, once CI passes on `main`. `0.0.0` was published by hand, and npm trusts `cd-npm.yml` with
   the `npm` environment. Terraform has provisioned that environment, restricted to `main` with administrator bypass

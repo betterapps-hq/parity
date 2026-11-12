@@ -14,7 +14,7 @@ import { useHover, useSelection } from "../../selection.ts"
  * The Layers tab once a screen and its root are one thing: each screen or component lists its root's children straight
  * under its own row, as Figma lists a frame's, with no "Page" row between. Its rows look as LayerTree's do; dragging,
  * renaming and the right-click menu are left out, since they don't change. The headings and empty rows follow the
- * approved start design (PAR-541 in decisions.md).
+ * approved start design (PAR-541).
  */
 
 interface Row {

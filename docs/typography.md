@@ -1,8 +1,7 @@
 # Typography
 
 How Parity's interface sets its type: the roles text plays, the classes each role uses, and what keeps new UI on them.
-Why each call was made is in the [interface type proposal](proposals/interface-type.md) and
-[decisions.md](decisions.md#the-interface-is-set-in-inter-par-709).
+Why each call was made is in the [interface type proposal](proposals/interface-type.md).
 
 Status: built (PAR-710). The weights are provisional until they're checked on a Mac and on Windows at 150%, and the lint
 rule under [What holds it](#what-holds-it) is to come (PAR-729); until then, review holds new UI to the roles.

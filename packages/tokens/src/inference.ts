@@ -1,5 +1,5 @@
-// What a token is, from its value, then its name, else nothing: method E, which you approved on 2026-10-30
-// (docs/decisions.md). It reads CSS values and generic English words only, never a framework's naming.
+// What a token is, from its value, then its name, else nothing: method E, which you approved on 2026-10-30.
+// It reads CSS values and generic English words only, never a framework's naming.
 
 /** The categories a token can be inferred as. `setting` is none of the others: a plain value with no preview. */
 export type InferredKind =
