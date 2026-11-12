@@ -4931,27 +4931,37 @@ Frame bitmaps are kept on disk, so a project opened again, or Parity started aga
 they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
 data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 
-- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, and `bitmapName`'s name
-  for the job: the project, the theme, the tree, the mode, the scale and the tokens previewed, field by field, and where
-  each component the frame draws comes from, whether the guest was served it or given it since, as when the type checker
-  finds one (PAR-179). It leaves out the guest's address, which is new each time a project opens, and a frame's check,
-  which changes nothing drawn. Since PAR-575 the name lists the fields it's made of rather than taking all but the
-  address, so a field added to the job is in no name until `shared/render-job.ts` says so; bitmaps kept before it have
-  the same names. The code is a fingerprint of the path, size and modification time of every file in the project and of
-  the lockfiles above it, skipping dependencies, build output, dot-folders and designs, with the guest module Parity
-  draws it with and a format number. It's taken when each address is first served and kept for that address, since the
-  page never loads a module twice: a builder started again on the same port keeps it. Any edit to code, CSS or config
-  gives a new name, so a bitmap of old code is never shown for new as current.
-- **Each frame's latest bitmap is kept too, and stands in while its new one is captured (PAR-993).** Beside the file
-  named for the code, every capture is written as `latest-<name>.webp`, named by `bitmapName` alone. When a frame has
-  none for the code it's drawn with, as after a branch switch, an edit, a dependency update or in a new worktree, which
-  each give every file in the project a new name, `frames.stored` answers with its latest, marked `stale`. The frame
-  shows it at once, at the height kept with it, without drawing its design, and is captured for the new code straight
-  away, the new bitmap replacing it when it comes. So boards keep their sizes and no frame waits on a placeholder. A
-  stale bitmap never stands for the frame's key: the canvas doesn't sleep on it, exports and the project's picture
-  capture the frame as it is now, and `bitmapCache.used` counts it as a miss. Measured on the example project in a
-  development build, after touching one file: every one of the 119 frames showed a bitmap 25 ms after the canvas
-  mounted, with no board changing height, where a profile with nothing kept showed placeholders for 10.4 seconds.
+- **A bitmap is named by the frame it's of:** `bitmapName`'s name for the job: the project, the theme, the tree, the
+  mode, the scale and the tokens previewed, field by field, and where each component the frame draws comes from, whether
+  the guest was served it or given it since, as when the type checker finds one (PAR-179). It leaves out the guest's
+  address, which is new each time a project opens, and a frame's check, which changes nothing drawn. Since PAR-575 the
+  name lists the fields it's made of rather than taking all but the address, so a field added to the job is in no name
+  until `shared/render-job.ts` says so. Files are `latest-<name>.webp`; bitmaps kept before PAR-994, named by the whole
+  project's code, age out.
+- **Each bitmap carries its trace, which says whether it's of the code there now (PAR-994).** Just before a frame is
+  captured, the service lists the project files it reads, each with a hash of its contents, and the digest of them all
+  with Parity's renderer and a format number, and keeps that inside the bitmap. The files are the components the frame
+  draws and everything they import, found two ways and listed together, since a file listed that the frame doesn't read
+  costs a capture at most, where one left out could show old code as current: what the builder says they load
+  (`BuilderSession.loadedFiles`, from Vite's module graph, following the imports the browser fetches rather than every
+  file Tailwind scans), and Parity's own scan of their imports, as component previews find theirs, which also follows
+  the stylesheets' `@import`s. Then the files every frame depends on: the root's package.json, tsconfigs and tool
+  configs, and the lockfiles, which stand for the packages, library components included. Looking a bitmap up hashes the
+  files its trace lists again, reading a file only once its size or modification time has moved, and it's current when
+  the digest matches. A touch, a checkout, a branch switch that leaves a frame's files alone, or a worktree of the same
+  code keeps every bitmap; an edit recaptures only the frames that read the file. Measured on the example project in a
+  development build: started again after touching two files, no frame was captured, where every one of the 119 was
+  before; after editing `badge.tsx`, 63 were, the 63 whose traces list it. A trace adds about 0.5 to 1 KB to a bitmap.
+  The repository's own lockfile is one of the example's files, so a dependency update in Parity recaptures it whole;
+  listing only the packages a frame imports, by version, is left for later.
+- **A bitmap whose trace doesn't hold stands in while the frame is captured again (PAR-993).** `frames.stored` answers
+  with it marked `stale`: the frame shows it at once, at the height kept with it, without drawing its design, and is
+  captured straight away, the new bitmap replacing it when it comes, so boards keep their sizes and no frame waits on a
+  placeholder. A bitmap kept without a trace is stale too. A stale bitmap never stands for the frame's key: the canvas
+  doesn't sleep on it, exports and the project's picture capture the frame as it is now, and `bitmapCache.used` counts
+  it as a miss. Measured after touching one file, before traces: every one of the 119 frames showed a bitmap 25 ms after
+  the canvas mounted, with no board changing height, where a profile with nothing kept showed placeholders for 10.4
+  seconds.
 - **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
   a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
@@ -4988,7 +4998,10 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
 `packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
 `ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
-`packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
+`packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
+`frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
+`packages/builder-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
+carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
 `webpText` and `webpSize` in `packages/core/src/webp-text.ts`; `losslessWebp` in `apps/desktop/src/utility/webp.ts`, and
@@ -5004,19 +5017,27 @@ and one with a recent bitmap keeps its older ones, the least recently used go pa
 limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
 `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
 edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
-`apps/desktop/src/utility/bitmap-store.test.ts` (7: a bitmap kept from one address is found from another with its
-frame's height, none for a file without a height, the frame's latest as stale for other code (PAR-993), none for a frame
-never kept, no partial file left behind, an old project and an old partial file swept, and nothing once cleared).
-`apps/desktop/src/shared/render-job.test.ts` (2 for `drawnComponents`: the components a tree draws, nested in slots and
-props, by where they come from, and the same whether served or given; for `bitmapName`, among the names' 9: the same
-from another address, for a field the job or its mode gains and for a check, new with the tree, the mode, the size, the
-window, the scale and the tokens previewed, the same for a guest given a component and one served it but new for one
-served it from another file, and the same as the name before PAR-575 for a job the service has checked; 3 for the scale:
-the window in whole device pixels, at least one, a crop covering its box, and boxes and heights measured back in CSS
-pixels). `packages/core/src/webp-text.test.ts` (5: text kept after the image behind the extended header a plain WebP
-needs, with its size and alpha, for lossless and lossy images; replaced under the same keyword and kept under others;
-none without it, and what isn't a WebP left alone; and the size read from either header).
-`apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
+`apps/desktop/src/utility/bitmap-store.test.ts` (8: a bitmap kept from one address is found from another with its
+frame's height while its trace holds, stale once a file it read changed, stale when kept without a trace, none for a
+file without a height, none for a frame never kept, no partial file left behind, an old project and an old partial file
+swept, and nothing once cleared). `apps/desktop/src/utility/frame-traces.test.ts` (5: a trace lists the files the
+components import, the stylesheets and theirs, and the shared config; adds what the builder says they load; holds after
+a touch or a change to a file the frame doesn't read; doesn't hold once a file it reads changes, an import or a
+stylesheet's import; nor for another renderer). `packages/project/src/frame-trace.test.ts` (4: the same hash for the
+same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
+and a digest that ignores order but not a hash, a file or the salt). `packages/builder-vite/src/loaded-files.test.ts`
+(4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
+a file Vite hasn't built). `packages/core/src/builder-process.test.ts` asks the builder's process what files modules
+load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
+`drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same whether
+served or given; for `bitmapName`, among the names' 9: the same from another address, for a field the job or its mode
+gains and for a check, new with the tree, the mode, the size, the window, the scale and the tokens previewed, the same
+for a guest given a component and one served it but new for one served it from another file, and the same as the name
+before PAR-575 for a job the service has checked; 3 for the scale: the window in whole device pixels, at least one, a
+crop covering its box, and boxes and heights measured back in CSS pixels). `packages/core/src/webp-text.test.ts` (5:
+text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
+images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
+the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
 `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in for its key, with its height, so no
 capture is asked for, the frame's latest from other code comes as stale and the frame is still captured (PAR-993),
 frames with the same key share a read, frames asking together share one request and each gets its own bitmap, none when

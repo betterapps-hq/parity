@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or an edit to one component no longer recaptures every frame",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

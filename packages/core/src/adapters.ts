@@ -182,6 +182,14 @@ export interface BuilderSession {
    * builder without it is started again on a new port when its stylesheets change instead.
    */
   restyledGuestUrl?(stamp: number): string
+  /**
+   * The project files the modules of `files` load, themselves included, however deep, as the build tool resolved their
+   * imports (PAR-994): what a frame's trace lists, beside what Parity's own import scan finds. Paths are relative to the
+   * root, with forward slashes. Packages are left out, since the lockfile stands for them, and so are files a plugin only
+   * watches, as Tailwind does every file it scans for class names. Nothing when the tool can't say for one of `files`,
+   * as for a module it hasn't built yet.
+   */
+  loadedFiles?(files: string[]): Promise<string[] | undefined>
   close(): Promise<void>
 }
 
