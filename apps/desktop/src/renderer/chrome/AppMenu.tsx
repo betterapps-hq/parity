@@ -396,7 +396,7 @@ function HelpItems() {
       <MenubarSeparator />
       <Item command="developerTools" icon={Code} />
       <MenubarItem onClick={() => void installCliCommand()}>
-        <Terminal /> Install the parity command
+        <Terminal /> Install the Parity CLI…
       </MenubarItem>
       <MenubarSeparator />
       <MenubarItem onClick={() => void openReport()}>

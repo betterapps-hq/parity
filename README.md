@@ -86,8 +86,8 @@ without a checkout. CI alone installs, opens and uninstalls the Windows build ag
 
 ## The CLI
 
-The `parity` command drives a running Parity from a terminal or an agent. Help > Install the parity command puts the
-app's own copy on PATH. It's also on npm as `@parity-app/cli`:
+The `parity` command drives a running Parity from a terminal or an agent. Help > Install the Parity CLI puts the app's
+own copy on PATH. It's also on npm as `@parity-app/cli`:
 
 ```sh
 npx @parity-app/cli state

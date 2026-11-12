@@ -9,8 +9,8 @@ and serves all of this as MCP tools.
 
 ## Install
 
-With the Parity app, choose **Help > Install the parity command**. It puts a `parity` command on your PATH that runs the
-CLI shipped inside the app, so it's always the app's version and needs no Node.
+With the Parity app, choose **Help > Install the Parity CLI**. It puts a `parity` command on your PATH that runs the CLI
+shipped inside the app, so it's always the app's version and needs no Node.
 
 Without the app, as in CI, it needs Node 24. Install it to get the `parity` command:
 

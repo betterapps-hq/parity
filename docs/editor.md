@@ -5975,9 +5975,9 @@ time reads. The CLI's `diagnostics.test.ts` covers the zip and its files. `chrom
 the dialog empty, written, after a crash, from a fallback, sending, sent and failed, with Send moving from one to the
 next.
 
-### Install the parity command (PAR-906)
+### Install the Parity CLI (PAR-906)
 
-Help > Install the parity command puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
+Help > Install the Parity CLI puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
 with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
 second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
 and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A

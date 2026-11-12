@@ -30,8 +30,8 @@ project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the 
 
 Use the MCP tools when you have them: the server starts once, and each call then costs only the app's own work. In a
 terminal, run `parity`, not `npx @parity-app/cli`: npx spends 1–2 seconds finding the package on every call. When
-`parity` isn't found and you have no Parity MCP tools, ask the person to choose Help > Install the parity command in
-Parity, then use a new terminal.
+`parity` isn't found and you have no Parity MCP tools, ask the person to choose Help > Install the Parity CLI in Parity,
+then use a new terminal.
 
 When you give Parity work to subagents that run at the same time, give each a short name and have it pass that name as
 `subagent` on every MCP call (`subagent: "Header"`). The canvas then shows a cursor for each one, so the person can
