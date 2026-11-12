@@ -7526,10 +7526,10 @@ CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Pri
   always the app's version, so nothing keeps it in step, and it needs no Node or npm. Electron as Node started the CLI
   about 0.1 s slower than Node itself, and `--prefer-offline` and Node's compile cache didn't speed up npx or loading.
   Pen's item only opens a docs page.
-- **Help > Install the parity command** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity`
-  shell script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on
-  macOS, asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers
-  it wrote, which carry a marker line, so moving the app keeps the command working.
+- **Help > Install the Parity CLI** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity` shell
+  script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on macOS,
+  asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers it
+  wrote, which carry a marker line, so moving the app keeps the command working.
 - **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
   bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
   the CLI and its sender load in Parity's Electron.

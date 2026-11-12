@@ -446,7 +446,7 @@ export interface ProblemReportRequest {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 /** A file copied in Explorer or Finder, with its bytes unless it's too large for any type Parity takes. */
-/** Where Help > Install the parity command put it (PAR-906). */
+/** Where Help > Install the Parity CLI put it (PAR-906). */
 export interface CliInstall {
   folder: string
   /** Whether a terminal finds the folder on PATH; on Linux, `~/.local/bin` is only there when the person's shell adds it. */
