@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Print style declarations as Tailwind classes and read classes back; nothing in the app calls it yet",
+  "comment": "Print style declarations as plain CSS rules and read them back; nothing in the app calls it yet",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

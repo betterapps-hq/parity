@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas and offscreen",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

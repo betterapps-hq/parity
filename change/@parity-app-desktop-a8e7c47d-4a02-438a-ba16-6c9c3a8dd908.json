@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
