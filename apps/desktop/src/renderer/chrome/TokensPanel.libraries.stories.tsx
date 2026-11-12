@@ -6,7 +6,7 @@ import { z } from "zod"
 import { ProjectContext } from "../canvas/context.ts"
 import { example, openProjects } from "../stories/fixtures.tsx"
 import { TokenStore } from "../tokens-store.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { ProjectSession } from "../workspace.ts"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
@@ -80,12 +80,13 @@ function openLibrary(file: string) {
     sheet.replaceSync(css)
     const describedTokens = [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
 
-    const session: ProjectSession = {
-      ...project,
+    // A session of its own over the example's stores, so the open tab's stays as it was.
+    const session = new ProjectSession(project, {
+      ...project.getParts(),
       info: { ...project.info, styles: undefined, describedTokens },
       // Edits go nowhere: the story is for looking.
       tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file, describedTokens)
-    }
+    })
 
     return { session }
   }

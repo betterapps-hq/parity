@@ -58,7 +58,12 @@ export function mount(containers, { camera } = {}) {
     { saveDocument: async () => undefined, autosave: () => false }
   )
   const selection = new SelectionStore()
-  const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] } }
+  // As the session's parts never change here, useProject is given the same ones each time it asks.
+  const parts = {}
+  const session = {
+    id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] },
+    subscribe: () => () => undefined, getParts: () => parts
+  }
   window.session = session
   window.stopCamera?.()
   window.stopCamera = undefined
