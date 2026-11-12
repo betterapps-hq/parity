@@ -552,6 +552,7 @@ token values not yet saved show, the person's edits and this call's own `SetToke
 
 `Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
 with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
+A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its box in view.
 A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a negative
 margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element the
 project's code writes, such as a component's, has `source`: the file, line and column, as
@@ -560,7 +561,8 @@ errors, overflow, clipping, squeezing, unknown components and content drawn outs
 `kind`:
 
 - `frame-overflow`: the node sticks out of the frame, by its position or its width.
-- `clipped`: an ancestor that hides overflow cuts it off.
+- `clipped`: an ancestor that hides overflow cuts it off. What an ancestor scrolls to isn't a problem, so the items of a
+  row that scrolls sideways aren't reported; the row itself is still checked.
 - `parent-overflow`: it spills out of its parent, which doesn't clip, so it's drawn over what's beside it. Only a node
   in the layout's flow counts; an `outOfFlow` one, such as a badge over a card's corner, may reach past its parent. Let
   it wrap or shrink (`min-w-0`, `truncate`), or give the parent a scroll.

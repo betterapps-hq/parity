@@ -1,6 +1,7 @@
 // Where a frame's nodes reach past what holds them: the frame's edges, an ancestor that clips, or a parent that doesn't
 // clip, which they spill out of. A node the layout doesn't place, such as a badge positioned over a card's corner, is
-// meant to reach past its parent and isn't reported for it (PAR-886).
+// meant to reach past its parent and isn't reported for it (PAR-886). Nor is what's scrolled to: a node reaching past an
+// ancestor that scrolls is judged by the part in view (PAR-904).
 import type { FrameBox, MeasuredNode, Overflow, Squeeze } from "./types.ts"
 
 /** How far past an edge a box may reach before it counts, for subpixel layout: half a CSS pixel. */
@@ -52,7 +53,8 @@ export interface LayoutFinding {
  * content unless it has a fixed height, so only a fixed height has a bottom edge. A node spills out of its parent when
  * it's in the layout's flow (it isn't `outOfFlow`) and it reaches past the parent's box with nothing cutting it off. A node
  * that overflows only as far as an ancestor already reported, past the same edges of the same container, is left out:
- * the ancestor is the one to fix.
+ * the ancestor is the one to fix. A node with `inView` reaches past an ancestor that scrolls, so only that part is
+ * checked: the rest is scrolled to, not cut off. The scrolling ancestor is still checked as any node is (PAR-904).
  */
 export function layoutFindings(
   nodes: readonly MeasuredNode[],
@@ -70,10 +72,11 @@ export function layoutFindings(
     }
 
     const box = { x: node.x, y: node.y, width: node.width, height: node.height }
+    const seen = node.inView ?? box
 
     if (node.clip) {
       const { node: by, ...clipBox } = node.clip
-      const overflow = overflowPast(box, clipBox, tolerance)
+      const overflow = overflowPast(seen, clipBox, tolerance)
 
       if (overflow) {
         found.set(node.id, {
@@ -87,7 +90,7 @@ export function layoutFindings(
       }
     }
 
-    const overflow = overflowPast(box, reach, tolerance)
+    const overflow = overflowPast(seen, reach, tolerance)
 
     if (overflow) {
       found.set(node.id, { kind: "frame-overflow", node: node.id, box, container: { box: frameBox }, overflow })
@@ -101,7 +104,7 @@ export function layoutFindings(
     }
 
     const parentBox = { x: parent.x, y: parent.y, width: parent.width, height: parent.height }
-    const spill = overflowPast(box, parentBox, Math.max(tolerance, spillTolerance))
+    const spill = overflowPast(seen, parentBox, Math.max(tolerance, spillTolerance))
 
     if (spill) {
       found.set(node.id, {
