@@ -1,0 +1,22 @@
+// The Worker's config. infra/cloudflare makes each environment's Worker, its domain and where it's served; a deploy
+// uploads the code and owns the bindings here. Top level is production; `CLOUDFLARE_ENV=staging` builds staging's.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "parity-portal",
+  "main": "@tanstack/react-start/server-entry",
+  "compatibility_date": "2026-11-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Production is served at api.tryparity.dev only, as infra/cloudflare says.
+  "workers_dev": false,
+  "preview_urls": false,
+  "env": {
+    "staging": {
+      "name": "parity-portal-staging",
+      "workers_dev": true,
+      "preview_urls": true,
+      // A pull request's preview is a preview of staging's Worker, with these bindings: none yet.
+      "previews": {}
+    }
+  }
+}

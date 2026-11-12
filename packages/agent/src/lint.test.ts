@@ -237,6 +237,10 @@ describe("propWarnings", () => {
     ])
   })
 
+  it("says nothing about a prop set to null, which takes it away (PAR-885)", () => {
+    expect(propWarnings(button, "Button", { variant: null, size: null }, "home/save")).toEqual([])
+  })
+
   it("says nothing about a component whose props aren't inferred yet", () => {
     expect(propWarnings(undefined, "Card", { anything: 1 }, "home/card")).toEqual([])
   })

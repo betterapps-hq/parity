@@ -7459,6 +7459,39 @@ My calls:
   Parity writes no deploy workflow of its own.
 - **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
 
+## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
+
+PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
+file detection reads changes what it finds, and `parity open` asks first, but the config files it followed were Vite's
+names, written into `detectionInputs`. You asked on 2026-11-09 for build-system support to be pluggable. My calls:
+
+- **`BuilderAdapter.configFiles` lists the files that say whether a builder serves the project,** relative to the root.
+  The service passes every registered builder's into `detectionInputs`, so a Next.js, Rspack or Rsbuild adapter needs no
+  change to detection or the service.
+- **Only whether each config file is there is compared, not its contents.** The project's own Vite restarts its server
+  when its config changes, so comparing contents would open the tab again for no gain.
+- **`scriptConfigExtensions` in core is the one list of a JavaScript tool's config extensions** (`ts`, `mts`, `cts`,
+  `js`, `mjs`, `cjs`), used by builder-vite and Storybook's config search. `preview-key.ts`'s list isn't it: that's the
+  extensions an import may leave out, with `.tsx` and `.jsx`, in the order bundlers try them.
+- **No `parity reload` command.** Detecting again on a change and on `parity open` covers what it would do.
+
+## The service's app is `apps/portal`, deployed through the shared web templates (PAR-947)
+
+My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
+
+- **An app with no pages builds and runs.** `apps/portal` has a root route that draws nothing and one server route,
+  `GET /v1/health`. Any other path answers 404.
+- **It has no `package.json` scripts.** The workflows build it with `pnpm --filter @parity-app/portal exec vp build`,
+  and `vp dev` and `vp preview` run it locally, in Workers' own runtime.
+- **The Workers are `parity-portal` and `parity-portal-staging`.** Production is served at `api.tryparity.dev` only, and
+  staging on workers.dev, where each pull request's preview is a preview of it.
+- **The zone's ID is looked up by name in Terraform,** so it's written nowhere. The Terraform token has to be able to
+  read the zone and set a Worker's custom domain on it.
+- **Production follows staging and waits on the production environment's reviewers,** as the desktop's does.
+- **The service's preview comments its own URL,** apart from the one comment the other previews share.
+- **TanStack Router's generated route tree is committed,** since types are checked against it, and kept from the
+  formatter and the linter, as it asks.
+
 ## Far frames show bitmaps from 10% zoom, on every screen (PAR-954)
 
 Frames switched to their bitmaps once they were drawn no larger than the bitmaps: the zoom times the screen's pixel

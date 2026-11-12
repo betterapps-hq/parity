@@ -1100,6 +1100,25 @@ and Escape are covered under "Snapping layers while moving and resizing".
 
 Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
 
+### A component placed between both edges (PAR-899)
+
+An absolutely placed component or instance with a left and a right inset and no width spans between them, as an element
+with no width of its own does in CSS; with a top and a bottom and no height, it spans those too. A component's root
+often brings its own size in its classes, such as a separator's `w-full`, which would win over the insets and run it
+past its parent, so the layer's style writes `width: auto` (or `height: auto`) over it. A width or height the layer sets
+keeps it at that size. Layouts and text span between their insets already, and an image or a video keeps the size of its
+picture unless it's given one.
+
+Code: `stretchBetweenEdges` in `packages/style/src/declare.ts`, which `packages/core/src/render.ts` draws as the
+component's inline style, over its own.
+
+Tests: `packages/style/src/declare.test.ts`, declarations: a component placed against all four sides writing an auto
+width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose own
+style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
+
+Gaps: none known. Checked in an isolated copy of the app on 2026-11-11: a Separator placed at left 14, right 0 in an
+80-step layout was drawn from 56px in to the layout's right edge, 264px wide, where it had run past it.
+
 ### Resize handles (CAN-47)
 
 A selected layer has square handles on its corners and invisible strips along its sides, as in Figma, and a selected
@@ -3676,6 +3695,33 @@ the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected
 step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
 maximum still wraps.
 
+### Inline text, alignment and long words (PAR-898)
+
+A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
+component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lines: 1` would do nothing
+there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
+in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
+already draws its own box, which clamps it. A `p` or a heading is a block anyway.
+
+`overflowWrap` says where a word too long for its line breaks, such as a web address in a narrow column: `anywhere`,
+which also lets a table cell or a hugging layout narrow to fit, or `break-word`, which breaks it only once it can't fit
+on a line of its own. Set on a layout, the text inside takes it. Unset, a long word runs out of its box. The Text
+section has no control for it yet; agents set it.
+
+Code: `text` (with `boxKeys`) and `type` in `packages/style/src/declare.ts`, the `overflowWrap` key in
+`packages/style/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's tag is
+inline.
+
+Tests: `packages/style/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
+alignment, drawn as a block; several lines keeping the box that clamps them; inline text with nothing that needs a box
+staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: in a component's slot, a `span` aligned
+to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
+
+Gaps: no warning says when a style has no effect for another reason. Checked in an isolated copy of the app on
+2026-11-11, in a shadcn table: a `span` with `maxWidth: 40` and `lines: 1` in a cell was cut off with an ellipsis at
+160px, a `span` aligned to the end lined up at its cell's end, and a web address with `overflowWrap: "anywhere"` wrapped
+onto three lines in a 224px column.
+
 ## Saving and undo
 
 What goes through Save and Undo, and where an edit lands when the board shows a state or a variant.
@@ -5544,40 +5590,51 @@ the window keeps what it loaded from them.
 
 An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
 `components.json` added or changed, a stylesheet created where the conventions look, `index.html` or the entry it loads
-changed, a dependency added or removed, or a Vite config added. A TanStack Start app has no `index.html`, so
-`components.json`'s `tailwind.css` is how its stylesheet is found; before, adding one to an open project changed nothing
-until Parity restarted.
+changed, a dependency added or removed, or a builder's config file, such as `vite.config.ts`, added or taken away. A
+TanStack Start app has no `index.html`, so `components.json`'s `tailwind.css` is how its stylesheet is found; before,
+adding one to an open project changed nothing until Parity restarted.
 
 - **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
-  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which Vite
-  config there is. It reads them before detection, compares again once the project's watcher has started, so a change
-  made while the project opened counts, and again 400 ms after a change to one of the files they came from. A
-  stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
-  project. A package.json that's missing or half-written, or a `components.json` that's there but half-written, as while
-  they're rewritten, fails the read, which counts as no change; a `components.json` taken away is a change.
+  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which of
+  the builders' config files there are. It reads them before detection, compares again once the project's watcher has
+  started, so a change made while the project opened counts, and again 400 ms after a change to one of the files they
+  came from. A stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they
+  don't reopen the project. A package.json that's missing or half-written, or a `components.json` that's there but
+  half-written, as while they're rewritten, fails the read, which counts as no change; a `components.json` taken away is
+  a change.
 - **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
   (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
   told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
+- **Each builder adapter names the config files it looks for** (`BuilderAdapter.configFiles`, PAR-826), and the service
+  passes every registered builder's into `detectionInputs`, so a new builder needs no change to detection or the
+  service. Vite's are `vite.config` with each of `scriptConfigExtensions` (`.ts`, `.mts`, `.cts`, `.js`, `.mjs`,
+  `.cjs`), the list its detection summary names too. A change to a config's contents isn't compared: the project's own
+  Vite restarts its server when its config changes.
 - **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
   again first when it did, so the answer describes the project as detected now.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
-`styles.ts`; `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
-`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
-`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
-`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
+`styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
+`packages/builder-vite/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
+`openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
+`shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
+`settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
+`renderer/agent/handlers.ts`.
 
-Tests: `packages/project/src/detection-inputs.test.ts` (5: `components.json` naming a stylesheet changes the key; a
-conventional stylesheet or Vite config appearing changes it, and the entry `index.html` names is followed; dependencies
-change it while scripts, versions and a stylesheet's contents don't; a missing or half-written package.json fails; a
-half-written `components.json` fails while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (2: an
-open project whose `components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't,
-a moment without package.json isn't a change, and opened again it's detected from the new file; a `components.json`
-written while the builder starts is told once the project is open). `apps/desktop/src/renderer/workspace.test.ts` (2:
-asked to detect again, a tab opens its project again only when the service says detection changed; a tab told while
-loading asks again once it's ready). Gaps: the handlers wiring `agent.open` and `project.detectionChanged` to the
-workspace is checked by reading; the UI kit's folder filling with files, a `.storybook` folder added and a Vite config's
-contents aren't compared (Vite restarts its own server when its config changes).
+Tests: `packages/project/src/detection-inputs.test.ts` (6: `components.json` naming a stylesheet changes the key; a
+conventional stylesheet or a builder's config appearing changes it, and the entry `index.html` names is followed; the
+config files followed are the ones the builders name, and only those; dependencies change it while scripts, versions and
+a stylesheet's contents don't; a missing or half-written package.json fails; a half-written `components.json` fails
+while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (3: an open project whose `components.json`
+now names its stylesheet tells the windows, a file detection doesn't read doesn't, a moment without package.json isn't a
+change, and opened again it's detected from the new file; a config file the registered builder names tells the windows,
+and one no builder names doesn't; a `components.json` written while the builder starts is told once the project is
+open). `packages/builder-vite/src/detect.test.ts` checks that each config name Vite finds is among
+`viteBuilder.configFiles`. `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its
+project again only when the service says detection changed; a tab told while loading asks again once it's ready). Gaps:
+the handlers wiring `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's
+folder filling with files, a `.storybook` folder added and a Vite config's contents aren't compared (Vite restarts its
+own server when its config changes).
 
 ### A tab closed while its project opens (PAR-427)
 
@@ -6539,6 +6596,25 @@ Tests: `packages/core/src/edit.test.ts` ("keeps an override that matches the bas
 own layers and inside an instance, and `Update` in a state; "Responsive merging with a viewport's earlier patch": style
 and props merged, `null` taking a style key and `hidden` away; "instance overrides keyed by a layer's name": names and
 ids stored as ids through a nested instance, and a name the component doesn't have refused).
+
+### Agents taking a prop away with null, and node paths that can't be right (PAR-885)
+
+`null` for a prop in `Update`, `Responsive` or a state's changes takes the prop away without a warning, even for an enum
+prop or one the component no longer declares.
+
+A node path is `design/node`, never listing the node's parents. A path with more parts, where the node after the design
+isn't an instance, fails with `invalid_input` on `path`: the message counts the parts and shows `design/node` with the
+path's last part, such as `profile/heading` for `profile/page/heading`. `Update` and `Get` with a state or mode add that
+only an instance's layers are reached that way. A path with an empty part, from a leading, trailing or doubled `/`,
+fails the same way. When no part before a `/` names a design, the error names the first part as the missing design.
+
+Implementation: `propWarnings` in `packages/agent/src/lint.ts`; `findNode`, `findLayer`, `splitPath`, `checkPathParts`
+and `tooManyParts` in `packages/agent/src/workspace.ts`.
+
+Tests: `packages/agent/src/lint.test.ts` ("says nothing about a prop set to null");
+`packages/agent/src/workspace.test.ts` ("Update taking a prop away with null, and paths that can't be right": an enum
+prop and a style key taken away, a path with a part too many for `Delete` and `Update`, a missing design, and empty
+parts).
 
 ### Measure draws one frame (PAR-461)
 

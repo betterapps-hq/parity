@@ -2,6 +2,65 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 02:22:25 GMT",
+      "version": "0.48.0",
+      "tag": "@parity-app/cli_v0.48.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b0802d32f4ca5f8661509720861565edf5dccee9",
+            "comment": "Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b306ad98eff8da09abab1158f18c63bcda706864",
+            "comment": "Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and shows design/node"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7b58c948737dd0bb161db1e0a033c7d14e671dab",
+            "comment": "Each builder adapter names the config files detection follows, so adding or removing one detects an open project again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "15ec2b4e2891b96c45fbcb013e0b8bd89fcf530b",
+            "comment": "A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that maximum and then sits where it's aligned, instead of hugging its content (PAR-897)."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d9a7970b52fa2825bf0d63cdf8e71b85cc87cae6",
+            "comment": "Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6e1dfa30888c57df4aab64eb92e35b443239593d",
+            "comment": "Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s faster per call than npx"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ec9ac2a5badd5a78421e3563caafdbe20e6e6397",
+            "comment": "Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam change them, and Update binds a node (PAR-901)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c0736d25bfcd4693edb6d2dc487a5b2317f5f8b4",
+            "comment": "Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion and by agents (PAR-934)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 00:46:36 GMT",
       "version": "0.47.1",
       "tag": "@parity-app/cli_v0.47.1",

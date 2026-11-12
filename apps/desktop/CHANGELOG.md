@@ -1,8 +1,34 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 00:46:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 02:22:04 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.63.0
+
+Thu, 12 Nov 2026 02:22:04 GMT
+
+### Minor changes
+
+- Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion
+  and by agents (PAR-934) (ajcraswell@gmail.com)
+- Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s
+  faster per call than npx (ajcraswell@gmail.com)
+- Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam
+  change them, and Update binds a node (PAR-901) (ajcraswell@gmail.com)
+
+### Patches
+
+- Each builder adapter names the config files detection follows, so adding or removing one detects an open project again
+  (ajcraswell@gmail.com)
+- Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window
+  (ajcraswell@gmail.com)
+- Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and
+  shows design/node (ajcraswell@gmail.com)
+- A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that
+  maximum and then sits where it's aligned, instead of hugging its content (PAR-897). (ajcraswell@gmail.com)
+- Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps
+  (ajcraswell@gmail.com)
 
 ## 0.62.0
 

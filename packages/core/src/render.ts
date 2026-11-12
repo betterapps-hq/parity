@@ -603,7 +603,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: shown.tag ?? "p",
-            style: inlineStyle(style, "text", parent),
+            style: inlineStyle(style, "text", parent, inlineTags.has(shown.tag ?? "p")),
             children: [{ kind: "text", text: shown.text }]
           }
         ]
@@ -707,14 +707,17 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
   return resolve(root)
 }
 
+/** Text tags drawn inline, which take a width or alignment only once drawn as a block. */
+const inlineTags: ReadonlySet<string> = new Set(["span", "strong"])
+
 /**
  * A layer's style as an element's inline style: its declarations, each property camel-cased as the DOM's `style` names
  * it (`align-self` as `alignSelf`, `-webkit-line-clamp` as `WebkitLineClamp`).
  */
-function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined): InlineStyle {
+function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined, inline = false): InlineStyle {
   const css: InlineStyle = {}
 
-  for (const { property, value } of declarations(style, { kind, parent })) {
+  for (const { property, value } of declarations(style, { kind, parent, inline })) {
     css[property.replaceAll(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = value
   }
 

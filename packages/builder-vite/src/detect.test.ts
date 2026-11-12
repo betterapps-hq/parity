@@ -47,15 +47,19 @@ describe("viteBuilder.detect", () => {
     ["vite.config.mts", "export default { clearScreen: false }\n"],
     ["vite.config.cjs", "module.exports = { clearScreen: false }\n"],
     ["vite.config.cts", 'import { defineConfig } from "vite"\nexport default defineConfig({ clearScreen: false })\n']
-  ])("finds %s through the project's own Vite", async (name, source) => {
-    await fixture({ [name]: source })
-    expect(await viteBuilder.detect(root)).toEqual({
-      found: true,
-      version: viteVersion,
-      config: name,
-      summary: `Vite ${viteVersion}, config ${name}`
-    })
-  })
+  ])(
+    "finds %s through the project's own Vite, and names it among the files detection follows",
+    async (name, source) => {
+      expect(viteBuilder.configFiles).toContain(name)
+      await fixture({ [name]: source })
+      expect(await viteBuilder.detect(root)).toEqual({
+        found: true,
+        version: viteVersion,
+        config: name,
+        summary: `Vite ${viteVersion}, config ${name}`
+      })
+    }
+  )
 
   it("uses the config the dev script names, and ignores flags on other Vite commands", async () => {
     const pkg = (scripts: Record<string, string>) => JSON.stringify({ name: "fixture", type: "module", scripts })
@@ -77,7 +81,7 @@ describe("viteBuilder.detect", () => {
     await fixture({})
     const detection = await viteBuilder.detect(root)
     expect(detection).toMatchObject({ found: false, version: viteVersion })
-    expect(detection.summary).toContain(".js, .mjs, .ts, .cjs, .mts or .cts")
+    expect(detection.summary).toContain("vite.config (.ts, .mts, .cts, .js, .mjs, .cjs)")
   })
 
   it("says when there's a config but Vite isn't installed", async () => {

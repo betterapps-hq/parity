@@ -156,14 +156,12 @@ is added.
 
 ## Still to check
 
-- An app with no pages builds and deploys.
-- The Worker's size limit. Cloudflare's limits page was read as 64 MiB before compression, which is far more than this
-  needs, but the figure wasn't confirmed.
+- An app with no pages deploys. It builds and runs locally in Workers' runtime (PAR-947), with a build of about 0.8 MB,
+  far under any size limit; the first deploy to staging proves the rest.
 - Whether the rate limiting binding costs anything. Its page doesn't say.
 - Mobbin's API terms, read before the route ships: whether one key may serve every user, and what it asks about keeping
   answers.
-- Whether Better Apps' WorkOS identity can be installed in this repository, or its check is written here on `fetch` and
-  zod as `@parity-app/account` was.
+- Better Apps' WorkOS identity can be installed once its packages are on npm (PAR-952).
 
 ## Decisions
 

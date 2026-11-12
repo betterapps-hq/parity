@@ -517,6 +517,58 @@ describe("sizing", () => {
     expect(text({}).width).toBeUndefined()
   })
 
+  it("draws an inline tag as a block when its style needs one, in a slot as in a layout", () => {
+    const [cell] = resolveDesign(
+      {
+        type: "component",
+        id: "cell",
+        component: "TableCell",
+        slots: {
+          children: [
+            { type: "text", id: "amount", tag: "span", text: "$1,200", style: { textAlign: "end" } },
+            { type: "text", id: "note", tag: "strong", text: "Paid" },
+            { type: "text", id: "title", tag: "p", text: "Plans", style: { maxWidth: 40 } }
+          ]
+        }
+      },
+      undefined,
+      "desktop"
+    )
+
+    if (cell?.kind !== "component") {
+      throw new Error("expected a component")
+    }
+
+    const display = cell.slots.children?.map((child) => (child.kind === "element" ? child.style.display : null))
+    expect(display).toEqual(["block", undefined, undefined])
+  })
+
+  it("stretches a component placed against both edges over the width its own classes give it", () => {
+    const [page] = resolveDesign(
+      {
+        type: "layout",
+        id: "page",
+        children: [
+          {
+            type: "component",
+            id: "line",
+            component: "Separator",
+            props: { style: { width: "100%" } },
+            style: { position: "absolute", left: 14, right: 0 }
+          }
+        ]
+      },
+      undefined,
+      "desktop"
+    )
+
+    if (page?.kind !== "element" || page.children[0]?.kind !== "component") {
+      throw new Error("expected a component")
+    }
+
+    expect(page.children[0].props.style).toMatchObject({ width: "auto", left: "calc(var(--spacing) * 14)", right: "0" })
+  })
+
   it("writes padding per side, appearance and type from tokens", () => {
     expect(
       sized("row", {

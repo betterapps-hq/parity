@@ -392,7 +392,7 @@ Print(JSON.stringify([at("profile/person/meta", "selected").text, at("profile/pe
       hooks
     )
 
-    expect(notInstance.error).toContain("heading in profile isn't an instance")
+    expect(notInstance.error).toContain("goes inside heading, which isn't an instance")
   })
 })
 
@@ -519,5 +519,78 @@ Print(JSON.stringify([Get("card/body", { state: "plain" }).style, Get("card/body
     )
 
     expect(result.ok).toBe(false)
+  })
+})
+
+describe("Update taking a prop away with null, and paths that can't be right (PAR-885)", () => {
+  const table: ContainerSpec = {
+    id: "table",
+    name: "Table",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "body",
+      style: { gap: 2, padding: 3 },
+      children: [{ type: "component", id: "head", component: "TableHead", props: { "aria-sort": "ascending" } }]
+    },
+    states: [{ id: "base", name: "Base" }]
+  }
+
+  function withTableHead(): AgentSnapshot {
+    return {
+      ...snapshot([structuredClone(table)]),
+      components: ["TableHead"],
+      props: {
+        TableHead: {
+          name: "TableHead",
+          path: "src/components/ui/table.tsx",
+          props: [
+            { name: "aria-sort", kind: "enum", options: ["none", "ascending", "descending", "other"], group: "own" }
+          ]
+        }
+      }
+    }
+  }
+
+  it("removes an enum prop set to null, without warning that null isn't an option", async () => {
+    const result = await execute(
+      {
+        label: "Null",
+        code: `Update("table/head", { props: { "aria-sort": null } })
+Update("table/body", { style: { gap: null } })
+Print(JSON.stringify([Get("table/head").props ?? {}, Get("table/body").style]))`
+      },
+      withTableHead(),
+      hooks
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(JSON.parse(result.output.at(-1)!)).toEqual([{}, { padding: 3 }])
+    expect(result.warnings.join("\n")).not.toContain("aria-sort")
+  })
+
+  async function failure(code: string): Promise<string | undefined> {
+    return (await execute({ label: "Path", code }, snapshot(structuredClone(effectiveFixture.designs)), hooks)).error
+  }
+
+  it("says a path has a part too many, and shows design/node, rather than naming a missing design", async () => {
+    expect(await failure(`Delete("profile/page/heading")`)).toContain(
+      `Path "profile/page/heading" has 3 parts. A node path is design/node, without the node's parents, such as "profile/heading".`
+    )
+    expect(await failure(`Update("profile/page/heading", { text: "Hi" })`)).toContain(
+      'Path "profile/page/heading" goes inside page, which isn\'t an instance. A node path is design/node, such as "profile/heading", or design/instance/layer for a layer inside an instance.'
+    )
+  })
+
+  it("names the design a path starts with when it's missing", async () => {
+    expect(await failure(`Delete("nope/page/heading")`)).toContain('No design "nope".')
+  })
+
+  it("refuses a path with an empty part", async () => {
+    for (const path of ["/profile/heading", "profile/heading/", "profile//heading"]) {
+      expect(await failure(`Update(${JSON.stringify(path)}, { text: "Hi" })`)).toContain(
+        `Path "${path}" has an empty part.`
+      )
+    }
   })
 })

@@ -3,13 +3,10 @@ import { join } from "node:path"
 import { readPackage } from "./packages.ts"
 import { conventionalStylesheets, htmlEntry, shadcnConfig, stylesWith } from "./styles.ts"
 
-/** The config files Vite looks for, which say whether the Vite builder can serve the project at all. */
-const viteConfigs = ["js", "mjs", "cjs", "ts", "mts", "cts"].map((extension) => `vite.config.${extension}`)
-
 /**
  * What detection read of a project that an open project can't take in without opening again (PAR-820): its global
  * stylesheets and the UI kit alias (from `components.json`, the app entry or the conventional places), its dependencies,
- * and which Vite config it has. Props, components and designs follow their own files while it's open, so they're not
+ * and which of the builders' config files it has. Props, components and designs follow their own files while it's open, so they're not
  * here.
  */
 export interface DetectionInputs {
@@ -20,11 +17,12 @@ export interface DetectionInputs {
 }
 
 /**
- * What detection reads of the project at `root` now. Throws when its package.json is missing or can't be read, or its
+ * What detection reads of the project at `root` now. `builderConfigs` are the config files the registered builders
+ * look for (`BuilderAdapter.configFiles`, PAR-826), relative to the root, so a new builder needs no change here. Throws when its package.json is missing or can't be read, or its
  * components.json is there but can't be read, as while an editor or package manager rewrites them, so a moment
  * without them never reads as a change.
  */
-export async function detectionInputs(root: string): Promise<DetectionInputs> {
+export async function detectionInputs(root: string, builderConfigs: readonly string[]): Promise<DetectionInputs> {
   const manifest = (await readPackage(root))?.manifest
 
   if (!manifest) {
@@ -55,7 +53,7 @@ export async function detectionInputs(root: string): Promise<DetectionInputs> {
     styles,
     packageStyles,
     ui: shadcn?.aliases?.ui ?? null,
-    vite: viteConfigs.filter((file) => existsSync(join(root, file)))
+    builders: builderConfigs.filter((file) => existsSync(join(root, file)))
   })
 
   const files = [
@@ -64,7 +62,7 @@ export async function detectionInputs(root: string): Promise<DetectionInputs> {
     "index.html",
     ...(entry ? [entry.replace(/^\.?\//, "")] : []),
     ...conventionalStylesheets,
-    ...viteConfigs
+    ...builderConfigs
   ]
 
   return { key, files: [...new Set(files)] }
