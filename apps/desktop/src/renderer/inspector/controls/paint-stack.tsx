@@ -17,7 +17,6 @@ import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { AngleField } from "./angle.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss, stepCount } from "./css-values.ts"
-import { usedColors } from "./data.ts"
 import {
   arrowMoves,
   drag,
@@ -29,6 +28,7 @@ import {
   TokenChip,
   tokenNamed,
   useTokens,
+  useUsedColors,
   ValueField
 } from "./field-parts.tsx"
 import { Field, FieldGrid, SectionButton } from "./field-row.tsx"
@@ -63,7 +63,7 @@ import {
 import { imageSizeCss, layerCss, paintLayers, resolveGradient, simpleGradient } from "./lists-writes.ts"
 import { angleDegrees, angleOf } from "./motion-data.ts"
 import { PercentField } from "./number-field.tsx"
-import { Card } from "./playground.tsx"
+import { Card } from "./preview-card.tsx"
 import type { Carried } from "./sortable.ts"
 import { type ColorToken, gradientToken } from "./tokens.ts"
 
@@ -313,6 +313,7 @@ function PaintRow({
   onCarry: (carried: Carried) => void
   onRemove: () => void
 }) {
+  const usedColors = useUsedColors()
   const { paint } = entry
   const { preview: imagePreview, name: imageName } = useImageSource()
   const name = `Fill ${index + 1}`
@@ -463,6 +464,7 @@ export function GradientEditor({
   tokensOnly?: boolean
   onChange: (paint: GradientPaint) => void
 }) {
+  const usedColors = useUsedColors()
   const { tokens: colors } = useTokens("color")
   const { tokens: gradients, create } = useTokens("gradient")
   const resolved = resolveGradient(paint, gradients)
@@ -499,7 +501,7 @@ export function GradientEditor({
   const createToken =
     create &&
     ((full: string) => {
-      create(gradientToken(full, resolved))
+      create(gradientToken(full, resolved, colors))
       onChange({ ...resolved, token: full })
     })
 

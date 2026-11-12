@@ -4,7 +4,7 @@
  * themselves, and Tailwind v4's weight, leading, tracking and text size scales, are in tokens.ts. Blend modes are here
  * too, as the keywords Appearance's menu offers.
  */
-import { type WeightToken, weightTokens } from "./tokens.ts"
+import { type WeightToken } from "./tokens.ts"
 
 export interface FontFamily {
   /** The first family, as it's shown. */
@@ -81,7 +81,7 @@ export function genericOf(stack: string): "serif" | "monospace" | "sans-serif" {
 }
 
 /** A weight's name where a token names it (Semibold), or its number. */
-export function weightName(value: number, tokens: readonly WeightToken[] = weightTokens): string {
+export function weightName(value: number, tokens: readonly WeightToken[]): string {
   return tokens.find((token) => token.weight === value)?.label ?? String(value)
 }
 

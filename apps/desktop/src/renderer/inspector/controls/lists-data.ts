@@ -1,10 +1,10 @@
 /*
  * The list fields' models: Fill's paint stack, Effects' shadow list and the filter list, as PAR-652's
- * design-options-values.md specifies them, with the project's images. Their tokens are tokens.ts's.
+ * design-options-values.md specifies them, with the project's images. Their tokens are the project's, as `ProjectData` gives them.
  */
 import { formatNumber } from "./css-values.ts"
 import type { Length } from "./data.ts"
-import { allShadowTokens, type ColorToken, drawnColor, type ShadowToken } from "./tokens.ts"
+import { type ColorToken, drawnColor, type ShadowToken } from "./tokens.ts"
 
 /** A color in a list entry: a color token's name or a plain color, with its alpha from 0 to 100. */
 export interface ListColor {
@@ -13,7 +13,7 @@ export interface ListColor {
 }
 
 /** A list entry's color as a preview draws it, with the project's color tokens (tokens.ts's `drawnColor`). */
-export const drawListColor = ({ color, alpha }: ListColor, tokens?: readonly ColorToken[]): string =>
+export const drawListColor = ({ color, alpha }: ListColor, tokens: readonly ColorToken[]): string =>
   drawnColor(color, alpha, tokens)
 
 /** A color in words for a summary: the token's name, or the hex without its #, with its alpha. */
@@ -303,13 +303,13 @@ export interface ShadowEntry {
   off?: boolean
 }
 
-/** The layers an entry draws: its token's, with the override's color, or its own. */
-export function layersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowLayer[] {
+/** The layers an entry draws: its token's, one of the project's shadow `tokens`, with the override's color, or its own. */
+export function layersOf(entry: ShadowEntry, tokens: readonly ShadowToken[]): ShadowLayer[] {
   if (entry.token === undefined) {
     return [entry.layer]
   }
 
-  const token = [...allShadowTokens, ...saved].find((other) => other.name === entry.token)
+  const token = tokens.find((other) => other.name === entry.token)
   const layers = token?.layers ?? [entry.layer]
 
   return entry.colorOverride ? layers.map((part) => ({ ...part, ...entry.colorOverride })) : layers
@@ -326,12 +326,12 @@ export const layerNumbers = (part: ShadowLayer, spread = true): string =>
  * The layers an entry adds to `box-shadow`, top first: a ring is one layer whose spread is its width, and an inner
  * shadow's layers are drawn inside.
  */
-export function boxLayersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowLayer[] {
+export function boxLayersOf(entry: ShadowEntry, tokens: readonly ShadowToken[]): ShadowLayer[] {
   if (entry.kind === "ring") {
     return [{ ...entry.layer, x: 0, y: 0, blur: 0, spread: entry.width ?? 1, inset: entry.inset }]
   }
 
-  return layersOf(entry, saved).map((part) => ({ ...part, inset: entry.kind === "inner" || part.inset }))
+  return layersOf(entry, tokens).map((part) => ({ ...part, inset: entry.kind === "inner" || part.inset }))
 }
 
 /* Filter list */

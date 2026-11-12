@@ -14,6 +14,8 @@ export * from "./create.ts"
 
 export * from "./design-changes.ts"
 
+export * from "./design-colors.ts"
+
 export * from "./document-equality.ts"
 
 export * from "./drop-files.ts"

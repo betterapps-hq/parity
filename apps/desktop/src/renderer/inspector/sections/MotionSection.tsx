@@ -1,9 +1,8 @@
 import type { Transition } from "@parity-app/core"
 import { useState } from "react"
-import { ProjectTokens, useTokenSets } from "../controls/field-parts.tsx"
 import type { TransitionEntry } from "../controls/motion-data.ts"
 import { newEntryId, TransitionsSection } from "../controls/transitions.tsx"
-import { entriesOf, motionTokens, transitionsOf } from "../motion-values.ts"
+import { entriesOf, transitionsOf } from "../motion-values.ts"
 import type { SectionProps } from "./section-edits.ts"
 
 /**
@@ -16,18 +15,13 @@ export function MotionSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
   const differs = editor.selection.differs("transitions")
   const entries = useKeyedEntries(differs ? undefined : style.transition)
-  const sets = { ...useTokenSets(), ...motionTokens(editor.tokens) }
 
   const change = (next: TransitionEntry[]) => {
     entries.remember(next)
     edit("transitions", { transition: transitionsOf(next) }, "Change transitions")
   }
 
-  return (
-    <ProjectTokens sets={sets}>
-      <TransitionsSection entries={entries.list} onSaveToken={() => undefined} onChange={change} />
-    </ProjectTokens>
-  )
+  return <TransitionsSection entries={entries.list} onSaveToken={() => undefined} onChange={change} />
 }
 
 /**

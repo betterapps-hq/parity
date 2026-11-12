@@ -50,7 +50,7 @@ import {
 } from "./motion-data.ts"
 import { easingClass, easingIsLong } from "./motion-writes.ts"
 import { NumberField } from "./number-field.tsx"
-import { Card, PreviewStage } from "./playground.tsx"
+import { Card, PreviewStage } from "./preview-card.tsx"
 import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.ts"
 import { optionNamed } from "./typing.ts"
 

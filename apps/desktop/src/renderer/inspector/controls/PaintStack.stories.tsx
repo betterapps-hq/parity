@@ -4,7 +4,9 @@ import { expect, userEvent, within } from "storybook/test"
 import type { GradientPaint, PaintEntry, Stop } from "./lists-data.ts"
 import { paintWrites } from "./lists-writes.ts"
 import { PaintPreview, PaintStack } from "./paint-stack.tsx"
-import { Playground, PreviewStage } from "./playground.tsx"
+import { Playground } from "./playground.tsx"
+import { PreviewStage } from "./preview-card.tsx"
+import { gradientTokens } from "./stand-in-tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**
@@ -47,7 +49,7 @@ function Paints({
 
   return (
     <Playground
-      writes={isMixed ? mixedWrites : paintWrites(entries)}
+      writes={isMixed ? mixedWrites : paintWrites(entries, gradientTokens)}
       preview={
         <PreviewStage>
           <PaintPreview entries={isMixed ? [] : (carried ?? entries)} />

@@ -4,14 +4,18 @@ import type { PaintEntry } from "./controls/lists-data.ts"
 import { gradientToken } from "./controls/tokens.ts"
 import { entriesFromFill, gradientTokenOf, paintsFromEntries } from "./paint-values.ts"
 
-const brand = gradientToken("gradient-brand", {
-  kind: "linear",
-  angle: 90,
-  stops: [
-    { id: "a", position: 0, color: "blue-500" },
-    { id: "b", position: 100, color: "teal-600" }
-  ]
-})
+const brand = gradientToken(
+  "gradient-brand",
+  {
+    kind: "linear",
+    angle: 90,
+    stops: [
+      { id: "a", position: 0, color: "blue-500" },
+      { id: "b", position: 100, color: "teal-600" }
+    ]
+  },
+  []
+)
 
 const stack: Paint[] = [
   {

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The Design panel lists only the project's own tokens, converted once, and new shadows name only tokens the project has",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

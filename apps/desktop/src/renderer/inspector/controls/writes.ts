@@ -17,7 +17,7 @@ import {
   trackCss
 } from "./data.ts"
 import { sideClass, sideCss, sideNumber, type Sides, sideStored, sidesWrites, type SideValue } from "./sides-writes.ts"
-import { borderWidthTokens, type LengthToken } from "./tokens.ts"
+import type { LengthToken } from "./tokens.ts"
 
 /**
  * A stored value as JSON holds it: text, a number, a list, or an object of them, as PAR-652's value forms are. An
@@ -183,7 +183,7 @@ export function strokeWrites(
   draft: Draft,
   inLayout: boolean,
   position: StrokePosition,
-  tokens: readonly LengthToken[] = borderWidthTokens
+  tokens: readonly LengthToken[]
 ): Writes {
   if (draft.border === undefined && draft.borderWidth === undefined) {
     return { stored: undefined, css: [], tailwind: [] }
