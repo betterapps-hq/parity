@@ -1,5 +1,20 @@
 # Decisions
 
+- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+  [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
+  `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
+  - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
+    property the later key's value stands, and `from` names that key. What a kind of layer draws before any key is set
+    (a layout's `display: flex`, `position: relative` and `min-width: 0`, text's `margin: 0`) is from the key that would
+    change it, so every declaration has a row to name.
+  - **Render still writes inline styles,** by camel-casing each declaration's property. An image's and a video's
+    `display: block` and `object-fit` stay in render, since they come from the node's `fit`, not its style. PAR-942
+    replaces the inline styles with rules.
+  - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
+    `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
+    itself.
+
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
@@ -429,8 +444,9 @@ still need your call.
   stays live, as does everything while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from
   the live frame once it has stayed the same for a second, its text as faded bars in the text's colour and its cards,
   fields, buttons and images as flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured
-  height. A frame not measured yet stays live. Bitmaps and skeletons are kept in memory only, so a code change never
-  shows a stale one. Below about 5%, boards and frames also drop their shadows.
+  height. A frame not measured yet stays live. Skeletons are kept in memory only. Bitmaps are also kept on disk for the
+  next session (PAR-179), named by what they show, the project's code included, so a code change never shows a stale
+  one. Below about 5%, boards and frames also drop their shadows.
 - **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
   its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
   near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
@@ -3165,8 +3181,8 @@ undo. Reading the stylesheet each time a guest loads keeps both as they are.
 - `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
   sets `data-theme` itself keeps its value.
 - An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
-  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
-  `docs/support.md`.
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach. PAR-896, below, lists
+  it.
 
 ## Agent calls merge per design (PAR-278)
 
@@ -7310,6 +7326,17 @@ and `transform` was text case. Your calls on 2026-11-11:
 - **Text case is renamed `textTransform`, and a file with the old key is rejected,** by the Fix forward rule. Stale
   prototype data is disposable.
 
+## A mode sets a theme's attribute written on the root (PAR-896)
+
+My call: `themeAttributes` lists an attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) as
+it lists one on its own, so the default Dark option's `dark` class sets `data-theme="dark"` on the frame's body. PAR-819
+already draws `:root[data-theme="dark"]` on the body as well as on the host, but nothing set the attribute there, so a
+project that switches its dark theme by attribute on the root still drew light values in a Dark frame. `:root.dark` and
+`html.dark` needed nothing more: the mode's `dark` class reaches the body already.
+
+Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
+a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
+
 ## A layer's transitions are a list in its style (PAR-934)
 
 The approved Transition list edits each entry's property, duration, easing and delay, and its eye turns one off.
@@ -7335,5 +7362,6 @@ My calls:
   in its state. Showing one frame going from state to state is a feature of its own.
 - **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
   offer Create token, and the Design tab's other fields don't either.
-- **The spring maths moved to `@parity-app/core`,** which draws springs on the canvas. The controls' stand-in models
-  import it from there.
+- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
+  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
+  spring maths from there.

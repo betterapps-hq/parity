@@ -3324,19 +3324,21 @@ it, and an entry can be dragged to another place.
   duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
   forms.
 
-Code: `transition` and `NodeStyle.transitions` in `packages/core/src/document.ts`; `transitionCss` and the spring solver
-in `packages/core/src/motion.ts`, which `render.ts` draws with; the `transitions` row in
+Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style/src/motion.ts`, with
+`NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
 `packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
-Tests: `packages/core/src/motion.test.ts` (7): Tailwind's defaults and each set's properties, tokens' variables, a curve
-of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, what the
-schema refuses, and a state's own transitions drawn on its frame. `packages/editor/src/style-editing.test.ts`: a state's
-own transitions, marked changed and different, and reset. `packages/agent/src/lint.test.ts`: tokens a transition names
-that the project lacks, in the base and in a state. `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and
-clearing with `null`. `apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's
-entries and back, seconds stored as milliseconds, and the project's tokens the fields offer.
+Tests: `packages/style/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables, a
+curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, and
+what the schema refuses. `packages/style/src/declare.test.ts`: the `transition` declaration, leaving out a hidden entry.
+`packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+`packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
+`packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
+`packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
+`apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's entries and back, seconds
+stored as milliseconds, and the project's tokens the fields offer.
 
 ## Component props
 
@@ -3694,8 +3696,8 @@ decisions.md's "Saving is explicit" sets out.
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
   `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
-  on the root (`:root[data-theme="dark"]`) isn't set this way: it applies only where the mode or a decorator sets it, as
-  below.
+  on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since frames draw that rule on their body as
+  well, as below.
 - **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
   `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
   after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
@@ -3772,8 +3774,9 @@ Tests:
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, a
   `prefers-color-scheme` block's included, as written and as frames draw it, and the same CSS read alike by libgen and
   the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests: vite7-js's `[data-theme='dark']`, an
-  attribute beside a class, none for a class theme, the light theme, the root, a conditional rule, a colour-scheme block
-  or a component's own attribute, and a mode's own attribute winning) and its colour scheme (PAR-138).
+  attribute beside a class, an attribute on the root (PAR-896), none for a class theme, the light theme, a conditional
+  rule, a colour-scheme block or a component's own attribute, and a mode's own attribute winning) and its colour scheme
+  (PAR-138).
 - `prefers-color-scheme` blocks (PAR-138): `packages/tokens/src/tokens.test.ts`, mantine's stylesheet read as a dark
   theme with its light defaults, and a `.dark` value beating the block; `packages/tokens/src/stylesheet.test.ts`, a dark
   value written into the block, added to it and taken out again, and a new default value going to the root outside it;
@@ -3784,6 +3787,9 @@ Tests:
   `html[data-theme=dark] .card` and `:root:not(.dark), .x` drawn as the frame's host and body, a plain `:root` left as
   `:host` ("draws the root with a class or attribute on it as the frame's host and body"); a qualified root's font size
   setting the frame's `rem` where only the body has the qualifier; and the rule kept as written for reading tokens.
+  `apps/desktop/src/renderer/frame.test.ts` (4, PAR-896), in Chrome: `:root.dark`, `html.dark`, `:root[data-theme=dark]`
+  and `html[data-theme='dark']` drawn dark in the default Dark mode, with the attributes the app sets, and light in
+  Light.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).

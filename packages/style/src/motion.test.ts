@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type DesignNode, nodeStyle } from "./document.ts"
+import { nodeStyle } from "./model.ts"
 import { springLinear, springSettle, transitionCss } from "./motion.ts"
-import { resolveDesign } from "./render.ts"
 
 describe("transitionCss", () => {
   it("writes Tailwind's defaults for an unset time and easing, and each set's properties", () => {
@@ -61,30 +60,5 @@ describe("transitions in the document", () => {
     expect(nodeStyle.safeParse({ transitions: [{ property: "all", easing: { spring: { bounce: 1 } } }] }).success).toBe(
       false
     )
-  })
-
-  it("draws the transition the state shows, so switching to it animates the change", () => {
-    const card: DesignNode = {
-      type: "layout",
-      id: "card",
-      style: { background: "card", transitions: [{ property: "colors", duration: 200 }] },
-      children: []
-    }
-
-    const hover = {
-      id: "hover",
-      name: "Hover",
-      overrides: { card: { style: { background: "accent", transitions: [{ property: "all", duration: 300 }] } } }
-    }
-
-    const style = (state?: typeof hover) => {
-      const [drawn] = resolveDesign(card, state, "desktop")
-
-      return drawn?.kind === "element" ? drawn.style : undefined
-    }
-
-    expect(style()?.transition).toMatch(/^color 200ms /)
-    expect(style(hover)).toMatchObject({ background: "var(--accent)" })
-    expect(style(hover)?.transition).toMatch(/^all 300ms /)
   })
 })

@@ -1,10 +1,50 @@
-import type { Easing, Spring, Transition } from "./document.ts"
-import { easingKeywords, transitionSets } from "./document.ts"
+import { z } from "zod"
+import { finiteNumber, stored } from "./stored.ts"
 
 /*
- * Transitions as CSS: the properties each of Tailwind's sets changes, its easings' curves, a spring solved into the
- * `linear()` it's drawn with, and a layer's transitions as one `transition` value.
+ * A layer's transitions, and what they come to in CSS: the properties each of Tailwind's sets changes, its easings'
+ * curves, a spring solved into the `linear()` it's drawn with, and a layer's transitions as one `transition` value.
  */
+
+/** Tailwind's transition sets, each a list of properties: `transition-colors` changes color, background and the rest. */
+export const transitionSets = ["all", "colors", "opacity", "transform", "shadow"] as const
+
+/** Tailwind's own easings, whose curves its theme defines as `--ease-in` and the like (`linear` is CSS's). */
+export const easingKeywords = ["linear", "ease-in", "ease-out", "ease-in-out"] as const
+
+/** A time: whole or part milliseconds (`duration-200`), or a duration token's name. */
+const time = z.union([finiteNumber, z.string()])
+
+/** A spring, by the time it takes and how much it bounces (0 to 1), or by its physics, as Framer's are set. */
+const spring = z.union([
+  stored({ duration: finiteNumber, bounce: finiteNumber }),
+  stored({ stiffness: finiteNumber, damping: finiteNumber, mass: finiteNumber })
+])
+
+export type Spring = z.infer<typeof spring>
+
+/**
+ * An easing: one of Tailwind's (`ease-out`), an easing token's name (`ease-snappy`), a curve or steps of its own
+ * (`cubic-bezier(0.2, 0.8, 0.2, 1)`, `steps(4)`), or a spring.
+ */
+const easing = z.union([z.string(), stored({ spring })])
+
+export type Easing = z.infer<typeof easing>
+
+export const transition = stored({
+  /** One of Tailwind's sets (`colors`), or a CSS property of its own (`width`). */
+  property: z.string().regex(/^-?-?[a-z][a-z0-9-]*$/i, "expected a transition set or a CSS property, such as width"),
+  /** Tailwind's 150ms when unset. A spring's settle time is its duration. */
+  duration: time.optional(),
+  /** Tailwind's default curve when unset. */
+  easing: easing.optional(),
+  delay: time.optional(),
+  /** Hidden with the eye: kept, not drawn or written, as a hidden layer is. */
+  hidden: z.boolean().optional()
+})
+
+/** How one property, or one of Tailwind's sets of them, changes when the layer's style does. */
+export type Transition = z.infer<typeof transition>
 
 /** The properties each of Tailwind v4's transition sets changes, as its `transition-*` utilities list them. */
 export const transitionSetProperties: Record<TransitionSet, readonly string[]> = {

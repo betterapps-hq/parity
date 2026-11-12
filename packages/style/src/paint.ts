@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { fileObject, finiteNumber } from "./schema.ts"
+import { finiteNumber, stored } from "./stored.ts"
 
 /*
  * Fill's paint stack (PAR-931): what a node's `background` holds when it's more than one color token. Colors name the
@@ -12,7 +12,7 @@ const spot = z.tuple([finiteNumber, finiteNumber])
 /** Alpha in %, 0 to 100: how much of a color shows. */
 const alpha = finiteNumber.min(0).max(100)
 
-const paintStop = fileObject({
+const paintStop = stored({
   /** A color token's name. */
   color: z.string(),
   alpha: alpha.optional(),
@@ -28,13 +28,13 @@ export type PaintStop = z.infer<typeof paintStop>
 /** Whether a paint is kept in the file but not drawn, as a node's `hidden` is. */
 const hidden = z.boolean().optional()
 
-const solidPaint = fileObject({ kind: z.literal("solid"), color: z.string(), alpha: alpha.optional(), hidden })
+const solidPaint = stored({ kind: z.literal("solid"), color: z.string(), alpha: alpha.optional(), hidden })
 
 export const gradientKinds = ["linear", "radial", "conic"] as const
 
 export type GradientKind = (typeof gradientKinds)[number]
 
-const gradientPaint = fileObject({
+const gradientPaint = stored({
   kind: z.enum(gradientKinds),
   stops: z.array(paintStop).min(2, "expected at least two stops"),
   /** Linear's angle, and conic's start angle, in degrees: 0 points up and 90 right, as in CSS. Defaults to 180. */
@@ -49,13 +49,13 @@ const gradientPaint = fileObject({
 })
 
 /** A gradient token: the project's own gradient, by name. Editing its stops makes it a gradient of its own. */
-const tokenGradientPaint = fileObject({ kind: z.literal("gradient"), token: z.string(), hidden })
+const tokenGradientPaint = stored({ kind: z.literal("gradient"), token: z.string(), hidden })
 
 export const paintFits = ["fill", "fit", "crop", "tile"] as const
 
 export type PaintFit = (typeof paintFits)[number]
 
-const imagePaint = fileObject({
+const imagePaint = stored({
   kind: z.literal("image"),
   /** The image's file, as an image layer's `src` names it. */
   src: z.string(),

@@ -1,6 +1,6 @@
+import { fillCss, fillTokens, type Paint, paintsOf } from "@parity-app/style"
 import { describe, expect, it } from "vite-plus/test"
 import { type DesignNode, parseDesignNode } from "./document.ts"
-import { fillCss, fillTokens, type Paint, paintsOf } from "./paint.ts"
 import { resolveDesign } from "./render.ts"
 
 const stack: Paint[] = [

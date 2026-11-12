@@ -1,3 +1,4 @@
+import { declarations, type Direction, type LayerKind, type NodeStyle } from "@parity-app/style"
 import { z } from "zod"
 import type { FrameViewport } from "./adapters.ts"
 import { screenHeightForWidth } from "./devices.ts"
@@ -5,29 +6,16 @@ import type {
   ComponentNode,
   ContainerSpec,
   DesignNode,
-  EffectColor,
-  Filter,
-  FilterAdjustment,
   FrameSize,
   InstanceNode,
-  Length,
-  Move,
   NodePatch,
-  NodeStyle,
-  Padding,
   ParamSpec,
   PatchUnset,
   PropValues,
-  Shadow,
-  Size,
   StateSpec,
-  Transform,
   VideoNode
 } from "./document.ts"
-import { filterAdjustments, isNamedLength } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
-import { transitionCss } from "./motion.ts"
-import { fillCss } from "./paint.ts"
 
 /**
  * A design resolved for one state in one viewport: what a renderer adapter mounts. Framework-neutral: elements are
@@ -594,7 +582,12 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
         const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
 
-        const element = { kind: "element", nodeId: id(node), tag: "div", style: layoutCss(style, parent) } as const
+        const element = {
+          kind: "element",
+          nodeId: id(node),
+          tag: "div",
+          style: inlineStyle(style, "layout", parent)
+        } as const
 
         if (children.length > 0) {
           return [{ ...element, children }]
@@ -610,7 +603,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: shown.tag ?? "p",
-            style: textCss(style, parent),
+            style: inlineStyle(style, "text", parent),
             children: [{ kind: "text", text: shown.text }]
           }
         ]
@@ -620,7 +613,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: "img",
-            style: { display: "block", objectFit: shown.fit ?? "cover", ...componentCss(style, parent) },
+            style: { display: "block", objectFit: shown.fit ?? "cover", ...inlineStyle(style, shown.type, parent) },
             attributes: { src: shown.src, alt: shown.alt ?? "" },
             children: []
           }
@@ -631,7 +624,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: "video",
-            style: { display: "block", objectFit: shown.fit ?? "cover", ...componentCss(style, parent) },
+            style: { display: "block", objectFit: shown.fit ?? "cover", ...inlineStyle(style, shown.type, parent) },
             attributes: videoAttributes(shown),
             children: []
           }
@@ -639,7 +632,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
       case "component": {
         const props = { ...shown.props }
         // A component's own styles come from its props; what the design sets on it lands on its root as inline styles.
-        const box = componentCss(style, parent)
+        const box = inlineStyle(style, shown.type, parent)
 
         if (Object.keys(box).length > 0) {
           props.style = withInlineStyle(props.style, box)
@@ -678,7 +671,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 
         if (first && first.kind !== "text") {
           // The instance's place in its layout (width, grow) applies to the component's root, which takes its id.
-          const box = componentCss(style, parent)
+          const box = inlineStyle(style, shown.type, parent)
           first.nodeId = id(node)
 
           if (first.kind === "element") {
@@ -712,6 +705,20 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
   }
 
   return resolve(root)
+}
+
+/**
+ * A layer's style as an element's inline style: its declarations, each property camel-cased as the DOM's `style` names
+ * it (`align-self` as `alignSelf`, `-webkit-line-clamp` as `WebkitLineClamp`).
+ */
+function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined): InlineStyle {
+  const css: InlineStyle = {}
+
+  for (const { property, value } of declarations(style, { kind, parent })) {
+    css[property.replaceAll(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = value
+  }
+
+  return css
 }
 
 /** A component's `style` prop, whatever the props give it, with the design's inline styles over it. */
@@ -764,134 +771,6 @@ function mergeUnset<K extends string>(
   return keys.length > 0 ? keys : undefined
 }
 
-/** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */
-export function spacing(value: Length): string {
-  if (isNamedLength(value)) {
-    return token(value)
-  }
-
-  return value === 0 ? "0" : `calc(var(--spacing) * ${value})`
-}
-
-/** A reference to one of the project's custom properties. */
-export function token(name: string): string {
-  return `var(--${name})`
-}
-
-/**
- * Values the radius field takes that the styling framework writes as a keyword rather than a variable, with the CSS
- * each comes to. `radius-full` is Tailwind's `rounded-full`: a corner as round as the box allows, so a square is a
- * circle and a wide box a pill at any size. Tailwind's theme has no `--radius-full`, so the name isn't a token; a
- * project that declares one keeps its own value.
- */
-export const radiusKeywords: RadiusKeywords = { "radius-full": "calc(infinity * 1px)" }
-
-/** The CSS each radius keyword comes to, by keyword. */
-export interface RadiusKeywords {
-  readonly [keyword: string]: string
-}
-
-/** The CSS for a radius: the token's variable, falling back to the keyword's value for a keyword. */
-function radiusCss(name: string): string {
-  const keyword = radiusKeywords[name]
-
-  return keyword === undefined ? token(name) : `var(--${name}, ${keyword})`
-}
-
-type Direction = "row" | "column"
-
-const flexAlign = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" } as const
-
-const flexJustify = {
-  start: "flex-start",
-  center: "center",
-  end: "flex-end",
-  between: "space-between",
-  around: "space-around",
-  evenly: "space-evenly"
-} as const
-
-function layoutCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
-  const grid = style.display === "grid"
-
-  const css: InlineStyle = {
-    display: grid ? "grid" : "flex",
-    position: "relative",
-    minWidth: "0",
-    ...surfaceCss(style),
-    ...spacingCss(style),
-    ...boxCss(style, parent)
-  }
-
-  if (grid) {
-    css.gridTemplateColumns = `repeat(${style.columns ?? 2}, minmax(0, 1fr))`
-
-    if (style.rows !== undefined) {
-      css.gridTemplateRows = `repeat(${style.rows}, minmax(0, 1fr))`
-    }
-  } else {
-    css.flexDirection = style.direction ?? "column"
-
-    if (style.wrap) {
-      css.flexWrap = "wrap"
-    }
-  }
-
-  if (style.gap !== undefined) {
-    css.gap = spacing(style.gap)
-  }
-
-  if (style.rowGap !== undefined) {
-    css.rowGap = spacing(style.rowGap)
-  }
-
-  if (style.align) {
-    css.alignItems = flexAlign[style.align]
-  }
-
-  const { justify } = style
-
-  if (justify) {
-    // A grid places items within their cells along the row; distributing space is for the tracks themselves.
-    const distributes = justify === "between" || justify === "around" || justify === "evenly"
-
-    if (grid && !distributes) {
-      css.justifyItems = flexAlign[justify]
-    } else {
-      css.justifyContent = flexJustify[justify]
-    }
-  }
-
-  return css
-}
-
-function textCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
-  const css: InlineStyle = {
-    margin: "0",
-    ...surfaceCss(style),
-    ...spacingCss(style),
-    ...boxCss(style, parent)
-  }
-
-  // Hugging text is Figma's auto width: as wide as its line, never wrapped by its parent, only by a maximum width.
-  if (style.width === "hug") {
-    css.width = "max-content"
-  }
-
-  if (style.lines === 1) {
-    Object.assign(css, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })
-  } else if (style.lines !== undefined && style.lines > 1) {
-    Object.assign(css, {
-      display: "-webkit-box",
-      WebkitBoxOrient: "vertical",
-      WebkitLineClamp: String(style.lines),
-      overflow: "hidden"
-    })
-  }
-
-  return css
-}
-
 /**
  * A video's attributes, by their HTML names as the project's code would write them: one with controls waits to be
  * played; one without plays by itself, without sound (which a browser needs before it plays one by itself), round and
@@ -907,372 +786,4 @@ export function videoAttributes(video: Pick<VideoNode, "src" | "alt" | "controls
   return video.controls
     ? { ...attributes, controls: "", playsinline: "" }
     : { ...attributes, autoplay: "", muted: "", loop: "", playsinline: "" }
-}
-
-/** Everything a design can set on a component: its surface, spacing, place in the layout and type. */
-function componentCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
-  return { ...surfaceCss(style), ...spacingCss(style), ...boxCss(style, parent) }
-}
-
-/** Padding and margin, each on all sides, per axis, or per side. */
-function spacingCss(style: NodeStyle): InlineStyle {
-  const css: InlineStyle = {}
-
-  if (style.padding !== undefined) {
-    css.padding = sidesCss(style.padding)
-  }
-
-  if (style.margin !== undefined) {
-    css.margin = sidesCss(style.margin)
-  }
-
-  return css
-}
-
-function sidesCss(value: Padding): string {
-  return (Array.isArray(value) ? value : [value]).map(spacing).join(" ")
-}
-
-/** Fill, border, corners, shadow and clipping: what layouts and text draw themselves. */
-function surfaceCss(style: NodeStyle): InlineStyle {
-  const css: InlineStyle = {}
-
-  Object.assign(css, fillCss(style.background))
-
-  if (style.border !== undefined || style.borderWidth !== undefined) {
-    css.borderWidth = `${style.borderWidth ?? 1}px`
-    css.borderStyle = style.borderStyle ?? "solid"
-    css.borderColor = style.border ? token(style.border) : "var(--border, currentColor)"
-  }
-
-  if (style.radius) {
-    css.borderRadius = radiusCss(style.radius)
-  }
-
-  const boxShadow = shadowCss(style.shadow)
-
-  if (boxShadow) {
-    css.boxShadow = boxShadow
-  }
-
-  if (style.overflow) {
-    css.overflow = style.overflow === "scroll" ? "auto" : style.overflow
-  }
-
-  return css
-}
-
-/**
- * What applies to any node, including a component's root: its size and place in the parent's layout, opacity, type,
- * which the text inside inherits, and its transitions.
- */
-function boxCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
-  const css: InlineStyle = {}
-
-  if (style.grow) {
-    fill(css, parent === "column" ? "height" : "width", parent ?? "row")
-  }
-
-  sizeCss(css, "width", style.width, parent)
-  sizeCss(css, "height", style.height, parent)
-
-  if (style.minWidth !== undefined) {
-    css.minWidth = spacing(style.minWidth)
-  }
-
-  if (style.maxWidth !== undefined) {
-    css.maxWidth = spacing(style.maxWidth)
-  }
-
-  if (style.minHeight !== undefined) {
-    css.minHeight = spacing(style.minHeight)
-  }
-
-  if (style.maxHeight !== undefined) {
-    css.maxHeight = spacing(style.maxHeight)
-  }
-
-  if (style.self) {
-    css.alignSelf = flexAlign[style.self]
-  }
-
-  if (style.colSpan !== undefined) {
-    css.gridColumn = `span ${style.colSpan} / span ${style.colSpan}`
-  }
-
-  if (style.rowSpan !== undefined) {
-    css.gridRow = `span ${style.rowSpan} / span ${style.rowSpan}`
-  }
-
-  if (style.position === "absolute") {
-    css.position = "absolute"
-
-    for (const side of ["top", "right", "bottom", "left"] as const) {
-      if (style[side] !== undefined) {
-        css[side] = spacing(style[side])
-      }
-    }
-  }
-
-  // Every node is a flex or grid item, where z-index applies without a position.
-  if (style.zIndex !== undefined) {
-    css.zIndex = isNamedLength(style.zIndex) ? token(style.zIndex) : String(style.zIndex)
-  }
-
-  if (style.opacity !== undefined) {
-    css.opacity = String(style.opacity / 100)
-  }
-
-  Object.assign(css, effectsCss(style))
-
-  if (style.foreground) {
-    css.color = token(style.foreground)
-  }
-
-  if (style.font) {
-    css.fontFamily = token(style.font)
-  }
-
-  if (style.size) {
-    css.fontSize = token(style.size)
-    css.lineHeight = `var(--${style.size}--line-height, 1.5)`
-  }
-
-  if (style.leading) {
-    css.lineHeight = token(style.leading)
-  }
-
-  if (style.weight !== undefined) {
-    css.fontWeight = String(style.weight)
-  }
-
-  if (style.tracking) {
-    css.letterSpacing = token(style.tracking)
-  }
-
-  if (style.textAlign) {
-    css.textAlign = style.textAlign
-  }
-
-  if (style.textTransform) {
-    css.textTransform = style.textTransform
-  }
-
-  if (style.decoration) {
-    css.textDecorationLine = style.decoration
-  }
-
-  if (style.italic) {
-    css.fontStyle = "italic"
-  }
-
-  const transition = transitionCss(style.transitions)
-
-  if (transition) {
-    css.transition = transition
-  }
-
-  return css
-}
-
-/**
- * A color token, or a plain color (`#2563eb`, `oklch(…)`) as written, which lint warns about, mixed toward transparent
- * when it has an alpha.
- */
-function effectColorCss({ color, alpha }: EffectColor): string {
-  const base = /^#|^oklch\(/i.test(color) ? color : token(color)
-
-  return alpha === undefined ? base : `color-mix(in oklab, ${base} ${alpha}%, transparent)`
-}
-
-const px = (value: number) => (value === 0 ? "0" : `${value}px`)
-
-/**
- * One shadow as `box-shadow` takes it. A token is drawn as the project defines it: its color can't be changed from its
- * variable, so a token's color is the panel's and the code's, not the frame's.
- */
-function shadowLayerCss(entry: Shadow): string {
-  if ("token" in entry) {
-    return token(entry.token)
-  }
-
-  if (entry.kind === "ring") {
-    return `${entry.inset ? "inset " : ""}0 0 0 ${px(entry.width)} ${effectColorCss(entry.color)}`
-  }
-
-  const numbers = [entry.x, entry.y, entry.blur, entry.spread].map(px).join(" ")
-
-  return `${entry.kind === "inner" ? "inset " : ""}${numbers} ${effectColorCss(entry.color)}`
-}
-
-/** A layer's `box-shadow`: one token, or the stack's shadows that are on, top first, as CSS lists them. */
-export function shadowCss(value: NodeStyle["shadow"]): string | undefined {
-  if (value === undefined || value === "") {
-    return undefined
-  }
-
-  if (!Array.isArray(value)) {
-    return token(value)
-  }
-
-  const layers = value.filter((entry) => !entry.off).map(shadowLayerCss)
-
-  return layers.length > 0 ? layers.join(", ") : undefined
-}
-
-/** Each adjustment's CSS function. */
-const adjustmentFunctions: Readonly<Record<FilterAdjustment, string>> = {
-  brightness: "brightness",
-  contrast: "contrast",
-  saturate: "saturate",
-  hue: "hue-rotate",
-  grayscale: "grayscale",
-  sepia: "sepia",
-  invert: "invert"
-}
-
-/** Brightness, contrast and saturation are a change from 100%, so +25 is 125%. */
-const centered: ReadonlySet<FilterAdjustment> = new Set(["brightness", "contrast", "saturate"])
-
-function adjustmentCss(key: FilterAdjustment, value: number): string {
-  if (key === "hue") {
-    return `hue-rotate(${value}deg)`
-  }
-
-  return `${adjustmentFunctions[key]}(${centered.has(key) ? 100 + value : value}%)`
-}
-
-/** A drop shadow as `drop-shadow()` takes it: no spread, and a token drawn as the project defines it. */
-function dropShadowCss(entry: Shadow): string | undefined {
-  if ("token" in entry) {
-    return `drop-shadow(${token(entry.token)})`
-  }
-
-  if (entry.kind === "ring") {
-    return undefined
-  }
-
-  return `drop-shadow(${[entry.x, entry.y, entry.blur].map(px).join(" ")} ${effectColorCss(entry.color)})`
-}
-
-function filterFunctions(entry: Filter): string[] {
-  switch (entry.kind) {
-    case "blur":
-      return [`blur(${token(entry.value)})`]
-    case "adjust":
-      return filterAdjustments.flatMap((key) => {
-        const value = entry.values[key]
-
-        return value === undefined || value === 0 ? [] : [adjustmentCss(key, value)]
-      })
-    case "dropShadow": {
-      const css = entry.shadow.off ? undefined : dropShadowCss(entry.shadow)
-
-      return css ? [css] : []
-    }
-  }
-}
-
-/** A `filter` or `backdrop-filter`: the functions of the entries that are on, in the list's order. */
-export function filterCss(entries: readonly Filter[] | undefined): string | undefined {
-  const functions = (entries ?? []).filter((entry) => !entry.off).flatMap(filterFunctions)
-
-  return functions.length > 0 ? functions.join(" ") : undefined
-}
-
-function moveCss(value: Move): string {
-  return value instanceof Object ? `${value.percent}%` : spacing(value)
-}
-
-/**
- * A transform as CSS's `translate`, `rotate` and `scale`, which apply in that order whatever the order they're set,
- * with skew in `transform`, which applies after them, and the origin.
- */
-export function transformCss(value: Transform | undefined): InlineStyle {
-  const css: InlineStyle = {}
-
-  if (!value) {
-    return css
-  }
-
-  if (value.x !== undefined || value.y !== undefined) {
-    css.translate = `${moveCss(value.x ?? 0)} ${moveCss(value.y ?? 0)}`
-  }
-
-  if (value.rotate !== undefined) {
-    css.rotate = `${value.rotate}deg`
-  }
-
-  if (value.scaleX !== undefined || value.scaleY !== undefined) {
-    css.scale = `${(value.scaleX ?? 100) / 100} ${(value.scaleY ?? 100) / 100}`
-  }
-
-  const skew = [
-    value.skewX === undefined ? undefined : `skewX(${value.skewX}deg)`,
-    value.skewY === undefined ? undefined : `skewY(${value.skewY}deg)`
-  ].filter(Boolean)
-
-  if (skew.length > 0) {
-    css.transform = skew.join(" ")
-  }
-
-  if (value.origin) {
-    css.transformOrigin = `${value.origin.x}% ${value.origin.y}%`
-  }
-
-  return css
-}
-
-/** Filters, the backdrop's filters and the transform. */
-function effectsCss(style: NodeStyle): InlineStyle {
-  const css: InlineStyle = transformCss(style.transform)
-  const filter = filterCss(style.filter)
-  const backdrop = filterCss(style.backdropFilter)
-
-  if (filter) {
-    css.filter = filter
-  }
-
-  if (backdrop) {
-    css.backdropFilter = backdrop
-  }
-
-  return css
-}
-
-/**
- * Figma's sizing in flex terms. Filling the parent's main axis grows into the free space; filling the cross axis
- * stretches. A fixed length doesn't shrink along the main axis. Outside a layout, fill is the whole parent.
- */
-function sizeCss(css: InlineStyle, axis: "width" | "height", size: Size | undefined, parent: Direction | undefined) {
-  if (size === undefined) {
-    return
-  }
-
-  const main = parent !== undefined && (axis === "width") === (parent === "row")
-
-  if (size === "hug") {
-    css[axis] = "fit-content"
-  } else if (size === "fill") {
-    fill(css, axis, parent)
-  } else {
-    css[axis] = spacing(size)
-
-    if (main) {
-      css.flexShrink = "0"
-    }
-  }
-}
-
-function fill(css: InlineStyle, axis: "width" | "height", parent: Direction | undefined) {
-  const min = axis === "width" ? "minWidth" : "minHeight"
-
-  if (parent === undefined) {
-    css[axis] = "100%"
-  } else if ((axis === "width") === (parent === "row")) {
-    css.flex = "1 1 0%"
-    css[min] = "0"
-  } else {
-    css.alignSelf = "stretch"
-  }
 }
