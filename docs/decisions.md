@@ -8108,6 +8108,12 @@ layer. My calls:
   value, and each keeps the field's own limits and spreads: margin below 0, padding to 0, sizes to 1px, Alt and
   Alt+Shift reaching more sides. Type sizes and radii land on tokens, so they take one value for every layer. The note
   over several layers names the rows where `Mixed+8` works.
-- **The old field's lifecycle stays for now:** `NumberField`, `NumberValueInput` and `number-field.ts` in `chrome/`
-  still serve one row, a number prop's default in a component design's Props section (`ValueInput` in
-  `ComponentsSection.tsx`). They go when that row moves to the approved number field, as number props did.
+- **A number field is `ValueField` with rules, not a reader of its own.** `NumberField` takes what a number takes as
+  `NumberRules` (range, whole, what empty and a number past either end do, unit, words) and builds its reading, steps
+  and reasons from them, so every number says what it takes in one form ("Weight takes a whole number from 1 to 1000").
+  `PercentField` and the number props sit on it, and a prop's default moved from the old field to `NumberProp`, so the
+  old field, its reducer and `number-field.ts` are gone. Numbers past either end stop there unless a field needs
+  refusing (Weight, Steps, a curve's handles), as before. A field that mixes numbers with words or chips, a grid's lines
+  and a track's count, keeps its own reader.
+- **`Num` is `PixelField`:** every use was a length in pixels, so it's named for that and lost its unused count mode. It
+  sits beside `NumberField` as the length layer, since a length reads `rem`, `spacing-4` and a unit menu.

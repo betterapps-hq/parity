@@ -35,7 +35,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { Num, type SectionProps } from "./controls.tsx"
+import { PixelField, type SectionProps } from "./controls.tsx"
 import { clamp, formatNumber, remPx, sameValue, stepCount, tint } from "./css-values.ts"
 import {
   type Columns,
@@ -1077,10 +1077,9 @@ function TracksField({
 
   if (fit) {
     size = (
-      <Num
+      <PixelField
         label="Least column width"
         inner="≥"
-        pixels
         value={fitLeast}
         min={1}
         onChange={(least) => set({ columns: { fit: least ?? 160 } })}

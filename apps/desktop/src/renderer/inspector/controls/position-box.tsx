@@ -2,7 +2,8 @@ import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNo
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type BoxPoint, clamp, type SpotValue, spotKeywords, spotValues } from "./css-values.ts"
-import { arrowMoves, drag, useLiveEdits, type DragPoint, PercentField } from "./field-parts.tsx"
+import { arrowMoves, drag, useLiveEdits, type DragPoint } from "./field-parts.tsx"
+import { PercentField } from "./number-field.tsx"
 
 /*
  * The nine-spot boxes, which every control that places something in a box draws. `SpotBox` is the one Layout's

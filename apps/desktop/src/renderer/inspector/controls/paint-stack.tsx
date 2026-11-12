@@ -27,7 +27,6 @@ import {
   useLiveEdits,
   MessageLine,
   MissingMark,
-  PercentField,
   type Reading,
   stepToken,
   TokenChip,
@@ -66,6 +65,7 @@ import {
 } from "./lists-data.ts"
 import { imageSizeCss, layerCss, paintLayers, resolveGradient, simpleGradient } from "./lists-writes.ts"
 import { angleDegrees, angleOf } from "./motion-data.ts"
+import { PercentField } from "./number-field.tsx"
 import { Card } from "./playground.tsx"
 import type { Carried } from "./sortable.ts"
 import { type ColorToken, gradientToken } from "./tokens.ts"

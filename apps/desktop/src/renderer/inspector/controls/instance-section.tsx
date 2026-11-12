@@ -11,17 +11,15 @@ import {
   SelectValue
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowUpToLine, Diamond, Replace, RotateCcw, Unlink } from "lucide-react"
-import { type ReactNode, useId, useRef, useState } from "react"
+import { type ReactNode, useId, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type PropValue, readValue, textValue } from "../../chrome/prop-values.ts"
-import { formatNumber, stepCount } from "./css-values.ts"
-import { initialSession, reduceSession, type SessionEffect } from "./edit-session.ts"
-import { type LiveEdits, LiveEditsContext, MessageLine, ValueField, wrappingText } from "./field-parts.tsx"
+import { MessageLine, wrappingText } from "./field-parts.tsx"
 import { Field, FieldGrid, SwitchRow, TitleMenu } from "./field-row.tsx"
-import { readNumber } from "./typing.ts"
+import { NumberProp, type PropPreview } from "./number-field.tsx"
 
 /** A prop's name as its row shows it, with a capital first letter: `showRising` is ShowRising. */
 const shownName = (name: string) => name.charAt(0).toUpperCase() + name.slice(1)
@@ -31,12 +29,6 @@ const defaultFirst = <O extends { id: string }>(options: readonly O[], first: st
   ...options.filter((option) => option.id === first),
   ...options.filter((option) => option.id !== first)
 ]
-
-/** Shows a number on the canvas while it's typed or scrubbed, before it's made, and takes it back. */
-export interface PropPreview {
-  onPreview: (value: number | undefined) => void
-  onCancel: () => void
-}
 
 /**
  * What one prop's row edits: the value the layer gives it, unset where it gives none, and the default, which an unset field shows
@@ -346,123 +338,6 @@ function TextProp({
       }}
       onBlur={(event) => event.currentTarget.value !== value && onCommit(event.currentTarget.value)}
     />
-  )
-}
-
-/**
- * A number prop, in the approved number field: it takes the app's maths (`+2`, `*2`, `(24 - 4) / 2`), steps by 1 on Up
- * and Down, 10 with Shift, and scrubs. What it can't read stays, outlined, with the reason under it, and nothing is
- * changed. Empty, it's unset, and the component's default shows faintly. With `preview`, what's typed or scrubbed shows
- * on the canvas before it's made, maths works from the value as it was before the preview (PAR-203), and a run of Up
- * and Down presses is one undo step, which Escape takes back, through the same edit session the style sections use
- * (`edit-session.ts`).
- */
-function NumberProp({
-  label,
-  value,
-  placeholder,
-  preview,
-  onChange
-}: {
-  label: string
-  value: number | undefined
-  placeholder?: number
-  preview?: PropPreview
-  onChange: (value: number | undefined, gesture?: string) => void
-}) {
-  const id = useId()
-  // The value before a preview began, which maths works from while the canvas shows the preview.
-  const before = useRef<{ value: number | undefined }>(undefined)
-  const session = useRef(initialSession)
-  // The values a field's change came to, while it runs, and the run of presses under way: its gesture and where it began.
-  const gathering = useRef<(number | undefined)[]>(undefined)
-  const run = useRef<{ gesture: string; from: number | undefined }>(undefined)
-  const runs = useRef(0)
-  const current = () => (before.current ? before.current.value : value)
-  const from = () => current() ?? placeholder ?? 0
-
-  const apply = (effect: SessionEffect<number | undefined>) => {
-    switch (effect.type) {
-      case "preview":
-        before.current ??= { value }
-
-        return preview?.onPreview(effect.edits.at(-1))
-      case "unpreview":
-        before.current = undefined
-
-        return preview?.onCancel()
-      case "make":
-        before.current = undefined
-
-        return onChange(effect.edits.at(-1), effect.inRun ? run.current?.gesture : undefined)
-      case "beginRun":
-        run.current = { gesture: `${id}-${(runs.current += 1)}`, from: value }
-
-        return
-      case "endRun":
-        run.current = undefined
-
-        return
-      case "revertRun":
-        // Back where it began, in its own gesture, the run leaves no undo step.
-        if (run.current) {
-          onChange(run.current.from, run.current.gesture)
-        }
-
-        run.current = undefined
-    }
-  }
-
-  const live: LiveEdits | undefined = preview && {
-    send: (event, change) => {
-      const edits: (number | undefined)[] = []
-      gathering.current = edits
-
-      try {
-        change?.()
-      } finally {
-        gathering.current = undefined
-      }
-
-      const update = reduceSession(
-        session.current,
-        event.type === "step" ? { type: "step", edits, target: id } : { ...event, edits }
-      )
-
-      session.current = update.state
-      update.effects.forEach(apply)
-    }
-  }
-
-  const make = (next: number | undefined) => {
-    if (gathering.current) {
-      gathering.current.push(next)
-    } else {
-      before.current = undefined
-      onChange(next)
-    }
-  }
-
-  return (
-    <LiveEditsContext value={live}>
-      <ValueField<number | undefined>
-        label={label}
-        scrub={{ from, apply: make, by: { step: 1, shiftStep: 10 } }}
-        shown={value === undefined ? undefined : formatNumber(value)}
-        placeholder={placeholder === undefined ? "" : formatNumber(placeholder)}
-        read={(text) => {
-          const reading = readNumber(text, current() ?? placeholder, label)
-
-          if ("clear" in reading) {
-            return { value: undefined }
-          }
-
-          return "value" in reading ? { value: reading.value } : { reason: reading.reason }
-        }}
-        onCommit={make}
-        onStep={(up, keys) => make(from() + stepCount(up, keys.shift))}
-      />
-    </LiveEditsContext>
   )
 }
 

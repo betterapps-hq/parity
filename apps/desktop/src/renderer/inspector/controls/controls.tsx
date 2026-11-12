@@ -211,9 +211,8 @@ export function SizeSection({
               <Field key={key} label={label}>
                 <div className="flex items-center gap-1">
                   <div className="min-w-0 flex-1">
-                    <Num
+                    <PixelField
                       label={label}
-                      pixels
                       spacing
                       value={draft[key]}
                       min={0}
@@ -1620,21 +1619,19 @@ function FrameHeightField({
 }
 
 /**
- * A number typed, committed on Enter or blur, with a short label inside and a unit after: a ValueField. A length in
- * pixels (`pixels`) is shown in px or rem, chosen from its unit's menu, and takes either typed (`1rem`, `16px`); it's
- * kept in pixels whichever is shown, so 16px becomes 1rem.
- * A spacing length (`spacing`) steps to the next whole spacing step (4px) on Up and Down and scrubs a step per 2 screen
- * pixels; others step by 1, or 10 with Shift, and scrub a step per screen pixel.
+ * A length in pixels, with a short label inside and a unit after: a ValueField. It's shown in px or rem, chosen from
+ * its unit's menu, and takes either typed (`1rem`, `16px`), with the app's maths and `spacing-4`; it's kept in pixels
+ * whichever is shown, so 16px becomes 1rem. A spacing length (`spacing`) steps to the next whole spacing step (4px) on
+ * Up and Down and scrubs a step per 2 screen pixels; others step by 1, or 10 with Shift, and scrub a step per screen
+ * pixel. It holds at `min` or more.
  *
  * In a narrow field (`narrow`, under about 96px, as sides are), what it comes to is in its hint. Input it can't read
  * stays, outlined in the error color with a mark in the status slot and the reason under the row; Enter keeps it, and
  * Escape puts the value back; leaving keeps it too.
  */
-export function Num({
+export function PixelField({
   label,
   inner,
-  suffix,
-  pixels = false,
   spacing = false,
   narrow = false,
   value,
@@ -1646,8 +1643,6 @@ export function Num({
   label: string
   /** A letter or glyph inside, which scrubs: T, or a side's glyph. */
   inner?: ReactNode
-  suffix?: string
-  pixels?: boolean
   spacing?: boolean
   narrow?: boolean
   value: number | undefined
@@ -1658,58 +1653,29 @@ export function Num({
   onChange: (value: number | undefined) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
-  const inRem = pixels && unit === "rem"
+  const inRem = unit === "rem"
   let shown = value === undefined ? undefined : formatNumber(value)
 
   if (inRem && value !== undefined) {
     shown = formatNumber(value / remPx)
   }
 
-  /**
-   * What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the
-   * unit shown; or, for a count, a whole number.
-   */
+  /** What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the unit shown. */
   const read = (text: string): Reading<number | undefined> => {
-    if (pixels) {
-      const bare = isBareNumber(text)
-      const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
+    const reading = readLength(inRem && isBareNumber(text) ? `${text}rem` : text, { label, current: value })
 
-      if ("clear" in reading) {
-        return { value: undefined }
-      }
-
-      if ("px" in reading) {
-        return { value: Math.max(min, reading.px) }
-      }
-
-      return { reason: "reason" in reading ? reading.reason : "Enter a length" }
-    }
-
-    if (text.trim() === "") {
+    if ("clear" in reading) {
       return { value: undefined }
     }
 
-    const number = Number(text)
+    if ("px" in reading) {
+      return { value: Math.max(min, reading.px) }
+    }
 
-    return Number.isFinite(number) ? { value: Math.max(min, Math.round(number)) } : { reason: "Enter a whole number" }
+    return { reason: "reason" in reading ? reading.reason : "Enter a length" }
   }
 
   const from = () => value ?? Math.max(min, 0)
-  let unitPart: ReactNode = suffix
-
-  if (pixels) {
-    unitPart = (
-      <UnitMenu
-        label={label}
-        unit={unit}
-        units={[
-          { unit: "px", label: "Pixels" },
-          { unit: "rem", label: "Root em, 16px" }
-        ]}
-        onUnit={setUnit}
-      />
-    )
-  }
 
   return (
     <ValueField
@@ -1724,7 +1690,17 @@ export function Num({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
-      unit={unitPart}
+      unit={
+        <UnitMenu
+          label={label}
+          unit={unit}
+          units={[
+            { unit: "px", label: "Pixels" },
+            { unit: "rem", label: "Root em, 16px" }
+          ]}
+          onUnit={setUnit}
+        />
+      }
       narrow={narrow}
       read={read}
       onCommit={onChange}

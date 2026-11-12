@@ -34,14 +34,13 @@ import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { clamp, mixColor, stepCount } from "./css-values.ts"
+import { clamp, mixColor } from "./css-values.ts"
 import {
   arrowMoves,
   drag,
   useLiveEdits,
   type Message,
   MessageLine,
-  PercentField,
   type Reading,
   type SharedLine,
   type ScrubKeys,
@@ -56,6 +55,8 @@ import {
   ValueField
 } from "./field-parts.tsx"
 import { overChecker as drawnOverChecker } from "./list-parts.tsx"
+import { PercentField } from "./number-field.tsx"
+import { type NumberRules, readNumberText, stepNumber } from "./number-rules.ts"
 import { type ColorToken, colorToken } from "./tokens.ts"
 import { optionNamed } from "./typing.ts"
 
@@ -374,18 +375,15 @@ function ChannelField({
   onChange: (value: number) => void
   line: SharedLine
 }) {
-  const typed = useTyped<number>({
+  // What it takes, as every number field says it: from 0 to its most, there whatever's typed.
+  const rules: NumberRules = { label, min: 0, max, places, required: true, step }
+
+  const typed = useTyped<number | undefined>({
     label,
     shown: places === 0 ? String(Math.round(value)) : value.toFixed(places).replace(/^0/, ""),
-    read: (text) => {
-      const number = Number(text)
-
-      return text.trim() !== "" && Number.isFinite(number)
-        ? { value: clamp(number, 0, max) }
-        : { reason: `${label} goes from 0 to ${max}` }
-    },
-    onCommit: onChange,
-    onStep: (up, shift) => onChange(clamp(value + step * stepCount(up, shift), 0, max)),
+    read: (text) => readNumberText(text, rules, value),
+    onCommit: (next) => next !== undefined && onChange(next),
+    onStep: (up, shift) => onChange(stepNumber(value, up, { shift, alt: false }, rules)),
     line
   })
 

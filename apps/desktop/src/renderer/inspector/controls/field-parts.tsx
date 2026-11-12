@@ -45,17 +45,15 @@ import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.ts
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
 import { type FieldSessionEvent, relativeUpdate } from "./edit-session.ts"
 import { useRowScrub } from "./field-row.tsx"
-import { inScaleOrder, stepToken, tokenNamed } from "./token-scale.ts"
+import { inScaleOrder, tokenNamed } from "./token-scale.ts"
 import {
   type FieldToken,
   type LengthToken,
   lengthToken,
-  type OpacityToken,
   type TokenSetName,
   type TokenSets,
   tokenSets
 } from "./tokens.ts"
-import { readNumber } from "./typing.ts"
 
 /*
  * The one field every styling control builds on, as PAR-652's design-options-fields.md sets its anatomy: an inner
@@ -3192,152 +3190,4 @@ export function ValueField<T>({
 }
 
 /** The step Up and Down take in a percentage: 1, 10 with Shift, a quarter with Alt. */
-const percentStep = ({ shift, alt }: ScrubKeys) => {
-  if (shift) {
-    return 10
-  }
-
-  return alt ? 0.25 : 1
-}
-
-/**
- * A percentage, as opacity, a color's alpha, scale and a gradient stop's position take one: typed with the app's
- * maths (`50`, `50%`, `+10`, `*0.5`), stepped by 1 with Up and Down (10 with Shift), scrubbed by its inner label, and
- * held to its range when what's typed is past either end. Text it can't read is refused, never stored as
- * a number it isn't.
- */
-export function PercentField({
-  label,
-  value,
-  placeholder = "100",
-  unsetIs,
-  min = 0,
-  max = 100,
-  places = 2,
-  inner,
-  narrow,
-  mixed,
-  disabled,
-  hint,
-  rowClassName,
-  keywords,
-  tokens,
-  status,
-  own,
-  onChange
-}: {
-  label: string
-  value: number | undefined
-  /** What unset shows, faintly. */
-  placeholder?: string
-  /** What unset counts as for maths and steps: the placeholder's number unless said. */
-  unsetIs?: number
-  min?: number
-  max?: number
-  /** Decimals kept: 0 for a color's alpha, as `bg-primary/50` takes whole percentages. */
-  places?: number
-  inner?: ReactNode
-  narrow?: boolean
-  mixed?: boolean
-  disabled?: boolean
-  hint?: FieldHint
-  rowClassName?: string
-  /** Words it also reads as percentages, as a position's X reads `left` as 0 and `right` as 100. */
-  keywords?: Readonly<Record<string, number>>
-  /**
-   * The opacity tokens it offers, as Opacity and a color's alpha do: the one it holds (`current`) is its chip, typing a
-   * token's name (`muted`, `opacity-muted`) picks it, and Up and Down step through them in order.
-   */
-  tokens?: { list: readonly OpacityToken[]; current?: string; onPick: (name: string | undefined) => void }
-  /** Slot 5's marks. */
-  status?: StatusMarks
-  /** A value of its own, which its token list offers the nearest token and Create token for. */
-  own?: OwnValue
-  onChange: (value: number | undefined) => void
-}) {
-  const held = tokens?.current === undefined ? undefined : tokens.list.find((token) => token.name === tokens.current)
-  const from = value ?? held?.percent ?? unsetIs ?? (Number(placeholder) || 0)
-  const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
-
-  // A token steps to the next in the list's order, Shift to the first or last, as every token does.
-  const stepHeld = (up: boolean, { shift }: ScrubKeys) => {
-    if (!tokens || !held) {
-      return false
-    }
-
-    tokens.onPick(stepToken(tokens.list, held, up, shift).name)
-
-    return true
-  }
-
-  return (
-    <ValueField
-      label={label}
-      inner={inner}
-      scrub={
-        inner === undefined
-          ? undefined
-          : { from: () => from, apply: (next) => onChange(settle(next)), by: { step: 1, shiftStep: 10, min, max } }
-      }
-      shown={value === undefined ? undefined : formatNumber(value, places)}
-      placeholder={placeholder}
-      mixed={mixed}
-      chip={tokenChip(tokens?.current, held, {
-        pick: (name) => tokens?.onPick(name),
-        detach: (token) => onChange(token.percent)
-      })}
-      unit="%"
-      comesTo={held?.detail}
-      status={status}
-      own={own}
-      tokens={tokens && { list: tokens.list, current: tokens.current, onPick: tokens.onPick }}
-      narrow={narrow}
-      hint={hint}
-      disabled={disabled}
-      rowClassName={rowClassName}
-      read={(text): Reading<number | undefined | { token: string }> => {
-        const trimmed = text.trim().toLowerCase()
-        const token = tokenNamed(tokens?.list, trimmed, "opacity-")
-
-        if (token) {
-          return { value: { token: token.name } }
-        }
-
-        const word = keywords?.[trimmed]
-
-        if (word !== undefined) {
-          return { value: word }
-        }
-
-        const reading = readNumber(text.replace(/%\s*$/, ""), from, label)
-
-        if ("clear" in reading) {
-          return { value: undefined }
-        }
-
-        if ("reason" in reading) {
-          return { reason: reading.reason }
-        }
-
-        const kept = Number(formatNumber(reading.value, places))
-
-        // Past either end, it stops there: the field shows it, so it says nothing.
-        return { value: clamp(kept, min, max) }
-      }}
-      onCommit={(next) => {
-        if (next instanceof Object) {
-          tokens?.onPick(next.token)
-        } else {
-          onChange(next)
-        }
-      }}
-      onStep={(up, keys) => {
-        if (!stepHeld(up, keys)) {
-          onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))
-        }
-      }}
-    />
-  )
-}
-
 export { stepToken, tokenNamed } from "./token-scale.ts"
