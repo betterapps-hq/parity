@@ -177,12 +177,14 @@ export interface FrameBitmap {
  * frame has stayed the same for a moment. `measure` gives the live frame's height as it's drawn when it's captured, which
  * is kept with the bitmap; nothing while it isn't drawn. `holding` says whether the frame is holding off drawing its
  * design for the bitmap (`useFirstDrawWaits`): then nothing is being edited, so what it first shows is captured without
- * the wait (PAR-525).
+ * the wait (PAR-525). `rank` says how near the frame is to the middle of the view, so frames in view are captured first
+ * (`useFrameView`, PAR-955).
  */
 export function useFrameBitmap(
   { key, job }: FrameShows,
   measure?: () => number | undefined,
-  holding?: () => boolean
+  holding?: () => boolean,
+  rank?: () => number
 ): FrameBitmap {
   const [shown, setShown] = useState<ShownBitmap>()
   // The key whose capture failed, until a later try gives its bitmap.
@@ -192,13 +194,15 @@ export function useFrameBitmap(
   const latest = useRef(job)
   const measured = useRef(measure)
   const held = useRef(holding)
+  const ranked = useRef(rank)
   // What the frame showed first, which no edit led to.
   const first = useRef(key)
   useEffect(() => {
     latest.current = job
     measured.current = measure
     held.current = holding
-  }, [job, measure, holding])
+    ranked.current = rank
+  }, [job, measure, holding, rank])
 
   useEffect(() => {
     let current = true
@@ -219,7 +223,12 @@ export function useFrameBitmap(
     // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
     // the frame without a bitmap for good.
     const take = (attempt: number) =>
-      void capture(key, latest.current, () => measured.current?.()).then((src) => {
+      void capture(
+        key,
+        latest.current,
+        () => measured.current?.(),
+        () => ranked.current?.() ?? Number.POSITIVE_INFINITY
+      ).then((src) => {
         if (!current) {
           return
         }
@@ -523,12 +532,14 @@ function forgetOldest(): void {
 /**
  * The bitmap of a frame, taken offscreen, as many at once as there are offscreen windows. `measure` gives the live
  * frame's height just before it's taken, which is kept with it: the offscreen window lays the frame out at the bitmap's
- * small zoom, where text rounds to other heights, so its own measure can be a few pixels out.
+ * small zoom, where text rounds to other heights, so its own measure can be a few pixels out. `rank` puts it in line,
+ * lowest first, as `turns` reads it: frames nearest the middle of the view are taken first.
  */
 export function capture(
   key: string,
   job: RenderJob,
-  measure?: () => number | undefined
+  measure?: () => number | undefined,
+  rank?: () => number
 ): Promise<string | undefined | typeof failed> {
   const known = bitmaps.get(key)
 
@@ -565,7 +576,7 @@ export function capture(
     }
 
     return taken.src
-  })
+  }, rank)
 
   const settled = taking.catch((cause: unknown): typeof failed => {
     if (bitmaps.get(key) === settled) {
