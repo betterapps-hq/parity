@@ -12,11 +12,11 @@
   - **Transform is CSS's own properties.** You chose this on 2026-11-12 over one list: `translate`, `rotate`, `scale`
     and `transformOrigin` are keys, since CSS applies them in a fixed order, and `transform` is the ordered list, which
     holds skew today.
-  - **My call: a value takes a form where it can be a token or is a length; a number in one fixed unit stays a number.**
-    Lengths, sizes, colors, radius, the type keys, `zIndex`, a blur and a transition's times and easing are stored with
-    their form. Opacity, border width, font weight, rotation, scale, a shadow's offsets and a filter's adjustments stay
-    numbers. The proposal counts some of those as steps too; giving them forms later changes the format again, so say if
-    you'd rather they went now.
+  - **A value takes a form where it can be a token or is a length; a number in one fixed unit stays a number.** Lengths,
+    sizes, colors, radius, the type keys, `zIndex`, a blur and a transition's times and easing are stored with their
+    form. I'd kept opacity, border width and font weight as numbers; you chose on 2026-11-12 to give them forms before
+    the format landed, since each has tokens of its own: `opacity: { step: 50 }`, `borderWidth: { step: 2 }`,
+    `fontWeight: { value: 600 }`. Rotation, scale, a shadow's offsets and a filter's adjustments stay numbers.
   - **My call: a list entry is told apart by `type` and turned off by `off`,** in every list, as the proposal's own
     example has it. Paints and transitions had `kind` and `hidden`.
   - **My call: `flexWrap` and `fontStyle` take the value that takes them off** (`nowrap`, `normal`), which a state or a

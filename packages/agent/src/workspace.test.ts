@@ -6,7 +6,8 @@ import {
   effectiveTree,
   type RenderNode,
   resolveDesign,
-  spacing
+  spacing,
+  fontWeightNumber
 } from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { jsonValue, type JsonValue } from "@parity-app/core/schema"
@@ -136,7 +137,7 @@ function readOutline(tree: EffectiveTree, reads: Map<string, DesignNode>): Outli
   }
 
   if (style.fontWeight !== undefined) {
-    outline.weight = String(style.fontWeight)
+    outline.weight = String(fontWeightNumber(style.fontWeight))
   }
 
   return [outline]
@@ -443,11 +444,11 @@ Print(JSON.stringify([at("profile/person/avatar/circle", "selected").style.fills
       designs(),
       `${shown}
 Update("profile/person/meta", { text: "Picked" }, { state: "selected" })
-Update("profile/Person/Avatar/initials", { style: { fontWeight: 400 } })
+Update("profile/Person/Avatar/initials", { style: { fontWeight: { value: 400 } } })
 Print(JSON.stringify([at("profile/person/meta", "selected").text, at("profile/person/meta", "base").text, Get("profile/person").overrides["avatar/initials"]]))`
     )
 
-    expect(result).toEqual(["Picked", "Joined 1843", { text: "AL", style: { fontWeight: 400 } }])
+    expect(result).toEqual(["Picked", "Joined 1843", { text: "AL", style: { fontWeight: { value: 400 } } }])
   })
 
   it("refuses a path that doesn't lead inside an instance", async () => {
@@ -494,7 +495,7 @@ Print(JSON.stringify(overrides(id)))`
     const result = await read(
       structuredClone(effectiveFixture.designs),
       `${stored}
-Update("profile/heading", { text: "Profile", style: { fontWeight: 700 } }, { state: "selected" })
+Update("profile/heading", { text: "Profile", style: { fontWeight: { value: 700 } } }, { state: "selected" })
 Update("profile/heading", { style: { fontWeight: null } }, { state: "selected" })
 Print(JSON.stringify(overrides("selected").heading))`
     )

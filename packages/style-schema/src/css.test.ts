@@ -126,14 +126,14 @@ describe("round trips", () => {
       position: "absolute",
       top: { step: 0 },
       zIndex: { step: 10 },
-      opacity: 50,
+      opacity: { step: 50 },
       overflow: "auto",
       borderRadius: { token: "radius-full" }
     },
     {
       fontFamily: { token: "font-sans" },
       fontSize: { token: "text-lg" },
-      fontWeight: 600,
+      fontWeight: { value: 600 },
       textTransform: "uppercase",
       lineClamp: 2
     },

@@ -217,7 +217,7 @@ describe("gestures", () => {
 
   const withOpacity = (value: number) => (container: ContainerSpec) =>
     container.root.type === "layout"
-      ? { ...container, root: { ...container.root, style: { ...container.root.style, opacity: value } } }
+      ? { ...container, root: { ...container.root, style: { ...container.root.style, opacity: { step: value } } } }
       : container
 
   const moveTo = (x: number) => (container: ContainerSpec) => moveDesign(container, { x, y: 0 })

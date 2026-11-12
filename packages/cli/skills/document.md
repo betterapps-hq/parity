@@ -116,7 +116,7 @@ drawn as a block, so the style works in a component's slot or a table cell too; 
   "type": "text",
   "tag": "h2",
   "text": "Recent activity",
-  "style": { "fontSize": { "token": "text-lg" }, "fontWeight": 600 }
+  "style": { "fontSize": { "token": "text-lg" }, "fontWeight": { "value": 600 } }
 }
 ```
 
@@ -170,8 +170,9 @@ Each kind of value takes some of them:
 | Color       | `token` or `value`, each with an optional `alpha`; `keyword`; `expr`. `alpha` is `{ "step": 50 }` for     |
 |             | 50%, `{ "value": 0.5 }` or an opacity token: `{ "token": "primary", "alpha": { "step": 50 } }`            |
 | Named value | `token`, `value`, `keyword` or `expr`: a radius, a font, a font size, a letter spacing                    |
-| Number      | A plain number in the key's one unit: `opacity` and `scale` in %, `borderWidth` in px, `rotate` in        |
-|             | degrees, `fontWeight`, `lineClamp`, `colSpan`, `rowSpan`                                                  |
+| Opacity     | `{ "step": 50 }` for 50%, `{ "value": 0.5 }` or an opacity token                                          |
+| Number      | A plain number in the key's one unit: `scale` in %, `rotate` in degrees, `lineClamp`, `colSpan`,          |
+|             | `rowSpan`                                                                                                 |
 
 A `value` where a token goes (a color, `borderRadius`, `fontFamily`, `fontSize`, `lineHeight`, `letterSpacing`) is drawn
 as written and gets a `not_a_token` warning, since it leaves the project's tokens. A `value`, `keyword` or `expr` its
@@ -202,18 +203,18 @@ CSS property doesn't take gets `invalid_value`. Both are in execute.md, under Mo
 | `fills`                                          | A list of paints, top first; see Fill below                                   |
 | `color`                                          | Text's color                                                                  |
 | `borderColor`                                    | A color                                                                       |
-| `borderWidth`                                    | Pixels: 0, 1, 2, 4 or 8                                                       |
+| `borderWidth`                                    | Whole pixels, `{ "step": 2 }` (0, 1, 2, 4 or 8), or a border width token      |
 | `borderStyle`                                    | `solid`, `dashed` or `dotted`                                                 |
 | `borderRadius`                                   | A named value, such as `{ "token": "radius-lg" }`                             |
 | `boxShadow`                                      | A list of shadows, top first; see Effects below                               |
-| `opacity`                                        | Percent, 0 to 100                                                             |
+| `opacity`                                        | An opacity: `{ "step": 50 }` is 50%                                           |
 | `overflow`                                       | `visible`, `hidden` or `auto`, which scrolls what doesn't fit                 |
 | `filter`, `backdropFilter`                       | A list of filters on the layer, or on what's behind it; see Effects below     |
 | `translate`, `rotate`, `scale`, `transform`,     | Move, turn, resize and skew how the layer is drawn; see Effects below         |
 | `transformOrigin`                                |                                                                               |
 | `fontFamily`, `fontSize`, `letterSpacing`        | A named value, such as `{ "token": "font-mono" }`, `text-sm`, `tracking-wide` |
 | `lineHeight`                                     | A named value, such as `{ "token": "leading-tight" }`, or `{ "step": 6 }`     |
-| `fontWeight`                                     | A number: 400, 500, 600, 700                                                  |
+| `fontWeight`                                     | `{ "value": 600 }` (400, 500, 600, 700), or a font weight token               |
 | `textAlign`                                      | `start`, `center`, `end` or `justify`                                         |
 | `textTransform`                                  | `uppercase`, `lowercase` or `capitalize`                                      |
 | `textDecorationLine`                             | `underline` or `line-through`                                                 |

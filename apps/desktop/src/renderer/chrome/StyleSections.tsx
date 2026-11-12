@@ -15,18 +15,23 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   alphaPercent,
+  borderWidthPixels,
   type Color,
   colorCss,
   colorToken,
   type ContainerSpec,
   type FieldLength,
+  type FontWeight,
   fieldLength,
+  fontWeightNumber,
   type FieldRules,
   isNamedLength,
   type Length,
   lengthField,
+  opacityPercent,
   type LineHeight,
   type Named,
+  type Opacity,
   type NodeStyle,
   offScaleFlag,
   tokenColor
@@ -156,6 +161,20 @@ function fieldEdits<R extends StyleRow>(
 /** A number field's value as a style's number: its rules take no token names, so it's a number or unset. */
 function numberOf(value: FieldValue): number | undefined {
   return numberValue.safeParse(value).data
+}
+
+/** A field's value as a stored opacity: a percentage, or unset when the field is cleared. */
+function percentOf(value: FieldValue): Opacity | undefined {
+  const percent = numberOf(value)
+
+  return percent === undefined ? undefined : { step: percent }
+}
+
+/** The weight a layer's font weight is among the choices: its number, or none for a token's or a keyword's. */
+function weightChoice(weight: FontWeight | undefined): string | undefined {
+  const number = fontWeightNumber(weight)
+
+  return number === undefined ? undefined : String(number)
 }
 
 /** A field's value as a stored length: steps, or the token it names. */
@@ -860,7 +879,7 @@ function AppearanceSection({ editor }: SectionProps) {
         </Field>
         <Field label="Opacity" {...rowOf(editor, "opacity")}>
           <NumberInput
-            value={style.opacity}
+            value={opacityPercent(style.opacity)}
             rules={opacityRules}
             title="Opacity"
             placeholder="100"
@@ -871,8 +890,8 @@ function AppearanceSection({ editor }: SectionProps) {
               editor,
               "opacity",
               "Change opacity",
-              (layer) => layer.opacity,
-              (opacity) => ({ opacity: numberOf(opacity) })
+              (layer) => opacityPercent(layer.opacity),
+              (opacity) => ({ opacity: percentOf(opacity) })
             )}
           />
         </Field>
@@ -903,7 +922,7 @@ function StrokeSection({ editor }: SectionProps) {
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-xs text-muted-foreground"
-            onClick={() => set("stroke", { borderColor: tokenColor("border"), borderWidth: 1 }, "Add stroke")}
+            onClick={() => set("stroke", { borderColor: tokenColor("border"), borderWidth: { step: 1 } }, "Add stroke")}
           >
             <Square /> Add
           </Button>
@@ -933,9 +952,10 @@ function StrokeSection({ editor }: SectionProps) {
               variant="outline"
               size="sm"
               spacing={0}
-              value={[String(style.borderWidth ?? 1)]}
+              // A width that isn't whole pixels, such as a token's, is none of these.
+              value={[String(borderWidthPixels(style.borderWidth ?? { step: 1 }))]}
               onValueChange={([value]) =>
-                value && set("strokeWidth", { borderWidth: Number(value) }, "Change stroke width")
+                value && set("strokeWidth", { borderWidth: { step: Number(value) } }, "Change stroke width")
               }
             >
               {[1, 2, 4, 8].map((width) => (
@@ -1013,11 +1033,15 @@ function TextSection({ editor, can, shows }: SectionProps) {
         </Field>
         <Field label="Weight" {...rowOf(editor, "weight")}>
           <ChoiceInput
-            value={style.fontWeight === undefined ? undefined : String(style.fontWeight)}
+            value={weightChoice(style.fontWeight)}
             options={weightOptions}
             placeholder="Inherit"
             onChange={(weight) =>
-              set("weight", { fontWeight: weight === undefined ? undefined : Number(weight) }, "Change weight")
+              set(
+                "weight",
+                { fontWeight: weight === undefined ? undefined : { value: Number(weight) } },
+                "Change weight"
+              )
             }
           />
         </Field>

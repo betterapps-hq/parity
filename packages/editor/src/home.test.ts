@@ -69,7 +69,14 @@ describe("the Home screen", () => {
         fills: [{ type: "solid", color: { token: "background" } }],
         color: { token: "foreground" }
       },
-      children: [{ type: "text", tag: "h1", text: "Home", style: { fontSize: { token: "text-2xl" }, fontWeight: 600 } }]
+      children: [
+        {
+          type: "text",
+          tag: "h1",
+          text: "Home",
+          style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+        }
+      ]
     })
   })
 

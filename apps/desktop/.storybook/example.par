@@ -141,7 +141,9 @@
                       {
                         "id": "sbWa4",
                         "style": {
-                          "fontWeight": 600
+                          "fontWeight": {
+                            "value": 600
+                          }
                         },
                         "type": "text",
                         "text": "Acme Inc",
@@ -315,7 +317,9 @@
                   "fontSize": {
                     "token": "text-5xl"
                   },
-                  "fontWeight": 600,
+                  "fontWeight": {
+                    "value": 600
+                  },
                   "letterSpacing": {
                     "token": "tracking-tight"
                   },
@@ -615,7 +619,9 @@
                   "fontSize": {
                     "token": "text-3xl"
                   },
-                  "fontWeight": 600,
+                  "fontWeight": {
+                    "value": 600
+                  },
                   "letterSpacing": {
                     "token": "tracking-tight"
                   },
@@ -1042,7 +1048,9 @@
                                   "fontSize": {
                                     "token": "text-4xl"
                                   },
-                                  "fontWeight": 600,
+                                  "fontWeight": {
+                                    "value": 600
+                                  },
                                   "letterSpacing": {
                                     "token": "tracking-tight"
                                   }
@@ -1484,7 +1492,9 @@
                               "fontSize": {
                                 "token": "text-2xl"
                               },
-                              "fontWeight": 600,
+                              "fontWeight": {
+                                "value": 600
+                              },
                               "letterSpacing": {
                                 "token": "tracking-tight"
                               }
@@ -2908,7 +2918,9 @@
                                                           {
                                                             "id": "jk2Jg",
                                                             "style": {
-                                                              "fontWeight": 500
+                                                              "fontWeight": {
+                                                                "value": 500
+                                                              }
                                                             },
                                                             "type": "text",
                                                             "text": "Website redesign"
@@ -3103,7 +3115,9 @@
                                                           {
                                                             "id": "w3aU5",
                                                             "style": {
-                                                              "fontWeight": 500
+                                                              "fontWeight": {
+                                                                "value": 500
+                                                              }
                                                             },
                                                             "type": "text",
                                                             "text": "Mobile app v2"
@@ -3298,7 +3312,9 @@
                                                           {
                                                             "id": "Qtbdv",
                                                             "style": {
-                                                              "fontWeight": 500
+                                                              "fontWeight": {
+                                                                "value": 500
+                                                              }
                                                             },
                                                             "type": "text",
                                                             "text": "Billing migration"
@@ -3493,7 +3509,9 @@
                                                           {
                                                             "id": "UWEcl",
                                                             "style": {
-                                                              "fontWeight": 500
+                                                              "fontWeight": {
+                                                                "value": 500
+                                                              }
                                                             },
                                                             "type": "text",
                                                             "text": "Design system"
@@ -3688,7 +3706,9 @@
                                                           {
                                                             "id": "tPEw2",
                                                             "style": {
-                                                              "fontWeight": 500
+                                                              "fontWeight": {
+                                                                "value": 500
+                                                              }
                                                             },
                                                             "type": "text",
                                                             "text": "Customer portal"
@@ -3943,7 +3963,9 @@
                       "borderColor": {
                         "token": "border"
                       },
-                      "borderWidth": 1,
+                      "borderWidth": {
+                        "step": 1
+                      },
                       "borderStyle": "dashed"
                     },
                     "type": "component",
@@ -4185,7 +4207,9 @@
                       "fontSize": {
                         "token": "text-sm"
                       },
-                      "fontWeight": 600
+                      "fontWeight": {
+                        "value": 600
+                      }
                     },
                     "type": "text",
                     "text": "Acme Inc"
@@ -4250,7 +4274,9 @@
                       "fontSize": {
                         "token": "text-xs"
                       },
-                      "fontWeight": 500
+                      "fontWeight": {
+                        "value": 500
+                      }
                     },
                     "type": "text",
                     "text": "Workspace"
@@ -4291,7 +4317,9 @@
                   "fontSize": {
                     "token": "text-sm"
                   },
-                  "fontWeight": 500
+                  "fontWeight": {
+                    "value": 500
+                  }
                 },
                 "type": "layout",
                 "children": [
@@ -4585,7 +4613,9 @@
                       "fontSize": {
                         "token": "text-xs"
                       },
-                      "fontWeight": 500
+                      "fontWeight": {
+                        "value": 500
+                      }
                     },
                     "type": "text",
                     "text": "Insights"
@@ -4674,7 +4704,9 @@
                       "fontSize": {
                         "token": "text-xs"
                       },
-                      "fontWeight": 500
+                      "fontWeight": {
+                        "value": 500
+                      }
                     },
                     "type": "text",
                     "text": "Organization"
@@ -4893,7 +4925,9 @@
               "borderColor": {
                 "token": "sidebar-border"
               },
-              "borderWidth": 1,
+              "borderWidth": {
+                "step": 1
+              },
               "borderRadius": {
                 "token": "radius-lg"
               }
@@ -4906,7 +4940,9 @@
                   "fontSize": {
                     "token": "text-sm"
                   },
-                  "fontWeight": 500
+                  "fontWeight": {
+                    "value": 500
+                  }
                 },
                 "type": "text",
                 "text": "7 of 10 seats used"
@@ -5004,7 +5040,9 @@
                       "fontSize": {
                         "token": "text-sm"
                       },
-                      "fontWeight": 500
+                      "fontWeight": {
+                        "value": 500
+                      }
                     },
                     "type": "text",
                     "text": "Avery Chen"
@@ -5058,7 +5096,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "DgXp0": {
@@ -5074,7 +5114,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5096,7 +5138,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "Sc7HV": {
@@ -5112,7 +5156,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5134,7 +5180,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "zoMlO": {
@@ -5150,7 +5198,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5172,7 +5222,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "Z1mti": {
@@ -5188,7 +5240,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5210,7 +5264,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "BooEf": {
@@ -5226,7 +5282,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5248,7 +5306,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "uhGjP": {
@@ -5264,7 +5324,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5286,7 +5348,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "RFLKu": {
@@ -5302,7 +5366,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5324,7 +5390,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "ZIgL7": {
@@ -5340,7 +5408,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5362,7 +5432,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "cMpHb": {
@@ -5378,7 +5450,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5400,7 +5474,9 @@
                 "color": {
                   "token": "sidebar-foreground"
                 },
-                "fontWeight": 400
+                "fontWeight": {
+                  "value": 400
+                }
               }
             },
             "Tl9gt": {
@@ -5416,7 +5492,9 @@
                 "color": {
                   "token": "sidebar-accent-foreground"
                 },
-                "fontWeight": 500
+                "fontWeight": {
+                  "value": 500
+                }
               }
             }
           }
@@ -5591,7 +5669,9 @@
                 "id": "yQRu7",
                 "name": "Page",
                 "style": {
-                  "fontWeight": 500
+                  "fontWeight": {
+                    "value": 500
+                  }
                 },
                 "bind": {
                   "text": "page"
@@ -5643,7 +5723,9 @@
                   "borderColor": {
                     "token": "input"
                   },
-                  "borderWidth": 1,
+                  "borderWidth": {
+                    "step": 1
+                  },
                   "borderRadius": {
                     "token": "radius-md"
                   },
@@ -5809,7 +5891,9 @@
                       "fontSize": {
                         "token": "text-2xl"
                       },
-                      "fontWeight": 600
+                      "fontWeight": {
+                        "value": 600
+                      }
                     },
                     "bind": {
                       "props": {
@@ -6069,7 +6153,9 @@
                     "id": "wwnL9",
                     "name": "Who",
                     "style": {
-                      "fontWeight": 500
+                      "fontWeight": {
+                        "value": 500
+                      }
                     },
                     "bind": {
                       "text": "who"
@@ -6097,7 +6183,9 @@
                     "id": "D8lGA",
                     "name": "What",
                     "style": {
-                      "fontWeight": 500
+                      "fontWeight": {
+                        "value": 500
+                      }
                     },
                     "bind": {
                       "text": "what"
@@ -6317,7 +6405,9 @@
                               "fontSize": {
                                 "token": "text-2xl"
                               },
-                              "fontWeight": 600,
+                              "fontWeight": {
+                                "value": 600
+                              },
                               "letterSpacing": {
                                 "token": "tracking-tight"
                               }
@@ -6913,7 +7003,9 @@
                       "borderColor": {
                         "token": "border"
                       },
-                      "borderWidth": 1,
+                      "borderWidth": {
+                        "step": 1
+                      },
                       "borderStyle": "dashed"
                     },
                     "type": "component",
@@ -7464,7 +7556,9 @@
                                 "id": "Gdw3j",
                                 "name": "Percent",
                                 "style": {
-                                  "fontWeight": 500
+                                  "fontWeight": {
+                                    "value": 500
+                                  }
                                 },
                                 "bind": {
                                   "text": "percent"
@@ -7866,7 +7960,9 @@
               {
                 "id": "Ixi2N",
                 "style": {
-                  "fontWeight": 600
+                  "fontWeight": {
+                    "value": 600
+                  }
                 },
                 "type": "text",
                 "text": "Acme Inc",
@@ -8306,7 +8402,9 @@
                           {
                             "id": "MuWiY",
                             "style": {
-                              "fontWeight": 500,
+                              "fontWeight": {
+                                "value": 500
+                              },
                               "textDecorationLine": "underline"
                             },
                             "type": "text",
@@ -8454,7 +8552,9 @@
                       "fontSize": {
                         "token": "text-2xl"
                       },
-                      "fontWeight": 600,
+                      "fontWeight": {
+                        "value": 600
+                      },
                       "letterSpacing": {
                         "token": "tracking-tight"
                       }
@@ -9666,7 +9766,9 @@
                               "fontSize": {
                                 "token": "text-sm"
                               },
-                              "fontWeight": 500
+                              "fontWeight": {
+                                "value": 500
+                              }
                             },
                             "bind": {
                               "text": "name"
@@ -9845,7 +9947,9 @@
             "id": "lOqZb",
             "name": "Value",
             "style": {
-              "fontWeight": 500,
+              "fontWeight": {
+                "value": 500
+              },
               "textAlign": "end"
             },
             "bind": {

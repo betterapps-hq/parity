@@ -57,7 +57,7 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
         id: generateId(ids),
         tag: "h1",
         text: "Home",
-        style: { fontSize: { token: "text-2xl" }, fontWeight: 600 }
+        style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
       }
 
   const beside = besideMode(modes)

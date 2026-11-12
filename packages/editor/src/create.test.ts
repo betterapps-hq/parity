@@ -24,7 +24,7 @@ describe("a new design", () => {
             type: "text",
             tag: "h1",
             text: "Untitled screen",
-            style: { fontSize: { token: "text-2xl" }, fontWeight: 600 }
+            style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
           }
         ]
       }

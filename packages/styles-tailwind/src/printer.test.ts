@@ -205,12 +205,19 @@ describe("round trips", () => {
       alignSelf: "end",
       grow: true
     },
-    { position: "absolute", top: { step: 0 }, right: { step: 4 }, zIndex: { step: 10 }, opacity: 50, overflow: "auto" },
+    {
+      position: "absolute",
+      top: { step: 0 },
+      right: { step: 4 },
+      zIndex: { step: 10 },
+      opacity: { step: 50 },
+      overflow: "auto"
+    },
     {
       fills: [{ type: "solid", color: { token: "primary" } }],
       color: { token: "primary-foreground" },
       borderColor: { token: "border" },
-      borderWidth: 2,
+      borderWidth: { step: 2 },
       borderRadius: { token: "radius-lg" }
     },
     {
@@ -222,7 +229,7 @@ describe("round trips", () => {
     {
       fontFamily: { token: "font-sans" },
       fontSize: { token: "text-lg" },
-      fontWeight: 600,
+      fontWeight: { value: 600 },
       lineHeight: { token: "leading-tight" },
       letterSpacing: { token: "tracking-wide" }
     },

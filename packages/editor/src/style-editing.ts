@@ -28,7 +28,8 @@ import {
   type Size,
   type StateSpec,
   styleKeys,
-  targetPatches
+  targetPatches,
+  opacityPercent
 } from "@parity-app/core"
 import { editingState } from "./edit-frame.ts"
 import { boardReader } from "./shown.ts"
@@ -218,7 +219,8 @@ function stackingContext(
       return of(around, "layerOrder")
     }
 
-    if (opacity !== undefined && opacity < 100) {
+    // An opacity token may be see-through too, so it counts.
+    if (opacity !== undefined && (opacityPercent(opacity) ?? 0) < 100) {
       return of(around, "opacity")
     }
   }

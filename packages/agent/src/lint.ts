@@ -391,6 +391,30 @@ function styleValues(style: NodeStyle | undefined): StyleValue[] {
     found.push({ name: "zIndex", property: "z-index", value: style.zIndex, takes: "zIndex" })
   }
 
+  // An opacity, a border's width and a font weight are numbers, or name a token of their own kind.
+  if (style.opacity !== undefined && "token" in style.opacity) {
+    found.push({ name: "opacity", property: "opacity", value: style.opacity, takes: "token" })
+  }
+
+  if (style.borderWidth !== undefined && !("step" in style.borderWidth)) {
+    found.push({
+      name: "borderWidth",
+      property: "border-width",
+      value: style.borderWidth,
+      takes: "token"
+    })
+  }
+
+  if (style.fontWeight !== undefined && !("value" in style.fontWeight)) {
+    found.push({
+      name: "fontWeight",
+      property: "font-weight",
+      value: style.fontWeight,
+      takes: "token",
+      category: "font-weight"
+    })
+  }
+
   for (const [key, property] of lengthKeys) {
     const value = style[key]
 

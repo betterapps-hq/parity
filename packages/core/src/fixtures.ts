@@ -19,7 +19,9 @@ const avatar: ContainerSpec = {
     id: "circle",
     style: { padding: { step: 2 }, borderRadius: { token: "radius-full" } },
     responsive: { mobile: { style: { padding: { step: 1 } } } },
-    children: [{ type: "text", id: "initials", text: "??", bind: { text: "initials" }, style: { fontWeight: 500 } }]
+    children: [
+      { type: "text", id: "initials", text: "??", bind: { text: "initials" }, style: { fontWeight: { value: 500 } } }
+    ]
   },
   states: [{ id: "base", name: "Base" }]
 }
@@ -61,7 +63,7 @@ const card: ContainerSpec = {
         type: "layout",
         id: "copy",
         children: [
-          { type: "text", id: "title", text: "Title", bind: { text: "title" }, style: { fontWeight: 600 } },
+          { type: "text", id: "title", text: "Title", bind: { text: "title" }, style: { fontWeight: { value: 600 } } },
           { type: "text", id: "meta", text: "Updated today", responsive: { mobile: { hidden: true } } }
         ]
       }
@@ -94,7 +96,10 @@ const profile: ContainerSpec = {
         id: "person",
         design: "card",
         args: { title: "Ada Lovelace", layout: "inline" },
-        overrides: { meta: { text: "Joined 1843" }, "avatar/initials": { text: "AL", style: { fontWeight: 700 } } },
+        overrides: {
+          meta: { text: "Joined 1843" },
+          "avatar/initials": { text: "AL", style: { fontWeight: { value: 700 } } }
+        },
         responsive: { mobile: { props: { layout: "stacked" } } }
       }
     ]

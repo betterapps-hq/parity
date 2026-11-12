@@ -123,7 +123,7 @@ export const Appearance: Story = {
       fills: [{ type: "solid", color: { token: "card" } }],
       borderRadius: { token: "radius-2xl" },
       boxShadow: [{ type: "drop", token: "shadow-lg" }],
-      opacity: 80,
+      opacity: { step: 80 },
       overflow: "hidden"
     })
   ]
@@ -132,7 +132,11 @@ export const Appearance: Story = {
 /** A stroke: its color, width and dashed style, and a button to remove it. */
 export const Stroke: Story = {
   loaders: [
-    pick("Sign in", "Sign in card", { borderColor: { token: "primary" }, borderWidth: 2, borderStyle: "dashed" })
+    pick("Sign in", "Sign in card", {
+      borderColor: { token: "primary" },
+      borderWidth: { step: 2 },
+      borderStyle: "dashed"
+    })
   ]
 }
 
@@ -149,7 +153,7 @@ export const TextInside: Story = { loaders: [pick("Pricing", "Footer")] }
 
 /** Styles a state changes, Stat card's label in Loading: their names in the agent color, each with a reset. */
 export const ChangedInAState: Story = {
-  loaders: [pick("Stat card", "Label", { color: { token: "primary" }, fontWeight: 700 }, "loading")]
+  loaders: [pick("Stat card", "Label", { color: { token: "primary" }, fontWeight: { value: 700 } }, "loading")]
 }
 
 /** The fill picker open: the project's colors with swatches, searchable, and None. */

@@ -1,4 +1,4 @@
-import { spacing } from "@parity-app/style-schema"
+import { fontWeightNumber, spacing } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import { findNode, nodeOnBoard } from "./edit.ts"
@@ -96,7 +96,7 @@ function effectiveOutline(tree: EffectiveTree): Outline[] {
   }
 
   if (style.fontWeight !== undefined) {
-    outline.weight = String(style.fontWeight)
+    outline.weight = String(fontWeightNumber(style.fontWeight))
   }
 
   return [outline]
@@ -246,7 +246,7 @@ describe("effectiveNode", () => {
     const initials = (state = profile.states![0]) =>
       effectiveNode(profile, "person/avatar/initials", { library, state })
 
-    expect(initials()).toMatchObject({ text: "AL", style: { fontWeight: 700 } })
+    expect(initials()).toMatchObject({ text: "AL", style: { fontWeight: { value: 700 } } })
     expect(effectiveNode(profile, "person/avatar/circle", { library, state: profile.states![1] })?.style).toMatchObject(
       {
         fills: [{ type: "solid", color: { token: "accent" } }]

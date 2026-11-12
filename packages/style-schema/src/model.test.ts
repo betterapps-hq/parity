@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
+  borderWidthPixels,
   fieldLength,
+  fontWeightNumber,
+  opacityPercent,
   fieldSize,
   isFill,
   isHug,
@@ -222,6 +225,37 @@ describe("nodeStyle", () => {
     expect(nodeStyle.safeParse({ lineHeight: { step: 6 } }).success).toBe(true)
     expect(nodeStyle.safeParse({ fontSize: { step: 6 } }).success).toBe(false)
     expect(nodeStyle.safeParse({ borderRadius: { step: 2 } }).success).toBe(false)
+  })
+
+  it("takes an opacity as a percentage, a number to 1 or a token, and no bare number", () => {
+    expect(nodeStyle.safeParse({ opacity: { step: 50 } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ opacity: { value: 0.473 } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ opacity: { token: "opacity-muted" } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ opacity: { step: 101 } }).success).toBe(false)
+    expect(nodeStyle.safeParse({ opacity: 50 }).success).toBe(false)
+    expect(opacityPercent({ step: 50 })).toBe(50)
+    expect(opacityPercent({ value: 0.25 })).toBe(25)
+    expect(opacityPercent({ token: "opacity-muted" })).toBeUndefined()
+  })
+
+  it("takes a border's width as whole pixels, a token or written out, and no bare number", () => {
+    expect(nodeStyle.safeParse({ borderWidth: { step: 2 } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ borderWidth: { token: "border-width-hairline" } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ borderWidth: { value: "0.5px" } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ borderWidth: { step: -1 } }).success).toBe(false)
+    expect(nodeStyle.safeParse({ borderWidth: 2 }).success).toBe(false)
+    expect(borderWidthPixels({ step: 2 })).toBe(2)
+    expect(borderWidthPixels({ token: "border-width-hairline" })).toBeUndefined()
+  })
+
+  it("takes a font weight as a number, a token or a keyword, and no bare number", () => {
+    expect(nodeStyle.safeParse({ fontWeight: { value: 500 } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ fontWeight: { token: "font-weight-medium" } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ fontWeight: { keyword: "bold" } }).success).toBe(true)
+    expect(nodeStyle.safeParse({ fontWeight: { value: "500" } }).success).toBe(false)
+    expect(nodeStyle.safeParse({ fontWeight: 500 }).success).toBe(false)
+    expect(fontWeightNumber({ value: 500 })).toBe(500)
+    expect(fontWeightNumber({ keyword: "bold" })).toBeUndefined()
   })
 
   it("takes a transform in its parts, with an entry of transform turned off", () => {

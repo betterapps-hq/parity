@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { ownerOf } from "./ledger.ts"
 import { transition } from "./motion.ts"
-import { color, paint } from "./paint.ts"
+import { alpha, color, paint } from "./paint.ts"
 import { finiteNumber, stored } from "./stored.ts"
 import { exprForm, keywordForm, off, stepForm, tokenForm, valueForm } from "./value.ts"
 
@@ -121,6 +121,52 @@ export type Named = z.infer<typeof named>
 const lineHeight = z.union([tokenForm, stepForm, valueForm, keywordForm, exprForm], lengthForms)
 
 export type LineHeight = z.infer<typeof lineHeight>
+
+/**
+ * A border's width: whole pixels as the styling framework's class takes them (`{ step: 2 }` is `border-2`), a border
+ * width token, or written out.
+ */
+const borderWidth = z.union(
+  [stored({ step: finiteNumber.nonnegative() }), tokenForm, valueForm, exprForm],
+  "expected { step } in pixels, { token }, { value } or { expr }"
+)
+
+export type BorderWidth = z.infer<typeof borderWidth>
+
+/** The pixels a border's width is, when it's whole pixels. */
+export function borderWidthPixels(value: BorderWidth | undefined): number | undefined {
+  return value !== undefined && "step" in value ? value.step : undefined
+}
+
+/**
+ * How much of a layer shows: a percentage (`{ step: 50 }` is `opacity-50`), a number from 0 to 1, or an opacity
+ * token. The forms a color's alpha takes.
+ */
+const opacity = alpha
+
+export type Opacity = z.infer<typeof opacity>
+
+/** An opacity in %, when it isn't a token. */
+export function opacityPercent(value: Opacity | undefined): number | undefined {
+  if (value === undefined || "token" in value) {
+    return undefined
+  }
+
+  return "step" in value ? value.step : value.value * 100
+}
+
+/** A font weight: a number (`{ value: 500 }`), a font weight token, a keyword (`bold`) or an expression. */
+const fontWeight = z.union(
+  [stored({ value: finiteNumber }), tokenForm, keywordForm, exprForm],
+  "expected { value } as a number, { token }, { keyword } or { expr }"
+)
+
+export type FontWeight = z.infer<typeof fontWeight>
+
+/** The number a font weight is, when it's a number. */
+export function fontWeightNumber(value: FontWeight | undefined): number | undefined {
+  return value !== undefined && "value" in value ? value.value : undefined
+}
 
 /** A grid track: Fill, taking a share of what's left (`minmax(0, 1fr)`), or a length. */
 const track = z.union(
@@ -270,14 +316,13 @@ export const nodeStyle = stored({
   /** The color of text. Set on a layout, it applies to the text inside. */
   color: color.optional(),
   borderColor: color.optional(),
-  /** Border width in pixels, as in Tailwind: 0, 1, 2, 4 or 8. */
-  borderWidth: finiteNumber.optional(),
+  /** One pixel when a border has a color and no width. */
+  borderWidth: borderWidth.optional(),
   borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
   borderRadius: named.optional(),
   /** The stack of shadows, top first. */
   boxShadow: z.array(shadow).optional(),
-  /** Percent, 0 to 100. */
-  opacity: finiteNumber.optional(),
+  opacity: opacity.optional(),
   /** `auto` scrolls what doesn't fit. */
   overflow: z.enum(["visible", "hidden", "auto"]).optional(),
 
@@ -299,7 +344,7 @@ export const nodeStyle = stored({
   // Type. Set on a layout, it applies to the text inside.
   fontFamily: named.optional(),
   fontSize: named.optional(),
-  fontWeight: finiteNumber.optional(),
+  fontWeight: fontWeight.optional(),
   lineHeight: lineHeight.optional(),
   letterSpacing: named.optional(),
   textAlign: z.enum(["start", "center", "end", "justify"]).optional(),

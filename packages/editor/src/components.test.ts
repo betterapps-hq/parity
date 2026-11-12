@@ -6,7 +6,7 @@ const card = (key: string, title: string): DesignNode => ({
   type: "layout",
   id: `card-${key}`,
   children: [
-    { type: "text", id: `${key}-title`, text: title, style: { fontWeight: 600 } },
+    { type: "text", id: `${key}-title`, text: title, style: { fontWeight: { value: 600 } } },
     { type: "text", id: `${key}-body`, text: "Details" }
   ]
 })

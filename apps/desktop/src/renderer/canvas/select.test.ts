@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { adjacentDesign, designOrder, inverseSelection, matchingLayers, matchingSelection } from "./select.ts"
 
-const title: NodeStyle = { fontSize: { token: "lg" }, fontWeight: 600 }
+const title: NodeStyle = { fontSize: { token: "lg" }, fontWeight: { value: 600 } }
 
 type TextNode = Extract<DesignNode, { type: "text" }>
 
@@ -52,7 +52,7 @@ function list(): ContainerSpec {
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "bold", name: "Bold", overrides: { "title-3": { style: { fontWeight: 800 } } } }
+      { id: "bold", name: "Bold", overrides: { "title-3": { style: { fontWeight: { value: 800 } } } } }
     ]
   }
 }

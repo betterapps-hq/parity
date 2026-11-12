@@ -10,7 +10,7 @@ const row = (key: string, name: string, role: string, variant: string, away = fa
   component: "TableRow",
   slots: {
     children: [
-      { type: "text", id: `${key}-name`, text: name, style: { fontWeight: 500 } },
+      { type: "text", id: `${key}-name`, text: name, style: { fontWeight: { value: 500 } } },
       { type: "component", id: `${key}-badge`, name: "Role", component: "Badge", props: { variant, children: role } },
       { type: "text", id: `${key}-away`, text: "Away", hidden: !away, responsive: { mobile: { hidden: true } } }
     ]
@@ -224,7 +224,7 @@ describe("extractComponent", () => {
           type: "variant",
           options: [
             { id: "plain", name: "Plain" },
-            { id: "bold", name: "Bold", overrides: { "a-name": { style: { fontWeight: 700 } } } }
+            { id: "bold", name: "Bold", overrides: { "a-name": { style: { fontWeight: { value: 700 } } } } }
           ]
         }
       }

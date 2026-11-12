@@ -14,13 +14,19 @@ const design: ContainerSpec = {
     style: { gap: { step: 4 }, padding: { step: 2 } },
     children: [
       { type: "text", id: "title", text: "Hello", style: { width: { step: 8 } } },
-      { type: "component", id: "button", component: "Button", props: { children: "Go" }, style: { opacity: 50 } }
+      {
+        type: "component",
+        id: "button",
+        component: "Button",
+        props: { children: "Go" },
+        style: { opacity: { step: 50 } }
+      }
     ]
   },
   states: [
     { id: "default", name: "Default" },
     { id: "wide", name: "Wide", overrides: { title: { style: { width: { step: 20 } } } } },
-    { id: "faint", name: "Faint", overrides: { button: { style: { opacity: 20 } } } }
+    { id: "faint", name: "Faint", overrides: { button: { style: { opacity: { step: 20 } } } } }
   ]
 }
 
@@ -43,7 +49,7 @@ function withStyle(id: string, style: NodeStyle): ContainerSpec["root"] {
 
 describe("styleChanges", () => {
   it("changes a component's inline style, which lands on its root", () => {
-    const changes = styleChanges(render(design.root), render(withStyle("button", { opacity: 40 })))
+    const changes = styleChanges(render(design.root), render(withStyle("button", { opacity: { step: 40 } })))
     expect(changes).toEqual([{ nodeId: "button", set: { opacity: "0.4" }, unset: [] }])
   })
 
@@ -60,7 +66,9 @@ describe("styleChanges", () => {
   it("follows the state each render shows", () => {
     const faint = design.states![2]
     // In Faint, the state's own opacity wins over the base design's, so a base edit to it changes nothing there.
-    expect(styleChanges(render(design.root, faint), render(withStyle("button", { opacity: 40 }), faint))).toEqual([])
+    expect(
+      styleChanges(render(design.root, faint), render(withStyle("button", { opacity: { step: 40 } }), faint))
+    ).toEqual([])
   })
 
   it("leaves elements out, since rules draw them", () => {

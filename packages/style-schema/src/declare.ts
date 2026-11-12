@@ -1,9 +1,18 @@
 import type { CssDeclaration } from "./adapter.ts"
 import { filterCss, shadowCss, transformCss } from "./effects.ts"
-import { isHug, type Named, type NodeStyle, type Padding, type StyleKey, type Track } from "./model.ts"
+import {
+  type BorderWidth,
+  isHug,
+  type Named,
+  type NodeStyle,
+  type Opacity,
+  type Padding,
+  type StyleKey,
+  type Track
+} from "./model.ts"
 import { transitionCss } from "./motion.ts"
 import { colorCss, fillCss } from "./paint.ts"
-import { formCss, namedCss, spacing } from "./value.ts"
+import { formCss, namedCss, spacing, token } from "./value.ts"
 
 /** One CSS declaration a style comes to, with the key that wrote it. */
 export interface Declaration extends CssDeclaration {
@@ -115,6 +124,20 @@ const flexJustify = {
   "space-around": "space-around",
   "space-evenly": "space-evenly"
 } as const
+
+/** A border's width as CSS: its pixels, its token's variable, or as it's written. */
+function borderWidthCss(value: BorderWidth): string {
+  return "step" in value ? `${value.step}px` : namedCss(value)
+}
+
+/** An opacity as CSS: a number from 0 to 1, or its token's variable. */
+function opacityCss(value: Opacity): string {
+  if ("token" in value) {
+    return token(value.token)
+  }
+
+  return String("step" in value ? value.step / 100 : value.value)
+}
 
 /** A grid without tracks of its own has two columns, each Fill. */
 const defaultColumns: readonly Track[] = [{ fr: 1 }, { fr: 1 }]
@@ -235,7 +258,7 @@ function surface(css: Sheet, style: NodeStyle): void {
   }
 
   if (style.borderColor !== undefined || style.borderWidth !== undefined) {
-    css.set("border-width", `${style.borderWidth ?? 1}px`, "borderWidth")
+    css.set("border-width", borderWidthCss(style.borderWidth ?? { step: 1 }), "borderWidth")
     css.set("border-style", style.borderStyle ?? "solid", "borderStyle")
     css.set(
       "border-color",
@@ -319,7 +342,7 @@ function box(css: Sheet, style: NodeStyle, { kind, parent, anchors }: StyleConte
   }
 
   if (style.opacity !== undefined) {
-    css.set("opacity", String(style.opacity / 100), "opacity")
+    css.set("opacity", opacityCss(style.opacity), "opacity")
   }
 
   effects(css, style)
@@ -402,7 +425,11 @@ function type(css: Sheet, style: NodeStyle): void {
   }
 
   if (style.fontWeight !== undefined) {
-    css.set("font-weight", String(style.fontWeight), "fontWeight")
+    css.set(
+      "font-weight",
+      "value" in style.fontWeight ? String(style.fontWeight.value) : namedCss(style.fontWeight),
+      "fontWeight"
+    )
   }
 
   if (style.letterSpacing) {

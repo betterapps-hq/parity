@@ -96,7 +96,7 @@ function addFrames(): void {
               type: "text" as const,
               tag: "h2" as const,
               text: "Pricing ideas",
-              style: { fontSize: { token: "text-xl" }, fontWeight: 600 }
+              style: { fontSize: { token: "text-xl" }, fontWeight: { value: 600 } }
             },
             { id: "fp-body", type: "text" as const, text: "Three tiers, yearly discount up front?" },
             { id: "fp-cta", type: "component" as const, component: "Button", props: { children: "Compare plans" } }

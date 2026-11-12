@@ -11,7 +11,7 @@ import { exprForm, keywordForm, off, token, tokenForm } from "./value.ts"
  * How much of a color shows: a percentage as the styling framework's modifier takes it (`{ step: 50 }` is `/50`), a
  * number from 0 to 1, or an opacity token.
  */
-const alpha = z.union(
+export const alpha = z.union(
   [stored({ step: finiteNumber.min(0).max(100) }), stored({ value: finiteNumber.min(0).max(1) }), tokenForm],
   "expected { step } from 0 to 100, { value } from 0 to 1 or { token }"
 )

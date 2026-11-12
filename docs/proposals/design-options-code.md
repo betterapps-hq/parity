@@ -7,12 +7,12 @@ Values in classes, below.
 
 ## What the design model needs
 
-PAR-941 built the stored form: keys named after their CSS properties, the value forms for lengths, sizes, colors and
-values that name a token, the lists with `type` and `off`, grid tracks, the transform keys and the CSS map, as
-[editor.md](../editor.md), The stored style, describes them. Left for later: one value or four for a radius and a
-border's sides; forms for the numbers stored in one fixed unit (opacity, border width, font weight, rotation, scale and
-a shadow's offsets); the `allow` reason on an exception; and controls in the panel for the value, keyword and expression
-forms.
+PAR-941 built the stored form: keys named after their CSS properties, the value forms for lengths, sizes, colors,
+opacity, border width, font weight and values that name a token, the lists with `type` and `off`, grid tracks, the
+transform keys and the CSS map, as [editor.md](../editor.md), The stored style, describes them. Left for later: one
+value or four for a radius and a border's sides; forms for the numbers still stored in one fixed unit (rotation, scale
+and a shadow's offsets); the `allow` reason on an exception; and controls in the panel for the value, keyword and
+expression forms.
 
 `NodeStyle` was built for a token-locked subset. For the rest:
 

@@ -47,7 +47,7 @@ export function newDesign(
           id: generateId(ids),
           tag: "h1",
           text: name,
-          style: { fontSize: { token: "text-2xl" }, fontWeight: 600 }
+          style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
         }
       ]
     },

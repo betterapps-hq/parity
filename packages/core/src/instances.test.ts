@@ -203,13 +203,15 @@ describe("instance overrides", () => {
       team,
       "default",
       "first/body",
-      { text: "Leads design", style: { fontWeight: 600 } },
+      { text: "Leads design", style: { fontWeight: { value: 600 } } },
       library
     )
 
     const instance = edited.root.type === "layout" ? edited.root.children[0] : undefined
 
-    expect(instance).toMatchObject({ overrides: { body: { text: "Leads design", style: { fontWeight: 600 } } } })
+    expect(instance).toMatchObject({
+      overrides: { body: { text: "Leads design", style: { fontWeight: { value: 600 } } } }
+    })
     const tree = render(edited)
     expect(textOf(tree, "first/body")).toBe("Leads design")
     expect(textOf(tree, "second/body")).toBe("Body copy")

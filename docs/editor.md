@@ -6540,8 +6540,11 @@ taken for the size or the keyword.
 - **A value that names a token of its kind** (`borderRadius`, `fontFamily`, `fontSize`, `letterSpacing`) is a token, a
   value, a keyword or an expression: `{ token: "radius-lg" }`. `lineHeight` takes steps as well, and `zIndex` is
   `{ step: 10 }` or a token.
-- **A number in one fixed unit stays a number:** `opacity` and `scale` in percent, `borderWidth` and a shadow's offsets
-  in px, `rotate` in degrees, `fontWeight`, `lineClamp`, `colSpan` and `rowSpan`.
+- **Opacity, a border's width and a font weight** each take a number in their own form, or a token of their kind:
+  `opacity: { step: 50 }` (a percentage; `{ value: 0.5 }` is the same from 0 to 1), `borderWidth: { step: 2 }` (whole
+  pixels) and `fontWeight: { value: 600 }`.
+- **A number in one fixed unit stays a number:** `scale` in percent, a shadow's offsets in px, `rotate` in degrees,
+  `lineClamp`, `colSpan` and `rowSpan`.
 - **A grid's tracks are a list,** each a share of what's left or a length:
   `gridTemplateColumns: [{ fr: 1 }, { fr: 1 }]`.
 - **The lists** are `fills`, `boxShadow`, `filter`, `backdropFilter`, `transform` and `transition`. Each entry says what

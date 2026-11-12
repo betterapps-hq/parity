@@ -418,7 +418,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "borderWidth alone takes the project's border color",
-    { borderWidth: 2, borderStyle: "dashed" },
+    { borderWidth: { step: 2 }, borderStyle: "dashed" },
     component,
     [
       ["border-width", "2px", "borderWidth"],
@@ -428,7 +428,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "borderColor as a value",
-    { borderColor: { value: "#2563eb" }, borderWidth: 1 },
+    { borderColor: { value: "#2563eb" }, borderWidth: { step: 1 } },
     component,
     [
       ["border-width", "1px", "borderWidth"],
@@ -547,8 +547,15 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     component,
     []
   ],
-  ["opacity", { opacity: 50 }, component, [["opacity", "0.5", "opacity"]]],
-  ["opacity of none", { opacity: 0 }, component, [["opacity", "0", "opacity"]]],
+  ["opacity", { opacity: { step: 50 } }, component, [["opacity", "0.5", "opacity"]]],
+  ["opacity of none", { opacity: { step: 0 } }, component, [["opacity", "0", "opacity"]]],
+  ["opacity as a number to 1", { opacity: { value: 0.473 } }, component, [["opacity", "0.473", "opacity"]]],
+  [
+    "opacity as a token",
+    { opacity: { token: "opacity-muted" } },
+    component,
+    [["opacity", "var(--opacity-muted)", "opacity"]]
+  ],
   ["overflow", { overflow: "hidden" }, component, [["overflow", "hidden", "overflow"]]],
   ["overflow: auto scrolls only when it needs to", { overflow: "auto" }, component, [["overflow", "auto", "overflow"]]],
 
@@ -622,7 +629,24 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["line-height", "var(--leading-tight)", "lineHeight"]
     ]
   ],
-  ["fontWeight", { fontWeight: 600 }, component, [["font-weight", "600", "fontWeight"]]],
+  ["fontWeight", { fontWeight: { value: 600 } }, component, [["font-weight", "600", "fontWeight"]]],
+  [
+    "fontWeight as a token",
+    { fontWeight: { token: "font-weight-medium" } },
+    component,
+    [["font-weight", "var(--font-weight-medium)", "fontWeight"]]
+  ],
+  ["fontWeight as a keyword", { fontWeight: { keyword: "bold" } }, component, [["font-weight", "bold", "fontWeight"]]],
+  [
+    "borderWidth as a token",
+    { borderWidth: { token: "border-width-hairline" } },
+    component,
+    [
+      ["border-width", "var(--border-width-hairline)", "borderWidth"],
+      ["border-style", "solid", "borderStyle"],
+      ["border-color", "var(--border, currentColor)", "borderColor"]
+    ]
+  ],
   [
     "letterSpacing",
     { letterSpacing: { token: "tracking-wide" } },
@@ -710,7 +734,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "inline text with nothing that needs a box stays inline",
-    { fontWeight: 600 },
+    { fontWeight: { value: 600 } },
     inlineText,
     [
       ["margin", "0", "margin"],
@@ -732,7 +756,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   [
     "css, drawn after the keys, without what is off",
     {
-      opacity: 50,
+      opacity: { step: 50 },
       css: {
         "scroll-snap-type": { value: "x mandatory" },
         "mix-blend-mode": { value: "multiply", off: true },
@@ -781,7 +805,7 @@ describe("declarations", () => {
       width: { size: "fill" },
       fills: [{ type: "solid", color: { token: "muted" } }],
       borderRadius: { token: "radius-md" },
-      opacity: 80
+      opacity: { step: 80 }
     }
 
     const expected = declarations(style, inRow)
@@ -807,10 +831,10 @@ describe("declarations", () => {
   })
 
   it("keeps a property where it was first written when a later key changes it", () => {
-    const under: Declaration[] = declarations({ fontSize: { token: "text-sm" }, fontWeight: 500 }, component)
+    const under: Declaration[] = declarations({ fontSize: { token: "text-sm" }, fontWeight: { value: 500 } }, component)
 
     const over: Declaration[] = declarations(
-      { fontSize: { token: "text-sm" }, fontWeight: 500, lineHeight: { token: "leading-6" } },
+      { fontSize: { token: "text-sm" }, fontWeight: { value: 500 }, lineHeight: { token: "leading-6" } },
       component
     )
 

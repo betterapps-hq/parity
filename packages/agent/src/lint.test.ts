@@ -1,4 +1,4 @@
-import type { ComponentInfo, ContainerSpec } from "@parity-app/core"
+import type { ComponentInfo, ContainerSpec, NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { type LintContext, lintDocument, propWarnings } from "./lint.ts"
 
@@ -427,6 +427,35 @@ describe("lintDocument", () => {
         message: `minWidth "bold" isn't a value min-width takes.`,
         at: "home state wide/page"
       }
+    ])
+  })
+
+  it("names an opacity, border width or font weight token the project doesn't have, and passes their numbers", () => {
+    const layout = (style: NodeStyle) => ({ type: "layout" as const, id: "page", style, children: [] })
+
+    expect(
+      lintDocument(
+        design(layout({ opacity: { step: 50 }, borderWidth: { step: 2 }, fontWeight: { value: 600 } })),
+        context
+      )
+    ).toEqual([])
+
+    const named = lintDocument(
+      design(
+        layout({
+          opacity: { token: "faint" },
+          borderWidth: { token: "hairline" },
+          fontWeight: { token: "heavy" }
+        })
+      ),
+      context
+    )
+
+    expect(named.map((warning) => warning.category)).toEqual(["not_a_token", "not_a_token", "not_a_token"])
+    expect(named.map((warning) => warning.message.split(" isn't")[0])).toEqual([
+      'opacity "faint"',
+      'borderWidth "hairline"',
+      'fontWeight "heavy"'
     ])
   })
 

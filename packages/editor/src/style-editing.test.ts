@@ -46,8 +46,8 @@ function toolbar(): ContainerSpec {
           id: "buttons",
           style: { flexDirection: "row", gap: { step: 2 } },
           children: [
-            text("save", { padding: { step: 2 }, fontWeight: 600 }),
-            text("cancel", { padding: { step: 4 }, fontWeight: 600 })
+            text("save", { padding: { step: 2 }, fontWeight: { value: 600 } }),
+            text("cancel", { padding: { step: 4 }, fontWeight: { value: 600 } })
           ]
         },
         { type: "layout", id: "notes", children: [text("note", { grow: true, padding: { step: 2 } })] }
@@ -95,7 +95,7 @@ describe("the state a style edit goes to", () => {
 describe("the style several layers share", () => {
   it("shows what they share and lists what differs", () => {
     const selection = styleSelection(toolbar(), ["save", "cancel"], undefined)!
-    expect(selection.style).toEqual({ fontWeight: 600 })
+    expect(selection.style).toEqual({ fontWeight: { value: 600 } })
     expect(selection.mixed).toEqual(["padding"])
     expect(selection.differs("padding")).toBe(true)
     expect(selection.differs("weight")).toBe(false)
@@ -156,7 +156,7 @@ describe("what a layer's order orders it within", () => {
     buttons.name = "Buttons"
     buttons.style = { ...buttons.style, zIndex: { step: 1 } }
     const notes = findNode(design.root, "notes")!
-    notes.style = { opacity: 50 }
+    notes.style = { opacity: { step: 50 } }
 
     expect(stacking(design, ["save", "cancel"])).toEqual({ id: "buttons", name: "Buttons", because: "layerOrder" })
     expect(stacking(design, ["note"])).toMatchObject({ id: "notes", because: "opacity" })
@@ -176,9 +176,9 @@ describe("what a state changes", () => {
 
   it("writes an edit into the state, leaving the design as it was", () => {
     const design = toolbar()
-    const edited = styleSelection(design, ["cancel"], "hover")!.edit("weight", { fontWeight: 700 })(design)
-    expect(styleOf(edited, "cancel").fontWeight).toBe(600)
-    expect(styleOf(edited, "cancel", "hover").fontWeight).toBe(700)
+    const edited = styleSelection(design, ["cancel"], "hover")!.edit("weight", { fontWeight: { value: 700 } })(design)
+    expect(styleOf(edited, "cancel").fontWeight).toEqual({ value: 600 })
+    expect(styleOf(edited, "cancel", "hover").fontWeight).toEqual({ value: 700 })
   })
 
   it("resets every key of the row on every layer", () => {
@@ -188,10 +188,10 @@ describe("what a state changes", () => {
     const reset = selection.reset("padding")(design)
     expect(styleOf(reset, "save", "hover")).toEqual({
       padding: { step: 2 },
-      fontWeight: 600,
+      fontWeight: { value: 600 },
       fills: solidFill("accent")
     })
-    expect(styleOf(reset, "cancel", "hover")).toEqual({ padding: { step: 4 }, fontWeight: 600 })
+    expect(styleOf(reset, "cancel", "hover")).toEqual({ padding: { step: 4 }, fontWeight: { value: 600 } })
   })
 
   it("resets Placement's insets with it, as putting a layer back in the layout drops them", () => {
@@ -205,7 +205,7 @@ describe("what a state changes", () => {
     design = styleSelection(design, ["save"], "hover")!.reset("placement")(design)
     expect(styleOf(design, "save", "hover")).toEqual({
       padding: { step: 3 },
-      fontWeight: 600,
+      fontWeight: { value: 600 },
       fills: solidFill("accent")
     })
   })
@@ -276,13 +276,15 @@ describe("a layer inside an instance", () => {
     const profile = fixture("profile")
     const selection = styleSelection(profile, ["person/title"], undefined, library)!
     expect(selection.layers[0]!.base).toBe(false)
-    expect(selection.style.fontWeight).toBe(600)
-    const edited = selection.edit("weight", { fontWeight: 800 })(profile)
-    expect(effectiveNode(edited, "person/title", { library })?.style?.fontWeight).toBe(800)
+    expect(selection.style.fontWeight).toEqual({ value: 600 })
+    const edited = selection.edit("weight", { fontWeight: { value: 800 } })(profile)
+    expect(effectiveNode(edited, "person/title", { library })?.style?.fontWeight).toEqual({ value: 800 })
 
     const again = styleSelection(edited, ["person/title"], undefined, library)!
     expect(again.changed("weight")).toBe(true)
-    expect(effectiveNode(again.reset("weight")(edited), "person/title", { library })?.style?.fontWeight).toBe(600)
+    expect(effectiveNode(again.reset("weight")(edited), "person/title", { library })?.style?.fontWeight).toEqual({
+      value: 600
+    })
   })
 
   it("is skipped without the library to find it in", () => {

@@ -36,7 +36,13 @@ const root: DesignNode = {
   style: { flexDirection: "row", gap: { step: 4 }, fills: [{ type: "solid", color: { token: "background" } }] },
   responsive: { mobile: { style: { flexDirection: "column" } } },
   children: [
-    { type: "text", id: "title", tag: "h1", text: "Team", style: { fontSize: { token: "text-2xl" }, fontWeight: 600 } },
+    {
+      type: "text",
+      id: "title",
+      tag: "h1",
+      text: "Team",
+      style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+    },
     {
       type: "component",
       id: "card",
@@ -726,9 +732,9 @@ describe("sizing", () => {
       sized("row", {
         padding: [{ step: 1 }, { step: 2 }, { step: 3 }, { step: 4 }],
         borderColor: { token: "border" },
-        borderWidth: 2,
+        borderWidth: { step: 2 },
         boxShadow: [{ type: "drop", token: "shadow-sm" }],
-        opacity: 50,
+        opacity: { step: 50 },
         lineHeight: { token: "leading-tight" },
         position: "absolute",
         top: { step: 2 }

@@ -15,7 +15,13 @@ const design: ContainerSpec = {
     style: { gap: { step: 4 }, padding: { step: 2 } },
     children: [
       { type: "text", id: "title", text: "Hello", style: { width: { step: 8 } } },
-      { type: "component", id: "button", component: "Button", props: { children: "Go" }, style: { opacity: 50 } }
+      {
+        type: "component",
+        id: "button",
+        component: "Button",
+        props: { children: "Go" },
+        style: { opacity: { step: 50 } }
+      }
     ]
   },
   states: [
@@ -123,7 +129,13 @@ describe("frameRules", () => {
   })
 
   it("is empty for a tree with nothing to draw, in a layer too", () => {
-    const button: DesignNode = { type: "component", id: "button", component: "Button", style: { opacity: 50 } }
+    const button: DesignNode = {
+      type: "component",
+      id: "button",
+      component: "Button",
+      style: { opacity: { step: 50 } }
+    }
+
     expect(frameRules([])).toBe("")
     expect(frameRules(resolveDesign(button, undefined, "desktop"))).toBe("")
     expect(frameRules(resolveDesign(button, undefined, "desktop"), { layer: "utilities" })).toBe("")
@@ -150,7 +162,7 @@ describe("previewRules", () => {
   })
 
   it("leaves a component's change to its inline style", () => {
-    expect(previewRules(render(design.root), render(withStyle("button", { opacity: 40 })))).toBe("")
+    expect(previewRules(render(design.root), render(withStyle("button", { opacity: { step: 40 } })))).toBe("")
   })
 
   it("follows the state each render shows", () => {

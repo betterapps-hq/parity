@@ -702,7 +702,12 @@ A new screen, checked in every mode it shows:
 
 ```js
 const id = CreateDesign({ name: "Billing" })
-Insert(id, { type: "text", tag: "h1", text: "Billing", style: { fontSize: { token: "text-2xl" }, fontWeight: 600 } })
+Insert(id, {
+  type: "text",
+  tag: "h1",
+  text: "Billing",
+  style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+})
 Insert(id, {
   type: "component",
   component: "Card",

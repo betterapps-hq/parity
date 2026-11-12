@@ -11,7 +11,8 @@ import {
   lengthToken,
   type Named,
   type NodeStyle,
-  type Size
+  type Size,
+  fontWeightNumber
 } from "@parity-app/core"
 import { selectedNodes, type Selection, sidesOf } from "@parity-app/editor"
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useState } from "react"
@@ -202,7 +203,7 @@ function LayerSketch({
         style={{
           ...sized,
           fontSize: Math.min(22, Math.max(10, textSize(style.fontSize) * scale * 1.6)),
-          fontWeight: style.fontWeight,
+          fontWeight: fontWeightNumber(style.fontWeight),
           textAlign: style.textAlign,
           color: sketchColor(style.color, "inherit")
         }}
