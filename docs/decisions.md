@@ -1,5 +1,30 @@
 # Decisions
 
+- **Frames draw layers from rules, and from the project's compiled Tailwind classes where it has them (PAR-942).** Step
+  4 of [style-package.md](proposals/style-package.md), with Frames draw rules and Frames add only what code writes from
+  [design-options-code.md](proposals/design-options-code.md). You chose the compiled classes for a Tailwind project on
+  2026-11-11, and both in one pull request. What's drawn is in [editor.md](editor.md), Rendering frames. These calls
+  were mine to make on the way, and each is yours to overrule:
+  - **The rules of a project without a `utilities` layer aren't layered.** design-options-code.md puts every project's
+    rules in `@layer utilities`. In a project whose CSS isn't layered, a layered rule loses to all of it: a reset's
+    `* { padding: 0 }` would take the padding off every layer. So the rules are in `utilities` where the project's own
+    CSS has that layer, and unlayered elsewhere, which is where that project's code would put them.
+  - **A component layer keeps its `style` prop.** A rule can't be sure to reach a component's DOM, and passing classes
+    as `className` would drop a design's size and place on a component that takes no `className`, where today a div is
+    drawn around it. It means a component layer can't draw a state's rule yet. Drawing a component from classes or rules
+    is its own piece of work, and it needs your call on what a component that ignores `className` shows.
+  - **Frames drawn offscreen draw the rules, not the classes.** The compiler is in the project service and a job's tree
+    crosses processes, so a bitmap, a screenshot, an export and a preview draw from the rules. A class is only written
+    when it compiles back to the same declaration, so the two measure the same until rules hold states.
+  - **A layer is drawn by classes only when every one of its declarations has one.** One with a declaration Tailwind
+    can't write keeps its whole rule, so a layer never has half its style in each.
+  - **The class stylesheet is compiled with `candidatesToCss`,** one more of the design system's calls, pinned in
+    `design-system.test.ts`. It gives each class's rule as text; the adapter sorts them as Tailwind's build does and
+    puts them in `@layer utilities`.
+  - **A layout is `relative` only for an Absolute child of its own,** and nothing gets `min-width: 0` but a fill.
+    Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
+    Layer order in a Block layout wait for those.
+
 - **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
   of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
   place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as

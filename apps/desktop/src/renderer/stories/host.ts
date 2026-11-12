@@ -667,6 +667,9 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       }
 
       return undefined
+    case "styles.classes":
+      // The stand-in project has no styling framework's compiler, so its frames draw from rules alone.
+      return { supported: false, classes: [], css: "" }
     case "tokens.save": {
       if (service.saveFails) {
         throw new Error("EPERM: operation not permitted, open 'src/index.css'")

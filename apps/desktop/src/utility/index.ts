@@ -182,6 +182,7 @@ const handlers: Handlers<ServiceMethods> = {
   "library.add": (params) => addLibrary(projects.get(params.projectId), params),
   "library.importStyles": (params) => importStyles(projects.get(params.projectId), params),
   "tokens.save": projects.saveTokens,
+  "styles.classes": projects.frameClasses,
   "processes.list": listProcesses,
   "processes.stop": stopProcess,
   "processes.restart": restartProcess,

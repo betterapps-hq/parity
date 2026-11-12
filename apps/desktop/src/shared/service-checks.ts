@@ -53,6 +53,16 @@ const projectPicture = z.object({
 })
 
 const project = z.object({ projectId: z.string() })
+
+/** A declaration a frame asks the project's classes for, as `@parity-app/style` has them. */
+const cssDeclaration = z.object({
+  property: z.string(),
+  value: z.string(),
+  when: z
+    .object({ state: z.string().optional(), viewport: z.string().optional(), theme: z.string().optional() })
+    .optional()
+})
+
 const processId = z.object({ id: z.string() })
 const roots = z.object({ roots: z.array(z.string()) })
 
@@ -112,6 +122,7 @@ const serviceParams = {
   "accessibility.check": project.extend({ design: z.string() }),
   "code.read": project.extend({ path: z.string() }),
   "tokens.save": project.extend({ changes: z.array(tokenWrite) }),
+  "styles.classes": project.extend({ declarations: z.array(cssDeclaration) }),
   "processes.list": z.object({}),
   "processes.stop": processId,
   "processes.restart": processId,

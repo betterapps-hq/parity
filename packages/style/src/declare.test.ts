@@ -14,8 +14,6 @@ const inlineText: StyleContext = { kind: "text", inline: true }
 /** What a layout draws before any key is set. */
 const flexBox = [
   ["display", "flex", "display"],
-  ["position", "relative", "position"],
-  ["min-width", "0", "minWidth"],
   ["flex-direction", "column", "direction"]
 ] as const
 
@@ -34,8 +32,6 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     layout,
     [
       ["display", "grid", "display"],
-      ["position", "relative", "position"],
-      ["min-width", "0", "minWidth"],
       ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "columns"]
     ]
   ],
@@ -45,8 +41,6 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     layout,
     [
       ["display", "grid", "display"],
-      ["position", "relative", "position"],
-      ["min-width", "0", "minWidth"],
       ["grid-template-columns", "repeat(3, minmax(0, 1fr))", "columns"],
       ["grid-template-rows", "repeat(2, minmax(0, 1fr))", "rows"]
     ]
@@ -55,7 +49,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     "direction: row, wrapping",
     { direction: "row", wrap: true },
     layout,
-    [...flexBox.slice(0, 3), ["flex-direction", "row", "direction"], ["flex-wrap", "wrap", "wrap"]]
+    [...flexBox.slice(0, 1), ["flex-direction", "row", "direction"], ["flex-wrap", "wrap", "wrap"]]
   ],
   ["gap in steps", { gap: 4 }, layout, [...flexBox, ["gap", "calc(var(--spacing) * 4)", "gap"]]],
   ["gap of none", { gap: 0 }, layout, [...flexBox, ["gap", "0", "gap"]]],
@@ -69,8 +63,6 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     layout,
     [
       ["display", "grid", "display"],
-      ["position", "relative", "position"],
-      ["min-width", "0", "minWidth"],
       ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "columns"],
       ["justify-items", "center", "justify"]
     ]
@@ -81,8 +73,6 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     layout,
     [
       ["display", "grid", "display"],
-      ["position", "relative", "position"],
-      ["min-width", "0", "minWidth"],
       ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "columns"],
       ["justify-content", "space-evenly", "justify"]
     ]
@@ -192,7 +182,6 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     layout,
     [
       ["display", "flex", "display"],
-      ["position", "relative", "position"],
       ["min-width", "calc(var(--spacing) * 10)", "minWidth"],
       ["flex-direction", "column", "direction"]
     ]
@@ -280,7 +269,26 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     [
       ["display", "flex", "display"],
       ["position", "absolute", "position"],
-      ["min-width", "0", "minWidth"],
+      ["flex-direction", "column", "direction"]
+    ]
+  ],
+  [
+    "a layout a child is placed in",
+    {},
+    { kind: "layout", anchors: true },
+    [
+      ["display", "flex", "display"],
+      ["position", "relative", "position"],
+      ["flex-direction", "column", "direction"]
+    ]
+  ],
+  [
+    "an absolute layout a child is placed in",
+    { position: "absolute" },
+    { kind: "layout", anchors: true },
+    [
+      ["display", "flex", "display"],
+      ["position", "absolute", "position"],
       ["flex-direction", "column", "direction"]
     ]
   ],

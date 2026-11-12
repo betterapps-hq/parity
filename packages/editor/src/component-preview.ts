@@ -60,13 +60,13 @@ function previewFrame(children: RenderNode[]): RenderNode[] {
       kind: "element",
       nodeId: previewRootId,
       tag: "div",
-      style: {
-        display: "flow-root",
-        boxSizing: "border-box",
-        width: "max-content",
-        maxWidth: `${previewFrameWidth}px`,
-        padding: `${previewPadding}px`
-      },
+      declarations: [
+        { property: "display", value: "flow-root" },
+        { property: "box-sizing", value: "border-box" },
+        { property: "width", value: "max-content" },
+        { property: "max-width", value: `${previewFrameWidth}px` },
+        { property: "padding", value: `${previewPadding}px` }
+      ],
       children
     }
   ]

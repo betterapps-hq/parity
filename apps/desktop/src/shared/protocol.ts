@@ -22,16 +22,27 @@ import type {
   LeftOutExport,
   ModesChange,
   ThemeVariable,
-  UpdateState
+  UpdateState,
+  WrittenClasses
 } from "@parity-app/core"
 import type { CodeReference, EditStatus, ExportSize, ImageFile, ReferenceAdded } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import type { CssDeclaration } from "@parity-app/style"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+
+/**
+ * What a project's styling framework wrote for the declarations its frames draw layers with (PAR-942): each one's
+ * classes, and the CSS of every class written for the project's frames since its styles were last read.
+ */
+export interface FrameClassesWritten extends WrittenClasses {
+  /** Whether the project has a styling framework that writes classes. Without one, its frames draw from rules alone. */
+  supported: boolean
+}
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -202,6 +213,11 @@ export interface ServiceMethods {
   }
   /** Writes token values back to the project's stylesheets, taking out those without a value. */
   "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
+  /**
+   * The classes the project's styling framework writes for each declaration, by its own compiler, for frames to draw
+   * layers with (PAR-942).
+   */
+  "styles.classes": { params: { projectId: string; declarations: CssDeclaration[] }; result: FrameClassesWritten }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.
