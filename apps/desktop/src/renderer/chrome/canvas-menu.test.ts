@@ -54,8 +54,7 @@ const statCard: ContainerSpec = {
   name: "Stat card",
   kind: "component",
   position: { x: 2000, y: 0 },
-  root: { type: "layout", id: "card", children: [text("label"), text("value", { name: "Value" })] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "card", children: [text("label"), text("value", { name: "Value" })] }
 }
 
 const entries: ContainerEntry[] = [
@@ -208,7 +207,7 @@ describe("the canvas menu", () => {
 
     expect(labelOf(menuFor(compact), "hide")).toBe("Show")
     const shown = toggleHidden(compact, "default", ["title"])
-    expect(nodeOnBoard(shown, findNode(shown.root, "title")!, shown.states[0]).hidden ?? false).toBe(false)
+    expect(nodeOnBoard(shown, findNode(shown.root, "title")!, shown.states![0]).hidden ?? false).toBe(false)
     expect(labelOf(menuFor(shown), "hide")).toBe("Hide")
     // With the board on the option that doesn't hide it, the title shows, so the menu offers to hide it.
     expect(labelOf(menuFor({ ...compact, view: { variants: { density: "comfortable" } } }), "hide")).toBe("Hide")

@@ -60,9 +60,9 @@ export const EveryStateOfOne: Story = onCanvas(["Plan card"], () =>
   example().store.updateView(design("Plan card"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
-/** A design showing one state, the one picked on its board, rather than all of them. */
-export const OneState: Story = onCanvas(["Sign in"], () =>
-  example().store.updateView(design("Sign in"), "Show Wrong password", (view) => ({ ...view, state: "wrong-password" }))
+/** A component showing one state, the one picked on its board, rather than all of them. */
+export const OneState: Story = onCanvas(["Stat card"], () =>
+  example().store.updateView(design("Stat card"), "Show Loading", (view) => ({ ...view, state: "loading" }))
 )
 
 /**
@@ -175,8 +175,7 @@ export const MissingComponents: Story = onCanvas(["Gallery"], () => {
         { id: "story-gallery-picker", type: "component", component: "nova/DateRangePicker" },
         { id: "story-gallery-button", type: "component", component: "Button", props: { children: "Load more" } }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   })
 })
 
@@ -205,8 +204,7 @@ export const FailingLayer: Story = onCanvas(
           { id: "story-team-tabs", type: "component", name: "Sections", component: "TabsList" },
           { id: "story-team-save", type: "component", component: "Button", props: { children: "Save changes" } }
         ]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     })
   },
   () => {

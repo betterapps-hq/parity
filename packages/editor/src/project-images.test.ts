@@ -42,8 +42,7 @@ const pricing: ContainerSpec = {
   id: "pricing",
   name: "Pricing",
   position: { x: 0, y: 0 },
-  root: { type: "image", id: "banner", src: "/images/hero.png" },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "image", id: "banner", src: "/images/hero.png" }
 }
 
 const document: CanvasDocument = { version: 3, containers: [home, pricing] }
@@ -218,8 +217,7 @@ describe("a project's videos (PAR-841)", () => {
         { type: "video", id: "hero", src: "/videos/waves.mp4", alt: "Waves at dusk" },
         { type: "video", id: "stock", src: "https://cdn.example.com/surf.webm", credit }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const videos = projectImages({

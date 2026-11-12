@@ -19,11 +19,12 @@ import {
   companionScale,
   type ComponentLibrary,
   type ContainerKind,
+  designStates,
   frameGeometry,
   frameSize,
   type ParamSpec,
-  type ResolvedMode,
   resolveDesign,
+  type ResolvedMode,
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
@@ -101,7 +102,7 @@ export function ContainerView(props: ContainerViewProps) {
 
 /**
  * A frame on the canvas, the light kind: no board, previews or menus. Its name sits above it, smaller and quieter than
- * a board's, and the design is drawn at its own size in the project's primary mode, in its one state (PAR-545).
+ * a board's, and the design is drawn at its own size in the project's primary mode, as its layers are (PAR-545).
  */
 function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
@@ -112,7 +113,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
-  const state = container.states[0]!
+  const state = designStates(container)[0]!
   useFitToContent(board, entry)
 
   const titleBar = (
@@ -284,13 +285,14 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const { primary, companions, all } = useMemo(() => containerModes(settings, container), [settings, container])
   const active = activeState(container)
   const allStates = container.view?.allStates ?? false
-  const rows = allStates ? container.states : [active]
+  const states = designStates(container)
+  const rows = allStates ? states : [active]
   const columns = [primary, ...companions]
   const color = designColor(container.kind)
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
 
-  const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
+  const stateName = (id: string) => states.find((state) => state.id === id)?.name ?? id
 
   const selectState = (state: string) =>
     store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
@@ -321,18 +323,20 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             }
           />
         )}
-        <StateMenu
-          states={container.states}
-          active={active.id}
-          allStates={allStates}
-          onSelect={selectState}
-          onShowAll={(on) =>
-            store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
-              ...view,
-              allStates: on
-            }))
-          }
-        />
+        {container.kind === "component" && (
+          <StateMenu
+            states={states}
+            active={active.id}
+            allStates={allStates}
+            onSelect={selectState}
+            onShowAll={(on) =>
+              store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
+                ...view,
+                allStates: on
+              }))
+            }
+          />
+        )}
         <ModesMenu modes={all} main={primary} beside={companions} triggerClassName={menuTrigger} onChange={showModes} />
       </TitleControls>
     </TitleBar>
@@ -757,7 +761,7 @@ function StateMenu({
   onSelect,
   onShowAll
 }: {
-  states: StateSpec[]
+  states: readonly StateSpec[]
   active: string
   allStates: boolean
   onSelect: (state: string) => void

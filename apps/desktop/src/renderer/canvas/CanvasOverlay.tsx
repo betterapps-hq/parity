@@ -1,4 +1,12 @@
-import { boardTarget, designSlots, editNode, isInnerPath, locateNode, resolveModes } from "@parity-app/core"
+import {
+  boardTarget,
+  designSlots,
+  designStates,
+  editNode,
+  isInnerPath,
+  locateNode,
+  resolveModes
+} from "@parity-app/core"
 import {
   distancesBetween,
   drawsOver,
@@ -1394,7 +1402,8 @@ function addText(session: ProjectSession, area: ParentNode, point: Point): void 
   const page = editor.screenToPage(point)
   const { key, node } = addFrameOfText(session, "Text", page, "Add text")
   const mode = resolveModes(store.getModes())[0]?.id
-  const state = store.getEntry(key)?.container.states[0]?.id
+  const entry = store.getEntry(key)
+  const state = entry && designStates(entry.container)[0]!.id
 
   if (!mode || !state) {
     return

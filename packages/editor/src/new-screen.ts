@@ -84,8 +84,7 @@ export function designOfLayers(
     name,
     kind: "frame",
     position: at,
-    root: { type: "layout", id: rootId, style: { ...landedStyle }, children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: rootId, style: { ...landedStyle }, children: [] }
   }
 
   const children = nodes.map((node) => withFreshIds(fitBindings(node, design), ids))

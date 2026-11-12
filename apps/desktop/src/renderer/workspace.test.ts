@@ -777,8 +777,7 @@ describe("recording a save", () => {
     id: "about",
     name: "About",
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 
   const save = { action: "save", from: "key" as const, enabled: true, layers: 0, designs: 0 }

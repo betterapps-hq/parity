@@ -36,8 +36,7 @@ const badge: ContainerSpec = {
     id: "badge-root",
     name: "Badge",
     children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const context = (fields: Partial<InsertContext> = {}): InsertContext => ({
@@ -95,8 +94,7 @@ describe("layers with nothing to go into", () => {
       root: {
         type: "layout",
         style: { padding: 6, gap: 4, width: "hug", background: "background", foreground: "foreground" }
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     })
     expect(design).not.toHaveProperty("size")
     expect(inside(design)).toMatchObject([{ type: "text", text: "Welcome back" }])

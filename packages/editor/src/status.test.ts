@@ -22,8 +22,7 @@ function design(id: string): ContainerSpec {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 }
 

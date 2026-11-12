@@ -108,8 +108,7 @@ describe("Tab from a design's title", () => {
       })
 
     expect(await focused()).toEqual({ label: "Members", title: true, board: null, canvas: true })
-    await app.page.keyboard.press("Tab")
-    expect(await focused()).toEqual({ label: "State", title: true, board: null, canvas: true })
+    // A screen has no states, so its title has no State menu: Modes comes next.
     await app.page.keyboard.press("Tab")
     expect(await focused()).toMatchObject({ label: expect.stringMatching(/^Modes/), title: true })
     // On past the canvas: Members' mode caption, which Enter selects as a person would click it, then out, never to

@@ -14,7 +14,7 @@ const entry = `
 import { createElement, useEffect, useRef } from "react"
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
-import { defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
+import { defaultModeSettings, designStates, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
 import { createGuest } from "@parity-app/renderer-react/guest"
 import { ModeView } from "./ModeView.tsx"
 import { frameCss } from "./guest.ts"
@@ -90,7 +90,7 @@ export function addComponents(sources) {
 /** Shows a design in one frame, as the canvas does, interactive or not, or asleep; \`shows\` keys what it renders. */
 export function show(container, { interactive = false, scale = 1, asleep = false, shows, classes = false } = {}) {
   root ??= createRoot(document.querySelector("#area"))
-  const tree = resolveDesign(container.root, container.states[0], mode.viewport, new Map())
+  const tree = resolveDesign(container.root, designStates(container)[0], mode.viewport, new Map())
   flushSync(() =>
     root.render([
       createElement(ModeView, { key: "frame", project: "project", loaded: classes ? classed : loaded, tree, mode, frame: { width: 390, viewport: frameViewport({ width: 390 }, mode) }, design: container.id, state: "default", primary: true, scale, interactive, asleep, shows }),
@@ -171,8 +171,7 @@ const form: ContainerSpec = {
   id: "form",
   name: "Form",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "root", children: [{ type: "component", id: "field", component: "Field" }] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [{ type: "component", id: "field", component: "Field" }] }
 }
 
 /** The error a failed component's box in the frame keeps, or none. */
@@ -287,8 +286,7 @@ const card: ContainerSpec = {
       },
       { type: "component", id: "field", component: "Field" }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 describe("a frame asleep", () => {
@@ -402,8 +400,7 @@ describe("a component that failed, moved to another file", () => {
       id: "broken",
       name: "Broken",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "root", children: [{ type: "component", id: "broken", component: "Broken" }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "root", children: [{ type: "component", id: "broken", component: "Broken" }] }
     }
 
     const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
@@ -429,8 +426,7 @@ describe("a component that fails to draw (PAR-165)", () => {
         { type: "component", id: "broken", component: "Broken" },
         { type: "text", id: "title", tag: "h1", text: "Still drawn" }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const drawn = () => page.evaluate(() => document.querySelector("[data-frame]")!.shadowRoot!.textContent)
@@ -464,8 +460,7 @@ describe("a frame in a project whose styling framework writes classes (PAR-942)"
       id: "root",
       style: { padding: 4, gap: 2 },
       children: [{ type: "text", id: "title", text: "Plans", style: { width: 20 } }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   /** How each layer is drawn: its classes, whether the frame has a rule for it, and its box and padding. */

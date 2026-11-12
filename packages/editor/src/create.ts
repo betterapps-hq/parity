@@ -58,8 +58,7 @@ export function newDesign(
     name,
     kind,
     position,
-    root: roots[kind],
-    states: [{ id: "default", name: "Default" }]
+    root: roots[kind]
   }
 
   if (kind === "component" && viewport) {
