@@ -500,8 +500,8 @@ const stateSpec = fileObject({
   id: z.string(),
   name: z.string(),
   /**
-   * Patches keyed by node id, or by `instance/inner` for a node inside an instance. A state wins over a viewport's
-   * responsive patch and over the design's variants.
+   * Patches keyed by node id, or by `instance/inner` for a node inside an instance. A state wins over the design's
+   * variants, and over a viewport's responsive text and props; a viewport's style and hiding win over the state.
    */
   overrides: nodePatches.optional()
 })

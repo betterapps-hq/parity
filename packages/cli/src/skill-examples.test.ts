@@ -99,7 +99,9 @@ const designs: ContainerSpec[] = [
       { id: "default", name: "Default" },
       { id: "loading", name: "Loading" }
     ]
-  }
+  },
+  // How a design fits together: a header whose desktop menu opens.
+  screen("header", "Header", 6400, layout("Header", [layout("Menu")]))
 ]
 
 const nova = (name: string, fields: Partial<ComponentSource> = {}): [string, ComponentSource] => [

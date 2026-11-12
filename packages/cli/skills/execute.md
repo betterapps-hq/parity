@@ -274,6 +274,27 @@ Update("avatar", { style: { width: 10, height: 10, radius: "radius-full" } })
 What the person has selected: the design's id, and the node and mode when they picked one. "This", "here" and "the
 selected one" usually mean it.
 
+## How a design fits together
+
+Parity builds the real app, and each design is one component tree, as its code is. Its states are the data and props the
+tree is in, its modes are the screens and themes it's drawn at, and its responsive patches are its breakpoints. Build
+one tree and patch it; never copy a design per screen or per state. When you're unsure how something should draw, ask
+what the code would do.
+
+A desktop menu that opens, while phones have a menu of their own, is `isOpen && <Menu className="max-md:hidden" />` in
+code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity:
+
+```js
+Update("header/Menu", { hidden: true }) // closed in the base design
+AddState("header", { name: "Menu open", changes: { Menu: { hidden: false } } })
+Responsive("header/Menu", "mobile", { hidden: true }) // never on phones, open or not
+```
+
+The open menu shows on desktop and not on mobile. A viewport's patch works like CSS: its `style` wins over states,
+variant options and an instance's overrides, and its `hidden: true` hides a node whatever they say. Its `text`, `props`
+and `hidden: false` are the app's to change, so a state still changes the words, or hides a menu button that only phones
+show.
+
 ## Designs
 
 ### CreateDesign
@@ -379,7 +400,8 @@ Responsive(stats, "mobile", { style: { direction: "column" } })
 Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a
 viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`,
 `text`, `props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to
-remove it. `null` for the patch removes all of it.
+remove it. `null` for the patch removes all of it. The patch applies in every state, as
+[How a design fits together](#how-a-design-fits-together) describes.
 
 ## States
 
@@ -401,8 +423,9 @@ AddState("team-members", {
 })
 ```
 
-Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A text
-node's words are its `text`; a component's are usually its `children` prop.
+Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A state
+can't show a node that a viewport's patch hides, so to keep a part off one screen, hide it there with `Responsive`
+rather than in each state. A text node's words are its `text`; a component's are usually its `children` prop.
 
 ## Components
 

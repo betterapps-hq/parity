@@ -807,8 +807,10 @@ section has the details. The user asked for "variants, instance overrides and th
 
 - **Variants are params of type `variant`,** not `enum` as the proposal had it. Each option has an id, a name and
   patches like a state's, and an instance picks one through its args.
-- **Patches apply in a fixed order:** responsive, then variant options, then the state, then the instance's overrides,
-  then patches reaching in from outside, such as a screen's states with `instance/inner` keys.
+- **Patches apply in a fixed order:** variant options, then the state, then the instance's overrides, then patches
+  reaching in from outside, such as a screen's states with `instance/inner` keys. A viewport's responsive patch was
+  first; since PAR-902 its style and hiding come last and its text and props first (see "A breakpoint wins over a
+  state").
 - **Instance overrides live on the instance** as `overrides: { innerId: NodePatch }`, with `nested/inner` keys for
   nested instances.
 - **An edit inside an instance changes only that copy** in the base state, and belongs to the state in any other state.
@@ -3115,11 +3117,12 @@ layering patches its own way, and none applying a viewport's responsive patch ou
     `{ path, node, slot?, children }`. Hidden layers stay in, marked hidden. An instance's child is its component's
     root, at `instance/rootId`, which the canvas draws under the instance's id.
 - **The order, later winning:** the node's own values, then the params it binds (args), then its responsive patch, then
-  the variant options in param order, then the state. A patch's text, props and visibility win over a bound value.
-  Inside an instance: the component's variant options, then its state, then the instance's overrides, then the outer
-  layers' `instance/inner` patches. Args on a board are each param's default, then the variant options shown; inside an
-  instance, the component's defaults, then the instance's args, then props patched over the instance (a responsive patch
-  included), then the variant options they pick.
+  the variant options in param order, then the state. Since PAR-902 only the responsive patch's text, props and
+  `hidden: false` sit there; its style and `hidden: true` go over everything (see "A breakpoint wins over a state"). A
+  patch's text, props and visibility win over a bound value. Inside an instance: the component's variant options, then
+  its state, then the instance's overrides, then the outer layers' `instance/inner` patches. Args on a board are each
+  param's default, then the variant options shown; inside an instance, the component's defaults, then the instance's
+  args, then props patched over the instance (a responsive patch included), then the variant options they pick.
 - **`editNode` keeps its own subset of layers,** since a state's or variant's patch is kept against the node as it shows
   without that patch.
 - **A design that places itself is expanded as `resolveDesign` draws it:** an instance stops only when its component is
@@ -7543,3 +7546,38 @@ that never happened. My calls, replacing "A crash is a run that didn't quit" und
 - **An uncaught error in main isn't a sign.** Electron shows its dialog and keeps running, so it doesn't end the run.
 - **`parity diagnostics` still takes the latest run that didn't quit,** now `lastUnfinishedRun`, since a zip filed by
   hand wants that run whatever ended it.
+
+## A breakpoint wins over a state (PAR-902)
+
+A design is one component tree, as the code written from it is: its states are the data and props it's in, its modes are
+the screens and themes it's drawn at, and its responsive patches are its breakpoints. A responsive patch used to sit
+under the variant options and the state, so a state that showed a desktop menu showed it on phones too, though the
+mobile patch hid it. The Better Booking run worked round that with a zero-sized wrapper. The real code is
+`isOpen && <Menu className="max-md:hidden" />`: the menu shows when it's open and the screen allows it. You rejected
+patches per state and viewport, which treat each screen as its own design. So each key of a responsive patch now applies
+as the code it stands for would:
+
+- **Style is CSS, and a breakpoint's style wins.** A media query's class applies whatever classes the app's state picks,
+  so the responsive patch's `style` and `unset.style` apply after the variant options, the state, an instance's
+  overrides and patches reaching in from outside. A state that changes a gap the mobile patch also sets changes it on
+  the other screens only.
+- **A node shows only when nothing hides it.** The responsive patch's `hidden: true` hides the node whatever any patch
+  over it says, as a `hidden` class does whether or not React renders the element. Its `hidden: false` still sits under
+  the patches: a node the design hides and phones show, such as a menu button, can still be hidden by a state, as
+  `!isOpen && <MenuButton className="md:hidden" />` is.
+- **Text and props are the app's,** so a responsive patch's `text`, `props` and `unset.props` stay under the variant
+  options and the state. Code shows different words per screen with two elements and breakpoint classes, and a state
+  that renders other words replaces both. A responsive prop on an instance still picks its variant on that screen.
+
+Combining `hidden` alone, as the issue offered, would have left a state's style over a breakpoint's, which no CSS does.
+Moving the whole patch last would have let a viewport's text replace a state's, and its `hidden: false` show what a
+state hides.
+
+No design in this repository draws differently: every design in `examples/shadcn-vite`, the Storybook example and the
+registry's libraries renders the same in each state, variant option and viewport. Better Booking draws two frames
+differently, both the bug: its account menu wrapper in "Account menu open" and its sidebar in "Member who can't change
+it" are hidden on phones now, as their mobile patches say.
+
+Editing is unchanged: an edit in a viewport's frame still lands in the base design or the state. So where the viewport's
+patch sets a style key, editing that key in its frame shows no change in any state, as it already did in the base
+design. `nodePatch` in `packages/core/src/render.ts` holds the order, and every reader goes through it.

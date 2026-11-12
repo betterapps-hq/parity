@@ -6633,6 +6633,22 @@ own layers and inside an instance, and `Update` in a state; "Responsive merging 
 and props merged, `null` taking a style key and `hidden` away; "instance overrides keyed by a layer's name": names and
 ids stored as ids through a nested instance, and a name the component doesn't have refused).
 
+### A viewport's patch over states (PAR-902)
+
+A viewport's responsive patch is a breakpoint, so it applies in every state, as a media query does. Its style, and
+hiding a node, win over the variant options, the state, an instance's overrides and a screen's states reaching into an
+instance. Its text and props, and showing a node the design hides, sit under them, so a state still changes the words or
+hides what phones show. A desktop menu hidden on mobile stays hidden there when a state opens it.
+
+Implementation: `nodePatch` in `packages/core/src/render.ts`, which `drawnNode`, `resolveDesign` and `effectiveNode` go
+through.
+
+Tests: `packages/core/src/effective.test.ts` ("a viewport's patch over states, variants and instances": the menu hidden
+on mobile in a state that opens it, a menu button phones show hidden by a state, the viewport's gap over a state's, a
+state's text over the viewport's, the viewport taking away a style a state sets, a component's patch over its instance's
+overrides and the screen's state, and `resolveDesign` drawing the same); `packages/core/src/render.test.ts` ("takes away
+what a state unsets from the design, but not what the viewport's patch sets").
+
 ### Agents taking a prop away with null, and node paths that can't be right (PAR-885)
 
 `null` for a prop in `Update`, `Responsive` or a state's changes takes the prop away without a warning, even for an enum
