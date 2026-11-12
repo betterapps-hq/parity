@@ -94,6 +94,32 @@ export function attributesFor(tag: string, attributes: ElementAttributes | undef
   return props
 }
 
+/** A root-relative `url()`, which inline style would resolve against the canvas, not the project. */
+const rootUrl = /url\(\s*(["']?)(\/(?!\/)[^"')]*)\1\s*\)/g
+
+/**
+ * A style with its fill's images against the project, as an image's `src` is (PAR-931): `url("/images/a.png")` is the
+ * project's dev server's. Anything else is left as it is.
+ */
+export function withProjectUrls<Style>(style: Style): Style {
+  if (!isComposite(style) || !("backgroundImage" in style)) {
+    return style
+  }
+
+  const image = String(style.backgroundImage)
+
+  if (!image.includes("url(")) {
+    return style
+  }
+
+  const backgroundImage = image.replace(
+    rootUrl,
+    (_match, quote: string, path: string) => `url(${quote}${new URL(path, import.meta.url).href}${quote})`
+  )
+
+  return { ...style, backgroundImage }
+}
+
 const missingStyle = {
   padding: "8px 12px",
   border: "1px dashed #e11d48",
@@ -698,7 +724,7 @@ export function createGuest(init: GuestInit): Guest {
           ...attributesFor(node.tag, node.attributes),
           ...passed,
           key: keyed,
-          style: givenStyle ? Object.assign({}, node.style, givenStyle) : node.style,
+          style: withProjectUrls(givenStyle ? Object.assign({}, node.style, givenStyle) : node.style),
           "data-canvas-node": node.nodeId
         }
 
@@ -727,6 +753,10 @@ export function createGuest(init: GuestInit): Guest {
 
         if (givenStyle) {
           props.style = Object.assign({}, props.style, givenStyle)
+        }
+
+        if (props.style !== undefined) {
+          props.style = withProjectUrls(props.style)
         }
 
         let children: ReactNode[] | undefined
