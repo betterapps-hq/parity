@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 10:56:04 GMT",
+      "version": "0.70.1",
+      "tag": "@parity-app/desktop_v0.70.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "26271bad2dcaac715877aaeab522f4eef2d120a1",
+            "comment": "Every menu, the keys, search and the toolbar now agree on whether a command can run and what it's called; File > Export selected runs the same export as Ctrl+Shift+E."
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 10:38:14 GMT",
       "version": "0.70.0",
       "tag": "@parity-app/desktop_v0.70.0",

@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 09:40:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 10:56:22 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.55.0
+
+Thu, 12 Nov 2026 10:56:22 GMT
+
+### Minor changes
+
+- States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs()
+  lists states for components alone (ajcraswell@gmail.com)
 
 ## 0.54.0
 

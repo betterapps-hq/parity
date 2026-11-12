@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 10:56:22 GMT",
+      "version": "0.55.0",
+      "tag": "@parity-app/cli_v0.55.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5aabfd198fbe462351e38e3079dfb8974df453dc",
+            "comment": "States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs() lists states for components alone"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 09:40:43 GMT",
       "version": "0.54.0",
       "tag": "@parity-app/cli_v0.54.0",
