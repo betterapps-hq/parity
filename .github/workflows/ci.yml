@@ -13,7 +13,7 @@ jobs:
   # (PAR-13). What only one system checks runs beside it, in a job per system below (PAR-1010). A newer push to the
   # same branch or pull request cancels the run before it. On Windows the template runs it from a Dev Drive.
   verify:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
@@ -60,7 +60,7 @@ jobs:
   # The Windows app, built, packaged and installed as people get it, then updated. Every installer target must build
   # before a change can merge; signing is a separate release task. Its bundles and source maps go to the sourcemaps job.
   app-windows:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
     with:
       os: '["windows-latest"]'
       # A group of its own, so it never cancels verify's run on the same system.
@@ -112,7 +112,7 @@ jobs:
 
   # The Linux app, packaged, then updated from one real version to the next.
   app-linux:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
     with:
       os: '["ubuntu-latest"]'
       # A group of its own, so it never cancels verify's run on the same system.
@@ -154,7 +154,7 @@ jobs:
 
   # The macOS app, packaged for both chips.
   app-macos:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@par-1010-dev-drive
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
     with:
       os: '["macos-latest"]'
       # A group of its own, so it never cancels verify's run on the same system.
