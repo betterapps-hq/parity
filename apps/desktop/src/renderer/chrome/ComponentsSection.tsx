@@ -1,30 +1,28 @@
-import { Button, Input } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, DropdownMenuItem, Input } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  addVariant,
-  addVariantOption,
+  type ContainerSpec,
   designSlots,
   type ParamSpec,
   removeParam,
-  removeVariantOption,
-  renameVariantOption,
+  renameParam,
   type RepeatCandidate
 } from "@parity-app/core"
-import { Diamond, Plus, ScanSearch, Sparkles, Trash2, X } from "lucide-react"
+import { Diamond, Pencil, ScanSearch, Sparkles, Trash2 } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
-import { AppSelect } from "./AppSelect.tsx"
+import { FieldGrid, TitleMenu } from "../inspector/controls/field-row.tsx"
+import { type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
 import { extractIntoComponent } from "./components.ts"
-import { ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { readPropValue, textValue, valueKind } from "./prop-values.ts"
+import { booleanValue, numberValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
-import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-props.tsx"
+import { AddProp, NewPropRow, SlotPropRow } from "./slot-props.tsx"
 
 /**
  * Breaking a screen into components. Repeated parts are found exactly; extracting one makes a component design with
@@ -143,258 +141,148 @@ function CandidateCard({
 }
 
 /**
- * A component design's variants, then its props: params with their defaults, then slots, a kind of prop that takes
- * layers, with the layout each fills where a param has its default.
+ * A component design's props: params with their defaults, then slots, a kind of prop that takes layers, with the layout
+ * each fills where a param has its default. Variants aren't listed for now (PAR-1017).
  */
 export function ParamsSection({ entry }: { entry: ContainerEntry }) {
-  const session = useProject()
   const all = Object.entries(entry.container.params ?? {})
   const params = all.filter(([, param]) => param.type !== "variant")
-  const variants = all.filter(([, param]) => param.type === "variant")
   const slots = designSlots(entry.container)
 
   return (
-    <>
-      <VariantsSection entry={entry} variants={variants} />
-      <PanelSection
-        title="Props"
-        count={params.length + slots.length}
-        description="What each instance can change."
-        action={<AddProp entry={entry} />}
-      >
-        <div className="flex flex-col gap-1">
-          {params.map(([name, param]) => (
-            <div key={name} className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
-              <PropTile kind={valueKind(readPropValue(param.default), param.type)} />
-              <Hint label={`${name}: ${param.type}`} wait>
-                <span className="truncate font-mono text-xs">{name}</span>
-              </Hint>
-              <ValueInput
-                value={readPropValue(param.default)}
-                kind={valueKind(readPropValue(param.default), param.type)}
-                title={`${name} default`}
-                onCommit={(value) =>
-                  updateAndRecord(
-                    session.store,
-                    entry.key,
-                    `Change ${name} default`,
-                    (container) => ({
-                      ...container,
-                      params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
-                    }),
-                    { field: `params.${name}`, read: (container) => paramValue(container, name) }
-                  )
-                }
-              />
-            </div>
-          ))}
-          {slots.map((slot) => (
-            <SlotPropRow key={slot.node.id} entry={entry} slot={slot} />
-          ))}
-          <NewPropRow entry={entry} />
-        </div>
-      </PanelSection>
-    </>
-  )
-}
-
-/** How an instance of a component design reads in code, below its modes. */
-export function InCodeSection({ entry }: { entry: ContainerEntry }) {
-  return (
-    <PanelSection title="In code">
-      <CodeLines entry={entry} slots={designSlots(entry.container)} />
+    <PanelSection
+      title="Props"
+      count={params.length + slots.length}
+      description="What each instance can change."
+      action={<AddProp entry={entry} />}
+    >
+      <div className="flex flex-col gap-2.5">
+        {params.length > 0 && <ParamRows entry={entry} params={params} />}
+        {slots.map((slot) => (
+          <SlotPropRow key={slot.node.id} entry={entry} slot={slot} />
+        ))}
+        <NewPropRow entry={entry} />
+      </div>
     </PanelSection>
   )
 }
 
+/** A param's row for its kind of value: its default, which an instance shows faintly until it sets its own. */
+function paramRow(name: string, param: ParamSpec): PropValueRow {
+  const value = readPropValue(param.default)
+  const kind = valueKind(value, param.type)
+
+  if (kind === "boolean") {
+    return { type: "boolean", value: booleanValue.safeParse(value).data ?? false }
+  }
+
+  if (kind === "number") {
+    return { type: "number", value: numberValue.safeParse(value).data }
+  }
+
+  if (kind === "text") {
+    return { type: "text", value: textValue.safeParse(value).data, placeholder: `${name}'s default` }
+  }
+
+  return { type: "value", value, loose: kind === "any" }
+}
+
 /**
- * A component design's variants: choices an instance makes, like size or tone. Each option changes the design the way
- * a state does; pick one in the title bar to see it on the board, and edits there go to that option.
+ * A component design's params in the rows an instance's props are drawn in, each with its default to edit, and a menu
+ * at the end of its name's row to rename or remove it.
  */
-function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants: [string, ParamSpec][] }) {
-  const { store } = useProject()
-  const [adding, setAdding] = useState(false)
+function ParamRows({ entry, params }: { entry: ContainerEntry; params: [string, ParamSpec][] }) {
+  const session = useProject()
+  const [renaming, setRenaming] = useState<string>()
   const [error, setError] = useState<string>()
 
-  // Each change records the variant's param, its options by id and name, before and after (PAR-713).
-  const update = (
-    label: string,
-    name: string,
-    change: (container: ContainerEntry["container"]) => ContainerEntry["container"]
-  ) => {
+  const record = (label: string, name: string, change: (container: ContainerSpec) => ContainerSpec, gesture?: string) =>
+    updateAndRecord(session.store, entry.key, label, change, {
+      field: `params.${name}`,
+      read: (container) => paramValue(container, name),
+      gesture
+    })
+
+  const rename = (from: string, to: string) => {
+    setRenaming(undefined)
+
+    if (to === "" || to === from) {
+      setError(undefined)
+
+      return
+    }
+
     try {
-      updateAndRecord(store, entry.key, label, change, {
-        field: `params.${name}`,
-        read: (container) => paramValue(container, name)
-      })
+      record(`Rename ${from}`, from, (container) => renameParam(container, from, to))
       setError(undefined)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     }
   }
 
-  return (
-    <PanelSection
-      title="Variants"
-      count={variants.length}
-      description={`Choices an instance makes, like size or tone.${variants.length > 0 ? " To edit one, pick it in the title bar." : ""}`}
-      action={
-        !adding && (
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setAdding(true)}>
-            <Plus /> Add
-          </Button>
+  const rows = params.map(([name, param]): PropRow => {
+    if (renaming === name) {
+      return {
+        name,
+        type: "shown",
+        shown: (
+          <Input
+            ref={focusOnMount}
+            defaultValue={name}
+            aria-label={`Rename ${name}`}
+            className="h-7 px-2 font-mono text-xs"
+            onBlur={(event) => rename(name, event.currentTarget.value.trim())}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur()
+              } else if (event.key === "Escape") {
+                setRenaming(undefined)
+              }
+            }}
+          />
         )
       }
-    >
-      {adding && (
-        <form
-          className="mb-3 flex flex-col gap-1.5"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const data = new FormData(event.currentTarget)
+    }
 
-            const text = (field: string) => {
-              const entry = data.get(field)
+    return {
+      ...paramRow(name, param),
+      name,
+      hint: `${name}: ${param.type}`,
+      action: (
+        <TitleMenu label={`More options for ${name}`} className="size-5" menuClassName="w-40">
+          <DropdownMenuItem onClick={() => setRenaming(name)}>
+            <Pencil /> Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => record(`Remove ${name}`, name, (container) => removeParam(container, name))}
+          >
+            <Trash2 /> Remove
+          </DropdownMenuItem>
+        </TitleMenu>
+      )
+    }
+  })
 
-              return entry instanceof File ? "" : (entry ?? "")
-            }
-
-            const name = text("name").trim()
-
-            const options = text("options")
-              .split(",")
-              .map((option) => option.trim())
-              .filter(Boolean)
-
-            if (!name || options.length === 0) {
-              return
-            }
-
-            update(`Add ${name} variant`, name, (container) => addVariant(container, name, options))
-            setAdding(false)
-          }}
-        >
-          <Input name="name" ref={focusOnMount} placeholder="Name, like size" className="h-7 px-2 text-xs" />
-          <Input name="options" placeholder="Options, like Small, Medium, Large" className="h-7 px-2 text-xs" />
-          <div className="flex gap-1.5">
-            <Button type="submit" size="sm" className="flex-1">
-              Add variant
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setAdding(false)}>
-              Cancel
-            </Button>
-          </div>
-        </form>
-      )}
-      <div className="flex flex-col gap-3">
-        {variants.map(([name, param]) => (
-          <div key={name} className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 px-1">
-              <span className="flex-1 truncate font-mono text-xs">{name}</span>
-              <Hint label={`Remove the ${name} variant and what its options change`}>
-                <button
-                  type="button"
-                  aria-label={`Remove the ${name} variant`}
-                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={() => update(`Remove ${name} variant`, name, (container) => removeParam(container, name))}
-                >
-                  <Trash2 className="size-3" />
-                </button>
-              </Hint>
-            </div>
-            <div className="grid grid-cols-[96px_1fr] items-center gap-2">
-              <span className="px-1 text-xs text-muted-foreground">Default</span>
-              <AppSelect
-                variant="panel"
-                aria-label={`${name} default`}
-                value={textValue.safeParse(param.default).data}
-                items={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
-                none={param.options?.[0]?.name ?? "Default"}
-                onValueChange={(option) =>
-                  update(`Change ${name} default`, name, (container) => {
-                    const spec = { ...container.params![name]! }
-
-                    if (option) {
-                      spec.default = option
-                    } else {
-                      delete spec.default
-                    }
-
-                    return { ...container, params: { ...container.params, [name]: spec } }
-                  })
-                }
-              />
-            </div>
-            <ul className="flex flex-col">
-              {(param.options ?? []).map((option) => (
-                <li key={option.id} className="flex items-center gap-1">
-                  <Input
-                    key={option.name}
-                    defaultValue={option.name}
-                    aria-label={`${name} option name`}
-                    className="h-7 flex-1 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input dark:bg-transparent"
-                    onBlur={(event) => {
-                      const next = event.currentTarget.value.trim()
-
-                      if (next && next !== option.name) {
-                        update("Rename option", name, (container) =>
-                          renameVariantOption(container, name, option.id, next)
-                        )
-                      }
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.currentTarget.blur()
-                      }
-                    }}
-                  />
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {Object.keys(option.overrides ?? {}).length > 0
-                      ? `${Object.keys(option.overrides ?? {}).length} changed`
-                      : ""}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${option.name}`}
-                    disabled={(param.options?.length ?? 0) < 2}
-                    className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
-                    onClick={() =>
-                      update(`Remove ${option.name}`, name, (container) =>
-                        removeVariantOption(container, name, option.id)
-                      )
-                    }
-                  >
-                    <X className="size-3" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <form
-              className="flex gap-1"
-              onSubmit={(event) => {
-                event.preventDefault()
-                const input = event.currentTarget.elements.namedItem("option")
-
-                if (!(input instanceof HTMLInputElement)) {
-                  return
-                }
-
-                const option = input.value.trim()
-
-                if (!option) {
-                  return
-                }
-
-                update(`Add ${option}`, name, (container) => addVariantOption(container, name, option).container)
-                input.value = ""
-              }}
-            >
-              <Input name="option" placeholder="Add an option" className="h-7 flex-1 px-1 text-xs" />
-            </form>
-          </div>
-        ))}
-      </div>
-      {error && <p className="type-message mt-2 px-1 text-destructive">{error}</p>}
-    </PanelSection>
+  return (
+    <>
+      <FieldGrid>
+        <PropRows
+          rows={rows}
+          onChange={(name, value, gesture) =>
+            record(
+              `Change ${name} default`,
+              name,
+              (container) => ({
+                ...container,
+                params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
+              }),
+              gesture
+            )
+          }
+        />
+      </FieldGrid>
+      {error && <p className="type-message text-destructive">{error}</p>}
+    </>
   )
 }

@@ -162,7 +162,7 @@ Tests:
   given a width is drawn in a div of that width which the whole field fills, its input left as the field lays it out,
   while a field with no style and a link that puts its style on its root are drawn as they are (PAR-201).
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
-- `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
+- `chrome/LayerInstances.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
   `MemberRow` outlines it; a click selects it, with its outline, its name and size, and the inspector's note; Wrap in
   layout from the note; dragging it to reorder, with the copy where it lands, and one undo; the email field outlined
@@ -2819,7 +2819,7 @@ Tests:
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
-- `chrome/LayerPanel.stories.tsx` VideoLayer: its section's fields and Controls found by their labels (PAR-892).
+- `chrome/LayerPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
 - `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
   refused by the other's node.
 
@@ -3052,10 +3052,13 @@ How the inspector's number, length and token fields read what's typed, scrubbed 
 
 ### Typing, stepping and scrubbing (CAN-48)
 
+Since PAR-923 the style sections are built on the approved controls, and since PAR-968 every number field is too
+(`NumberField`, below). They work as this section says, except where "The style sections on the approved controls" below
+says otherwise.
+
 Every number and length field in the Design tab takes what people type, as Figma's do. The lengths are Gap (and its
 column and row gaps), Padding and Margin (both sides, or each side), Width and Height, Min and Max, and an absolutely
-placed layer's insets. Opacity is a percentage. A grid's Cols and Rows, a layer's Span and a text's Max lines are whole
-numbers. A component's number props take any number.
+placed layer's insets. A grid's Cols and Rows are whole numbers. A component's number props take any number.
 
 - **What a field shows.** A length shows in pixels: a gap of 4 steps shows 16, with `px` after it, hidden while the
   field has focus. Hovering it gives its step (`Gap, spacing-4`). A length token shows its name, in a code font. When
@@ -3069,11 +3072,12 @@ numbers. A component's number props take any number.
   property, as before. Typing 320 in Width gives 320px, kept as 80 steps (`w-80`), following the project's spacing unit:
   with MUI's 8px, 320 is 40 steps.
 - **Working from the value there.** A leading `+`, `*` or `/` works from it: `+8` adds 8px, `*2` doubles it. A leading
-  minus is a negative number, since an inset can be negative; to subtract, type after the value shown, or `Mixed-8`.
-  Mixed stands for each layer's own value, so `Mixed+8` adds 8px to each selected layer; anything without it gives every
-  layer the same value. The note above the fields of several selected layers, which lists what differs, says so too
-  (PAR-203). In a length or a count, `%` is a share of the value there (`50%` halves a width, as in Figma's dimension
-  fields); in Opacity it's the unit, so `50%` is 50.
+  minus is a negative number, since an inset can be negative; to subtract, type after the value shown, or `Mixed-8`. In
+  W, H and the sides of padding and margin, Mixed stands for each layer's own value, so `Mixed+8` or `+8` adds 8px to
+  each selected layer; text that sets one value gives every layer the same one. The note above the fields of several
+  selected layers, which lists what differs, names the rows where that works (PAR-203). In a length or a count, `%` is a
+  share of the value there (`50%` halves a width, as in Figma's dimension fields); in Opacity it's the unit, so `50%`
+  is 50.
 - **What unset counts as,** for maths that works from the value: 0 for padding, margin, gaps and insets, 100 for
   opacity, 2 for a grid's columns, 1 for a span, and a layer's measured size for Width and Height when they're auto,
   fill or hug, as Figma's sizes are always numbers. Unset limits, rows, max lines and props have no value, so such maths
@@ -3118,17 +3122,19 @@ numbers. A component's number props take any number.
 - **Number props preview too** (PAR-203), typed or scrubbed, such as a Progress bar's `value`. A prop has to draw the
   component again, which inline styles can't do, so the preview is made in the design, in a gesture of its own, as a
   resize writes as the pointer moves, and each keystroke takes the last one back first. Maths works from the value as it
-  was before the preview (`/20` divides 70, not the 35 `/2` showed). Escape, or committing the value it started with,
-  takes it all back with nothing to undo; Enter makes anything else one undo step. While it shows, the panels, agents
-  and, with automatic saving on, the file see it as they see a resize in progress.
+  was before the preview (`/20` divides 70, not the 35 `/2` showed). Escape takes it all back with nothing to undo;
+  Enter makes it one undo step, or none when it comes back to the value it started with. A run of Up and Down presses is
+  one undo step, which Escape takes back. A prop's default in a component design's Props section works the same way,
+  without the preview. While it shows, the panels, agents and, with automatic saving on, the file see it as they see a
+  resize in progress.
 - **Committing.** Enter makes the edit, one undo step, and keeps the field, with its text selected for the next value.
   Tab or clicking away makes it too. The preview stays until the change draws over it, so the canvas doesn't flick back.
   Escape takes the preview back, puts the value back and leaves the field.
 - **Input it can't read stays** as typed, with the field marked and the reason under its row:
-  `Can't read "abc": type a number, px, rem or %`, `"em" isn't a unit Width takes`,
-  `Opacity takes a percentage, not px`, `Something's missing after "+"`, `A bracket isn't closed`,
-  `Put an operator between 16 and 4`, `Can't divide by zero`. Nothing is made and the canvas goes back to the value. It
-  stays when the field loses focus, until it's typed in again or Escape.
+  `"abc" isn't a valid number`, `"em" isn't a unit Width takes`, `Opacity takes a percentage, not px`,
+  `Something's missing after "+"`, `A bracket isn't closed`, `Put an operator between 16 and 4`, `Can't divide by zero`.
+  Nothing is made and the canvas goes back to the value. It stays when the field loses focus, until it's typed in again
+  or Escape.
 - **A value changing underneath** (an agent's edit, an undo, a resize on the canvas) doesn't touch what's being typed:
   it shows over the value until it's made or reverted. With nothing typed, the field follows the value. Selecting
   another layer, or another set of layers, starts the fields afresh.
@@ -3146,14 +3152,18 @@ Code:
 - `packages/core/src/frame-rules.ts`: the rules that show an edit over a frame's own (`previewRules`), and
   `packages/core/src/style-changes.ts`: which of a component's inline styles an edit changes between two renders of a
   design (`styleChanges`).
-- `apps/desktop/src/renderer/chrome/number-field.ts`: the field's behaviour as a reducer (`reduceField`): drafts, Enter,
-  leaving, Escape, steps and scrubs, and the effects it asks for.
-- `chrome/fields.tsx`: `NumberField`, which runs those effects, handles keys and scrubbing, and begins and ends the
-  gesture a run of steps or a scrub commits in, a `GestureRun` from `canvas/gesture.ts` (`runEnders` says what ends a
-  run, and `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what the run edits),
-  `NumberInput`, and `Field`, whose label scrubs a lone field and which shows what its fields say under the row, and a
-  field's `flag` with its button (`FieldFlag`). `NumberValueInput` is a prop's or param's number, which works its edits
-  out from the value as it was before a preview.
+- `apps/desktop/src/renderer/inspector/controls/number-rules.ts`: what a number field takes, as rules (`NumberRules`):
+  its range, whether it's whole, what an empty field and a number past either end do, and the unit and words it reads.
+  `readNumberText` reads what's typed by them, `stepNumber` steps, `settleNumber` rounds and holds to the range, and
+  `numberTakes` is the reason every number field gives ("Weight takes a whole number from 1 to 1000").
+- `inspector/controls/number-field.tsx`: `NumberField`, `ValueField` with those rules, which Weight, Steps, a spring's
+  numbers, a curve's handles and a shadow's sliders use; `PercentField` on it; and `NumberProp`, a number a design holds
+  outside its style, a prop or, through `ValueInput` in `chrome/fields.tsx`, a prop's default in a component design's
+  Props section, in an edit session of its own. A color's channels read and step by the same rules in their own input.
+  `PixelField` in `controls.tsx` is the length beside it. A grid's lines and a track's count keep readers of their own,
+  since they mix numbers with words.
+- `chrome/fields.tsx`: `Field`, the row the Layer panel's text, choice, switch and token inputs sit in, and
+  `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what a run of presses edits.
 - `packages/editor/src/style-editing.ts` (PAR-567): the selected layers' style as rows. `styleSelection` takes the
   design, the selected ids and the state they were picked in, and gives the state and variant edits go to, the style the
   layers share, what differs, what the state changes, and the layout they sit in, read as the board shows it. Each row's
@@ -3161,13 +3171,11 @@ Code:
   keys its edit can write. A row's edit is worked out once from each layer's own style and written to every layer
   (`fieldEdit` is what `Mixed+8` goes through), and the edits that need more than a value are there too: `sidesField`,
   `sizeField` and `sizeEdit`, `layoutTypeEdit`, `placementEdit` and `textSizingEdit`.
-- `chrome/StyleSections.tsx`: each style field's rules, with `LengthInput`, which keeps sizes and insets off the scale
-  and flags any length off it, and `CompactNumber`, naming the row each field shows. `chrome/style-editor.ts`'s
-  `useStyleEditor` is the one way the inspector's rows are wired: it measures layers, previews a row's edit and makes it
-  or its reset through the store, for `chrome/LayerPanel.tsx`, `chrome/MultiPanel.tsx` and the stories.
-  `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx` previews through
-  `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its checkpoint unless it's
-  made. `chrome/MultiPanel.tsx` has the note on what differs.
+- `chrome/style-editor.ts`'s `useStyleEditor` is the one way the inspector's rows are wired: it measures layers,
+  previews a row's edit and makes it or its reset through the store, for `chrome/LayerPanel.tsx`,
+  `chrome/MultiPanel.tsx` and the stories. `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx`
+  previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its
+  checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
 - `canvas/style-preview.ts`: `StylePreview`, which lays previews over the frames' rules (`previewFrameRules` in
   `frame.ts`) and writes a component's onto its element, takes them back, and settles them for the change.
   `chrome/style-editor.ts` wires it into the inspector.
@@ -3193,17 +3201,14 @@ Tests:
   kept when a preview is taken back.
 - `packages/core/src/style-changes.test.ts` (6): only what an edit changes, properties taken off, a component's style, a
   state that sets its own value, and nothing for no change.
-- `apps/desktop/src/renderer/chrome/number-field.test.ts` (16): previews while typing, keeping the last one, the draft
-  over a changing value, Enter committing and keeping focus, input it can't read kept with its reason, leaving the
-  field, Escape, steps from the value and from a draft, and scrubbing.
-- `apps/desktop/src/renderer/chrome/fields.test.ts` (14), in Chrome: the real field in a row. 320 previews as it's
-  typed; Enter commits and keeps focus with the text selected; `16em` stays with its reason, also after leaving; a value
-  changing underneath, then Escape; a snapped note; Up, Shift+Up and Down; a run of Up presses with a pause as one
-  gesture, ended by Enter, another ended by leaving the field, and a typed commit in none (PAR-441); a run ended by what
-  the field edits changing while it keeps focus, the next press starting another; scrubbing the row's label to one
-  commit, in a gesture from the press to the release, and Escape during a scrub; `Mixed+8` on two layers; and a number
-  prop whose preview the value it's given holds (PAR-203): `/20` previewed and committed from 70, Escape and Enter on
-  the value it started with taking the preview back, and a scrub from 70.
+- `apps/desktop/src/renderer/inspector/controls/number-rules.test.ts` (7), without a DOM: the reason in one form with
+  its range and what else a field takes; maths from the value there and the unit after a number; a number past either
+  end stopped or refused; an empty field unset or refused; words read first; the reason for text it can't read; and
+  steps held to the range.
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (6), in Chrome: a number prop whose preview the value it's given
+  holds (PAR-203): a run of Up presses in one gesture that Escape takes back, `/20` previewed and committed from 70,
+  Escape taking the preview back and Enter making what it comes back to, and a scrub from 70; and the token pickers'
+  names (PAR-722).
 - `apps/desktop/src/renderer/canvas/style-preview.test.ts` (8), in Chrome: a preview drawn in each state's frame as a
   rule, never inline, a state that sets its own width left alone, a later preview putting back what it doesn't change,
   taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
@@ -3211,24 +3216,187 @@ Tests:
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
 - `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
   inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
-  whole. Both fail on the layout before PAR-496. OffScaleSize, OffScaleInsets and TypingOffScale (PAR-194): a 281px
-  width flagged, with Use 280px putting it on the scale and the flag gone; insets of 3px and 281px each flagged; and 281
-  typed in Width kept and flagged.
-- `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
+  whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
+- `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
-  width, and Enter making 80 steps as one undo step, with the field focused and its text selected; `16px`; 281 kept as
-  70.25 steps and flagged, and Use 280px for width putting it at 70 (PAR-194); `abc` kept with its reason, and Escape
-  putting the value back; a value set underneath leaving `12` in the field; Up, Shift+Up and Down, more than a second
-  apart, as one undo step; `50-10` in Opacity; scrubbing the Width label, drawn while dragging and one undo step on
-  release; and `Mixed+8` on Brand mark and Plans, with the note naming it. On App sidebar's Seats bar (PAR-203): 25
-  typed in its `value` drawn at each keystroke and made as one undo step, and `/20` drawn as 3.5 from 70, then taken
-  back by Escape with nothing to undo.
+  width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
+  with its reason, Escape putting the value back and a second Escape leaving; a value set underneath leaving `12` in the
+  field; Up, Shift+Up and Down, more than a second apart, as one undo step once Tab leaves; two Up presses taken back by
+  Escape with nothing to undo (PAR-968); scrubbing the Width label, drawn while dragging and one undo step on release,
+  and put back by Escape mid-drag, making nothing (PAR-968); and Brand mark and Plans showing Mixed, with 48 typed
+  giving both 12 steps (PAR-923), and `+8` and Up each working from each layer's own width (PAR-968). On App sidebar's
+  Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one undo step, and `/20` drawn as 3.5
+  from 70, then taken back by Escape with nothing to undo.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
 functions weren't run in Storybook. A number prop's preview wasn't timed: it draws the component again, as a commit
 does. Params' number fields don't preview yet. Padding, Margin, Min, Max and an absolutely placed layer's insets, two
 lengths to a row, can still clip a value in an inspector narrower than its usual 320 pixels.
+
+### The style sections on the approved controls (PAR-923)
+
+The Design tab's style sections are the sections settled in Storybook (PAR-186), from
+`apps/desktop/src/renderer/inspector/controls`, drawn as their stories draw them. They edit the selected layers'
+`NodeStyle` through the style editor. A control for something `NodeStyle` can't hold yet is there and works as its story
+does, but what's set in it isn't saved; PAR-924 to PAR-935 save them as the document learns to hold them. Picking a
+preset changes nothing, so it can't clear the rows it would set.
+
+The panel reads from what the layer is to how it looks: the header, Content for a text layer, Position, Size, Layout,
+Typography, Appearance, Fill, Stroke, Effects and Motion, then Export. `PanelGroup` draws a section that holds others,
+each whole under its own quieter title: Position holds Transform, Size holds Spacing, and Effects holds Filters. A held
+section with the group's own title leads it without a title of its own, and its action goes on the group's title row.
+
+- **Header:** the layer's kind and name, an instance's kind being Component instance, with an eye at the end of the
+  name's row that hides or shows it, crossed out while hidden. Changed in a state, the eye is in the change color with a
+  reset arrow before it. In a component design, the button beside it uses one of the component's props for whether the
+  layer shows. Visibility has no section. Make component is under it for any layer inside a design but a component or an
+  instance, which already is one.
+- **Component instance**, the same section for an instance of a component design and of a code component: the
+  component's name in the title row, which goes to a project design's component, or for a library's says where it's
+  linked from. A code component's links, to its stories and its file, are in the header. Beside the name, a code
+  component has + to add an attribute it passes to its element, and one of the design's own instances has the menu with
+  Swap component, Reset overrides with how many there are, Push to main where the component is the project's, and
+  Detach. Then its props, or "No props to set."
+- **Props rows**, an instance's and a component design's alike: each prop's type as a small tile (text, a number, on or
+  off, JSON, options) and its name with a capital first letter, above its control. Text wraps and grows in a box with a
+  handle; a number takes maths, steps, scrubs, previews on the canvas while it's typed (PAR-203), and says why it can't
+  read what's typed; on or off is a switch row; options are a select with the default first; an object or a list is JSON
+  a key to a line, read when it's left, and a prop whose type isn't known takes any value. An unset prop is empty with
+  its default shown faintly, and choosing the default, or clearing the field, unsets it again. A code component's
+  pass-through attributes have a remove button at the end of their name's row.
+- **Content** (text layers only): the words, which wrap and grow in their field, with a handle to drag it taller. Enter
+  or leaving makes the edit, Shift+Enter starts a line, and Escape puts the words back. In a component design, the
+  button beside it uses one of the component's props for the text. Then Tag. Not saved: Tag. A component whose only
+  content is text has no Label field: its text is edited in place on the canvas.
+- **Position:** Placement, in its layout or absolute, beside Layer order, always shown and Auto while unset, and an
+  absolutely placed layer's inset box. Insets are measured in whole pixels from the layer's containing block, inside its
+  border, as nudging measures them. Then Transform, which + adds. A design's root has no Position, so no Transform. Not
+  saved: Fixed, Sticky, Relative, centering and Scale.
+- **Size:** W and H on one line, with the Sizing menu: Hug, Fill where the layer can fill, and Min and Max to add, each
+  a row of its own. Then Spacing, the box model, padding inside margin, or padding alone for a design's root, which has
+  nothing around it to push away. Editing a side changes only that side of each selected layer. Not saved: the aspect
+  lock.
+- **Layout:** the alignment box, with Type (vertical, horizontal, wrap or grid) and Gap beside it, and a grid's Columns
+  and Rows under them as counts, Rows Auto when unset, as many as the layer's children need. A spread (between, around,
+  evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Not saved: Reverse direction, Lines
+  for wrapped lines, lining up text baselines, Fill gaps, a grid's track sizes, Each column and Each row, and Fit.
+- **Typography** (on text, and on a layout, a component or an instance, whose text inherits it): Preset, then Font,
+  Size, Weight with italic, Line height and Letter spacing, from the project's type tokens, and the text's Color. A
+  layer with type of its own and no preset is offered the preset it matches, or the nearest within three steps summed
+  over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
+  spacing). A layer that sets no type of its own is offered none. Not saved: Preset, and the color's opacity.
+- **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content. Not saved: Blend
+  mode, Corner shape, Each corner and Scroll always.
+- **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
+  opacity, Each side and Position.
+- **Effects:** the Shadow list, then Filters.
+
+Size's Hug and Spacing's middle show the layer's size as it's drawn, read again whenever its frame draws it, so a layer
+picked before its frame drew shows its size once it has.
+
+Every section has a divider under it but the last; Fill's is on the wrapper that takes dropped images. Section headings
+line up with their fields' names (`PanelSection` lost its title's 4px indent).
+
+Layer order (PAR-925) has no section of its own: the table lists it with Position, for the same layers, and it draws
+inside Position. Every section, Fill (PAR-931), Effects (PAR-933) and Motion (PAR-934) among them, makes its edits
+through the one edit session `StyleSections` runs for them all (PAR-968, below).
+
+How the controls work with the document:
+
+- **The project's own tokens.** Every picker lists the project's tokens by the names the style holds (`radius-lg`,
+  `text-xl`), with what each comes to. Spacing steps aren't listed, since a length shows in pixels. Tokens are made in
+  the Tokens panel, not here.
+- **Lengths keep what's typed.** Width, Height, limits, padding, margin, gaps and insets keep any number of pixels, so
+  281 stays 281px (70.25 steps). Type, radius and colors are tokens in the style, so a size, line height, letter spacing
+  or radius typed as a value lands on the nearest token.
+- **Previews and undo.** Each keystroke previews on the canvas. Enter makes the edit as one undo step and leaves the
+  field. Escape puts the value back while something is typed. With nothing typed, it takes back a run of Up and Down
+  presses and leaves the field, so the next Undo goes to the document; where something else changed the design during
+  the run, as an agent editing the file, Escape keeps the run as one step so that change isn't lost. A run of Up and
+  Down presses is one undo step (PAR-441), made as it goes so the field shows the value the next press works from, and
+  ends as typing begins, readable or not. Dragging a label or a field's letter scrubs: the canvas previews while
+  dragging, the release makes one undo step, and Escape or the pointer being cancelled puts the value back. A drag
+  inside a control, a color's square and strips, a gradient's stops and midpoints, an angle's dial, an easing's curve, a
+  shadow's offset pad and the position spots, is one undo step that Escape takes back, made as it goes so the control
+  follows the pointer.
+- **Input it can't read** stays, with the field marked and the reason under it in red, such as "Enter a length, Hug or
+  Fill" or `"abc" isn't a valid number`, whether Enter is pressed or the field is left. The field points to the reason
+  (`aria-describedby`).
+- **Several layers.** A value that differs shows Mixed as the field's placeholder, and a value typed gives every layer
+  the same one. In W, H and each side of padding and margin, what works from the value there is worked out for each
+  layer from its own pixels: `+8`, `+8px` or `Mixed+8` adds 8px to each, `*2` doubles each, Up and Down step each as
+  that field steps (a side along the spacing scale, W and H by a pixel), and a scrub moves each by the same steps. On a
+  side, Alt reaches the opposite side and Alt+Shift all four, as with one layer. A layer with no pixels there (Hug,
+  Fill, a size it fills by growing) keeps its value. Margin can go below 0; padding stops at 0, and W and H at 1px.
+
+What changed from the earlier fields: the off-scale flag and its nearest step are gone, Enter leaves the field rather
+than selecting its text, and a scrubbed value shows on the canvas but not in the field until it's made.
+
+Code: `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, from
+`inspector/sections/`, one file per section, inside one edit session. The session is `reduceSession` in
+`inspector/controls/edit-session.ts`: a field says what happened (`show`, `hide`, `make`, `step`, `cancel`, `end`) with
+the edits its change came to, and gets back what to do with them: preview them, take the preview back, make them alone
+or in a run, or begin, end or take back a run. `useEditSession` in `inspector/sections/section-edits.ts` gathers a
+change's edits as sections make them through `edit`, and runs what the session asks against the style editor's
+`preview`, `make` and `checkpoint`, with a `GestureRun` for runs. Fields reach it through `LiveEditsContext` in
+`inspector/controls/field-parts.tsx`: `useTyped` for typing and Up and Down, `scrub` for a label's drag, and `drag`'s
+`runs` for a control's own drags. `ValueField`'s `each`, with `relativeUpdate` from `edit-session.ts`, works a change
+out for each layer; `eachLength` and `eachSideOf` in `inspector/style-values.ts` apply it to a layer's size or side.
+`StoresContext` and `Unstored` there can mark what the document can't hold yet; nothing provides them in the panel, so
+nothing is disabled. `useDrawnBox` in `chrome/style-editor.ts` draws the panel again when the selected layer's drawn
+size changes. The Component instance section and the props rows are `InstanceSection` and `PropRows` in
+`inspector/controls/instance-section.tsx`, with their stories in `Instance.stories.tsx`; `chrome/LayerPanel.tsx` gives
+an instance's params as rows (`instanceRows`), `chrome/PropsSection.tsx` a code component's, and `ParamRows` in
+`chrome/ComponentsSection.tsx` a component design's own. The preset offered is `closestPreset` in
+`inspector/controls/preset-data.ts`. `projectTokenSets` in `inspector/token-sets.ts` turns the project's tokens into the
+controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's values as the controls show
+them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an
+absolutely placed layer, through the style editor's `place`.
+
+Tests:
+
+- `apps/desktop/src/renderer/inspector/controls/edit-session.test.ts` (20), without a DOM: typing previewing each
+  readable keystroke and Enter making the last; text it can't read and Escape taking the preview back; a scrub
+  previewing every move and making only the last, or nothing once cancelled; several edits previewed together; a run of
+  presses made in one gesture begun at the first press, kept when the field's left, taken back whole on Escape, and
+  ended by typing, readable or not, or another selection but not by the same one; a step that changes nothing beginning
+  nothing; and `relativeUpdate` working `+8`, `+8px`, `Mixed*2` and `Mixed-4` out from each number, leaving text that
+  sets one value, and keeping a number it can't work from.
+- `inspector/sections/section-edits.test.ts` (5): the session run against an editor and a `GestureRun` over a store, as
+  `useEditSession` runs it: a run of presses made in one gesture with each press counted in `gesture.ended`, taken back
+  on Escape and recorded as not kept, kept instead once something else changed the design, and ended as another layer is
+  selected; and a typed value previewed, then made alone.
+- `apps/desktop/src/renderer/design-store.test.ts`, "reverting to a checkpoint": `changedBesides`, from
+  `packages/editor/src/history.ts`, telling another change to the gesture's design from changes to other designs.
+- `apps/desktop/src/renderer/inspector/controls/preset-data.test.ts` (5): no preset offered to a layer with no type of
+  its own or with a preset; the preset matched in every row it sets; the nearest over every row, with the rows that
+  differ; and none when every preset is more than three steps away.
+- `apps/desktop/src/renderer/inspector/style-values.test.ts` (16): steps shown as pixels and written back, off the scale
+  too; Auto and percentages left out; Fill and Hug kept; padding changing only the sides an edit reached, each layer
+  keeping its other sides; a length or the sides an edit reached worked out from each layer's own pixels or token, Fill,
+  Hug and unset left, held at the least each takes, with margin below 0; a radius, text size, line height and letter
+  spacing landing on the nearest token; a weight written as its number; and keywords the style doesn't take left out.
+- `inspector/token-sets.test.ts` (7): the project's tokens under their real names; the spacing scale left out; Full as a
+  radius; a text size paired with its line height; weights named in words, with Tailwind's hundreds when the project has
+  none; a font named by its first family; and nothing offered for what the style can't hold. The z-index tokens come
+  from `projectZIndexTokens`, tested in `layer-order.test.ts`.
+- `chrome/StyleSections.stories.tsx`: every section on Pricing's and Sign in's layers, with PickingAColor,
+  PickingASpacing, PickingAWeight and PickingASizing opening their pickers by name. The Layer stories
+  (`chrome/LayerPanel.stories.tsx`, Parity/Inspector/Layer) show the sections each kind of layer gets.
+
+- `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
+
+Checked in the running app on 2026-11-12 (PAR-968), on Pricing's Brand mark: three Up presses in W made 44px as one undo
+step, and Escape put back 32px with nothing to undo; two presses left with Tab were one step that one Undo took back; a
+scrub of W previewed 72px on the canvas while the design held 32px, Escape put it back, and a released scrub was one
+step. With Brand mark and Plans selected (8 and 300 steps wide), `+8` made them 10 and 302 as one step, and two Up
+presses did the same until Escape took them back. Fill's opacity took two Down presses as one Change fill step, which
+Escape took back.
+
+Gaps: the sections were driven in an isolated copy of the app on 2026-11-11. A direction, a gap, opacity, a radius, a
+stroke and its width, a padding side, a text size landing on `text-xl`, uppercase, absolute placement with whole-pixel
+insets, a pinned inset, a layer order and a grid each made the edit shown.
 
 ### Token pickers' names (PAR-722)
 
@@ -3239,15 +3407,18 @@ name says more: Stroke's Color is "Stroke color" and Text's Color and Size are "
 Radius, Shadow, Font, Line height and Letter spacing keep their rows' labels. The comma follows the panel's other names,
 such as an instance's slot ("sideActions slot, Empty").
 
+Since PAR-923 the style sections use the approved controls instead, whose token chips are named the same way with a
+colon ("Text color: primary", "Radius: md"), and whose pickers are named for their row ("Text color picker").
+
 Code: `TokenInput` in `apps/desktop/src/renderer/chrome/fields.tsx` takes the `label`, which every caller passes:
-`chrome/StyleSections.tsx`, `chrome/fields.stories.tsx` and the typography preset exploration's Text section.
+`chrome/fields.stories.tsx` and the typography preset exploration's Text section.
 
 Tests:
 
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
   names, and the name following a token picked in the picker. Both fail without the change.
 - `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
-  open their pickers by name.
+  open their pickers by name: "Fill 1 picker" for the first.
 
 ### Each field's label names its control (PAR-892)
 
@@ -3259,18 +3430,17 @@ keeps it: one of a row's several fields, such as Min's Minimum width and Minimum
 as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
 token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
 
-Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `SwitchInput`,
-`NumberField` and `ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label
-doesn't say it.
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `SwitchInput` and
+`ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label doesn't say it. A number
+field (`NumberField`) is named by its own `label`.
 
 Tests:
 
-- `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: every number field found by its row's label, with no
-  name of its own.
+- `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `chrome/fields.stories.tsx` EveryKind: each kind of field found by its row's label, and the token pickers by their own
   names. ChoiceOpen and Typing find their controls by name.
-- `chrome/LayerPanel.stories.tsx` ImageLayer and VideoLayer: Visible, File, Alt text, Fit and, for a video, Controls
-  found by role and name.
+- `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
+  and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
 
 ### Selects (PAR-1023)
@@ -3309,10 +3479,12 @@ Design: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
-The Design tab starts with what's selected: its icon and kind together in the kind's color, then its name on a line of
-its own, to rename it. The kind is a word or two that never repeats the name: Screen, Component or Frame for a design;
-Text, Image, Horizontal layout, Vertical layout, Grid layout, Slot, Component, Icon or Instance for a layer. Hovering
-the kind says more, and screen readers hear that instead of the kind:
+The Design tab starts with what's selected: its kind's icon on a tile in the kind's tint, its name beside it, to rename
+it, and under the name its kind in the kind's color. What it does sits at the end of the row. The kind is a word or two
+that never repeats the name: Screen, Component or Frame for a design; Text, Image, Video, Horizontal layout, Vertical
+layout, Grid layout, Slot, Icon or Component instance for a layer. A placed component is a Component instance whether
+its component is code or a design, with the instance's Diamond, in Layers too. Hovering the kind says more, and screen
+readers hear that instead of the kind:
 
 - **Which component.** An instance says which design it's of ("Instance of Plan card"), a component its name ("Button
   component"), and a library's component or icon which library, without its prefix ("Check icon from Lucide").
@@ -3321,19 +3493,31 @@ the kind says more, and screen readers hear that instead of the kind:
 
 Where a layer sits isn't said, since Layers shows it, nor a text layer's tag. A layout's word follows its direction, as
 the insert picker names it, so it agrees with the icon; a grid gets the Layout section's grid icon, in Layers too. A
-layer inside an instance says the same, in the component color.
+layer inside an instance has the header its kind has, in its kind's color; only its name can't change there, since the
+component's design names it.
+
+The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye
+(`layerActions`):
+
+- **Open in editor** on a design, at the file it's saved in, and on a code component where the project has its code.
+- **Open in Storybook** on a code component that has stories. A component design has no stories of its own yet, so it
+  offers none.
+- **Go to component** on an instance of one of the project's component designs, which selects the design and shows it.
+
+An icon and a layer that isn't a component have only the eye.
 
 A text layer's color is green, its own (PAR-792), where other layers are the layer blue: its T in Layers, this heading,
 the Code and Accessibility panels, states, search and the canvas menu, and its outline, chip and text-editing outline on
 the canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
-(`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). A text layer inside an instance is
-still drawn in the component color.
+(`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). On the canvas, a text layer inside an
+instance is still drawn in the component color.
 
 An icon layer, a component from one of the project's icon sets, shows Smile, the Icons tab's icon, whatever it draws
 (PAR-793, PAR-794), in the component purple: in Layers, this heading, the Code, Accessibility and States panels, search
 and the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWindow, or look like a button in its row,
-such as X or Plus; its name says which icon it is. A library's other components keep the Box. Search actions is drawn
-outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come from the tab.
+such as X or Plus; its name says which icon it is. A library's other components are instances, with the Diamond. Search
+actions is drawn outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come
+from the tab.
 
 An unnamed icon layer is called by its icon, without its set's path or a trailing "Icon" (PAR-796): Plus for
 `lucide/Plus`, Cog for `heroicons/16/solid/CogIcon`, where it used to show the component's id. That's its name in
@@ -3341,19 +3525,22 @@ Layers, the inspector, Search actions, the canvas chip, Select layer, and the Co
 and the name of a component made from it. A layer named by hand keeps its name, and a library's other components keep
 their ids. `layerLabel` takes the project's libraries for this, since which libraries are icon sets is the project's.
 
-Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
-headers in `LayerPanel.tsx`; `layerKind`, `isIconLayer`, `iconName` and `unnamedIconLabel` in `chrome/layer-kind.ts`;
-`NodeIcon`, `nodeColor` and `layerLabel` in `canvas/kinds.tsx`; Select layer's labels in `chrome/canvas-menu.ts`.
+Code: `SelectionHeading` and `HeaderActions` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by
+`DesignPanel.tsx`, both headers in `LayerPanel.tsx` and `ReferencePanel.tsx`; `layerKind`, `layerActions`,
+`isIconLayer`, `iconName` and `unnamedIconLabel` in `chrome/layer-kind.ts`; `NodeIcon`, `nodeColor` and `layerLabel` in
+`canvas/kinds.tsx`; Select layer's labels in `chrome/canvas-menu.ts`.
 
-Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (9: text whatever its tag; layouts by direction and grids;
-a slot; an instance's component only in full; a library's components and icons named by the library; icon sets told from
-other libraries and the project's own components; a library matched by its whole id; an icon's name without its path or
+Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (13: text whatever its tag; layouts by direction and grids;
+a slot; an instance's component only in full; a placed code component a Component instance; a library's components and
+icons named by the library; an instance of a design goes to it; a code component opens in Storybook and the editor only
+where the project has each; an icon or a layer that isn't a component offers nothing; icon sets told from other
+libraries and the project's own components; a library matched by its whole id; an icon's name without its path or
 "Icon"; only an unnamed icon layer named by its icon), `apps/desktop/src/renderer/canvas/kinds.test.ts` (6: a text layer
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
-project's tab, beside a component's Box; and outside a tab when it's given the libraries; an unnamed icon's label is its
-icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select layer names an
-unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer
-Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
+label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds,
+Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
 
 ### Which sections a layer gets (PAR-892)
 
@@ -3362,26 +3549,29 @@ out once: `box` (a layout), `root` (its design's outermost layout), `frame` (a f
 layout, a component or an instance), `media` (an image or a video), `inFlex` and `inGrid` (its parent's layout), and
 `styled` (every layer but a code component whose props take no `className`). With several layers selected, one holds
 when it holds for every layer, except `text`, which holds when any of them is text: a mixed selection's text layers get
-Resizing and Max lines, and Resizing changes only them.
+the text-only controls.
 
 One table lists every section, and every control only some layers get, with what it needs, in the order the panel shows
 them. It's the agreed table in [proposals/design-panel-sections.md](proposals/design-panel-sections.md):
 
-- Frame size (`frame`); Position and Layer order (not `root`); Size (not `frame`), with Fill in its menu (`inFlex`,
-  `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Layout (`box`); Spacing, with
-  Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
-  Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
-- The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A frame's Frame
-  size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the agreed table,
-  which has it only in Grid placement; it stays as it was.
+- Frame size (`frame`); Position, Layer order and Transform (not `root`); Size (not `frame`), with Fill in its menu
+  (`inFlex`, `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Spacing, with Margin
+  (not `root`); Layout (`box`); Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`);
+  Appearance; Fill, Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
+- The text section is drawn as Typography, on text and on what its text inherits from. A text layer's tag is in its
+  Content section, outside the style sections.
+- Transform is a section of its own in the table, for every layer but a design's root, drawn inside Position. Spacing is
+  drawn inside Size and Filters inside Effects.
+- Grid placement and Raw CSS aren't built yet, so they show nothing. A frame's Frame size is today's Size, whose width
+  and height are the frame's. Since PAR-923 the panel draws only approved controls, so Align self, Span, Resizing and
+  Max lines, which have none yet, aren't drawn though the table still lists them.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
 Code: `selectionCapabilities`, `styleTable` and `styleParts` in `packages/editor/src/layer-capabilities.ts`;
-`StyleSections` in `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, with the
-design passed in by `chrome/DesignPanel.tsx` and `chrome/MultiPanel.tsx`. The layer panel never shows a design's root,
-so it leaves the design out.
+`StyleSections` in `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, from
+`inspector/sections/`, with the design passed in by `chrome/DesignPanel.tsx` and `chrome/MultiPanel.tsx`. The layer
+panel never shows a design's root, so it leaves the design out.
 
 Tests: `packages/editor/src/layer-capabilities.test.ts` (23): a screen's, a component's and a frame's root; a layout,
 text, an image, a video, a code component that takes `className` and an instance, each in a flex parent and in a grid; a
@@ -3391,11 +3581,12 @@ a grid parent together give neither's controls, and one layer that takes no styl
 
 ### Layer order (PAR-925)
 
-Layer order sets a layer's `z-index`, in its own section under Position, on every layer but a design's root. It's
-PAR-186's approved field: a whole number or one of the project's z-index tokens, and Auto, muted, when unset. Up and
-Down step by one, Shift by ten, a token steps through the scale in order, and dragging the icon scrubs it. A fraction is
-refused, with the reason under the field. With several layers whose orders differ, it shows Mixed until one is set for
-them all. A state can change it, and the field marks that and resets it.
+Layer order sets a layer's `z-index`, beside Placement in Position (PAR-923), on every layer but a design's root, and
+always shows there, Auto while unset. It's PAR-186's approved field: a whole number or one of the project's z-index
+tokens, and Auto, muted, when unset. Up and Down step by one, Shift by ten, a token steps through the scale in order,
+and dragging the icon scrubs it. A fraction is refused, with the reason under the field. With several layers whose
+orders differ, it shows Mixed until one is set for them all. A state can change it, and the field marks that and resets
+it.
 
 Its hint names what it orders the layer within: the nearest layer around it that's a stacking context, because it has a
 layer order or is see-through, or else the design's root. Layers in different ones, or inside an instance, get "its
@@ -3405,13 +3596,12 @@ The document holds it as `zIndex`, a whole number or a token's name. The render 
 `var(--z-overlay)`, with no position: every layer is a flex or grid item, where `z-index` applies without one. Agents
 set and read it with `Update` and `Get`, and a name that isn't a token gets a `not_a_token` warning.
 
-Not yet: Tailwind classes (`z-10`, `-z-5`, `z-(--z-overlay)`), since Parity writes no classes for a design, and Up and
-Down presses each being an undo step of their own until the fields' runs reach the Design tab.
+Not yet: Tailwind classes (`z-10`, `-z-5`, `z-(--z-overlay)`), since Parity writes no classes for a design.
 
 Code: `nodeStyle.zIndex` in `packages/core/src/document.ts`; `boxCss` in `packages/core/src/render.ts`; the `layerOrder`
 row and `StackingContext` in `packages/editor/src/style-editing.ts`; the agent's check in `packages/agent/src/lint.ts`;
-`LayerOrderSection` and its values (`layer-order.ts`) in `apps/desktop/src/renderer/inspector/sections/`, on
-`LayerOrderField` from `inspector/controls/pin-box.tsx`.
+`PositionSection` and its values (`layer-order.ts`) in `apps/desktop/src/renderer/inspector/sections/`, on
+`PositionSection` from `inspector/controls/pin-box.tsx`.
 
 Tests: `packages/core/src/document.test.ts` (a whole number or a token's name, and 1.5 refused);
 `packages/core/src/render.test.ts` (a number, a negative number and a token written as `z-index`);
@@ -3437,8 +3627,7 @@ so does a preview while a paint is dragged. The Media tab counts an image a fill
 removal. Agents set the same list through `Update` and `Insert`, and the lint names any color or gradient in it that
 isn't a token. With several layers selected and fills that differ, the section says so and + replaces them all.
 
-Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
-paint's alpha, stops and angle are each one undo step per change, not per drag.
+Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them.
 
 Code: `packages/style-schema/src/paint.ts` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
 `packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
@@ -3603,27 +3792,24 @@ which one code nests between the tags.
   a slot named after it. Once it's a slot, the button is the slot's name, which goes to it in the component's Props with
   the name focused, and × makes it a plain layout again. A layout inside a slot, or around one, can't be one: the button
   stays focusable and its hint says why.
-- **Props** lists a component's slots after its params, each with its type's tile. Where a param has its default, a slot
-  has the layout it fills, which selects that layout. Its name is renamed in place, camelCased (`Side actions` is
-  `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children` among them), or is
-  one of the component's params or another slot's. An × inside the layout's field, on hover or focus, removes it.
-  **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's pointed at;
-  the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than opening an
-  empty menu.
-- **In code**, below Modes, shows how an instance reads: each param with its default, and each slot. Code nests the slot
-  holding the most layers between the tags, as React's `children` and Vue's default slot, the first in layer order on a
-  tie (`childrenSlot`), and passes the others as props that take layers.
-- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row or its
-  line of code outlines its layout. Layers shows a slot's dashed icon and its name at the end of its row.
+- **Props** lists a component's params in the rows an instance's props are drawn in, each with its default to edit and a
+  menu at the end of its name's row to rename or remove it, then its slots, each with its type's tile. Where a param has
+  its default, a slot has the layout it fills, which selects that layout. Its name is renamed in place, camelCased
+  (`Side actions` is `sideActions`), and refused, with why under the row, when it isn't usable, is reserved (`children`
+  among them), or is one of the component's params or another slot's. An × inside the layout's field, on hover or focus,
+  removes it. **Add** offers "Slot from a layout" with the layouts that can be one, outlining each on the canvas as it's
+  pointed at; the new slot's name is selected to rename. With none left, Add stays focusable and says why rather than
+  opening an empty menu.
+- **On the canvas** a selected component outlines each slot in dashes with its name, and hovering a slot's row outlines
+  its layout. Layers shows a slot's dashed icon and its name at the end of its row.
 
 The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/core`: `designSlots`, `childrenSlot`,
 `setSlot`, `slotProblem`, `slotPlaceProblem` and `freeSlotName` in `slots.ts`, and `slotName` and `slotNameProblem` in
 `slot-names.ts`. Filling a slot from an instance is PAR-84.
 
-Code: `chrome/slot-props.tsx` (a slot's row, Add, In code and Make slot), `chrome/slot-focus.ts` (the slot to focus and
-a refused name, kept for each tab until it closes), `ParamsSection` and `InCodeSection` in
-`chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx`, the slot outlines in
-`canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+Code: `chrome/slot-props.tsx` (a slot's row, Add and Make slot), `chrome/slot-focus.ts` (the slot to focus and a refused
+name, kept for each tab until it closes), `ParamsSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
+`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
 
 Tests:
 
@@ -3709,7 +3895,7 @@ use one from its field.
 An agent can give a component design params without extracting it from copies. `CreateDesign` takes `params` in the
 `.par` shape, with nodes in its `root` binding them, and `AddParam`, `UpdateParam` and `DeleteParam` in `execute` change
 them later. `Update(path, { bind })` binds or unbinds a text node's text or a code component's props, in the base
-design. Props and Variants show what an agent adds, as they show what Add makes.
+design. Props shows what an agent adds, as it shows what Add makes.
 
 - **Variant options** take an id made from the name unless given, and their changes keyed by node id or name. A default
   can be an option's id or name.
@@ -3852,9 +4038,10 @@ picker.
 
 ### Auto width, auto height and fixed text (PAR-175)
 
-A text layer sizes in one of Figma's three ways, picked under Text > Resizing in the inspector (for a text layer; a
-component's text sizes as the component does). The mode is read from the layer's width and height, so it isn't a
-separate setting that could disagree with them, and the resize handles change it as Figma's do.
+A text layer sizes in one of Figma's three ways (for a text layer; a component's text sizes as the component does). The
+mode is read from the layer's width and height, so it isn't a separate setting that could disagree with them, and the
+resize handles change it as Figma's do. The inspector's Resizing control left the panel with PAR-923, since it has no
+approved control yet; `textSizingEdit` still makes each switch, for the control that replaces it.
 
 - **Auto width:** `width: { size: "hug" }`. The layer is as wide as its line and never wraps for its parent, only at a
   maximum width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers
@@ -3883,9 +4070,9 @@ switch writes and a reset clears). Drawing hug text as `max-content` is `textCss
 editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the
 text's own ranges, measures the text each frame, its content box and its own scale through `frameGeometry`
 (`canvas/frame-geometry.ts`, PAR-967), and handles the keys. The double-click passes its point through
-`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing control is `TextResizing` in
-`chrome/StyleSections.tsx`, whose edit is `textSizingEdit` in `packages/editor/src/style-editing.ts`, rounding each
-layer's measure up with `stepUp`. The agent's skill says how text sizes in `packages/cli/skills/document.md`.
+`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. A switch's edit is `textSizingEdit` in
+`packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The agent's skill says how text
+sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
@@ -3908,26 +4095,24 @@ Tests:
   declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
-- `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
-  "upgrade" and on "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over
-  the text's 560px box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and
-  Ctrl and the wheel zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text
-  step with the layer still selected; Enter and Escape during a composition leave it open and change nothing, and Enter
-  after `compositionend` keeps it; and Resizing switches the heading, fixed at 80px, to auto width on one line, then
-  auto height at the width it's drawn at, then fixed at its height. Six of the seven fail against the code before
-  PAR-175; Enter already selected the whole text.
+- `apps/desktop/e2e/text.e2e.ts` (6), end to end (PAR-202), on Pricing's subtitle: a double-click on "upgrade" and on
+  "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over the text's 560px
+  box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and Ctrl and the wheel
+  zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text step with the layer
+  still selected; Enter and Escape during a composition leave it open and change nothing, and Enter after
+  `compositionend` keeps it. The test of switching from Resizing went with the control (PAR-923).
 
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
-been tried. With several layers selected, Resizing measures each text layer in its own box, changes only the text layers
-of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, as the panel's
-edits are only driven end to end. Each click on a mode is an undo step of its own (PAR-441). The resize handles changing
-the mode follows from reading it from the width and height, and has no test of its own. A text layer's own new lines,
-typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers don't preserve white space (older
-than PAR-175). While the editor is open the text under it doesn't reflow as it's typed in, so layers after it move only
-once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it,
-the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text
-step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
-maximum still wraps.
+been tried. With several layers selected, a switch measures each text layer in its own box, changes only the text layers
+of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, and with the
+Resizing control gone, nothing drives a switch end to end. The resize handles changing the mode follows from reading it
+from the width and height, and has no test of its own. A text layer's own new lines, typed with Shift+Enter, are kept in
+the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). While the editor is
+open the text under it doesn't reflow as it's typed in, so layers after it move only once the edit is kept. Checked in
+an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and
+a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and
+Resizing showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923
+took Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
@@ -4141,8 +4326,10 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
   runs from the press on the label to the release. A run of arrow presses on the canvas lasts while the same layers,
   designs or note stay selected, in whatever order, and nothing else changes: another edit, an undo or a redo, or
   selecting something else, also back to what it was, ends it. In a field, typing, Enter, Escape, leaving the field,
-  scrubbing it or another selection ends a run of Up and Down. Both kinds of run are a `GestureRun`, keyed by the
-  selection's `selectionKey`, so a press on another selection starts a run of its own.
+  scrubbing it or another selection ends a run of Up and Down, and Escape takes the run back to a checkpoint taken at
+  its first press. A drag inside one of the Design tab's controls, such as a color's strip, is a run of its own, which
+  Escape takes back too. Both kinds of run are a `GestureRun`, keyed by the selection's `selectionKey`, so a press on
+  another selection starts a run of its own.
 - **Gestures that change nothing.** A gesture that changes nothing adds no step, and one that comes back where it began,
   such as a drag back to its start or a nudge there and back, leaves none, with the file clean again and Redo as it was
   before the gesture.
@@ -4153,9 +4340,10 @@ Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option
 `revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The canvas's
 drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
 (`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerUtil.tsx`), and
-`GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and scrubs),
-whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `style-editor.ts`, `LayerPanel.tsx` and
-`PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
+`GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `inspector/sections/section-edits.ts` (the style
+sections' runs, as `inspector/controls/edit-session.ts` says). A number prop's runs are gestures of its own
+(`NumberProp` in `inspector/controls/number-field.tsx`). Their gesture reaches the store through `style-editor.ts`,
+`LayerPanel.tsx` and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 
@@ -4257,7 +4445,7 @@ design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`tog
 `chrome/LayerTree.tsx` (the row's hidden mark), `chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx`
 (the layer as the board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts`
 (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx`
-(`ValueInput`), used by `PropsSection.tsx`, `LayerPanel.tsx`'s instance params and `ComponentsSection.tsx`'s defaults.
+(`ValueInput`).
 
 Tests:
 
@@ -4316,6 +4504,10 @@ instance.
 - **A component that lists no states has its base state, Default.** Code that reads a design's states goes through
   core's `designStates`, which gives a screen that one base state too, so selection, the canvas and the edit frame treat
   every design alike.
+- **A component with one state lists it alone,** with no mark for which is shown and no Show every state, as there's
+  nothing to pick between or show beside it. Adding a state brings both back.
+- **Variants aren't in a component's Design tab for now.** Its Props lists params and slots; a variant a file already
+  has still draws, and still shows on its instances. PAR-1017 brings variants back as Figma's work.
 - **The agent can tell from the data.** `Designs()` lists `states` and `showing.state` only for components. `AddState`,
   `UpdateState` and `DeleteState` take a component, and those, Get, Update or Screenshot with a state, and
   `UpdateDesign`'s `state` or `allStates`, on a screen fail with "Home is a screen, and only a component has states."
@@ -4343,8 +4535,37 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerInstances.stories.tsx`
-  InstanceLayer (no State row), and `chrome/StatesSection.stories.tsx` on components.
+- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerPanel.stories.tsx`
+  DesignInstance (no State row), and `chrome/StatesSection.stories.tsx` on components.
+
+### A design's modes in its own order (PAR-923)
+
+A screen's or component's Modes section lists every mode of the project in the design's own order. The first is the one
+its board shows first, and the rest are drawn beside it in that order where they're shown.
+
+- **Each row has a handle** on the left, which drags it into place with the motion lists use, and Up and Down on it move
+  it a place. Moving a mode first makes it the one shown first, and the mode that was first still shows, beside it. A
+  project with one mode has no handle.
+- **The first mode always shows,** so its switch is on and disabled, with the hint "The first mode always shows". Each
+  other's switch shows it beside the first.
+- **No crown, radio, Show all or Only.** The project's primary mode is no longer marked in the section or on a board's
+  mode captions. The board's modes menu still offers Show first, Show all and Only.
+- **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
+  order, and the first frame's mode as `mode`, as before. An order that is the project's, and a first mode that is the
+  project's primary mode, aren't written down.
+
+Code: `packages/core/src/document.ts` (the view's `order`) and `modes.ts` (`shownModes`'s `ordered`);
+`packages/editor/src/document-equality.ts` (an empty order is dropped); in the app, `canvas/view.ts` (`withModeOrder`),
+`ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the captions).
+
+Tests:
+
+- `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
+  shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
+  nothing, and modes the order doesn't name after it.
+- Stories: Parity/Inspector/Design › Another Mode First, which checks the first mode's switch is on and disabled, then
+  moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode Shown and Mode
+  Selected.
 
 ### Unsaved changes survive a crash (PAR-905)
 

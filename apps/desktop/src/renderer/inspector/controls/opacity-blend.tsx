@@ -2,8 +2,9 @@ import { DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuSeparator } fr
 import { Contrast } from "lucide-react"
 import { Fragment } from "react"
 import { formatNumber } from "./css-values.ts"
-import { ownValue, PercentField, useTokens } from "./field-parts.tsx"
+import { ownValue, Unstored, useTokens } from "./field-parts.tsx"
 import { KeywordItem, KeywordTrigger, PreviewMenu } from "./keyword-sets.tsx"
+import { PercentField } from "./number-field.tsx"
 import { type BlendMode, blendModes } from "./text-data.ts"
 import type { Opacity } from "./text-writes.ts"
 import { opacityToken } from "./tokens.ts"
@@ -149,7 +150,9 @@ export function OpacityRow({
     // Half each, as the panel's paired fields are: room for a token's name in Opacity and Color dodge in Blend mode.
     <div className="grid grid-cols-2 items-start gap-1">
       <OpacityField value={opacity} mixed={mixed} onChange={onOpacity} />
-      <BlendMenu value={blend} mixed={mixed} onChange={onBlend} onPreview={onPreviewBlend} />
+      <Unstored part="blend">
+        <BlendMenu value={blend} mixed={mixed} onChange={onBlend} onPreview={onPreviewBlend} />
+      </Unstored>
     </div>
   )
 }

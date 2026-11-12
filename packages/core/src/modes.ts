@@ -171,25 +171,36 @@ export function isTouchMode(mode: Pick<ResolvedMode, "options" | "width">): bool
 export interface ShownModes {
   main: ResolvedMode
   beside: ResolvedMode[]
+  /** Every mode, in project order: the primary mode first. */
   all: ResolvedMode[]
+  /** Every mode in the design's own order: its main frame's mode first, then the rest as it orders them. */
+  ordered: ResolvedMode[]
 }
 
 /**
  * The modes a design shows: its main frame's (its own pick, else the project's primary mode), and the ones beside it
- * in project order. A frame shows the primary mode alone.
+ * in the design's order. A frame shows the primary mode alone.
  */
 export function shownModes(settings: ModeSettings, design: Pick<ContainerSpec, "kind" | "view">): ShownModes {
   const all = resolveModes(settings)
 
   if (design.kind === "frame") {
-    return { main: all[0]!, beside: [], all }
+    return { main: all[0]!, beside: [], all, ordered: all }
   }
 
   const { view } = design
   const main = all.find((mode) => mode.id === view?.mode) ?? all[0]!
   const beside = new Set(view?.modes ?? [])
+  const ordered = [main, ...inOrder(all, view?.order ?? []).filter((mode) => mode !== main)]
 
-  return { main, beside: all.filter((mode) => mode !== main && beside.has(mode.id)), all }
+  return { main, beside: ordered.filter((mode) => mode !== main && beside.has(mode.id)), all, ordered }
+}
+
+/** Modes in this order of ids, then the ones it doesn't name in the order they came. */
+function inOrder(modes: ResolvedMode[], order: readonly string[]): ResolvedMode[] {
+  const named = order.flatMap((id) => modes.filter((mode) => mode.id === id))
+
+  return [...named, ...modes.filter((mode) => !named.includes(mode))]
 }
 
 /** The primary mode first, then the others in the order the project defines them. */

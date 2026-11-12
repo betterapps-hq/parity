@@ -14,7 +14,6 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { PercentField } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import {
   addProjectImage,
@@ -28,6 +27,7 @@ import {
   stockSrc,
   watchProjectImages
 } from "./lists-data.ts"
+import { PercentField } from "./number-field.tsx"
 import { PositionInBox } from "./position-box.tsx"
 
 /*

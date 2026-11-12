@@ -101,6 +101,7 @@ export type StyleSection =
   | "frameSize"
   | "placement"
   | "layerOrder"
+  | "transform"
   | "size"
   | "gridPlacement"
   | "layout"
@@ -129,6 +130,8 @@ export const styleTable: readonly StylePart[] = [
   { section: "frameSize", needs: (can) => can.frame },
   { section: "placement", needs: (can) => !can.root },
   { section: "layerOrder", needs: (can) => !can.root },
+  // Drawn inside Position, as how the layer is drawn where it sits.
+  { section: "transform", needs: (can) => !can.root },
   { section: "size", needs: (can) => !can.frame },
   // Fill in the Sizing menu: a parent to fill, or children to fill it with.
   { control: "sizeFill", needs: (can) => can.inFlex || can.inGrid || can.box },
@@ -137,14 +140,15 @@ export const styleTable: readonly StylePart[] = [
   { section: "gridPlacement", needs: (can) => can.inGrid },
   // Shown in Size until Grid placement has its own section.
   { control: "span", needs: (can) => can.inGrid },
-  { section: "layout", needs: (can) => can.box },
+  // Drawn inside Size: the box around the layer, outside in.
   { section: "spacing", needs: () => true },
   { control: "margin", needs: (can) => !can.root },
-  { section: "appearance", needs: () => true },
+  { section: "layout", needs: (can) => can.box },
   { section: "text", needs: (can) => can.text || can.textInside },
   { control: "tag", needs: (can) => can.text },
   { control: "maxLines", needs: (can) => can.text },
   { control: "resizing", needs: (can) => can.text },
+  { section: "appearance", needs: () => true },
   { section: "fill", needs: () => true },
   { section: "stroke", needs: () => true },
   { section: "effects", needs: () => true },

@@ -1,6 +1,6 @@
 import { setSlot } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, slowly, typing } from "./inspector-stories.tsx"
@@ -58,8 +58,7 @@ const topBarWithSlot = () => {
 
 /**
  * A component design with a slot (PAR-83): Props lists App top bar's `actions` slot after its params, a kind of prop
- * that takes layers, with the layout it fills where a param has its default. In code, below Modes, shows how an
- * instance reads.
+ * that takes layers, with the layout it fills where a param has its default.
  */
 export const ComponentWithSlots: Story = { loaders: [inspecting("design", topBarWithSlot)] }
 
@@ -108,8 +107,7 @@ export const AddingATextProp: Story = {
     await userEvent.click(await within(document.body).findByRole("menuitem", { name: "Text" }, slowly))
     const name = await panel.findByRole("textbox", { name: "New text prop's name" }, slowly)
     await userEvent.type(name, "Subtitle{Enter}", typing)
-    await expect(await panel.findByText("subtitle", undefined, slowly)).toBeVisible()
-    await expect(panel.getByText(`subtitle="Text"`, { exact: false })).toBeVisible()
+    await expect(await panel.findByRole("textbox", { name: "Subtitle" }, slowly)).toHaveValue("Text")
   }
 }
 
@@ -167,7 +165,11 @@ export const EveryModeShown: Story = {
   ]
 }
 
-/** A screen that shows Mobile Light first, rather than the project's primary mode. */
+/**
+ * A screen that shows Mobile Light first, rather than the project's primary mode: it heads Modes, and its switch stays
+ * on, since the first mode always shows. Up on Desktop Light's handle moves it first, and Mobile Light still shows
+ * beside it.
+ */
 export const AnotherModeFirst: Story = {
   loaders: [
     inspecting("design", () => {
@@ -180,7 +182,23 @@ export const AnotherModeFirst: Story = {
 
       return { design: key }
     })
-  ]
+  ],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    const switches = () => panel.getAllByRole("switch", { name: /^Show / })
+
+    await expect(switches()[0]).toHaveAccessibleName("Show Mobile Light")
+    await expect(switches()[0]).toBeChecked()
+    await expect(switches()[0]).toHaveAttribute("aria-disabled", "true")
+
+    panel.getByRole("button", { name: "Move Desktop Light" }).focus()
+    await userEvent.keyboard("{ArrowUp}")
+
+    await waitFor(() => expect(switches()[0]).toHaveAccessibleName("Show Desktop Light"))
+    await expect(switches()[0]).toHaveAttribute("aria-disabled", "true")
+    await expect(panel.getByRole("switch", { name: "Show Mobile Light" })).toBeChecked()
+    await expect(panel.getByRole("switch", { name: "Show Mobile Light" })).not.toHaveAttribute("aria-disabled")
+  }
 }
 
 /** Looking at another state than the base: Stat card showing Loading, its changes listed under States. */

@@ -20,10 +20,11 @@ import {
   propsPanel
 } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
-import { type ReactNode, useState } from "react"
-import { AppSelect } from "./AppSelect.tsx"
-import { Field, type NumberPreview, NumberValueInput, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { useState } from "react"
+import { nameButton } from "../inspector/controls/field-row.tsx"
+import { InstanceSection, type PropRow, type PropValueRow } from "../inspector/controls/instance-section.tsx"
+import type { PropPreview } from "../inspector/controls/number-field.tsx"
+import { Hint } from "./Hint.tsx"
 import {
   booleanValue,
   numberValue,
@@ -51,6 +52,9 @@ interface PropsSectionProps {
   onReset: (name: string) => void
 }
 
+/** A prop's value as a component layer holds it. */
+type HeldValue = NonNullable<PropsSectionProps["node"]["props"]>[string]
+
 const groupTitles = new Map([
   ["html", "Attributes"],
   ["aria", "Accessibility"],
@@ -58,9 +62,11 @@ const groupTitles = new Map([
 ])
 
 /**
- * A component's props, from what its source declares: variants offer their options, booleans a switch, and every prop
- * shows its default when unset. Attributes it passes to its element are added one at a time from a searchable list.
- * Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
+ * A code component's instance: the Component instance section a component design's has, with its props from what its
+ * source declares:
+ * variants offer their options with the default first, booleans a switch, and an unset prop is empty with its default
+ * shown faintly. Attributes it passes to its element are added one at a time from a searchable list, and removed from
+ * their row. Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
  */
 export function PropsSection({
   node,
@@ -80,89 +86,54 @@ export function PropsSection({
   const listed = new Set([...main.map((prop) => prop.name), ...panel.extra])
   const extra = [...panel.extra, ...taken.filter((name) => !listed.has(name))]
 
-  const preview = (name: string): NumberPreview | undefined =>
+  const preview = (name: string): PropPreview | undefined =>
     onPreview && onCancel ? { onPreview: (value) => onPreview(name, value), onCancel } : undefined
 
+  const row = (name: string, prop: ComponentProp | undefined): PropRow => ({
+    ...(prop
+      ? propRow(prop, values[name], inSlot.has(name), preview(name))
+      : { type: "value", value: readPropValue(values[name]), loose: true }),
+    name,
+    changed: changed(name),
+    onReset: () => onReset(name)
+  })
+
+  const rows = [
+    ...main.map((prop) => ({ ...row(prop.name, prop), hint: prop.description ?? prop.type })),
+    ...extra.map((name) => {
+      const prop = known.get(name)
+
+      return {
+        ...row(name, prop),
+        hint: prop ? groupTitles.get(prop.group) : "Not a prop this component declares",
+        action: !changed(name) && !inSlot.has(name) && (
+          <Hint label={`Remove ${name}`}>
+            <button
+              type="button"
+              onClick={() => onChange(name, undefined)}
+              className={nameButton}
+              aria-label={`Remove ${name}`}
+            >
+              <X className="size-3" />
+            </button>
+          </Hint>
+        )
+      }
+    })
+  ]
+
   return (
-    <PanelSection
-      title={`${node.component} props`}
+    <InstanceSection
+      component={node.component}
       description={info ? undefined : "Reading this component's props from its source."}
-      action={<AddProp props={addable} free={!info} onAdd={(name, value) => onChange(name, value)} />}
-    >
-      <div className="flex flex-col gap-1">
-        {main.length === 0 && extra.length === 0 && (
-          <p className="px-1 text-xs text-muted-foreground">No props to set.</p>
-        )}
-        {main.map((prop) => (
-          <Field
-            key={prop.name}
-            label={prop.name}
-            changed={changed(prop.name)}
-            onReset={() => onReset(prop.name)}
-            hint={prop.description ?? prop.type}
-          >
-            <PropInput
-              prop={prop}
-              value={values[prop.name]}
-              inSlot={inSlot.has(prop.name)}
-              preview={preview(prop.name)}
-              onChange={(value, gesture) => onChange(prop.name, value, gesture)}
-            />
-          </Field>
-        ))}
-        {extra.map((name) => {
-          const prop = known.get(name)
-          let input: ReactNode
+      add={<AddProp props={addable} free={!info} onAdd={(name, value) => onChange(name, value)} />}
+      props={rows}
+      onChange={(name, value, gesture) => {
+        const prop = known.get(name)
 
-          const value = values[name]
-
-          if (isMadeValue(value)) {
-            input = <MadeValue value={value} />
-          } else if (prop) {
-            input = (
-              <PropInput
-                prop={prop}
-                value={value}
-                inSlot={inSlot.has(name)}
-                preview={preview(name)}
-                onChange={(value, gesture) => onChange(name, value, gesture)}
-              />
-            )
-          } else {
-            input = (
-              <ValueInput
-                value={readPropValue(value)}
-                preview={preview(name)}
-                onCommit={(value, gesture) => onChange(name, value, gesture)}
-              />
-            )
-          }
-
-          return (
-            <div key={name} className="group relative">
-              <Field
-                label={name}
-                changed={changed(name)}
-                onReset={() => onReset(name)}
-                hint={prop ? groupTitles.get(prop.group) : "Not a prop this component declares"}
-              >
-                {input}
-              </Field>
-              {!changed(name) && !inSlot.has(name) && (
-                <button
-                  type="button"
-                  onClick={() => onChange(name, undefined)}
-                  className="absolute top-1.5 right-0 grid size-5 place-items-center rounded text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
-                  aria-label={`Remove ${name}`}
-                >
-                  <X className="size-3" />
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </PanelSection>
+        onChange(name, prop ? propValueOf(prop, value) : value, gesture)
+      }}
+    />
   )
 }
 
@@ -174,102 +145,75 @@ function MadeValue({ value }: { value: Made }) {
   const call = value.$call
 
   return (
-    <span
-      className="truncate px-1 text-xs text-muted-foreground"
-      title={call ? `${call.export} from ${call.import}` : ""}
-    >
+    <span className="truncate" title={call ? `${call.export} from ${call.import}` : ""}>
       Made by {call?.export}()
     </span>
   )
 }
 
-/** The right control for a prop's kind of value, with its default as the placeholder. */
-function PropInput({
-  prop,
-  value: held,
-  inSlot = false,
-  preview,
-  onChange
-}: {
-  prop: ComponentProp
+/** A prop's row for its kind of value, with its default shown faintly while it's unset. */
+function propRow(
+  prop: ComponentProp,
   /** The prop's value as the layer holds it, which can be one the library's package makes. */
-  value: unknown
-  /** Whether its layers are in a slot of its name, which the canvas passes in place of the value. */
-  inSlot?: boolean
-  /** Shows a number on the canvas while it's typed or scrubbed. */
-  preview?: NumberPreview
-  onChange: (value: PropValue | undefined, gesture?: string) => void
-}) {
+  held: HeldValue,
+  inSlot: boolean,
+  preview: PropPreview | undefined
+): PropValueRow {
   if (isMadeValue(held)) {
-    return <MadeValue value={held} />
+    return { type: "shown", shown: <MadeValue value={held} /> }
   }
 
   const value = readPropValue(held)
-
   const fallback = prop.default === undefined || prop.default === null ? undefined : String(prop.default)
 
   switch (prop.kind) {
     case "enum":
-      return (
-        <AppSelect
-          variant="panel"
-          value={value === undefined ? undefined : plainText(value)}
-          // Options that print the same, such as `true` and `"true"`, are one choice.
-          items={[...new Set((prop.options ?? []).map(String))].map((option) => ({ value: option, label: option }))}
-          none={fallback ? `${fallback} (default)` : "Not set"}
-          onValueChange={(next) => {
-            const option = prop.options?.find((candidate) => String(candidate) === next)
-            onChange(option)
-          }}
-        />
-      )
+      return {
+        type: "variant",
+        value: value === undefined ? undefined : plainText(value),
+        default: fallback,
+        // Options that print the same, such as `true` and `"true"`, are one choice.
+        options: [...new Set((prop.options ?? []).map(String))].map((option) => ({ id: option, name: option }))
+      }
     case "boolean":
-      return (
-        <SwitchInput
-          value={booleanValue.safeParse(value).data ?? prop.default === true}
-          onChange={(next) => onChange(next === (prop.default ?? false) ? undefined : next)}
-        />
-      )
+      return { type: "boolean", value: booleanValue.safeParse(value).data ?? prop.default === true }
     case "number":
-      return (
-        <NumberValueInput
-          value={value}
-          placeholder={fallback ?? ""}
-          // Maths that works from the value there starts from the default when the prop isn't set.
-          blank={() => numberValue.safeParse(prop.default).data}
-          preview={preview}
-          onCommit={onChange}
-        />
-      )
+      return {
+        type: "number",
+        value: numberValue.safeParse(value).data,
+        default: numberValue.safeParse(prop.default).data,
+        preview
+      }
     case "string":
-      return (
-        <TextInput
-          value={textValue.safeParse(value).data ?? ""}
-          placeholder={fallback ?? ""}
-          onCommit={(next) => onChange(next === "" ? undefined : next)}
-        />
-      )
+      return { type: "text", value: textValue.safeParse(value).data, default: fallback }
     case "node":
       if (nodePropInput(held, inSlot) === "layers") {
-        return <span className="text-xs text-muted-foreground">Set in layers</span>
+        return { type: "shown", shown: "Set in layers" }
       }
 
       // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
       if (nodePropInput(held, inSlot) === "value") {
-        return <ValueInput value={value} kind={valueKind(value, prop.kind)} preview={preview} onCommit={onChange} />
+        return { type: "value", value, loose: valueKind(value, prop.kind) !== "json" }
       }
 
-      return (
-        <TextInput
-          value={textValue.safeParse(value).data ?? ""}
-          placeholder="Text, or layers in its slot"
-          onCommit={(next) => onChange(next === "" ? undefined : next)}
-        />
-      )
+      return { type: "text", value: textValue.safeParse(value).data, placeholder: "Text, or layers in its slot" }
     default:
       // An object prop takes JSON; one whose type isn't known takes whatever's typed, as JSON when it reads as JSON.
-      return <ValueInput value={value} kind={valueKind(value, prop.kind)} preview={preview} onCommit={onChange} />
+      return { type: "value", value, loose: valueKind(value, prop.kind) !== "json" }
   }
+}
+
+/** What a row's change stores for its prop: an option as the component declares it, and a boolean at its default unset. */
+function propValueOf(prop: ComponentProp, value: PropValue | undefined): PropValue | undefined {
+  if (prop.kind === "enum" && value !== undefined) {
+    return prop.options?.find((option) => String(option) === plainText(value))
+  }
+
+  if (prop.kind === "boolean" && value === (prop.default ?? false)) {
+    return undefined
+  }
+
+  return value
 }
 
 /** Adds a prop: one the component declares, picked from a searchable list, or any name when the props aren't known. */

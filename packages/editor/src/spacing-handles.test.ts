@@ -387,7 +387,7 @@ describe("typing a value after clicking a handle", () => {
       change: { padding: [{ step: 0 }, { step: 6 }, { step: 4 }, { step: 6 }] },
       px: 0
     })
-    expect(typedSpacing(top, "abc", still)).toEqual({ reason: 'Can\'t read "abc": type a number, px, rem or %' })
+    expect(typedSpacing(top, "abc", still)).toEqual({ reason: `"abc" isn't a valid number` })
     expect(typedSpacing(top, "-8", still)).toMatchObject({ px: 0 })
   })
 })

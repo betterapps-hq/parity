@@ -21,9 +21,9 @@ import { usedColors } from "./data.ts"
 import {
   arrowMoves,
   drag,
+  useLiveEdits,
   MessageLine,
   MissingMark,
-  PercentField,
   type Reading,
   stepToken,
   TokenChip,
@@ -62,6 +62,7 @@ import {
 } from "./lists-data.ts"
 import { imageSizeCss, layerCss, paintLayers, resolveGradient, simpleGradient } from "./lists-writes.ts"
 import { angleDegrees, angleOf } from "./motion-data.ts"
+import { PercentField } from "./number-field.tsx"
 import { Card } from "./playground.tsx"
 import type { Carried } from "./sortable.ts"
 import { type ColorToken, gradientToken } from "./tokens.ts"
@@ -239,8 +240,9 @@ export function PaintStack({
     void images.add(file).then((src) => put({ kind: "image", src, fit: "fill", position: [50, 50] }))
   })
 
+  // The divider under the section is the wrapper's, since the section is its only child.
   return (
-    <div className="relative" {...drop.handlers}>
+    <div className="relative border-b last:border-b-0" {...drop.handlers}>
       <PanelSection
         title="Fill"
         action={
@@ -792,6 +794,7 @@ function StopsBar({
   onSelect: (id: string) => void
   onChange: (stops: Stop[]) => void
 }) {
+  const live = useLiveEdits()
   const { tokens: colors } = useTokens("color")
   const [leaving, setLeaving] = useState<string>()
   const sorted = [...paint.stops].sort((a, b) => a.position - b.position)
@@ -804,6 +807,7 @@ function StopsBar({
     let off = false
     let stops = paint.stops
     drag(event, {
+      runs: live,
       within: event.currentTarget.parentElement,
       move: (point) => {
         // Dragged well off the bar, it's removed when let go, as Figma's stops are.
@@ -826,6 +830,7 @@ function StopsBar({
 
   const dragHint = (event: PointerEvent<HTMLElement>, from: Stop, to: Stop) =>
     drag(event, {
+      runs: live,
       within: event.currentTarget.parentElement,
       move: (point) => setStop(from.id, { hint: clamp(Math.round(point.x * 100), from.position + 1, to.position - 1) })
     })

@@ -24,7 +24,7 @@ import { HomePrototype } from "./home/prototype.tsx"
  * different point, in the whole window: the title bar over the page.
  */
 const meta = {
-  title: "Parity/Explorations/Home",
+  title: "Parity/Explorations/Start page/Organizations",
   parameters: { layout: "fullscreen" },
   // No project tabs, so the title bar has Home and whatever the story opens.
   loaders: [() => openProjects()]

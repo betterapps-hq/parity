@@ -23,7 +23,7 @@ import { type KnownProject, knownProjects, type ProjectNote } from "./projects.t
 import { type StartActions, StartActionsProvider } from "./start-actions.ts"
 
 /**
- * The start page as the window shows it, built from the explorations (Parity/Explorations/Start page): Home, pinned
+ * The start page as the window shows it, built from the explorations (Parity/Explorations/Start page/Start page): Home, pinned
  * first in the tab strip, and a new tab. Each project shows its picture, its first screens as last saved, or a
  * placeholder until it's opened (PAR-607); the pictures here are the example project's. What Parity can't do yet is in
  * place and says so when used: For you and Shared with you are empty, and New project, cloning, links and

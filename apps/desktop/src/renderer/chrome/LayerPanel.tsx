@@ -31,7 +31,7 @@ import {
   type VideoNode
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
-import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
+import { Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import type { Editor } from "tldraw"
 import { useChangePreview } from "../canvas/change-preview.ts"
@@ -42,14 +42,17 @@ import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon 
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { ContentSection } from "../inspector/controls/controls.tsx"
+import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
+import { componentFile, viewCode } from "./code-editor.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
-import { Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
+import { Field, SwitchInput, TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
   fieldName,
@@ -63,14 +66,14 @@ import {
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { layerKind } from "./layer-kind.ts"
+import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
-import { type PropValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
+import { booleanValue, numberValue, plainText, type PropValue, readPropValue, textValue } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
-import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
@@ -93,6 +96,40 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
   const slot = slotAtPath(entry.container.root, nodeId, projectLibrary(store))
 
   return slot ? <SlotPanel entry={entry} {...slot} /> : <InnerLayerPanel entry={entry} path={nodeId} />
+}
+
+/**
+ * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and opens a code
+ * component in Storybook or the editor.
+ */
+function LayerActions({ node }: { node: DesignNode }) {
+  const session = useProject()
+  const entries = useContainerEntries(session.store)
+  const component = node.type === "component" ? node.component : undefined
+  const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
+
+  const actions = layerActions(
+    node,
+    {
+      stories: component !== undefined && hasStories(session.info, component),
+      code: component !== undefined && componentFile(session.info, component) !== undefined,
+      design: design !== undefined
+    },
+    session.info.libraries
+  )
+
+  const act = (action: HeaderAction) => {
+    if (action === "go-to-component" && design) {
+      session.selection.set({ design: design.key })
+      revealSelection(session)
+    } else if (action === "open-in-storybook" && component) {
+      void openInStorybook(session.id, component)
+    } else if (action === "open-in-editor" && component) {
+      void viewCode(session.info, component)
+    }
+  }
+
+  return <HeaderActions actions={actions} onAction={act} />
 }
 
 /** One of the design's own layers. */
@@ -184,9 +221,16 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
           }
           kind={kind.label}
           detail={kind.description}
+          action={
+            <>
+              <LayerActions node={location.node} />
+              <VisibleToggle node={node} override={override} change={change} reset={reset} />
+            </>
+          }
         />
         <StateTarget entry={entry} state={state} target={target} />
-        {location.ancestors.length > 0 && location.node.type !== "instance" && (
+        {/* A component or an instance is already one, so it has no Make component. */}
+        {location.ancestors.length > 0 && location.node.type !== "instance" && location.node.type !== "component" && (
           <MakeComponent
             entry={entry}
             nodeId={nodeId}
@@ -294,7 +338,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
           icon={<NodeIcon node={inner.node} className={headingIcon} />}
-          color={kindColors.component}
+          color={nodeColor(inner.node)}
           name={
             <Name className={`px-1.5 ${headingName}`}>
               {layerLabel(inner.node, entries, store.getComponentLibrary(), session.info.libraries)}
@@ -302,6 +346,12 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           }
           kind={kind.label}
           detail={kind.description}
+          action={
+            <>
+              <LayerActions node={inner.node} />
+              <VisibleToggle node={node} override={override} change={change} reset={reset} />
+            </>
+          }
         />
         {editsDesign(container, target) ? (
           <div
@@ -392,7 +442,7 @@ function LayerSections({
   node: DesignNode
   /** What the state, variant or copy being edited changes about it, to mark and reset. */
   override: NodePatch | undefined
-  /** Makes a change, as part of a gesture's one undo step when given (see `NumberField`). */
+  /** Makes a change, as part of a gesture's one undo step when given, as a run of Up and Down presses in a field. */
   change: LayerChange
   reset: (field?: PatchField) => void
   /** Inside an instance, where an image's file and description belong to the component. */
@@ -409,43 +459,29 @@ function LayerSections({
   // A component design's own text layers can show one of its text props; a copy's can't.
   const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
 
+  const withTextProp = (field: ReactNode) =>
+    usesProps && node.type === "text" ? (
+      <TextWithProp entry={entry} nodeId={nodeId} bound={node.bind?.text}>
+        {field}
+      </TextWithProp>
+    ) : (
+      field
+    )
+
   return (
     <>
-      {(node.type === "text" || (node.type === "component" && textValue.safeParse(node.props?.children).success)) && (
-        <PanelSection title="Content">
-          {node.type === "text" ? (
-            <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
-              {usesProps ? (
-                <TextWithProp entry={entry} nodeId={nodeId} bound={node.bind?.text}>
-                  <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
-                </TextWithProp>
-              ) : (
-                <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
-              )}
-            </Field>
-          ) : (
-            <Field
-              label="Label"
-              changed={changesField(override, { kind: "props", key: "children" })}
-              onReset={() => reset({ kind: "props", key: "children" })}
-            >
-              <TextInput
-                multiline
-                value={textValue.safeParse(node.props?.children).data ?? ""}
-                onCommit={(children) => change("Edit label", { props: { children } })}
-              />
-            </Field>
-          )}
-        </PanelSection>
+      {node.type === "text" && (
+        <ContentSection
+          text={node.text}
+          tag={undefined}
+          onText={(text) => change("Edit text", { text })}
+          onTag={() => undefined}
+          textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
+          aroundText={(field) => withTextProp(field)}
+        />
       )}
 
       {(node.type === "image" || node.type === "video") && !inner && <MediaSection entry={entry} node={node} />}
-
-      <PanelSection title="Visibility">
-        <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
-          <SwitchInput value={!node.hidden} onChange={(visible) => change("Toggle visibility", { hidden: !visible })} />
-        </Field>
-      </PanelSection>
 
       {node.type === "component" && (
         <PropsSection
@@ -462,19 +498,6 @@ function LayerSections({
         />
       )}
 
-      {node.type === "component" && hasStories(session.info, node.component) && (
-        <div className="px-4 pb-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => void openInStorybook(session.id, node.component)}
-          >
-            <BookOpen /> Open {node.component} in Storybook
-          </Button>
-        </div>
-      )}
-
       {node.type === "component" && components[node.component]?.takesStyle === false && (
         <NoStyleNote component={node.component} wrap={!inner} />
       )}
@@ -489,6 +512,59 @@ function LayerSections({
 
       <ExportSection targets={[{ design: entry.key, node: nodeId, name }]} label={`Export ${name}`} />
     </>
+  )
+}
+
+/**
+ * Whether the layer shows, as the eye at the end of its name's row, crossed out while it's hidden, as Layers draws it.
+ * Changed in the state being edited, it's in the change color with a reset arrow before it.
+ */
+function VisibleToggle({
+  node,
+  override,
+  change,
+  reset
+}: {
+  node: DesignNode
+  override: NodePatch | undefined
+  change: LayerChange
+  reset: (field?: PatchField) => void
+}) {
+  const changed = override?.hidden !== undefined
+  const label = node.hidden ? "Show layer" : "Hide layer"
+
+  const eye = (
+    <Hint label={label}>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="size-6 text-muted-foreground"
+        style={changed ? { color: kindColors.agent } : undefined}
+        aria-label={label}
+        onClick={() => change("Toggle visibility", { hidden: !node.hidden })}
+      >
+        {node.hidden ? <EyeOff /> : <Eye />}
+      </Button>
+    </Hint>
+  )
+
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      {changed && (
+        <Hint label="Reset whether it shows">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-6 text-muted-foreground"
+            aria-label="Reset whether it shows"
+            onClick={() => reset({ kind: "hidden" })}
+          >
+            <RotateCcw />
+          </Button>
+        </Hint>
+      )}
+      {eye}
+    </div>
   )
 }
 
@@ -565,8 +641,8 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
 }
 
 /**
- * An instance of a component design: which component, its variants and params, and, for one of the design's own
- * instances (`own`), its state, its overrides, and swapping or detaching it.
+ * An instance of a component design: which component, its state and its props, and, for one of the design's own
+ * instances (`own`), its overrides, and swapping or detaching it, drawn as the approved Component instance section.
  */
 function InstanceSection({
   entry,
@@ -598,16 +674,12 @@ function InstanceSection({
 
   if (!design) {
     return (
-      <PanelSection title="Instance">
-        <p className="type-message px-1 text-destructive">
-          The component &quot;{node.design}&quot; doesn&apos;t exist.
-        </p>
+      <PanelSection title="Component instance">
+        <p className="type-message text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
       </PanelSection>
     )
   }
 
-  const params = Object.entries(design.params ?? {})
-  const overrides = own ? overrideCount(own) : 0
   const library = projectLibrary(store)
 
   // The instance's own field, as the design has it, to record what a change to it did.
@@ -621,149 +693,110 @@ function InstanceSection({
     }
   })
 
-  const push = () => component && pushAndRecord(store, entry.key, component.key, node.id)
+  const menu = own && {
+    overrides: overrideCount(own),
+    // Another component this copy could become: not the design it's in, which can't contain itself.
+    swappable: entries
+      .filter(
+        (candidate) =>
+          candidate.container.kind === "component" &&
+          candidate.container.id !== entry.container.id &&
+          candidate.container.id !== node.design
+      )
+      .map((candidate) => ({ id: candidate.container.id, name: candidate.container.name })),
+    onSwap: (id: string) =>
+      updateAndRecord(
+        store,
+        entry.key,
+        "Swap instance",
+        (container) => swapInstance(container, node.id, id, library),
+        instanceField("design")
+      ),
+    onResetOverrides: () =>
+      updateAndRecord(store, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
+        field: "overrides",
+        layers: [node.id],
+        read: (container) => {
+          const instance = findNode(container.root, node.id)
 
-  // Another component this copy could become: not the design it's in, which can't contain itself.
-  const swappable = entries.filter(
-    (candidate) => candidate.container.kind === "component" && candidate.container.id !== entry.container.id
-  )
+          return instance?.type === "instance" ? instance.overrides : undefined
+        }
+      }),
+    onPush: component && (() => pushAndRecord(store, entry.key, component.key, node.id)),
+    onDetach: () => detachAndRecord(store, entry.key, node.id)
+  }
 
   return (
-    <PanelSection
-      title="Instance"
-      action={
-        component ? (
-          <Hint label={`Go to ${design.name}`} wait>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                selection.set({ design: component.key })
-                revealSelection(session)
-              }}
-            >
-              <Diamond style={{ color: kindColors.component }} /> {design.name}
-            </Button>
-          </Hint>
-        ) : (
-          <Hint label={`Linked to ${design.name} in ${from?.name ?? "a library"}, which changes it`} wait>
-            <span className="flex h-6 items-center gap-1.5 px-2 text-xs text-muted-foreground">
-              <Diamond className="size-3.5" style={{ color: kindColors.component }} /> {design.name}
-            </span>
-          </Hint>
-        )
+    <InstanceControls
+      component={design.name}
+      onGoTo={
+        component &&
+        (() => {
+          selection.set({ design: component.key })
+          revealSelection(session)
+        })
       }
+      linked={from?.name}
+      props={instanceRows(design.params ?? {}, node.args ?? {})}
+      changed={changed}
+      onResetProp={onReset}
+      onChange={(name, value) => onChange(name, value)}
+      menu={menu}
+      note={own && <BaseDesignNote entry={entry} what="Reset overrides, Swap and Detach" />}
     >
-      {own && <BaseDesignNote entry={entry} what="Reset all, Swap and Detach" />}
-      <div className="flex flex-col gap-1">
-        {params.map(([name, param]) =>
-          param.type === "variant" ? (
-            <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
-              <AppSelect
-                variant="panel"
-                value={textValue.safeParse(node.args?.[name]).data}
-                items={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
-                none={
-                  param.options?.find((option) => option.id === param.default)?.name ??
-                  param.options?.[0]?.name ??
-                  "Default"
-                }
-                onValueChange={(value) => onChange(name, value ?? undefined)}
-              />
-            </Field>
-          ) : (
-            <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
-              <ValueInput
-                value={readPropValue(node.args?.[name] ?? param.default)}
-                kind={valueKind(readPropValue(node.args?.[name] ?? param.default), param.type)}
-                onCommit={(value) => onChange(name, value)}
-              />
-            </Field>
-          )
-        )}
-        {own && <InstanceSlotFields entry={entry} instance={own} />}
-      </div>
-      {own && (
-        <div className="mt-3 flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="flex-1 text-muted-foreground">
-              {overrides === 0
-                ? "No overrides: it matches the component."
-                : `${overrides} override${overrides === 1 ? "" : "s"} inside`}
-            </span>
-            {overrides > 0 && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={() =>
-                    updateAndRecord(
-                      store,
-                      entry.key,
-                      "Reset overrides",
-                      (container) => resetInstance(container, node.id),
-                      {
-                        field: "overrides",
-                        layers: [node.id],
-                        read: (container) => {
-                          const instance = findNode(container.root, node.id)
-
-                          return instance?.type === "instance" ? instance.overrides : undefined
-                        }
-                      }
-                    )
-                  }
-                >
-                  Reset all
-                </Button>
-                {component && (
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={push}>
-                    Push to main
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-          <div className="flex gap-1.5">
-            <AppSelect<string>
-              variant="panel"
-              className="flex-1"
-              placeholder="Swap component"
-              items={swappable
-                .filter((candidate) => candidate.container.id !== node.design)
-                .map((candidate) => ({ value: candidate.container.id, label: candidate.container.name }))}
-              value={null}
-              onValueChange={(design) => {
-                if (!design) {
-                  return
-                }
-
-                updateAndRecord(
-                  store,
-                  entry.key,
-                  "Swap instance",
-                  (container) => swapInstance(container, node.id, design, library),
-                  instanceField("design")
-                )
-              }}
-            />
-            <Hint label="Turn this copy into plain layers, no longer linked to the component" wait>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => detachAndRecord(store, entry.key, node.id)}
-              >
-                <Unlink /> Detach
-              </Button>
-            </Hint>
-          </div>
-        </div>
-      )}
-    </PanelSection>
+      {own && <InstanceSlotFields entry={entry} instance={own} />}
+    </InstanceControls>
   )
+}
+
+/**
+ * A component design's params as an instance's prop rows, with what the instance gives each: a variant offers its
+ * options with its default first, and the rest take the value their type says, with the default shown faintly.
+ */
+function instanceRows(
+  params: NonNullable<ContainerSpec["params"]>,
+  args: NonNullable<InstanceNode["args"]>
+): PropRow[] {
+  return Object.entries(params).map(([name, param]): PropRow => {
+    const held = readPropValue(args[name])
+    const fallback = readPropValue(param.default)
+
+    if (param.type === "variant") {
+      const options = (param.options ?? []).map((option) => ({ id: option.id, name: option.name }))
+
+      return {
+        name,
+        type: "variant",
+        value: textValue.safeParse(held).data,
+        default: textValue.safeParse(param.default).data ?? options[0]?.id,
+        options
+      }
+    }
+
+    if (param.type === "boolean") {
+      return { name, type: "boolean", value: booleanValue.safeParse(held ?? fallback).data ?? false }
+    }
+
+    if (param.type === "number") {
+      return {
+        name,
+        type: "number",
+        value: numberValue.safeParse(held).data,
+        default: numberValue.safeParse(fallback).data
+      }
+    }
+
+    if (param.type === "text") {
+      return {
+        name,
+        type: "text",
+        value: held === undefined ? undefined : plainText(held),
+        default: fallback === undefined ? undefined : plainText(fallback)
+      }
+    }
+
+    return { name, type: "value", value: held, default: fallback, loose: true }
+  })
 }
 
 /**
@@ -837,6 +870,48 @@ export function measureNode(
   const rect = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.rect : undefined
 
   return host && rect ? frameSize(frameGeometry(host), rect) : undefined
+}
+
+/**
+ * Where a layer sits in its parent's box, in the design's pixels: the parent's size, its own, and its offset from the
+ * parent's top left, as Position's inset box measures pinned sides against. Undefined when it isn't drawn.
+ */
+export function placeNode(
+  editor: Editor | undefined,
+  design: string,
+  nodeId: string,
+  picked: { mode?: string; state?: string }
+):
+  | {
+      parent: { width: number; height: number }
+      size: { width: number; height: number }
+      inFlow: { x: number; y: number }
+    }
+  | undefined {
+  const area = editor?.getContainer().closest(".canvas-area")
+  const host = area ? selectionFrame(area, design, picked) : undefined
+  const found = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked) : undefined
+  // Insets count from the containing block inside its border, which `offsetParent` gives (see `LayerSnapping`).
+  const around = found?.element?.offsetParent
+
+  if (!host || !found || !(around instanceof HTMLElement) || !editor) {
+    return undefined
+  }
+
+  // Screen pixels per the frame's own: the zoom times the frame's scale (PAR-967).
+  const { scale } = frameGeometry(host)
+  const border = getComputedStyle(around)
+  const outer = around.getBoundingClientRect()
+  const left = outer.left / scale + parseFloat(border.borderLeftWidth)
+  const top = outer.top / scale + parseFloat(border.borderTopWidth)
+  const { rect } = found
+
+  // In whole pixels, as an inset pinned from them is typed: the zoom leaves fractions.
+  return {
+    parent: { width: around.clientWidth, height: around.clientHeight },
+    size: { width: Math.round(rect.width / scale), height: Math.round(rect.height / scale) },
+    inFlow: { x: Math.round(rect.left / scale - left), y: Math.round(rect.top / scale - top) }
+  }
 }
 
 /**

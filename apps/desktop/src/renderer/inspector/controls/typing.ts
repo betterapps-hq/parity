@@ -132,7 +132,7 @@ export function readUnitNumber(
   }
 
   if ("reason" in reading) {
-    return reading.reason.startsWith("Can't read") ? cannot : reading
+    return reading
   }
 
   return { value: Math.round(reading.value * factor * 10_000) / 10_000 }

@@ -1,12 +1,12 @@
 import { DropdownMenuCheckboxItem } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, ArrowUpToLine, Crosshair, Layers, Maximize, Move, MoveDiagonal2, Rows3 } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import { type CSSProperties, type ReactNode, useContext } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SideValue } from "./box-model.tsx"
 import { formatNumber, tint } from "./css-values.ts"
-import { MessageLine, useTokens } from "./field-parts.tsx"
+import { MessageLine, StoresContext, type Unstorable, Unstored, useTokens } from "./field-parts.tsx"
 import { Field, IconSegments, NameToggle, TitleMenu } from "./field-row.tsx"
 import { distances, insetPixels, type Placement, type Position, placed, type Stage } from "./position-writes.ts"
 import { type Side, type SideRules, type Sides, sideNames, sideNumber, sideRules } from "./sides-writes.ts"
@@ -28,18 +28,20 @@ const placements = [
   { value: "absolute", label: "Absolute", detail: "Placed against its parent, out of the layout", Icon: Crosshair },
   {
     value: "fixed",
+    part: "fixedPlacement",
     label: "Fixed",
     detail: "Placed against the window, so it stays put as the page scrolls",
     Icon: AppWindow
   },
   {
     value: "sticky",
+    part: "fixedPlacement",
     label: "Sticky",
     detail: "In layout, until scrolling would take it past its inset",
     Icon: ArrowUpToLine
   },
   { value: "relative", label: "Relative", detail: "In layout, then moved by its insets", Icon: Move }
-] as const satisfies readonly { value: Placement; label: string; detail: string; Icon: unknown }[]
+] as const satisfies readonly { value: Placement; label: string; detail: string; Icon: unknown; part?: Unstorable }[]
 
 /**
  * What each placement places the layer against, which the inset box names in its corner, and what its insets'
@@ -63,15 +65,14 @@ const offsetRules: SideRules = { ...sideRules.inset, percent: false, auto: false
 
 /**
  * Position, for a layer that isn't a design's root: Placement's toggles (In layout, Absolute, Fixed, Sticky, and
- * Relative once set from More) beside Layer order, shown by default when Absolute, Fixed or Sticky, then the inset box
- * when it isn't In layout.
+ * Relative once set from More) beside Layer order, always shown and Auto while unset, then the inset box when it isn't
+ * In layout.
  */
 export function PositionSection({
   position,
   set,
   layerOrder,
   onLayerOrder,
-  showLayerOrder: layerOrderAdded = false,
   context,
   stage,
   stickyStopped,
@@ -81,8 +82,6 @@ export function PositionSection({
   set: (position: Position) => void
   layerOrder: Side
   onLayerOrder: (value: Side) => void
-  /** Layer order added from More on a layer In layout or Relative. */
-  showLayerOrder?: boolean
   /** The stacking context Layer order orders within, and what makes it one. */
   context: string
   stage: Stage
@@ -91,10 +90,8 @@ export function PositionSection({
   onClipInstead?: () => void
 }) {
   const placement = position.placement
+  const stores = useContext(StoresContext)
   const shownPlacements = placements.filter((option) => option.value !== "relative" || placement === "relative")
-
-  const layerOrderShown =
-    layerOrderAdded || layerOrder !== undefined || ["absolute", "fixed", "sticky"].includes(placement)
 
   const choose = (next: Placement) => {
     if (next === placement) {
@@ -123,18 +120,11 @@ export function PositionSection({
         <TitleMenu label="More position options" menuClassName="w-52">
           <DropdownMenuCheckboxItem
             className="text-xs"
+            disabled={!stores("fixedPlacement")}
             checked={placement === "relative"}
             onCheckedChange={(on) => choose(on ? "relative" : "static")}
           >
             Relative
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            className="text-xs"
-            checked={layerOrderShown}
-            disabled={["absolute", "fixed", "sticky"].includes(placement) || layerOrder !== undefined}
-            onCheckedChange={() => onLayerOrder({ number: 1 })}
-          >
-            Layer order
           </DropdownMenuCheckboxItem>
         </TitleMenu>
       }
@@ -150,7 +140,7 @@ export function PositionSection({
               onChange={choose}
             />
           </Field>
-          {layerOrderShown && <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />}
+          <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />
         </div>
         {placement !== "static" && (
           <InsetBox position={position} placement={placement} stage={stage} stopped={stickyStopped} set={set} />
@@ -398,9 +388,11 @@ function InsetBox({
             <NameToggle label={`Fill ${of}`} pressed={filled} onClick={fill}>
               <Maximize />
             </NameToggle>
-            <NameToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
-              <MoveDiagonal2 />
-            </NameToggle>
+            <Unstored part="pinScale">
+              <NameToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
+                <MoveDiagonal2 />
+              </NameToggle>
+            </Unstored>
           </>
         )
       }
@@ -415,8 +407,10 @@ function InsetBox({
           className="relative col-start-2 row-start-2 rounded-sm border bg-background"
           style={{ borderColor: tint(layerColor, 70) }}
         >
-          {!offsets && centerLine(true)}
-          {!offsets && centerLine(false)}
+          <Unstored part="pinCenter">
+            {!offsets && centerLine(true)}
+            {!offsets && centerLine(false)}
+          </Unstored>
         </div>
         {band(1)}
         {band(2)}

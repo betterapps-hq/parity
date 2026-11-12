@@ -9,8 +9,8 @@ import type { StoredObject, Writes } from "./writes.ts"
 
 /**
  * Placement and its insets (PAR-186, PAR-652's Position and Insets). Placement's toggles are In layout, Absolute,
- * Fixed and Sticky, with Relative under More, shown as a fifth toggle once set; Layer order sits beside them, shown by
- * default when Absolute, Fixed or Sticky. Out of layout, the inset box lays the insets out as the box model lays out spacing:
+ * Fixed and Sticky, with Relative under More, shown as a fifth toggle once set; Layer order sits beside them, always,
+ * Auto while unset. Out of layout, the inset box lays the insets out as the box model lays out spacing:
  * what the layer is placed against, named in its corner (Parent, Window, Scroll area), the layer in its middle, and
  * each side's inset on a line from the edge to the layer. A pinned side's line is solid, in the layer's color; an
  * unpinned side's is dashed, and says Auto. Clicking a side's line pins it at its distance, and again unpins it, as

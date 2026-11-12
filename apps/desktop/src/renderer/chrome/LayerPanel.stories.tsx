@@ -1,16 +1,15 @@
 import { type ImageNode, insertNode, type VideoNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /**
- * The Design tab with one layer of each kind selected: what it holds (text, a component's props, an image), then whether
- * it shows, and its style. The other Layer folders hold its name and header, states, instances and slots.
+ * The Design tab with one design or layer of each kind selected, one story each, named as its header names the kind.
+ * The other Layer folders hold the cases beyond these: its name and header, states, instances and slots.
  */
 const meta = {
   title: "Parity/Inspector/Layer/Kinds",
@@ -23,48 +22,35 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
+/** A screen, Pricing: what it repeats, its modes, and Export. */
+export const Screen: Story = { loaders: [inspecting("design", () => ({ design: design("Pricing") }))] }
+
+/** A component, Plan card: its states, variants, props and modes, and the code an instance writes. */
+export const Component: Story = { loaders: [inspecting("design", () => ({ design: design("Plan card") }))] }
+
 /** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
-export const TextLayer: Story = { loaders: [pick("Pricing", "Headline")] }
+export const Text: Story = { loaders: [pick("Pricing", "Headline")] }
 
-/** A component layer, Plan card's call to action: its label, Button's props, a link to its stories, and its style. */
-export const ComponentLayer: Story = { loaders: [pick("Plan card", "Call to action")] }
+/** A horizontal layout, Pricing's nav: a Layout section first among its styles. */
+export const HorizontalLayout: Story = { name: "Horizontal layout", loaders: [pick("Pricing", "Nav")] }
 
-/** A component whose content is layers in its slot rather than a label: Sign in's submit button. */
-export const ComponentWithLayersInside: Story = { loaders: [pick("Sign in", "Sign in button")] }
-
-/** An icon from Lucide: its props aren't read from source, so only the ones it sets show. */
-export const IconLayer: Story = { loaders: [pick("Plan card", "lucide/Check")] }
-
-/**
- * A component whose props have no `style`, as an app's `MemberRow({ member })` hasn't, shown here as Pricing's badge:
- * the panel says the size and styles don't change it, and Wrap in layout puts a layout around it to size instead.
- */
-export const ComponentWithoutStyle: Story = {
-  loaders: [
-    async () => {
-      answering({
-        "project.components": async (_params, usual) => {
-          const components = await usual()
-
-          return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
-        }
-      })
-      await pick("Pricing", "Badge")()
-    }
-  ],
-  play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await panel.findByText(/doesn't take a/, undefined, slowly)
-    await userEvent.click(panel.getByRole("button", { name: /Wrap in layout/ }))
-    await panel.findByText(/^(Horizontal|Vertical) layout$/, undefined, slowly)
-  }
-}
-
-/** A layout, Pricing's hero: no content section, and a Layout section first among its styles. */
-export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }
+/** A vertical layout, Pricing's hero. */
+export const VerticalLayout: Story = { name: "Vertical layout", loaders: [pick("Pricing", "Hero")] }
 
 /** A grid, Pricing's plans: its header says Grid layout, with the grid icon the Layout section uses. */
-export const GridLayer: Story = { loaders: [pick("Pricing", "Plans")] }
+export const Grid: Story = { loaders: [pick("Pricing", "Plans")] }
+
+/** An instance of a code component, Plan card's call to action: Button's props, its header's links, and its style. */
+export const CodeComponentInstance: Story = {
+  name: "Code component instance",
+  loaders: [pick("Plan card", "Call to action")]
+}
+
+/** An instance of a component design, Pricing's Pro plan: its props, Go to component in its header, and its style. */
+export const DesignInstance: Story = { name: "Design instance", loaders: [pick("Pricing", "Pro plan")] }
+
+/** An icon from Lucide: its props aren't read from source, so only the ones it sets show. */
+export const Icon: Story = { loaders: [pick("Plan card", "lucide/Check")] }
 
 /** Adds a picture or a clip to Pricing's hero and selects it. */
 const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "type" | "src" | "controls">) =>
@@ -99,13 +85,13 @@ async function mediaFields(canvasElement: HTMLElement) {
     "Four people around a laptop, planning a launch"
   )
   await expect(panel.getByRole("combobox", { name: "Fit" })).toHaveTextContent("Contain, shown whole")
-  await expect(panel.getByRole("switch", { name: "Visible" })).toBeChecked()
+  await expect(panel.getByRole("button", { name: "Hide layer" })).toBeVisible()
 
   return panel
 }
 
 /** An image layer: its file, alt text for screen readers, how it fills its box, and who took it. */
-export const ImageLayer: Story = {
+export const Image: Story = {
   loaders: [media({ type: "image", src: "/images/team-at-work.jpg" })],
   play: async ({ canvasElement }) => {
     const panel = await mediaFields(canvasElement)
@@ -114,7 +100,7 @@ export const ImageLayer: Story = {
 }
 
 /** A video layer: an image's fields, and whether it shows the browser's controls. */
-export const VideoLayer: Story = {
+export const Video: Story = {
   loaders: [media({ type: "video", src: "/videos/team-at-work.mp4", controls: true })],
   play: async ({ canvasElement }) => {
     const panel = await mediaFields(canvasElement)
