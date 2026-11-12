@@ -49,9 +49,11 @@ const keyOf = ({ property, value, when }: CssDeclaration) =>
 
 /**
  * Frame classes that ask `write` for the declarations they haven't seen, a task's worth at a time, with the classes
- * they already hold, which are compiled again with the new ones.
+ * they already hold, which are compiled again with the new ones. One ask waits for the one before it, since each
+ * answer's stylesheet replaces the last: two at once would each name only the classes held before both, and the answer
+ * that came second would drop the classes the first one wrote (PAR-962).
  */
-function askingFrameClasses(
+export function askingFrameClasses(
   loaded: Pick<LoadedGuest, "prepare">,
   write: (declarations: CssDeclaration[], written: string[]) => Promise<Written>
 ): FrameClasses {
@@ -65,6 +67,7 @@ function askingFrameClasses(
   let revision = 0
   let unsupported = false
   let scheduled = false
+  let asked = Promise.resolve()
 
   async function ask(): Promise<void> {
     scheduled = false
@@ -137,7 +140,9 @@ function askingFrameClasses(
 
       if (asking.size > 0 && !scheduled) {
         scheduled = true
-        setTimeout(() => void ask())
+        setTimeout(() => {
+          asked = asked.then(ask)
+        })
       }
 
       return missing ? undefined : [...classes]
