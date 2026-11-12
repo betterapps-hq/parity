@@ -9,6 +9,7 @@ import {
   openHangsRun,
   sentryEnvelope,
   stackFrames,
+  stuckIn,
   stuckWhere
 } from "./hangs.ts"
 
@@ -121,7 +122,7 @@ describe("mainHangEvent", () => {
       platform: "node",
       level: "warning",
       message: "Main stopped answering",
-      tags: { driver: "person", process: "main", hang: "main" },
+      tags: { driver: "person", process: "main", hang: "main", stuck_in: "native" },
       extra: { stuckMs: 2500 },
       fingerprint: ["main-stopped-answering"],
       release: "parity-desktop@1.0.0",
@@ -195,14 +196,37 @@ describe("main's stack", () => {
       scope: { tags: {} },
       eventId: "abc",
       now: 1,
-      stack: { frames, images: [] }
+      stack: { frames, images: [], pausedAfterMs: 8 }
     })
 
+    expect(event.tags.stuck_in).toBe("javascript")
+    expect(event.extra).toEqual({ stuckMs: 2500, pausedAfterMs: 8 })
     expect(event.exception?.values[0]).toMatchObject({
       type: "ApplicationNotResponding",
       value: "Main stopped answering in readEverything (app:///main.mjs:10:5)",
       stacktrace: { frames }
     })
+  })
+
+  it("says main resumed there, not that it was stuck there, when it paused too late to be running JavaScript", () => {
+    const event = mainHangEvent({
+      stuckMs: 2031,
+      scope: { tags: {} },
+      eventId: "abc",
+      now: 1,
+      stack: { frames: stackFrames(paused, root), images: [], pausedAfterMs: 1534 }
+    })
+
+    expect(event.tags.stuck_in).toBe("native")
+    expect(event.exception?.values[0].value).toBe(
+      "Main stopped answering outside JavaScript, then resumed in readEverything (app:///main.mjs:10:5)"
+    )
+  })
+
+  it("takes a pause within a few milliseconds as main running JavaScript, and none at all as outside it", () => {
+    expect(stuckIn(30)).toBe("javascript")
+    expect(stuckIn(100)).toBe("native")
+    expect(stuckIn(undefined)).toBe("native")
   })
 
   it("groups hangs caught on different frames as one Sentry issue", () => {
@@ -214,7 +238,8 @@ describe("main's stack", () => {
         now: 1,
         stack: {
           frames: [{ filename: "app:///main.mjs", function: functionName, lineno: 1, colno: 1, in_app: true }],
-          images: []
+          images: [],
+          pausedAfterMs: 5
         }
       }).fingerprint
 

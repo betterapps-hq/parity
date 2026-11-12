@@ -7013,6 +7013,26 @@ The plan attached the last log file to a crash, and main's hangs said how long b
   from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
 - **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
 
+## A main hang outside JavaScript says where main resumed (PAR-890)
+
+The watchdog's main hangs were filed as bugs named after a frame: `processTimers`, `emit`, `isPackaged`, `write`, the
+heartbeat's own `postMessage` (PAR-890, PAR-828, PAR-876). 82 of the 89 `hang:main` events in the 30 days to 2026-11-11
+came from CI, most 2.0 to 2.2 seconds long, and their frames were wherever main next ran JavaScript: the inspector can't
+pause main while it's in native code or idle under Chromium's own work, so the pause lands once it's back. Tried in
+Electron 45, a JavaScript loop paused in 6 to 9 ms with its own function on the stack; a 2.9-second `execSync` paused
+1,421 ms after asking, in an unrelated stream write. My calls:
+
+- **How long the pause takes tells them apart,** under 100 ms for JavaScript (`pausesInJavaScriptMs`). Running
+  JavaScript, main pauses at its next call or loop, 5 to 30 ms measured. A pause that never lands counts as native too.
+- **The event says which, and keeps the stack either way:** a `stuck_in` tag, `pausedAfterMs` in its extra data, and,
+  outside JavaScript, the title "Main stopped answering outside JavaScript, then resumed in …". The stack still shows
+  what ran first, which can be the caller of a slow native call.
+- **`main.blocked` gets `where` only from JavaScript,** since a resume point isn't where main was stuck.
+- **Main's own "Main was blocked for …" gets a fingerprint,** `main-was-blocked`, as the watchdog's did in PAR-879: it
+  had been three Sentry issues, one per build's line (PAR-673).
+- **No blocking work was moved off main here.** No first-party frame repeats across the events, and the CI hangs barely
+  pass the 2-second threshold on 4-core runners drawing in software. The next hangs say whether main was in JavaScript.
+
 ## Connectors search outside services from main (PAR-829)
 
 You asked on 2026-11-09 to build the Mobbin integration with patterns that make Unsplash and later sources easier. My

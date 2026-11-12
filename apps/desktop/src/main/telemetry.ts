@@ -19,6 +19,7 @@ import {
   hangThresholdMs,
   lagCheck,
   leftoverHangs,
+  MAIN_BLOCKED_FINGERPRINT,
   type OpenHangs,
   openHangsSchema,
   openHangsFile,
@@ -571,6 +572,7 @@ function startHangWatch(folder: string): void {
         level: "warning",
         tags: { hang: leftover.name === "main.blocked" ? "main" : "window" },
         extra: { ...leftover.attributes },
+        ...(leftover.name === "main.blocked" && { fingerprint: [MAIN_BLOCKED_FINGERPRINT] }),
         ...run
       })
 
@@ -788,7 +790,8 @@ function watchMainLoop(): void {
       Sentry.captureMessage(`Main was blocked for ${(stuckMs / 1000).toFixed(1)}s`, {
         level: "warning",
         tags: { hang: "main" },
-        extra: where === undefined ? { stuckMs } : { stuckMs, where }
+        extra: where === undefined ? { stuckMs } : { stuckMs, where },
+        fingerprint: [MAIN_BLOCKED_FINGERPRINT]
       })
       recorded?.track(
         "main.blocked",

@@ -241,7 +241,7 @@ export const mainBlocked = defineEvent(
       .optional()
       .describe(
         "Where main was stuck: the innermost of Parity's own functions on its stack, with its file, line and column, " +
-          "when the watchdog could pause main to look (PAR-805)"
+          "when main was stuck running JavaScript and the watchdog paused it to look (PAR-805, PAR-890)"
       )
   }),
   {

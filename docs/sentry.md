@@ -197,6 +197,9 @@ What a filed issue carries:
   (PAR-879):
   - **Main hangs:** the watchdog's `main-stopped-answering`, in `mainHangEvent`. Each event still names the frame main
     was caught on.
+  - **Main blocked:** main's own report once a hang ends, "Main was blocked for …", as `main-was-blocked`, in
+    `watchMainLoop` and for the hangs an earlier run left open. Each build's line in `telemetry.ts` had been its own
+    issue (PAR-673).
   - **`UnknownVizError`:** `capturePage` failing to draw, as `unknown-viz-error`, set by `withGrouping` in main's
     `beforeSend`.
 

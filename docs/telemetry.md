@@ -30,8 +30,14 @@ next run as `window.hung` or `main.blocked` with `ended: "exited"`.
 
 The watchdog also says where main was stuck (PAR-805). It pauses main through the inspector, from inside the process
 with no port opened, and takes its stack. Its Sentry event carries the stack, which Sentry maps to the source by the
-bundles' debug IDs, and `main.blocked` and the open-hang file carry `where`, the innermost of Parity's own frames. Main
-can't pause while it's stuck in native code, so a hang there has no stack.
+bundles' debug IDs, and `main.blocked` and the open-hang file carry `where`, the innermost of Parity's own frames.
+
+Main can pause only while it runs JavaScript (PAR-890). Stuck in native code, or idle while Chromium's own work holds
+its thread, it pauses once JavaScript runs again, so the stack is where it resumed, not where it was stuck. The watchdog
+tells them apart by how long the pause took: running JavaScript, main pauses within a few milliseconds. The event's
+`stuck_in` tag says `javascript` or `native` and `pausedAfterMs` how long the pause took. A hang outside JavaScript is
+titled "Main stopped answering outside JavaScript, then resumed in …" and gives `main.blocked` no `where`. Main still
+stuck after 2 more seconds sends no stack.
 
 A crash or fatal error carries the local copy's last 5 minutes as `logs.jsonl`, at most 2,000 events, scrubbed
 (PAR-805). That's any `fatal` event, such as a native crash, an abnormal exit or an uncaught error in main, and any
@@ -985,11 +991,11 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `main.blocked`
 
-| Attribute | Type                     | Meaning                                                                                                                                                          |
-| --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stuckMs` | `integer`                | How long main's event loop was blocked                                                                                                                           |
-| `ended`   | `"answered" \| "exited"` | How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a force-quit, which the next run reports                     |
-| `where`   | `string`, optional       | Where main was stuck: the innermost of Parity's own functions on its stack, with its file, line and column, when the watchdog could pause main to look (PAR-805) |
+| Attribute | Type                     | Meaning                                                                                                                                                                                                  |
+| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stuckMs` | `integer`                | How long main's event loop was blocked                                                                                                                                                                   |
+| `ended`   | `"answered" \| "exited"` | How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a force-quit, which the next run reports                                                             |
+| `where`   | `string`, optional       | Where main was stuck: the innermost of Parity's own functions on its stack, with its file, line and column, when main was stuck running JavaScript and the watchdog paused it to look (PAR-805, PAR-890) |
 
 ### `mcp.session`
 
