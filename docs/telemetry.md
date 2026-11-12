@@ -331,7 +331,7 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
     swapped to;
   - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
     all or States' Reset;
-  - `bind.text` and `bind.visible`, the prop a component's layer uses (`chrome/field-prop.tsx`);
+  - `bind.text`, the prop a component's text layer uses (`chrome/text-prop.tsx`);
   - `slot`, the slot a component's layout is, and `slots.*`, the layers, by id, an instance fills a slot with
     (`chrome/slot-props.tsx`, `chrome/instance-slots.tsx`);
   - `states`, each by id and name (`chrome/StatesSection.tsx`), and `params.*`, a component's prop or variant, a

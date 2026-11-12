@@ -433,7 +433,7 @@ interface UpdateChange {
   alt?: string | null
   credit?: ImageCredit | null
   /** Binds a field to one of the component's params, or with `null` unbinds it, in the base design only. */
-  bind?: { text?: string | null; visible?: string | null; props?: Record<string, string | null> }
+  bind?: { text?: string | null; props?: Record<string, string | null> }
 }
 ```
 

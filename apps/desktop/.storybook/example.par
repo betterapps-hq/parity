@@ -988,9 +988,6 @@
                         {
                           "id": "TxhOz",
                           "name": "Popular",
-                          "bind": {
-                            "visible": "showPopular"
-                          },
                           "type": "component",
                           "component": "Badge",
                           "props": {
@@ -5941,9 +5938,6 @@
                               {
                                 "id": "EaCl2",
                                 "name": "Rising",
-                                "bind": {
-                                  "visible": "showRising"
-                                },
                                 "type": "component",
                                 "component": "lucide/TrendingUp",
                                 "props": {
@@ -5953,9 +5947,6 @@
                               {
                                 "id": "ysAqF",
                                 "name": "Falling",
-                                "bind": {
-                                  "visible": "showFalling"
-                                },
                                 "type": "component",
                                 "component": "lucide/TrendingDown",
                                 "props": {
@@ -7236,9 +7227,6 @@
                           {
                             "id": "VdmO5",
                             "name": "Web icon",
-                            "bind": {
-                              "visible": "showWebIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Globe",
                             "props": {
@@ -7248,9 +7236,6 @@
                           {
                             "id": "XkS7Q",
                             "name": "Mobile icon",
-                            "bind": {
-                              "visible": "showMobileIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Smartphone",
                             "props": {
@@ -7260,9 +7245,6 @@
                           {
                             "id": "CQNJ7",
                             "name": "Billing icon",
-                            "bind": {
-                              "visible": "showBillingIcon"
-                            },
                             "type": "component",
                             "component": "lucide/CreditCard",
                             "props": {
@@ -7272,9 +7254,6 @@
                           {
                             "id": "J6pWW",
                             "name": "Design icon",
-                            "bind": {
-                              "visible": "showDesignIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Palette",
                             "props": {
@@ -7284,9 +7263,6 @@
                           {
                             "id": "sm95n",
                             "name": "Portal icon",
-                            "bind": {
-                              "visible": "showPortalIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Building2",
                             "props": {
@@ -7296,9 +7272,6 @@
                           {
                             "id": "hpTLc",
                             "name": "Launch icon",
-                            "bind": {
-                              "visible": "showLaunchIcon"
-                            },
                             "type": "component",
                             "component": "lucide/Megaphone",
                             "props": {

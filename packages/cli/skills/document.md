@@ -413,9 +413,9 @@ applied in every mode on that viewport:
 ## Params and bindings
 
 Inside a component design, a node's `bind` takes its values from the component's params, so each instance shows its own:
-`bind.text` names a text param, `bind.props` maps a prop to a param, and `bind.visible` names a boolean param that shows
-or hides the node. `ExtractComponent` sets all of this up from the occurrences it replaces; for a component built once,
-`CreateDesign` takes `params` and `AddParam` adds one (see execute.md).
+`bind.text` names a text param and `bind.props` maps a prop to a param. Whether a node shows isn't bound: hide it in a
+state or a variant option, or with an instance's override. `ExtractComponent` sets all of this up from the occurrences
+it replaces; for a component built once, `CreateDesign` takes `params` and `AddParam` adds one (see execute.md).
 
 ```json
 { "type": "text", "text": "Revenue", "bind": { "text": "label" } }

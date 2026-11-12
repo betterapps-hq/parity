@@ -132,7 +132,6 @@ export const updateChange = z.strictObject(
     bind: z
       .strictObject({
         text: z.string().nullish(),
-        visible: z.string().nullish(),
         props: z.record(z.string(), z.string().nullable()).optional()
       })
       .optional()

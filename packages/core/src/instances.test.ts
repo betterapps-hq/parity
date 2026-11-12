@@ -352,24 +352,20 @@ describe("detach and swap", () => {
   })
 })
 
-/** A stat card that shows a trend icon for each direction, picked by two boolean params, as the example's does. */
+/** A stat card with a trend icon for each direction, the falling one hidden. */
 const statCard: ContainerSpec = {
   id: "stat-card",
   name: "Stat card",
   kind: "component",
   position: { x: 0, y: 0 },
-  params: {
-    label: { type: "text", default: "Revenue" },
-    showRising: { type: "boolean", default: true },
-    showFalling: { type: "boolean", default: false }
-  },
+  params: { label: { type: "text", default: "Revenue" } },
   root: {
     type: "layout",
     id: "card",
     children: [
       { type: "text", id: "label", text: "Revenue", bind: { text: "label" } },
-      { type: "component", id: "rising", component: "TrendingUp", bind: { visible: "showRising" } },
-      { type: "component", id: "falling", component: "TrendingDown", bind: { visible: "showFalling" } }
+      { type: "component", id: "rising", component: "TrendingUp" },
+      { type: "component", id: "falling", component: "TrendingDown", hidden: true }
     ]
   },
   states: [
@@ -379,32 +375,6 @@ const statCard: ContainerSpec = {
 }
 
 describe("a component's board", () => {
-  const stats = componentLibrary([statCard])
-
-  const dashboard: ContainerSpec = {
-    id: "dashboard",
-    name: "Dashboard",
-    position: { x: 0, y: 0 },
-    root: {
-      type: "layout",
-      id: "page",
-      children: [
-        { type: "instance", id: "revenue", design: "stat-card" },
-        { type: "instance", id: "churn", design: "stat-card", args: { showRising: false, showFalling: true } }
-      ]
-    }
-  }
-
-  it("shows the trend icon its params select, as its instances do", () => {
-    const board = render(statCard, designStates(statCard)[0], stats)
-    expect(rendered(board, "rising")).toBeDefined()
-    expect(rendered(board, "falling")).toBeUndefined()
-    const screen = render(dashboard, designStates(dashboard)[0], stats)
-    expect(rendered(screen, "revenue/falling")).toBeUndefined()
-    expect(rendered(screen, "churn/falling")).toBeDefined()
-    expect(rendered(screen, "churn/rising")).toBeUndefined()
-  })
-
   it("shows a bound text's default, and an edit to it in the design changes the default", () => {
     expect(textOf(render(badge), "label")).toBe("New")
     const edited = editNode(badge, "default", "label", { text: "Fresh" })
@@ -436,12 +406,11 @@ describe("a component's board", () => {
 })
 
 describe("hiding a layer in a state", () => {
-  it("reads whether the board hides it, through the params it binds", () => {
-    // Falling shows nothing on the board, since showFalling is off: Hide or show shows it, and turns the default on.
+  it("shows on the board what the design hides, and hides it again", () => {
     const shown = toggleHidden(statCard, "default", ["falling"])
-    expect(shown.params?.showFalling).toEqual({ type: "boolean", default: true })
+    expect(findNode(shown.root, "falling")).not.toHaveProperty("hidden")
     expect(rendered(render(shown, designStates(shown)[0], componentLibrary([shown])), "falling")).toBeDefined()
-    expect(toggleHidden(shown, "default", ["falling"]).params?.showFalling?.default).toBe(false)
+    expect(findNode(toggleHidden(shown, "default", ["falling"]).root, "falling")?.hidden).toBe(true)
   })
 
   it("shows in a state what the board hides there, and hides it again", () => {

@@ -218,8 +218,7 @@ const nodePatches = z.record(z.string(), nodePatch)
 
 const nodeBinding = fileObject({
   text: z.string().optional(),
-  props: z.record(z.string(), z.string()).optional(),
-  visible: z.string().optional()
+  props: z.record(z.string(), z.string()).optional()
 })
 
 export type NodeBinding = z.infer<typeof nodeBinding>
@@ -243,7 +242,7 @@ const nodeBase = fileObject({
   responsive: nodePatches.optional(),
   /**
    * Inside a component design: which of this node's values come from the component's params, so each instance can
-   * show its own. `text` and `props` name a param; `visible` names a boolean param that shows or hides the node.
+   * show its own. `text` and `props` name a param.
    */
   bind: nodeBinding.optional()
 })
