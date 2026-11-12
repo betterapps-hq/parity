@@ -466,9 +466,8 @@ export class Workspace {
     if (copy) {
       const choice = await askToRestore({ keptAt: new Date(copy.keptAt).toISOString() })
 
-      // A tab closed while it was asked keeps its copy for the next open. The tab's session is copied as its guest
-      // moves or detection settles, but keeps its store.
-      if (this.getTab(session.id)?.session?.store !== session.store) {
+      // A tab closed or reopened while it was asked keeps its copy for the next open: it has no session, or a new one.
+      if (this.getTab(session.id)?.session !== session) {
         return
       }
 

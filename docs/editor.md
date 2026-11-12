@@ -2640,6 +2640,7 @@ Tests:
   the code names, dropping files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
+- `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
