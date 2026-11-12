@@ -16,8 +16,10 @@ const projects = (await readdir(fixturesDir, { withFileTypes: true }))
  * Level 1 of the validation projects (docs/support.md): Parity's detection on each project in `fixtures/`, compared
  * with the `expected.json` committed beside it. Gaps are recorded as they are, so a change to detection shows here as
  * a diff. When detection gets better, `pnpm vitest run packages/fixtures -u` rewrites the files; review the diff.
+ * It runs only in CI, which installs the projects with npm, Yarn and Bun: they're a cross-compatibility check, not
+ * something to install locally.
  */
-describe("detection snapshot", { timeout: 120_000 }, () => {
+describe.skipIf(!process.env.CI)("detection snapshot", { timeout: 120_000 }, () => {
   it.each(projects)("%s", async (name) => {
     const source = join(fixturesDir, name)
 

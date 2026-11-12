@@ -164,8 +164,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   Parity, since a public repository's runners are free on all three and Parity is developed on Windows. It sets up Vite+
   through `voidzero-dev/setup-vp`, pinned to an exact release, since its docs say the `v1` tag no longer gets updates.
 - **Parity's own steps go before it:** installing the fixture projects with npm, Yarn and Bun
-  (`pnpm --filter @parity-app/fixtures install-projects`), cached on their lockfiles. Without them `detection.test.ts`
-  fails.
+  (`pnpm --filter @parity-app/fixtures install-projects`), cached on their lockfiles. `detection.test.ts` runs only in
+  CI, so a local `pnpm verify` skips it rather than needing them.
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
 - **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions (PAR-394). The shared
