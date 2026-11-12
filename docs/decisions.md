@@ -1966,6 +1966,18 @@ recommended answer to each of its questions.
   "Content is wider than the frame" now shows only when no node accounts for it. The old "wider than the frame" finding
   on each node is replaced by frame overflow, which also catches a node pushed out by its position.
 
+- **What a container scrolls to isn't a problem** (PAR-904). A row of seven day buttons with `overflow: "scroll"` in a
+  390px frame had each button past its edge reported as clipped, so the page could never get a clean `problems` run,
+  though the advice for a spill is to give the parent a scroll. An ancestor whose overflow is `scroll` or `auto` on an
+  axis doesn't cut off what reaches past it on that axis: Measure gives such a node `inView`, its box trimmed to that
+  ancestor's on the axes it scrolls, and the layout checks judge that part. So a day past the row's edge is neither
+  clipped, nor sticking out of the frame, nor spilling out of the row.
+  - **`hidden` and `clip` still cut off.** Only the axis that's cut counts: a node past the bottom of a row that scrolls
+    sideways and hides vertical overflow is still clipped. CSS turns a `visible` axis beside a scrolling or hidden one
+    into `auto`, so that axis scrolls too, as the browser draws it.
+  - **The scrolling container is still checked** as any node is. A row that scrolls but is itself wider than the frame
+    sticks out of it, and that's reported on the row; its days go no further, so they're left out.
+
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's

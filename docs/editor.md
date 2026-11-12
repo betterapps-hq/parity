@@ -6193,7 +6193,7 @@ Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
 
-### Which node overflows what (PAR-456, PAR-886)
+### Which node overflows what (PAR-456, PAR-886, PAR-904)
 
 Agents' `Measure` gives each node's box with the node it's drawn inside (`parent`), the ancestor that clips it when one
 cuts it off (`clip`, with its box), whether the layout leaves its box alone (`outOfFlow`), what's squeezed narrower than
@@ -6210,9 +6210,14 @@ the frame, is described under Popups draw inside their frame.
   card's corner does.
 - `squeezed` gives how wide the node, or an element its component draws, is drawn and how wide its width makes it, as
   "its sidebar-gap element is drawn 134px wide, 122px narrower than its 256px width, squeezed by what's beside it".
+- What an ancestor scrolls to isn't a problem. A node reaching past an ancestor whose overflow is `scroll` or `auto` on
+  that axis has `inView`, its box trimmed to that ancestor's, and only that part is checked, so the days of a row that
+  scrolls sideways aren't clipped, past the frame or spilling out of the row. `hidden` and `clip` still cut off, and the
+  row itself is checked like any node.
 
-The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node overflows"
-and "Problems reports a squeezed node and content spilling out of its parent".
+The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node
+overflows", "Problems reports a squeezed node and content spilling out of its parent" and "What a container scrolls to
+isn't a problem".
 
 Code: `layoutFindings`, `describeLayoutFinding` and `describeSqueeze` in `packages/agent/src/overflow.ts`, used by
 `frameProblems` in `packages/agent/src/frames.ts`; `clipper`, `nodeParent` and `addSqueezes` in
@@ -6221,12 +6226,13 @@ node; `describeProblems` in `packages/cli/src/client.ts` and the problems schema
 
 Tests:
 
-- `packages/agent/src/overflow.test.ts` (17): a node narrower than the frame that its position takes past the right
+- `packages/agent/src/overflow.test.ts` (19): a node narrower than the frame that its position takes past the right
   edge; the half-pixel tolerance; a positioned badge past a parent that doesn't clip isn't reported; a table spilling
   out of its card is, without its rows; a spill inside an ancestor that clips without cutting it, and a cut where one
   does; nested clipping names the nearest ancestor at each level; a clipping element outside the layers; children going
   no further than their reported parent left out, one going further kept; a bottom edge only with a fixed height; nodes
-  drawn at no size; the sentences, for spilling and squeezing too.
+  drawn at no size; days past the edge of a row that scrolls left out, while the row sticking out of the frame and a
+  hidden overflow's cut are still found; the sentences, for spilling and squeezing too.
 - `packages/agent/src/frames.test.ts` (4 of its 7): a clean frame, then a render error, an unknown component and a node
   past the edge named by its layer, a squeezed node with both widths, and content wider than the frame that no node
   accounts for.

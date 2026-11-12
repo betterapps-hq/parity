@@ -187,7 +187,11 @@ window.canvasRender = async (job) => {
         measured.source = written
       }
 
-      const clip = clipper(element, rect, body)
+      const { clip, inView } = clipper(element, rect, body)
+
+      if (inView) {
+        measured.inView = inFrame(inView)
+      }
 
       if (clip) {
         const by = nodeOfElement(host, clip)
@@ -483,11 +487,33 @@ function contrastOf(checks: CheckResult[]): ContrastDetail | undefined {
 /** Half a CSS pixel, for subpixel layout: the agent's `overflowTolerance`, which judges what this reports. */
 const overflowTolerance = 0.5
 
-/** The nearest ancestor that hides overflow and cuts part of the element off, past `overflowTolerance`. */
-function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLElement | undefined {
+/** Whether an axis's `overflow` scrolls, so what reaches past it is scrolled to rather than cut off (PAR-904). */
+function scrolls(overflow: string): boolean {
+  return overflow === "scroll" || overflow === "auto"
+}
+
+/** What `clipper` finds of an element: the ancestor that cuts it off, and its part in view past ancestors that scroll. */
+interface Clipping {
+  clip?: HTMLElement
+  inView?: DOMRect
+}
+
+/**
+ * The nearest ancestor that hides overflow and cuts part of the element off, past `overflowTolerance`, and the part of
+ * the element left in view where it reaches past ancestors that scroll (PAR-904). An ancestor whose overflow scrolls on
+ * an axis doesn't cut off what reaches past it on that axis, since it's scrolled to; the element is trimmed to that
+ * ancestor's box on that axis before the ancestors further out are checked. `hidden` and `clip` still cut it off.
+ */
+function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): Clipping {
   if (rect.width === 0 || rect.height === 0) {
-    return undefined
+    return {}
   }
+
+  const view = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+  let scrolled = false
+
+  const inView = () =>
+    scrolled ? new DOMRect(view.left, view.top, view.right - view.left, view.bottom - view.top) : undefined
 
   for (let parent = element.parentElement; parent && parent !== body; parent = parent.parentElement) {
     const style = getComputedStyle(parent)
@@ -497,18 +523,36 @@ function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLEl
     }
 
     const outer = parent.getBoundingClientRect()
+    const pastX = view.left < outer.left - overflowTolerance || view.right > outer.right + overflowTolerance
+    const pastY = view.top < outer.top - overflowTolerance || view.bottom > outer.bottom + overflowTolerance
 
-    if (
-      rect.left < outer.left - overflowTolerance ||
-      rect.right > outer.right + overflowTolerance ||
-      rect.top < outer.top - overflowTolerance ||
-      rect.bottom > outer.bottom + overflowTolerance
-    ) {
-      return parent
+    if ((pastX && !scrolls(style.overflowX)) || (pastY && !scrolls(style.overflowY))) {
+      return { clip: parent, inView: inView() }
+    }
+
+    if (pastX) {
+      const [left, right] = within(view.left, view.right, outer.left, outer.right)
+      view.left = left
+      view.right = right
+      scrolled = true
+    }
+
+    if (pastY) {
+      const [top, bottom] = within(view.top, view.bottom, outer.top, outer.bottom)
+      view.top = top
+      view.bottom = bottom
+      scrolled = true
     }
   }
 
-  return undefined
+  return { inView: inView() }
+}
+
+/** The span from `start` to `end` kept within `from` to `to`, an empty one at the nearer end when it's all outside. */
+function within(start: number, end: number, from: number, to: number): [number, number] {
+  const kept = Math.min(Math.max(start, from), to)
+
+  return [kept, Math.max(Math.min(end, to), kept)]
 }
 
 /**
