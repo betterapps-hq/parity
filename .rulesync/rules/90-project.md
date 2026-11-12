@@ -13,8 +13,8 @@ Project-specific requirements below take precedence over shared recommendations 
 - **Work comes from the Parity project in Linear** (team PAR), as [docs/work.md](docs/work.md) says. Look there before
   starting, mark the issue In Progress before writing code, name it in every commit and pull request, and close it with
   what landed once the work is on main. `docs/backlog.md` is gone; don't recreate it.
-- **What's decided is in [docs/decisions.md](docs/decisions.md)** and what works with which tools in
-  [docs/support.md](docs/support.md). Designs still being decided are in [docs/proposals](docs/proposals).
+- **What works with which tools is in [docs/support.md](docs/support.md).** Designs still being decided are in
+  [docs/proposals](docs/proposals).
 - **Editor features are described in [docs/editor.md](docs/editor.md),** each with the tests that cover it. When you add
   or change one, add its tests and update its section in the same commit.
 - **Logic goes in packages that take data and return data,** with tests that run without Electron, as

@@ -1,14 +1,14 @@
 import { ImageOff } from "lucide-react"
 import { type CSSProperties, useState } from "react"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectInfo } from "../../shared/protocol.ts"
 import { notePictureSize } from "./picture-sizes.ts"
 
 /**
  * Where the window finds one of the project's pictures. A layer names a file by its path in `public/`, which the
  * project's builder serves, as the canvas's guest finds it; a linked photo is at its own address.
  */
-export function pictureUrl(session: ProjectSession, src: string): string {
-  return new URL(src, new URL(session.info.guestUrl).origin).href
+export function pictureUrl(info: ProjectInfo, src: string): string {
+  return new URL(src, new URL(info.guestUrl).origin).href
 }
 
 /**

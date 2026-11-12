@@ -51,7 +51,7 @@ export interface ConnectorHubOptions {
 
 /**
  * A service that runs connectors' searches with keys it holds, so a shipped copy can search a source without a key of
- * its own, as Parity's own service is planned to (decisions.md). It runs the same adapters, so its answers are the same
+ * its own, as Parity's own service is planned to. It runs the same adapters, so its answers are the same
  * shape, and the hub sends it a search just as it would run one itself.
  */
 export interface SearchService {

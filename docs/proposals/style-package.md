@@ -1,12 +1,11 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). All six steps are built: the package holds the stored style and
-`declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the stored style's form, with keys
-named after their CSS properties (PAR-941, in [editor.md](../editor.md), The stored style), the adapter contract, which
-`@parity-app/styles-tailwind` implements (PAR-943), the plain CSS printer and reader (PAR-944), and frames draw from
-rules and compiled classes (PAR-942, in [editor.md](../editor.md), Rendering frames). It sets where the rules for what a
-layer's style means live, so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one
-set.
+Agreed on 2026-11-11. All six steps are built: the package holds the stored style and `declarations`, which render calls
+(PAR-939), the ledger and `validate` (PAR-940), the stored style's form, with keys named after their CSS properties
+(PAR-941, in [editor.md](../editor.md), The stored style), the adapter contract, which `@parity-app/styles-tailwind`
+implements (PAR-943), the plain CSS printer and reader (PAR-944), and frames draw from rules and compiled classes
+(PAR-942, in [editor.md](../editor.md), Rendering frames). It sets where the rules for what a layer's style means live,
+so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one set.
 
 ## In one line
 
@@ -56,8 +55,8 @@ Nothing checks that the three agree, and a project without Tailwind has only the
 
 This page builds on decisions it doesn't reopen:
 
-- **One stored key per CSS property** (call 4 of PAR-652, [decisions.md](../decisions.md)): a property is owned by one
-  key, and the CSS map holds the rest.
+- **One stored key per CSS property** (call 4 of PAR-652): a property is owned by one key, and the CSS map holds the
+  rest.
 - **A layer can hold its own values, checked before they're stored** (call 1 of PAR-652): a typed value must parse as
   its type and be one the browser accepts for the property.
 - **Not every project uses Tailwind, and the panel mustn't overfit to it** (call 7 of PAR-652). PAR-708 maps the

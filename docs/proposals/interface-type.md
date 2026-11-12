@@ -1,11 +1,10 @@
 # Proposal: easier-to-read interface type
 
-Status: built, 2026-11-08 (PAR-710). Andrew chose Inter over Geist and approved the rest on 2026-11-08
-([decisions.md](../decisions.md#the-interface-is-set-in-inter-par-709)), but for the weights, which wait for the check
-in [Open: the weights](#open-the-weights); font smoothing waits with them. What was built, and the calls made building
-it, are in [decisions.md](../decisions.md#the-interface-type-is-built-into-the-app-par-710); the roles are described in
-[typography.md](../typography.md), which is the reference from here on. The lint rule under "Holding to it" is PAR-729.
-The comparison stories and their stylesheet were removed with the build; Parity/Type/Scale draws every role.
+Status: built, 2026-11-08 (PAR-710). Andrew chose Inter over Geist and approved the rest on 2026-11-08, but for the
+weights, which wait for the check in [Open: the weights](#open-the-weights); font smoothing waits with them. The roles
+are described in [typography.md](../typography.md), which is the reference from here on. The lint rule under "Holding to
+it" is PAR-729. The comparison stories and their stylesheet were removed with the build; Parity/Type/Scale draws every
+role.
 
 ## In one line
 

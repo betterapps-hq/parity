@@ -16,6 +16,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import {
+  type ProjectDesigns,
   type ProjectSession,
   useActiveTabId,
   useHomeActive,
@@ -112,7 +113,7 @@ function repeatInsert(key: string): void {
   const session = activeSession()
 
   if (session) {
-    insertOption(session, offerOf(session, session.store.getEntries()), key)
+    insertOption(session, offerOf(session.info, session.store.getEntries()), key)
   }
 }
 
@@ -202,7 +203,9 @@ function commandItems(): Item[] {
 }
 
 /** The open project's designs, their layers, the components it can insert and its tokens. */
-function projectItems(session: ProjectSession): Item[] {
+function projectItems(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">
+): Item[] {
   const entries = session.store.getEntries()
   const library = session.store.getComponentLibrary()
   const items: Item[] = []
@@ -245,7 +248,7 @@ function projectItems(session: ProjectSession): Item[] {
     })
   }
 
-  const offer = offerOf(session, entries)
+  const offer = offerOf(session.info, entries)
 
   for (const option of offer.options) {
     if (option.origin === "basic" || option.hidden) {
@@ -288,7 +291,10 @@ function projectItems(session: ProjectSession): Item[] {
 }
 
 /** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
-function gatherItems(session: ProjectSession | undefined, projects: readonly { root: string; name: string }[]): Item[] {
+function gatherItems(
+  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">) | undefined,
+  projects: readonly { root: string; name: string }[]
+): Item[] {
   return [
     ...commandItems(),
     ...extras,

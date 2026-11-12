@@ -1,9 +1,8 @@
 # Sentry
 
 Where Parity's own telemetry goes, how Sentry is set up for it, and what was done by hand. The plan for what's sent is
-[proposals/product-telemetry.md](proposals/product-telemetry.md), and the calls are in
-[decisions.md](decisions.md#sentry-is-set-up-in-better-apps-by-hand-par-617). What it all collects, and who sees it, is
-in [telemetry-coverage.md](telemetry-coverage.md).
+[proposals/product-telemetry.md](proposals/product-telemetry.md). What it all collects, and who sees it, is in
+[telemetry-coverage.md](telemetry-coverage.md).
 
 ## The organisation
 
@@ -64,7 +63,7 @@ for 7 days; [telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) say
 ## Releases and source maps
 
 Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
-source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-release-with-its-source-maps-par-625).
+source.
 
 | Build                                 | Release                 | Source maps                                                       |
 | ------------------------------------- | ----------------------- | ----------------------------------------------------------------- |
@@ -130,9 +129,7 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 ## Alerts
 
 Six alerts file Linear bugs with Linear's "Create a Linear issue": team Parity, project Parity, status Todo, label Bug.
-Five file with no priority, and "Email critical monitor breaches" files at Urgent and emails too. The calls behind them
-are in [decisions.md](decisions.md#sentry-files-linear-bugs-par-622) and
-[decisions.md](decisions.md#sentry-watches-agent-failures-and-crash-free-sessions-par-643).
+Five file with no priority, and "Email critical monitor breaches" files at Urgent and emails too.
 
 | Alert                                                                                                           | Fires on                                                    | For                                                 | At most        |
 | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------- | -------------- |

@@ -1,6 +1,6 @@
 # Proposal: which layers get which controls (PAR-892)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)).
+Agreed on 2026-11-11.
 
 PAR-186 settled every styling control in Storybook. PAR-892 builds them into the Design tab. This page proposes the one
 table that picks a layer's sections and controls, and the order to build them in. It updates the table in

@@ -34,6 +34,7 @@ import {
 import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
+import type { Editor } from "tldraw"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameGeometry, frameSize } from "../canvas/frame-geometry.ts"
@@ -43,7 +44,6 @@ import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
-import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
@@ -474,13 +474,13 @@ function LayerSections({
         />
       )}
 
-      {node.type === "component" && hasStories(session, node.component) && (
+      {node.type === "component" && hasStories(session.info, node.component) && (
         <div className="px-4 pb-2">
           <Button
             variant="outline"
             size="sm"
             className="w-full"
-            onClick={() => void openInStorybook(session, node.component)}
+            onClick={() => void openInStorybook(session.id, node.component)}
           >
             <BookOpen /> Open {node.component} in Storybook
           </Button>
@@ -855,12 +855,12 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
 
 /** A node's rendered size in layout pixels, in the frame it was picked in. */
 export function measureNode(
-  session: ProjectSession,
+  editor: Editor | undefined,
   design: string,
   nodeId: string,
   picked: { mode?: string; state?: string }
 ): { width: number; height: number } | undefined {
-  const area = session.editor?.getContainer().closest(".canvas-area")
+  const area = editor?.getContainer().closest(".canvas-area")
   const host = area ? selectionFrame(area, design, picked) : undefined
   const rect = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.rect : undefined
 

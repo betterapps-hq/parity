@@ -85,7 +85,7 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
         variant="outline"
         size="sm"
         className="mt-3 w-full"
-        onClick={() => void exportLayers(session, targets, sizes)}
+        onClick={() => void exportLayers(session.id, targets, sizes)}
       >
         <Download /> {label}
       </Button>
