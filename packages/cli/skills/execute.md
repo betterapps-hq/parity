@@ -25,6 +25,10 @@ held.
 - A snippet has 5 seconds of computing time. Rendering (screenshots and checks) doesn't count against it.
 - To retry a failed snippet, send `editId` with `edits`, each an exact `{ find, replace }` on the snippet text (`all` to
   replace every match). Omitted edits default to an empty list. Do not send a new snippet with `editId`.
+- The result lists every node you created with a `name` under "Created". A snippet that builds a whole screen can name a
+  hundred. Send `quiet: true` (`parity exec --quiet`) to leave them out: you still get whether it worked, the `editId`
+  to retry with, the output, warnings and suggestions, and the designs it created under "Designs created". Name nodes by
+  `design/name` in later snippets instead of their ids.
 - Both CLI and MCP validate the same request: a nonblank snippet or `editId`, nonblank label and tab when supplied, and
   patches with a nonempty `find`, string `replace` (which can be empty), and optional boolean `all`. Invalid requests
   are rejected before reaching the app.
@@ -119,7 +123,7 @@ A design is named by its id or its name. A node is named by `design/node`, where
 by its id alone when only one design has that id. A path never lists the node's parents: `profile/heading`, not
 `profile/page/heading`. Only `Update`, and `Get` with a `state` or `mode`, go further, to a layer inside an instance.
 Names aren't unique, so prefer ids once you have them; `Insert`, `Copy` and `CreateDesign` return them, and nodes you
-create with a `name` are listed under "Created" in the result.
+create with a `name` are listed under "Created" in the result, unless you send `quiet`.
 
 A state is named by its id only, as `Designs()` lists it and `AddState` returns it. A state's name in its place fails
 with `unknown_state`, and the error names the id it belongs to.
