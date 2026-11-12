@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 11 Nov 2026 11:07:57 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 00:08:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.46.0
+
+Thu, 12 Nov 2026 00:08:16 GMT
+
+### Minor changes
+
+- Effects: a stack of shadows, layer and background filters, and a transform, edited in the Design tab's Effects section
+  and by the agent. Text case is now textTransform. (ajcraswell@gmail.com)
+- Set a layer's order (z-index): a whole number or a z-index token, in the document, the render, the agent's tools and
+  the Design panel's Layer order section (ajcraswell@gmail.com)
 
 ## 0.45.0
 
