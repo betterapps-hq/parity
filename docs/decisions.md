@@ -3677,6 +3677,37 @@ longer wake the measuring PAR-522 set up; the overlay follows the camera on its 
   measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
   through every zoom.
 
+## One reading of a frame for every gesture (PAR-967)
+
+The architecture review of 2026-11-11 found screen pixels per design pixel worked out three ways in thirteen places, and
+one drag mixing two of them (see editor.md, One reading of a frame for every gesture). `canvas/frame-geometry.ts` now
+answers for a frame host. My calls:
+
+- **Read from the DOM, not the camera.** The scale is the frame's drawn width over its laid out width. The camera's zoom
+  times `data-scale` was cheaper but disagrees with the boxes it's used beside until tldraw has drawn the camera, and
+  tldraw writes the camera rounded, so it's off at far zooms too. `editor.getZoomLevel()` stays only where there's no
+  frame to read: drawing a new frame on the canvas, boards, labels and the zoom control. The host's `data-scale` is
+  gone.
+- **Screen pixels throughout, converted once.** Boxes come back in screen pixels, as pointer events, hit testing and
+  tldraw's `screenToPage` speak, and `areaSpace` takes them to the overlay's pixels where it draws. Answering in the
+  overlay's pixels with the area passed in was rejected: every gesture would mix two spaces.
+- **Lazy and kept by nobody.** A `FrameGeometry` reads only what's asked of it, when it's asked, and keeps nothing, so
+  the overlay still chooses what to measure (PAR-577) and nothing is cached in page units (PAR-653). A gesture that
+  wants the frame as it began keeps the numbers it read.
+- **An app module, with its arithmetic apart.** It reads the DOM, so it's the app's. The sums are exported functions
+  tested from numbers, and what gestures make of it, `layer-measure.ts`, takes the geometry as plain boxes, so the
+  consumers are tested in Node. One Chrome suite reads a real frame across zoom, frame scale and a transform.
+- **A node's own scale includes its transforms,** read as its border box on screen over its computed size, which is
+  exact. The text editor and padding handles used `rect.width / offsetWidth`, which rounds to the pixel and ignored a
+  layer turned on its side; one turned or stretched unevenly now takes the frame's scale.
+- **A containing block outside the frame is measured at the frame's scale.** A layer placed absolutely with nothing
+  positioned around it in the design has the frame's outline, `.mode-frame`, as its `offsetParent`, and the frame's
+  `zoom` doesn't scale that outline. Read at its own scale, a companion frame at half size gave half the insets. A
+  review of this change found it before it merged.
+- **Frame skeletons keep their own ratio for now.** `measureFrame` in `canvas/frame-skeletons.ts` divides the frame's
+  drawn width by its width too, but PAR-954 and PAR-955, in progress, work on frames' bitmaps and skeletons, so it moves
+  over in PAR-996 once they land.
+
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
 The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in

@@ -161,8 +161,3 @@ export function nodeInFrames(area: ParentNode, design: string, node: string, pic
     })
     .sort((a, b) => Number(b.picked) - Number(a.picked))
 }
-
-/** The scale a frame is drawn at relative to its own layout (companion modes are shrunk). */
-export function frameScale(host: HTMLElement): number {
-  return Number(host.dataset.scale ?? "1") || 1
-}
