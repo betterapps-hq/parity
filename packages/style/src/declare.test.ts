@@ -8,6 +8,7 @@ const inRow: StyleContext = { kind: "component", parent: "row" }
 const inColumn: StyleContext = { kind: "component", parent: "column" }
 const layout: StyleContext = { kind: "layout" }
 const text: StyleContext = { kind: "text" }
+const inlineText: StyleContext = { kind: "text", inline: true }
 
 /** What a layout draws before any key is set. */
 const flexBox = [
@@ -246,7 +247,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
 
   [
-    "position, placed against its parent's edges",
+    "position, placed against its parent's edges, stretching between both edges whatever size its classes give it",
     { position: "absolute", top: 0, right: 4, bottom: "inset", left: 2 },
     component,
     [
@@ -254,7 +255,20 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["top", "0", "top"],
       ["right", "calc(var(--spacing) * 4)", "right"],
       ["bottom", "var(--inset)", "bottom"],
-      ["left", "calc(var(--spacing) * 2)", "left"]
+      ["left", "calc(var(--spacing) * 2)", "left"],
+      ["width", "auto", "right"],
+      ["height", "auto", "bottom"]
+    ]
+  ],
+  [
+    "a component placed between both edges keeps a width it's given",
+    { position: "absolute", left: 4, right: 0, width: 20 },
+    component,
+    [
+      ["width", "calc(var(--spacing) * 20)", "width"],
+      ["position", "absolute", "position"],
+      ["right", "0", "right"],
+      ["left", "calc(var(--spacing) * 4)", "left"]
     ]
   ],
   ["edges without a position write nothing", { top: 4, left: 4 }, component, []],
@@ -401,6 +415,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ["textTransform", { textTransform: "uppercase" }, component, [["text-transform", "uppercase", "textTransform"]]],
   ["decoration", { decoration: "line-through" }, component, [["text-decoration-line", "line-through", "decoration"]]],
   ["italic", { italic: true }, component, [["font-style", "italic", "italic"]]],
+  ["overflowWrap", { overflowWrap: "anywhere" }, component, [["overflow-wrap", "anywhere", "overflowWrap"]]],
   ["what's switched off writes nothing", { italic: false, wrap: false, grow: false }, layout, flexBox],
 
   [
@@ -433,6 +448,50 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["-webkit-box-orient", "vertical", "lines"],
       ["-webkit-line-clamp", "3", "lines"],
       ["overflow", "hidden", "lines"]
+    ]
+  ],
+  [
+    "inline text given a maximum width draws as a block",
+    { maxWidth: 40, lines: 1 },
+    inlineText,
+    [
+      ["margin", "0", "margin"],
+      ["max-width", "calc(var(--spacing) * 40)", "maxWidth"],
+      ["display", "block", "maxWidth"],
+      ["overflow", "hidden", "lines"],
+      ["text-overflow", "ellipsis", "lines"],
+      ["white-space", "nowrap", "lines"]
+    ]
+  ],
+  [
+    "inline text aligned draws as a block",
+    { textAlign: "end" },
+    inlineText,
+    [
+      ["margin", "0", "margin"],
+      ["text-align", "end", "textAlign"],
+      ["display", "block", "textAlign"]
+    ]
+  ],
+  [
+    "inline text cut off after several lines keeps the box that clamps it",
+    { lines: 2 },
+    inlineText,
+    [
+      ["margin", "0", "margin"],
+      ["display", "-webkit-box", "lines"],
+      ["-webkit-box-orient", "vertical", "lines"],
+      ["-webkit-line-clamp", "2", "lines"],
+      ["overflow", "hidden", "lines"]
+    ]
+  ],
+  [
+    "inline text with nothing that needs a box stays inline",
+    { weight: 600 },
+    inlineText,
+    [
+      ["margin", "0", "margin"],
+      ["font-weight", "600", "weight"]
     ]
   ],
   ["lines on anything but text write nothing", { lines: 2 }, component, []],

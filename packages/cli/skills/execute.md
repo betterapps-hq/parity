@@ -322,6 +322,10 @@ const form = Insert("settings/Content", {
 })
 ```
 
+Style keys are in the document reference. Some that trip agents up: a `span` given a width, maximum, `textAlign` or
+`lines: 1` is drawn as a block, so it works in a slot or table cell, and `overflowWrap: "anywhere"` wraps a long word
+such as a web address. An absolutely placed component with `left` and `right` stretches between them.
+
 ### Update
 
 Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style`, `unset`

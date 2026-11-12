@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style breaks long words; an absolutely placed component with left and right stretches between them",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
