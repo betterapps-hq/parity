@@ -7865,6 +7865,29 @@ slots with (PAR-84) were skipped. My calls:
 - **`elide` keeps one difference:** past the depth a layout with nothing in it reads as `[]`, and a slot as `["…"]`
   whatever it holds. That's how code components' slots already read, and changing it belongs with PAR-974.
 
+## A frame's bitmap is current while the files it read hash the same (PAR-994)
+
+Kept bitmaps were named by a fingerprint of the whole project, every file's path, size and modification time, so a
+touch, a branch switch, a worktree, an edit to one component or a dependency update recaptured all 119 of the example's
+frames. You asked for it to be shown that nothing changed instead, through the builder adapter so other builders work
+too, and for the hashes to serve change detection, highlighting and affected tests later. My calls:
+
+- **A trace is taken when a frame is captured and kept inside its bitmap,** as a second text chunk beside its height:
+  each file it read with 16 hex digits of its SHA-256, and a digest of them all. One file per bitmap needs nothing kept
+  in step, and the per-file hashes say which files changed, not just that one did. The trace is hashed before the
+  capture, so a file changed during it leaves the bitmap stale rather than wrongly current.
+- **Files are hashed by content, read again only when their size or modification time moves,** so a lookup costs a
+  `stat` per listed file and a touch keeps the bitmap.
+- **The builder says what modules load, and Parity's scan adds what it finds.** `BuilderSession.loadedFiles` is
+  optional, so a builder without a graph still gets traces from the scan. Vite's walks its module graph by the imports
+  the browser fetches (`staticImportedUrls`), not `importedModules`, which adds every file Tailwind scans and would tie
+  every frame to every file. A frame's Tailwind rules depend on its own classes, so another file adding a class doesn't
+  touch it. The union is the safe side: an extra file costs a capture, a missing one would show old code as current.
+- **The whole lockfile stays in every trace for now.** Reading each package a frame imports by version needs a reader
+  per lockfile format; until then a dependency update recaptures everything, as before.
+- **Traces are built in the service, in `utility/frame-traces.ts`, over `contentReader` and `traceDigest` in
+  `@parity-app/project`,** so visual tests and change highlighting can take traces of their own from the same parts.
+
 ## What a window asks main is one method map (PAR-965)
 
 The window's requests to main were the one link without a method map. Each of 37 handlers was wired by hand in five

@@ -27,6 +27,7 @@ import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
+import { loadedFiles } from "./loaded-files.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
 /** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */
@@ -170,6 +171,7 @@ export const viteBuilder: BuilderAdapter = {
         guestUrl,
         toolVersion: vite.version,
         restyledGuestUrl: (stamp) => restyledGuest(guestUrl, stamp),
+        loadedFiles: (files) => loadedFiles(client.moduleGraph, root, files),
         codeChanges(listener) {
           codeListeners.add(listener)
 

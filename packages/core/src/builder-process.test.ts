@@ -182,6 +182,23 @@ describe("a builder in its own process", () => {
     expect(await plain.restyledGuestUrl?.(9)).toBeUndefined()
   })
 
+  it("asks the builder's process what files modules load, and has no answer from one that can't (PAR-994)", async () => {
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => ({
+      ...(await start(options)),
+      loadedFiles: (files) => Promise.resolve([...files, "src/lib/utils.ts"])
+    })
+
+    const tracing = await connect(builder).client.session
+    expect(await tracing.loadedFiles(["src/button.tsx"])).toEqual(["src/button.tsx", "src/lib/utils.ts"])
+    void tracing.close()
+    expect(await tracing.loadedFiles(["src/button.tsx"])).toBeUndefined()
+
+    const plain = await connect(fakeBuilder().builder).client.session
+    expect(await plain.loadedFiles(["src/button.tsx"])).toBeUndefined()
+  })
+
   it("closes the builder, then the process, and resolves once the process has ended", async () => {
     const { builder, close } = fakeBuilder()
     const { client, exit } = connect(builder)
