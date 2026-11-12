@@ -118,7 +118,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Tailwind `@theme`                          | ✅     | Read and written, including `@theme inline` and `@theme static`.                                                                                                                                                                     |
 | Tailwind keywords (`rounded-full`)         | ◐      | `radius-full` in the radius field is `rounded-full`, unless the project declares `--radius-full`. `GetTokens` lists it as `source: "keyword"`; the inspector's picker doesn't offer it yet. No other keyword.                        |
 | Themes as one class (`.dark`)              | ✅     | Also on the root (`html.dark`, `:root.dark`). `.light` is the default.                                                                                                                                                               |
-| Themes as attributes (`[data-theme]`)      | ◐      | Read, written in place and shown: `[data-theme="dark"]` is the `dark` theme, and a frame in the Dark mode gets `data-theme="dark"` with its `dark` class. On the root (`:root[data-theme]`) it never applies in a frame.             |
+| Themes as attributes (`[data-theme]`)      | ✅     | Read, written in place and shown: `[data-theme="dark"]` is the `dark` theme, and a frame in the Dark mode gets `data-theme="dark"` with its `dark` class. Also on the root (`:root[data-theme]`).                                    |
 | `prefers-color-scheme` blocks              | ✅     | Read, written in place and shown: `(prefers-color-scheme: dark)` around the root is `dark`, below a `.dark` or `[data-theme]` value, and `light` the default. Frames draw it for their mode, not Parity's window.                    |
 | Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                                            |
 | Layer order tokens (`--z-*`)               | ✅     | A custom property named for z-index (`z-`, `zindex-` or `layer-`) that comes to a whole number is offered in Layer order. The render writes it as `z-index: var(--z-overlay)`.                                                       |
@@ -261,6 +261,7 @@ In each column, ● means the feature needs it, and ◐ means the feature is bet
 | Modes: themes                   |            |       |      |             | ●             | A theme class such as `.dark`, or an attribute its option sets |
 | Modes: breakpoints              |            |       |      | ◐           | ●             | Width-only media queries                                       |
 | Spacing and type controls       |            |       |      | ●           | ●             | `--spacing` and the type scale                                 |
+| Fill: gradients and images      |            |       |      |             | ●             | Gradient tokens as CSS variables; images in `public`           |
 | Library components              |            | ●     |      |             |               | A `.lib.par` or a catalog entry                                |
 | Icons                           |            | ●     |      |             |               | `lucide-react`                                                 |
 | Pasted images                   |            |       |      |             |               | The project's `public` folder                                  |
@@ -281,7 +282,8 @@ In each column, ● means the feature needs it, and ◐ means the feature is bet
 
 Not requirements, just work not done yet:
 
-- A theme set by attribute on the root (`:root[data-theme="dark"]`) never shows in a frame.
+- A token the root builds from another (`:root { --card: var(--surface) }`) keeps its light value in a dark frame when
+  the theme sets only `--surface`.
 - Per-component styles (CSS modules, CSS-in-JS) don't reach frames.
 - Library installs are limited to the built-in catalog.
 - A color set over a shadow token shows in the panel but not in frames.

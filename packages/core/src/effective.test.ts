@@ -1,10 +1,11 @@
+import { spacing } from "@parity-app/style"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import { findNode, nodeOnBoard } from "./edit.ts"
 import { effectiveNode, type EffectiveTree, effectiveTree } from "./effective.ts"
 import { effectiveFixture } from "./fixtures.ts"
 import { layerOnBoard, locateInner } from "./instances.ts"
-import { componentLibrary, type RenderNode, resolveDesign, scopeOf, spacing } from "./render.ts"
+import { componentLibrary, type RenderNode, resolveDesign, scopeOf } from "./render.ts"
 
 const { designs, library, viewports, cases } = effectiveFixture
 

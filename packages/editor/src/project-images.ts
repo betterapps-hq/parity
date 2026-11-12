@@ -3,6 +3,8 @@ import {
   type ImageCredit,
   type ImageDetails,
   type InstanceNode,
+  type NodeStyle,
+  paintsOf,
   type StateSpec,
   walkNodes
 } from "@parity-app/core"
@@ -497,10 +499,20 @@ function imageLayers(documents: ImagesInput["documents"]): ImageLayer[] {
         }
       }
 
+      // An image a layer's fill paints (PAR-931).
+      const fromFill = (style: NodeStyle | undefined, node: string) => {
+        for (const paint of paintsOf(style?.background)) {
+          if (paint.kind === "image") {
+            add({ src: paint.src, use: usage(node) })
+          }
+        }
+      }
+
       // A patch map is keyed by the layer it patches, or by `instance/inner` inside an instance.
       const fromPatches = (patches: Patches, owner?: string) => {
         for (const [key, patch] of Object.entries(patches ?? {})) {
           fromProps(patch.props, owner ?? key.split("/")[0] ?? key)
+          fromFill(patch.style, owner ?? key.split("/")[0] ?? key)
         }
       }
 
@@ -524,6 +536,7 @@ function imageLayers(documents: ImagesInput["documents"]): ImageLayer[] {
           fromPatches(node.overrides, node.id)
         }
 
+        fromFill(node.style, node.id)
         fromPatches(node.responsive, node.id)
       })
 

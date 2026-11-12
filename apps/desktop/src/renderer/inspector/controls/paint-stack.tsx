@@ -35,7 +35,7 @@ import {
   ValueField
 } from "./field-parts.tsx"
 import { Field, FieldGrid, SectionButton } from "./field-row.tsx"
-import { addImageFile, DropCover, ImageEditor, useImageDrop } from "./image-fill.tsx"
+import { DropCover, ImageEditor, useImageDrop, useImageSource } from "./image-fill.tsx"
 import {
   CreateTokenNote,
   DescribedOption,
@@ -55,8 +55,6 @@ import {
   type GradientKind,
   type GradientPaint,
   gradientDirections,
-  imageName,
-  imagePreview,
   type ImagePaint,
   type Interpolation,
   type ListColor,
@@ -115,37 +113,41 @@ const kindDetails: Record<PaintKind, string> = {
 /** A gradient's kinds, which the menu at the top of its editor switches between, keeping its stops. */
 const gradientKinds = ["linear", "radial", "angular"] as const satisfies readonly GradientKind[]
 
+/** The colors and image a new fill starts from: the project's own where it has them. */
+interface Starts {
+  colors: readonly ColorToken[]
+  image: string | undefined
+}
+
+/** The first of `names` the project has as a color, or else its first color. */
+const colorAmong = (colors: readonly ColorToken[], names: readonly string[]): string =>
+  names.find((name) => colors.some((token) => token.name === name)) ?? colors[0]?.name ?? names[0]!
+
 /**
  * What a fill of each type starts as, in the project's palette, so it shows on any layer and in either theme, and + can
- * draw it as it'll be: blue-600, or a gradient from white to blue-600, light to dark so its shape shows at a glance
- * (a line, a glow, a sweep), in two stops so it's written as utilities; an image, the project's first.
+ * draw it as it'll be: blue-600 (or the primary color), or a gradient from white (or the background) to it, light to
+ * dark so its shape shows at a glance (a line, a glow, a sweep), in two stops so it's written as utilities; an image,
+ * the project's first.
  */
-function newPaint(kind: PaintKind): Paint {
+function newPaint(kind: PaintKind, { colors, image }: Starts): Paint {
+  const strong = colorAmong(colors, ["blue-600", "primary"])
+
   if (kind === "solid") {
-    return { kind: "solid", color: "blue-600" }
+    return { kind: "solid", color: strong }
   }
 
   if (kind === "image") {
-    return { kind: "image", src: "/images/hero.jpg", fit: "fill", position: [50, 50] }
+    return { kind: "image", src: image ?? "", fit: "fill", position: [50, 50] }
   }
 
   return {
     kind,
     angle: kind === "angular" ? 0 : 90,
     stops: [
-      { id: newId("stop"), position: 0, color: "white" },
-      { id: newId("stop"), position: 100, color: "blue-600" }
+      { id: newId("stop"), position: 0, color: colorAmong(colors, ["white", "background"]) },
+      { id: newId("stop"), position: 100, color: strong }
     ]
   }
-}
-
-/** Each type as + draws it: the fill it adds. */
-const samples: Record<PaintKind, Paint> = {
-  solid: newPaint("solid"),
-  linear: newPaint("linear"),
-  radial: newPaint("radial"),
-  angular: newPaint("angular"),
-  image: newPaint("image")
 }
 
 /**
@@ -153,6 +155,7 @@ const samples: Record<PaintKind, Paint> = {
  * the fill a type in + adds, or the gradient as each kind in its kind menu.
  */
 function PaintSample({ paint, colors }: { paint: Paint; colors: readonly ColorToken[] }) {
+  const { preview: imagePreview } = useImageSource()
   let look: CSSProperties = { backgroundImage: `url("${paint.kind === "image" ? imagePreview(paint.src) : ""}")` }
 
   if (paint.kind === "solid") {
@@ -220,6 +223,7 @@ export function PaintStack({
   openId?: string
 }) {
   const { tokens: colors } = useTokens("color")
+  const images = useImageSource()
   // The fill + just added, whose editor opens as it's drawn, so it's set up straight away.
   const [added, setAdded] = useState<string>()
   const list = entryList(entries, onChange)
@@ -230,11 +234,12 @@ export function PaintStack({
     onChange(mixed ? [entry] : [entry, ...entries])
   }
 
-  const add = (kind: PaintKind) => put(newPaint(kind))
+  const starts: Starts = { colors, image: images.images[0]?.src }
+  const add = (kind: PaintKind) => put(newPaint(kind, starts))
 
   // An image dropped on the section is added to the project and becomes a fill on top, as Figma's does.
   const drop = useImageDrop((file) => {
-    put({ kind: "image", src: addImageFile(file), fit: "fill", position: [50, 50] })
+    void images.add(file).then((src) => put({ kind: "image", src, fit: "fill", position: [50, 50] }))
   })
 
   return (
@@ -250,7 +255,7 @@ export function PaintStack({
               {paintKinds.map((kind) => (
                 <DropdownMenuItem key={kind} className="gap-3 text-xs" onClick={() => add(kind)}>
                   <DescribedOption
-                    glyph={<PaintSample paint={samples[kind]} colors={colors} />}
+                    glyph={<PaintSample paint={newPaint(kind, starts)} colors={colors} />}
                     label={kindNames[kind]}
                     detail={kindDetails[kind]}
                   />
@@ -310,6 +315,7 @@ function PaintRow({
   onRemove: () => void
 }) {
   const { paint } = entry
+  const { preview: imagePreview, name: imageName } = useImageSource()
   const name = `Fill ${index + 1}`
   const setPaint = (next: Paint) => onChange({ paint: next })
 
@@ -958,6 +964,7 @@ function StopsBar({
 
 /** The card drawn with the fills, so translucent fills show the stage's shapes behind. */
 export function PaintPreview({ entries }: { entries: PaintEntry[] }) {
+  const { preview: imagePreview } = useImageSource()
   const { tokens: colors } = useTokens("color")
   const { tokens: gradients } = useTokens("gradient")
   const draw = (value: ListColor) => drawListColor(value, colors)

@@ -238,8 +238,8 @@ export interface ThemeAttributes {
  * class theme does.
  *
  * Only themes `themedProperties` reads count, from rules no condition holds. An attribute on the root
- * (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed: a frame's root is the shadow host, which
- * the mode's attributes don't reach.
+ * (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) counts too, since frames draw a theme on the root on their
+ * body as well (core's `prepareCanvasCss`).
  */
 export function themeAttributes(declarations: readonly CustomPropertyDeclaration[]): ThemeAttributes {
   const themes = new Set(themedProperties(declarations).flatMap(({ values }) => Object.keys(values)))
@@ -253,7 +253,7 @@ export function themeAttributes(declarations: readonly CustomPropertyDeclaration
     for (const part of splitTopLevel(selector, ",")) {
       const theme = compoundTheme(part.trim())
 
-      if (!theme?.name || !theme.attribute || theme.root || !themes.has(theme.name)) {
+      if (!theme?.name || !theme.attribute || !themes.has(theme.name)) {
         continue
       }
 

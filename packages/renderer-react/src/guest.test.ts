@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import ts from "typescript"
 import { describe, expect, it } from "vite-plus/test"
-import { attributesFor, createGuest } from "./guest.ts"
+import { attributesFor, createGuest, withProjectUrls } from "./guest.ts"
 
 const cog = () => null
 const bell = () => null
@@ -165,5 +165,22 @@ describe("what the guest loads", () => {
     const loaded = packagesLoaded(createRequire(import.meta.url).resolve("./guest.ts"))
     expect(loaded).toContain("react")
     expect(loaded).not.toContain("zod")
+  })
+})
+
+describe("a fill's images in a frame", () => {
+  it("are the project's, as an image's src is, and other styles are left as they are (PAR-931)", () => {
+    // Against the module's own address, which is the project's dev server in a frame.
+    const project = new URL("/images/a.png", import.meta.url).href
+
+    const style = {
+      backgroundImage: 'linear-gradient(red, blue), url("/images/a.png"), url(https://cdn.example/b.png)'
+    }
+
+    expect(withProjectUrls(style)).toEqual({
+      backgroundImage: `linear-gradient(red, blue), url("${project}"), url(https://cdn.example/b.png)`
+    })
+    const plain = { background: "var(--card)" }
+    expect(withProjectUrls(plain)).toBe(plain)
   })
 })
