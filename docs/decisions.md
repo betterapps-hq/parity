@@ -7458,3 +7458,19 @@ My calls:
 - **It deploys through the shared pipelines,** with the `cloudflare-web` Terraform module and the web templates, so
   Parity writes no deploy workflow of its own.
 - **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
+
+## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
+
+PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
+file detection reads changes what it finds, and `parity open` asks first, but the config files it followed were Vite's
+names, written into `detectionInputs`. You asked on 2026-11-09 for build-system support to be pluggable. My calls:
+
+- **`BuilderAdapter.configFiles` lists the files that say whether a builder serves the project,** relative to the root.
+  The service passes every registered builder's into `detectionInputs`, so a Next.js, Rspack or Rsbuild adapter needs no
+  change to detection or the service.
+- **Only whether each config file is there is compared, not its contents.** The project's own Vite restarts its server
+  when its config changes, so comparing contents would open the tab again for no gain.
+- **`scriptConfigExtensions` in core is the one list of a JavaScript tool's config extensions** (`ts`, `mts`, `cts`,
+  `js`, `mjs`, `cjs`), used by builder-vite and Storybook's config search. `preview-key.ts`'s list isn't it: that's the
+  extensions an import may leave out, with `.tsx` and `.jsx`, in the order bundlers try them.
+- **No `parity reload` command.** Detecting again on a change and on `parity open` covers what it would do.

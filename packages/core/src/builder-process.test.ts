@@ -43,6 +43,7 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
   const builder: BuilderAdapter = {
     id: "vite",
     name: "Vite",
+    configFiles: ["vite.config.ts"],
     detect: () => Promise.resolve({ found: true, summary: "" }),
     async start(options) {
       started.push(options)
