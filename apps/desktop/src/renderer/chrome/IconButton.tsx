@@ -1,6 +1,6 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
-import { actions } from "./actions.ts"
+import { actions, commandsFor } from "./actions.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { pressable as pressing, pressMotion } from "./toolbar-parts.tsx"
@@ -57,13 +57,19 @@ interface CommandButtonProps {
   children: ReactNode
 }
 
-/** A floating bar's button for a command: its label and first key in the tooltip, the bar's press, run from the toolbar. */
+/**
+ * A floating bar's button for a command: its name and first key in the tooltip, the bar's press, run from the toolbar,
+ * and unavailable when the command can't run, as Find references without a reference library.
+ */
 export function CommandButton({ command, children }: CommandButtonProps) {
+  const state = commandsFor()[command]
+
   return (
     <IconButton
-      label={keymap[command].label}
+      label={state.label}
       shortcut={keymap[command].keys[0]}
       size="icon"
+      disabled={!state.enabled}
       pressable
       onClick={() => void actions[command].run("toolbar")}
     >
