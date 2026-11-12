@@ -4,12 +4,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
   ToggleGroup,
   ToggleGroupItem
@@ -19,6 +13,7 @@ import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { workspace } from "../workspace.ts"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import { DialogGroupTitle } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
 import { setTelemetryLevel, useTelemetry } from "./telemetry-setting.ts"
@@ -125,24 +120,15 @@ export function SettingsDialog() {
             label="Editor"
             detail="Where View code opens a component's file. Automatic uses the first one installed."
           >
-            <Select<CodeEditorChoice>
+            <AppSelect<CodeEditorChoice>
+              variant="dialog"
+              size="sm"
+              aria-label="Editor"
+              className="w-36"
               items={editorChoices}
               value={preferences.codeEditor}
               onValueChange={(codeEditor) => codeEditor && setPreferences({ codeEditor })}
-            >
-              <SelectTrigger size="sm" className="w-36" aria-label="Editor">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {editorChoices.map((choice) => (
-                    <SelectItem key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            />
           </Row>
         </Section>
         <Section title="Export">

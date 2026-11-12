@@ -21,15 +21,8 @@ import {
 } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import {
-  ChoiceInput,
-  Field,
-  type NumberPreview,
-  NumberValueInput,
-  SwitchInput,
-  TextInput,
-  ValueInput
-} from "./fields.tsx"
+import { AppSelect } from "./AppSelect.tsx"
+import { Field, type NumberPreview, NumberValueInput, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import {
   booleanValue,
@@ -218,12 +211,13 @@ function PropInput({
   switch (prop.kind) {
     case "enum":
       return (
-        <ChoiceInput
+        <AppSelect
+          variant="panel"
           value={value === undefined ? undefined : plainText(value)}
           // Options that print the same, such as `true` and `"true"`, are one choice.
-          options={[...new Set((prop.options ?? []).map(String))].map((option) => ({ value: option, label: option }))}
-          placeholder={fallback ? `${fallback} (default)` : "Not set"}
-          onChange={(next) => {
+          items={[...new Set((prop.options ?? []).map(String))].map((option) => ({ value: option, label: option }))}
+          none={fallback ? `${fallback} (default)` : "Not set"}
+          onValueChange={(next) => {
             const option = prop.options?.find((candidate) => String(candidate) === next)
             onChange(option)
           }}

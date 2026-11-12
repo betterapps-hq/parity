@@ -4,8 +4,8 @@ import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { useTokenList } from "../tokens-store.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import {
-  ChoiceInput,
   Field,
   type FieldValue,
   NumberField,
@@ -188,14 +188,15 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
         {row(
           "variant",
           "Choice",
-          <ChoiceInput
+          <AppSelect
+            variant="panel"
             value={values.variant}
-            placeholder="default (default)"
-            options={["default", "outline", "secondary", "ghost", "destructive", "link"].map((value) => ({
+            none="default (default)"
+            items={["default", "outline", "secondary", "ghost", "destructive", "link"].map((value) => ({
               value,
               label: value
             }))}
-            onChange={(variant) => set({ variant })}
+            onValueChange={(variant) => set({ variant: variant ?? undefined })}
           />
         )}
         {row("visible", "Switch", <SwitchInput value={values.visible} onChange={(visible) => set({ visible })} />)}

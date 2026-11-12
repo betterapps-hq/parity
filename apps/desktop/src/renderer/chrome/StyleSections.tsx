@@ -88,8 +88,8 @@ import { FillSection } from "../inspector/sections/FillSection.tsx"
 import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import { MotionSection } from "../inspector/sections/MotionSection.tsx"
 import { tracksOfCount } from "../inspector/track-values.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import {
-  ChoiceInput,
   Field,
   type FieldFlag,
   type FieldUpdate,
@@ -386,11 +386,12 @@ function LayoutSection({ editor }: SectionProps) {
               onChange={(values, label) => set("alignment", values, label)}
             />
             <div className="min-w-0 flex-1">
-              <ChoiceInput
+              <AppSelect
+                variant="panel"
                 value={distribution}
-                options={distributeOptions}
-                placeholder="Packed"
-                onChange={(justifyContent) =>
+                items={distributeOptions}
+                none="Packed"
+                onValueChange={(justifyContent) =>
                   set("alignment", { justifyContent: justifyContent ?? "start" }, "Change distribution")
                 }
               />
@@ -683,11 +684,12 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
         )}
         {shows("alignSelf") && (
           <Field label="Align self" {...rowOf(editor, "self")}>
-            <ChoiceInput
+            <AppSelect
+              variant="panel"
               value={style.alignSelf}
-              options={selfOptions}
-              placeholder="Follow layout"
-              onChange={(alignSelf) => set("self", { alignSelf }, "Change self alignment")}
+              items={selfOptions}
+              none="Follow layout"
+              onValueChange={(alignSelf) => set("self", { alignSelf: alignSelf ?? undefined }, "Change self alignment")}
             />
           </Field>
         )}
@@ -776,17 +778,18 @@ function SizeInput({
           offScale="keep"
           {...edits}
         />
-        <ChoiceInput
+        <AppSelect
+          variant="panel"
           value={mode === "auto" ? undefined : mode}
-          options={[
+          items={[
             { value: "fixed", label: "Fixed" },
             ...(canFill ? [{ value: "fill" as const, label: "Fill" }] : []),
             { value: "hug", label: "Hug" }
           ]}
-          placeholder="Auto"
-          onChange={(next) => {
+          none="Auto"
+          onValueChange={(next) => {
             if (next !== "fixed") {
-              onChange(next)
+              onChange(next ?? undefined)
             } else if (!fixed) {
               // A size that's already fixed stays as it's stored.
               onChange(editor.measure(axis) ?? 64)
@@ -896,11 +899,12 @@ function AppearanceSection({ editor }: SectionProps) {
           />
         </Field>
         <Field label="Overflow" {...rowOf(editor, "overflow")}>
-          <ChoiceInput
+          <AppSelect
+            variant="panel"
             value={style.overflow}
-            options={overflowOptions}
-            placeholder="Visible"
-            onChange={(overflow) => set("overflow", { overflow }, "Change overflow")}
+            items={overflowOptions}
+            none="Visible"
+            onValueChange={(overflow) => set("overflow", { overflow: overflow ?? undefined }, "Change overflow")}
           />
         </Field>
       </div>
@@ -966,11 +970,14 @@ function StrokeSection({ editor }: SectionProps) {
             </ToggleGroup>
           </Field>
           <Field label="Style" {...rowOf(editor, "strokeStyle")}>
-            <ChoiceInput
+            <AppSelect
+              variant="panel"
               value={style.borderStyle}
-              options={borderStyleOptions}
-              placeholder="Solid"
-              onChange={(borderStyle) => set("strokeStyle", { borderStyle }, "Change stroke style")}
+              items={borderStyleOptions}
+              none="Solid"
+              onValueChange={(borderStyle) =>
+                set("strokeStyle", { borderStyle: borderStyle ?? undefined }, "Change stroke style")
+              }
             />
           </Field>
           <Button
@@ -1032,16 +1039,13 @@ function TextSection({ editor, can, shows }: SectionProps) {
           />
         </Field>
         <Field label="Weight" {...rowOf(editor, "weight")}>
-          <ChoiceInput
+          <AppSelect
+            variant="panel"
             value={weightChoice(style.fontWeight)}
-            options={weightOptions}
-            placeholder="Inherit"
-            onChange={(weight) =>
-              set(
-                "weight",
-                { fontWeight: weight === undefined ? undefined : { value: Number(weight) } },
-                "Change weight"
-              )
+            items={weightOptions}
+            none="Inherit"
+            onValueChange={(weight) =>
+              set("weight", { fontWeight: weight === null ? undefined : { value: Number(weight) } }, "Change weight")
             }
           />
         </Field>
@@ -1135,11 +1139,12 @@ function TextSection({ editor, can, shows }: SectionProps) {
           </div>
         </Field>
         <Field label="Case" {...rowOf(editor, "case")}>
-          <ChoiceInput
+          <AppSelect
+            variant="panel"
             value={style.textTransform}
-            options={transformOptions}
-            placeholder="As typed"
-            onChange={(textTransform) => set("case", { textTransform }, "Change case")}
+            items={transformOptions}
+            none="As typed"
+            onValueChange={(textTransform) => set("case", { textTransform: textTransform ?? undefined }, "Change case")}
           />
         </Field>
         {shows("maxLines") && (

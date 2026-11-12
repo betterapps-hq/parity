@@ -6,12 +6,6 @@ import {
   DropdownMenuTrigger,
   RadioGroup,
   RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
@@ -29,6 +23,7 @@ import {
   X
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { me, people, type Person } from "../explore-data.ts"
 import { Avatar, ParityMark } from "../parts.tsx"
 import type { TrackerId } from "./collab-data.ts"
@@ -538,23 +533,19 @@ export function NotificationSettings({ className = "" }: { className?: string })
                 <span className="text-[13px]">Email</span>
                 <span className="text-xs text-muted-foreground">To andrew@buildkit.dev</span>
               </span>
-              <Select
-                items={{ now: "Right away", daily: "Daily summary", weekly: "Weekly summary", off: "Never" }}
+              <AppSelect
+                variant="dialog"
+                size="sm"
+                className="w-40"
+                items={[
+                  { value: "now", label: "Right away" },
+                  { value: "daily", label: "Daily summary" },
+                  { value: "weekly", label: "Weekly summary" },
+                  { value: "off", label: "Never" }
+                ]}
                 value={shown.email}
                 onValueChange={(email) => email && set({ email })}
-              >
-                <SelectTrigger size="sm" className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="now">Right away</SelectItem>
-                    <SelectItem value="daily">Daily summary</SelectItem>
-                    <SelectItem value="weekly">Weekly summary</SelectItem>
-                    <SelectItem value="off">Never</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              />
             </div>
           </Section>
           {scope === "project" && (

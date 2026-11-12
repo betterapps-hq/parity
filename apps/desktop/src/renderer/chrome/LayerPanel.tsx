@@ -1,4 +1,4 @@
-import { Button, Kbd, Select, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import {
   type BindableField,
   boardTarget,
@@ -45,12 +45,13 @@ import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldWithProp } from "./field-prop.tsx"
-import { ChoiceInput, Field, PanelSelectContent, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
+import { Field, SwitchInput, TextInput, ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
   fieldName,
@@ -672,13 +673,16 @@ function InstanceSection({
         {params.map(([name, param]) =>
           param.type === "variant" ? (
             <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
-              <ChoiceInput
+              <AppSelect
+                variant="panel"
                 value={textValue.safeParse(node.args?.[name]).data}
-                options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
-                placeholder={
-                  param.options?.find((option) => option.id === param.default)?.name ?? param.options?.[0]?.name
+                items={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
+                none={
+                  param.options?.find((option) => option.id === param.default)?.name ??
+                  param.options?.[0]?.name ??
+                  "Default"
                 }
-                onChange={(value) => onChange(name, value)}
+                onValueChange={(value) => onChange(name, value ?? undefined)}
               />
             </Field>
           ) : (
@@ -736,7 +740,13 @@ function InstanceSection({
             )}
           </div>
           <div className="flex gap-1.5">
-            <Select<string>
+            <AppSelect<string>
+              variant="panel"
+              className="flex-1"
+              placeholder="Swap component"
+              items={swappable
+                .filter((candidate) => candidate.container.id !== node.design)
+                .map((candidate) => ({ value: candidate.container.id, label: candidate.container.name }))}
               value={null}
               onValueChange={(design) => {
                 if (!design) {
@@ -751,22 +761,7 @@ function InstanceSection({
                   instanceField("design")
                 )
               }}
-            >
-              <SelectTrigger size="sm" className="h-7 flex-1 text-xs">
-                <SelectValue placeholder="Swap component" />
-              </SelectTrigger>
-              <PanelSelectContent>
-                <SelectGroup>
-                  {swappable
-                    .filter((candidate) => candidate.container.id !== node.design)
-                    .map((candidate) => (
-                      <SelectItem key={candidate.key} value={candidate.container.id}>
-                        {candidate.container.name}
-                      </SelectItem>
-                    ))}
-                </SelectGroup>
-              </PanelSelectContent>
-            </Select>
+            />
             <Hint label="Turn this copy into plain layers, no longer linked to the component" wait>
               <Button
                 variant="outline"
@@ -822,7 +817,9 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
       }
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
-      <Select
+      <AppSelect
+        variant="panel"
+        className="h-6 w-auto max-w-32 shrink-0 gap-1 border-none bg-transparent px-1 shadow-none dark:bg-transparent"
         items={states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
@@ -834,23 +831,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
-      >
-        <SelectTrigger
-          size="sm"
-          className="h-6 w-auto max-w-32 shrink-0 gap-1 border-none bg-transparent px-1 text-xs shadow-none dark:bg-transparent"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <PanelSelectContent>
-          <SelectGroup>
-            {states.map((candidate) => (
-              <SelectItem key={candidate.id} value={candidate.id}>
-                {candidate.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </PanelSelectContent>
-      </Select>
+      />
       {/* What edits change wraps rather than spilling past the bar when it doesn't fit beside the state. */}
       <span className="min-w-0 text-muted-foreground">{changes}</span>
     </div>
@@ -969,15 +950,16 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
         />
       </Field>
       <Field label="Fit">
-        <ChoiceInput<ImageFit>
+        <AppSelect<ImageFit>
+          variant="panel"
           value={node.fit}
-          placeholder="Cover"
-          options={[
+          none="Cover"
+          items={[
             { value: "cover", label: "Cover, cropped to fill" },
             { value: "contain", label: "Contain, shown whole" },
             { value: "fill", label: "Fill, stretched" }
           ]}
-          onChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit))}
+          onValueChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit ?? undefined))}
         />
       </Field>
       {node.type === "video" && (

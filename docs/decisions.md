@@ -8392,13 +8392,3 @@ it to would keep the preload bridge and every service method. My calls:
 - **Only Parity's page gets a service port.** `createProjectService` takes `parityPage`, and both `connect` and a
   restart's reconnecting skip any other page; one that isn't Parity's doesn't start a service either. The guard should
   mean no other page ever loads, so this is the second lock behind it.
-
-## Select popups put their items in the kit's `SelectGroup` (PAR-1023)
-
-Every select's items sat edge to edge in their popup, where the kit's menus inset theirs by 4px. In shadcn's base-nova,
-which the kit ships unchanged, that inset is on `SelectGroup` (`scroll-my-1 p-1`); `SelectContent` and its list have
-none. My call:
-
-- **Each popup's items go in a `SelectGroup`,** in the panels' `PanelSelectContent` and dialogs' `SelectContent` alike,
-  as shadcn's own examples do, rather than padding added to `SelectContent`. A popup that labels its items puts the
-  kit's `SelectLabel` inside the group.

@@ -4,11 +4,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
@@ -25,7 +20,7 @@ import {
 } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { PanelSelectContent } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { Num, type SectionProps } from "./controls.tsx"
@@ -286,7 +281,10 @@ export function LayoutSection({ draft, set }: SectionProps) {
             </Field>
             {wraps && (
               <Field half label="Lines" hint="Where the wrapped lines sit when there's room left over">
-                <Select
+                <AppSelect
+                  variant="panel"
+                  aria-label="Lines"
+                  className="w-full"
                   items={lineItems}
                   value={draft.lines ?? "start"}
                   onValueChange={(next) => {
@@ -296,20 +294,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
                       set({ lines: chosen === "start" ? undefined : chosen })
                     }
                   }}
-                >
-                  <SelectTrigger size="sm" aria-label="Lines" className="h-7 w-full text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <PanelSelectContent>
-                    <SelectGroup>
-                      {lineItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </PanelSelectContent>
-                </Select>
+                />
               </Field>
             )}
           </div>

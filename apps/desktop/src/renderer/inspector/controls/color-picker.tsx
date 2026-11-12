@@ -1,17 +1,5 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- the saturation and brightness square is a slider on two axes, which no input element is; the hue and alpha strips beside it are drawn and keyed the same way */
-import {
-  Button,
-  Input,
-  Select,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import {
   formatHex,
   formatOklch,
@@ -31,7 +19,7 @@ import {
 } from "@parity-app/tokens"
 import { Pipette } from "lucide-react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from "react"
-import { PanelSelectContent } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
@@ -289,7 +277,10 @@ export function ColorEditor({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <Select
+        <AppSelect
+          variant="panel"
+          aria-label="Color model"
+          className="w-[4.5rem] shrink-0 px-2"
           items={models}
           value={model}
           onValueChange={(next) => {
@@ -303,20 +294,7 @@ export function ColorEditor({
             // A plain color is written in the model it's picked in.
             update(hsb, alpha, picked.value)
           }}
-        >
-          <SelectTrigger size="sm" aria-label="Color model" className="h-7 w-[4.5rem] shrink-0 px-2 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <PanelSelectContent>
-            <SelectGroup>
-              {models.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </PanelSelectContent>
-        </Select>
+        />
         <div className="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-1">{fields[model]}</div>
       </div>
       <MessageLine message={message} />

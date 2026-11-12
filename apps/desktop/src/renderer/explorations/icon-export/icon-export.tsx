@@ -14,19 +14,14 @@ import {
   FieldSet,
   Label,
   RadioGroup,
-  RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+  RadioGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { LibraryInfo } from "@parity-app/core"
 import { Download } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { GuestIcon, type IconEntry, iconCatalog, iconLibraries, iconStyles, iconsOf } from "../../chrome/icons.tsx"
 import { optionNamed } from "../parts.tsx"
 
@@ -211,29 +206,14 @@ function ExportChoices({
         <div className="grid grid-cols-2 gap-4">
           <Field>
             <FieldLabel htmlFor="icon-size">Size</FieldLabel>
-            <Select<string>
-              value={String(size)}
-              onValueChange={(value) => {
-                const next = sizes.find((option) => String(option) === value)
-
-                if (next) {
-                  setSize(next)
-                }
-              }}
-            >
-              <SelectTrigger id="icon-size" className="w-full">
-                <SelectValue>{(value: string) => `${value} px`}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {sizes.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option} px
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            <AppSelect
+              variant="dialog"
+              id="icon-size"
+              className="w-full"
+              items={sizes.map((option) => ({ value: option, label: `${option} px` }))}
+              value={size}
+              onValueChange={(next) => next && setSize(next)}
+            />
           </Field>
           <FieldSet>
             <FieldLegend variant="label">Color</FieldLegend>

@@ -14,8 +14,9 @@ import { type ReactNode, useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import { extractIntoComponent } from "./components.ts"
-import { ChoiceInput, ValueInput } from "./fields.tsx"
+import { ValueInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { NameInput } from "./Name.tsx"
@@ -303,12 +304,13 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
             </div>
             <div className="grid grid-cols-[96px_1fr] items-center gap-2">
               <span className="px-1 text-xs text-muted-foreground">Default</span>
-              <ChoiceInput
-                label={`${name} default`}
+              <AppSelect
+                variant="panel"
+                aria-label={`${name} default`}
                 value={textValue.safeParse(param.default).data}
-                options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
-                placeholder={param.options?.[0]?.name}
-                onChange={(option) =>
+                items={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
+                none={param.options?.[0]?.name ?? "Default"}
+                onValueChange={(option) =>
                   update(`Change ${name} default`, name, (container) => {
                     const spec = { ...container.params![name]! }
 
