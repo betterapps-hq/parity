@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 10:38:14 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 10:56:04 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.70.1
+
+Thu, 12 Nov 2026 10:56:04 GMT
+
+### Patches
+
+- Every menu, the keys, search and the toolbar now agree on whether a command can run and what it's called; File >
+  Export selected runs the same export as Ctrl+Shift+E. (ajcraswell@gmail.com)
 
 ## 0.70.0
 
