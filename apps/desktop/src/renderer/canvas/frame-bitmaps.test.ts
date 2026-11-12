@@ -43,7 +43,7 @@ describe("capture", () => {
 })
 
 describe("stored", () => {
-  type Kept = { src?: string; height?: number }
+  type Kept = { src?: string; height?: number; stale?: true }
 
   /**
    * Answers each method the service is asked with `answers[method]`, counting what's asked: a capture with what it
@@ -79,6 +79,19 @@ describe("stored", () => {
     expect(await capture("kept", job)).toBe("data:image/webp;base64,KEPT")
     expect(request.mock.calls.map(([method]) => method)).toEqual(["frames.stored"])
     want("kept", -1)
+  })
+
+  it("gives the frame's latest, kept from other code, as stale, without standing it in for its key (PAR-993)", async () => {
+    const request = service({
+      "frames.stored": () => Promise.resolve({ src: "data:image/webp;base64,LATEST", height: 640, stale: true }),
+      "frames.capture": () => Promise.resolve({ src: "data:image/webp;base64,NEW", height: 700 })
+    })
+
+    want("restyled", 1)
+    expect(await stored("restyled", job)).toEqual({ src: "data:image/webp;base64,LATEST", height: 640, stale: true })
+    expect(await capture("restyled", job)).toBe("data:image/webp;base64,NEW")
+    expect(request.mock.calls.map(([method]) => method)).toEqual(["frames.stored", "frames.capture"])
+    want("restyled", -1)
   })
 
   it("reads once for the frames that show the same bitmap", async () => {

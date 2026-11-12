@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A frame in a Tailwind project no longer loses classes when it asks for more before the last ask is answered, which could put a layer in the wrong place.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
