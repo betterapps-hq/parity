@@ -9,7 +9,7 @@ import {
 /**
  * The rules for which theme a custom property's value belongs to and which category a token goes in. Libgen reads a
  * library's source CSS with them and the app reads a project's compiled CSS with them, so a token lands in the same
- * theme and category either way. See docs/decisions.md, "Token policies live in `@parity-app/tokens`".
+ * theme and category either way.
  */
 
 /** Where libgen, reading a library's source CSS, deliberately reads more than the app does: Tailwind's `@theme`. */

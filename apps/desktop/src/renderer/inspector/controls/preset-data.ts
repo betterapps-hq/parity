@@ -1,6 +1,6 @@
 /*
- * Typography presets on the simpler fields (PAR-186), as call 6 settled them after PAR-707's exploration
- * (decisions.md, "The Design panel's calls"): a design language's bundle of type values that a text layer syncs to.
+ * Typography presets on the simpler fields (PAR-186), as call 6 settled them after PAR-707's exploration:
+ * a design language's bundle of type values that a text layer syncs to.
  * The rows a preset sets fold into its row, locked; an unlocked row changed on the layer overrides the preset there;
  * picking the preset again takes back every override; Detach keeps every value it gave. This file holds the stand-in
  * project's presets in PAR-186's value forms (tokens where the project has them), a layer's own values over them, and

@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 20:51:03 GMT",
+      "version": "0.74.3",
+      "tag": "@parity-app/desktop_v0.74.3",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "18f46ab1d5beaa51af83bc136787eaf99707106d",
+            "comment": "Panel functions take the parts of the project they read (PAR-1007)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d2c839339e483fb4dc5294cbd1efe763b7607c8c",
+            "comment": "A tab closed while the project service restarts no longer leaves its project open in the new service or its guest loaded (PAR-978)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 19:51:56 GMT",
       "version": "0.74.2",
       "tag": "@parity-app/desktop_v0.74.2",

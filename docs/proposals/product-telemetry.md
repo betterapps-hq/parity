@@ -286,8 +286,8 @@ and values are sent as written, replay masking and the sample rates. This is PAR
 ## The work
 
 In order. Estimates use [work.md](../work.md)'s points: 2 is a short session, 3 a full one, 5 a full one with little
-slack. Each issue's "Update when done" includes `docs/telemetry.md` for the events it adds, and decisions.md for calls
-made. All go under the **Product telemetry** stream.
+slack. Each issue's "Update when done" includes `docs/telemetry.md` for the events it adds. All go under the **Product
+telemetry** stream.
 
 PAR-617, PAR-620 and PAR-624 give crash, error and replay coverage on their own, since Sentry's SDK catches uncaught
 errors, crashes and hangs without any of Parity's events. Everything after adds context.

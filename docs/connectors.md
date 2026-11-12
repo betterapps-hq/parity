@@ -1,8 +1,7 @@
 # Connectors
 
 A connector brings things in from an outside service: screens from Mobbin, and photos and videos from Pixabay. This page
-says how one is built and what adding the next one takes. What was decided, and why, is in
-[decisions.md](decisions.md#connectors-search-outside-services-from-main-par-829).
+says how one is built and what adding the next one takes.
 
 ## How it fits together
 
@@ -124,7 +123,7 @@ apps/desktop
      and `placeableKinds` if results of that kind can go in designs.
 3. **Name its variable in `apps/desktop/.env.example`,** with where the app's owner gets a key.
 4. **Try it live** with a key in `apps/desktop/.env.local`, from a script that reads the file and never prints the key.
-5. **Record the source's terms** in decisions.md: credit, caching, what it must be told, and its limits.
+5. **Record the source's terms** in its adapter's header comment: credit, caching, what it must be told, and its limits.
 
 ## Pattern changes made
 
