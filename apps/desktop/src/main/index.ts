@@ -71,6 +71,7 @@ import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } fr
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { cliTarget, installCli, refreshCli } from "./cli-command.ts"
 import { copiedFiles, rawFormat } from "./clipboard-files.ts"
 import { openInEditor } from "./code-editor.ts"
 import { createConnectorHub } from "./connectors.ts"
@@ -1052,6 +1053,8 @@ handle(
   checked(openInEditorRequest, (_event, request) => openInEditor(request))
 )
 
+handle("installCli", () => installCli(cliTarget(packaged)))
+
 // Windows and render windows send the events they record, named by the window that sent them (PAR-627).
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, which `recordForwarded` parses
 ipcMain.on(ipc.telemetry, (event, sent: unknown) => {
@@ -1554,6 +1557,11 @@ void app.whenReady().then(() => {
   }
 
   void installedBuild.get()
+
+  if (packaged) {
+    void refreshCli(cliTarget(true)).catch(() => undefined)
+  }
+
   protocol.handle("parity-preview", servePreview)
   protocol.registerSource("parity", {
     routes: [{ match: { host: "app" }, source: { type: "directory", root: join(import.meta.dirname, "renderer") } }]

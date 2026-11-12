@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s faster per call than npx",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

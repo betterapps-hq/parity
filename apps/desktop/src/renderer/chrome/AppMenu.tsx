@@ -50,6 +50,7 @@ import {
   SquareTerminal,
   PenLine,
   Telescope,
+  Terminal,
   Plus,
   Redo2,
   Repeat2,
@@ -77,6 +78,7 @@ import type { ReactNode } from "react"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
+import { installCliCommand } from "./cli-command.ts"
 import { activeSession, clearBitmapCache, exit, exportImages, selectedDesign, selectedInstance } from "./commands.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { formatKeys, isMac } from "./keys.ts"
@@ -393,6 +395,9 @@ function HelpItems() {
       </Item>
       <MenubarSeparator />
       <Item command="developerTools" icon={Code} />
+      <MenubarItem onClick={() => void installCliCommand()}>
+        <Terminal /> Install the parity command
+      </MenubarItem>
       <MenubarSeparator />
       <MenubarItem onClick={() => void openReport()}>
         <MessageSquareWarning /> Report a problem…
