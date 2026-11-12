@@ -198,10 +198,10 @@ interface Project extends OpenProject {
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
   /**
-   * The project's styling framework as a printer, and every class it has written for the project's frames, which a
-   * frame's stylesheet of classes is compiled from. Unset until a frame asks, and again when its stylesheets change.
+   * The project's styling framework as a printer, which writes and compiles the classes its frames draw layers with.
+   * Unset until a frame asks, and again when its stylesheets change. Nothing when the framework couldn't be loaded.
    */
-  frameClasses?: { printer: Promise<ClassPrinter>; names: Set<string> }
+  frameClasses?: Promise<ClassPrinter | undefined>
   /**
    * The stamp of its stylesheets' last change, when its builder serves the guest restyled
    * (`BuilderSession.restyledGuestUrl`), so a builder started again on the same port serves it where the windows
@@ -842,6 +842,24 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // Unless it moved again meanwhile, and what the windows were told is already out of date.
     if (project.info.guestUrl === guestUrl) {
       project.drawnGuestUrl = drawn
+    }
+  }
+
+  /**
+   * The project's styling framework as a printer of classes, or nothing when it can't be loaded: the project's frames
+   * then draw from their rules, which draw the same declarations.
+   */
+  async function loadClassPrinter(
+    adapter: StylesAdapter,
+    info: ProjectInfo,
+    stylesheet: string
+  ): Promise<ClassPrinter | undefined> {
+    try {
+      return await adapter.loadPrinter(info.root, stylesheet)
+    } catch (error) {
+      logNote(`[service] ${info.name}'s frames draw without ${adapter.name}'s classes: ${message(error)}`)
+
+      return undefined
     }
   }
 
@@ -1488,7 +1506,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
      * The classes the project's styling framework writes for each declaration (core's `writeClasses`). The framework
      * is loaded the first time a frame asks, and again once the project's stylesheets change.
      */
-    async frameClasses({ projectId, declarations }) {
+    async frameClasses({ projectId, declarations, written }) {
       const project = getProject(projectId)
       const styles = project.info.styles
       const adapter = styles && !styles.error ? adapters.styles.find(({ id }) => id === styles.id) : undefined
@@ -1497,12 +1515,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         return { supported: false, classes: [], css: "" }
       }
 
-      const written = (project.frameClasses ??= {
-        printer: adapter.loadPrinter(project.info.root, styles.stylesheet),
-        names: new Set()
-      })
+      project.frameClasses ??= loadClassPrinter(adapter, project.info, styles.stylesheet)
+      const printer = await project.frameClasses
 
-      return { supported: true, ...writeClasses(await written.printer, written.names, declarations) }
+      return printer
+        ? { supported: true, ...writeClasses(printer, written, declarations) }
+        : { supported: false, classes: [], css: "" }
     },
 
     codeServedAt: (projectId, guestUrl) => projects.get(projectId)?.fingerprints.get(guestUrl),

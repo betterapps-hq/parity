@@ -37,7 +37,7 @@ import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-
 
 /**
  * What a project's styling framework wrote for the declarations its frames draw layers with (PAR-942): each one's
- * classes, and the CSS of every class written for the project's frames since its styles were last read.
+ * classes, and the CSS of those and of the classes the frames already had.
  */
 export interface FrameClassesWritten extends WrittenClasses {
   /** Whether the project has a styling framework that writes classes. Without one, its frames draw from rules alone. */
@@ -215,9 +215,13 @@ export interface ServiceMethods {
   "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
   /**
    * The classes the project's styling framework writes for each declaration, by its own compiler, for frames to draw
-   * layers with (PAR-942).
+   * layers with (PAR-942). `written` are the classes the window's frames already have, compiled again with the new
+   * ones, so the window's stylesheet of classes is whole whether or not the service was started again since.
    */
-  "styles.classes": { params: { projectId: string; declarations: CssDeclaration[] }; result: FrameClassesWritten }
+  "styles.classes": {
+    params: { projectId: string; declarations: CssDeclaration[]; written: string[] }
+    result: FrameClassesWritten
+  }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.

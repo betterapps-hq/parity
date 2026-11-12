@@ -122,7 +122,7 @@ const serviceParams = {
   "accessibility.check": project.extend({ design: z.string() }),
   "code.read": project.extend({ path: z.string() }),
   "tokens.save": project.extend({ changes: z.array(tokenWrite) }),
-  "styles.classes": project.extend({ declarations: z.array(cssDeclaration) }),
+  "styles.classes": project.extend({ declarations: z.array(cssDeclaration), written: z.array(z.string()) }),
   "processes.list": z.object({}),
   "processes.stop": processId,
   "processes.restart": processId,

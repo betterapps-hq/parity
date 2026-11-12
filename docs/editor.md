@@ -6133,17 +6133,18 @@ Code: `packages/core/src/render.ts` resolves each element with its `declarations
 `apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and one for a preview, after the
 project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes a tree's rules in the
 project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
-the service for the rest (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through
-the styles adapter's `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts`
-draws an offscreen one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its
-classes and no style.
+the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
+again since (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles
+adapter's `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
+offscreen one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and
+no style.
 
 Tests:
 
 - `packages/core/src/frame-rules.test.ts` (21): a rule for each element in the tree's order, none for a component or an
   element with classes, the cascade layer, ids with quotes and slashes; preview rules for what an edit changes, with
   `revert-layer` first for what it takes away; classes put on the elements a framework wrote them for; and classes
-  written one declaration at a time, with every class written so far compiled.
+  written one declaration at a time, compiled together with the ones the frames already have.
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
 - `packages/style/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a child
   is placed in is `relative`; an Absolute one stays Absolute.

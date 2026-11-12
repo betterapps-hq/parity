@@ -846,3 +846,72 @@ describe("reachableLibrary", () => {
     expect(next.get("button")).toBe(edited)
   })
 })
+
+describe("what a frame adds to a layout (PAR-942)", () => {
+  const placed = { position: "absolute", top: 0 } as const
+
+  /** A layout holding `children`, as it's drawn. */
+  function box(children: DesignNode[], style: DesignNode["style"] = {}, library = componentLibrary([])) {
+    return css(resolveDesign({ type: "layout", id: "box", style, children }, undefined, "desktop", library)[0])
+  }
+
+  it("is relative only when one of its children is placed against its edges", () => {
+    expect(box([{ type: "text", id: "label", text: "New" }])).not.toHaveProperty("position")
+    expect(box([{ type: "text", id: "label", text: "New", style: placed }])).toMatchObject({ position: "relative" })
+    expect(box([{ type: "component", id: "badge", component: "Badge", style: placed }])).toMatchObject({
+      position: "relative"
+    })
+  })
+
+  it("is relative for an instance placed against its edges, whose place is on its component's root", () => {
+    const badge: ContainerSpec = {
+      id: "badge",
+      name: "Badge",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: [] },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    const instance: DesignNode = { type: "instance", id: "first", design: "badge", style: placed }
+
+    expect(box([instance], {}, componentLibrary([badge]))).toMatchObject({ position: "relative" })
+  })
+
+  it("isn't for a child placed in a layout deeper down, or one that's hidden", () => {
+    const inner: DesignNode = {
+      type: "layout",
+      id: "inner",
+      children: [{ type: "text", id: "label", text: "New", style: placed }]
+    }
+
+    expect(box([inner])).not.toHaveProperty("position")
+    expect(box([{ type: "text", id: "label", text: "New", style: placed, hidden: true }])).not.toHaveProperty(
+      "position"
+    )
+  })
+
+  it("stays placed against its own parent's edges when it's placed itself", () => {
+    expect(box([{ type: "text", id: "label", text: "New", style: placed }], placed)).toMatchObject({
+      position: "absolute"
+    })
+  })
+
+  it("can shrink below its content only when it fills", () => {
+    const row: DesignNode = {
+      type: "layout",
+      id: "row",
+      style: { direction: "row" },
+      children: [
+        { type: "layout", id: "hugs", children: [] },
+        { type: "layout", id: "fills", style: { width: "fill" }, children: [] }
+      ]
+    }
+
+    const [drawn] = resolveDesign(row, undefined, "desktop")
+    const [hugs, fills] = drawn?.kind === "element" ? drawn.children : []
+
+    expect(css(drawn)).not.toHaveProperty("min-width")
+    expect(css(hugs)).not.toHaveProperty("min-width")
+    expect(css(fills)).toMatchObject({ "min-width": "0" })
+  })
+})

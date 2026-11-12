@@ -351,7 +351,7 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
       throw new Error("expected an element")
     }
 
-    expect(bar.style).toMatchObject({ gap: "calc(var(--spacing) * 2)" })
+    expect(bar.declarations).toContainEqual({ property: "gap", value: "calc(var(--spacing) * 2)" })
     expect(bar.children.map((child) => child.kind === "element" && child.nodeId)).toEqual(["title"])
   })
 })

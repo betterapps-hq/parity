@@ -236,21 +236,25 @@ describe("writeClasses", () => {
   }
 
   it("writes each declaration's classes by itself, and none for one the framework can't write", () => {
-    const written = writeClasses(printer, new Set(), [
-      { property: "padding", value: "1px" },
-      { property: "color", value: "red" },
-      { property: "gap", value: "2px" }
-    ])
+    const written = writeClasses(
+      printer,
+      [],
+      [
+        { property: "padding", value: "1px" },
+        { property: "color", value: "red" },
+        { property: "gap", value: "2px" }
+      ]
+    )
 
     expect(written.classes).toEqual([["padding-1px"], null, ["gap-2px"]])
   })
 
-  it("compiles every class written so far, so a frame's elements keep the ones they already have", () => {
-    const names = new Set<string>()
+  it("compiles the classes the frames already have with the new ones, so their stylesheet stays whole", () => {
+    const gap = [{ property: "gap", value: "2px" }]
 
-    expect(writeClasses(printer, names, [{ property: "padding", value: "1px" }]).css).toBe(".padding-1px{}")
-    expect(writeClasses(printer, names, [{ property: "gap", value: "2px" }]).css).toBe(".padding-1px{}.gap-2px{}")
-    // Asked again, a class is written once.
-    expect(writeClasses(printer, names, [{ property: "padding", value: "1px" }]).css).toBe(".padding-1px{}.gap-2px{}")
+    expect(writeClasses(printer, [], gap).css).toBe(".gap-2px{}")
+    expect(writeClasses(printer, ["padding-1px"], gap).css).toBe(".padding-1px{}.gap-2px{}")
+    // A class the frames have and a declaration writes again is compiled once.
+    expect(writeClasses(printer, ["gap-2px", "padding-1px"], gap).css).toBe(".gap-2px{}.padding-1px{}")
   })
 })

@@ -67,8 +67,9 @@ export let answerClasses
 export function serveClasses() {
   const let_ = new Promise((resolve) => (answerClasses = resolve))
   window.canvasHost = {
-    ask: async (method, { declarations }) => {
+    ask: async (method, { declarations, written }) => {
       await let_
+      if (!Array.isArray(written)) throw new Error("A frame says which classes it has")
       const classes = declarations.map(({ property, value }) => {
         if (property === "gap") return null
         const name = "c" + (writtenClasses.get(property + ":" + value) ?? writtenClasses.size)

@@ -32,7 +32,9 @@ export function frameClasses(projectId: string, loaded: LoadedGuest): FrameClass
   let classes = byGuest.get(loaded)
 
   if (!classes) {
-    classes = askingFrameClasses(loaded, (declarations) => request("styles.classes", { projectId, declarations }))
+    classes = askingFrameClasses(loaded, (declarations, written) =>
+      request("styles.classes", { projectId, declarations, written })
+    )
     byGuest.set(loaded, classes)
   }
 
@@ -45,10 +47,13 @@ type Written = Awaited<ReturnType<typeof request<"styles.classes">>>
 const keyOf = ({ property, value, when }: CssDeclaration) =>
   JSON.stringify([property, value, when?.state, when?.viewport, when?.theme])
 
-/** Frame classes that ask `write` for the declarations they haven't seen, a task's worth at a time. */
-export function askingFrameClasses(
+/**
+ * Frame classes that ask `write` for the declarations they haven't seen, a task's worth at a time, with the classes
+ * they already hold, which are compiled again with the new ones.
+ */
+function askingFrameClasses(
   loaded: Pick<LoadedGuest, "prepare">,
-  write: (declarations: CssDeclaration[]) => Promise<Written>
+  write: (declarations: CssDeclaration[], written: string[]) => Promise<Written>
 ): FrameClasses {
   /** Each declaration's classes, or null for one the framework has no class for. */
   const known = new Map<string, string[] | null>()
@@ -67,7 +72,8 @@ export function askingFrameClasses(
     asking.clear()
 
     try {
-      const written = await write(batch)
+      const held = new Set([...known.values()].flatMap((names) => names ?? []))
+      const written = await write(batch, [...held])
 
       if (!written.supported) {
         unsupported = true
@@ -96,9 +102,11 @@ export function askingFrameClasses(
         listener()
       }
     } catch {
-      // Frames go on drawing from their rules, which draw the same declarations, so there's nothing to tell the
-      // person; the request recorded its own failure.
-      unsupported = true
+      // These layers go on drawing from their rules, which draw the same declarations, so there's nothing to tell the
+      // person; the request recorded its own failure. Declarations asked for later are tried afresh.
+      for (const declaration of batch) {
+        known.set(keyOf(declaration), null)
+      }
     }
   }
 

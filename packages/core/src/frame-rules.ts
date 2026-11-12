@@ -121,19 +121,19 @@ export function withClasses(
 export interface WrittenClasses {
   /** Each declaration's classes, in the order asked: none for a declaration the framework has no class for. */
   classes: (string[] | null)[]
-  /** The CSS of every class in `names`, as the framework's own compiler makes it. */
+  /** The CSS of these classes and the ones written before, as the framework's own compiler makes it. */
   css: string
 }
 
 /**
  * The classes a styling framework writes for each declaration, one declaration at a time, since a frame draws a layer
- * by classes only when every one of its declarations has them (`withClasses`). Each class written joins `names`, the
- * classes written for the project's frames so far, and the CSS is all of theirs, so a frame's stylesheet of classes
- * always holds the ones its elements already have.
+ * by classes only when every one of its declarations has them (`withClasses`). The CSS is compiled for them together
+ * with `written`, the classes the frames already have, so the frames' stylesheet of classes is always whole, in the
+ * framework's own order, whoever compiled the ones before.
  */
 export function writeClasses(
   printer: ClassPrinter,
-  names: Set<string>,
+  written: readonly string[],
   declarations: readonly CssDeclaration[]
 ): WrittenClasses {
   const classes = declarations.map((declaration) => {
@@ -142,9 +142,7 @@ export function writeClasses(
     return unwritten.length > 0 || output.length === 0 ? null : output
   })
 
-  for (const name of classes.flatMap((written) => written ?? [])) {
-    names.add(name)
-  }
+  const names = new Set([...written, ...classes.flatMap((names) => names ?? [])])
 
   return { classes, css: printer.css([...names]) }
 }
