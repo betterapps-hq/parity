@@ -246,6 +246,9 @@ Storybook or the CLI.
   `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
+- **The window's own canvases are recorded,** such as the selection overlay, as pictures twice a second while they
+  change. Sentry's canvas recorder is added before Replay, since Replay looks for it only as it's added itself; added
+  after, no canvas was recorded and Sentry showed each one as an empty box.
 - **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
   5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
   the same replay. Clicks and requests are still recorded meanwhile.

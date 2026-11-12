@@ -7800,3 +7800,20 @@ and a cursor is keyed by the id the server makes once, at `initialize`. My calls
   call. It's kept to one line and 40 characters.
 - **The CLI has no flag for it.** A terminal's calls are separate processes that already name themselves with
   `PARITY_AGENT_NAME`, so each subagent sets its own.
+
+## Session Replay records the window's canvases (PAR-964)
+
+Replays showed Sentry's "This replay contains a canvas element" banner, with each `<canvas>` drawn as an empty box,
+though PAR-624 added `replayCanvasIntegration`. `followTelemetry` added Replay first and the canvas recorder after it.
+An integration added after `init` is set up at once, and Replay looks for `ReplayCanvas` only then
+(`_maybeLoadFromReplayCanvasIntegration` in `@sentry/replay` 11.8.0), so it never found it and recorded without
+`recordCanvas`. My calls:
+
+- **The canvas recorder is added first,** and a test in `renderer/replay.test.ts` fails if Replay is set up without it.
+  A development copy's replay on 2026-11-12 (`9c29cb08…`) has no banner and shows the selection overlay.
+- **It records at Sentry's medium quality:** a WebP of each canvas that changed, twice a second at most, at quality 0.4
+  and 1,280 pixels at most a side. The window has one canvas at rest, tldraw's overlay; agents' scan effect adds a WebGL
+  one while it runs. Ten seconds of moving the pointer over the canvas recorded 13 pictures, 83 KB, and taking each
+  bitmap took under 0.1 ms.
+- **The holds from PAR-758 and PAR-957 cover it.** Replay's canvas manager stops with the page recorder while it's
+  paused, so a canvas isn't recorded while a project mounts or the canvas zooms either.
