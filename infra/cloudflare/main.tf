@@ -94,6 +94,15 @@ module "portal" {
   token_permissions = ["Workers Scripts Write", "Workers KV Storage Write"]
 }
 
+# The portal's pages are served at tryparity.dev by the same production Worker (PAR-1003). The module takes one custom
+# domain for an environment, the API's, so this second one is attached here. Both hosts reach every route for now.
+resource "cloudflare_workers_custom_domain" "portal_pages" {
+  account_id = "544b5bfd594cd02a5da4b79a2038cc9f"
+  zone_id    = data.cloudflare_zone.tryparity.zone_id
+  hostname   = "tryparity.dev"
+  service    = module.portal.environments["production"].worker
+}
+
 output "portal" {
   value = module.portal.environments
 }

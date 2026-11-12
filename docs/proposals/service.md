@@ -171,7 +171,7 @@ is added.
 1. **Who can call it: decided, signed-in people only** (your call, 2026-11-11).
 2. **Mobbin: decided, from the start,** with Pixabay (your call, 2026-11-11).
 3. **The domain: decided, `api.tryparity.dev`** (your call, 2026-11-11), a custom domain on the Worker, on the zone
-   Cloudflare already holds. The portal's pages get their own host on the same Worker later.
+   Cloudflare already holds. The portal's pages are at `tryparity.dev`, on the same Worker (PAR-1003).
 4. **The three new dependencies: decided, add them** (your call, 2026-11-11).
 
 ## The work

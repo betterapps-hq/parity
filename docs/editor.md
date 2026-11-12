@@ -6387,8 +6387,9 @@ container query, a `group-hover:` rule.
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
   The classes are the Tailwind printer's (`packages/styles-tailwind`), which writes a class only when it compiles back
-  to the declaration it came from, so a layer measures the same by its classes as by its rule. Their CSS is one
-  stylesheet for the project's frames, in Tailwind's `utilities` layer and in Tailwind's order.
+  to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
+  a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
+  Tailwind's `utilities` layer and in Tailwind's order.
 - **Otherwise, and until the classes are written, a layer is drawn from a rule for its node:** one rule set for each
   element, found by its id (`[data-canvas-node="…"]`), holding its declarations in order. The window asks the project
   service for classes, since the service holds the project's Tailwind; a layer shows from its rule at once and from its
