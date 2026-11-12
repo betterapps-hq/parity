@@ -4510,7 +4510,7 @@ Code: `packages/core/src/document.ts` (`checkNoStates`, `baseState`, `designStat
 (`refuseUnlessComponent`), `render.ts` (an instance's scope in its component's base state);
 `packages/editor/src/kinds.ts` (`withoutStates`) and `document-equality.ts` (a screen's view keeps no state);
 `packages/agent/src/workspace.ts` (`listDesigns`, `namedState`) and `snippet-api.ts` (`ScreenSummary`,
-`ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`StateTarget`),
+`ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`ComponentStateSelector`),
 `canvas/ContainerView.tsx` (the state menu) and `chrome/designs.ts` with `convert-to-frame.ts` (`droppedStatesLine`).
 
 Tests:

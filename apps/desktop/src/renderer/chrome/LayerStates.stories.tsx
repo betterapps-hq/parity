@@ -8,13 +8,13 @@ import { inspecting, slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderPart } from "./layer-stories.tsx"
 
 /**
- * A layer picked in one of its component's states: where edits go, shown by the panel's header and its editing bar, and
- * what that state changes (PAR-1022).
+ * A component's layer picked in one of its states: the component state selector says where edits go, and picks another
+ * state to send them to (PAR-1022). It shows on a component's own layers only.
  */
 const meta = {
   title: "Parity/Inspector/Layer/States",
   component: DesignTab,
-  render: renderPart("header"),
+  render: renderPart("state"),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
@@ -23,8 +23,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * A layer picked in another state, Stat card's note in Loading: the editing bar turns the component color and says
- * edits change only this state, and the eye is marked, because Loading hides the note.
+ * Stat card's note picked in Loading: the selector turns the component color and says edits change only this state.
  */
 export const EditingAState: Story = { loaders: [pick("Stat card", "Note", "loading")] }
 
@@ -62,15 +61,13 @@ export const TurningAPropOffInAState: Story = {
 }
 
 /**
- * Choosing which state edits go to, on the component itself, Stat card: its States section, where clicking Loading
- * shows it on the canvas and sends edits there.
+ * Stat card's note picked in its base state: the selector says edits change every state, and opens to pick another,
+ * where they'd change only that one.
  */
 export const ChoosingTheState: Story = {
-  render: renderPart("states"),
-  loaders: [inspecting("design", () => ({ design: design("Stat card") }))],
+  loaders: [pick("Stat card", "Note")],
   play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await userEvent.click(await panel.findByRole("button", { name: "Loading" }, slowly))
-    await expect(await panel.findByRole("button", { name: "Loading", pressed: true }, slowly)).toBeVisible()
+    await userEvent.click(await within(canvasElement).findByRole("combobox", undefined, slowly))
+    await within(document.body).findByRole("option", { name: "Loading" }, slowly)
   }
 }

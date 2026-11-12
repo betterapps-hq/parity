@@ -86,7 +86,7 @@ import { StyleSections } from "./StyleSections.tsx"
  * the editing bar and Make component or Make slot; an instance's props and slots; a text's content; or a code
  * component's props.
  */
-export type LayerPart = "header" | "instance" | "content" | "props"
+export type LayerPart = "header" | "state" | "instance" | "content" | "props"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
@@ -199,6 +199,8 @@ function DesignLayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; node
     })
   }
 
+  const selector = <ComponentStateSelector entry={entry} state={state} target={target} />
+
   const header = (
     <div className={`border-b py-3 pl-4 ${panelEnd}`}>
       <SelectionHeading
@@ -243,7 +245,7 @@ function DesignLayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; node
           </>
         }
       />
-      <StateTarget entry={entry} state={state} target={target} />
+      {selector}
       {/* A component or an instance is already one, so it has no Make component. */}
       {location.ancestors.length > 0 && location.node.type !== "instance" && location.node.type !== "component" && (
         <MakeComponent
@@ -289,6 +291,10 @@ function DesignLayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; node
 
   if (only === "header") {
     return header
+  }
+
+  if (only === "state") {
+    return <div className={`px-4 pb-3 ${panelEnd}`}>{selector}</div>
   }
 
   if (only === "instance") {
@@ -445,7 +451,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
             </div>
           </div>
         ) : (
-          <StateTarget entry={entry} state={state} target={target} />
+          <ComponentStateSelector entry={entry} state={state} target={target} />
         )}
         {owner && (
           <Button
@@ -889,7 +895,15 @@ function instanceRows(
  * Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. Only a
  * component has states and variants, so a screen's or a frame's edits always change the design, and it shows nothing.
  */
-function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: StateSpec; target: EditTarget }) {
+function ComponentStateSelector({
+  entry,
+  state,
+  target
+}: {
+  entry: ContainerEntry
+  state: StateSpec
+  target: EditTarget
+}) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
 
