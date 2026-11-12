@@ -30,6 +30,7 @@ import type { AccountState } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { connectorFind, connectorPlaced } from "../shared/connectors.ts"
 import { logNote } from "../shared/log.ts"
+import { killTree } from "../shared/process-tree.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
 import { handleInSpan, traceWith } from "../shared/tracing.ts"
@@ -266,7 +267,15 @@ function forkedService(child: UtilityProcess): ServiceProcess & { readonly messa
     },
     onSpawn: (listener) => void child.once("spawn", listener),
     onExit: (listener) => void child.on("exit", listener),
-    kill: () => void child.kill()
+    // The service's servers, as a project's Storybook, end with it: an exit handler in the service doesn't run when it's
+    // killed, so main ends its whole process tree (PAR-980).
+    kill: () => {
+      if (child.pid) {
+        killTree(child.pid)
+      }
+
+      child.kill()
+    }
   }
 }
 

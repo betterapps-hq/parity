@@ -9,9 +9,9 @@ import {
   type CodeChange,
   connectBuilderProcess
 } from "@parity-app/core"
+import { killTree } from "../shared/process-tree.ts"
 import type { BuilderReading } from "../shared/service.ts"
 import { inSpan } from "../shared/tracing.ts"
-import { killTree } from "./processes.ts"
 import { reportBuilderCrash } from "./telemetry.ts"
 
 /*

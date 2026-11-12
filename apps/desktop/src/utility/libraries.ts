@@ -2,9 +2,10 @@ import { type ChildProcess, spawn } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { addCommand, detectPackageManager, libraryCatalog, withStylesImport } from "@parity-app/project"
+import { killTree } from "../shared/process-tree.ts"
 import type { ProjectEditResult, ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit } from "./edits.ts"
-import { killTree, trackProcess } from "./processes.ts"
+import { trackProcess } from "./processes.ts"
 import { message, type OpenProject } from "./projects.ts"
 
 export async function catalogFor({ info }: OpenProject): Promise<ServiceMethods["library.catalog"]["result"]> {

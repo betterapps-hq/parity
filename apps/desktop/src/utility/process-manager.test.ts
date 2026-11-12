@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { traceWith } from "../shared/tracing.ts"
 import {
   adoptServer,
@@ -111,6 +111,24 @@ describe("startServer", { timeout: 60_000 }, () => {
     expect(listed?.error).toBeUndefined()
   })
 
+  it("stops the processes a server started along with it", async () => {
+    // A server that starts a worker of its own, as Storybook does, and prints the worker's id.
+    const withWorker = `
+const worker = require("node:child_process").spawn(process.execPath, ["-e", "setInterval(() => undefined, 60_000)"])
+console.log("worker " + worker.pid)
+${httpServer}`
+
+    const spec = await storybook()
+    const server = startServer({ ...spec, args: ["-e", withWorker, spec.args[2]!] })
+    await server.ready
+    const worker = Number(/worker (\d+)/.exec(server.log())?.[1])
+    expect(running(worker)).toBe(true)
+
+    server.stop()
+    await server.exited
+    await vi.waitFor(() => expect(running(worker)).toBe(false), { timeout: 10_000, interval: 100 })
+  })
+
   it("fails with the end of what a server printed when it stops by itself before answering", async () => {
     const server = startServer(
       await storybook({ args: ["-e", 'console.error("Port 6006 is in use"); process.exit(2)'] })
@@ -162,3 +180,13 @@ describe("adoptServer", () => {
     expect(await listProcesses()).toEqual([])
   })
 })
+
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
