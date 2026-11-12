@@ -38,11 +38,8 @@ const mainEnvironment = z.object({
     .regex(/^[0-9a-f]{40}$/, "expected a full commit hash")
     .optional(),
   /**
-   * Makes a copy run from source ask for sign-in before anything else, as an installed copy always does (PAR-1008).
-   */
-  PARITY_REQUIRE_SIGN_IN: z.literal("1").optional(),
-  /**
-   * Someone to start signed in as, as JSON, for the end-to-end tests and `pnpm perf`: `{"email":"ada@example.com"}`.
+   * Someone to start signed in as, as JSON, for a copy with its own user data folder, which has no kept session: the
+   * end-to-end tests, `pnpm perf` and the checks of a built copy. `{"email":"ada@example.com"}`.
    * A stand-in with no tokens, which never asks WorkOS, so nothing Parity's service guards works as them.
    */
   PARITY_SIGNED_IN_AS: nonBlankString.optional(),

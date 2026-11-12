@@ -6493,8 +6493,9 @@ in is optional".
 
 My calls:
 
-- **Only an installed copy requires it.** A copy run from source asks nobody, so agents, `pnpm perf` and the end-to-end
-  tests work without an account, and `PARITY_REQUIRE_SIGN_IN=1` makes one ask, to try it.
+- **Every copy requires it, `pnpm dev` too** (your call, 2026-11-12). A copy run from source shares the installed app's
+  kept accounts, so signing in once on a computer covers every run. A copy with its own user data folder, as the
+  end-to-end tests and `pnpm perf` have, starts as a stand-in.
 - **The screen covers what's open and changes nothing under it.** Open projects and unsaved changes stay as they are, as
   with Session ended. The title bar and its menus still show, so a project opened from the File menu opens behind the
   screen.

@@ -137,11 +137,6 @@ const appManifest = (): JsonValue => JSON.parse(readFileSync(join(app.getAppPath
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 
-/**
- * Whether this copy needs someone signed in before anything else (PAR-1008): an installed copy always, and one run from
- * source only with `PARITY_REQUIRE_SIGN_IN`, so agents and the tests work without an account.
- */
-const signInRequired = installed || environment.PARITY_REQUIRE_SIGN_IN === "1"
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 
 /** What GitHub says this version is: a beta, or promoted to everyone, kept between runs. */
@@ -509,7 +504,8 @@ function createWindow(): void {
         `--parity-version=${app.getVersion()}`,
         `${telemetryRunArgument}${telemetryRun}`,
         ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : []),
-        ...(signInRequired ? ["--parity-sign-in-required"] : [])
+        // Every copy needs someone signed in before anything else (PAR-1008). Storybook's host leaves it out.
+        "--parity-sign-in-required"
       ],
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,

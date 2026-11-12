@@ -261,6 +261,8 @@ function launch(): ChildProcess {
       PARITY_UI_FROZEN: "1",
       PARITY_DEBUG_PORT: String(debugPort),
       PARITY_USER_DATA: profileDir,
+      // The profile is the copy's own, with no kept session, and Parity asks for sign-in first (PAR-1008): a stand-in.
+      PARITY_SIGNED_IN_AS: JSON.stringify({ email: "perf@parity.test", name: "Perf" }),
       // What the type checker found is kept with the profile too, so the first launch finds none, as on a fresh install,
       // and the person's own cache is left alone.
       PARITY_CACHE_DIR: join(profileDir, "detection"),

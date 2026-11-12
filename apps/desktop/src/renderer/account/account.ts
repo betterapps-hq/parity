@@ -42,8 +42,8 @@ export function resetAccountView(): void {
 }
 
 /**
- * Whether this copy needs someone signed in before anything else (PAR-1008): an installed copy does, and a copy run
- * from source only when it's asked to, so agents and the tests work without an account. Main says which.
+ * Whether this copy needs someone signed in before anything else (PAR-1008), which main says of every copy it runs.
+ * Storybook's host doesn't, so a story shows the state it's given.
  */
 const required = (): boolean => window.canvasHost.signInRequired === true
 

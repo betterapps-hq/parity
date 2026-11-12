@@ -534,8 +534,8 @@ export interface CanvasHost {
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
   /**
-   * Whether this copy needs someone signed in before anything else (PAR-1008): an installed copy, or one run from
-   * source with `PARITY_REQUIRE_SIGN_IN` set.
+   * Whether this copy needs someone signed in before anything else (PAR-1008). Main always says so; Storybook's host
+   * doesn't, so stories show what they're given.
    */
   signInRequired?: boolean
   /**

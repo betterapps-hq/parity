@@ -6421,12 +6421,11 @@ client ID and never its API key, and the window never sees a token.
   or a work email, and at its foot that Parity never sees your password. There's no way past it. Signing out, or a
   session WorkOS ended with no other account to fall back to, leads back to it, and what was open stays as it was
   underneath (`placeFor`).
-- **A copy run from source asks nobody to sign in,** so agents, `pnpm perf` and the end-to-end tests work without an
-  account. `PARITY_REQUIRE_SIGN_IN=1` makes one ask as an installed copy does. `pnpm dev` shares the installed app's
-  kept accounts, so signing in once on a computer covers it; a copy with its own user data folder, as the tests have,
-  starts signed in as a stand-in with `PARITY_SIGNED_IN_AS`, JSON naming an email, with no tokens and without WorkOS
-  (`main/stand-in-account.ts`, `launch({ signedInAs })`). The checks that run a built copy (`try-built.ts`,
-  `try-update.ts`) start it as a stand-in too. An installed copy ignores `PARITY_REQUIRE_SIGN_IN`, since it always asks.
+- **A copy run from source asks too.** `pnpm dev` shares the installed app's kept accounts, so signing in once on a
+  computer covers every run. A copy with its own user data folder has no kept session, so the end-to-end tests,
+  `pnpm perf` and the checks that run a built copy (`try-built.ts`, `try-update.ts`) start it signed in as a stand-in
+  with `PARITY_SIGNED_IN_AS`, JSON naming an email, with no tokens and without WorkOS (`main/stand-in-account.ts`).
+  `launch({ signedInAs })` names another stand-in, and `launch({ signedOut: true })` starts at the sign-in screen.
 - **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
   Signed in already, it's Add another account, which says the accounts you're in stay signed in.

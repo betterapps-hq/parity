@@ -111,9 +111,9 @@ From the Sign in stories, which work as one prototype (PAR-614). The calls behin
   organization and role, and Sign out. Someone in no organization sees their email instead. The built start page left it
   out until sign-in exists (decisions.md, "The start page is built"). Home's organization switcher shows the session's
   organization, or Personal alone.
-- **Signing in is required in an installed copy** (your call, 2026-11-12, PAR-1008, replacing the earlier call that it
-  was optional). Signed out, the sign-in screen covers everything, with no way past it, and its foot says Parity never
-  sees your password. A copy run from source asks nobody, unless `PARITY_REQUIRE_SIGN_IN` is set.
+- **Signing in is required** (your call, 2026-11-12, PAR-1008, replacing the earlier call that it was optional). Signed
+  out, the sign-in screen covers everything, with no way past it, and its foot says Parity never sees your password. A
+  copy run from source asks too, and shares the installed app's kept session.
 - **Signed out, the account spot is an outline of an avatar,** whose menu offers Sign in and keeps agents, settings and
   help. For you offers Sign in too, and Home lists every project on this computer with no organization switcher, so
   nothing looks signed in (your call while trying PAR-612). Sign in opens the sign-in screen in a dialog over Home.

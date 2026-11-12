@@ -41,11 +41,12 @@ export interface RunningApp extends Launched {
  * and 9385, or on ports the system gives out when those are taken, so the suite runs beside a person's own copy, other
  * sessions' and another run.
  *
- * A copy run from source asks nobody to sign in. `signedInAs` starts it signed in as a stand-in, with no tokens and
- * without WorkOS, and `requireSignIn` makes it ask as an installed copy does (PAR-1008).
+ * Parity asks for sign-in before anything else (PAR-1008), and the copy has its own user data folder, so it starts
+ * signed in as a stand-in, with no tokens and without WorkOS: `signedInAs` names another, and `signedOut` starts it at
+ * the sign-in screen.
  */
 export async function launch(
-  account: { signedInAs?: { email: string; name?: string }; requireSignIn?: boolean } = {}
+  account: { signedInAs?: { email: string; name?: string }; signedOut?: boolean } = {}
 ): Promise<RunningApp> {
   await enlargeRunnerDisplay()
   const dir = await mkdtemp(join(tmpdir(), "parity-e2e-"))
@@ -71,8 +72,9 @@ export async function launch(
       PARITY_CACHE_DIR: join(dir, "cache"),
       // The same size every run, and a window that keeps drawing while other windows cover it.
       PARITY_WINDOW_SIZE: `${pageSize.width}x${pageSize.height}`,
-      ...(account.signedInAs && { PARITY_SIGNED_IN_AS: JSON.stringify(account.signedInAs) }),
-      ...(account.requireSignIn && { PARITY_REQUIRE_SIGN_IN: "1" })
+      ...(!account.signedOut && {
+        PARITY_SIGNED_IN_AS: JSON.stringify(account.signedInAs ?? { email: "test@parity.test", name: "Test" })
+      })
     },
     stdio: ["ignore", "pipe", "pipe"]
   })
