@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 19:27:29 GMT",
+      "version": "0.74.1",
+      "tag": "@parity-app/desktop_v0.74.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4bf8f301eb7a5fdd683cf37be18ded22f90514ba",
+            "comment": "Keep you signed in when the saved session's write is cut short: the file is written whole (PAR-977)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9f7a17177f7afb0bf26aadfe2624ca3c66f62982",
+            "comment": "Keep the editor and render windows on Parity's page: links off it open in the browser, and only Parity's page gets a channel to the project service"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "26a238e0d2f288ff004b1f53eacaa835e6ac34bc",
+            "comment": "Each tab keeps its own console filter, and closing a tab lets go of its previews, accessibility checks, media list and Props state"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "483e455e8ee22774cc1cec00d7d00e452acfe5f1",
+            "comment": "Frame skeletons and the inspect and tab-order overlays read frames through the frame geometry module"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 14:06:12 GMT",
       "version": "0.74.0",
       "tag": "@parity-app/desktop_v0.74.0",

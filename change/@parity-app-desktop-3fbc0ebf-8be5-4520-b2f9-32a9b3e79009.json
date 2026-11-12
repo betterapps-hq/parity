@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep you signed in when the saved session's write is cut short: the file is written whole (PAR-977)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

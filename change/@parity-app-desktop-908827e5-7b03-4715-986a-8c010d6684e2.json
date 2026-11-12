@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Frame skeletons and the inspect and tab-order overlays read frames through the frame geometry module",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

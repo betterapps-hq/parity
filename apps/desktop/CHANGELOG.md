@@ -1,8 +1,21 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 14:06:12 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 19:27:29 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.1
+
+Thu, 12 Nov 2026 19:27:29 GMT
+
+### Patches
+
+- Keep you signed in when the saved session's write is cut short: the file is written whole (PAR-977)
+  (ajcraswell@gmail.com)
+- Keep the editor and render windows on Parity's page: links off it open in the browser, and only Parity's page gets a
+  channel to the project service (ajcraswell@gmail.com)
+- Each tab keeps its own console filter, and closing a tab lets go of its previews, accessibility checks, media list and
+  Props state (ajcraswell@gmail.com)
 
 ## 0.74.0
 
