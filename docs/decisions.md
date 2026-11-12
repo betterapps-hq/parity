@@ -444,8 +444,9 @@ still need your call.
   stays live, as does everything while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from
   the live frame once it has stayed the same for a second, its text as faded bars in the text's colour and its cards,
   fields, buttons and images as flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured
-  height. A frame not measured yet stays live. Bitmaps and skeletons are kept in memory only, so a code change never
-  shows a stale one. Below about 5%, boards and frames also drop their shadows.
+  height. A frame not measured yet stays live. Skeletons are kept in memory only. Bitmaps are also kept on disk for the
+  next session (PAR-179), named by what they show, the project's code included, so a code change never shows a stale
+  one. Below about 5%, boards and frames also drop their shadows.
 - **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
   its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
   near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
