@@ -1,5 +1,5 @@
 import { Combobox, ComboboxChip, ComboboxChips } from "@buildkitgg/shadcn-baseui-kit"
-import type { ComponentProps, ReactNode } from "react"
+import type { HTMLAttributes, ReactNode } from "react"
 import { ChangeMark, useChanged } from "./field-parts.tsx"
 
 /** The layer filling a slot, by the name Layers gives it. */
@@ -31,7 +31,7 @@ export function SlotPickerField({
   onClear: () => void
   onSelectLayer: (id: string) => void
   className?: string
-} & Omit<ComponentProps<typeof ComboboxChips>, "children" | "className">) {
+} & Omit<HTMLAttributes<HTMLDivElement>, "children" | "className">) {
   const changed = useChanged()
 
   return (
