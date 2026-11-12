@@ -116,8 +116,10 @@ An option a function doesn't take is an error too, so check its spelling against
 ## Paths
 
 A design is named by its id or its name. A node is named by `design/node`, where `node` is the node's id or its name, or
-by its id alone when only one design has that id. Names aren't unique, so prefer ids once you have them; `Insert`,
-`Copy` and `CreateDesign` return them, and nodes you create with a `name` are listed under "Created" in the result.
+by its id alone when only one design has that id. A path never lists the node's parents: `profile/heading`, not
+`profile/page/heading`. Only `Update`, and `Get` with a `state` or `mode`, go further, to a layer inside an instance.
+Names aren't unique, so prefer ids once you have them; `Insert`, `Copy` and `CreateDesign` return them, and nodes you
+create with a `name` are listed under "Created" in the result.
 
 A state is named by its id only, as `Designs()` lists it and `AddState` returns it. A state's name in its place fails
 with `unknown_state`, and the error names the id it belongs to.
