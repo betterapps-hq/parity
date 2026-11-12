@@ -24,9 +24,13 @@ Each level is built only from the one below it, and each has its own stories.
 | **Fields**   | One value's control, with no idea what layer it's on                           | Number field, Select, Switch       |
 | **Parts**    | What fields and rows are made of                                               | Field row, Change mark, Token chip |
 
-A case lives at the lowest level it's about. A field's changed look is a Fields story. Padding marking one side is a
-Rows story. Props being defined on a component and set on an instance are two Sections stories. A Layers story shows
-only which sections a kind has, so each kind has one.
+Two rules decide where a story goes:
+
+- **A case lives at the lowest level it's about.** A field's changed look is a Fields story. Padding marking one side is
+  a Rows story. Props being defined on a component and set on an instance are two Sections stories.
+- **A level above doesn't repeat the variations below it.** A Layers story shows which sections a kind has, in their
+  ordinary state, so each kind has one. A Sections story shows what the section itself varies, not every state of every
+  field inside it. Each smaller piece shows its own variations, once.
 
 ## Which sections a layer shows
 
