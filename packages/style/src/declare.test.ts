@@ -236,6 +236,24 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
 
   ["background", { background: "primary" }, component, [["background", "var(--primary)", "background"]]],
   [
+    "a stack of paints, the bottom color under the image layers",
+    {
+      background: [
+        { kind: "image", src: "/t.png", fit: "fill" },
+        { kind: "gradient", token: "gradient-brand" },
+        { kind: "solid", color: "muted", alpha: 50 }
+      ]
+    },
+    component,
+    [
+      ["background-color", "color-mix(in oklab, var(--muted) 50%, transparent)", "background"],
+      ["background-image", 'url("/t.png"), var(--gradient-brand)', "background"],
+      ["background-size", "cover, auto", "background"],
+      ["background-position", "50% 50%, 0% 0%", "background"],
+      ["background-repeat", "no-repeat, repeat", "background"]
+    ]
+  ],
+  [
     "a border color alone is a 1px solid border",
     { border: "input" },
     component,

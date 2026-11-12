@@ -1,21 +1,9 @@
 import { z } from "zod"
+import { nodeFill } from "./paint.ts"
+import { finiteNumber, stored } from "./stored.ts"
 
 // The stored style: what a layer's `style`, and a patch's, holds in a `.par` file. The file's other schemas are in
 // `@parity-app/core`, which builds its nodes and patches on this one.
-
-/** A number other than NaN or ±Infinity, which zod 4 refuses on its own. */
-const finiteNumber = z.number()
-
-/** Zod's own copy of an object, without the keys whose values are `undefined`, as JSON leaves them out. */
-function withoutUnset<T extends object>(value: T): T {
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry === undefined) {
-      Reflect.deleteProperty(value, key)
-    }
-  }
-
-  return value
-}
 
 /** Steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`), or the name of a length token. */
 const length = z.union([finiteNumber, z.string()])
@@ -40,14 +28,6 @@ const padding = z.union([z.tuple([length, length], sides), z.tuple([length, leng
 export type Padding = z.infer<typeof padding>
 
 const alignment = z.enum(["start", "center", "end", "stretch"])
-
-/**
- * An object in the stored style. A key it doesn't know is an error, and a key set to `undefined` is left out, as core's
- * `fileObject` does for every object in a file Parity owns.
- */
-function stored<const Fields extends NonNullable<Parameters<typeof z.strictObject>[0]>>(fields: Fields) {
-  return z.strictObject(fields).overwrite(withoutUnset)
-}
 
 /** A color token's name, with its alpha from 0 to 100 when it's see-through. */
 const effectColor = stored({ color: z.string().min(1), alpha: finiteNumber.optional() })
@@ -186,7 +166,8 @@ export const nodeStyle = stored({
   zIndex: z.union([finiteNumber.int(), z.string()]).optional(),
 
   // Appearance.
-  background: z.string().optional(),
+  /** One color token, or a stack of paints, top first: colors, gradients and images (PAR-931). */
+  background: nodeFill.optional(),
   foreground: z.string().optional(),
   /** Border color. */
   border: z.string().optional(),

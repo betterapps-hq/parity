@@ -1,5 +1,6 @@
 import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
 import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
+import { fillCss } from "./paint.ts"
 
 /** One CSS declaration a style comes to. */
 export interface Declaration {
@@ -181,8 +182,13 @@ function sidesCss(value: Padding): string {
 
 /** Fill, border, corners, shadow and clipping. */
 function surface(css: Sheet, style: NodeStyle): void {
-  if (style.background) {
-    css.set("background", token(style.background), "background")
+  // A fill's style names its properties as the DOM does (`backgroundImage`).
+  for (const [name, value] of Object.entries(fillCss(style.background))) {
+    css.set(
+      name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`),
+      value,
+      "background"
+    )
   }
 
   if (style.border !== undefined || style.borderWidth !== undefined) {

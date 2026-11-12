@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Effects: a stack of shadows, layer and background filters, and a transform, edited in the Design tab's Effects section and by the agent. Text case is now textTransform.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
