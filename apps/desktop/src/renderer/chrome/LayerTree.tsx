@@ -1064,7 +1064,7 @@ const LayerRow = memo(function LayerRow({
                 />
               )}
               {/* A design with one state says nothing; with more, how many, in words. */}
-              {row.depth === 0 && container.states.length > 1 && (
+              {row.depth === 0 && container.states && container.states.length > 1 && (
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {container.states.length} states
                 </span>

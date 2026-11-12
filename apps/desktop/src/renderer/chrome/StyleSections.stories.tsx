@@ -1,4 +1,4 @@
-import { editNode, type NodeStyle } from "@parity-app/core"
+import { designStates, editNode, type NodeStyle } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
@@ -41,7 +41,7 @@ const pick = (designName: string, layerName: string, style?: NodeStyle, state?: 
 
     if (style) {
       example().store.updateContainer(key, "Change style", (container) =>
-        editNode(container, state ?? container.states[0]!.id, id, { style })
+        editNode(container, state ?? designStates(container)[0]!.id, id, { style })
       )
     }
 
@@ -143,9 +143,9 @@ export const TextDecorations: Story = {
 /** Text styles on a layout, Pricing's footer: they apply to the text inside, which says so. */
 export const TextInside: Story = { loaders: [pick("Pricing", "Footer")] }
 
-/** Styles a state changes, the headline in Yearly: their names in the agent color, each with a reset. */
+/** Styles a state changes, Stat card's label in Loading: their names in the agent color, each with a reset. */
 export const ChangedInAState: Story = {
-  loaders: [pick("Pricing", "Headline", { foreground: "primary", weight: 700 }, "yearly")]
+  loaders: [pick("Stat card", "Label", { foreground: "primary", weight: 700 }, "loading")]
 }
 
 /** The fill picker open: the project's colors with swatches, searchable, and None. */

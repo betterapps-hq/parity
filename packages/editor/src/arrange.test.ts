@@ -52,8 +52,8 @@ function form(): ContainerSpec {
   }
 }
 
-const base = form().states[0]!
-const wide = form().states[1]!
+const base = form().states![0]!
+const wide = form().states![1]!
 
 /** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
 function card(variants: Record<string, string> = {}): ContainerSpec {
@@ -180,11 +180,11 @@ describe("wrapping in a layout", () => {
 
   it("reads the parent as the board shows it, with the variant options shown and the frame's viewport", () => {
     // The card's Inline option turns its body into a row, and the body's mobile gap of 2 wins over the option's 6.
-    const inline = wrapInLayout(card({ layout: "inline" }), ["avatar", "copy"], card().states[0]!, "mobile")
+    const inline = wrapInLayout(card({ layout: "inline" }), ["avatar", "copy"], card().states![0]!, "mobile")
     expect(findNode(inline.container.root, inline.id)?.style).toEqual({ direction: "row", gap: 2 })
-    const stacked = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "mobile")
+    const stacked = wrapInLayout(card(), ["avatar", "copy"], card().states![0]!, "mobile")
     expect(findNode(stacked.container.root, stacked.id)?.style).toEqual({ gap: 2 })
-    const desktop = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "desktop")
+    const desktop = wrapInLayout(card(), ["avatar", "copy"], card().states![0]!, "desktop")
     expect(findNode(desktop.container.root, desktop.id)?.style).toEqual({ gap: 4 })
   })
 
@@ -259,12 +259,12 @@ describe("aligning layers", () => {
     const container = alignInLayouts(form(), ["email"], wide, "left")
     const email = findNode(container.root, "email")!
     expect(email.style).toBeUndefined()
-    expect(nodeInState(email, container.states[1]).style).toEqual({ self: "start" })
+    expect(nodeInState(email, container.states![1]).style).toEqual({ self: "start" })
   })
 
   it("reads the layout's direction with the variant options the board shows", () => {
     // Inline turns the card's body into a row, so Align right moves its children along it, in the variant shown.
-    const container = alignInLayouts(card({ layout: "inline" }), ["copy"], card().states[0]!, "right")
+    const container = alignInLayouts(card({ layout: "inline" }), ["copy"], card().states![0]!, "right")
     expect(findNode(container.root, "copy")?.style).toBeUndefined()
     expect(findNode(container.root, "body")?.style).not.toHaveProperty("justify")
     const layout = container.params?.layout
@@ -274,7 +274,7 @@ describe("aligning layers", () => {
   })
 
   it("aligns a layer by itself in a column the board shows", () => {
-    const container = alignInLayouts(card({ layout: "stacked" }), ["copy"], card().states[0]!, "right", "mobile")
+    const container = alignInLayouts(card({ layout: "stacked" }), ["copy"], card().states![0]!, "right", "mobile")
     expect(findNode(container.root, "copy")?.style).toEqual({ self: "end" })
   })
 

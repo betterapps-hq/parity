@@ -158,8 +158,7 @@ describe("a new design of dropped images", () => {
       name: "Hero banner",
       kind: "frame",
       position: { x: 120, y: -40 },
-      root: { type: "layout", style: { direction: "row", align: "start", padding: 6, gap: 4, width: "hug" } },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", style: { direction: "row", align: "start", padding: 6, gap: 4, width: "hug" } }
     })
   })
 

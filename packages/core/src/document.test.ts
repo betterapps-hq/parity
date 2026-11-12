@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type ContainerSpec, includeComponent, linkAllowed, parseCanvasDocument, parseDesignNode } from "./document.ts"
+import {
+  baseState,
+  type ContainerSpec,
+  designStates,
+  includeComponent,
+  linkAllowed,
+  parseCanvasDocument,
+  parseDesignNode
+} from "./document.ts"
 
 const toaster = { path: "src/components/ui/sonner.tsx", export: "Toaster" }
 const price = { path: "src/promo.tsx", export: "PromoPrice" }
@@ -20,8 +28,7 @@ describe("a frame in a project file", () => {
     kind: "frame",
     position: { x: 40, y: 80 },
     size: { width: 400, height: 300 },
-    root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] }
   }
 
   const file = (design: Partial<ContainerSpec>) => ({ version: 3, containers: [design] })
@@ -34,14 +41,10 @@ describe("a frame in a project file", () => {
     expect(parseCanvasDocument(file({ ...frame, size: undefined })).containers[0]).not.toHaveProperty("size")
   })
 
-  it("has a layout at its root, one state drawn as its layers are, and no params, view or sizes per viewport", () => {
+  it("has a layout at its root, and no states, params, view or sizes per viewport", () => {
     const cases: [Partial<ContainerSpec>, string][] = [
       [{ root: { type: "text", id: "root", text: "Idea" } }, "/containers/0/root: a frame's root is a layout"],
-      [{ states: [...frame.states, { id: "empty", name: "Empty" }] }, "/containers/0/states: a frame has one state"],
-      [
-        { states: [{ id: "default", name: "Default", overrides: { note: { text: "Other" } } }] },
-        "/containers/0/states/0/overrides"
-      ],
+      [{ states: [{ id: "default", name: "Default" }] }, "/containers/0/states: only a component has states"],
       [{ params: { title: { type: "text" } } }, "/containers/0/params: a frame has no params"],
       [{ view: { modes: ["desktop-dark"] } }, "/containers/0/view"],
       [{ frames: { mobile: { width: 390 } } }, "/containers/0/frames"]
@@ -56,6 +59,49 @@ describe("a frame in a project file", () => {
     for (const kind of ["screen", "component", undefined] as const) {
       expect(() => parseCanvasDocument(file({ ...frame, kind }))).toThrow("/containers/0/size: only a frame")
     }
+  })
+})
+
+describe("states in a project file (PAR-1002)", () => {
+  const root = { type: "layout" as const, id: "root", children: [{ type: "text" as const, id: "label", text: "Save" }] }
+  const hover = { id: "hover", name: "Hover", overrides: { label: { text: "Save now" } } }
+
+  const file = (design: Partial<ContainerSpec>) => ({
+    version: 3,
+    containers: [{ id: "button", name: "Button", position: { x: 0, y: 0 }, root, ...design }]
+  })
+
+  it("are a component's, the base first, and shown on its board", () => {
+    const states = [{ id: "default", name: "Default" }, hover]
+    const read = parseCanvasDocument(file({ kind: "component", states, view: { state: "hover", allStates: true } }))
+    expect(read.containers[0]!.states).toEqual(states)
+    expect(designStates(read.containers[0]!)).toEqual(states)
+  })
+
+  it("leave a component that lists none with its base state alone", () => {
+    expect(designStates(parseCanvasDocument(file({ kind: "component" })).containers[0]!)).toEqual([baseState])
+  })
+
+  it("are refused on a screen, which shows other data through its components' props instead", () => {
+    const cases: [Partial<ContainerSpec>, string][] = [
+      [{ states: [{ id: "default", name: "Default" }, hover] }, "/containers/0/states: only a component has states"],
+      [{ view: { state: "hover" } }, "/containers/0/view/state: only a component has states"],
+      [{ view: { allStates: true } }, "/containers/0/view/allStates: only a component has states"]
+    ]
+
+    for (const [change, message] of cases) {
+      expect(() => parseCanvasDocument(file(change))).toThrow(message)
+      expect(() => parseCanvasDocument(file({ ...change, kind: "screen" }))).toThrow(message)
+    }
+
+    expect(designStates(parseCanvasDocument(file({})).containers[0]!)).toEqual([baseState])
+  })
+
+  it("are no instance's to choose: a copy shows its component's base state", () => {
+    const placed = { type: "instance", id: "save", design: "button", state: "hover" }
+    const saved = { ...file({}), containers: [{ ...file({}).containers[0], root: { ...root, children: [placed] } }] }
+
+    expect(() => parseCanvasDocument(saved)).toThrow("state")
   })
 })
 

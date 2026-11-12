@@ -37,12 +37,11 @@ function settings(): ContainerSpec {
       type: "layout",
       id: "root",
       children: [{ type: "layout", id: "form", children: [text("name"), text("email")] }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 
-const [base, loading] = dashboard().states
+const [base, loading] = dashboard().states!
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)

@@ -108,8 +108,7 @@ describe("Tab from a design's title", () => {
       })
 
     expect(await focused()).toEqual({ label: "Members", title: true, board: null, canvas: true })
-    await app.page.keyboard.press("Tab")
-    expect(await focused()).toEqual({ label: "State", title: true, board: null, canvas: true })
+    // A screen has no states, so its title has no State menu: Modes comes next.
     await app.page.keyboard.press("Tab")
     expect(await focused()).toMatchObject({ label: expect.stringMatching(/^Modes/), title: true })
     // On past the canvas: Members' mode caption, which Enter selects as a person would click it, then out, never to
@@ -255,11 +254,11 @@ describe("next and previous design", () => {
   })
 
   it("goes round from the last design to the first, components first", async () => {
-    // Members is the last screen the project lists, and Member row its first component.
+    // Members is the last screen the project lists, and Button its first component.
     await app.show("Members", 0.5)
     await app.selectDesign("Members")
     await app.page.keyboard.press("n")
-    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Member row"))
+    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Button"))
     await app.page.keyboard.press("Shift+N")
     await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Members"))
   })

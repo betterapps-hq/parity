@@ -16,7 +16,6 @@ function snapshot(): AgentSnapshot {
       name: "Card",
       children: [{ type: "text", id: "label", name: "Label", text: "Revenue", bind: { text: "label" } }]
     },
-    states: [{ id: "default", name: "Default" }],
     params: { label: { type: "text", default: "Revenue" } }
   }
 
@@ -27,12 +26,16 @@ function snapshot(): AgentSnapshot {
     root: {
       type: "layout",
       id: "page",
-      children: [{ type: "instance", id: "sales", design: "stat-card", args: { label: "Sales" } }]
-    },
-    states: [
-      { id: "default", name: "Default" },
-      { id: "empty", name: "Empty", overrides: { sales: { props: { label: "No sales" } } } }
-    ]
+      children: [
+        {
+          type: "instance",
+          id: "sales",
+          design: "stat-card",
+          args: { label: "Sales" },
+          responsive: { mobile: { props: { label: "No sales" } } }
+        }
+      ]
+    }
   }
 
   return {
@@ -158,7 +161,9 @@ Update(id, { bind: { text: "caption" } })`)
     expect(after("stat-card")!.params).toEqual({ title: { type: "text", default: "Users" } })
     expect(findNode(after("stat-card")!.root, "label")?.bind).toEqual({ text: "title" })
     expect(findNode(after("dashboard")!.root, "sales")).toMatchObject({ args: { title: "Sales" } })
-    expect(after("dashboard")!.states[1]!.overrides).toEqual({ sales: { props: { title: "No sales" } } })
+    expect(findNode(after("dashboard")!.root, "sales")?.responsive).toEqual({
+      mobile: { props: { title: "No sales" } }
+    })
   })
 
   it("keeps an option's changes when a new list names it again, and drops picks of an option that went", async () => {

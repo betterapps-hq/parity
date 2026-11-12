@@ -113,8 +113,8 @@ export interface Offer {
 /**
  * Each session's offer, kept while its project info and its component designs stay the same, so opening the picker
  * builds nothing (PAR-178). Edits to designs change every entry but none of this, so the designs are compared by their
- * keys and names. It's kept by the project's info, which is replaced when its components or libraries change (the
- * session itself is replaced whenever any part of it does), and goes with it.
+ * keys and names. It's kept by the project's info, which is replaced when its components or libraries change, and
+ * goes with it.
  */
 const offers = new WeakMap<ProjectSession["info"], { designs: string; offer: Offer }>()
 
