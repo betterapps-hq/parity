@@ -4,7 +4,14 @@ import { useContext, useEffect, useMemo, useRef } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { GestureRun } from "../../canvas/gesture.ts"
 import { FieldTarget } from "../../chrome/fields.tsx"
-import type { StyleEditor } from "../../chrome/style-editor.ts"
+import type { StyleChange, StyleEditor } from "../../chrome/style-editor.ts"
+import {
+  type FieldSessionEvent,
+  initialSession,
+  reduceSession,
+  type SessionEffect,
+  type SessionEvent
+} from "../controls/edit-session.ts"
 import type { LiveEdits } from "../controls/field-parts.tsx"
 
 /** Makes a row's edit of every selected layer, with what Undo calls it. */
@@ -17,6 +24,7 @@ export interface SectionProps {
   can: Capabilities
   /** Whether one of the controls only some layers get shows, as `@parity-app/editor`'s `styleTable` says. */
   shows: (control: StyleControl) => boolean
+  /** Every edit a section makes goes through this, so its fields' previews, runs and Escape reach the design. */
   edit: SectionEdit
 }
 
@@ -41,50 +49,114 @@ export function mixedOf(editor: StyleEditor): (name: keyof NodeStyle) => boolean
 }
 
 /**
- * The controls' edits of the style, and the live edits they make them through (`LiveEditsContext`): what's typed or
- * scrubbed shows on the canvas as a preview until it's made, and a run of Up and Down presses is one undo step, as the
- * fields have always done (CAN-48, PAR-441). A control calls its `onChange` either way; this sends the edit to the
- * preview, to the run, or to the design.
+ * The Design tab's one edit session (`edit-session.ts`), run against the style editor. A field tells it what happened
+ * through `live` (`LiveEditsContext`), with the change that comes to; the edits the change makes through `edit` are
+ * gathered, and the session says whether they preview on the canvas, are made, or are one step of a run of Up and Down
+ * presses, which Escape takes back (CAN-48, PAR-441, PAR-968). An edit made outside a field's change, as a toggle
+ * makes, is made at once.
  */
-export function useSectionEdits(editor: StyleEditor): SectionEdits {
+export function useEditSession(editor: StyleEditor): SectionEdits {
   const store = useContext(ProjectContext)?.store
   const target = useContext(FieldTarget)
-  const mode = useRef<"make" | "preview" | "step">("make")
-  // A run of presses lasts while only Up and Down are pressed on one selection (`GestureRun`).
+  // The edits a field's change is coming to, while it runs.
+  const gathering = useRef<StyleChange[]>(undefined)
+  // The editor and target as of the last render, since a field's events come after it.
+  const now = useRef({ editor, target })
+  useEffect(() => {
+    now.current = { editor, target }
+  })
+  // A run of presses is one gesture (`GestureRun`), with a checkpoint Escape takes it back to.
   const run = useMemo(() => (store ? new GestureRun(store, "fieldNudge") : undefined), [store])
-  useEffect(() => () => run?.end(), [run])
-  useEffect(() => run?.select(target), [run, target])
 
-  const during = (next: "preview" | "step", change: () => void) => {
-    mode.current = next
+  const session = useMemo(() => new SessionRunner(run, now), [run])
+  const dispatch = (event: SessionEvent<StyleChange>) => session.dispatch(event)
 
-    try {
-      change()
-    } finally {
-      mode.current = "make"
-    }
-  }
+  // A run ends as the selection changes, and the session as the panel goes, keeping what it made.
+  useEffect(() => session.dispatch({ type: "target", target }), [session, target])
+  useEffect(() => () => session.dispatch({ type: "end" }), [session])
 
   const edit: SectionEdit = (row, change, label) => {
-    if (mode.current === "preview") {
-      editor.preview?.(row, change)
+    // SAFETY: `change` edits `row`'s keys, which is what a `StyleChange` of any row holds; it's only ever applied to its
+    // own row (`StyleEditor.make` and `preview` pass each change's edit with its row).
+    const made = { row, edit: change, label } as StyleChange
 
-      return
+    if (gathering.current) {
+      gathering.current.push(made)
+    } else {
+      dispatch({ type: "make", edits: [made] })
     }
-
-    if (mode.current === "make") {
-      run?.end()
-    }
-
-    editor.set(row, change, label, mode.current === "step" ? run?.gesture(target) : undefined)
   }
 
   const live: LiveEdits = {
-    preview: (change) => during("preview", change),
-    cancel: () => editor.endPreview?.(),
-    step: (change) => during("step", change),
-    endRun: () => run?.end()
+    send: (event: FieldSessionEvent, change?: () => void) => {
+      const edits: StyleChange[] = []
+      gathering.current = edits
+
+      try {
+        change?.()
+      } finally {
+        gathering.current = undefined
+      }
+
+      dispatch(event.type === "step" ? { type: "step", edits, target: now.current.target } : { ...event, edits })
+    }
   }
 
   return { edit, live }
+}
+
+/** What a session's effects are run against, as of the last render. */
+interface SessionTarget {
+  editor: StyleEditor
+  target: string | undefined
+}
+
+/** Keeps a session's state, and runs what it asks for against the style editor and the store's gestures. */
+class SessionRunner {
+  private state = initialSession
+  /** The run of presses under way: its gesture, and the checkpoint Escape takes it back to. */
+  private open: { gesture: string; checkpoint?: { revert: () => void } } | undefined
+
+  constructor(
+    private readonly run: GestureRun | undefined,
+    private readonly now: { readonly current: SessionTarget }
+  ) {}
+
+  dispatch(event: SessionEvent<StyleChange>): void {
+    const update = reduceSession(this.state, event)
+    this.state = update.state
+
+    for (const effect of update.effects) {
+      this.apply(effect)
+    }
+  }
+
+  private apply(effect: SessionEffect<StyleChange>): void {
+    const { editor, target } = this.now.current
+
+    switch (effect.type) {
+      case "preview":
+        return editor.preview(effect.edits)
+      case "unpreview":
+        return editor.endPreview()
+      case "make":
+        return editor.make(effect.edits, effect.inRun ? this.open?.gesture : undefined)
+      case "beginRun": {
+        const gesture = this.run?.gesture(target)
+        this.open = gesture === undefined ? undefined : { gesture, checkpoint: editor.checkpoint(gesture) }
+
+        return
+      }
+
+      case "endRun":
+        this.open = undefined
+
+        return this.run?.end()
+      case "revertRun":
+        this.open?.checkpoint?.revert()
+        this.open = undefined
+
+        return this.run?.cancel()
+    }
+  }
 }

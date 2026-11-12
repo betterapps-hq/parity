@@ -43,6 +43,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
+import { type FieldSessionEvent, relativeUpdate } from "./edit-session.ts"
 import { useRowScrub } from "./field-row.tsx"
 import { inScaleOrder, stepToken, tokenNamed } from "./token-scale.ts"
 import {
@@ -102,21 +103,19 @@ export const arrowMoves = new Map<string, [number, number]>([
 
 /**
  * How a field's changes reach what it edits while they're under way, where that can show a change before making it, as
- * the Design tab's style editor can. Without it, each change is made as it comes, as the stories' drafts take them.
+ * the Design tab's edit session can (`edit-session.ts`). Without it, each change is made as it comes, as the stories'
+ * drafts take them.
  */
 export interface LiveEdits {
-  /** Runs `change` as a preview: what it changes shows at once, without being made. */
-  preview: (change: () => void) => void
-  /** Takes back a preview. */
-  cancel: () => void
-  /** Runs `change` as one of a run of steps, Up and Down presses, which are one undo step together. */
-  step: (change: () => void) => void
-  /** Ends a run of steps, so the next change is a step of its own. */
-  endRun: () => void
+  /** Says what happened in the field, running `change` to find what it edits: a preview, a step, the made value. */
+  send: (event: FieldSessionEvent, change?: () => void) => void
 }
 
 /** The live edits the fields inside make their changes through, as the Design tab's sections provide them. */
 export const LiveEditsContext = createContext<LiveEdits | undefined>(undefined)
+
+/** The live edits a control's changes go through, where the Design tab's sections give them; none in the stories. */
+export const useLiveEdits = () => useContext(LiveEditsContext)
 
 /**
  * The parts of the approved controls whose values the document the panel edits can't store yet, each added by one of
@@ -204,27 +203,21 @@ export function useTyped<T>({
   // what's typed again, so it finds it already taken rather than committing it twice.
   const typedNow = useRef<string>(undefined)
   const live = useContext(LiveEditsContext)
-  // Whether what's typed shows as a preview, which Escape, text it can't read, or the field going takes back.
-  const previewing = useRef(false)
   const liveNow = useRef(live)
   useEffect(() => {
     liveNow.current = live
   })
+  // What's typed doesn't outlive its field on the canvas, as when the row it's in goes while it's typed in.
   useEffect(
     () => () => {
-      if (previewing.current) {
-        liveNow.current?.cancel()
+      if (typedNow.current !== undefined) {
+        liveNow.current?.send({ type: "hide" })
       }
     },
     []
   )
 
-  const cancelPreview = () => {
-    if (previewing.current) {
-      previewing.current = false
-      live?.cancel()
-    }
-  }
+  const cancelPreview = () => live?.send({ type: "hide" })
 
   // Each keystroke that reads shows on the canvas at once, as the app's fields always have (CAN-48).
   const previewTyped = (text: string) => {
@@ -232,16 +225,17 @@ export function useTyped<T>({
       return
     }
 
-    live.endRun()
     const outcome = read(text)
 
     if ("value" in outcome) {
-      previewing.current = true
-      live.preview(() => onCommit(outcome.value))
+      live.send({ type: "show" }, () => onCommit(outcome.value))
     } else {
       cancelPreview()
     }
   }
+
+  // Made, the edit takes the preview's place: one undo step.
+  const make = (value: T) => (live ? live.send({ type: "make" }, () => onCommit(value)) : onCommit(value))
 
   const [focused, setFocused] = useState(false)
   const [ownMessage, setOwnMessage] = useState<Message>()
@@ -291,9 +285,7 @@ export function useTyped<T>({
     const outcome = read(text)
 
     if ("value" in outcome) {
-      // Made, the edit takes the preview's place.
-      previewing.current = false
-      onCommit(outcome.value)
+      make(outcome.value)
       setMessage(outcome.message)
     } else if (leaving && quiet) {
       setMessage(undefined)
@@ -310,7 +302,10 @@ export function useTyped<T>({
       return false
     }
 
-    cancelPreview()
+    if (!("value" in outcome)) {
+      cancelPreview()
+    }
+
     setTyped(undefined)
 
     return true
@@ -341,7 +336,7 @@ export function useTyped<T>({
       onBlur: () => {
         setFocused(false)
         commit(true)
-        live?.endRun()
+        live?.send({ type: "end" })
       },
       onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Enter" && commit(false)) {
@@ -355,20 +350,21 @@ export function useTyped<T>({
           // Escape is asked for, so putting the value back says nothing; it clears what was said.
           setMessage(undefined)
         } else if (event.key === "Escape" && !event.defaultPrevented) {
-          // With nothing typed, Escape leaves the field, so the canvas's keys, Undo among them, reach the app again.
+          // With nothing typed, Escape takes back a run of Up and Down presses and leaves the field, so the canvas's
+          // keys, Undo among them, reach the app again.
+          live?.send({ type: "cancel" })
           event.currentTarget.blur()
         }
 
         if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
           event.preventDefault()
-          cancelPreview()
           setTyped(undefined)
           setMessage(undefined)
           const up = event.key === "ArrowUp"
           const { shiftKey, altKey } = event
 
           if (live) {
-            live.step(() => onStep(up, shiftKey, altKey))
+            live.send({ type: "step" }, () => onStep(up, shiftKey, altKey))
           } else {
             onStep(up, shiftKey, altKey)
           }
@@ -538,8 +534,12 @@ export function scrub(
   from: () => number,
   apply: (value: number, keys: ScrubKeys) => void,
   by: ScrubBy,
-  live?: LiveEdits
+  live?: LiveEdits,
+  each?: (update: (own: number) => number) => void
 ): (event: ReactPointerEvent<Element>) => void {
+  // A value held to the field's limits, to a ten-thousandth.
+  const settle = (value: number) => Math.round(clamp(value, by.min ?? -Infinity, by.max ?? Infinity) * 10_000) / 10_000
+
   return (event) => {
     if (event.button !== 0) {
       return
@@ -547,20 +547,23 @@ export function scrub(
 
     event.preventDefault()
     const start = from()
-    // With live edits, the drag previews as it goes and makes its last value once, on release: one undo step.
-    let last: { value: number; keys: ScrubKeys } | undefined
-    live?.endRun()
+    // With live edits, the drag previews as it goes and makes its last value once, on release: one undo step. Escape,
+    // or the pointer being cancelled, puts the value back.
+    let last: (() => void) | undefined
+    live?.send({ type: "end" })
     drag(event, {
+      escapes: live !== undefined,
       move: ({ dx, shift, alt }) => {
         const keys = { shift, alt }
-        const next = clamp(scrubbed(start, dx, keys, by), by.min ?? -Infinity, by.max ?? Infinity)
-        const value = Math.round(next * 10_000) / 10_000
+        const value = settle(scrubbed(start, dx, keys, by))
+        // Where the layers differ, each moves from its own value.
+        const change = each ? () => each((own) => settle(scrubbed(own, dx, keys, by))) : () => apply(value, keys)
 
         if (live) {
-          last = { value, keys }
-          live.preview(() => apply(value, keys))
+          last = change
+          live.send({ type: "show" }, change)
         } else {
-          apply(value, keys)
+          change()
         }
       },
       end: (_point, cancelled) => {
@@ -569,13 +572,21 @@ export function scrub(
         }
 
         if (cancelled) {
-          live.cancel()
+          live.send({ type: "cancel" })
         } else {
-          apply(last.value, last.keys)
+          live.send({ type: "make" }, last)
         }
       }
     })
   }
+}
+
+/** A value moved by one press of Up or Down, as a drag of its label moves it: one step, ten with Shift. */
+export function pressed(own: number, up: boolean, keys: ScrubKeys, by: ScrubBy): number {
+  // A spacing step is two pixels of drag; anything else, one.
+  const next = scrubbed(own, (up ? 1 : -1) * ("spacing" in by ? 2 : 1), keys, by)
+
+  return Math.round(clamp(next, by.min ?? -Infinity, by.max ?? Infinity) * 10_000) / 10_000
 }
 
 /** Where a dragging pointer is. */
@@ -595,7 +606,10 @@ export interface DragPoint {
 /**
  * Follows a pointer from a press on an element until it's let go or the browser cancels it, capturing it so the drag
  * keeps going outside the element. Every drag in the controls goes through this, so none is left listening after a
- * cancelled one. With `press`, the press itself counts as the first move, so a click sets a position.
+ * cancelled one. With `press`, the press itself counts as the first move, so a click sets a position. With `escapes`,
+ * Escape cancels it too, and goes no further. With `runs`, the live edits a control's drag goes through, each move's
+ * edit is made at once, so the control follows the pointer, and the drag is one undo step that Escape or the pointer
+ * being cancelled takes back, as a run of Up and Down presses is.
  */
 export function drag(
   event: ReactPointerEvent<Element>,
@@ -603,12 +617,16 @@ export function drag(
     move,
     end,
     within,
-    press = false
+    press = false,
+    escapes = false,
+    runs
   }: {
     move: (point: DragPoint) => void
     end?: (point: DragPoint, cancelled: boolean) => void
     within?: Element | null
     press?: boolean
+    escapes?: boolean
+    runs?: LiveEdits
   }
 ): void {
   if (event.button !== 0) {
@@ -632,9 +650,11 @@ export function drag(
 
   let last = at(event)
   target.setPointerCapture(event.pointerId)
+  const moveTo = (point: DragPoint) => (runs ? runs.send({ type: "step" }, () => move(point)) : move(point))
+  runs?.send({ type: "end" })
 
   if (press) {
-    move(last)
+    moveTo(last)
   }
 
   const onMove = (moveEvent: Event) => {
@@ -643,21 +663,43 @@ export function drag(
     }
 
     last = at(moveEvent)
-    move(last)
+    moveTo(last)
   }
 
   const stop = (cancelled: boolean) => {
     target.removeEventListener("pointermove", onMove)
     target.removeEventListener("pointerup", onUp)
     target.removeEventListener("pointercancel", onCancel)
-    end?.(last, cancelled)
+    window.removeEventListener("keydown", onKey, true)
+
+    // What the drag does as it ends, as a stop dragged off its bar is removed, is part of its step.
+    if (runs && !cancelled) {
+      runs.send({ type: "step" }, () => end?.(last, cancelled))
+      runs.send({ type: "end" })
+    } else {
+      runs?.send({ type: "cancel" })
+      end?.(last, cancelled)
+    }
   }
 
   const onUp = () => stop(false)
   const onCancel = () => stop(true)
+
+  const onKey = (keyEvent: globalThis.KeyboardEvent) => {
+    if (keyEvent.key === "Escape") {
+      keyEvent.preventDefault()
+      keyEvent.stopPropagation()
+      stop(true)
+    }
+  }
+
   target.addEventListener("pointermove", onMove)
   target.addEventListener("pointerup", onUp)
   target.addEventListener("pointercancel", onCancel)
+
+  if (escapes || runs) {
+    window.addEventListener("keydown", onKey, true)
+  }
 }
 
 /**
@@ -2193,8 +2235,14 @@ export interface ValueFieldProps<T> {
   shown: string | undefined
   /** What unset comes to, shown faintly: `0`, `None`, `Hug`, `Auto`. */
   placeholder?: string
-  /** The selected layers differ here: unset shows Mixed, and typing replaces every one. */
+  /** The selected layers differ here: unset shows Mixed, and typing replaces every one, unless `each` is given. */
   mixed?: boolean
+  /**
+   * Where the layers differ (`mixed`), what works from the value there is worked out for each layer from its own, as
+   * `Mixed+8` adds 8 to each: maths that uses the value (`+8`, `*2`), Up and Down, and a scrub. `update` takes a
+   * layer's own number, in the field's units, and gives its next.
+   */
+  each?: (update: (own: number) => number) => void
   /** The value shows faintly, as one set by another control does. */
   muted?: boolean
   /** Slot 2: the token the field holds, as a chip in the value's place. */
@@ -2472,6 +2520,7 @@ export function ValueField<T>({
   shown,
   placeholder = "",
   mixed = false,
+  each,
   muted = false,
   chip,
   unit,
@@ -2540,13 +2589,30 @@ export function ValueField<T>({
   // something's typed, Up and Down step the value as they do unlocked.
   const searchOnFocus = ownSearch !== undefined
 
-  const typed = useTyped({
+  // Where the layers differ, a change that works from the value there is worked out for each layer.
+  const perLayer = mixed && locked === undefined ? each : undefined
+  const readOne = locking?.read ?? read
+
+  const typed = useTyped<{ value: T } | { each: (own: number) => number }>({
     label,
     shown: shown ?? "",
     backTo,
-    read: locking?.read ?? read,
-    onCommit,
-    onStep: onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
+    read: (text) => {
+      const update = perLayer && relativeUpdate(text, label)
+
+      if (update) {
+        return { value: { each: update } }
+      }
+
+      const reading = readOne(text)
+
+      return "value" in reading ? { ...reading, value: { value: reading.value } } : reading
+    },
+    onCommit: (typedValue) => ("each" in typedValue ? perLayer?.(typedValue.each) : onCommit(typedValue.value)),
+    onStep:
+      perLayer && scrubbing && onStep
+        ? (up, shift, alt) => perLayer((own) => pressed(own, up, { shift, alt }, scrubbing.by))
+        : onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
     line,
     quiet: locked !== undefined
   })
@@ -2606,7 +2672,7 @@ export function ValueField<T>({
     scrubbing && !disabled
       ? (event) => {
           clearTyping()
-          scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live)(event)
+          scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live, perLayer)(event)
         }
       : undefined
   )
@@ -2614,7 +2680,7 @@ export function ValueField<T>({
   let labelSlot: ReactNode
 
   if (inner !== undefined && scrubbing) {
-    const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live)
+    const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live, perLayer)
     labelSlot = (
       <span
         onPointerDown={(event) => {

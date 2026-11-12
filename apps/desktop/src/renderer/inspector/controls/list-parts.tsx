@@ -23,7 +23,16 @@ import {
 import { Hint } from "../../chrome/Hint.tsx"
 import { checker } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepCount } from "./css-values.ts"
-import { arrowMoves, drag, NewTokenForm, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
+import {
+  arrowMoves,
+  drag,
+  useLiveEdits,
+  NewTokenForm,
+  type Reading,
+  readNumber,
+  useLiveRow,
+  ValueField
+} from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { type Carried, useSortable } from "./sortable.ts"
 
@@ -562,12 +571,14 @@ export function CenteredSlider({
  * once, or moved with the arrow keys, 1px a step and 10px with Shift.
  */
 export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: (x: number, y: number) => void }) {
+  const live = useLiveEdits()
   // The pad reaches a little past the offset, so a large one stays on it.
   const reach = Math.max(24, Math.abs(x), Math.abs(y)) * 1.25
 
   // The reach stays as it was at the press while the pad's dragged.
   const press = (event: PointerEvent<HTMLDivElement>) =>
     drag(event, {
+      runs: live,
       press: true,
       move: (point) => onChange(Math.round((point.x * 2 - 1) * reach), Math.round((point.y * 2 - 1) * reach))
     })

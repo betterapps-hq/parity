@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
 import { leadingToken, lengthToken, sizeTokens, trackingToken, weightTokens } from "./controls/tokens.ts"
 import {
+  eachLength,
+  eachSideOf,
   fontSizeOf,
   leadingOf,
   lengthOf,
@@ -60,6 +62,28 @@ describe("padding from the box model", () => {
 
   it("unsets padding that was never set when nothing is typed", () => {
     expect(paddingOf(undefined, [undefined, undefined, undefined, undefined], [0], unit)).toBeUndefined()
+  })
+})
+
+describe("an edit worked out from each layer's own length, as Mixed+8 is", () => {
+  const spacing = [lengthToken("spacing", "spacing-lg", 24)]
+  const add8 = (px: number) => px + 8
+
+  it("works from a length's pixels, or its token's, and gives steps back", () => {
+    expect(eachLength(10, add8, unit, spacing)).toBe(12)
+    expect(eachLength("spacing-lg", add8, unit, spacing)).toBe(8)
+  })
+
+  it("leaves what has no pixels to work from, and never goes below 0", () => {
+    expect(eachLength("fill", add8, unit, spacing)).toBeUndefined()
+    expect(eachLength("hug", add8, unit, spacing)).toBeUndefined()
+    expect(eachLength(undefined, add8, unit, spacing)).toBeUndefined()
+    expect(eachLength(1, (px) => px - 20, unit, spacing)).toBe(0)
+  })
+
+  it("changes only the side edited, counting an unset side as 0", () => {
+    expect(eachSideOf([2, 4, 2, 4], 1, add8, unit, spacing)).toEqual([2, 6, 2, 4])
+    expect(eachSideOf(undefined, 0, add8, unit, spacing)).toEqual([2, 0, 0, 0])
   })
 })
 

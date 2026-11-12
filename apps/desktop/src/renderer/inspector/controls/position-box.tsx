@@ -2,7 +2,7 @@ import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNo
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type BoxPoint, clamp, type SpotValue, spotKeywords, spotValues } from "./css-values.ts"
-import { arrowMoves, drag, type DragPoint, PercentField } from "./field-parts.tsx"
+import { arrowMoves, drag, useLiveEdits, type DragPoint, PercentField } from "./field-parts.tsx"
 
 /*
  * The nine-spot boxes, which every control that places something in a box draws. `SpotBox` is the one Layout's
@@ -203,11 +203,12 @@ export interface NineSpotsProps {
  * position off the spots shows as a dot between their centers.
  */
 export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, onSpot, onDrag }: NineSpotsProps) {
+  const live = useLiveEdits()
   const box = useRef<HTMLFieldSetElement>(null)
 
   const press = (event: PointerEvent<HTMLFieldSetElement>) => {
     if (onDrag) {
-      drag(event, { move: onDrag, within: box.current, press: true })
+      drag(event, { runs: live, move: onDrag, within: box.current, press: true })
     }
   }
 

@@ -94,6 +94,8 @@ type SideEntry = { side: Side } | { shorthand: Sides }
 export interface SideFieldProps {
   /** The accessible name, which says which side: Top padding. */
   label: string
+  /** Where the layers differ, works out what uses the value there from each one's own pixels (`ValueField`'s). */
+  each?: (update: (px: number) => number) => void
   /** A short label inside, which scrubs: T, or an icon. */
   inner?: ReactNode
   rules: SideRules
@@ -143,6 +145,7 @@ export function SideField({
   rules,
   value,
   mixed = false,
+  each,
   mixedNote = "Mixed: the selected layers differ",
   placeholder = "0",
   measured,
@@ -274,6 +277,7 @@ export function SideField({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
+      each={each}
       chip={chip}
       unit={shownUnit}
       unitName={rules.percent ? unitNow : undefined}

@@ -102,7 +102,8 @@ export function SizeSection({
   tokensShown,
   modes,
   takesPercent,
-  mixedAxes
+  mixedAxes,
+  eachAxis
 }: SectionProps & {
   /** The layer's drawn size and its parent's width, from the canvas. */
   measured?: Measured
@@ -113,6 +114,8 @@ export function SizeSection({
   takesPercent?: boolean
   /** The axes whose size differs across the selected layers. */
   mixedAxes?: { width?: boolean; height?: boolean }
+  /** Where an axis differs, works out what uses the value there from each layer's own pixels (`ValueField`'s `each`). */
+  eachAxis?: (axis: "width" | "height", update: (px: number) => number) => void
 }) {
   // An unset width shows what the layer comes to, and writes nothing until it's changed.
   const width = draft.width ?? measured?.width ?? 100
@@ -159,6 +162,7 @@ export function SizeSection({
             modes={modes}
             takesPercent={takesPercent}
             mixed={mixedAxes?.width}
+            each={eachAxis && ((update) => eachAxis("width", update))}
             limits={{ min: draft.minWidth !== undefined, max: draft.maxWidth !== undefined }}
             onAddLimit={(which) => addLimit("Width", which)}
             onChange={(next) => set({ width: next })}
@@ -185,6 +189,7 @@ export function SizeSection({
             modes={modes}
             takesPercent={takesPercent}
             mixed={mixedAxes?.height}
+            each={eachAxis && ((update) => eachAxis("height", update))}
             setBy={ratio ? "Aspect ratio" : undefined}
             limits={{ min: draft.minHeight !== undefined, max: draft.maxHeight !== undefined }}
             onAddLimit={(which) => addLimit("Height", which)}
@@ -302,6 +307,7 @@ export function SizeField({
   modes = sizeModes,
   takesPercent = true,
   mixed = false,
+  each,
   onChange
 }: {
   axis: "Width" | "Height"
@@ -321,8 +327,10 @@ export function SizeField({
   modes?: readonly SizeMode[]
   /** Whether it takes a percentage of its parent, typed or from the unit's menu. */
   takesPercent?: boolean
-  /** The selected layers differ here: it says Mixed, and typing sets them all. */
+  /** The selected layers differ here: it says Mixed, and typing sets them all, unless `each` works it out for each. */
   mixed?: boolean
+  /** Where the layers differ, works out what uses the value there from each one's own pixels (`ValueField`'s). */
+  each?: (update: (px: number) => number) => void
   onChange: (size: Size) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
@@ -488,6 +496,7 @@ export function SizeField({
         scrub={{ from: () => length ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
         shown={shown}
         mixed={mixed}
+        each={each}
         muted={setBy !== undefined && !mixed}
         chip={chip}
         unit={

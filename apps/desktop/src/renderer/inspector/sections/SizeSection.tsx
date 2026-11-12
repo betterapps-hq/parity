@@ -1,8 +1,8 @@
-import { shownSize, sizeEdit, type StyleValues } from "@parity-app/editor"
+import { shownSize, sizeEdit, styleValues, type StyleValues } from "@parity-app/editor"
 import { SizeSection as ApprovedSize } from "../controls/controls.tsx"
 import type { Draft, SizeMode } from "../controls/data.ts"
 import { useTokens } from "../controls/field-parts.tsx"
-import { lengthPx, sizeOf, sizeShown } from "../style-values.ts"
+import { eachLength, lengthPx, sizeOf, sizeShown } from "../style-values.ts"
 import { mixedOf, type SectionProps } from "./section-edits.ts"
 
 const limits = [
@@ -80,6 +80,17 @@ export function SizeSection({ editor, edit, shows }: SectionProps) {
       modes={modes}
       takesPercent={false}
       mixedAxes={{ width: mixed("width") || mixed("grow"), height: mixed("height") }}
+      eachAxis={(axis, update) =>
+        edit(
+          axis,
+          (layer, edited) => {
+            const next = eachLength(layer[axis], update, unit, spacing)
+
+            return next === undefined ? {} : styleValues(sizeEdit(axis, next, parent), layer, edited)
+          },
+          `Change ${axis}`
+        )
+      }
     />
   )
 }

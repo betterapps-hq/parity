@@ -2,7 +2,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { BoxModel } from "../controls/box-model.tsx"
 import { useTokens } from "../controls/field-parts.tsx"
 import { type Sides, sideNumber, sideRules } from "../controls/sides-writes.ts"
-import { paddingOf, sidesShown } from "../style-values.ts"
+import { eachSideOf, paddingOf, sidesShown } from "../style-values.ts"
 import { mixedOf, type SectionProps } from "./section-edits.ts"
 
 /** What padding's and margin's sides take as `NodeStyle` holds them: lengths and tokens, and no percentage or Auto. */
@@ -61,6 +61,17 @@ export function SpacingSection({ editor, edit, shows }: SectionProps) {
         rules={rules}
         onPadding={sidesEdit("padding")}
         onMargin={sidesEdit("margin")}
+        onEach={(name, index, update) =>
+          edit(
+            name,
+            (layer) => {
+              const next = eachSideOf(layer[name], index, update, unit, spacing)
+
+              return name === "padding" ? { padding: next } : { margin: next }
+            },
+            `Change ${name}`
+          )
+        }
       />
     </PanelSection>
   )

@@ -4,7 +4,6 @@ import { defaultValues, previewKind, type Token } from "@parity-app/tokens"
 import { useMemo, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { importMedia } from "../../canvas/import-media.ts"
-import type { StyleEditor } from "../../chrome/style-editor.ts"
 import { useProjectMedia } from "../../media/project-media.ts"
 import { pictureUrl } from "../../media/ProjectPicture.tsx"
 import { comesTo } from "../../token-values.ts"
@@ -15,6 +14,7 @@ import type { PaintEntry } from "../controls/lists-data.ts"
 import { PaintStack } from "../controls/paint-stack.tsx"
 import { colorToken, type ColorToken, type GradientToken, type TokenSets } from "../controls/tokens.ts"
 import { entriesFromFill, gradientTokenOf, paintsFromEntries } from "../paint-values.ts"
+import type { SectionProps } from "./section-edits.ts"
 
 /** The project's color and gradient tokens as the Paint stack offers them, each by its real name. */
 function fillTokens(tokens: readonly Token[]): Pick<TokenSets, "color" | "gradient"> {
@@ -67,7 +67,7 @@ function useImageSourceOf(session: ProjectSession): ImageSource {
  * Fill: the selected layers' paint stack, colors, gradients and images, top first, on the approved Paint stack control
  * (PAR-931). One plain color is written as its token's name, as `background` always held it.
  */
-export function FillSection({ editor }: { editor: StyleEditor }) {
+export function FillSection({ editor, edit }: SectionProps) {
   const session = useProject()
   const { style, mixed } = editor.selection
   const sets = useMemo(() => fillTokens(editor.tokens), [editor.tokens])
@@ -75,7 +75,7 @@ export function FillSection({ editor }: { editor: StyleEditor }) {
   // The control's own ids for the entries, kept while the document holds what they say, so an open editor stays open.
   const [held, setHeld] = useState<PaintEntry[]>([])
   const entries = entriesFromFill(style.background, sets.gradient, held)
-  const edit = (next: PaintEntry[]) => fillEdit(paintsFromEntries(next))
+  const fillOf = (next: PaintEntry[]) => fillEdit(paintsFromEntries(next))
 
   return (
     // The control reads tokens from here; a new list of them starts it again with the project's.
@@ -85,10 +85,14 @@ export function FillSection({ editor }: { editor: StyleEditor }) {
           entries={entries}
           mixed={mixed.includes("background")}
           tokensOnly
-          onPreview={(carried) => (carried ? editor.preview?.("fill", edit(carried)) : editor.endPreview?.())}
+          onPreview={(carried) =>
+            carried
+              ? editor.preview([{ row: "fill", edit: fillOf(carried), label: "Change fill" }])
+              : editor.endPreview()
+          }
           onChange={(next) => {
             setHeld(next)
-            editor.set("fill", edit(next), "Change fill")
+            edit("fill", fillOf(next), "Change fill")
           }}
         />
       </ImageSourceProvider>

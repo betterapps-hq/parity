@@ -3136,14 +3136,16 @@ Tests:
 - `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
   inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
   whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
-- `apps/desktop/e2e/fields.e2e.ts` (9), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against the
-  real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its width,
-  and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept with its
-  reason, Escape putting the value back and a second Escape leaving; a value set underneath leaving `12` in the field;
-  Up, Shift+Up and Down, more than a second apart, as one undo step; scrubbing the Width label, drawn while dragging and
-  one undo step on release; and Brand mark and Plans showing Mixed, with 48 typed giving both 12 steps (PAR-923). On App
-  sidebar's Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one undo step, and `/20`
-  drawn as 3.5 from 70, then taken back by Escape with nothing to undo.
+- `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
+  the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
+  width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
+  with its reason, Escape putting the value back and a second Escape leaving; a value set underneath leaving `12` in the
+  field; Up, Shift+Up and Down, more than a second apart, as one undo step once Tab leaves; two Up presses taken back by
+  Escape with nothing to undo (PAR-968); scrubbing the Width label, drawn while dragging and one undo step on release,
+  and put back by Escape mid-drag, making nothing (PAR-968); and Brand mark and Plans showing Mixed, with 48 typed
+  giving both 12 steps (PAR-923), and `+8` and Up each working from each layer's own width (PAR-968). On App sidebar's
+  Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one undo step, and `/20` drawn as 3.5
+  from 70, then taken back by Escape with nothing to undo.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
@@ -3185,8 +3187,8 @@ Opacity, Clip content, text color, align and case left the panel with PAR-923, s
 Section headings line up with their fields' names (`PanelSection` lost its title's 4px indent).
 
 Layer order (PAR-925) has no section of its own: the table lists it with Position, for the same layers, and it draws
-inside Position. Fill (PAR-931) and Effects (PAR-933) make their edits through the style editor as each comes, so they
-don't preview while typing; `StyleSections` gives only the sections above the live edits.
+inside Position. Every section, Fill (PAR-931), Effects (PAR-933) and Motion (PAR-934) among them, makes its edits
+through the one edit session `StyleSections` runs for them all (PAR-968, below).
 
 How the controls work with the document:
 
@@ -3197,33 +3199,52 @@ How the controls work with the document:
   281 stays 281px (70.25 steps). Type, radius and colors are tokens in the style, so a size, line height, letter spacing
   or radius typed as a value lands on the nearest token.
 - **Previews and undo.** Each keystroke previews on the canvas. Enter makes the edit as one undo step and leaves the
-  field. Escape puts the value back while something is typed. With nothing typed, it leaves the field, so the next Undo
-  goes to the document. A run of Up and Down presses is one undo step (PAR-441). Dragging a label or a field's letter
-  scrubs: the canvas previews while dragging, and the release makes one undo step.
+  field. Escape puts the value back while something is typed. With nothing typed, it takes back a run of Up and Down
+  presses and leaves the field, so the next Undo goes to the document. A run of Up and Down presses is one undo step
+  (PAR-441), made as it goes so the field shows the value the next press works from. Dragging a label or a field's
+  letter scrubs: the canvas previews while dragging, the release makes one undo step, and Escape or the pointer being
+  cancelled puts the value back. A drag inside a control, a color's square and strips, a gradient's stops and midpoints,
+  an angle's dial, an easing's curve, a shadow's offset pad and the position spots, is one undo step that Escape takes
+  back, made as it goes so the control follows the pointer.
 - **Input it can't read** stays, with the field marked and the reason under it, such as "Enter a length, Hug or Fill".
   The field points to the reason (`aria-describedby`).
-- **Several layers.** A value that differs shows Mixed as the field's placeholder, and what's typed gives every layer
-  the same value.
+- **Several layers.** A value that differs shows Mixed as the field's placeholder, and a value typed gives every layer
+  the same one. In W, H and each side of padding and margin, what works from the value there is worked out for each
+  layer from its own pixels: `+8` or `Mixed+8` adds 8px to each, `*2` doubles each, Up and Down step each along the
+  spacing scale, and a scrub moves each by the same steps. A layer with no pixels there (Hug, Fill) keeps its value.
 
-What changed from the earlier fields: `Mixed+8` no longer adds to each layer's own value, the off-scale flag and its
-nearest step are gone, Enter leaves the field rather than selecting its text, and a scrubbed value shows on the canvas
-but not in the field until it's made.
+What changed from the earlier fields: the off-scale flag and its nearest step are gone, Enter leaves the field rather
+than selecting its text, and a scrubbed value shows on the canvas but not in the field until it's made.
 
 Code: `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, from
-`inspector/sections/`, one file per section. `useSectionEdits` in `inspector/sections/section-edits.ts` sends a
-control's change to the canvas preview, to a run of presses (`GestureRun`) or to the document, through
-`LiveEditsContext` in `inspector/controls/field-parts.tsx`. `StoresContext` and `Unstored` there disable what the
-document can't hold yet: the stories store everything, and `StyleSections` stores none of it. `projectTokenSets` in
-`inspector/token-sets.ts` turns the project's tokens into the controls' sets, given through `ProjectTokens`.
-`inspector/style-values.ts` reads a style's values as the controls show them, and writes the controls' values back as
-the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an absolutely placed layer, through the style
-editor's `place`.
+`inspector/sections/`, one file per section, inside one edit session. The session is `reduceSession` in
+`inspector/controls/edit-session.ts`: a field says what happened (`show`, `hide`, `make`, `step`, `cancel`, `end`) with
+the edits its change came to, and gets back what to do with them: preview them, take the preview back, make them alone
+or in a run, or begin, end or take back a run. `useEditSession` in `inspector/sections/section-edits.ts` gathers a
+change's edits as sections make them through `edit`, and runs what the session asks against the style editor's
+`preview`, `make` and `checkpoint`, with a `GestureRun` for runs. Fields reach it through `LiveEditsContext` in
+`inspector/controls/field-parts.tsx`: `useTyped` for typing and Up and Down, `scrub` for a label's drag, and `drag`'s
+`runs` for a control's own drags. `ValueField`'s `each`, with `relativeUpdate` from `edit-session.ts`, works a change
+out for each layer; `eachLength` and `eachSideOf` in `inspector/style-values.ts` apply it to a layer's size or side.
+`StoresContext` and `Unstored` there disable what the document can't hold yet: the stories store everything, and
+`StyleSections` stores none of it. `projectTokenSets` in `inspector/token-sets.ts` turns the project's tokens into the
+controls' sets, given through `ProjectTokens`. `inspector/style-values.ts` reads a style's values as the controls show
+them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an
+absolutely placed layer, through the style editor's `place`.
 
 Tests:
 
-- `apps/desktop/src/renderer/inspector/style-values.test.ts` (12): steps shown as pixels and written back, off the scale
+- `apps/desktop/src/renderer/inspector/controls/edit-session.test.ts` (18), without a DOM: typing previewing each
+  readable keystroke and Enter making the last; text it can't read and Escape taking the preview back; a scrub
+  previewing every move and making only the last, or nothing once cancelled; several edits previewed together; a run of
+  presses made in one gesture begun at the first press, kept when the field's left, taken back whole on Escape, and
+  ended by typing or another selection but not by the same one; a step that changes nothing beginning nothing; and
+  `relativeUpdate` working `+8`, `Mixed*2` and `Mixed-4` out from each number, leaving text that sets one value, and
+  keeping a number it can't work from.
+- `apps/desktop/src/renderer/inspector/style-values.test.ts` (15): steps shown as pixels and written back, off the scale
   too; Auto and percentages left out; Fill and Hug kept; padding changing only the sides an edit reached, each layer
-  keeping its other sides; a radius, text size, line height and letter spacing landing on the nearest token; a weight
+  keeping its other sides; a length or a side worked out from each layer's own pixels or token, Fill, Hug and unset
+  left, never below 0; a radius, text size, line height and letter spacing landing on the nearest token; a weight
   written as its number; and keywords the style doesn't take left out.
 - `inspector/token-sets.test.ts` (7): the project's tokens under their real names; the spacing scale left out; Full as a
   radius; a text size paired with its line height; weights named in words, with Tailwind's hundreds when the project has
@@ -3232,6 +3253,14 @@ Tests:
 - `chrome/StyleSections.stories.tsx`: every section on Pricing's and Sign in's layers, with PickingAColor,
   PickingASpacing, PickingAWeight and PickingASizing opening their pickers by name. The Layer stories
   (`chrome/LayerPanel.stories.tsx`, Parity/Inspector/Layer) show the sections each kind of layer gets.
+
+Checked in the running app on 2026-11-12 (PAR-968), on Pricing's Brand mark: three Up presses in W made 44px as one undo
+step, and Escape put back 32px with nothing to undo; two presses left with Tab were one step that one Undo took back; a
+scrub of W previewed 72px on the canvas while the design held 32px, Escape put it back, and a released scrub was one
+step. With Brand mark and Plans selected (8 and 300 steps wide), `+8` made them 10 and 302 as one step, and two Up
+presses did the same until Escape took them back. Fill's opacity took two Down presses as one Change fill step, which
+Escape took back.
+
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
 Gaps: the sections were driven in an isolated copy of the app on 2026-11-11. A direction, a gap, opacity, a radius, a
@@ -3398,8 +3427,7 @@ The document holds it as `zIndex`, a whole number or a token's name. The render 
 `var(--z-overlay)`, with no position: every layer is a flex or grid item, where `z-index` applies without one. Agents
 set and read it with `Update` and `Get`, and a name that isn't a token gets a `not_a_token` warning.
 
-Not yet: Tailwind classes (`z-10`, `-z-5`, `z-(--z-overlay)`), since Parity writes no classes for a design, and Up and
-Down presses each being an undo step of their own until the fields' runs reach the Design tab.
+Not yet: Tailwind classes (`z-10`, `-z-5`, `z-(--z-overlay)`), since Parity writes no classes for a design.
 
 Code: `nodeStyle.zIndex` in `packages/core/src/document.ts`; `boxCss` in `packages/core/src/render.ts`; the `layerOrder`
 row and `StackingContext` in `packages/editor/src/style-editing.ts`; the agent's check in `packages/agent/src/lint.ts`;
@@ -3431,8 +3459,7 @@ paints as used, so it isn't offered for removal. Agents set the same list throug
 names any color or gradient in it that isn't a token. With several layers selected and fills that differ, the section
 says so and + replaces them all.
 
-Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
-paint's alpha, stops and angle are each one undo step per change, not per drag.
+Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them.
 
 Code: `paint.ts` in `@parity-app/core` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
 `packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
@@ -4126,8 +4153,10 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
   runs from the press on the label to the release. A run of arrow presses on the canvas lasts while the same layers,
   designs or note stay selected, in whatever order, and nothing else changes: another edit, an undo or a redo, or
   selecting something else, also back to what it was, ends it. In a field, typing, Enter, Escape, leaving the field,
-  scrubbing it or another selection ends a run of Up and Down. Both kinds of run are a `GestureRun`, keyed by the
-  selection's `selectionKey`, so a press on another selection starts a run of its own.
+  scrubbing it or another selection ends a run of Up and Down, and Escape takes the run back to a checkpoint taken at
+  its first press. A drag inside one of the Design tab's controls, such as a color's strip, is a run of its own, which
+  Escape takes back too. Both kinds of run are a `GestureRun`, keyed by the selection's `selectionKey`, so a press on
+  another selection starts a run of its own.
 - **Gestures that change nothing.** A gesture that changes nothing adds no step, and one that comes back where it began,
   such as a drag back to its start or a nudge there and back, leaves none, with the file clean again and Redo as it was
   before the gesture.
@@ -4139,8 +4168,9 @@ Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option
 drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
 (`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerUtil.tsx`), and
 `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`), `chrome/fields.tsx` (`NumberField`'s runs and scrubs, for
-number props) and `inspector/sections/section-edits.ts` (the style sections' runs). Their gesture reaches the store
-through `style-editor.ts`, `LayerPanel.tsx` and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
+number props) and `inspector/sections/section-edits.ts` (the style sections' runs, as
+`inspector/controls/edit-session.ts` says). Their gesture reaches the store through `style-editor.ts`, `LayerPanel.tsx`
+and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 

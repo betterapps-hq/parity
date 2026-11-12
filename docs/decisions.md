@@ -7967,3 +7967,26 @@ skipped the sender check. My calls:
   for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
   stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
   map, its handler, and its line in the bridge, and the compiler holds the three together.
+
+## The Design tab's field edits through one session (PAR-968)
+
+The rebuilt sections' field (`ValueField`) could preview while typing, but sections wired it each their own way, Fill,
+Effects and Motion not at all, Escape didn't cancel a scrub or a run, and a mixed selection got one value for every
+layer. My calls:
+
+- **The session is data in, data out,** `reduceSession` in `inspector/controls/edit-session.ts`: what happened in a
+  field and the edits its change came to go in, and what to do with them comes out. `useEditSession` runs it against the
+  style editor, once for every section, and a section makes every edit through its `edit`.
+- **A run of Up and Down presses is made as it goes, in one gesture, and Escape reverts it to a checkpoint.** We dropped
+  previewing the run and making it at the end: the controls step from the value they're given, so steps not yet made
+  would never advance, and the field would show a stale value.
+- **A scrub previews and makes its last value on release,** as before, and Escape or the pointer being cancelled takes
+  it back.
+- **A drag inside a control is a run too,** made as it goes so the control follows the pointer: a color's square and
+  strips, a gradient's stops and midpoints, an angle's dial, an easing's curve, a shadow's offset and the position
+  spots. A stop dragged off its bar is removed in the same step.
+- **A change that works from the value there is worked out for each layer only where the panel shows Mixed numbers,** W,
+  H and padding's and margin's sides, through `ValueField`'s `each`. A layer with no pixels there (Hug, Fill) keeps its
+  value. Type sizes and radii land on tokens, so they take one value for every layer.
+- **The old field's lifecycle stays for now:** `NumberField` and `number-field.ts` in `chrome/` still serve component
+  props' number fields in `PropsSection`. They go when those move to the approved controls.

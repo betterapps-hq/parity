@@ -14,7 +14,7 @@ import { FillSection } from "../inspector/sections/FillSection.tsx"
 import { LayoutSection } from "../inspector/sections/LayoutSection.tsx"
 import { MotionSection } from "../inspector/sections/MotionSection.tsx"
 import { PositionSection } from "../inspector/sections/PositionSection.tsx"
-import { type SectionProps, useSectionEdits } from "../inspector/sections/section-edits.ts"
+import { type SectionProps, useEditSession } from "../inspector/sections/section-edits.ts"
 import { SizeSection } from "../inspector/sections/SizeSection.tsx"
 import { SpacingSection } from "../inspector/sections/SpacingSection.tsx"
 import { StrokeSection } from "../inspector/sections/StrokeSection.tsx"
@@ -42,29 +42,15 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   motion: MotionSection
 }
 
-/**
- * The sections whose controls make their edits through `SectionProps`' `edit`, and so preview as they're typed. Fill,
- * Effects and Motion make theirs through the style editor itself, as each edit comes.
- */
-const liveSections = new Set<StyleSection>([
-  "frameSize",
-  "placement",
-  "size",
-  "layout",
-  "spacing",
-  "appearance",
-  "text",
-  "stroke"
-])
-
 /** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */
 const noRoot: CapabilityDesign = { root: { id: "" } }
 
 /**
  * Every style section the selected layers get, in the order `@parity-app/editor`'s `styleTable` gives, from what
  * they can do (`selectionCapabilities`), on the approved controls in `inspector/controls`. They offer the project's own
- * tokens, and edit the layers' `NodeStyle` through the style editor: what's typed or scrubbed previews on the canvas
- * until it's made, and a run of Up and Down presses is one undo step. Components get the same controls as layouts:
+ * tokens, and edit the layers' `NodeStyle` through one edit session for them all (`useEditSession`): what's typed or
+ * scrubbed previews on the canvas until it's made, a run of Up and Down presses is one undo step, and Escape puts the
+ * value back. Components get the same controls as layouts:
  * what's set on them lands on their root element, over the component's own styles.
  */
 export function StyleSections({
@@ -80,7 +66,7 @@ export function StyleSections({
 }) {
   const can = selectionCapabilities(container ?? noRoot, editor.selection.layers, takesStyle)
   const { sections, controls } = styleParts(can)
-  const { edit, live } = useSectionEdits(editor)
+  const { edit, live } = useEditSession(editor)
   const sets = useMemo(() => projectTokenSets(editor.tokens), [editor.tokens])
 
   const props: SectionProps = { editor, can, edit, shows: (control) => controls.has(control) }
@@ -88,17 +74,13 @@ export function StyleSections({
   return (
     <ProjectTokens sets={sets}>
       <StoresContext value={storesNothing}>
-        {sections.map((section) => {
-          const View = sectionViews[section]
+        <LiveEditsContext value={live}>
+          {sections.map((section) => {
+            const View = sectionViews[section]
 
-          return (
-            View && (
-              <LiveEditsContext key={section} value={liveSections.has(section) ? live : undefined}>
-                <View {...props} />
-              </LiveEditsContext>
-            )
-          )
-        })}
+            return View && <View key={section} {...props} />
+          })}
+        </LiveEditsContext>
       </StoresContext>
     </ProjectTokens>
   )

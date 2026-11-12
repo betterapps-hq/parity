@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react"
-import type { StyleEditor } from "../../chrome/style-editor.ts"
 import { px } from "../../lengths.ts"
 import { comesTo } from "../../token-values.ts"
 import { ProjectTokens } from "../controls/field-parts.tsx"
@@ -15,13 +14,14 @@ import {
   transformOf,
   transformValueOf
 } from "./effects-values.ts"
+import type { SectionProps } from "./section-edits.ts"
 
 /**
  * Effects (PAR-933): the approved Shadow list, Filter list and Transform, editing the layers' `shadow`, `filter`,
  * `backdropFilter` and `transform`, with the project's own colors, shadows and blurs. Each list's edit replaces every
  * selected layer's list, as a mixed list says it will.
  */
-export function EffectsSection({ editor }: { editor: StyleEditor }) {
+export function EffectsSection({ editor, edit }: SectionProps) {
   const { style, mixed } = editor.selection
   const sets = useMemo(() => effectTokenSets(editor.tokens), [editor.tokens])
 
@@ -53,21 +53,21 @@ export function EffectsSection({ editor }: { editor: StyleEditor }) {
       <ShadowList
         entries={shadowsMixed ? [] : shadowEntriesOf(style)}
         mixed={shadowsMixed}
-        onChange={(entries) => editor.set("shadow", (layer) => shadowStyleOf(entries, layer), "Change shadows")}
+        onChange={(entries) => edit("shadow", (layer) => shadowStyleOf(entries, layer), "Change shadows")}
       />
       <FilterList
         entries={filtersMixed ? [] : filterEntriesOf(style)}
         title="Filters"
         dropShadows={false}
         tokensOnly
-        onChange={(entries) => editor.set("filters", (layer) => filterStyleOf(entries, layer), "Change filters")}
+        onChange={(entries) => edit("filters", (layer) => filterStyleOf(entries, layer), "Change filters")}
       />
       <TransformSection
         value={{ ...transform, scaleLinked: linked ? undefined : false }}
         mixed={transformMixed}
         onChange={(value) => {
           setApart(value.scaleLinked === false)
-          editor.set(
+          edit(
             "transform",
             (layer) => ({ transform: transformOf(value, layer.transform, editor.unit) }),
             "Change transform"

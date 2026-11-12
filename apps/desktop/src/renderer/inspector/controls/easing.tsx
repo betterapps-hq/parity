@@ -24,6 +24,7 @@ import { clamp, formatNumber, sameValue, stepCount } from "./css-values.ts"
 import {
   arrowMoves,
   drag,
+  useLiveEdits,
   MissingMark,
   moveThroughRows,
   type Reading,
@@ -523,6 +524,7 @@ function CurveEditor({
   faint?: boolean
   onChange: (curve: Bezier) => void
 }) {
+  const live = useLiveEdits()
   const box = useRef<SVGSVGElement>(null)
   const plot: EasingPlot = { kind: "bezier", curve }
   // The handles go on the scale the graph draws the curve on, so they land on it.
@@ -543,6 +545,7 @@ function CurveEditor({
 
     event.preventDefault()
     drag(event, {
+      runs: live,
       move: ({ clientX, clientY }) => {
         const rect = box.current!.getBoundingClientRect()
         const scale = graphSize / rect.width

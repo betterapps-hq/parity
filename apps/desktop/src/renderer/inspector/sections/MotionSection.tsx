@@ -1,10 +1,10 @@
 import type { Transition } from "@parity-app/core"
 import { useState } from "react"
-import type { StyleEditor } from "../../chrome/style-editor.ts"
 import { ProjectTokens, useTokenSets } from "../controls/field-parts.tsx"
 import type { TransitionEntry } from "../controls/motion-data.ts"
 import { newEntryId, TransitionsSection } from "../controls/transitions.tsx"
 import { entriesOf, motionTokens, transitionsOf } from "../motion-values.ts"
+import type { SectionProps } from "./section-edits.ts"
 
 /**
  * Motion, on the approved Transition list (PAR-186): the selected layers' transitions, in the state being edited, with
@@ -12,7 +12,7 @@ import { entriesOf, motionTokens, transitionsOf } from "../motion-values.ts"
  * differ show none, and a list made then replaces each one's. A list saved as a transition token waits for a token kind
  * that holds one, so the list offers no Create token.
  */
-export function MotionSection({ editor }: { editor: StyleEditor }) {
+export function MotionSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
   const differs = editor.selection.differs("transitions")
   const entries = useKeyedEntries(differs ? undefined : style.transitions)
@@ -20,7 +20,7 @@ export function MotionSection({ editor }: { editor: StyleEditor }) {
 
   const change = (next: TransitionEntry[]) => {
     entries.remember(next)
-    editor.set("transitions", { transitions: transitionsOf(next) }, "Change transitions")
+    edit("transitions", { transitions: transitionsOf(next) }, "Change transitions")
   }
 
   return (

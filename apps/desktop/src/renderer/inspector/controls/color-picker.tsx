@@ -38,6 +38,7 @@ import { clamp, mixColor, stepCount } from "./css-values.ts"
 import {
   arrowMoves,
   drag,
+  useLiveEdits,
   type Message,
   MessageLine,
   PercentField,
@@ -422,6 +423,8 @@ function Strip2d({
   onMove: (x: number, y: number) => void
   onKey: (dx: number, dy: number) => void
 }) {
+  const live = useLiveEdits()
+
   return (
     <div
       role="slider"
@@ -442,7 +445,7 @@ function Strip2d({
         onKey(move[0] * keyStep(event), move[1] * keyStep(event))
       }}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) =>
-        drag(event, { move: (point) => onMove(point.x, point.y), press: true })
+        drag(event, { runs: live, move: (point) => onMove(point.x, point.y), press: true })
       }
       className="relative h-36 cursor-crosshair touch-none rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ background }}
@@ -473,6 +476,7 @@ function Strip({
   overChecker?: boolean
   onChange: (value: number) => void
 }) {
+  const live = useLiveEdits()
   const style = overChecker ? drawnOverChecker(background) : { background }
 
   return (
@@ -496,7 +500,7 @@ function Strip({
         onChange(clamp(value + (move[0] - move[1]) * keyStep(event), 0, max))
       }}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) =>
-        drag(event, { move: (point) => onChange(point.x * max), press: true })
+        drag(event, { runs: live, move: (point) => onChange(point.x * max), press: true })
       }
       className="relative h-3 cursor-ew-resize touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={style}
