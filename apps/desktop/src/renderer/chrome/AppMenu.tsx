@@ -79,7 +79,7 @@ import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { installCliCommand } from "./cli-command.ts"
-import type { CommandState } from "./command-state.ts"
+import type { CommandStates } from "./command-state.ts"
 import { activeSession, clearBitmapCache, exit, exportAllImages } from "./commands.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { formatKeys, isMac } from "./keys.ts"
@@ -124,7 +124,7 @@ export function AppMenu() {
 }
 
 /** Each command's state in the active tab, as the open menu read it. */
-const States = createContext<Record<Command, CommandState> | undefined>(undefined)
+const States = createContext<CommandStates | undefined>(undefined)
 
 /** A menu's items, with every command's state read once as it opens. */
 function MenuItems({ items: Items }: { items: () => ReactNode }) {
@@ -136,8 +136,14 @@ function MenuItems({ items: Items }: { items: () => ReactNode }) {
 }
 
 /** Each command's state, as the open menu read it. */
-function useStates(): Record<Command, CommandState> {
-  return useContext(States) ?? commandsFor()
+function useStates(): CommandStates {
+  const states = useContext(States)
+
+  if (!states) {
+    throw new Error("A menubar item rendered outside its menu")
+  }
+
+  return states
 }
 
 /**

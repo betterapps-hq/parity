@@ -11,7 +11,7 @@ import {
 } from "@parity-app/core"
 import { editingState, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
-import type { CommandState } from "./command-state.ts"
+import type { CommandStates } from "./command-state.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { unnamedIconLabel } from "./layer-kind.ts"
 
@@ -19,9 +19,6 @@ import { unnamedIconLabel } from "./layer-kind.ts"
  * What the canvas's right-click menu shows, and what a right-click selects first, as Figma's canvas menu does. These
  * take data and return data: `CanvasMenu.tsx` finds what's under the pointer and runs what's chosen.
  */
-
-/** Each command's state, from `commandsFor`: whether an item can act, and what it's called. */
-export type CommandStates = Readonly<Record<Command, CommandState>>
 
 /** What a menu item runs: a command from the keymap, or Paste here, which needs the pointer and has no keys. */
 export type MenuAction = Command | "pasteHere"

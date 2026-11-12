@@ -37,7 +37,7 @@ import {
   unwrapLayer,
   wrapLayers
 } from "./arrange.ts"
-import { type CommandContext, type CommandState, commandStates } from "./command-state.ts"
+import { type CommandContext, type CommandStates, commandStates } from "./command-state.ts"
 import { activeSession, exportLayers, selectedDesign, selectedTargets } from "./commands.ts"
 import { detachAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
@@ -85,6 +85,7 @@ function contextOf(session: ProjectSession | undefined, repeat = true): CommandC
     selection: session?.selection.get(),
     entries: session?.store.getEntries() ?? [],
     notes: session?.store.getNotes().length ?? 0,
+    placedReferences: session?.store.getReferences().length ?? 0,
     canvas: !!session?.editor,
     history: {
       canUndo: !!history?.canUndo,
@@ -101,7 +102,7 @@ function contextOf(session: ProjectSession | undefined, repeat = true): CommandC
  * Whether each command can run in `session`, the active tab unless another is given, and what it's called there, for
  * the menus, the search and the keys to read before running one.
  */
-export function commandsFor(session = activeSession()): Record<Command, CommandState> {
+export function commandsFor(session = activeSession()): CommandStates {
   return commandStates(contextOf(session))
 }
 
@@ -185,7 +186,8 @@ type PicturedLayer = ServiceMethods["layers.picture"]["params"]["layers"][number
 
 /**
  * Exports what's selected at the Export section's sizes (PAR-185): the selected layers, or else the selected designs,
- * each named as the Layers panel names it. With nothing selected, it says to select something.
+ * each named as the Layers panel names it. The command is greyed with nothing selected; if the selected layers are gone
+ * by the time it runs, it says to select something.
  */
 async function exportSelected(session: ProjectSession | undefined): Promise<void> {
   if (!session) {
@@ -522,7 +524,6 @@ function showPanelTab(tab: "layers" | "components"): void {
   setLayout({ left: true, leftTab: tab })
 }
 
-/** The tab after the active one, or before it with a step of -1, going round. */
 /** Moves to the next or previous tab, with Home first, going round. */
 function switchTab(step: 1 | -1): void {
   const ids = [homeTab, ...workspace.getTabs().map((tab) => tab.id)]

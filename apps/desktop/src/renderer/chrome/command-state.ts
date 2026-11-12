@@ -24,6 +24,8 @@ export interface CommandContext {
   entries: readonly ContainerEntry[]
   /** How many text notes are on the canvas. */
   notes: number
+  /** How many references Find references has placed on the canvas. */
+  placedReferences: number
   /** Whether the tab's canvas is drawn, which zooming needs. */
   canvas: boolean
   history: { canUndo: boolean; canRedo: boolean; undoLabel?: string; redoLabel?: string }
@@ -39,14 +41,16 @@ export interface CommandState {
   label: string
 }
 
+/** Every command's state: whether it can act now, and what it's called. */
+export type CommandStates = Readonly<Record<Command, CommandState>>
+
 /**
  * Each command's state for `context`. A command acts on what's selected when it can: layers of the design's own for
  * Copy, Duplicate, the order, Wrap in layout, Hide and Lock, not its root or layers inside an instance (see
- * `ownLayers`); the order on one layer alone. Cut and Delete apply to anything selected, layers inside an instance
- * included. Hide reads Show when every selected layer is hidden as the board shows it, and Lock reads Unlock when every
+ * `ownLayers`), and Cut and Delete when layers are selected; the order on one layer alone. Hide reads Show when every selected layer is hidden as the board shows it, and Lock reads Unlock when every
  * selected layer, or every selected design, is locked (PAR-192).
  */
-export function commandStates(context: CommandContext): Record<Command, CommandState> {
+export function commandStates(context: CommandContext): CommandStates {
   const { selection, entries, history, repeat } = context
   const project = !!selection
   const current = selection ?? {}
@@ -79,7 +83,7 @@ export function commandStates(context: CommandContext): Record<Command, CommandS
         designsLocked(designKeys.flatMap((key) => entries.find((candidate) => candidate.key === key)?.container ?? []))
 
   const canOwn = own.length > 0
-  const lockable = layers > 0 ? canOwn : design
+  const lockable = layers > 0 ? canOwn : designs > 0
   const order = ownOne
   const alignable = layers > 0 || designs > 1
   const pointed = layers > 0 || designs > 0
@@ -108,13 +112,13 @@ export function commandStates(context: CommandContext): Record<Command, CommandS
     undo: project && history.canUndo,
     redo: project && history.canRedo,
     repeat: !!repeat?.enabled,
-    cut: copyable,
+    cut: layers > 0 ? canOwn : copyable,
     copy: layers > 0 ? canOwn : copyable,
     paste: project,
     pasteOver: pointed,
     pasteReplace: layers > 0,
     duplicate: layers > 0 ? canOwn : design,
-    delete: something,
+    delete: layers > 0 ? canOwn : something,
     copyAsPng: pointed,
     copyStyle: layers > 0,
     pasteStyle: layers > 0,
@@ -150,7 +154,7 @@ export function commandStates(context: CommandContext): Record<Command, CommandS
     zoomIn: context.canvas,
     zoomOut: context.canvas,
     zoomTo100: context.canvas,
-    zoomToFit: context.canvas && filled,
+    zoomToFit: context.canvas && (filled || context.placedReferences > 0),
     zoomToSelection: something,
     panels: true,
     console: true,

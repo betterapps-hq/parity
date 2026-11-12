@@ -6300,14 +6300,14 @@ valid.
   and duration, and the work the action causes joins its trace.
 - **The wrapper is `run(from)`.** `recordActions` (`chrome/record-actions.ts`) wraps every entry, and the window runs an
   action only through it: keys, the menubar, the canvas and Layers menus, Search actions, the toolbar and panel buttons.
-  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Save for the
-  Tokens panel's project, runs that in the action's place, still recorded under the action's ID.
+  An action bound to where it was asked for passes `instead`. New screen where the canvas menu opened, or Rename in
+  place in Layers, runs that in the action's place, still recorded under the action's ID.
 - **One tried while it doesn't apply is recorded as cancelled and doesn't run.** That's a Ctrl shortcut on the canvas or
   any app shortcut. A plain key that doesn't apply still does what it would anyway, such as Tab moving focus, so it
   isn't recorded. The wrapper asks `available` itself, so every caller gets the same answer. Since PAR-971 it asks
   `commandStates`, as every menu does.
 - **Selection is counts, not IDs or names.** That's enough to tell an empty selection from many layers. It stays cheap
-  for PAR-647's budget: one `available` call and one count per command.
+  for PAR-647's budget: one state check and one count per run.
 - **A test fails if window code calls an action's command directly** (`record-actions.test.ts`). It read the source and
   flagged any file that imported a function the actions run from `commands.ts`, `layout.ts`, `create.ts` or
   `QuickInsert.tsx` and called it anywhere except through `instead`. PAR-971 made those functions private to
@@ -8029,22 +8029,32 @@ and the canvas and Layers menus all read it through `commandsFor` in `chrome/act
   repeats, Make component reads Convert to component or Convert to screen, Go to the main component names it, Hide reads
   Show, and Lock reads Unlock. With nothing they could act on, Hide and Lock keep the keymap's "Hide or show" and "Lock
   or unlock". Search actions shows the same name and still finds the keymap's, so "hide" finds Show.
-- **A menu keeps its own fixed wording only for a command whose name never changes:** Insert…, Find references…,
-  Export…, Export selected…, Save a copy…, and Settings… on a Mac. It decides which items to show, such as the layer
-  items only for layers, and nothing about whether they can run.
+- **A menu keeps its own fixed wording only for a command whose name never changes,** such as Insert…, Export… and Save
+  a copy…. It decides which items to show, such as the layer items only for layers, and nothing about whether they can
+  run.
 - **What the surfaces disagreed on now follows one rule.** Select all and Zoom to fit need something on the canvas, as
-  the canvas menu had it. Find references needs a reference library, as its key had it, so the canvas menu and the
-  toolbar grey it without one. Rename is unavailable for a layer inside an instance, as the Layers menu had it. Export
-  selected needs a layer or design selected, as the menubar had it and as Copy as PNG already did, so Ctrl+Shift+E with
-  nothing selected does nothing rather than saying what to select.
-- **Cut and Delete stay available for anything selected,** layers inside an instance and a design's root included, as
-  the menubar and the Del key had them. So the Layers menu's Delete is no longer greyed on those rows; it does what Del
-  does there, which is nothing.
+  the canvas menu had it, and for Zoom to fit a placed reference counts too. Find references needs a reference library,
+  as its key had it, so the canvas menu and the toolbar grey it without one. Rename is unavailable for a layer inside an
+  instance, as the Layers menu had it. Export selected needs a layer or design selected, as the menubar had it and as
+  Copy as PNG already did, so Ctrl+Shift+E with nothing selected does nothing rather than saying what to select. Lock
+  needs layers or designs, so a mode column picked on its own greys it rather than offering a Lock that does nothing.
+- **The Layers menu's Rename also asks the row.** Rename in place renames the row that was right-clicked, so it's greyed
+  on a layer inside an instance even when the selection leads with one of the design's own.
+- **Cut and Delete follow PAR-419's rule for layers** (the architecture review's call, 2026-11-12, for you to overrule).
+  They're greyed for only a design's root or layers inside an instance, and Ctrl+X and Del do nothing then, as PAR-419
+  has it for Copy and Duplicate. PAR-419 left them out because the canvas menu didn't have them, without deciding they
+  should stay available. Everything else recorded points this way: an item that can't act now is greyed, layers inside
+  an instance can't be deleted, and PAR-571's Layers menu already greyed Delete on those rows. Keeping them available
+  would have turned that greyed Delete into one that does nothing. Designs, notes and references can still be cut and
+  deleted.
 - **What each command runs is private to `actions.ts`.** The functions moved there from `commands.ts` unexported, so the
   module gives the rest of the window only `actions` and `commandsFor`, and nothing can run a command around the
   wrapper. `commands.ts` keeps what other modules share: the active tab, the `selected…` queries, `exportLayers` for the
   Export section, Export all, Clear bitmap cache and Exit. The registry test checks those are the module's only exports
-  and that a command runs only when its state says it applies, recorded either way. It replaces the source scan.
+  and that a command runs only when its state says it applies, recorded either way. It replaces the source scan. What
+  the commands build on, such as `createDesign`, `togglePanels` or the editor's operations, can still be imported
+  elsewhere; the scan caught that and the registry test doesn't. That's the brief's call: only the commands' own bodies
+  are kept private.
 - **An action runs on the tab it's given.** `run(from, { session })` checks and runs the command for that tab, else the
   active one. Zoom's buttons and the Tokens panel's Save pass their own tab, rather than binding a command's function
   through `instead`. `instead` is left for New screen and New component where the canvas was right-clicked, and Rename

@@ -89,6 +89,7 @@ function menu(
     selection,
     entries: designs,
     notes,
+    placedReferences: 0,
     canvas: true,
     history: { canUndo: false, canRedo: false },
     references: true

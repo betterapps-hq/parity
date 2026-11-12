@@ -1,5 +1,7 @@
+import { isInnerPath } from "@parity-app/core"
 import { selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
-import { type CommandStates, type MenuEntry, menuItem, sections } from "./canvas-menu.ts"
+import { type MenuEntry, menuItem, sections } from "./canvas-menu.ts"
+import type { CommandStates } from "./command-state.ts"
 
 /**
  * What a row's right-click menu in the Layers panel shows, and what the right-click selects first. These take data and
@@ -39,8 +41,11 @@ export function layersMenu(row: LayersRow, states: CommandStates, selection: Sel
     return []
   }
 
+  const rename = menuItem("rename", states)
+
   return sections([
-    [menuItem("rename", states), menuItem("duplicate", states)],
+    // Rename renames the row, so a layer inside an instance can't be, whichever selected layer the selection leads with.
+    [{ ...rename, enabled: rename.enabled && !(row.node && isInnerPath(row.node)) }, menuItem("duplicate", states)],
     [...(row.node ? [menuItem("hide", states)] : []), menuItem("lock", states)],
     [menuItem("exportSelection", states, "Export…")],
     [menuItem("delete", states)]

@@ -68,6 +68,7 @@ const tab = (overrides: Partial<CommandContext> = {}): CommandContext => ({
   selection: {},
   entries,
   notes: 0,
+  placedReferences: 0,
   canvas: true,
   history: { canUndo: false, canRedo: false },
   references: true,
@@ -78,6 +79,7 @@ const situations = {
   "no project tab": tab({ selection: undefined, entries: [], canvas: false }),
   "an empty canvas": tab({ entries: [] }),
   "a canvas holding a note": tab({ entries: [], notes: 1 }),
+  "a canvas holding references": tab({ entries: [], placedReferences: 2 }),
   "nothing selected": tab(),
   "a layer": tab({ selection: layers(["title"]) }),
   "two layers": tab({ selection: layers(["title", "chart"]) }),
@@ -87,6 +89,9 @@ const situations = {
   "an instance": tab({ selection: layers(["users"]) }),
   "a layer inside an instance": tab({ selection: layers(["users/value"]) }),
   "the design's root": tab({ selection: layers(["root"]) }),
+  "a layer inside an instance beside one of the design's own": tab({ selection: layers(["users/value", "title"]) }),
+  "the root beside one of the design's own": tab({ selection: layers(["root", "title"]) }),
+  "a design's mode column": tab({ selection: { design, mode: "desktop" } }),
   "a screen": tab({ selection: { design } }),
   "a component": tab({ selection: { design: "app.par#stat-card" } }),
   "a locked screen": tab({ selection: { design: "app.par#settings" } }),
@@ -121,6 +126,9 @@ const rows: Row[] = [
   ["an empty canvas", "nextDesign", false],
   ["a canvas holding a note", "selectAll", true],
   ["a canvas holding a note", "zoomToFit", true],
+  // References are on the canvas to fit, though Select all selects only designs and notes.
+  ["a canvas holding references", "zoomToFit", true],
+  ["a canvas holding references", "selectAll", false],
   ["no canvas yet", "zoomToFit", false],
   ["no canvas yet", "zoomTo100", false],
 
@@ -170,7 +178,7 @@ const rows: Row[] = [
   ["an instance", "goToMain", true, "Go to Stat card"],
   ["an instance", "detach", true],
 
-  // A layer inside an instance belongs to its component; only Cut and Delete still apply.
+  // A layer inside an instance belongs to its component, so nothing that moves or changes it applies (PAR-419).
   ["a layer inside an instance", "copy", false],
   ["a layer inside an instance", "duplicate", false],
   ["a layer inside an instance", "bringToFront", false],
@@ -178,8 +186,8 @@ const rows: Row[] = [
   ["a layer inside an instance", "hide", false, keymap.hide.label],
   ["a layer inside an instance", "lock", false, keymap.lock.label],
   ["a layer inside an instance", "rename", false],
-  ["a layer inside an instance", "cut", true],
-  ["a layer inside an instance", "delete", true],
+  ["a layer inside an instance", "cut", false],
+  ["a layer inside an instance", "delete", false],
 
   // So does the design's root.
   ["the design's root", "copy", false],
@@ -187,7 +195,26 @@ const rows: Row[] = [
   ["the design's root", "makeComponent", false],
   ["the design's root", "lock", false, keymap.lock.label],
   ["the design's root", "rename", true],
-  ["the design's root", "delete", true],
+  ["the design's root", "cut", false],
+  ["the design's root", "delete", false],
+
+  // Beside one of the design's own layers, they act on that one, all but the order and Make component, which take one.
+  ["a layer inside an instance beside one of the design's own", "copy", true],
+  ["a layer inside an instance beside one of the design's own", "cut", true],
+  ["a layer inside an instance beside one of the design's own", "delete", true],
+  ["a layer inside an instance beside one of the design's own", "duplicate", true],
+  ["a layer inside an instance beside one of the design's own", "wrap", true],
+  ["a layer inside an instance beside one of the design's own", "hide", true, "Hide"],
+  ["a layer inside an instance beside one of the design's own", "lock", true, "Lock"],
+  ["a layer inside an instance beside one of the design's own", "bringForward", false],
+  ["a layer inside an instance beside one of the design's own", "makeComponent", false],
+  ["the root beside one of the design's own", "delete", true],
+  ["the root beside one of the design's own", "hide", true, "Hide"],
+  ["the root beside one of the design's own", "bringForward", false],
+
+  // A mode column picked on its own is neither layers nor a design, so there's nothing to lock or export.
+  ["a design's mode column", "lock", false, keymap.lock.label],
+  ["a design's mode column", "exportSelection", false],
 
   // A design on its own converts to a component, and a component back to a screen.
   ["a screen", "makeComponent", true, "Convert to component"],

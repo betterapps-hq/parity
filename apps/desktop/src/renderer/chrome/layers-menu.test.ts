@@ -59,6 +59,7 @@ function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
     selection,
     entries,
     notes: 0,
+    placedReferences: 0,
     canvas: true,
     history: { canUndo: false, canRedo: false },
     references: true
@@ -100,7 +101,7 @@ describe("the Layers row menu", () => {
     expect(outline(menu)).toEqual(["rename", "duplicate", "---", "lock", "---", "exportSelection", "---", "delete"])
   })
 
-  it("can't duplicate, hide or lock the design's root, and leaves Delete to the Del key's rule", () => {
+  it("can't duplicate, hide, lock or delete the design's root", () => {
     expect(outline(rightClick({ design, node: "root" }))).toEqual([
       "rename",
       "duplicate (unavailable)",
@@ -110,11 +111,11 @@ describe("the Layers row menu", () => {
       "---",
       "exportSelection",
       "---",
-      "delete"
+      "delete (unavailable)"
     ])
   })
 
-  it("can't rename, duplicate, hide or lock a layer inside an instance (PAR-92)", () => {
+  it("can't rename, duplicate, hide, lock or delete a layer inside an instance (PAR-92)", () => {
     expect(outline(rightClick({ design, node: "users/value" }))).toEqual([
       "rename (unavailable)",
       "duplicate (unavailable)",
@@ -124,8 +125,13 @@ describe("the Layers row menu", () => {
       "---",
       "exportSelection",
       "---",
-      "delete"
+      "delete (unavailable)"
     ])
+  })
+
+  it("can't rename a layer inside an instance even when the selection leads with one of the design's own", () => {
+    const both = layersSelection(design, ["users/value", "title"])
+    expect(outline(rightClick({ design, node: "users/value" }, both))[0]).toBe("rename (unavailable)")
   })
 
   it("acts on every selected layer when the row is one of them", () => {
