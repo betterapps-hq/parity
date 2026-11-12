@@ -225,7 +225,8 @@ export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "
   // left out, as boxes their size, and their shadow roots are attached where the recorder can't see them (shadow.ts): it
   // kept every shadow root it saw, and with a frame's the closed project's whole canvas. The project's page is the
   // project's, not Parity's; failures carry the frames instead (canvas/frames-on-screen.ts).
-  Sentry.addIntegration(Sentry.replayIntegration({ ...replayPrivacy, block: ["[data-frame]", "[data-guest-icon]"] }))
-  // The canvas's own <canvas> elements, such as the selection overlay, which Replay otherwise leaves out.
+  // The window's own <canvas> elements, such as the selection overlay, which Replay otherwise leaves out. Added first:
+  // Replay looks for the canvas recorder once, as it's added itself, and records no canvas if it isn't there (PAR-964).
   Sentry.addIntegration(Sentry.replayCanvasIntegration())
+  Sentry.addIntegration(Sentry.replayIntegration({ ...replayPrivacy, block: ["[data-frame]", "[data-guest-icon]"] }))
 }

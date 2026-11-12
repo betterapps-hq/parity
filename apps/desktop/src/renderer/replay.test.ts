@@ -1,11 +1,43 @@
 import { describe, expect, it, vi } from "vite-plus/test"
 
-vi.mock("@sentry/electron/renderer", () => ({}))
+/**
+ * The client Replay is added to, as Sentry's does it: an integration added after `init` is set up at once, and Replay
+ * looks for the canvas recorder as it's set up (`_maybeLoadFromReplayCanvasIntegration` in `@sentry/replay`).
+ */
+const sentry = vi.hoisted(() => {
+  const added: string[] = []
+  const replay = { recordsCanvas: false }
 
-const { replayPrivacy, pageHolds, zoomHold } = await import("./replay.ts")
+  return {
+    added,
+    replay,
+    addIntegration(integration: { name: string; afterAllSetup?: () => void }) {
+      added.push(integration.name)
+      integration.afterAllSetup?.()
+    },
+    replayCanvasIntegration: () => ({ name: "ReplayCanvas" }),
+    replayIntegration: () => ({
+      name: "Replay",
+      afterAllSetup() {
+        replay.recordsCanvas = added.includes("ReplayCanvas")
+      }
+    })
+  }
+})
+
+vi.mock("@sentry/electron/renderer", () => sentry)
+
+const { replayPrivacy, pageHolds, zoomHold, followTelemetry } = await import("./replay.ts")
 const { scrubber } = await import("./telemetry.ts")
 
 const key = "sk-proj-4fT9xQ2mLw8ZpR7vK3nB6yH1"
+
+describe("Session Replay's canvases (PAR-964)", () => {
+  it("records the window's canvases, since the canvas recorder is there when Replay looks for it", () => {
+    followTelemetry({ level: "all" })
+    expect(sentry.replay.recordsCanvas).toBe(true)
+  })
+})
 
 describe("Session Replay's secrets (PAR-679)", () => {
   it("records the window's text as written, with its secrets scrubbed", () => {
