@@ -11,7 +11,7 @@ permissions:
 jobs:
   # pnpm verify on each system, through the shared template, and the CLI's packed tarball installed in an empty folder
   # (PAR-13). What only one system checks runs beside it, in a job per system below (PAR-1010). A newer push to the
-  # same branch or pull request cancels the run before it. On Windows the template runs it from a Dev Drive.
+  # same branch or pull request cancels the run before it.
   verify:
     uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
     with:
