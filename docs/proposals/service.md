@@ -8,8 +8,8 @@ are in [connectors.md](../connectors.md).
 ## In one line
 
 One TanStack Start app, `apps/portal`, runs on a Cloudflare Worker. It ships first with no pages, only an API under
-`/api/v1`, and its first route runs stock media searches with Parity's keys. The portal's screens, and every later API,
-join the same app until a piece has a reason to leave it.
+`https://api.tryparity.dev/v1`, and its first route runs stock media searches with Parity's keys. The portal's screens,
+and every later API, join the same app until a piece has a reason to leave it.
 
 ## Why now
 
@@ -59,10 +59,10 @@ webhooks. The rule: one Worker, and a new piece only when something needs it.
 
 It is the hub's `SearchService` over HTTP, in the shapes `@parity-app/connectors` already checks.
 
-| Route                                 | Takes             | Gives                                  |
-| ------------------------------------- | ----------------- | -------------------------------------- |
-| `GET /api/v1/connectors`              | Nothing           | The ids of the connectors it searches  |
-| `POST /api/v1/connectors/{id}/search` | A `SearchRequest` | A `SearchAnswer`: results or a problem |
+| Route                             | Takes             | Gives                                  |
+| --------------------------------- | ----------------- | -------------------------------------- |
+| `GET /v1/connectors`              | Nothing           | The ids of the connectors it searches  |
+| `POST /v1/connectors/{id}/search` | A `SearchRequest` | A `SearchAnswer`: results or a problem |
 
 - **The service runs the same adapters as the app,** with `checkRequest` first, so an answer is the same whether main or
   the service ran the search.
@@ -72,7 +72,7 @@ It is the hub's `SearchService` over HTTP, in the shapes `@parity-app/connectors
   owner can fix them, and the service reports them to Sentry.
 - **Pictures and videos still load straight from the source.** The service passes on links and never the files.
 - **`placed` has no route yet.** Neither offered connector has one. Unsplash's would be
-  `POST /api/v1/connectors/{id}/placed`, added if it's offered again.
+  `POST /v1/connectors/{id}/placed`, added if it's offered again.
 - **`v1` is in the path** so an old installed copy keeps working when the API changes.
 
 ## The cache
@@ -145,7 +145,8 @@ TanStack Start 1.0 is reported to need Vite 8; that's checked against this repos
 
 1. **Who can call it:** anyone, limited by install and address (recommended), or signed-in people only.
 2. **Mobbin:** after a check of its terms (recommended), from the start, or not at all.
-3. **The domain** the portal and its API live on. Installed copies will call it for as long as they're in use.
+3. **The domain: decided, `api.tryparity.dev`** (your call, 2026-11-11), a custom domain on the Worker, on the zone
+   Cloudflare already holds. The portal's pages get their own host on the same Worker later.
 4. **The three new dependencies** above.
 
 ## The work, once this is agreed
