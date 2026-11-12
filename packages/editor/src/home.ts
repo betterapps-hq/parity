@@ -5,9 +5,9 @@ import {
   type ContainerSpec,
   type DesignNode,
   type DeviceKind,
-  deviceForWidth,
   generateId,
   type ModeSettings,
+  modeDevice,
   pageRoute,
   type ResolvedMode,
   resolveModes
@@ -137,8 +137,8 @@ function besideMode(settings: ModeSettings): string | undefined {
     return undefined
   }
 
-  const wanted: DeviceKind[] = deviceOf(primary) === "phone" ? ["laptop", "desktop"] : ["phone"]
-  const candidates = others.filter((mode) => wanted.includes(deviceOf(mode)))
+  const wanted: DeviceKind[] = modeDevice(primary) === "phone" ? ["laptop", "desktop"] : ["phone"]
+  const candidates = others.filter((mode) => wanted.includes(modeDevice(mode)))
 
   const matching = (mode: ResolvedMode) =>
     mode.options.filter(
@@ -154,12 +154,6 @@ function besideMode(settings: ModeSettings): string | undefined {
   }
 
   return best?.id
-}
-
-function deviceOf(mode: ResolvedMode): DeviceKind {
-  const viewport = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
-
-  return viewport?.device ?? deviceForWidth(mode.width)
 }
 
 function baseName(path: string): string {

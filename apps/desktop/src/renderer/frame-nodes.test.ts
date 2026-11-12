@@ -133,6 +133,8 @@ beforeAll(async () => {
     format: "iife",
     globalName: "frame",
     platform: "browser",
+    // frame.ts reads scrollbars.css as text, as Vite's `?raw` gives it.
+    loader: { ".css": "text" },
     // React's production build, as frames run it (see builder-vite's productionDependencies).
     define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
