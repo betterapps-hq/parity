@@ -18,6 +18,7 @@ import {
   libraryImports,
   parseManifest,
   type ProjectConfig,
+  scriptConfigExtensions,
   scriptRunning,
   valueImports
 } from "@parity-app/core"
@@ -28,8 +29,8 @@ import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
-/** Only used to explain a miss: the config itself is found by the project's own Vite. */
-const configPattern = /^vite\.config\.[cm]?[jt]s$/
+/** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */
+const viteConfigFiles = scriptConfigExtensions.map((extension) => `vite.config.${extension}`)
 const guestId = "virtual:canvas/guest"
 const rendererId = "virtual:canvas/renderer"
 
@@ -41,6 +42,7 @@ const loopback = "127.0.0.1"
 export const viteBuilder: BuilderAdapter = {
   id: "vite",
   name: "Vite",
+  configFiles: viteConfigFiles,
   detect: detectVite,
   async start(options) {
     // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
@@ -585,7 +587,7 @@ async function detectVite(root: string): Promise<BuilderDetection> {
   try {
     vite = await loadProjectVite(root)
   } catch {
-    const named = (await readdir(root).catch(() => [])).find((name) => configPattern.test(name))
+    const named = (await readdir(root).catch(() => [])).find((name) => viteConfigFiles.includes(name))
 
     return {
       found: false,
@@ -611,7 +613,7 @@ async function detectVite(root: string): Promise<BuilderDetection> {
     return {
       found: false,
       version: vite.version,
-      summary: `Vite ${vite.version} is installed, but it found no vite.config (.js, .mjs, .ts, .cjs, .mts or .cts)`
+      summary: `Vite ${vite.version} is installed, but it found no vite.config (${scriptConfigExtensions.map((extension) => `.${extension}`).join(", ")})`
     }
   }
 
