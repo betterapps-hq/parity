@@ -7951,5 +7951,6 @@ interface that gives each node's change status, so a consumer can't read the wro
 - **A node's status comes from the files its component reads,** which traces now list per component, plus the files no
   component reads and the nodes inside it. Bitmaps keep only the files and the digest, which is all a bitmap's validity
   needs.
-- **Nothing on the canvas shows changes yet.** The yellow outline was tried locally only, as you asked; how changes show
-  is for Storybook first.
+- **The canvas reads changes through `useFrameChange` and `useDesignChange`,** and marks a changed board with
+  `data-changed`, which nothing styles. The yellow outline was only for testing, so it stays local; how changes show is
+  for Storybook first.

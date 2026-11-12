@@ -5072,15 +5072,18 @@ means "this picture isn't for this key", and stayed yellow after an edit was und
   files did, or a file no component reads, such as a stylesheet, a tool's config or a lockfile, or a node inside it,
   since it draws what's inside it. A trace without the list, as kept in a bitmap, gives every node the frame's status.
 - **A board adds its frames up:** changed when one is, unknown when none has said and one can't, else unchanged.
-- **The service answers.** `frames.changes` takes frames by id with their jobs, traces each and compares it with its
-  baseline. Nothing on the canvas shows the answers yet.
+- **The service answers, the canvas asks.** `frames.changes` takes frames by id with their jobs, traces each and
+  compares it with its baseline. Each frame asks again whenever its key changes, all the canvas's frames in one request,
+  and `useFrameChange` and `useDesignChange` read the answers. A board whose frames changed has `data-changed`, for
+  tools and tests to read; nothing shows it yet.
 
-Tried in a development build on the example project, with a yellow outline added locally round each board that changed:
+Tried in a development build on the example project, with a yellow outline on `data-changed` added locally for testing:
 just opened, no board was outlined; after adding a comment to `badge.tsx`, the 30 boards whose frames draw a badge were;
 after undoing it, none was.
 
 Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `trace.ts`); `componentReads` and the `components`
-list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`.
+list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
+`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
 
 Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
 digest and the files that differ, came or went otherwise; a board changed with every frame's files, unknown when one
@@ -5089,8 +5092,11 @@ holding it, but not the rest; every component reading a shared file; every node 
 started reading a file; and the frame's status for every node when it's unchanged, unknown or traced without
 components). `packages/change-detection/src/baselines.test.ts` (3: counted from the first trace and unchanged once the
 files are back; unknown for a frame not traced, which takes no baseline; each frame's own baseline, started again once
-its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads. Gaps:
-`frames.changes` itself has no test of its own; it was tried in the app.
+its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads.
+`apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and each
+gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go). Gaps:
+`frames.changes` itself, and that a frame asks again when its key changes, have no test of their own; both were tried in
+the app.
 
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
