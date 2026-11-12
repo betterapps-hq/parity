@@ -6232,8 +6232,8 @@ on the latest release; `main/updates.test.ts` covers the channel each check name
 `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
 losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
 checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
-real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation and relaunch as the
-newer version. It refuses to run outside CI.
+real packaged versions, built uncompressed since neither leaves the runner, checksum rejection, Later, unsaved-work
+cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 

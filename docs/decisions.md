@@ -2726,6 +2726,20 @@ the Repository, CI and releases stream in Linear.
     or systems do.
   - Vite Task's cache isn't kept between runs yet. `pnpm verify` runs through `vp run` since PAR-405, and ci-verify's
     `vite-task-cache` input turns the rest on.
+- **CI checks each system's app in a job of its own, beside `verify` (PAR-1010).** Windows' verify took 14.4 minutes
+  against Ubuntu's 4.1, though its `pnpm verify` took 4, about what macOS took. The rest was setup on a slow disk and
+  checks only Windows ran, one after another. You asked for these changes:
+  - `verify` runs `pnpm verify` and `try-packed` on each system. `app-windows`, `app-linux` and `app-macos` build and
+    package the app, each its own ci-verify call that runs beside it: Windows also starts the built app, installs it and
+    updates it, Linux updates it, and macOS only packages. Every installer target still has to build before a merge.
+    `app-windows` uploads the source maps, and `CI passes` waits on every job.
+  - The Windows and Linux app jobs install the fixture projects as `verify` does, from the same cache, since the start
+    and update checks open them. `app-macos` caches only Electron's downloads, keyed on the app's `package.json`.
+  - Windows doesn't run from a Dev Drive. ci-verify had one for a day, a trusted ReFS drive holding a copy of the
+    checkout, TEMP and pnpm's store, but with warm caches `vp install` took 152 to 201 seconds instead of 21, as pnpm
+    copies packages onto ReFS slowly, and `pnpm verify` took the same 4 minutes. You had it taken out of Pipelines.
+  - `try-update.ts` builds its two installers with `store` compression, since neither leaves the runner. Compressing
+    each took about a minute on Windows.
 - **Parity's checks are Vite+ tasks, so Vite Task replays one whose inputs haven't changed (PAR-405).** My calls:
   - The root `vite.config.ts` defines `check` (`vp check`), `test` (`vp test run`) and `types`
     (`vp lint --type-aware --type-check`). `pnpm verify` is `vp run check && vp run test`, `pnpm check:types` is
