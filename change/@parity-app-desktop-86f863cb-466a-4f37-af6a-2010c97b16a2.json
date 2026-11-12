@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

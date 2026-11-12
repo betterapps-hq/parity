@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 11:51:18 GMT",
+      "version": "0.56.0",
+      "tag": "@parity-app/cli_v0.56.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa05d0d08107779a10f37d601177d1621b3e03bc",
+            "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a5016c0ce76c1a73cbdc3c66de8df44e02ebdb52",
+            "comment": "A search that needs someone signed in to Parity is no longer a failure: agents carry on without the source"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 10:56:22 GMT",
       "version": "0.55.0",
       "tag": "@parity-app/cli_v0.55.0",

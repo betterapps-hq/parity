@@ -2,6 +2,27 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 11:51:21 GMT",
+      "version": "0.71.0",
+      "tag": "@parity-app/desktop_v0.71.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a5016c0ce76c1a73cbdc3c66de8df44e02ebdb52",
+            "comment": "Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aa05d0d08107779a10f37d601177d1621b3e03bc",
+            "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 10:56:04 GMT",
       "version": "0.70.1",
       "tag": "@parity-app/desktop_v0.70.1",

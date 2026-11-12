@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 10:56:04 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 11:51:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.71.0
+
+Thu, 12 Nov 2026 11:51:21 GMT
+
+### Minor changes
+
+- Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in
+  (ajcraswell@gmail.com)
+- Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize,
+  fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: "primary" }, {
+  size: "fill" }). A version 3 file no longer opens (ajcraswell@gmail.com)
 
 ## 0.70.1
 

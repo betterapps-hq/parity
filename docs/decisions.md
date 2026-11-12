@@ -8226,9 +8226,9 @@ view to swap for designs while still zooming. My calls:
   (`viewRank` in core), read when each turn comes, so a camera still moving gets what's in view now. Frames with no
   place, as a project's picture asks for, go last.
 - **`IntersectionObserver`, not measuring.** The first version measured every waiting frame's box at each turn, which
-  makes the browser lay the page out to answer. Two observers each canvas shares, one for the view and one with a
-  quarter-view margin, report each frame as it crosses an edge, with its box; ranking reads what they last reported. The
-  in-view observer also reports at half and wholly in view, so the order within the view keeps up.
+  makes the browser lay the page out to answer. One observer each canvas shares, of the view and a quarter-view margin
+  around it, reports each frame as it crosses that edge, with its box; ranking reads what it last reported. It watches
+  no other edges, since a zoom moves every frame on every frame and each edge is checked again for all of them.
 - **Each frame is near or not on its own.** A board with many states and modes is large, and any edge of it near the
   view woke every frame on it. A frame now wakes only once its board and the frame itself are near, so frames a screen
   or more away on a near board stay asleep.
