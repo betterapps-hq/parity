@@ -2,9 +2,9 @@ import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import type { DesignStore } from "../design-store.ts"
 import { blankProjectAt, design, example, ProjectStage } from "../stories/fixtures.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import type { ProjectSession } from "../workspace.ts"
 import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
 
 /** Helpers for the window chrome's stories: older projects, edits that leave a project unsaved, and where it sits. */
@@ -46,8 +46,8 @@ export function renameDesign(name: string, to: string): void {
 }
 
 /** Adds a text note to a project's canvas, leaving it unsaved. */
-export function addNote(session: ProjectSession, text: string): void {
-  session.store.addNote(session.store.mainPath, { id: "story-note", text, position: { x: 0, y: -240 } })
+export function addNote(store: DesignStore, text: string): void {
+  store.addNote(store.mainPath, { id: "story-note", text, position: { x: 0, y: -240 } })
 }
 
 /** The window's chrome without a canvas: tooltips, notifications and the unsaved changes prompt, full height. */

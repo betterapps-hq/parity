@@ -431,7 +431,7 @@ function MessageRow({
                 <button
                   type="button"
                   className="font-mono text-2xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                  onClick={() => void openSource(session, message.at!)}
+                  onClick={() => void openSource(session.info, message.at!)}
                 >
                   {`${message.at.path.split("/").at(-1)}:${message.at.line}`}
                 </button>

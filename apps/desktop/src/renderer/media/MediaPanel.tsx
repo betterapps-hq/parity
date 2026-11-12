@@ -133,7 +133,7 @@ export function MediaPanel() {
         {!loading && matching.length > 0 && (
           <MediaWall
             images={matching}
-            urlOf={(src) => pictureUrl(session, src)}
+            urlOf={(src) => pictureUrl(session.info, src)}
             sizes={sizes}
             fresh={fresh}
             onInsert={(item) => addAtSelection(session, item)}
@@ -167,7 +167,7 @@ export function MediaPanel() {
 }
 
 /** Adds image and video files to the project, then lists them, marked for a moment as they arrive on the wall. */
-async function addFiles(session: ProjectSession, files: readonly File[]): Promise<void> {
+async function addFiles(session: Pick<ProjectSession, "id" | "untilClosed">, files: readonly File[]): Promise<void> {
   const saved = await addImageFiles(session.id, files)
 
   if (saved.length === 0) {

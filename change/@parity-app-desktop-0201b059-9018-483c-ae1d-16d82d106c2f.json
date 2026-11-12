@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Canvas functions take the parts of the project they read instead of the whole session",
+  "comment": "Panel functions take the parts of the project they read (PAR-1007)",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

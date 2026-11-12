@@ -37,12 +37,13 @@ import {
   useSyncExternalStore
 } from "react"
 import { toast } from "sonner"
+import type { ProjectInfo } from "../../shared/protocol.ts"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
-import { type ProjectSession, workspace } from "../workspace.ts"
+import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { componentSources, useComponentCard } from "./AssetsPanel.tsx"
 import { activeSession } from "./commands.ts"
 import { ComponentCard, PreviewThumb } from "./ComponentCard.tsx"
@@ -121,14 +122,14 @@ export interface Offer {
  * keys and names. It's kept by the project's info, which is replaced when its components or libraries change, and
  * goes with it.
  */
-const offers = new WeakMap<ProjectSession["info"], { designs: string; offer: Offer }>()
+const offers = new WeakMap<ProjectInfo, { designs: string; offer: Offer }>()
 
-export function offerOf(session: ProjectSession, entries: readonly ContainerEntry[]): Offer {
+export function offerOf(info: ProjectInfo, entries: readonly ContainerEntry[]): Offer {
   const designs = entries
     .map(({ key, container }) => `${key} ${container.id} ${container.kind ?? ""} ${container.name}`)
     .join("\n")
 
-  const kept = offers.get(session.info)
+  const kept = offers.get(info)
 
   if (kept?.designs === designs) {
     return kept.offer
@@ -143,7 +144,7 @@ export function offerOf(session: ProjectSession, entries: readonly ContainerEntr
     actions.set(key, { kind: "basic", basic })
   }
 
-  for (const source of componentSources(session.info, entries)) {
+  for (const source of componentSources(info, entries)) {
     for (const family of source.families) {
       for (const entry of family.items) {
         // A design and a component can share a name, never a key.
@@ -166,7 +167,7 @@ export function offerOf(session: ProjectSession, entries: readonly ContainerEntr
   }
 
   const offer = { options, actions }
-  offers.set(session.info, { designs, offer })
+  offers.set(info, { designs, offer })
 
   return offer
 }
@@ -177,7 +178,9 @@ const iconSetCache = new WeakMap<
   { libraries: unknown; sets: { library: LibraryInfo; catalog: IconCatalog }[] }
 >()
 
-function iconSetsOf(session: ProjectSession): { library: LibraryInfo; catalog: IconCatalog }[] {
+function iconSetsOf(
+  session: Pick<ProjectSession, "info" | "loaded">
+): { library: LibraryInfo; catalog: IconCatalog }[] {
   const kept = iconSetCache.get(session.loaded)
 
   if (kept?.libraries === session.info.libraries) {
@@ -225,7 +228,7 @@ export function QuickInsert() {
         return
       }
 
-      offerOf(idle, idle.store.getEntries())
+      offerOf(idle.info, idle.store.getEntries())
       // Listing a set's icons asks the project's own copy of it, 40 to 50ms for Lucide's 1,900.
       iconSetsOf(idle)
     })
@@ -281,7 +284,7 @@ const listHeight = 384
  */
 function InsertList({ session }: { session: ProjectSession }) {
   const entries = useContainerEntries(session.store)
-  const offer = offerOf(session, entries)
+  const offer = offerOf(session.info, entries)
   const iconSets = iconSetsOf(session)
   const iconCount = iconSets.reduce((sum, set) => sum + set.catalog.entries.length, 0)
   const [query, setQuery] = useState("")
@@ -663,7 +666,11 @@ function RowContent({
 }
 
 /** Inserts one of the offer's options at the selection, as picking it here does: Search actions picks them too. */
-export function insertOption(session: ProjectSession, offer: Offer, key: string): void {
+export function insertOption(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info">,
+  offer: Offer,
+  key: string
+): void {
   const action = offer.actions.get(key)
 
   if (action?.kind === "basic") {
@@ -673,7 +680,10 @@ export function insertOption(session: ProjectSession, offer: Offer, key: string)
   }
 }
 
-function insert(session: ProjectSession, item: InsertItem): void {
+function insert(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info">,
+  item: InsertItem
+): void {
   setOpen(false)
 
   if (!insertAtSelection(session, item, "quickInsert")) {
@@ -681,7 +691,10 @@ function insert(session: ProjectSession, item: InsertItem): void {
   }
 }
 
-function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {
+function insertBasic(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor">,
+  { node: make, label }: (typeof basics)[number]
+): void {
   setOpen(false)
   const node = make()
   const placed = placeLayers(session, [node], `Add ${label.toLowerCase()}`)
