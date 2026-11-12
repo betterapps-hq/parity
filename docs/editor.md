@@ -1820,16 +1820,17 @@ core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences
 a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
 variant option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's
 outside it; each option of two variant params checked in turn, refused for one the board doesn't show; and refused when
-a layer in the part shows a param's default. `packages/core/src/library-insert.test.ts`, with three for names that fit
-(PAR-518): none for a component that sets its own size, unless given; none for a part whose sample gives no children;
-and a part without a sample taking the children its library's other samples give it (none for an icon's box or one used
-without any, their text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's
-Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts,
-leaving out classes for what's inside or taken from a parent. The extraction and its check are core's
-`extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state
-changing the part refused, a single part's texts as params, and the check against the board, refused under a variant
-option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer in the
-part shows a param's default.
+a layer in the part shows a param's default. Under "repeated parts whose props are written in another order" (2,
+PAR-998), `findRepeats` and `extractComponent` pair a component's props by name, not by the order each part writes them
+in. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a component that sets
+its own size, unless given; none for a part whose sample gives no children; and a part without a sample taking the
+children its library's other samples give it (none for an icon's box or one used without any, their text), else its
+name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and
+Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's inside or taken
+from a parent. The extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`:
+occurrences become instances that render the same, a state changing the part refused, a single part's texts as params,
+and the check against the board, refused under a variant option that changes the part but not one that changes what's
+outside it or isn't shown, and refused when a layer in the part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
