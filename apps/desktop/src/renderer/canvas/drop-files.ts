@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { reportError, track } from "../report-error.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { type Hit, pickedIn } from "./hit.ts"
 import { importMedia } from "./import-media.ts"
 import { emptyCanvasAt } from "./new-screen.ts"
@@ -53,7 +53,11 @@ export type FileDrop =
  * the frame there; the empty canvas; or nothing, over a design's frame with no layout under the pointer or over its
  * board around the frames.
  */
-export function fileDropAt(session: ProjectSession, area: ParentNode, point: Point): FileDrop {
+export function fileDropAt(
+  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
+  area: ParentNode,
+  point: Point
+): FileDrop {
   const place = placeAtPoint(session, area, point)
 
   if (place.kind === "layout") {
@@ -96,7 +100,7 @@ function takenFrom(files: readonly DroppedFile[]): TakenFile[] {
  * reuses the one the first saved. Any that fail to save are named in a message, and the rest are returned.
  */
 async function saveImages(
-  session: ProjectSession,
+  projectId: string,
   files: readonly File[],
   taken: readonly TakenFile[]
 ): Promise<SavedImage[]> {
@@ -109,7 +113,7 @@ async function saveImages(
     const file = files[index]!
 
     try {
-      added.push({ node: await importMedia(session, file, fileBaseName(file.name), type), name: file.name })
+      added.push({ node: await importMedia(projectId, file, fileBaseName(file.name), type), name: file.name })
     } catch (error) {
       failed.push({ name: file.name, error })
     }
@@ -141,13 +145,13 @@ async function saveImages(
  * large to read.
  */
 export async function addImageFiles(
-  session: ProjectSession,
+  projectId: string,
   files: readonly File[],
   described: readonly DroppedFile[] = files
 ): Promise<SavedImage[]> {
   const taken = takenFrom(described)
 
-  return taken.length === 0 ? [] : saveImages(session, files, taken)
+  return taken.length === 0 ? [] : saveImages(projectId, files, taken)
 }
 
 /**
@@ -155,7 +159,11 @@ export async function addImageFiles(
  * as one undo step and selected. Files that aren't images Parity takes, or are too large, are skipped with a message
  * naming them, and so are any that fail to save.
  */
-export async function dropFiles(session: ProjectSession, target: FileDrop, files: readonly File[]): Promise<void> {
+export async function dropFiles(
+  session: ProjectDesigns & Pick<ProjectSession, "id">,
+  target: FileDrop,
+  files: readonly File[]
+): Promise<void> {
   const { store, selection } = session
   const taken = takenFrom(files)
 
@@ -169,7 +177,7 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     return
   }
 
-  const added = await saveImages(session, files, taken)
+  const added = await saveImages(session.id, files, taken)
 
   if (added.length === 0) {
     return

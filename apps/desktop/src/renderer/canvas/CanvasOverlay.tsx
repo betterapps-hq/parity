@@ -34,15 +34,16 @@ import {
 import { SquareDashed } from "lucide-react"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import { flushSync } from "react-dom"
-import { react, type TLRecord } from "tldraw"
+import { type Editor, react, type TLRecord } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
+import type { DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
-import { useEditing } from "../selection.ts"
+import { type SelectionStore, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
 import { type AreaSpace, areaSpace, type Box, frameGeometry, frameSize } from "./frame-geometry.ts"
 import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
@@ -168,7 +169,7 @@ export function CanvasOverlay() {
 
       // Double-clicks belong to the canvas, not tldraw: inside a design they drill in (see onDoubleClick), and on empty
       // canvas tldraw would make a text shape of its own. Only free text notes keep tldraw's double-click, to edit.
-      if (event.detail >= 2 && tool === "select" && !overNote(session, point)) {
+      if (event.detail >= 2 && tool === "select" && !overNote(session.editor, point)) {
         event.stopPropagation()
         event.preventDefault()
 
@@ -196,7 +197,7 @@ export function CanvasOverlay() {
       // Outside a design's frames, and on a free text note over one, the press is tldraw's: it selects and moves
       // boards and notes. A board is selected by its title or its background around the frames. A locked design's
       // frames are tldraw's too, which leaves its locked board alone and draws a box over it (PAR-192).
-      if (!hit || hit.entry.container.locked || overNote(session, point)) {
+      if (!hit || hit.entry.container.locked || overNote(session.editor, point)) {
         return
       }
 
@@ -230,10 +231,10 @@ export function CanvasOverlay() {
       // A layer that isn't selected is selected as it's pressed, so dragging moves it rather than the board. Pressing
       // one that's selected keeps the whole selection, to drag it; a click without dragging then selects just it.
       if (press.kind === "select") {
-        selectHit(session, hit, press.node)
+        selectHit(session.selection, hit, press.node)
       }
 
-      pressLayers(session, area, event, () => press.kind === "keep" && selectHit(session, hit, press.node))
+      pressLayers(session, area, event, () => press.kind === "keep" && selectHit(session.selection, hit, press.node))
     }
 
     const onDoubleClick = (event: MouseEvent) => {
@@ -244,7 +245,7 @@ export function CanvasOverlay() {
       const point = { x: event.clientX, y: event.clientY }
       const hit = hitTest(area, store, point, session.editor)
 
-      if (!hit || hit.entry.container.locked || overNote(session, point)) {
+      if (!hit || hit.entry.container.locked || overNote(session.editor, point)) {
         return
       }
 
@@ -271,7 +272,7 @@ export function CanvasOverlay() {
       const deeper = pickDeeper(underPoint(hit), selected)
 
       if (deeper) {
-        selectHit(session, hit, deeper)
+        selectHit(session.selection, hit, deeper)
       }
     }
 
@@ -702,7 +703,7 @@ export function CanvasOverlay() {
                 startResize(session, area, handles, edge, event)
               }
             }}
-            onReset={(edge, fill) => resetSize(session, handles, edge, fill)}
+            onReset={(edge, fill) => resetSize(session.store, handles, edge, fill)}
           />
         ))}
       {editing && <TextEditor key={`${editing.design}/${editing.node}`} />}
@@ -717,7 +718,7 @@ function SpacingHandlesFor({
   dragging,
   onDrag
 }: {
-  session: ProjectSession
+  session: Pick<ProjectSession, "store" | "tokens">
   spacing: NonNullable<Model["spacingHandles"]>
   dragging: ({ key: string } & SpacingEdit) | undefined
   onDrag: (edit: ({ key: string } & SpacingEdit) | undefined) => void
@@ -759,9 +760,7 @@ function animates(host: HTMLElement): boolean {
  * Whether a free text note or a reference is under a point, which tldraw handles: a note's double-click edits it, and a
  * reference's opens it at its source.
  */
-function overNote(session: ProjectSession, point: Point): boolean {
-  const editor = session.editor
-
+function overNote(editor: Editor | undefined, point: Point): boolean {
   if (!editor) {
     return false
   }
@@ -771,15 +770,19 @@ function overNote(session: ProjectSession, point: Point): boolean {
   return type === "canvas-note" || type === "canvas-reference"
 }
 
-function selectHit(session: ProjectSession, hit: Hit, node: string | undefined): void {
+function selectHit(selection: SelectionStore, hit: Hit, node: string | undefined): void {
   if (!node || node === hit.entry.container.root.id) {
-    session.selection.set({ design: hit.entry.key })
+    selection.set({ design: hit.entry.key })
   } else {
-    session.selection.set({ design: hit.entry.key, node, mode: hit.mode, state: hit.state })
+    selection.set({ design: hit.entry.key, node, mode: hit.mode, state: hit.state })
   }
 }
 
-function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Model {
+function measure(
+  session: ProjectDesigns & Pick<ProjectSession, "editor" | "info" | "tokens">,
+  area: HTMLElement,
+  alt: boolean
+): Model {
   const { selection, store, editor } = session
 
   if (!editor) {
@@ -1101,7 +1104,7 @@ function redline(from: Point, to: Point, length: number, unit: number): Redline 
  * keeps what it did (see `gestures.resize`).
  */
 function startResize(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
   area: HTMLElement,
   handles: Handles,
   edge: Edge,
@@ -1230,7 +1233,7 @@ function startResize(
  * as one change, in the drag's one undo step.
  */
 function resizeLayers(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
   area: HTMLElement,
   handles: Handles,
   layers: readonly string[],
@@ -1323,8 +1326,7 @@ function resizeLayers(
  * Double-clicking a handle: a frame goes back to its viewport's width or its content's height; a layer's size on the
  * handle's axes hugs its content, or with Alt fills its parent (PAR-169), for every layer the handle is on.
  */
-function resetSize(session: ProjectSession, handles: Handles, edge: Edge, fill = false): void {
-  const { store } = session
+function resetSize(store: DesignStore, handles: Handles, edge: Edge, fill = false): void {
   const entry = store.getEntry(handles.design)
 
   if (!entry) {
@@ -1367,7 +1369,11 @@ function resetSize(session: ProjectSession, handles: Handles, edge: Edge, fill =
  * frame there; on the empty canvas, a text layer in a frame that hugs it (see `addFrameOfText`). Either way it's
  * edited in place at once. Over a design with no layout under the pointer, nothing.
  */
-function addText(session: ProjectSession, area: ParentNode, point: Point): void {
+function addText(
+  session: ProjectDesigns & Pick<ProjectSession, "editor" | "tokens">,
+  area: ParentNode,
+  point: Point
+): void {
   const { store, selection, editor } = session
   const place = placeAtPoint(session, area, point)
 

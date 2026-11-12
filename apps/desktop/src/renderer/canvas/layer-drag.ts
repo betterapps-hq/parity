@@ -19,7 +19,7 @@ import {
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { type Drag, followPress, gestures } from "./gesture.ts"
@@ -62,7 +62,7 @@ export function getDragView(): DragView | undefined {
  * `gestures.absoluteDrag`).
  */
 export function pressLayers(
-  session: ProjectSession,
+  session: ProjectDesigns & Pick<ProjectSession, "editor" | "info" | "loaded" | "tokens">,
   area: HTMLElement,
   start: PointerEvent,
   onClick: () => void
@@ -186,7 +186,7 @@ export function pressLayers(
  */
 export function moveTarget(
   area: ParentNode,
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "store">,
   point: Point,
   source: ContainerEntry,
   ids: readonly string[],
@@ -294,7 +294,7 @@ class DropPreview {
  * they moved.
  */
 export function moveLayers(
-  session: ProjectSession,
+  session: ProjectDesigns,
   source: ContainerEntry,
   ids: readonly string[],
   target: MoveTarget,
@@ -359,7 +359,7 @@ export function moveLayers(
  * gesture, which Escape takes back.
  */
 function followAbsolute(
-  session: ProjectSession,
+  session: ProjectDesigns & Pick<ProjectSession, "editor" | "info" | "loaded" | "tokens">,
   entry: ContainerEntry,
   id: string,
   host: HTMLElement,

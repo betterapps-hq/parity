@@ -34,7 +34,7 @@ import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { addImageFiles, mediumOfNode } from "./drop-files.ts"
 import { bringIntoView, bringIntoViewOnceSized, takenBounds } from "./free-space.ts"
@@ -57,7 +57,7 @@ let lastCopy: { text: string; envelope: ClipboardEnvelope } | undefined
 let copiedStyle: NodeStyle | undefined
 
 /** Copies the selected layers, designs or note. Returns whether there was anything to copy. */
-export async function copySelection(session: ProjectSession): Promise<boolean> {
+export async function copySelection(session: ProjectDesigns & Pick<ProjectSession, "info">): Promise<boolean> {
   const payload = selectionPayload(session)
 
   if (!payload) {
@@ -79,7 +79,9 @@ export async function copySelection(session: ProjectSession): Promise<boolean> {
  * Pastes what's on the clipboard: Parity layers, designs or notes; an image or SVG, saved into the project; or plain
  * text as a text layer.
  */
-export async function pasteClipboard(session: ProjectSession): Promise<void> {
+export async function pasteClipboard(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id" | "info">
+): Promise<void> {
   const content = await readClipboard()
 
   if (content.kind === "envelope") {
@@ -250,14 +252,16 @@ async function readClipboard(): Promise<ClipboardContent> {
  * and nothing is removed. Layers go just after the last selected layer, at its insets when it's placed absolutely;
  * copied designs go at the selected designs' position. One undo step, and the copies end up selected.
  */
-export async function pasteOverSelection(session: ProjectSession): Promise<void> {
+export async function pasteOverSelection(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "id">
+): Promise<void> {
   const { store, selection } = session
   const current = selection.get()
   const frame = store.editFrame(current)
   const ids = selectedNodes(current)
 
   if (frame && ids.length > 0) {
-    const layers = await clipboardLayers(session, "over", "Copy layers to paste them over layers")
+    const layers = await clipboardLayers(session.id, "over", "Copy layers to paste them over layers")
 
     if (!layers) {
       return
@@ -339,7 +343,9 @@ export async function pasteOverSelection(session: ProjectSession): Promise<void>
  * Paste to replace (Ctrl+Shift+R), as Figma's: what's on the clipboard replaces each selected layer, in its place, as
  * one undo step, and ends up selected. Parity's layers, an image or text replace layers; copied designs and notes don't.
  */
-export async function pasteToReplace(session: ProjectSession): Promise<void> {
+export async function pasteToReplace(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "id">
+): Promise<void> {
   const current = session.selection.get()
   const frame = session.store.editFrame(current)
   const ids = selectedNodes(current)
@@ -348,7 +354,7 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
     return
   }
 
-  const layers = await clipboardLayers(session, "replace", "Copy layers to replace layers with them")
+  const layers = await clipboardLayers(session.id, "replace", "Copy layers to replace layers with them")
 
   if (!layers) {
     return
@@ -387,7 +393,10 @@ export async function pasteToReplace(session: ProjectSession): Promise<void> {
  * `placeAtPoint` and `pasteHere`). Over no design, text makes a text frame there and layers a frame of them there.
  * One undo step, and the copies end up selected.
  */
-export async function pasteAtPointer(session: ProjectSession, point: Point): Promise<void> {
+export async function pasteAtPointer(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id" | "tokens">,
+  point: Point
+): Promise<void> {
   const { store, selection, editor } = session
 
   if (!editor) {
@@ -456,7 +465,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
     return
   }
 
-  const layers = await clipboardLayers(session, "here", "Copy layers to paste them here", content)
+  const layers = await clipboardLayers(session.id, "here", "Copy layers to paste them here", content)
 
   if (!layers) {
     return
@@ -500,7 +509,7 @@ export async function pasteAtPointer(session: ProjectSession, point: Point): Pro
  * a paste `how` that failed. `read` is the clipboard already read.
  */
 async function clipboardLayers(
-  session: ProjectSession,
+  projectId: string,
   how: PasteHow,
   notLayers: string,
   read?: ClipboardContent
@@ -538,7 +547,7 @@ async function clipboardLayers(
   }
 
   if (content.kind === "files") {
-    const nodes = await savedFiles(session, content)
+    const nodes = await savedFiles(projectId, content)
 
     if (nodes.length === 0) {
       pasteFailed(how, kind, "imageFailed")
@@ -552,7 +561,7 @@ async function clipboardLayers(
   const progress = toast.loading("Adding the image…")
 
   try {
-    const node = await importMedia(session, content.blob, content.name)
+    const node = await importMedia(projectId, content.blob, content.name)
     toast.dismiss(progress)
 
     return { nodes: [node], content: kind }
@@ -590,20 +599,20 @@ async function clipboardImage(): Promise<Blob | undefined> {
  * Saves a file copied in Explorer or Finder into the project, as dropping it would, and gives the layer that shows it.
  * One that isn't an image or video Parity takes, or is too large, is named in a message, as a dropped one is.
  */
-async function savedFiles(
-  session: ProjectSession,
-  content: ClipboardContent & { kind: "files" }
-): Promise<DesignNode[]> {
+async function savedFiles(projectId: string, content: ClipboardContent & { kind: "files" }): Promise<DesignNode[]> {
   const described = content.files.map(({ name, size }) => ({ name, type: "", size }))
   const files = content.files.map(({ name, data }) => new File(data ? [new Uint8Array(data)] : [], name))
-  const saved = await addImageFiles(session, files, described)
+  const saved = await addImageFiles(projectId, files, described)
 
   return saved.map(({ node }) => node)
 }
 
 /** Pastes a file copied in Explorer or Finder like a pasted layer, at its own proportions (PAR-841). */
-async function pasteFiles(session: ProjectSession, content: ClipboardContent & { kind: "files" }): Promise<void> {
-  const nodes = await savedFiles(session, content)
+async function pasteFiles(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id">,
+  content: ClipboardContent & { kind: "files" }
+): Promise<void> {
+  const nodes = await savedFiles(session.id, content)
 
   if (nodes.length === 0) {
     pasteFailed("paste", contentOf(content), "imageFailed")
@@ -616,11 +625,14 @@ async function pasteFiles(session: ProjectSession, content: ClipboardContent & {
 }
 
 /** Saves a pasted image into the project and places it like a pasted layer, at its own proportions. */
-async function pasteImage(session: ProjectSession, content: ClipboardContent & { kind: "image" }): Promise<void> {
+async function pasteImage(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id">,
+  content: ClipboardContent & { kind: "image" }
+): Promise<void> {
   const progress = toast.loading("Adding the image…")
 
   try {
-    const place = placeLayers(session, [await importMedia(session, content.blob, content.name)], "Paste image")
+    const place = placeLayers(session, [await importMedia(session.id, content.blob, content.name)], "Paste image")
     toast.dismiss(progress)
     pasted("paste", contentOf(content), 1, place?.design)
   } catch (error) {
@@ -635,7 +647,7 @@ async function pasteImage(session: ProjectSession, content: ClipboardContent & {
 }
 
 /** Copies the selected designs, placing the copies in the first free space to the right of the originals. */
-export function duplicateDesigns(session: ProjectSession): boolean {
+export function duplicateDesigns(session: ProjectDesigns & Pick<ProjectSession, "editor">): boolean {
   const designs = selectedDesigns(session.selection.get()).flatMap((key) => {
     const entry = session.store.getEntry(key)
 
@@ -652,7 +664,7 @@ export function duplicateDesigns(session: ProjectSession): boolean {
 }
 
 /** Copies the selected layer's look, to paste onto other layers. */
-export function copyStyle(session: ProjectSession): boolean {
+export function copyStyle(session: ProjectDesigns): boolean {
   const current = session.selection.get()
   const frame = session.store.editFrame(current)
   const style = frame && current.node ? styleOf(frame.container, current.node, frame.state, frame.viewport) : undefined
@@ -668,7 +680,7 @@ export function copyStyle(session: ProjectSession): boolean {
 }
 
 /** Gives every selected layer the copied style, in place of its own. One undo step. */
-export function pasteStyle(session: ProjectSession): void {
+export function pasteStyle(session: ProjectDesigns): void {
   const style = copiedStyle
   const current = session.selection.get()
   const frame = session.store.editFrame(current)
@@ -689,7 +701,7 @@ export function pasteStyle(session: ProjectSession): void {
   )
 }
 
-function selectionPayload(session: ProjectSession): ClipboardPayload | undefined {
+function selectionPayload(session: ProjectDesigns): ClipboardPayload | undefined {
   const { store, selection } = session
   const current = selection.get()
   const frame = store.editFrame(current)
@@ -716,7 +728,7 @@ function selectionPayload(session: ProjectSession): ClipboardPayload | undefined
 
 /** Where layers would paste: into a selected layout, after the selected layers, or into the selected design's root. */
 function selectedPasteTarget(
-  session: ProjectSession
+  session: ProjectDesigns
 ): { entry: ContainerEntry; target: PasteTarget; frame: { mode?: string; state?: string } } | undefined {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
@@ -730,7 +742,7 @@ function selectedPasteTarget(
  * into a new frame when nothing is selected. They get fresh ids, and end up selected. Returns where they went.
  */
 export function placeLayers(
-  session: ProjectSession,
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor">,
   nodes: DesignNode[],
   label?: string
 ): { design: string; ids: string[]; frame: { mode?: string; state?: string } } | undefined {
@@ -766,15 +778,19 @@ export function placeLayers(
  * middle of the view unless placed `at` (PAR-546).
  */
 function pasteAsNewDesign(
-  session: ProjectSession,
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
   nodes: DesignNode[],
-  at = viewCenter(session),
+  at = viewCenter(session.editor),
   label?: string
 ): void {
   addFrameOfLayers(session, nodes, at, label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`))
 }
 
-function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], sameProject: boolean): void {
+function pasteDesigns(
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
+  designs: ContainerSpec[],
+  sameProject: boolean
+): void {
   const { store, selection, editor } = session
   const ids = store.getEntries().map((entry) => entry.container.id)
 
@@ -787,7 +803,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
     return { position: design.position, bounds }
   })
 
-  const { shift, shown } = pastedPlacement(placed, viewCenter(session), editor ? takenBounds(editor) : [])
+  const { shift, shown } = pastedPlacement(placed, viewCenter(session.editor), editor ? takenBounds(editor) : [])
   const copies = copyDesigns(designs, ids, shift)
   const path = store.mainPath
   store.change(`Paste ${kindsName(copies.map((copy) => copy.kind))}`, (snapshot) => {
@@ -818,7 +834,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
  * Notes pasted a little below and right of where they were copied from, or with their top left `at` a place on the
  * canvas, sitting as they sat together.
  */
-function pasteNotes(session: ProjectSession, notes: NoteSpec[], at?: { x: number; y: number }): void {
+function pasteNotes(session: ProjectDesigns, notes: NoteSpec[], at?: { x: number; y: number }): void {
   const { store, selection } = session
   const taken = store.getNotes().map((note) => note.note.id)
   let last: string | undefined
@@ -837,9 +853,12 @@ function pasteNotes(session: ProjectSession, notes: NoteSpec[], at?: { x: number
  * in the middle of the view, as the text tool makes one on the empty canvas. Returns the design it went into, unless it
  * made one.
  */
-function pasteText(session: ProjectSession, text: string): string | undefined {
+function pasteText(
+  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor">,
+  text: string
+): string | undefined {
   if (!selectedPasteTarget(session)) {
-    addFrameOfText(session, text, viewCenter(session), "Paste text")
+    addFrameOfText(session, text, viewCenter(session.editor), "Paste text")
 
     return undefined
   }

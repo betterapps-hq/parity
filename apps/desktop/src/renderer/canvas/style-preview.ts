@@ -37,7 +37,7 @@ export class StylePreview {
   private previewed = new Set<HTMLElement>()
 
   constructor(
-    private readonly session: ProjectSession,
+    private readonly session: Pick<ProjectSession, "editor" | "info" | "loaded" | "store">,
     private readonly design: string
   ) {}
 
@@ -219,7 +219,10 @@ export class StylePreview {
 }
 
 /** A preview of a design's style edits for a panel, taken back if the panel goes while it shows, as when the selection changes. */
-export function useStylePreview(session: ProjectSession, design: string): StylePreview {
+export function useStylePreview(
+  session: Pick<ProjectSession, "editor" | "info" | "loaded" | "store">,
+  design: string
+): StylePreview {
   const preview = useMemo(() => new StylePreview(session, design), [session, design])
   useEffect(() => () => preview.cancel(), [preview])
 

@@ -14,6 +14,7 @@ import {
 } from "@parity-app/editor"
 import type { Token } from "@parity-app/tokens"
 import type { PointerEvent as ReactPointerEvent } from "react"
+import type { DesignStore } from "../design-store.ts"
 import { px } from "../lengths.ts"
 import { resolveTokenValue, spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -102,11 +103,11 @@ export function lengthTokens(tokens: readonly Token[]): LengthToken[] {
 
 /** What an edit of the target starts from: its style as the frame shows it, and what it draws at. */
 function editStart(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "store" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
-): { start: SpacingEditStart; frame: NonNullable<ReturnType<ProjectSession["store"]["editFrame"]>> } | undefined {
+): { start: SpacingEditStart; frame: NonNullable<ReturnType<DesignStore["editFrame"]>> } | undefined {
   const { store, tokens } = session
   const entry = store.getEntry(target.design)
   const frame = store.editFrame(target)
@@ -144,7 +145,7 @@ export interface SpacingValue {
 
 /** What a handle shows when it isn't being dragged: what it draws at, and the token it's bound to. */
 export function spacingValue(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "store" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
@@ -160,14 +161,14 @@ export function spacingValue(
 }
 
 function write(
-  session: ProjectSession,
+  store: DesignStore,
   frame: { design: string; state: { id: string } },
   node: string,
   edit: SpacingEdit,
   gesture?: string
 ): void {
   const label = "gap" in edit.change ? "Change gap" : "Change padding"
-  session.store.updateContainer(
+  store.updateContainer(
     frame.design,
     label,
     (container) => editNode(container, boardTarget(container, frame.state.id), node, { style: edit.change }),
@@ -190,7 +191,7 @@ export function spacingCursor(handle: SpacingHandle): string {
  * opens the box to type a value in.
  */
 export function pressSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "store" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -229,7 +230,7 @@ export function pressSpacing(
       }
 
       last = serialized
-      write(session, edit.frame, target.node, next, gesture)
+      write(session.store, edit.frame, target.node, next, gesture)
     },
     end: () => show(undefined),
     click: type
@@ -238,7 +239,7 @@ export function pressSpacing(
 
 /** A value typed after a click; the reason when it can't be read. */
 export function typeSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "store" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -257,14 +258,14 @@ export function typeSpacing(
     return next.reason
   }
 
-  write(session, edit.frame, target.node, next)
+  write(session.store, edit.frame, target.node, next)
 
   return undefined
 }
 
 /** A token or a step picked from the list beside the box. */
 export function pickSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "store" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -274,13 +275,13 @@ export function pickSpacing(
   const edit = editStart(session, target, handle, measure)
 
   if (edit) {
-    write(session, edit.frame, target.node, pickedSpacing(edit.start, value, keys))
+    write(session.store, edit.frame, target.node, pickedSpacing(edit.start, value, keys))
   }
 }
 
 /** Up or Down on a focused handle. */
 export function stepSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "store" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -290,6 +291,6 @@ export function stepSpacing(
   const edit = editStart(session, target, handle, measure)
 
   if (edit) {
-    write(session, edit.frame, target.node, spacingStep(edit.start, count, keys))
+    write(session.store, edit.frame, target.node, spacingStep(edit.start, count, keys))
   }
 }

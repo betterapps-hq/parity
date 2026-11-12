@@ -1,6 +1,6 @@
 import { childNodes } from "@parity-app/core"
 import { nodeBox } from "../frame.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { followPress, gestures } from "./gesture.ts"
 import type { Hit } from "./hit.ts"
 import { boardClick, boxSelection, touchedBy } from "./pick.ts"
@@ -12,7 +12,11 @@ import { boardClick, boxSelection, touchedBy } from "./pick.ts"
  * cancelled or the window losing focus puts back what was selected before (see `gestures.boxSelect`). The board never
  * moves: it's moved by its title or its background around the frames.
  */
-export function pressBackground(session: ProjectSession, start: PointerEvent, hit: Hit): void {
+export function pressBackground(
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
+  start: PointerEvent,
+  hit: Hit
+): void {
   const { selection, editor } = session
   const before = selection.get()
   const design = hit.entry.key
