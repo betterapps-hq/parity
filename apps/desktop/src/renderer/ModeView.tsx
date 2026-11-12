@@ -4,12 +4,14 @@ import {
   type MountHandle,
   modeGlobals,
   type RenderNode,
-  type ResolvedMode
+  type ResolvedMode,
+  withClasses
 } from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { reportFrameFailures } from "./failures-store.ts"
-import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport, whenDrawn } from "./frame.ts"
+import { frameClasses } from "./frame-classes.ts"
+import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport, showFrameRules, whenDrawn } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
@@ -99,6 +101,9 @@ export function ModeView({
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
   const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode), isTouchMode(mode)])
   const renderKey = shows ?? `${environmentKey}|${treeKey}`
+  // In a project whose styling framework writes classes, a layer is drawn with them once they're written (PAR-942).
+  const classes = useMemo(() => frameClasses(project, loaded), [project, loaded])
+  const written = useSyncExternalStore(classes.subscribe, classes.revision)
   // Errors belong to the render that raised them, so a changed design starts clean.
   const [error, setError] = useState<{ key: string; message: string }>()
 
@@ -197,7 +202,8 @@ export function ModeView({
       classNames,
       attributes: frameAttributes({ classNames, attributes }, loaded.themeAttributes),
       viewport,
-      touch
+      touch,
+      sheets: [classes.sheet]
     })
 
     const handle = loaded.guest.mount(target, [], {
@@ -251,13 +257,21 @@ export function ModeView({
       // Just after, as the guest renders, so never inside one of the canvas's commits, should the two share a React.
       queueMicrotask(() => handle.unmount())
     }
-  }, [loaded, environmentKey, interactions, asleep, failuresKey])
+  }, [loaded, classes, environmentKey, interactions, asleep, failuresKey])
 
   useEffect(() => {
     currentKey.current = renderKey
     // SAFETY: `treeKey` is the design's tree as JSON, made above.
-    handleRef.current?.update(JSON.parse(treeKey) as RenderNode[])
-  }, [loaded, environmentKey, treeKey, renderKey, interactions, asleep])
+    const resolved = JSON.parse(treeKey) as RenderNode[]
+    // Each element with the classes written for its declarations; one still without them keeps its rule.
+    const drawn = withClasses(resolved, classes.classesFor)
+
+    if (handleRef.current) {
+      // The frame's rules change in the same task as its elements, which the guest draws just after, before a paint.
+      showFrameRules(hostRef.current!, loaded.rules(drawn))
+      handleRef.current.update(drawn)
+    }
+  }, [loaded, classes, written, environmentKey, treeKey, renderKey, interactions, asleep])
 
   const message = error?.key === renderKey ? error.message : undefined
 

@@ -10,7 +10,15 @@ import {
 } from "@parity-app/core"
 import { contrastFix } from "@parity-app/tokens"
 import { describeLayoutFinding, describeSqueeze, layoutFindings } from "./overflow.ts"
-import type { AccessibilityFinding, FrameBox, FrameContrast, FrameResult, MeasuredNode, Problem } from "./types.ts"
+import type {
+  AccessibilityFinding,
+  FrameBox,
+  FrameContrast,
+  FrameResult,
+  NodeLayout,
+  MeasuredNode,
+  Problem
+} from "./types.ts"
 
 /** The name of a design by id, for naming its instances. */
 export type DesignName = (id: string) => string | undefined
@@ -100,8 +108,24 @@ export function frameProblems(
   return found
 }
 
+/**
+ * A measured node as `Measure` gives it, with the names it shows in the layers (`names`, from nodeNames): its box under
+ * `box`, and what clips it as `{ node, name, box }`, the shapes `Problems` uses (PAR-915).
+ */
+export function layoutNode(node: MeasuredNode, names: ReadonlyMap<string, string>): NodeLayout {
+  const { x: _x, y: _y, width: _width, height: _height, clip, ...rest } = node
+  const laid: NodeLayout = { ...rest, name: names.get(node.id), box: frameBoxOf(node) }
+
+  if (clip) {
+    const { node: by, ...box } = clip
+    laid.clip = by ? { node: by, name: names.get(by), box: frameBoxOf(box) } : { box: frameBoxOf(box) }
+  }
+
+  return laid
+}
+
 /** A measured node's box alone. */
-function frameBoxOf(node: MeasuredNode): FrameBox {
+function frameBoxOf(node: FrameBox): FrameBox {
   return { x: node.x, y: node.y, width: node.width, height: node.height }
 }
 

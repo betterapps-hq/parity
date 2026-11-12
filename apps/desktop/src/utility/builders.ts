@@ -45,6 +45,24 @@ export interface BuilderExit {
   output: string
 }
 
+/** The signals that stop a process from outside, as quitting the app or the system does, rather than a crash. */
+const stopSignals = new Set(["SIGHUP", "SIGINT", "SIGTERM"])
+
+/** What a process exits with when it handles one of those signals itself, as Vite does: 128 plus its number. */
+const stopCodes = new Set([129, 130, 143])
+
+/**
+ * Whether a builder ended because something outside stopped it, by a signal or the code it exits with when it handles
+ * one. The project still shows it stopped, but it isn't Parity's bug, so it isn't sent to Sentry (PAR-755).
+ */
+export function stoppedFromOutside(exit: BuilderExit | undefined): boolean {
+  if (exit?.signal !== undefined && stopSignals.has(exit.signal)) {
+    return true
+  }
+
+  return exit?.exitCode !== undefined && stopCodes.has(exit.exitCode)
+}
+
 /**
  * Starts a project's builder in a process of its own, run by Parity's own Node. What the process prints goes to the
  * service's output, and the end of it into the error when the process stops by itself.
@@ -99,7 +117,10 @@ export function startBuilder(
     {
       // Only a builder that stopped by itself crashes: one the project's closing stopped doesn't.
       onCrash: (error) => {
-        reportBuilderCrash(builder, error.split("\n")[0] ?? error, log)
+        if (!stoppedFromOutside(exit)) {
+          reportBuilderCrash(builder, error.split("\n")[0] ?? error, log)
+        }
+
         onCrash(error, exit ?? { output: log })
       },
       onCodeChange,

@@ -49,64 +49,9 @@ rows.forEach((path, index) => Update(path, { name: `Member row ${index + 1}` }))
 
 ## API
 
-```ts
-// Reading
-Designs(): DesignSummary[]                       // every design: id, name, kind, states, what it shows, size
-GetDesign(design): Design                        // a whole design, as in document.md
-Get(path, { depth?, state?, mode? }?): Node      // a design's root or a node; depth cuts children off with "…"
-Get(path?, visit): any[]                         // walks nodes, collecting what visit returns
-Get(path, visit, { state?, mode? }): any[]       // walks nodes as a frame draws them
-Components(): string[]                           // the components designs can use
-Props(component, { all? }?): PropsInfo           // a component's props, from its source
-Icons(): IconSet[]                               // the project's icon sets, with their styles
-Icons(set, { search?, style?, limit? }): Icon[]  // async: a set's icons, as component nodes name them
-GetTokens({ category?, source?, search?, nearest? }?): Token[]   // nearest: the closest to a colour or length first
-GetModes(design?): { settings, variables, viewports, modes, designs }   // modes resolved; what each design shows
-Selection(): { design?, node?, mode? }           // what the person has selected
-
-// Designs
-CreateDesign({ name, kind?, root?, x?, y?, width?, height?, file?, baseState?, params? }): string   // the new design's id
-UpdateDesign(design, { name?, kind?, x?, y?, width?, height?, mode?, showModes?, state?, allStates? }): void
-DeleteDesign(design): void
-
-// Nodes
-Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component, bind; an image's src, alt, credit
-Replace(path, node): string
-Move(path, parent, { index?, slot? }?): void     // within one design
-Copy(path, parent, { index?, slot?, name? }?): string
-Delete(path): void
-Responsive(path, viewport, patch | null): void   // a patch for one viewport, or null to remove it
-
-// States
-AddState(design, { name, changes? }): string     // changes keyed by node id or name
-UpdateState(design, state, { name?, changes? }): void
-DeleteState(design, state): void
-
-// Components
-FindRepeats(design): Repeat[]                    // parts that repeat with the same structure
-ExtractComponent(design, nodes, { name, params?, file? }): string
-AddParam(design, name, { type, default?, description?, options? }): void
-UpdateParam(design, name, { name?, default?, description?, options? }): void
-DeleteParam(design, name): void
-
-// Modes and tokens
-SetModes(settings): void                         // replaces the project's modes
-SetTokens({ name: value | { theme: value } }): void
-
-// Checking
-Screenshot(design, { state?, mode?, scale? }?): number
-Measure(design, { state?, mode? }?): Layout      // one frame: one state id, one mode id
-Problems(design, { state?, mode? }?): Problem[]
-Accessibility(design, { state?, mode? }?): Finding[]
-
-// The canvas
-FindEmptySpace({ width, height, direction?, near?, padding? }): { x, y }
-Overlaps(design?): Overlap[]
-References(design?): Reference[]                          // what's placed beside designs to look at
-PlaceReference(id, { near?, note?, connector? }): string  // async: a find_references screen beside a design
-Print(...values): void
-```
+`reference.md` lists every function with its signature, what it takes and what it returns, field by field. It's
+generated from the code, so where it and this file differ, it's right. Read it before calling a function whose arguments
+or result you haven't used yet. The sections below say how the functions fit together, with examples.
 
 Every function checks its arguments before it does anything. A wrong one fails the call with an `invalid_input` error
 whose path names it, and the message starts with that path:
@@ -115,7 +60,7 @@ whose path names it, and the message starts with that path:
 - A node by `node` (or `root` in `CreateDesign`) and where in it: `node/fontSize: unknown property`.
 - Any other argument by its name: `design`, `path`, `patch`, `nodes`.
 
-An option a function doesn't take is an error too, so check its spelling against the list above.
+An option a function doesn't take is an error too, so check its spelling against `reference.md`.
 
 ## Paths
 
@@ -157,8 +102,9 @@ Print(Get("profile/person/title", { state: "selected", mode: "mobile-light" }).t
 ```
 
 `Get(path, visit)` walks the nodes under `path`, or every design without one, and returns what `visit` returns for each.
-`visit(node, { design, path, depth, index, parent, skipChildren })`. Return `undefined` to collect nothing. Given a
-path, `Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
+`visit(node, { design, path, depth, index, parent, skipChildren })`. `parent` is the id of the node it's in, a string,
+and `undefined` for the first node visited. Return `undefined` to collect nothing. Given a path,
+`Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
 
 ```js
 // Every Button in the project, with where it is.
@@ -170,7 +116,8 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 `Components()` is everything a `component` node can name. `Props("Button")` returns the props found in the component's
 source: variants with their options (`variant`, `size`), its own props, including those a library's component adds to
 its element's (Nova's `isActive`), and with `{ all: true }` the attributes it passes to its element. A prop that isn't
-listed, or a variant value outside its options, comes back as a warning.
+listed, or a variant value outside its options, comes back as a warning. A prop typed `Date` takes
+`{ $date: "2026-11-19T00:00:00" }`, which the component gets as `new Date("2026-11-19T00:00:00")`.
 
 Its `composition` says what it needs around it and holds, before you insert it:
 
@@ -526,6 +473,24 @@ theme, or `SetTokens({ primary: { default: "…", dark: "…" } })` per theme. E
 saving writes them into the project's code, so do it only when the person asks to change the design system, not to style
 one design. They're undone with the call's other changes.
 
+A name the project doesn't have adds a token, in the category its name says: `text-2xl` is a font size, `shadow-popup` a
+shadow, and anything whose value is a color is a color. The rest of the call can use it, and `GetTokens` lists it.
+Saving writes it into the project's stylesheet as a custom property: the default value in `:root`, a theme's in that
+theme's block (`.dark` or `[data-theme="dark"]`, whichever the stylesheet uses). In a Tailwind project, a default value
+whose name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the rest) goes in
+`@theme`, so its class exists too. Add a token when a design needs a step the project's scale doesn't have, such as a
+page title's size in a project with three sizes. Name it the way the project names the rest, and tell the person you
+added it.
+
+```js
+SetTokens({ "text-2xl": "1.5rem", "shadow-popup": { default: "0 8px 24px rgb(0 0 0 / 0.2)", dark: "none" } })
+Print(GetTokens({ search: "shadow-popup" })[0].category) // shadow
+```
+
+A style that names a token the project doesn't have gets a `not_a_token` warning. It lists the project's tokens of the
+category that goes there, or says the project has none:
+`size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+
 `SetTokens` refuses a value the Tokens panel would refuse, throwing an `invalid_input` error that names the token and
 theme and says what's wrong: a bracket or quote left open, a `var()` naming no token, or a token built on itself. None
 of that call's values are kept. A value that isn't its token's kind (`"bluish"` for a color) is refused when the call
@@ -550,12 +515,13 @@ Frames draw as the canvas does: instances of a library's component designs (from
 token values not yet saved show, the person's edits and this call's own `SetTokens` alike, so
 `SetTokens({ primary: "red" }); await Screenshot(id)` shows the new value in the same call.
 
-`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
-with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
-A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its box in view.
-A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a negative
-margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element the
-project's code writes, such as a component's, has `source`: the file, line and column, as
+`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node with
+its `box` (`x`, `y`, `width`, `height` from the frame's top left) and the node it's drawn inside (`parent`). A node an
+ancestor cuts off has `clipped`, and that ancestor in `clip` as `{ node, name, box }`, the shape of a problem's
+`container`. A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its
+box in view. A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a
+negative margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element
+the project's code writes, such as a component's, has `source`: the file, line and column, as
 `src/components/ui/button.tsx:44:5`, to open or edit. Parity's own layers have none. `Problems` checks frames for render
 errors, overflow, clipping, squeezing, unknown components and content drawn outside the frame. Each problem has its
 `kind`:
@@ -586,7 +552,7 @@ const layout = await Measure(id)
 Print(
   layout.state,
   layout.mode,
-  layout.nodes.map((node) => `${node.id} in ${node.parent}`)
+  layout.nodes.map((node) => `${node.id} in ${node.parent} at ${node.box.x}, ${node.box.y}`)
 )
 ```
 
@@ -605,7 +571,10 @@ for (const state of signup.states) {
 for (const layout of layouts) Print(`${layout.state} in ${layout.mode}: ${layout.width} × ${layout.height}`)
 ```
 
-`Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
+`Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong. To fix a
+name on a layout or text layer, give it accessibility props:
+`Update(path, { props: { "aria-label": "Doesn't apply" } })`. A layout or text takes `role`, `id` and `aria-*` props,
+which land on its element.
 
 These frames are drawn in the same window as the canvas's: as wide as the frame, and as tall as the design's fixed
 height for the viewport, else the viewport's screen height, else the device nearest its width. So `100vh` and window

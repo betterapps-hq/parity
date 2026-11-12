@@ -19,12 +19,14 @@ import {
   hangThresholdMs,
   lagCheck,
   leftoverHangs,
+  MAIN_BLOCKED_FINGERPRINT,
   type OpenHangs,
   openHangsSchema,
   openHangsFile,
   openHangsOwner,
   openHangsRun,
   registeredEvents,
+  serviceCrash,
   serviceExit,
   isSpanEnvelope,
   type ResolvedTelemetry,
@@ -219,6 +221,12 @@ export function startTelemetry(
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
     beforeSend: (event, hint) =>
       reportGate.drop(event, () => {
+        // The service, Parity's only utility process that exits with a code, reports its own exits with what it printed,
+        // so Sentry's own report of it, which says nothing more, is dropped (PAR-950).
+        if (event.message === utilityExited) {
+          return null
+        }
+
         // An error about the frame that last failed to draw offscreen carries its picture, while it's recent (PAR-812).
         const frame = failedFrameFor(lastFailedFrame, event, Date.now())
 
@@ -571,6 +579,7 @@ function startHangWatch(folder: string): void {
         level: "warning",
         tags: { hang: leftover.name === "main.blocked" ? "main" : "window" },
         extra: { ...leftover.attributes },
+        ...(leftover.name === "main.blocked" && { fingerprint: [MAIN_BLOCKED_FINGERPRINT] }),
         ...run
       })
 
@@ -743,6 +752,26 @@ export function serviceExited(exit: { exitCode: number; ranMs: number; replaced:
   }
 }
 
+/** What Sentry's child process integration reports for a utility process that exited with an error code. */
+const utilityExited = "'Utility' process exited with 'abnormal-exit'"
+
+/**
+ * Reports a project service that exited unexpectedly as an error named by what it printed, with its last 50 lines of
+ * output, so Linear's bug says what went wrong (PAR-950). Expected exits report nothing.
+ */
+export function serviceCrashed(exit: Parameters<typeof serviceCrash>[0]): void {
+  const crash = serviceCrash(exit)
+
+  if (crash) {
+    Sentry.captureMessage(crash.message, {
+      level: "error",
+      fingerprint: crash.fingerprint,
+      tags: { process: "service" },
+      contexts: { service: { exitCode: exit.exitCode, output: crash.output } }
+    })
+  }
+}
+
 /** Notes the service starting, or being replaced by a fresh one, for the events that follow. */
 export function serviceStarted(restarted: boolean): void {
   Sentry.addBreadcrumb({
@@ -788,7 +817,8 @@ function watchMainLoop(): void {
       Sentry.captureMessage(`Main was blocked for ${(stuckMs / 1000).toFixed(1)}s`, {
         level: "warning",
         tags: { hang: "main" },
-        extra: where === undefined ? { stuckMs } : { stuckMs, where }
+        extra: where === undefined ? { stuckMs } : { stuckMs, where },
+        fingerprint: [MAIN_BLOCKED_FINGERPRINT]
       })
       recorded?.track(
         "main.blocked",

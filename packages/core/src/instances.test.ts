@@ -116,6 +116,15 @@ function rendered(tree: RenderNode[], id: string): RenderNode | undefined {
   return undefined
 }
 
+/** The declarations of the rendered element with this id, by CSS property. */
+function css(tree: RenderNode[], id: string): Record<string, string> | undefined {
+  const node = rendered(tree, id)
+
+  return node?.kind === "element"
+    ? Object.fromEntries(node.declarations.map(({ property, value }) => [property, value]))
+    : undefined
+}
+
 function textOf(tree: RenderNode[], id: string): string | undefined {
   const node = rendered(tree, id)
 
@@ -128,11 +137,11 @@ function render(design: ContainerSpec, state = design.states[0], lib = library) 
 
 describe("variants", () => {
   it("shows the chosen option's patches, the default otherwise", () => {
-    expect(rendered(render(badge), "badge")).toMatchObject({ style: { background: "var(--muted)" } })
+    expect(css(render(badge), "badge")).toMatchObject({ background: "var(--muted)" })
     const danger = { ...badge, view: { variants: { tone: "danger" } } }
-    expect(rendered(render(danger), "badge")).toMatchObject({ style: { background: "var(--destructive)" } })
+    expect(css(render(danger), "badge")).toMatchObject({ background: "var(--destructive)" })
     const unknown = { ...badge, view: { variants: { tone: "gone" } } }
-    expect(rendered(render(unknown), "badge")).toMatchObject({ style: { background: "var(--muted)" } })
+    expect(css(render(unknown), "badge")).toMatchObject({ background: "var(--muted)" })
   })
 
   it("lets an instance pick an option through its args", () => {
@@ -142,7 +151,7 @@ describe("variants", () => {
     }
 
     const tree = render(screen)
-    expect(rendered(tree, "alert")).toMatchObject({ style: { background: "var(--destructive)" } })
+    expect(css(tree, "alert")).toMatchObject({ background: "var(--destructive)" })
     expect(textOf(tree, "alert/label")).toBe("Late")
   })
 
@@ -195,7 +204,7 @@ describe("instance overrides", () => {
     // The component changing still reaches the copy, for whatever the copy doesn't change itself.
     const restyled = editNode(card, "default", "body", { style: { foreground: "primary" } })
     const later = render(edited, edited.states[0], componentLibrary([badge, restyled]))
-    expect(rendered(later, "first/body")).toMatchObject({ style: { color: "var(--primary)", fontWeight: "600" } })
+    expect(css(later, "first/body")).toMatchObject({ color: "var(--primary)", "font-weight": "600" })
   })
 
   it("sets a bound param on the instance rather than overriding the text", () => {
@@ -218,7 +227,7 @@ describe("instance overrides", () => {
     const styled = editInner(edited, "default", "first/status", { props: { tone: "danger" } }, library)
     const tree = render(styled)
     expect(textOf(tree, "first/status/label")).toBe("Away")
-    expect(rendered(tree, "first/status")).toMatchObject({ style: { background: "var(--destructive)" } })
+    expect(css(tree, "first/status")).toMatchObject({ background: "var(--destructive)" })
     expect(textOf(tree, "second/status/label")).toBe("Active")
     expect(locateInner(styled, "first/status/label", library)?.shown).toMatchObject({ text: "Away" })
   })

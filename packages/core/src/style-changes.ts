@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type { RenderNode } from "./render.ts"
 
-/** How one rendered node's inline style changes: the properties to set, and the ones to take off. */
+/** How one component's inline style changes: the properties to set, and the ones to take off. */
 export interface InlineStyleChange {
   nodeId: string
   set: Record<string, string>
@@ -9,10 +9,10 @@ export interface InlineStyleChange {
 }
 
 /**
- * How each node's inline style differs between two renders of a design, such as before and after a style edit, so the
- * edit can be shown on elements already drawn without drawing them again. A component's inline style is the one its
- * design sets on its root (`props.style`). Nodes found in only one render are left out: adding or removing nodes isn't
- * a change of style.
+ * How each component's inline style differs between two renders of a design, such as before and after a style edit, so
+ * the edit can be shown on components already drawn without drawing them again. A component's inline style is the one
+ * its design sets on its root (`props.style`); an element is drawn from rules, which `previewRules` changes. Components
+ * found in only one render are left out: adding or removing nodes isn't a change of style.
  */
 export function styleChanges(before: readonly RenderNode[], after: readonly RenderNode[]): InlineStyleChange[] {
   const was = inlineStyles(before)
@@ -43,7 +43,7 @@ export function styleChanges(before: readonly RenderNode[], after: readonly Rend
   return changes
 }
 
-/** Every node's inline style in a render, by node id. */
+/** Every component's inline style in a render, by node id. */
 export function inlineStyles(nodes: readonly RenderNode[]): Map<string, Record<string, string>> {
   const styles = new Map<string, Record<string, string>>()
 
@@ -53,7 +53,6 @@ export function inlineStyles(nodes: readonly RenderNode[]): Map<string, Record<s
     }
 
     if (node.kind === "element") {
-      styles.set(node.nodeId, node.style)
       node.children.forEach(visit)
 
       return

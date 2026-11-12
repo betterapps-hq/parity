@@ -39,22 +39,23 @@ function renderOutline(node: RenderNode): Outline[] {
   }
 
   const text = node.children.find((child) => child.kind === "text")
+  const css = Object.fromEntries(node.declarations.map(({ property, value }) => [property, value]))
   const outline: Outline = { id: node.nodeId, children: node.children.flatMap(renderOutline) }
 
   if (node.tag === "div") {
-    outline.direction = node.style.flexDirection
+    outline.direction = css["flex-direction"]
   }
 
-  if (node.style.gap !== undefined) {
-    outline.gap = node.style.gap
+  if (css.gap !== undefined) {
+    outline.gap = css.gap
   }
 
   if (text?.kind === "text") {
     outline.text = text.text
   }
 
-  if (node.style.fontWeight !== undefined) {
-    outline.weight = node.style.fontWeight
+  if (css["font-weight"] !== undefined) {
+    outline.weight = css["font-weight"]
   }
 
   return [outline]
@@ -350,7 +351,7 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
       throw new Error("expected an element")
     }
 
-    expect(bar.style).toMatchObject({ gap: "calc(var(--spacing) * 2)" })
+    expect(bar.declarations).toContainEqual({ property: "gap", value: "calc(var(--spacing) * 2)" })
     expect(bar.children.map((child) => child.kind === "element" && child.nodeId)).toEqual(["title"])
   })
 })

@@ -307,11 +307,14 @@ function withoutNodeIds(render: RenderNode[]): string {
 
 /** Structure without content, as JSON: two parts with the same structure can share a component. */
 function structure(node: DesignNode): string {
-  const base = { type: node.type, style: node.style ?? null, responsive: node.responsive ?? null }
+  // What it holds is structure wherever it holds it, the layers an instance fills its slots with included: `slotsOf`
+  // reads the same lists, so two parts with one structure have their values in the same places.
+  const inside = childEntries(node).map(({ slot, nodes }) => [slot ?? null, nodes.map(structure)])
+  const base = { type: node.type, style: node.style ?? null, responsive: node.responsive ?? null, inside }
 
   switch (node.type) {
     case "layout":
-      return JSON.stringify({ ...base, children: node.children.map(structure) })
+      return JSON.stringify(base)
     case "text":
       return JSON.stringify({ ...base, tag: node.tag ?? null })
     case "image":
@@ -333,8 +336,7 @@ function structure(node: DesignNode): string {
           Object.entries(node.props ?? {})
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([key, value]) => [key, contentKind(value) ?? value])
-        ),
-        slots: Object.fromEntries(Object.entries(node.slots ?? {}).map(([slot, nodes]) => [slot, nodes.map(structure)]))
+        )
       })
   }
 }

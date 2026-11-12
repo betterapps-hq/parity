@@ -149,6 +149,8 @@ interface ShownBitmap {
   key: string
   src?: string
   height?: number
+  /** It's the frame's latest kept from other code, shown until it's captured for this code (PAR-993). */
+  stale?: true
 }
 
 /** A frame's bitmap, as `useFrameBitmap` has it. */
@@ -164,8 +166,8 @@ export interface FrameBitmap {
   pending: boolean
   /**
    * `src` is the bitmap of what the frame showed before, standing in while the one of what it shows now is to come, as
-   * after a save changed a component it draws (PAR-165), so the board doesn't go blank meanwhile. The frame doesn't sleep
-   * on it.
+   * after a save changed a component it draws (PAR-165), or the frame's latest kept from other code, as after a branch
+   * switch (PAR-993), so the board doesn't go blank or change size meanwhile. The frame doesn't sleep on it.
    */
   stale?: true
 }
@@ -242,14 +244,19 @@ export function useFrameBitmap(
       timer = setTimeout(() => take(0), 0)
     } else {
       // One kept on disk from an earlier session shows as soon as it's read, without waiting for the frame to settle or
-      // its turn to be captured (PAR-158). It's captured only once there's none, after what's left of the wait.
+      // its turn to be captured (PAR-158). It's captured only once there's none for this code, after what's left of the
+      // wait. The frame's latest, kept from other code, shows meanwhile, at its height, until the capture comes (PAR-993).
       const asked = performance.now()
       void stored(key, latest.current).then((kept) => {
         if (!current) {
           return
         }
 
-        if (kept === undefined) {
+        if (kept === undefined || kept.stale) {
+          if (kept) {
+            setShown({ key, ...kept })
+          }
+
           const settled = first.current === key && held.current?.() === true
           timer = setTimeout(() => take(0), settled ? 0 : Math.max(0, settleMs - (performance.now() - asked)))
         } else {
@@ -267,7 +274,7 @@ export function useFrameBitmap(
     }
   }, [key])
 
-  if (shown?.key === key) {
+  if (shown?.key === key && !shown.stale) {
     return { ...shown, pending: false }
   }
 
@@ -325,7 +332,7 @@ export async function frameBitmap({ key, job }: FrameShows): Promise<string | un
   if (!bitmaps.has(key)) {
     const kept = await stored(key, job)
 
-    if (kept) {
+    if (kept && !kept.stale) {
       return kept.src
     }
   }
@@ -408,6 +415,8 @@ export function drawnHeight(tile: HTMLElement | null, width: number): number | u
 export interface KeptBitmap {
   src: string
   height?: number
+  /** It's the frame's latest, kept from other code, which never stands for the frame's key (PAR-993). */
+  stale?: true
 }
 
 /** Reads of kept bitmaps under way, by key, so frames showing the same one share a read. */
@@ -415,7 +424,8 @@ const reading = new Map<string, Promise<KeptBitmap | undefined>>()
 
 /**
  * The bitmap kept on disk for a job, which then stands for its key as a capture would. Nothing when none was kept; when
- * the frame was captured meanwhile, that capture, without a height.
+ * the frame was captured meanwhile, that capture, without a height. When none was kept for the code it's drawn with, the
+ * frame's latest, as stale, which doesn't stand for its key.
  */
 export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
   let read = reading.get(key)
@@ -455,7 +465,7 @@ function askStored(job: RenderJob): Promise<StoredAnswer> {
 }
 
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
-  const { src, height } = await askStored(job)
+  const { src, height, stale } = await askStored(job)
   const captured = bitmaps.get(key)
 
   if (captured) {
@@ -470,6 +480,10 @@ async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | und
 
   if (src === undefined) {
     return undefined
+  }
+
+  if (stale) {
+    return { ...keptBitmap(src, height), stale }
   }
 
   bitmaps.set(key, Promise.resolve(src))

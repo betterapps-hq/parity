@@ -48,6 +48,7 @@ import {
   locateEffective,
   locateInner,
   locateNode,
+  mapChildLists,
   mapNode,
   type ModeSettings,
   modeSettings,
@@ -57,6 +58,7 @@ import {
   nodeIds,
   type InstanceNode,
   type NodePatch,
+  isAccessibilityProp,
   nodeTree,
   parseCanvasDocument,
   plainObject,
@@ -95,14 +97,15 @@ import {
 import { validate } from "@parity-app/style"
 import {
   builtOn,
-  categorize,
   checkTokenEdit,
   type CssSupports,
   defaultValues,
   nearestTokens,
   previewKind,
   readNearValue,
-  substituteReferences
+  substituteReferences,
+  type Token,
+  withTokenChanges
 } from "@parity-app/tokens"
 import { z } from "zod"
 import {
@@ -156,9 +159,10 @@ import {
   overlapWarnings,
   type SpaceOptions
 } from "./boards.ts"
-import { accessibilityFindings, addContrastFixes, frameProblems, nodeNames } from "./frames.ts"
+import { accessibilityFindings, addContrastFixes, frameProblems, layoutNode, nodeNames } from "./frames.ts"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { lintDocument, propWarnings } from "./lint.ts"
+import type { ReadNode, SnippetApi, Visit } from "./snippet-api.ts"
 import type {
   AccessibilityFinding,
   AgentChangeSet,
@@ -297,7 +301,7 @@ export class AgentWorkspace {
    * The functions a snippet can call, as globals. Each checks its arguments with its schema in `arguments.ts` before it
    * reads them, since a snippet can pass anything.
    */
-  api() {
+  api(): SnippetApi {
     const design = (value: string) => readArgument(designReference, value, "design")
     const path = (value: string) => readArgument(nodeReference, value, "path")
     const parent = (value: string) => readArgument(nodeReference, value, "parent")
@@ -307,14 +311,16 @@ export class AgentWorkspace {
       document: "document",
       Designs: () => this.listDesigns(),
       GetDesign: (reference: string) => this.getDesign(design(reference)),
-      Get: (...args: unknown[]) => this.get(args),
+      // SAFETY: `get` tells Get's overloads apart by the arguments it's given and returns what each one says.
+      Get: ((...args: unknown[]) => this.get(args)) as SnippetApi["Get"],
       Components: () => [...this.snapshot.components].sort(),
       Props: (component: string, options?: z.infer<typeof propsOptions>) =>
         this.componentProps(text(component, "component"), readFields(propsOptions, options, "options")),
-      Icons: (set?: string, options?: z.infer<typeof iconOptions>) =>
+      // SAFETY: without a set it lists the sets, and with one it reads that set's icons, as Icons' overloads say.
+      Icons: ((set?: string, options?: z.infer<typeof iconOptions>) =>
         set === undefined
           ? describeIconSets(this.snapshot.iconSets ?? [])
-          : this.icons(text(set, "set"), readFields(iconOptions, options, "options")),
+          : this.icons(text(set, "set"), readFields(iconOptions, options, "options"))) as SnippetApi["Icons"],
       GetTokens: (filter?: z.infer<typeof tokenFilter>) => this.getTokens(readFields(tokenFilter, filter, "filter")),
       GetModes: (reference?: string) => this.getModes(readArgument(designReference.optional(), reference, "design")),
       Selection: () => this.selection(),
@@ -534,7 +540,7 @@ export class AgentWorkspace {
   }
 
   /** `Get(path, options?)`, `Get(path, visit, options?)` or `Get(visit)`. */
-  private get(args: unknown[]): ElidedNode | unknown[] {
+  private get(args: unknown[]): ReadNode | unknown[] {
     const [first, second, third] = args
     const visitFirst = visitFunction.safeParse(first).data
 
@@ -730,13 +736,24 @@ export class AgentWorkspace {
    * `source: "keyword"`. A keyword the project declares a variable for is its token instead.
    */
   private tokensAndKeywords(): { name: string; category: string; source: string; values: Record<string, string> }[] {
-    const names = new Set(this.snapshot.tokens.map((token) => token.name))
+    const tokens = this.tokensNow()
+    const names = new Set(tokens.map((token) => token.name))
 
     const keywords = Object.entries(radiusKeywords)
       .filter(([name]) => !names.has(name))
       .map(([name, value]) => ({ name, category: "radius", source: "keyword", values: { default: value } }))
 
-    return [...this.snapshot.tokens, ...keywords]
+    return [...tokens, ...keywords]
+  }
+
+  /**
+   * The project's tokens as this call leaves them: its own `SetTokens` values over the project's, and a token it added
+   * among them, so the rest of the snippet can list it and use it without a warning.
+   */
+  private tokensNow(): Token[] {
+    return this.tokenChanges.length === 0
+      ? this.snapshot.tokens
+      : withTokenChanges(this.snapshot.tokens, this.tokenChanges)
   }
 
   /**
@@ -1013,6 +1030,8 @@ export class AgentWorkspace {
       })
     }
 
+    checkLayerProps(node, change.props)
+
     if (node.type === "component" && change.props) {
       this.checkProps(change.component ?? node.component, change.props, `${container.id}/${node.id}`)
     }
@@ -1085,6 +1104,8 @@ export class AgentWorkspace {
     const library = this.library()
     const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const inner = locateInner(container, layer, library)!
+
+    checkLayerProps(inner.node, change.props)
 
     if (inner.node.type === "component" && change.props) {
       this.checkProps(inner.node.component, change.props, `${container.id}/${layer}`)
@@ -1481,22 +1502,8 @@ export class AgentWorkspace {
    * base times its factor. A token the project doesn't have yet takes its kind from its name and value.
    */
   private tokenReading(changes: readonly TokenChange[]) {
-    const tokens = new Map(this.snapshot.tokens.map((token) => [token.name, { ...token, values: { ...token.values } }]))
-
-    for (const change of [...this.snapshot.tokenOverrides, ...changes]) {
-      const token = tokens.get(change.name)
-
-      if (token) {
-        token.values[change.theme] = change.value
-      } else {
-        tokens.set(change.name, {
-          name: change.name,
-          category: categorize(change.name, change.value),
-          source: "semantic",
-          values: { [change.theme]: change.value }
-        })
-      }
-    }
+    const laid = withTokenChanges(this.snapshot.tokens, [...this.snapshot.tokenOverrides, ...changes])
+    const tokens = new Map(laid.map((token) => [token.name, token]))
 
     const comesTo = (name: string, theme: string, depth = 0): string | undefined => {
       const token = tokens.get(name)
@@ -1644,7 +1651,7 @@ export class AgentWorkspace {
       width: frame.width,
       height: frame.height,
       overflowsX: frame.overflowsX,
-      nodes: frame.nodes.map((node) => ({ ...node, name: names.get(node.id) }))
+      nodes: frame.nodes.map((node) => layoutNode(node, names))
     }
   }
 
@@ -1699,16 +1706,32 @@ export class AgentWorkspace {
 
   private async problems(reference: string, options: MatrixOptions = {}): Promise<Problem[]> {
     const { container } = this.findDesign(reference)
-    const found: Problem[] = []
+    const frames = await this.renderEach(reference, container, options, "problems")
 
-    for (const state of this.statesFor(container, options.state)) {
-      for (const mode of this.modesFor(container, options.mode)) {
-        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "problems")
-        found.push(...frameProblems(container, state, mode, frame, this.designName))
-      }
-    }
+    return frames.flatMap(({ state, mode, frame }) => frameProblems(container, state, mode, frame, this.designName))
+  }
 
-    return found
+  /**
+   * Renders every state and mode a check asks for, all at once so the offscreen windows draw them side by side rather
+   * than one after another (PAR-816), and gives them back in order: each state, and each mode within it.
+   */
+  private renderEach(
+    reference: string,
+    container: ContainerSpec,
+    options: NonNullable<MatrixOptions>,
+    look: "screenshot" | "accessibility" | "problems",
+    scale = 1
+  ) {
+    const modes = this.modesFor(container, options.mode)
+    const matrix = this.statesFor(container, options.state).flatMap((state) => modes.map((mode) => ({ state, mode })))
+
+    return Promise.all(
+      matrix.map(async ({ state, mode }) => {
+        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, look, scale)
+
+        return { state, mode, frame }
+      })
+    )
   }
 
   private async screenshot(reference: string, options: z.infer<typeof screenshotOptions> = {}): Promise<number> {
@@ -1716,33 +1739,29 @@ export class AgentWorkspace {
     const scale = Math.min(Math.max(options.scale ?? 1, 0.25), 3)
     let count = 0
 
-    for (const state of this.statesFor(container, options.state)) {
-      for (const mode of this.modesFor(container, options.mode)) {
-        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "screenshot", scale)
-
-        if (frame.error) {
-          this.warn(
-            "render_failed",
-            `failed to render: ${frame.error}`,
-            `${container.name} (${state.name}, ${mode.name})`
-          )
-        }
-
-        if (!frame.png) {
-          continue
-        }
-
-        this.screenshots.push({
-          design: container.id,
-          state: state.id,
-          mode: mode.id,
-          width: frame.width,
-          height: frame.height,
-          png: frame.png,
-          nodes: frame.nodes
-        })
-        count++
+    for (const { state, mode, frame } of await this.renderEach(reference, container, options, "screenshot", scale)) {
+      if (frame.error) {
+        this.warn(
+          "render_failed",
+          `failed to render: ${frame.error}`,
+          `${container.name} (${state.name}, ${mode.name})`
+        )
       }
+
+      if (!frame.png) {
+        continue
+      }
+
+      this.screenshots.push({
+        design: container.id,
+        state: state.id,
+        mode: mode.id,
+        width: frame.width,
+        height: frame.height,
+        png: frame.png,
+        nodes: frame.nodes
+      })
+      count++
     }
 
     return count
@@ -1764,29 +1783,25 @@ export class AgentWorkspace {
     // Each contrast failure on a layer of this design, with what its frame measured.
     const inFrame = new Map<AccessibilityFinding, FrameContrast>()
 
-    for (const state of this.statesFor(container, options.state)) {
-      for (const mode of this.modesFor(container, options.mode)) {
-        const { frame } = await this.render(reference, { state: state.id, mode: mode.id }, "accessibility")
+    for (const { state, mode, frame } of await this.renderEach(reference, container, options, "accessibility")) {
+      if (frame.error) {
+        this.warn(
+          "render_failed",
+          `failed to render: ${frame.error}`,
+          `${container.name} (${state.name}, ${mode.name})`
+        )
+        continue
+      }
 
-        if (frame.error) {
-          this.warn(
-            "render_failed",
-            `failed to render: ${frame.error}`,
-            `${container.name} (${state.name}, ${mode.name})`
-          )
-          continue
-        }
+      if (frame.contrast) {
+        contrast.push(frame.contrast)
+      }
 
-        if (frame.contrast) {
-          contrast.push(frame.contrast)
-        }
+      const read = accessibilityFindings(names, state, mode, frame)
+      found.push(...read.found)
 
-        const read = accessibilityFindings(names, state, mode, frame)
-        found.push(...read.found)
-
-        for (const [finding, measured] of read.contrast) {
-          inFrame.set(finding, measured)
-        }
+      for (const [finding, measured] of read.contrast) {
+        inFrame.set(finding, measured)
       }
     }
 
@@ -2238,7 +2253,7 @@ export class AgentWorkspace {
   private lint(document: CanvasDocument): Warning[] {
     return lintDocument(document, {
       components: this.snapshot.components,
-      tokens: this.snapshot.tokens,
+      tokens: this.tokensNow(),
       iconSets: this.snapshot.iconSets,
       library: this.library(),
       props: this.snapshot.props,
@@ -2251,19 +2266,6 @@ interface FrameOptions {
   state?: string
   mode?: string
 }
-
-/** Where `Get` is in its walk, as a visit function is told. */
-interface VisitContext {
-  design: string
-  path: string
-  depth: number
-  index: number
-  parent?: string
-  skipChildren(): void
-}
-
-// oxlint-disable-next-line anti-slop/no-unknown-returns -- a snippet's visit function returns whatever it likes, which `Get` hands back
-type Visit = (node: DesignNode, context: VisitContext) => unknown
 
 /** A function a snippet passed `Get` to call for every node. */
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the snippet runs in its own vm context, whose functions aren't instances of this one's `Function`
@@ -2477,58 +2479,42 @@ function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: 
   const where = slot === undefined ? { path } : { path, slot }
   const prefix = path.slice(0, path.length - node.id.length)
 
-  const children = childEntries(node).flatMap((entry) =>
-    entry.nodes.map((child) =>
-      drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, entry.slot)
-    )
+  const children: ShownLayer[] = []
+
+  // Wherever the node holds layers, the ones an instance fills its slots with included, it holds them drawn.
+  const drawn = mapChildLists(node, (nodes, inSlot) =>
+    nodes.map((child) => {
+      const layer = drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, inSlot)
+      children.push(layer)
+
+      return layer.node
+    })
   )
 
-  if (node.type === "layout") {
-    return { ...where, node: { ...node, children: children.map((child) => child.node) }, children }
-  }
-
-  if (node.type === "component" && node.slots) {
-    const slots = Object.fromEntries(
-      Object.keys(node.slots).map((name) => [
-        name,
-        children.filter((child) => child.slot === name).map((child) => child.node)
-      ])
-    )
-
-    return { ...where, node: { ...node, slots }, children }
-  }
-
-  return { ...where, node, children }
+  return { ...where, node: drawn, children }
 }
 
-/** A node as `Get` gives it to a depth: past the depth, a layout's children and a component's slots are `["…"]`. */
-type ElidedNode = Omit<DesignNode, "children" | "slots"> & {
-  children?: (ElidedNode | "…")[]
-  slots?: Record<string, (ElidedNode | "…")[]>
-}
-
-function elide(node: DesignNode, depth: number | undefined, level = 0): ElidedNode {
+/**
+ * A node as a read gives it at `depth`: what's past that many levels left out, as `"…"`. That isn't a node tree, so it
+ * reads where a node holds layers from `childEntries` rather than mapping one.
+ */
+function elide(node: DesignNode, depth: number | undefined, level = 0): ReadNode {
   if (depth === undefined) {
     return node
   }
 
-  const copy: ElidedNode = { ...node }
+  const copy: ReadNode = { ...node }
 
-  if (node.type === "layout") {
-    if (level < depth) {
-      copy.children = node.children.map((child) => elide(child, depth, level + 1))
+  for (const { slot, nodes } of childEntries(node)) {
+    // Past the depth, a layout with nothing in it still reads as empty.
+    const left: NonNullable<ReadNode["children"]> = slot === undefined && nodes.length === 0 ? [] : ["…"]
+    const inside = level < depth ? nodes.map((child) => elide(child, depth, level + 1)) : left
+
+    if (slot === undefined) {
+      copy.children = inside
     } else {
-      copy.children = node.children.length > 0 ? ["…"] : []
+      copy.slots = { ...copy.slots, [slot]: inside }
     }
-  }
-
-  if (node.type === "component" && node.slots) {
-    copy.slots = Object.fromEntries(
-      Object.entries(node.slots).map(([slot, nodes]) => [
-        slot,
-        level >= depth ? ["…"] : nodes.map((child) => elide(child, depth, level + 1))
-      ])
-    )
   }
 
   return copy
@@ -2541,6 +2527,25 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): ElidedNo
 const kept = { keepEqual: true } as const
 
 /** A patch as `editNode` takes it, where `undefined` takes away what `null` did. */
+/**
+ * Refuses props a layout or text layer can't take: only accessibility attributes land on its element (PAR-913). The
+ * document's schema checks the design's own props when it's saved; a state's patch is checked here.
+ */
+function checkLayerProps(node: DesignNode, props: PatchInput["props"]): void {
+  if (node.type !== "layout" && node.type !== "text") {
+    return
+  }
+
+  const other = Object.keys(props ?? {}).find((name) => !isAccessibilityProp(name))
+
+  if (other !== undefined) {
+    throw new CodedError(`A layout or text layer takes role, id and aria-* props, not "${other}"`, {
+      code: "invalid_input",
+      field: "props"
+    })
+  }
+}
+
 function toChange(change: PatchInput): NodeChange {
   const result: NodeChange = {}
 

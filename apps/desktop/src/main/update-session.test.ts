@@ -61,6 +61,24 @@ describe("update session", () => {
     expect(driver.install).not.toHaveBeenCalled()
   })
 
+  it("keeps a failed check's first line and the updater's code, not the headers after them", async () => {
+    const failure = Object.assign(
+      new Error(
+        'Cannot find latest.yml in the latest release artifacts: HttpError: 404\nHeaders: {"set-cookie": "_gh_sess=x"}'
+      ),
+      { code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND" }
+    )
+
+    const { session } = setup({ driver: { check: vi.fn<UpdateDriver["check"]>().mockRejectedValue(failure) } })
+    await session.check()
+    expect(session.get()).toEqual({
+      beta: false,
+      phase: "error",
+      message: "Cannot find latest.yml in the latest release artifacts: HttpError: 404",
+      code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND"
+    })
+  })
+
   it("allows retry after a failed download", async () => {
     const download = vi
       .fn<UpdateDriver["download"]>()

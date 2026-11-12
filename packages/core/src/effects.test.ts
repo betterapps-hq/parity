@@ -34,7 +34,7 @@ function drawn(style: NodeStyle) {
     throw new Error("expected an element")
   }
 
-  return box.style
+  return Object.fromEntries(box.declarations.map(({ property, value }) => [property, value]))
 }
 
 describe("effects in the document", () => {
@@ -95,11 +95,11 @@ describe("drawing effects", () => {
 
   it("puts every effect and text case on the layer", () => {
     expect(drawn(effects)).toMatchObject({
-      boxShadow: shadowCss(effects.shadow),
+      "box-shadow": shadowCss(effects.shadow),
       filter: filterCss(effects.filter),
-      backdropFilter: "blur(var(--blur-md))",
+      "backdrop-filter": "blur(var(--blur-md))",
       rotate: "45deg",
-      textTransform: "uppercase"
+      "text-transform": "uppercase"
     })
   })
 })

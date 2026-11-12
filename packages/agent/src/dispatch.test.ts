@@ -11,7 +11,7 @@ import { describe, expect, it } from "vite-plus/test"
 import type { z } from "zod"
 import type { requests } from "./contracts.ts"
 import { type AgentMethod, replies } from "./contracts.ts"
-import { type AgentHost, type Answer, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
+import { type AgentHost, type Answer, answerRequest, type Caller, dispatch, exportPictures } from "./dispatch.ts"
 import type {
   AgentChangeSet,
   AgentReport,
@@ -636,6 +636,27 @@ describe("answerRequest", () => {
     expect(replies.state.safeParse(answer).success).toBe(true)
     expect(asked.snapshots).toEqual(["App"])
     expect(asked.presence[0]).toMatchObject({ agent: "Claude Code", agentId: "session-1" })
+  })
+
+  it("shows a body's subagent as its own caller on the canvas, under the session's id", async () => {
+    const { host, asked } = fixtureHost()
+    const session = { method: "state", params: { tab: "App" }, agent: "Claude Code", agentId: "session-1" }
+    const called: Caller[] = []
+
+    for (const subagent of ["Header", "Pricing", undefined]) {
+      await answerRequest(JSON.stringify({ ...session, subagent }), host, (caller) => called.push(caller))
+    }
+
+    const shown = new Set(asked.presence.map((event) => `${event.agentId}: ${event.agent}`))
+    expect([...shown]).toEqual([
+      "session-1/Header: Header (Claude Code)",
+      "session-1/Pricing: Pricing (Claude Code)",
+      "session-1: Claude Code"
+    ])
+    // Telemetry is told the session each time, by its own name and id, whichever subagent called.
+    expect(called.map(({ name, id }) => ({ name, id }))).toEqual(
+      Array(3).fill({ name: "Claude Code", id: "session-1" })
+    )
   })
 
   it("refuses a body that isn't a JSON object naming a method", async () => {

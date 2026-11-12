@@ -30,6 +30,8 @@ export interface DesignSystem {
   parseVariant(variant: string): object | null
   /** The CSS each class compiles to in this project, in the order given; no nodes for a class that compiles to none. */
   candidatesToAst(classes: string[]): CssNode[][]
+  /** The CSS each class compiles to in this project, as text, in the order given; null for one that compiles to none. */
+  candidatesToCss(classes: string[]): (string | null)[]
   /** Each class with the order Prettier's Tailwind plugin sorts it by, or null for a class Tailwind doesn't know. */
   getClassOrder(classes: string[]): [string, bigint | null][]
   /** The classes as Tailwind's own tools spell them (`p-[16px]` as `p-4`), without the ones that repeat another. */

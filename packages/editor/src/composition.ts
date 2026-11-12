@@ -6,6 +6,7 @@ import {
   describeRenderStatus,
   isSampleElement,
   isSampleRender,
+  mapNodes,
   type ParentSignal,
   renderProblem,
   renderSlotKey,
@@ -122,7 +123,7 @@ export function componentExample(
   const taken = new Set<string>()
   const part = nodeForItem({ kind: "component", component }, info, taken)
 
-  return numbered(withLibraryContext(part, sources, [], taken), { next: 1 })
+  return numbered(withLibraryContext(part, sources, [], taken))
 }
 
 function parentsOf(source: ComponentSource | undefined, status: ComponentRenderStatus | undefined): CompositionParents {
@@ -208,20 +209,8 @@ function exampleStatus(status: ComponentRenderStatus | undefined): Omit<Composit
 }
 
 /** A node with its layers' ids replaced by `p1`, `p2` and on, in the order they're met. */
-function numbered(node: DesignNode, count: { next: number }): DesignNode {
-  const id = `p${count.next++}`
+function numbered(node: DesignNode): DesignNode {
+  let next = 1
 
-  if (node.type === "layout") {
-    return { ...node, id, children: node.children.map((child) => numbered(child, count)) }
-  }
-
-  if (node.type === "component" && node.slots) {
-    const slots = Object.entries(node.slots).map(
-      ([slot, children]) => [slot, children.map((child) => numbered(child, count))] as const
-    )
-
-    return { ...node, id, slots: Object.fromEntries(slots) }
-  }
-
-  return { ...node, id }
+  return mapNodes(node, (layer) => ({ ...layer, id: `p${next++}` }))
 }

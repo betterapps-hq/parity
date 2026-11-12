@@ -13,6 +13,7 @@ import {
   type SentryScopeCopy,
   sentryEnvelope,
   stackFrames,
+  stuckIn,
   stuckWhere
 } from "@parity-app/telemetry"
 import { z } from "zod"
@@ -79,17 +80,25 @@ const pausedFrames = z.array(
 /** How long the watchdog waits for main to pause, which it can't while it's stuck outside JavaScript. */
 const pauseWaitMs = 2000
 
+/** Main's stack as the inspector paused it, and how long that took, from asking. */
+interface PausedMain {
+  frames: PausedFrame[]
+  pausedAfterMs: number
+}
+
 /**
  * Pauses main through the inspector, from this thread, takes its stack and lets it go on. Opens no port: the session is
- * this process's own. Gives nothing when main doesn't pause in time, as when it's stuck in native code.
+ * this process's own. Main stuck in native code pauses only once it runs JavaScript again, so how long it took says
+ * whether the stack is where it was stuck (PAR-890). Gives nothing when main doesn't pause in time.
  */
-function mainStack(): Promise<PausedFrame[] | undefined> {
+function mainStack(): Promise<PausedMain | undefined> {
   return new Promise((resolve) => {
     const session = new Session()
     const scripts = new Map<string, string>()
+    const asked = performance.now()
     let done = false
 
-    const finish = (frames: PausedFrame[] | undefined) => {
+    const finish = (paused: PausedMain | undefined) => {
       if (done) {
         return
       }
@@ -104,7 +113,7 @@ function mainStack(): Promise<PausedFrame[] | undefined> {
         // Already gone.
       }
 
-      resolve(frames)
+      resolve(paused)
     }
 
     const timer = setTimeout(() => finish(undefined), pauseWaitMs)
@@ -113,6 +122,7 @@ function mainStack(): Promise<PausedFrame[] | undefined> {
       session.connectToMainThread()
       session.on("Debugger.scriptParsed", ({ params }) => scripts.set(params.scriptId, params.url))
       session.once("Debugger.paused", ({ params }) => {
+        const pausedAfterMs = Math.round(performance.now() - asked)
         const read = pausedFrames.safeParse(params.callFrames)
 
         const frames = read.success
@@ -123,7 +133,7 @@ function mainStack(): Promise<PausedFrame[] | undefined> {
             }))
           : undefined
 
-        session.post("Debugger.resume", () => finish(frames))
+        session.post("Debugger.resume", () => finish(frames && { frames, pausedAfterMs }))
       })
       session.post("Debugger.enable", (error) => {
         if (error) {
@@ -163,8 +173,9 @@ if (parentPort) {
     const current: OpenMainHang = {}
     hang = current
     const paused = await mainStack()
-    const frames = paused ? stackFrames(paused, appRoot) : []
-    const where = stuckWhere(frames)
+    const frames = paused ? stackFrames(paused.frames, appRoot) : []
+    // Outside JavaScript the stack is where main resumed, which the local copy shouldn't keep as where it was stuck.
+    const where = stuckIn(paused?.pausedAfterMs) === "javascript" ? stuckWhere(frames) : undefined
 
     if (where !== undefined && hang === current) {
       current.where = where
@@ -180,7 +191,7 @@ if (parentPort) {
       scope: sending.scope,
       eventId: randomUUID().replaceAll("-", ""),
       now: Date.now() / 1000,
-      stack: { frames, images }
+      stack: paused && { frames, images, pausedAfterMs: paused.pausedAfterMs }
     })
 
     const request = sentryEnvelope(dsn, event, new Date())

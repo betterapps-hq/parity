@@ -93,7 +93,7 @@ const problem = {
 
 describe("crash reports offered after a crash", () => {
   it("are offered in every installed build, production included, and never in a checkout or CI", () => {
-    expect(["preview", "release", "production"].map(offersCrashReports)).toEqual([true, true, true])
+    expect(["preview", "beta", "production"].map(offersCrashReports)).toEqual([true, true, true])
     expect(["development", "ci"].map(offersCrashReports)).toEqual([false, false])
   })
 

@@ -287,6 +287,17 @@ export interface MeasuredNode extends FrameBox {
   squeezed?: Squeeze
 }
 
+/**
+ * A node in the layout `Measure` returns: a measured node with its box under `box`, as `Problems` gives it (PAR-915), and
+ * the ancestor that clips it as `{ node, name, box }`, as a problem's `container` is.
+ */
+export interface NodeLayout extends Omit<MeasuredNode, keyof FrameBox | "clip"> {
+  /** The name it shows in the layers. */
+  name?: string
+  box: FrameBox
+  clip?: { node?: string; name?: string; box: FrameBox }
+}
+
 /** An element drawn narrower than the width it's given, in CSS pixels (PAR-886). */
 export interface Squeeze {
   /** How wide it's drawn. */

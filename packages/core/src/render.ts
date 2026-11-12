@@ -1,34 +1,53 @@
-import { declarations, type Direction, type LayerKind, type NodeStyle } from "@parity-app/style"
+import {
+  type CssDeclaration,
+  declarations,
+  type Direction,
+  type LayerKind,
+  type NodeStyle,
+  type StyleContext
+} from "@parity-app/style"
 import { z } from "zod"
 import type { FrameViewport } from "./adapters.ts"
 import { screenHeightForWidth } from "./devices.ts"
-import type {
-  ComponentNode,
-  ContainerSpec,
-  DesignNode,
-  FrameSize,
-  InstanceNode,
-  NodePatch,
-  ParamSpec,
-  PatchUnset,
-  PropValues,
-  StateSpec,
-  VideoNode
+import {
+  type ComponentNode,
+  type ContainerSpec,
+  type DesignNode,
+  type FrameSize,
+  type InstanceNode,
+  isAccessibilityProp,
+  type NodePatch,
+  type ParamSpec,
+  type PatchUnset,
+  type PropValues,
+  type StateSpec,
+  type VideoNode
 } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
+import { isComposite } from "./values/evaluate.ts"
 
 /**
  * A design resolved for one state in one viewport: what a renderer adapter mounts. Framework-neutral: elements are
- * plain DOM with inline styles, and components are the project's own, by id.
+ * plain DOM, each with the CSS declarations a frame draws it from as rules (`frameRules`), and components are the
+ * project's own, by id.
  */
 export type RenderNode = RenderElement | { kind: "text"; text: string } | RenderComponent
 
-/** A plain DOM element, styled inline. */
+/** A plain DOM element, and the CSS it's drawn with. */
 export interface RenderElement {
   kind: "element"
   nodeId: string
   tag: string
-  style: InlineStyle
+  /**
+   * The layer's style as CSS declarations, one for each property in the order they're written. A frame draws them as
+   * a rule for the node, not as an inline style, so a rule can also hold what an inline style can't, such as a state.
+   */
+  declarations: CssDeclaration[]
+  /**
+   * The classes of the project's styling framework that draw the declarations instead, where its own compiler wrote
+   * every one of them (`withClasses`). A frame gives the element these and no rule.
+   */
+  classes?: string[]
   children: RenderNode[]
   /** HTML attributes beyond the style, like an image's `src` and `alt`. */
   attributes?: ElementAttributes
@@ -43,7 +62,7 @@ export interface RenderComponent {
   slots: Record<string, RenderNode[]>
 }
 
-/** CSS properties by their camel-cased names, as an element's inline style. */
+/** CSS properties by their camel-cased names, as the inline style a component's `style` prop takes. */
 export interface InlineStyle {
   [property: string]: string
 }
@@ -465,8 +484,8 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues
     }
   }
 
-  if (next.type === "component") {
-    const props = { ...next.props }
+  if (next.type === "component" || next.type === "layout" || next.type === "text") {
+    const props: PropValues = { ...next.props }
 
     for (const [prop, param] of Object.entries(next.bind?.props ?? {})) {
       const value = bound(param)
@@ -483,7 +502,9 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues
     Object.assign(props, patch.props)
 
     if (Object.keys(props).length > 0) {
-      next.props = props
+      // SAFETY: a layout's or text's props are checked when its file loads, and `accessibilityAttributes` writes only
+      // the accessibility attributes among what a patch or a param gives it.
+      next.props = props as typeof next.props
     } else {
       delete next.props
     }
@@ -503,6 +524,33 @@ export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues
   }
 
   return next
+}
+
+/**
+ * A layout's or text's props as the attributes its element carries, by their HTML names and as text, as React writes
+ * `aria-hidden={true}`. Only accessibility attributes (`isAccessibilityProp`): a patch's or a param's other props
+ * are left off.
+ */
+export function accessibilityAttributes(props: PropValues | undefined): ElementAttributes {
+  const attributes: ElementAttributes = {}
+
+  for (const [name, value] of Object.entries(props ?? {})) {
+    const written = attributeValue.safeParse(value)
+
+    if (isAccessibilityProp(name) && written.success) {
+      attributes[name] = String(written.data)
+    }
+  }
+
+  return attributes
+}
+
+/** What an attribute can be written from: text, a number or a boolean. */
+const attributeValue = z.union([z.string(), z.number(), z.boolean()])
+
+/** `{ attributes }` when there are any, so an element without them has none. */
+function withAttributes(attributes: ElementAttributes): { attributes?: ElementAttributes } {
+  return Object.keys(attributes).length > 0 ? { attributes } : {}
 }
 
 /** `values` without `keys`. */
@@ -638,19 +686,24 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
         const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
 
-        const element = {
+        const element: RenderElement = {
           kind: "element",
           nodeId: id(node),
           tag: "div",
-          style: inlineStyle(style, "layout", parent)
-        } as const
+          // A child placed against the layout's edges is placed in the layout, as its code would be written.
+          declarations: cssOf(style, "layout", parent, { anchors: children.some(isAbsolute) }),
+          children,
+          ...withAttributes(accessibilityAttributes(shown.props))
+        }
 
         if (children.length > 0) {
-          return [{ ...element, children }]
+          return [element]
         }
 
         // The canvas gives an empty layout a size to see, select and drop into (see `emptyLayoutAttribute`).
-        return [{ ...element, attributes: { [emptyLayoutAttribute]: unsizedAxes(style).join(" ") }, children }]
+        return [
+          { ...element, attributes: { ...element.attributes, [emptyLayoutAttribute]: unsizedAxes(style).join(" ") } }
+        ]
       }
 
       case "text":
@@ -659,8 +712,9 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: shown.tag ?? "p",
-            style: inlineStyle(style, "text", parent, inlineTags.has(shown.tag ?? "p")),
-            children: [{ kind: "text", text: shown.text }]
+            declarations: cssOf(style, "text", parent, { inline: inlineTags.has(shown.tag ?? "p") }),
+            children: [{ kind: "text", text: shown.text }],
+            ...withAttributes(accessibilityAttributes(shown.props))
           }
         ]
       case "image":
@@ -669,7 +723,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: "img",
-            style: { display: "block", objectFit: shown.fit ?? "cover", ...inlineStyle(style, shown.type, parent) },
+            declarations: mediaCss(shown.fit, cssOf(style, shown.type, parent)),
             attributes: { src: shown.src, alt: shown.alt ?? "" },
             children: []
           }
@@ -680,7 +734,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: "video",
-            style: { display: "block", objectFit: shown.fit ?? "cover", ...inlineStyle(style, shown.type, parent) },
+            declarations: mediaCss(shown.fit, cssOf(style, shown.type, parent)),
             attributes: videoAttributes(shown),
             children: []
           }
@@ -727,11 +781,10 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 
         if (first && first.kind !== "text") {
           // The instance's place in its layout (width, grow) applies to the component's root, which takes its id.
-          const box = inlineStyle(style, shown.type, parent)
           first.nodeId = id(node)
 
           if (first.kind === "element") {
-            first.style = { ...first.style, ...box }
+            first.declarations = over(first.declarations, cssOf(style, shown.type, parent))
             // An empty root is unsized along an axis the instance sizes only as the instance sizes it, so a length the
             // instance gives it counts, and so does hugging over its component's fixed one; on another axis, as its
             // component sizes it.
@@ -750,8 +803,12 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 
               first.attributes = { ...first.attributes, [emptyLayoutAttribute]: axes.join(" ") }
             }
-          } else if (Object.keys(box).length > 0) {
-            first.props = { ...first.props, style: withInlineStyle(first.props.style, box) }
+          } else {
+            const box = inlineStyle(style, shown.type, parent)
+
+            if (Object.keys(box).length > 0) {
+              first.props = { ...first.props, style: withInlineStyle(first.props.style, box) }
+            }
           }
         }
 
@@ -766,14 +823,58 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
 /** Text tags drawn inline, which take a width or alignment only once drawn as a block. */
 const inlineTags: ReadonlySet<string> = new Set(["span", "strong"])
 
+/** A layer's style as the CSS declarations its element is drawn from. */
+function cssOf(
+  style: NodeStyle,
+  kind: LayerKind,
+  parent: Direction | undefined,
+  context: Pick<StyleContext, "inline" | "anchors"> = {}
+): CssDeclaration[] {
+  return declarations(style, { ...context, kind, parent }).map(({ property, value }) => ({ property, value }))
+}
+
+/** Whether a drawn node is placed against its parent's edges: an element by its rule, a component by its style. */
+function isAbsolute(node: RenderNode): boolean {
+  if (node.kind === "element") {
+    return node.declarations.some(({ property, value }) => property === "position" && value === "absolute")
+  }
+
+  const style = node.kind === "component" ? node.props.style : undefined
+
+  return isComposite(style) && "position" in style && style.position === "absolute"
+}
+
+/** `upper` laid over `under`: a property both declare takes the upper value, where the lower one wrote it. */
+function over(under: readonly CssDeclaration[], upper: readonly CssDeclaration[]): CssDeclaration[] {
+  const css = new Map(under.map((declaration) => [declaration.property, declaration]))
+
+  for (const declaration of upper) {
+    css.set(declaration.property, declaration)
+  }
+
+  return [...css.values()]
+}
+
+/** What an image or a video draws before its style: a block that covers its box, or fits it as `fit` says. */
+function mediaCss(fit: string | undefined, own: readonly CssDeclaration[]): CssDeclaration[] {
+  return over(
+    [
+      { property: "display", value: "block" },
+      { property: "object-fit", value: fit ?? "cover" }
+    ],
+    own
+  )
+}
+
 /**
- * A layer's style as an element's inline style: its declarations, each property camel-cased as the DOM's `style` names
- * it (`align-self` as `alignSelf`, `-webkit-line-clamp` as `WebkitLineClamp`).
+ * A layer's style as the inline style a component takes in its `style` prop, since its DOM is its own and no rule of
+ * the frame's is sure to reach it: its declarations, each property camel-cased as the DOM's `style` names it
+ * (`align-self` as `alignSelf`, `-webkit-line-clamp` as `WebkitLineClamp`).
  */
-function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined, inline = false): InlineStyle {
+function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined): InlineStyle {
   const css: InlineStyle = {}
 
-  for (const { property, value } of declarations(style, { kind, parent, inline })) {
+  for (const { property, value } of declarations(style, { kind, parent })) {
     css[property.replaceAll(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = value
   }
 

@@ -26,6 +26,7 @@ import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
+import { frameTraces } from "./frame-traces.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -35,6 +36,7 @@ import { freePort } from "./process-manager.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
+import { createRecovery } from "./recovery.ts"
 import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { checkStartFolders } from "./start-folders.ts"
@@ -83,6 +85,7 @@ const projects = openProjects({
 })
 
 const previews = componentPreviews(projects)
+const traces = frameTraces(projects)
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
@@ -92,6 +95,9 @@ const reopening = startReopening({
   },
   close: (root) => projects.close(root).finally(rememberOpen)
 })
+
+// Projects' unsaved changes, kept in case Parity closes before they're saved (PAR-905).
+const recovery = createRecovery(environment().PARITY_RECOVERY_DIR)
 
 let secretsRead = 0
 
@@ -118,6 +124,8 @@ const handlers: Handlers<ServiceMethods> = {
   "project.close": ({ projectId }) => projects.close(projectId).finally(rememberOpen),
   "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
   "document.save": projects.saveDocument,
+  "recovery.keep": ({ projectId, copy }) => recovery.keep(projectId, copy),
+  "recovery.read": ({ projectId }) => recovery.read(projectId),
   "document.saveCopy": saveDocumentCopy,
   "images.import": (params) => importImage(projects.get(params.projectId), params),
   "images.scan": ({ projectId }) => scanImages(projects.get(projectId)),
@@ -129,6 +137,8 @@ const handlers: Handlers<ServiceMethods> = {
   "layers.export": (params) => exportLayers(editorWindow(), params),
   "layers.picture": (params) => layersPicture(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
+    // Taken before the capture, so a file changed meanwhile leaves the bitmap stale rather than current (PAR-994).
+    const trace = await traces.trace(job).catch(() => undefined)
     const { frame, png } = await renderOffscreen(job, true)
 
     if (frame.error || !png) {
@@ -148,7 +158,7 @@ const handlers: Handlers<ServiceMethods> = {
     const served = projects.codeServedAt(job.projectId, job.guestUrl)
 
     if (served) {
-      void storeBitmap(served, job, webp, kept)
+      void storeBitmap(served, job, webp, kept, trace)
     }
 
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
@@ -157,13 +167,19 @@ const handlers: Handlers<ServiceMethods> = {
     kept: await Promise.all(
       parseInput(storedJobs, jobs).map(async (job) => {
         const served = projects.codeServedAt(job.projectId, job.guestUrl)
-        const kept = served && (await storedBitmap(served, job))
+        const kept = served && (await storedBitmap(served, job, (trace) => traces.holds(job, trace)))
 
         if (served) {
-          cacheUse.frame(kept !== undefined)
+          cacheUse.frame(kept !== undefined && !kept.stale)
         }
 
-        return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
+        if (!kept) {
+          return {}
+        }
+
+        const answer = { src: `data:image/webp;base64,${kept.webp}`, height: kept.height }
+
+        return kept.stale ? { ...answer, stale: true as const } : answer
       })
     )
   }),
@@ -182,6 +198,7 @@ const handlers: Handlers<ServiceMethods> = {
   "library.add": (params) => addLibrary(projects.get(params.projectId), params),
   "library.importStyles": (params) => importStyles(projects.get(params.projectId), params),
   "tokens.save": projects.saveTokens,
+  "styles.classes": projects.frameClasses,
   "processes.list": listProcesses,
   "processes.stop": stopProcess,
   "processes.restart": restartProcess,

@@ -68,6 +68,8 @@ export * from "./placement.ts"
 
 export * from "./project-images.ts"
 
+export * from "./recovery.ts"
+
 export * from "./references.ts"
 
 export * from "./render-failures.ts"

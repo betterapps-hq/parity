@@ -14,14 +14,16 @@ import {
   radiusKeywords,
   type Shadow
 } from "@parity-app/core"
-import { readNearValue } from "@parity-app/tokens"
+import type { TokenCategory } from "@parity-app/core"
+import { compareNames, readNearValue } from "@parity-app/tokens"
 import { z } from "zod"
 import type { Warning } from "./warnings.ts"
 
 /** What a design is checked against: the project's components, tokens and icon sets, and what this call inserted. */
 export interface LintContext {
   components: readonly string[]
-  tokens: readonly { name: string }[]
+  /** The project's tokens. A warning about a name that isn't one lists those of the `category` its style takes. */
+  tokens: readonly { name: string; category?: string }[]
   /** The project's icon sets. An icon is a component named `<id>/<Icon>`. */
   iconSets?: readonly { id: string }[]
   /** The component designs instances can place. */
@@ -64,9 +66,9 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
       }
 
       for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
-        for (const { name, value, category } of styleTokens(style)) {
-          if (!known(name, value)) {
-            warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(category, value) ?? anyToken}`, where)
+        for (const token of styleTokens(style)) {
+          if (!known(token.name, token.value)) {
+            warn("not_a_token", notAToken(token, context.tokens), where)
           }
         }
 
@@ -108,11 +110,9 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 
     for (const state of container.states) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
-        for (const { name, value, category } of styleTokens(patch.style)) {
-          if (!known(name, value)) {
-            const hint = nearestHint(category, value)
-            const message = `${name} "${value}" isn't a token${hint ? `. ${hint}` : ""}`
-            warn("not_a_token", message, `${container.id} state ${state.id}/${nodeId}`)
+        for (const token of styleTokens(patch.style)) {
+          if (!known(token.name, token.value)) {
+            warn("not_a_token", notAToken(token, context.tokens), `${container.id} state ${state.id}/${nodeId}`)
           }
         }
       }
@@ -242,11 +242,28 @@ const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], Nearest
   tracking: "tracking"
 }
 
-/** A token a style names: where (`shadow[1].color`), its name, and the category to find the nearest in. */
+/** The category of tokens each key takes, which a warning lists the project's tokens of. */
+const keyCategories: Record<(typeof tokenStyleKeys)[number], TokenCategory> = {
+  background: "color",
+  foreground: "color",
+  border: "color",
+  radius: "radius",
+  shadow: "shadow",
+  font: "font",
+  size: "font-size",
+  leading: "leading",
+  tracking: "tracking"
+}
+
+/**
+ * A token a style names: where (`shadow[1].color`), its name, the category of tokens that goes there, when it's one
+ * category, and the category to find the nearest in.
+ */
 interface StyleToken {
   name: string
   value: string
-  category?: NearestCategory
+  category?: TokenCategory
+  nearest?: NearestCategory
 }
 
 /** The tokens a style names: under its token keys, and in its shadows' and filters' entries. */
@@ -261,24 +278,26 @@ function styleTokens(style: NodeStyle | undefined): StyleToken[] {
     const value = style[name]
 
     if (value && !Array.isArray(value)) {
-      found.push({ name, value, category: nearestCategories[name] })
+      found.push({ name, value, category: keyCategories[name], nearest: nearestCategories[name] })
     }
   }
 
   // A fill's stack names its colors and gradient tokens under `background` (PAR-931).
   if (Array.isArray(style.background)) {
     const { colors, gradients } = fillTokens(style.background)
-    found.push(...colors.map((value): StyleToken => ({ name: "background", value, category: "color" })))
+    found.push(
+      ...colors.map((value): StyleToken => ({ name: "background", value, category: "color", nearest: "color" }))
+    )
     found.push(...gradients.map((value): StyleToken => ({ name: "background", value })))
   }
 
   const shadowTokens = (entry: Shadow, at: string) => {
     if ("token" in entry) {
-      found.push({ name: `${at}.token`, value: entry.token })
+      found.push({ name: `${at}.token`, value: entry.token, category: "shadow" })
     }
 
     if (entry.color) {
-      found.push({ name: `${at}.color`, value: entry.color.color, category: "color" })
+      found.push({ name: `${at}.color`, value: entry.color.color, category: "color", nearest: "color" })
     }
   }
 
@@ -327,7 +346,56 @@ function transitionTokens(style: NodeStyle): [string, string][] {
   return found
 }
 
-const anyToken = "Use a name from GetTokens()."
+/** How many of the project's tokens a warning lists by name before it points at `GetTokens` instead. */
+const listedTokens = 8
+
+/** A name `SetTokens` could add as a token, rather than a raw value such as `#ff00aa` or `0 1px 2px black`. */
+const tokenName = /^[a-z_][\w-]*$/i
+
+/**
+ * What to say about a style value that isn't one of the project's tokens: that the project has none of the category
+ * that goes there; else, for a raw color or length, the call that lists the tokens nearest it; else the project's
+ * tokens of that category, by name while they're few. A value that could be a token's name is one `SetTokens` can add.
+ * A place that takes several categories gets the plain hint.
+ */
+function notAToken({ name, value, category, nearest }: StyleToken, tokens: LintContext["tokens"]): string {
+  const said = `${name} "${value}" isn't a token`
+
+  if (!category) {
+    return `${said}. Use a name from GetTokens().`
+  }
+
+  const names = tokens
+    .filter((token) => token.category === category)
+    .map((token) => token.name)
+    .toSorted(compareNames)
+
+  const named = tokenName.test(value)
+
+  if (names.length === 0) {
+    return `${said}, and the project has no ${category} tokens. Add ${named ? value : "one"} with SetTokens.`
+  }
+
+  const near = nearestHint(nearest, value)
+
+  if (near) {
+    return `${said}. ${near}`
+  }
+
+  const add = named ? `, or add ${value} with SetTokens` : ""
+
+  if (names.length > listedTokens) {
+    return `${said}. Use a name from GetTokens({ category: "${category}" })${add}.`
+  }
+
+  if (names.length === 1) {
+    return `${said}. The project's only ${category} token is ${names[0]}. Use it${add}.`
+  }
+
+  const listed = `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+
+  return `${said}. The project's ${category} tokens are ${listed}. Use one${add}.`
+}
 
 /**
  * For a value that isn't a token but a color under a color's key or a length under a length's, the call that lists

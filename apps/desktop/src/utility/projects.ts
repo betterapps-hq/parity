@@ -19,6 +19,7 @@ import {
   builderProcessOptions,
   type BuilderProcessSession,
   type BuilderStartOptions,
+  type ClassPrinter,
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
@@ -28,7 +29,8 @@ import {
   type RendererAdapter,
   type StylesAdapter,
   type ThemeVariable,
-  withLibraryCanvas
+  withLibraryCanvas,
+  writeClasses
 } from "@parity-app/core"
 import {
   appFiles,
@@ -55,7 +57,13 @@ import {
 import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
 import { logNote } from "../shared/log.ts"
-import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import type {
+  FrameClassesWritten,
+  ProjectEditResult,
+  ProjectInfo,
+  ServiceMethods,
+  WindowMethods
+} from "../shared/protocol.ts"
 import { inSpan, track } from "../shared/tracing.ts"
 import type { ServedCode } from "./bitmap-store.ts"
 import type { BuilderExit, StartedBuilder } from "./builders.ts"
@@ -190,6 +198,11 @@ interface Project extends OpenProject {
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
   /**
+   * The project's styling framework as a printer, which writes and compiles the classes its frames draw layers with.
+   * Unset until a frame asks, and again when its stylesheets change. Nothing when the framework couldn't be loaded.
+   */
+  frameClasses?: Promise<ClassPrinter | undefined>
+  /**
    * The stamp of its stylesheets' last change, when its builder serves the guest restyled
    * (`BuilderSession.restyledGuestUrl`), so a builder started again on the same port serves it where the windows
    * already draw it rather than at an address they loaded before the change.
@@ -280,9 +293,12 @@ export interface OpenProjects {
   correctComponents: (params: ServiceMethods["project.correctComponents"]["params"]) => Promise<undefined>
   saveDocument: (params: ServiceMethods["document.save"]["params"]) => Promise<undefined>
   saveTokens: (params: ServiceMethods["tokens.save"]["params"]) => Promise<ProjectEditResult>
+  frameClasses: (params: ServiceMethods["styles.classes"]["params"]) => Promise<FrameClassesWritten>
   /** The project's code as the address a job draws from first served it, while the project is open. */
   codeServedAt: (projectId: string, guestUrl: string) => ServedCode | undefined
   previewProject: (projectId: string) => PreviewProject | undefined
+  /** The project files the modules of `files` load, by its builder's account (PAR-994); none when it can't say. */
+  loadedFiles: (projectId: string, files: string[]) => Promise<string[] | undefined>
 }
 
 /**
@@ -783,6 +799,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     project.info.theme = styles.theme
+    // Its classes mean what its stylesheets say now, so they're written afresh.
+    project.frameClasses = undefined
 
     if (styles.info) {
       project.info.styles = styles.info
@@ -826,6 +844,24 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // Unless it moved again meanwhile, and what the windows were told is already out of date.
     if (project.info.guestUrl === guestUrl) {
       project.drawnGuestUrl = drawn
+    }
+  }
+
+  /**
+   * The project's styling framework as a printer of classes, or nothing when it can't be loaded: the project's frames
+   * then draw from their rules, which draw the same declarations.
+   */
+  async function loadClassPrinter(
+    adapter: StylesAdapter,
+    info: Pick<ProjectInfo, "root" | "name">,
+    stylesheet: string
+  ): Promise<ClassPrinter | undefined> {
+    try {
+      return await adapter.loadPrinter(info.root, stylesheet)
+    } catch (error) {
+      logNote(`[service] ${info.name}'s frames draw without ${adapter.name}'s classes: ${message(error)}`)
+
+      return undefined
     }
   }
 
@@ -1435,9 +1471,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     },
 
     /**
-     * Writes token values into the project's stylesheet: semantic tokens into `:root` or their theme class, theme
-     * scale tokens into an `@theme` block, editing declarations in place where they already exist. A change without a
-     * value takes the declaration out, and a block it leaves empty.
+     * Writes token values into the project's stylesheet, as the styling framework that read it keeps them (its
+     * adapter's `writeTokens`: Tailwind's theme in `@theme`), or as plain custom properties when no adapter read it:
+     * into `:root` or their theme's block, editing declarations in place where they already exist and adding the
+     * rest. A change without a value takes the declaration out, and a block it leaves empty.
      */
     async saveTokens({ projectId, changes }) {
       const project = getProject(projectId)
@@ -1447,9 +1484,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         throw new Error("The project has no stylesheet to write tokens to")
       }
 
-      const themeNames = new Set(project.info.theme.map((variable) => variable.name))
+      const adapter = adapters.styles.find((candidate) => candidate.id === project.info.styles?.id)
       const source = await readFile(join(project.info.root, stylesheet), "utf8")
-      const content = writeTokenChanges(source, changes, themeNames)
+
+      const content = adapter
+        ? adapter.writeTokens(source, changes, project.info.theme)
+        : writeTokenChanges(source, changes)
 
       const edit = await applyProjectEdit(project, {
         label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,
@@ -1468,6 +1508,27 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return edit
     },
 
+    /**
+     * The classes the project's styling framework writes for each declaration (core's `writeClasses`). The framework
+     * is loaded the first time a frame asks, and again once the project's stylesheets change.
+     */
+    async frameClasses({ projectId, declarations, written }) {
+      const project = getProject(projectId)
+      const styles = project.info.styles
+      const adapter = styles && !styles.error ? adapters.styles.find(({ id }) => id === styles.id) : undefined
+
+      if (!styles || !adapter) {
+        return { supported: false, classes: [], css: "" }
+      }
+
+      project.frameClasses ??= loadClassPrinter(adapter, project.info, styles.stylesheet)
+      const printer = await project.frameClasses
+
+      return printer
+        ? { supported: true, ...writeClasses(printer, written, declarations) }
+        : { supported: false, classes: [], css: "" }
+    },
+
     codeServedAt: (projectId, guestUrl) => projects.get(projectId)?.fingerprints.get(guestUrl),
 
     previewProject(projectId) {
@@ -1482,7 +1543,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         : project.stylesheets
 
       return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
-    }
+    },
+
+    loadedFiles: (projectId, files) => projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined)
   }
 }
 
@@ -1491,9 +1554,10 @@ function builderProcessId(root: string): string {
 }
 
 /**
- * The project's code as its guest will draw it, for kept bitmaps: its files, and the guest module Parity draws it with,
- * so a new version of Parity doesn't show bitmaps the last one drew, and the components the builder serves it with now,
- * which change in place later. `bitmapFormat` goes up when what's kept changes.
+ * The project's code as its guest will draw it, for kept bitmaps and previews: its files, and the guest module Parity
+ * draws it with, as the snapshot's salt, so a new version of Parity doesn't show bitmaps the last one drew, and the
+ * components the builder serves it with now, which change in place later. `bitmapFormat` goes up when what's kept
+ * changes.
  */
 function servedCode(root: string, options: BuilderStartOptions): ServedCode {
   const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
@@ -1504,7 +1568,6 @@ function servedCode(root: string, options: BuilderStartOptions): ServedCode {
 
   return {
     code,
-    fingerprint: code.then(({ fingerprint }) => fingerprint),
     sources: { ...options.config.components }
   }
 }

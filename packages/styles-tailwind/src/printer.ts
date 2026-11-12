@@ -1,11 +1,11 @@
+import type { ClassPrinter } from "@parity-app/core"
 import {
   comparableValue,
   type Condition,
   type CssDeclaration,
   type Printed,
   type ReadBack,
-  sameCondition,
-  type StylePrinter
+  sameCondition
 } from "@parity-app/style"
 import type { CssNode, DesignSystem } from "./design-system.ts"
 
@@ -89,10 +89,10 @@ export interface DesignSystems {
 }
 
 /**
- * A project's Tailwind as a printer: declarations to classes, sorted as Prettier's Tailwind plugin sorts them, and
- * classes back to declarations.
+ * A project's Tailwind as a printer: declarations to classes, sorted as Prettier's Tailwind plugin sorts them, classes
+ * back to declarations, and classes as the CSS the project's build would make of them.
  */
-export function tailwindPrinter(systems: DesignSystems, options: PrinterOptions = {}): StylePrinter<string[]> {
+export function tailwindPrinter(systems: DesignSystems, options: PrinterOptions = {}): ClassPrinter {
   const system = systems.compiles
 
   const breakpoints = new Map<string, string>()
@@ -357,6 +357,15 @@ export function tailwindPrinter(systems: DesignSystems, options: PrinterOptions 
       }
 
       return { declarations, unread }
+    },
+    css(classes): string {
+      // The classes' own order is the order their rules have in a build, which decides between two of the same weight.
+      const rules = system
+        .candidatesToCss(sorted([...new Set(classes)]))
+        .filter((rule) => rule !== null)
+        .join("")
+
+      return rules === "" ? "" : `@layer utilities {\n${rules}}\n`
     }
   }
 }

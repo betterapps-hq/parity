@@ -22,7 +22,8 @@ import {
   nodeOfElement,
   nodeParent,
   prepareFrame,
-  setDrawnNodes
+  setDrawnNodes,
+  showFrameRules
 } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 import { contentOutside, inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
@@ -135,6 +136,7 @@ window.canvasRender = async (job) => {
       options.globals = job.mode.globals
     }
 
+    showFrameRules(host, loaded.rules(tree))
     const handle = loaded.guest.mount(target, tree, options)
 
     setDrawnNodes(host, handle.drawnNodes?.bind(handle))

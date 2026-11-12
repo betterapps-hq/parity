@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import type { MountHandle, PropValues, RenderComponent, RenderElement, RenderNode } from "@parity-app/core"
+import type { frameRules, MountHandle, PropValues, RenderComponent, RenderElement, RenderNode } from "@parity-app/core"
 import type { createGuest } from "@parity-app/renderer-react/guest"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
@@ -15,7 +15,8 @@ const errors: string[] = []
 /** The frame code, a guest, and components that use their props in the ways apps do. */
 const entry = `
 export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox, nodesAt, nodeParent, nodeOfElement,
-  drawnNodeIds } from "./frame.ts"
+  drawnNodeIds, showFrameRules } from "./frame.ts"
+export { frameRules } from "@parity-app/core"
 export { createGuest } from "@parity-app/renderer-react/guest"
 import { cloneElement, createElement, Fragment, useEffect, useRef, useState } from "react"
 
@@ -170,16 +171,21 @@ afterAll(async () => {
 })
 
 /** The bundle's global in the page, as `entry` exports it: the frame code, `createGuest` and the components. */
-declare const frame: typeof frameModule & { createGuest: typeof createGuest }
+declare const frame: typeof frameModule & { createGuest: typeof createGuest; frameRules: typeof frameRules }
 
 /** The handle `mount` keeps on the page's window, for a test to update the tree it drew. */
 declare const mounted: MountHandle
+
+/** An element's declarations, from its CSS by property. */
+function css(declared: Record<string, string>): RenderElement["declarations"] {
+  return Object.entries(declared).map(([property, value]) => ({ property, value }))
+}
 
 const text = (nodeId: string, value: string): RenderElement => ({
   kind: "element",
   nodeId,
   tag: "p",
-  style: { margin: "0", height: "18px" },
+  declarations: css({ margin: "0", height: "18px" }),
   children: [{ kind: "text", text: value }]
 })
 
@@ -202,7 +208,7 @@ const design: RenderNode[] = [
     kind: "element",
     nodeId: "page",
     tag: "div",
-    style: { display: "flex", flexDirection: "column", gap: "10px" },
+    declarations: css({ display: "flex", "flex-direction": "column", gap: "10px" }),
     children: [
       component("member", "MemberRow", { member: { name: "Ada", role: "Admin" } }),
       component("pair", "Pair"),
@@ -226,17 +232,18 @@ const design: RenderNode[] = [
   }
 ]
 
-/** Mounts a guest in the frame at `#host` and lets the canvas's lookups go through it, as ModeView does. */
+/** Mounts a guest in the frame at `#host`, with its rules, and lets the canvas's lookups go through it, as ModeView does. */
 async function mount(tree: RenderNode[]) {
   await page.evaluate((tree) => {
     const host = document.querySelector<HTMLElement>("#host")!
-    const { createGuest, prepareFrame, setDrawnNodes } = frame
+    const { createGuest, frameRules, prepareFrame, setDrawnNodes, showFrameRules } = frame
 
     // The bundle's components are its exports named in capitals.
     const components = Object.fromEntries(Object.entries(frame).filter(([name]) => /^[A-Z]/.test(name)))
     const guest = createGuest({ components, css: "" })
     const viewport = { width: 390, height: 844 }
     const target = prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
+    showFrameRules(host, frameRules(tree))
     const handle = guest.mount(target, tree, { viewport })
     setDrawnNodes(host, () => handle.drawnNodes?.())
     Object.assign(window, { mounted: handle })
@@ -410,6 +417,7 @@ describe("finding a design node's DOM", () => {
     )
     const before = await lookup("a")
     await page.evaluate((tree) => {
+      frame.showFrameRules(document.querySelector("#host")!, frame.frameRules(tree))
       mounted.update(tree)
     }, swapped)
     await page.waitForTimeout(50)
@@ -447,7 +455,7 @@ describe("props a component hands to its slot", () => {
       kind: "element",
       nodeId: "slots",
       tag: "div",
-      style: { display: "flex", flexDirection: "column" },
+      declarations: css({ display: "flex", "flex-direction": "column" }),
       children: [
         component(
           "button-element",
@@ -455,7 +463,13 @@ describe("props a component hands to its slot", () => {
           { asChild: true },
           {
             children: [
-              { kind: "element", nodeId: "link-element", tag: "a", style: {}, children: [{ kind: "text", text: "A" }] }
+              {
+                kind: "element",
+                nodeId: "link-element",
+                tag: "a",
+                declarations: [],
+                children: [{ kind: "text", text: "A" }]
+              }
             ]
           }
         ),
@@ -484,7 +498,7 @@ describe("props a component hands to its slot", () => {
                 kind: "element",
                 nodeId: "item-element",
                 tag: "li",
-                style: { paddingTop: "1px" },
+                declarations: css({ "padding-top": "1px" }),
                 children: [{ kind: "text", text: "C" }]
               }
             ]
@@ -496,7 +510,13 @@ describe("props a component hands to its slot", () => {
           {},
           {
             "$renderWith:renderItem?pass=data-arg": [
-              { kind: "element", nodeId: "item-both", tag: "li", style: {}, children: [{ kind: "text", text: "D" }] }
+              {
+                kind: "element",
+                nodeId: "item-both",
+                tag: "li",
+                declarations: [],
+                children: [{ kind: "text", text: "D" }]
+              }
             ]
           }
         ),
@@ -584,7 +604,7 @@ describe("props a component hands to its slot", () => {
     ])
   })
 
-  it("keeps the node's style with the one it's rendered with, and each copy's own key", async () => {
+  it("draws the node's rule with the style it's rendered with, inline, and each copy's own key", async () => {
     await mount(slots)
 
     const styles = await page.evaluate(() =>
@@ -592,12 +612,12 @@ describe("props a component hands to its slot", () => {
         ...document
           .querySelector("#host")!
           .shadowRoot!.querySelectorAll<HTMLElement>("li[data-canvas-node=item-element]")
-      ].map((element) => [element.style.paddingTop, element.style.marginLeft])
+      ].map((element) => [getComputedStyle(element).paddingTop, element.style.marginLeft, element.style.paddingTop])
     )
 
     expect(styles).toEqual([
-      ["1px", "0px"],
-      ["1px", "1px"]
+      ["1px", "0px", ""],
+      ["1px", "1px", ""]
     ])
     expect(errors.filter((error) => /same key/.test(error))).toEqual([])
   })
@@ -635,7 +655,7 @@ describe("a component that puts its style on an element inside it (PAR-201)", ()
       kind: "element",
       nodeId: "page",
       tag: "div",
-      style: { display: "flex", flexDirection: "column", alignItems: "start", gap: "10px" },
+      declarations: css({ display: "flex", "flex-direction": "column", "align-items": "start", gap: "10px" }),
       children: [
         component("sized-field", "Field", { placeholder: "you@example.com", style: sized }),
         component("plain-field", "Field", { placeholder: "Plain" }),

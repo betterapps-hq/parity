@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { type CanvasDocument, type ContainerSpec, type DesignNode, canvasDocument } from "./document.ts"
+import { type CanvasDocument, type ContainerSpec, canvasDocument } from "./document.ts"
+import { mapNodes } from "./edit.ts"
 import { fileObject, finiteNumber, parseData, parserFor, plainObject } from "./schema.ts"
 import { isComposite, isText } from "./values/evaluate.ts"
 import { decoratorProps, decoratorValue, sampleProps } from "./values/grammar.ts"
@@ -431,29 +432,11 @@ export function libraryDesigns(manifest: Pick<LibraryManifest, "canvas">, id: st
   return components.map((container) => ({
     ...container,
     id: `${id}/${container.id}`,
-    root: withDesignsRenamed(container.root, rename)
+    // Every instance, the ones another instance fills its slots with included.
+    root: mapNodes(container.root, (node) =>
+      node.type === "instance" ? { ...node, design: rename(node.design) } : node
+    )
   }))
-}
-
-function withDesignsRenamed(node: DesignNode, rename: (design: string) => string): DesignNode {
-  if (node.type === "instance") {
-    return { ...node, design: rename(node.design) }
-  }
-
-  if (node.type === "layout") {
-    return { ...node, children: node.children.map((child) => withDesignsRenamed(child, rename)) }
-  }
-
-  if (node.type === "component" && node.slots) {
-    const slots = Object.entries(node.slots).map(([slot, nodes]) => [
-      slot,
-      nodes.map((child) => withDesignsRenamed(child, rename))
-    ])
-
-    return { ...node, slots: Object.fromEntries(slots) }
-  }
-
-  return node
 }
 
 /** The designs in a `.lib.par`, or an empty canvas when it has none yet. */
