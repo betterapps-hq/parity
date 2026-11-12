@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 22:11:04 GMT",
+      "version": "0.59.0",
+      "tag": "@parity-app/cli_v0.59.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2111c5d7e2a0bbc3f7bd18145b22b656e729c5c4",
+            "comment": "Drop references to the deleted decisions record from comments"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "683ec8c151580af88f90748a791c74341c843d9b",
+            "comment": "Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and the inspector. Text and props still bind."
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 12:53:23 GMT",
       "version": "0.58.0",
       "tag": "@parity-app/cli_v0.58.0",
