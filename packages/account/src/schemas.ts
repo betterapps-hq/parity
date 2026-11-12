@@ -2,7 +2,7 @@ import { z } from "zod"
 
 /*
  * WorkOS's answers, as its AuthKit reference describes them. They're third-party JSON, so each is a loose object that
- * reads only the fields Parity uses (decisions.md, "Data Parity didn't make is checked with zod"). Fields WorkOS lists
+ * reads only the fields Parity uses. Fields WorkOS lists
  * as optional may come back as null.
  */
 

@@ -8,10 +8,9 @@ Parity sends what happens inside it to Sentry, so a bug that a tester or an agen
 error, the trace from click to file write, the replay of the window and the events before it. This page says what's
 sent, how code records it, how to turn it down and what's kept out, and lists every event Parity records.
 
-The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the direction is in
-[decisions.md](decisions.md#paritys-own-telemetry-goes-to-sentry-on-by-default). It's being built in the Product
-telemetry stream in Linear, and each issue in it updates this page as it lands. This is about Parity itself: the
-Telemetry lens, which reads OpenTelemetry from the app a person builds, shares nothing with it.
+The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md). It's being built in the Product telemetry
+stream in Linear, and each issue in it updates this page as it lands. This is about Parity itself: the Telemetry lens,
+which reads OpenTelemetry from the app a person builds, shares nothing with it.
 
 ## What goes to Sentry
 
@@ -83,9 +82,6 @@ which the CLI shares:
 - **Main also writes it to the local copy,** `<userData>/logs/parity-<date>.jsonl`, one envelope per line, at every
   level, Off included. A file continues in `parity-<date>.2.jsonl` and on once it reaches 5 MB, and the newest 10 are
   kept. Lines are written each second, and at once for a `fatal` event.
-
-Why it works this way is in [decisions.md](decisions.md), "Events go to Sentry through main, and to a local copy at
-every level".
 
 Every event carries the same envelope besides its own attributes: its `name`, `time` and `level`; the `process` it came
 from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); the `installId`, the `sessionId` of this
@@ -259,8 +255,7 @@ Storybook or the CLI.
 - **Recording doesn't grow the window's memory over a session.** Over an hour of zooming, selecting and editing, the JS
   heap and the window's private memory stayed level with Replay on, as with it off. The page counts about 21,000 more
   DOM nodes while recording: one for each attribute of each element the recorder reads, which go with their elements.
-  `pnpm perf --soak <minutes>` measures it again; see "Session Replay's memory stays level over an hour" in
-  [decisions.md](decisions.md).
+  `pnpm perf --soak <minutes>` measures it again.
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
@@ -313,9 +308,6 @@ secrets, `.env` values included (`replayPrivacy` in `apps/desktop/src/renderer/r
   (`Field` in `apps/desktop/src/renderer/chrome/fields.tsx`). Anything else marked `data-sentry-mask` does too.
 - **Replay's own clicks, requests and spans** are scrubbed as they're added, since they don't pass `beforeBreadcrumb`.
 - **Titles, placeholders and accessible names** show as stars, as Replay masks them by default.
-
-What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process" and
-"Replays are scrubbed as they're recorded".
 
 ## Editing
 

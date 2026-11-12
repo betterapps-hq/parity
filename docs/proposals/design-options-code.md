@@ -172,8 +172,8 @@ Every class Parity writes reads back into the same key and form: a utility into 
 shorthand (`bg-(--brand)`) into the token it names; `bg-primary/50` into a token with alpha; an arbitrary property into
 the key that owns its property (`[transition:…]` into the transitions list, `[text-align:inherit]` into Align), or into
 the CSS map when no key owns it; and `hover:`, `focus-visible:` and breakpoint prefixes into the state's or viewport's
-patch. A test writes each value form and reads it back unchanged. Read-back runs through the drift review decisions.md
-sets out: a hand edit that reads back is a change to approve on the design, not applied silently.
+patch. A test writes each value form and reads it back unchanged. Read-back runs through the drift review: a hand edit
+that reads back is a change to approve on the design, not applied silently.
 
 A value made by a preset (Spring, Layered shadow) keeps its settings in the file, since the `linear()` or shadow list it
 writes can't be read back into them. When the code's value is still what the settings write, it reads back as the

@@ -180,10 +180,10 @@ Fill's list of solids, gradients and images.
   first among the project's, and the fill's image ringed and ticked where it was picked. An image dropped or pasted
   anywhere on the editor, or uploaded, is copied into `public/images/`, named for a class (`My Photo.PNG` is
   `my-photo.png`), and used; one dropped on the Fill section is added as an image fill on top, its editor open. A photo
-  picked from Unsplash is linked from Unsplash and its photographer credited, as its terms ask (decisions.md), so it
-  stays ticked in Unsplash's section and its row names it by its title. Under a divider, how it's drawn: Fit as a menu
-  (Fill, Fit, Crop and Tile, each saying what it does, writing `background-size` and `background-repeat`), Crop's scale,
-  and the position, with its nine spots.
+  picked from Unsplash is linked from Unsplash and its photographer credited, as its terms ask, so it stays ticked in
+  Unsplash's section and its row names it by its title. Under a divider, how it's drawn: Fit as a menu (Fill, Fit, Crop
+  and Tile, each saying what it does, writing `background-size` and `background-repeat`), Crop's scale, and the
+  position, with its nine spots.
 - **Tokens:** color and gradient. A gradient token is one fill's paint; editing its stops offers Detach.
 - **Writes:** the bottom solid as `background-color`; the rest as `background-image` layers, a solid above the bottom as
   `linear-gradient(c, c)`. A simple gradient is utilities (`bg-linear-to-r from-blue-500 to-teal-400`), a longer one is

@@ -757,7 +757,7 @@ export function problemOf(result: Exclude<AuthenticateResult, { kind: "session" 
   const email = result.email === undefined ? {} : { email: result.email }
 
   // Finishing it with WorkOS's pending token needs the client secret, so the person chooses in Parity and signs in
-  // again with that organization named (decisions.md, "Signing in is built").
+  // again with that organization named.
   if (result.code === "organization_selection_required" && result.organizations?.length) {
     return { problem: "choose-organization", ...email, details, organizations: result.organizations }
   }

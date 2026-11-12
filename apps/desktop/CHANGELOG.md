@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 19:51:56 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 20:51:03 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.3
+
+Thu, 12 Nov 2026 20:51:03 GMT
+
+### Patches
+
+- A tab closed while the project service restarts no longer leaves its project open in the new service or its guest
+  loaded (PAR-978) (ajcraswell@gmail.com)
 
 ## 0.74.2
 

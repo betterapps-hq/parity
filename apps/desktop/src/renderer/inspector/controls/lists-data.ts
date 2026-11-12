@@ -178,8 +178,8 @@ export interface StockPhoto {
 }
 
 /**
- * Where a fill links an Unsplash photo from, as Unsplash's terms ask, rather than copying it into the project
- * (decisions.md, Unsplash is the first stock source). A stand-in address, as the photos are.
+ * Where a fill links an Unsplash photo from, as Unsplash's terms ask, rather than copying it into the project.
+ * A stand-in address, as the photos are.
  */
 export const stockSrc = (photo: StockPhoto) => `https://images.unsplash.com/${photo.id}`
 
