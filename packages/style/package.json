@@ -8,6 +8,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "css-tree": "catalog:",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@webref/css": "catalog:",
+    "web-features": "catalog:"
   }
 }

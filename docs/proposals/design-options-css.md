@@ -3,6 +3,11 @@
 Part of [design-options.md](design-options.md) (PAR-652). This page places each CSS property a frame can draw in the
 Design tab, so the panel's coverage can be checked property by property rather than by feel.
 
+**The ledger is data now (PAR-940).** `packages/style/src/placements.ts` holds the placing in the tables below, and
+`spec.json` beside it the property list, each property's grammar and its Baseline status, generated from `@webref/css`
+and `web-features`. `ledger.ts` joins them, and its tests fail when a property Chromium draws isn't placed exactly once.
+Change a placing there; this page describes it.
+
 ## What's counted
 
 Every standard CSS property that Chromium 156 draws without a prefix, since frames render in Parity's Electron 45.2.1,
@@ -282,6 +287,8 @@ Fill"), and changing it there turns the other control to Custom. This table is t
 | Placement Absolute                 | `position: relative` on the parent layout, where it needs it ([design-options-code.md](design-options-code.md), Frames add only what code writes)                                            | The parent's Placement                                    |
 | Freeform                           | Each child's `position: absolute` and insets, and `position: relative` on the layout                                                                                                         | Each child's Placement and Insets, the layout's Placement |
 | Visibility (Removed in some modes) | `display: none`, and the layer's own display where it shows                                                                                                                                  | Layout type                                               |
+| Size or Align on inline text       | `display: block` on a `span` or `strong`, which has no box of its own outside a layout (PAR-898)                                                                                             | Layout type                                               |
+| Insets on both sides of an axis    | `width` or `height: auto` on a component with no size on that axis, over the one its classes give it (PAR-899)                                                                               | Width, Height                                             |
 | Dividers, On the items             | The children's `border-*-width`, `border-style` and `border-color`                                                                                                                           | Each child's Stroke                                       |
 | Stacking, First on top             | Descending `z-index` on the children                                                                                                                                                         | Each child's Layer order                                  |
 | Gap, negative                      | Each child's `margin-inline-start` and `margin-inline-end`, or the block pair (`-space-x-*`, `-space-y-*`)                                                                                   | Each child's Margin                                       |
@@ -294,5 +301,11 @@ Fill"), and changing it there turns the other control to Custom. This table is t
 A script joined MDN's `@mdn/browser-compat-data` (`css.properties`, Chrome's `version_added`, unprefixed and without a
 flag), the web-features project's Baseline status by compat key, and the W3C's
 [list of all CSS properties](https://www.w3.org/Style/CSS/all-properties.en.html), then checked that each of the 562 was
-placed exactly once. It isn't kept in the repository, since the ledger is reviewed by reading it. When Electron moves to
-a newer Chromium, properties that shipped in between join the CSS row until someone gives them a place here.
+placed exactly once.
+
+Since PAR-940 the join is `packages/style/src/spec.test.ts`, which writes `spec.json` from two packages: `web-features`
+for the properties Chromium 156 draws (each compat key's Chrome version) and their Baseline status, and `@webref/css`,
+the W3C's spec data, for each property's value grammar. It lists the same 562, naming the 15 that web-features has no
+entry for yet, and with them the ten prefixed properties from the table above, 572 in all. When Electron moves to a
+newer Chromium, change `chromium` there and run it with `-u`: the ledger's test then fails until each property that
+shipped in between is given a place in `placements.ts`, the CSS row's if nothing better.

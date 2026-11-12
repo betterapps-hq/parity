@@ -1,0 +1,51 @@
+name: CD portal
+
+# Delivers Parity's service, apps/portal, through the shared web templates (PAR-947): a push to main that touches it
+# deploys to staging's Worker, and production then gets the same commit once its owner approves, at api.tryparity.dev.
+# infra/cloudflare makes the Workers and writes the settings the templates read. Until those exist, each job skips with
+# a notice.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/portal/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/cd-portal.yml"
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: The commit to promote to production; empty is what staging has.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    name: Staging
+    if: github.event_name == 'push'
+    uses: betterapps-hq/pipelines/.github/workflows/cd-web-deploy.yml@main
+    with:
+      environment: staging
+      # The Cloudflare plugin writes the chosen environment's Worker config into the build.
+      build-command: CLOUDFLARE_ENV=staging pnpm --filter @parity-app/portal exec vp build
+      app-directory: apps/portal
+    # Inherited, so the environment's deploy token reaches the template's job (PAR-512).
+    secrets: inherit
+
+  # Builds the commit staging has again, for production's Worker, and waits on the production environment's reviewers.
+  production:
+    name: Production
+    needs: staging
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.staging.result == 'success') }}
+    permissions:
+      contents: read
+      deployments: read
+    uses: betterapps-hq/pipelines/.github/workflows/cd-web-promote.yml@main
+    with:
+      commit: ${{ inputs.commit }}
+      build-command: pnpm --filter @parity-app/portal exec vp build
+      app-directory: apps/portal
+    secrets: inherit

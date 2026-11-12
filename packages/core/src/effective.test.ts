@@ -39,22 +39,23 @@ function renderOutline(node: RenderNode): Outline[] {
   }
 
   const text = node.children.find((child) => child.kind === "text")
+  const css = Object.fromEntries(node.declarations.map(({ property, value }) => [property, value]))
   const outline: Outline = { id: node.nodeId, children: node.children.flatMap(renderOutline) }
 
   if (node.tag === "div") {
-    outline.direction = node.style.flexDirection
+    outline.direction = css["flex-direction"]
   }
 
-  if (node.style.gap !== undefined) {
-    outline.gap = node.style.gap
+  if (css.gap !== undefined) {
+    outline.gap = css.gap
   }
 
   if (text?.kind === "text") {
     outline.text = text.text
   }
 
-  if (node.style.fontWeight !== undefined) {
-    outline.weight = node.style.fontWeight
+  if (css["font-weight"] !== undefined) {
+    outline.weight = css["font-weight"]
   }
 
   return [outline]
@@ -192,12 +193,13 @@ describe("effectiveNode", () => {
     expect(body({ layout: "stacked" }, "desktop")).toMatchObject({ direction: "column", gap: 4, padding: 4 })
   })
 
-  it("applies variant options over the responsive patch", () => {
-    expect(body({ layout: "inline" }, "mobile")).toMatchObject({ direction: "row", gap: 6, padding: 2 })
+  it("applies the responsive style over variant options, which still set what it leaves alone", () => {
+    expect(body({ layout: "inline" }, "mobile")).toMatchObject({ direction: "row", gap: 2, padding: 2 })
+    expect(body({ layout: "inline" }, "desktop")).toMatchObject({ direction: "row", gap: 6, padding: 4 })
   })
 
   it("applies the state over the variant options", () => {
-    expect(body({ layout: "inline" }, "mobile", card.states[1])).toMatchObject({ direction: "row", gap: 2 })
+    expect(body({ layout: "inline" }, "desktop", card.states[1])).toMatchObject({ direction: "row", gap: 2 })
   })
 
   it("shows the variants the board shows when none are given", () => {
@@ -245,6 +247,112 @@ describe("effectiveNode", () => {
     expect(layerOnBoard(profile, path, library, profile.states[1])).toEqual(
       effectiveNode(profile, path, { library, state: profile.states[1] })
     )
+  })
+})
+
+// A breakpoint is CSS, which applies whatever state the app is in: `isOpen && <Menu className="max-md:hidden" />`.
+describe("a viewport's patch over states, variants and instances (PAR-902)", () => {
+  const header: ContainerSpec = {
+    id: "header",
+    name: "Header",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "bar",
+      style: { gap: 4 },
+      responsive: { mobile: { style: { gap: 2 } } },
+      children: [
+        // Closed in the base design, and phones have their own menu.
+        { type: "layout", id: "menu", hidden: true, responsive: { mobile: { hidden: true } }, children: [] },
+        // Only phones show the menu button, and the open menu covers it.
+        { type: "layout", id: "toggle", hidden: true, responsive: { mobile: { hidden: false } }, children: [] },
+        { type: "text", id: "title", text: "Bookings", responsive: { mobile: { text: "Book" } } }
+      ]
+    },
+    states: [
+      { id: "base", name: "Base" },
+      {
+        id: "open",
+        name: "Menu open",
+        overrides: {
+          bar: { style: { gap: 6 } },
+          menu: { hidden: false },
+          toggle: { hidden: true },
+          title: { text: "Menu" }
+        }
+      }
+    ]
+  }
+
+  const [closed, open] = header.states
+
+  const shown = (id: string, viewport: string, state = closed) =>
+    !effectiveNode(header, id, { state, viewport })?.hidden
+
+  it("hides what the viewport hides, even in a state that shows it", () => {
+    expect(shown("menu", "desktop", open)).toBe(true)
+    expect(shown("menu", "mobile", open)).toBe(false)
+    expect(shown("menu", "desktop")).toBe(false)
+  })
+
+  it("shows what the viewport shows over the design, and lets a state hide it", () => {
+    expect(shown("toggle", "mobile")).toBe(true)
+    expect(shown("toggle", "mobile", open)).toBe(false)
+    expect(shown("toggle", "desktop")).toBe(false)
+  })
+
+  it("draws the viewport's style over the state's", () => {
+    expect(effectiveNode(header, "bar", { state: open, viewport: "mobile" })?.style).toMatchObject({ gap: 2 })
+    expect(effectiveNode(header, "bar", { state: open, viewport: "desktop" })?.style).toMatchObject({ gap: 6 })
+  })
+
+  it("keeps a state's text over the viewport's", () => {
+    expect(effectiveNode(header, "title", { viewport: "mobile" })).toMatchObject({ text: "Book" })
+    expect(effectiveNode(header, "title", { state: open, viewport: "mobile" })).toMatchObject({ text: "Menu" })
+  })
+
+  it("lets the viewport take a style away that a state sets", () => {
+    const plain = { ...header.root, responsive: { mobile: { unset: { style: ["gap" as const] } } } }
+    const style = effectiveNode({ ...header, root: plain }, "bar", { state: open, viewport: "mobile" })?.style
+    expect(style?.gap).toBeUndefined()
+  })
+
+  it("draws a component's responsive patch over its instance's overrides and the screen's state", () => {
+    const screen: ContainerSpec = {
+      id: "home",
+      name: "Home",
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: "page",
+        children: [{ type: "instance", id: "top", design: "header", overrides: { bar: { style: { gap: 8 } } } }]
+      },
+      states: [
+        { id: "base", name: "Base" },
+        { id: "open", name: "Menu open", overrides: { "top/menu": { hidden: false } } }
+      ]
+    }
+
+    const headers = componentLibrary([header])
+
+    const at = (path: string, viewport: string, state = screen.states[0]) =>
+      effectiveNode(screen, path, { library: headers, viewport, state })
+
+    expect(at("top/bar", "mobile")?.style).toMatchObject({ gap: 2 })
+    expect(at("top/bar", "desktop")?.style).toMatchObject({ gap: 8 })
+    expect(at("top/menu", "mobile", screen.states[1])?.hidden).toBe(true)
+    expect(at("top/menu", "desktop", screen.states[1])?.hidden).toBeUndefined()
+  })
+
+  it("draws the same in resolveDesign", () => {
+    const [bar] = resolveDesign(header.root, open, "mobile")
+
+    if (bar?.kind !== "element") {
+      throw new Error("expected an element")
+    }
+
+    expect(bar.declarations).toContainEqual({ property: "gap", value: "calc(var(--spacing) * 2)" })
+    expect(bar.children.map((child) => child.kind === "element" && child.nodeId)).toEqual(["title"])
   })
 })
 

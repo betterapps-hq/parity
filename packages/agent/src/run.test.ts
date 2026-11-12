@@ -807,6 +807,49 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     })
   })
 
+  it("gives a node's box and what clips it in the same shapes from Measure and Problems (PAR-915)", async () => {
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const m = await Measure("signup", {mode: "mobile-light"})
+const title = m.nodes.find((node) => node.id === "title")
+const problem = (await Problems("signup", {mode: "mobile-light"})).find((each) => each.kind === "clipped")
+Print(JSON.stringify({ measured: { box: title.box, clip: title.clip }, problem: { box: problem.box, container: problem.container } }))`
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        render: async ({ mode }) => ({
+          width: mode.width,
+          height: 600,
+          overflowsX: false,
+          unknownComponents: [],
+          nodes: [
+            { id: "page", x: 0, y: 0, width: mode.width, height: 600 },
+            {
+              id: "title",
+              parent: "page",
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 40,
+              clipped: true,
+              clip: { node: "page", x: 0, y: 10, width: mode.width, height: 590 }
+            }
+          ]
+        })
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    const box = { x: 0, y: 0, width: 200, height: 40 }
+    const clip = { node: "page", name: "Page", box: { x: 0, y: 10, width: 390, height: 590 } }
+    expect(JSON.parse(result.output[0] ?? "")).toEqual({
+      measured: { box, clip },
+      problem: { box, container: clip }
+    })
+  })
+
   it("says where the project's code writes each node's element (PAR-167)", async () => {
     const source = "src/components/ui/button.tsx:44:5"
 
@@ -1215,12 +1258,24 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
     ).toMatch(/^SetTokens\/primary\/default: background is built on primary, so this would loop\. /)
   })
 
-  it("refuses a value that isn't its token's kind, asking the browser once", async () => {
+  it("refuses a value that isn't its token's kind by CSS's grammar, without a browser", async () => {
     const asked: { property: string; value: string }[] = []
-    expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, checking(asked))).error).toBe(
+
+    for (const ask of [hooks(), checking(asked)]) {
+      expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, ask)).error).toBe(
+        "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb. (line 1, column 1)"
+      )
+    }
+
+    expect(asked).toEqual([])
+  })
+
+  it("refuses a value the grammar allows and the browser doesn't, asking the browser once", async () => {
+    const asked: { property: string; value: string }[] = []
+    expect((await refusal(`SetTokens({ primary: { dark: "rebeccapurple" } })`, checking(asked))).error).toBe(
       "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."
     )
-    expect(asked).toEqual([{ property: "color", value: "bluish" }])
+    expect(asked).toEqual([{ property: "color", value: "rebeccapurple" }])
   })
 
   it("accepts good values, references filled in, and applies them", async () => {

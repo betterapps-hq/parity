@@ -14,7 +14,11 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
     "@parity-app/icons": "workspace:*",
+    "@parity-app/style": "workspace:*",
     "@parity-app/tokens": "workspace:*",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
   }
 }

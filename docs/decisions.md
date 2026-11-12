@@ -1,5 +1,111 @@
 # Decisions
 
+- **A date prop is `{ "$date": ... }`, made as `new Date(...)` (PAR-912).** Props are JSON, so a `Date` needs a form.
+  `$date` joins the value grammar beside `$call`, in samples and decorators, and a component node's props now follow the
+  sample grammar, which the decision on the value module said they did. The component gets exactly what
+  `new Date(value)` makes in the project's code, a date-only string at midnight UTC included, rather than a reading of
+  our own that code wouldn't match; the agent docs say to give a day as a date and time without a zone. A string
+  `new Date` can't read is refused when the file loads. The guest makes each date once per host, like a `$call`.
+
+- **A layout or text layer takes accessibility props, written as its element's attributes (PAR-913).** `role`, `id` and
+  `aria-*` alone, under `props`, so `Update`, states, overrides and `unset` work as they do for a component. `id` is
+  there so `aria-labelledby` and `aria-describedby` can point at a layer. Other attributes and screen-reader-only text
+  are left out: a visually hidden text needs a class or style of its own, which is a separate decision.
+
+- **Frames draw layers from rules, and from the project's compiled Tailwind classes where it has them (PAR-942).** Step
+  4 of [style-package.md](proposals/style-package.md), with Frames draw rules and Frames add only what code writes from
+  [design-options-code.md](proposals/design-options-code.md). You chose the compiled classes for a Tailwind project on
+  2026-11-11, and both in one pull request. What's drawn is in [editor.md](editor.md), Rendering frames. These calls
+  were mine to make on the way, and each is yours to overrule:
+  - **The rules of a project without a `utilities` layer aren't layered.** design-options-code.md puts every project's
+    rules in `@layer utilities`. In a project whose CSS isn't layered, a layered rule loses to all of it: a reset's
+    `* { padding: 0 }` would take the padding off every layer. So the rules are in `utilities` where the project's own
+    CSS has that layer, and unlayered elsewhere, which is where that project's code would put them.
+  - **A component layer keeps its `style` prop.** A rule can't be sure to reach a component's DOM, and passing classes
+    as `className` would drop a design's size and place on a component that takes no `className`, where today a div is
+    drawn around it. It means a component layer can't draw a state's rule yet. Drawing a component from classes or rules
+    is its own piece of work, and it needs your call on what a component that ignores `className` shows.
+  - **Frames drawn offscreen draw the rules, not the classes.** The compiler is in the project service and a job's tree
+    crosses processes, so a bitmap, a screenshot, an export and a preview draw from the rules. A class is only written
+    when it compiles back to the same declaration, so the two measure the same until rules hold states.
+  - **A layer is drawn by classes only when every one of its declarations has one.** One with a declaration Tailwind
+    can't write keeps its whole rule, so a layer never has half its style in each.
+  - **The class stylesheet is compiled with `candidatesToCss`,** one more of the design system's calls, pinned in
+    `design-system.test.ts`. It gives each class's rule as text; the adapter sorts them as Tailwind's build does and
+    puts them in `@layer utilities`.
+  - **A layout is `relative` only for an Absolute child of its own,** and nothing gets `min-width: 0` but a fill.
+    Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
+    Layer order in a Block layout wait for those.
+
+- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
+  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
+  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+  `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
+  rules it would have written and keeps the rest as text.
+  - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
+    can't load one. css-tree, already there for `validate`, parses a stylesheet in plain JavaScript, so reading needed
+    no new dependency. This is yours to overrule: the reader is the only part that would change.
+  - **One printer for code and for the canvas.** The selector is whatever the rules are for, a class in a project's code
+    or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
+  - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
+    written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
+
+- **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
+  Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
+  draw the classes it writes. `@parity-app/styles-tailwind` has no table of utilities:
+  - **Every declaration starts as an arbitrary property** (`[padding:calc(var(--spacing)*4)]`), which Tailwind always
+    takes. `canonicalizeCandidates` then spells it as Tailwind's tools would (`p-4`, `flex`, `md:grid`,
+    `focus-visible:…`).
+  - **A token's variable is tried as the utility's own value first** (`bg-primary` for `var(--primary)`), then the
+    variable shorthand, bare and with each type it can name (`text-(length:--text-lg)`), then the value in brackets,
+    then the arbitrary property.
+  - **A class is written only when reading it back gives the declaration it came from,** property, value and where it
+    applies. Reading is `candidatesToAst`: one rule of plain declarations, with its variants read from the end of its
+    selector and the `@media` around it. So a class that means something else in a project is never written. In the
+    example project, whose theme is inline, `rounded-md` holds the radius itself, so `var(--radius-md)` is written
+    `rounded-(--radius-md)`.
+  - **The printer loads the project's Tailwind twice.** Asking a design system for a spelling changes what it compiles
+    afterwards (`bg-primary` is `var(--primary)` before and `var(--color-primary)` after, in 4.3.3), so one copy only
+    spells and the other compiles, reads and sorts. `design-system.test.ts` pins this and each part of the unstable
+    design system the adapter uses, against Tailwind 4.3.
+  - **The contract changed from the proposal in three ways,** set out there: a printer is made per project and takes no
+    tokens, `print` also returns what it couldn't write, and `when` is in CSS's terms (a state's selector, a viewport's
+    least width, a theme's name).
+  - **Exact before idiomatic.** Today's declarations aren't always what Tailwind's utilities write, so some classes are
+    plainer than a developer's: `[background:var(--card)]` since `bg-card` writes `background-color`,
+    `[border-width:1px]` since `border` goes through `--tw-border-style`, `p-[--spacing(2)_--spacing(4)]` for
+    `px-4 py-2`, `[box-shadow:var(--shadow-md)]`, and a font size without its line height. PAR-941 and PAR-942 change
+    what a style declares, which is where these get their utilities. Alpha modifiers, `group-` and `peer-` states,
+    ranges of widths and Save as token from [design-options-code.md](proposals/design-options-code.md) aren't written
+    yet either; what the reader meets of them is kept as unread.
+  - **Nothing calls it yet.** Copy as Tailwind and the hint live in the controls kit in Storybook, in the window, where
+    a project's Tailwind can't load; they get the printer through the project service as each control moves into the
+    app.
+
+- **The ledger's grammars are the W3C's, matched by css-tree, and both packages are used (PAR-940).** You approved
+  `@webref/css` or `css-tree`, with `web-features`, on 2026-11-11 and left the pick to this step. Neither is enough
+  alone:
+  - **css-tree alone is out of date.** Its dictionary (3.2.1, from March 2026) has no grammar for 52 of the properties
+    Chromium 156 draws.
+  - **webref alone can't check a value.** It's the spec data, with every one of those properties, and no matcher.
+  - **So webref gives the grammars and css-tree matches against them.** `validate` builds css-tree's lexer from the
+    ledger's grammars. The values in `validate.test.ts`, from plain lengths to gradients, shadows and `color-mix()`, are
+    each read as a browser reads them.
+  - **Only css-tree ships.** `spec.test.ts` reads webref and web-features and writes `spec.json`, so they're development
+    dependencies. web-features gives both the Baseline status and which properties Chromium draws, so the browser compat
+    data the hand-made ledger used isn't needed.
+  - **The ledger is `placements.ts` joined with `spec.json`.** The placing (section, concept, control or More or CSS
+    row, token kinds) is [design-options-css.md](proposals/design-options-css.md)'s tables as data, written by hand; the
+    property list, grammars and Baseline status are generated. Tests fail when a property isn't placed exactly once,
+    when two keys own one property, and when a key writes a property it neither owns nor is listed as setting for its
+    owner (`setsForOthers`, that page's Properties set by another control).
+  - **`validate` leaves three things to the browser:** a value holding `var()`, which CSS checks only once it's filled
+    in; `cursor`, whose grammar names a type the spec data gives no grammar; and anything a grammar allows that Chromium
+    doesn't draw. The CSS rows ask `CSS.supports` after it, as before.
+  - **The agent's `SetTokens` checks a value's kind by grammar as it runs,** where it used to wait for the window's
+    browser and check nothing without one. A refusal now names the line of the snippet, and the browser is still asked
+    after.
+
 - **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
   [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
   `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
@@ -751,8 +857,10 @@ section has the details. The user asked for "variants, instance overrides and th
 
 - **Variants are params of type `variant`,** not `enum` as the proposal had it. Each option has an id, a name and
   patches like a state's, and an instance picks one through its args.
-- **Patches apply in a fixed order:** responsive, then variant options, then the state, then the instance's overrides,
-  then patches reaching in from outside, such as a screen's states with `instance/inner` keys.
+- **Patches apply in a fixed order:** variant options, then the state, then the instance's overrides, then patches
+  reaching in from outside, such as a screen's states with `instance/inner` keys. A viewport's responsive patch was
+  first; since PAR-902 its style and hiding come last and its text and props first (see "A breakpoint wins over a
+  state").
 - **Instance overrides live on the instance** as `overrides: { innerId: NodePatch }`, with `nested/inner` keys for
   nested instances.
 - **An edit inside an instance changes only that copy** in the base state, and belongs to the state in any other state.
@@ -1942,6 +2050,38 @@ recommended answer to each of its questions.
   "Content is wider than the frame" now shows only when no node accounts for it. The old "wider than the frame" finding
   on each node is replaced by frame overflow, which also catches a node pushed out by its position.
 
+- **What a container scrolls to isn't a problem** (PAR-904). A row of seven day buttons with `overflow: "scroll"` in a
+  390px frame had each button past its edge reported as clipped, so the page could never get a clean `problems` run,
+  though the advice for a spill is to give the parent a scroll. An ancestor whose overflow is `scroll` or `auto` on an
+  axis doesn't cut off what reaches past it on that axis: Measure gives such a node `inView`, its box trimmed to that
+  ancestor's on the axes it scrolls, and the layout checks judge that part. So a day past the row's edge is neither
+  clipped, nor sticking out of the frame, nor spilling out of the row.
+  - **`hidden` and `clip` still cut off.** Only the axis that's cut counts: a node past the bottom of a row that scrolls
+    sideways and hides vertical overflow is still clipped. CSS turns a `visible` axis beside a scrolling or hidden one
+    into `auto`, so that axis scrolls too, as the browser draws it.
+  - **The scrolling container is still checked** as any node is. A row that scrolls but is itself wider than the frame
+    sticks out of it, and that's reported on the row; its days go no further, so they're left out.
+- **Measure and Problems give a box in one shape** (PAR-915). Measure put `x`, `y`, `width` and `height` flat on each
+  node and its clipping ancestor's on `clip`, while Problems nests a node's under `box` and gives what it overflows as
+  `container: { node, name, box }`, so code reading one broke on the other. Measure now follows Problems: each node has
+  `box`, and `clip` is `{ node, name, box }`. `inView` was already a box. Problems' shape won because it's the one in
+  the CLI's and MCP's output schema and keeps a box apart from the node it belongs to. The renderer still measures flat
+  boxes; `layoutNode` in `packages/agent/src/frames.ts` reshapes them for Measure, and screenshots keep theirs, which
+  don't leave the agent.
+- **The snippet API reference is generated from the code** (PAR-958). execute.md wrote each function's signature and
+  result by hand, and they drifted: PAR-915 found Measure's box shape, `Get`'s visit `parent` and instance overrides
+  described wrongly. `SnippetApi` in `packages/agent/src/snippet-api.ts` now declares every snippet function with a doc
+  comment and a named result type, and `Workspace.api()` is typed with it, so the compiler holds the two together.
+  `packages/cli/skills/reference.md` is generated from it with TypeScript 7's checker (`typescript/unstable/sync`, the
+  compiler the repository already type-checks with, so no new dependency). It prints every function, then every type
+  their arguments and results name. An interface prints as written, with its doc comments. A type inferred from a schema
+  prints as the fields it comes to, calling each named type by name. The document format's types are named and left to
+  document.md. `reference.test.ts` checks the file against a fresh run with `toMatchFileSnapshot`, so a stale reference
+  fails the tests and `-u` writes the new one. execute.md and SKILL.md point to it for exact arguments and results, and
+  keep the prose about how the functions fit together. API Extractor was the other choice. It documents everything a
+  package exports, writes one file per item, and prints `z.infer<…>` as written. The checker's API is marked unstable,
+  so an upgrade can change it; the version is pinned and the test fails loudly if it does.
+
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
   215 MB for the whole session and grew each time a project reopened (452 MB after five). A job counts from when it's
@@ -3059,11 +3199,12 @@ layering patches its own way, and none applying a viewport's responsive patch ou
     `{ path, node, slot?, children }`. Hidden layers stay in, marked hidden. An instance's child is its component's
     root, at `instance/rootId`, which the canvas draws under the instance's id.
 - **The order, later winning:** the node's own values, then the params it binds (args), then its responsive patch, then
-  the variant options in param order, then the state. A patch's text, props and visibility win over a bound value.
-  Inside an instance: the component's variant options, then its state, then the instance's overrides, then the outer
-  layers' `instance/inner` patches. Args on a board are each param's default, then the variant options shown; inside an
-  instance, the component's defaults, then the instance's args, then props patched over the instance (a responsive patch
-  included), then the variant options they pick.
+  the variant options in param order, then the state. Since PAR-902 only the responsive patch's text, props and
+  `hidden: false` sit there; its style and `hidden: true` go over everything (see "A breakpoint wins over a state"). A
+  patch's text, props and visibility win over a bound value. Inside an instance: the component's variant options, then
+  its state, then the instance's overrides, then the outer layers' `instance/inner` patches. Args on a board are each
+  param's default, then the variant options shown; inside an instance, the component's defaults, then the instance's
+  args, then props patched over the instance (a responsive patch included), then the variant options they pick.
 - **`editNode` keeps its own subset of layers,** since a state's or variant's patch is kept against the node as it shows
   without that patch.
 - **A design that places itself is expanded as `resolveDesign` draws it:** an instance stops only when its component is
@@ -6155,7 +6296,8 @@ the zip hold the same things. My calls:
 - **The person never sees Sentry:** no link, no Sentry wording, and a failure says to check the connection. The
   feedback's ID goes into the local log as `report.sent`, for the team.
 - **A crash is a run that didn't quit:** main records `app.quit` as it quits, so a run of main's with none crashed or
-  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
+  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time. PAR-956
+  narrowed this: see "A run that was stopped isn't a crash" below.
 - **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
   says so. It writes the zip with Node's own zlib, with no dependency.
 
@@ -7411,3 +7553,175 @@ My calls:
 - **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
   style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
   spring maths from there.
+
+## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
+
+The design is in [proposals/service.md](proposals/service.md). Your calls, on 2026-11-11:
+
+- **Server code runs in one TanStack Start app, `apps/portal`, on a Cloudflare Worker.** It ships first with only an
+  API, and the portal's pages join it later. A piece leaves the one Worker only when it scales differently, releases on
+  its own schedule or mustn't share its secrets.
+- **The API is at `api.tryparity.dev`,** with the version in the path (`/v1`).
+- **Searches need a signed-in person.** Main sends its WorkOS access token and the service checks it. Signing in is
+  heading towards required for the whole app, but "Signing in is optional" stands until that's decided on its own.
+- **The service searches Mobbin and Pixabay from the start,** each with the app owner's key as a Worker secret.
+- **`@tanstack/react-start`, `@cloudflare/vite-plugin` and `wrangler` are added.**
+
+My calls:
+
+- **Answers are kept for 24 hours in Workers KV,** shared by everyone, as Pixabay's terms ask. The Workers Cache API
+  keeps things in one data centre, so each would ask the source again.
+- **Each person is limited by their WorkOS user id,** with the Workers rate limiting binding, and the service keeps no
+  personal data: the id is only a counter's key, and the query is kept only as a hash.
+- **It deploys through the shared pipelines,** with the `cloudflare-web` Terraform module and the web templates, so
+  Parity writes no deploy workflow of its own.
+- **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
+
+## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
+
+PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
+file detection reads changes what it finds, and `parity open` asks first, but the config files it followed were Vite's
+names, written into `detectionInputs`. You asked on 2026-11-09 for build-system support to be pluggable. My calls:
+
+- **`BuilderAdapter.configFiles` lists the files that say whether a builder serves the project,** relative to the root.
+  The service passes every registered builder's into `detectionInputs`, so a Next.js, Rspack or Rsbuild adapter needs no
+  change to detection or the service.
+- **Only whether each config file is there is compared, not its contents.** The project's own Vite restarts its server
+  when its config changes, so comparing contents would open the tab again for no gain.
+- **`scriptConfigExtensions` in core is the one list of a JavaScript tool's config extensions** (`ts`, `mts`, `cts`,
+  `js`, `mjs`, `cjs`), used by builder-vite and Storybook's config search. `preview-key.ts`'s list isn't it: that's the
+  extensions an import may leave out, with `.tsx` and `.jsx`, in the order bundlers try them.
+- **No `parity reload` command.** Detecting again on a change and on `parity open` covers what it would do.
+
+## The service's app is `apps/portal`, deployed through the shared web templates (PAR-947)
+
+My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
+
+- **An app with no pages builds and runs.** `apps/portal` has a root route that draws nothing and one server route,
+  `GET /v1/health`. Any other path answers 404.
+- **It has no `package.json` scripts.** The workflows build it with `pnpm --filter @parity-app/portal exec vp build`,
+  and `vp dev` and `vp preview` run it locally, in Workers' own runtime.
+- **The Workers are `parity-portal` and `parity-portal-staging`.** Production is served at `api.tryparity.dev` only, and
+  staging on workers.dev, where each pull request's preview is a preview of it.
+- **The zone's ID is looked up by name in Terraform,** so it's written nowhere. The Terraform token has to be able to
+  read the zone and set a Worker's custom domain on it.
+- **Production follows staging and waits on the production environment's reviewers,** as the desktop's does.
+- **The service's preview comments its own URL,** apart from the one comment the other previews share.
+- **TanStack Router's generated route tree is committed,** since types are checked against it, and kept from the
+  formatter and the linter, as it asks.
+
+## A run that was stopped isn't a crash (PAR-956)
+
+Agents drive installed builds through the CLI and MCP and stop them, so the next start kept offering to report a crash
+that never happened. My calls, replacing "A crash is a run that didn't quit" under PAR-635:
+
+- **A run that ended without quitting crashed only if it left a sign:** a minidump Crashpad wrote while it ran, a hang
+  still open as it exited (main's or a window's open-hang file), or a `fatal` event in its local copy. Without one,
+  something stopped it on purpose: an agent, the CLI, `taskkill`, a signal, Task Manager or a dev runner. Windows ends a
+  process with no event to tell those apart, so the signs are what's left to go by.
+- **The signs count only from while the run ran,** by their files' times against its first event, so one an older run
+  left doesn't count against this one.
+- **Minidumps are read before Sentry starts,** since it sends and deletes the ones it finds.
+- **The editor window's renderer going counts even when the run then quit,** recorded as `window.gone`. The person could
+  only close the dead window, so the run quit, and it was never offered before. An offscreen window drawing frames is
+  opened again by itself, so it doesn't count.
+- **An uncaught error in main isn't a sign.** Electron shows its dialog and keeps running, so it doesn't end the run.
+- **`parity diagnostics` still takes the latest run that didn't quit,** now `lastUnfinishedRun`, since a zip filed by
+  hand wants that run whatever ended it.
+
+## A breakpoint wins over a state (PAR-902)
+
+A design is one component tree, as the code written from it is: its states are the data and props it's in, its modes are
+the screens and themes it's drawn at, and its responsive patches are its breakpoints. A responsive patch used to sit
+under the variant options and the state, so a state that showed a desktop menu showed it on phones too, though the
+mobile patch hid it. The Better Booking run worked round that with a zero-sized wrapper. The real code is
+`isOpen && <Menu className="max-md:hidden" />`: the menu shows when it's open and the screen allows it. You rejected
+patches per state and viewport, which treat each screen as its own design. So each key of a responsive patch now applies
+as the code it stands for would:
+
+- **Style is CSS, and a breakpoint's style wins.** A media query's class applies whatever classes the app's state picks,
+  so the responsive patch's `style` and `unset.style` apply after the variant options, the state, an instance's
+  overrides and patches reaching in from outside. A state that changes a gap the mobile patch also sets changes it on
+  the other screens only.
+- **A node shows only when nothing hides it.** The responsive patch's `hidden: true` hides the node whatever any patch
+  over it says, as a `hidden` class does whether or not React renders the element. Its `hidden: false` still sits under
+  the patches: a node the design hides and phones show, such as a menu button, can still be hidden by a state, as
+  `!isOpen && <MenuButton className="md:hidden" />` is.
+- **Text and props are the app's,** so a responsive patch's `text`, `props` and `unset.props` stay under the variant
+  options and the state. Code shows different words per screen with two elements and breakpoint classes, and a state
+  that renders other words replaces both. A responsive prop on an instance still picks its variant on that screen.
+
+Combining `hidden` alone, as the issue offered, would have left a state's style over a breakpoint's, which no CSS does.
+Moving the whole patch last would have let a viewport's text replace a state's, and its `hidden: false` show what a
+state hides.
+
+No design in this repository draws differently: every design in `examples/shadcn-vite`, the Storybook example and the
+registry's libraries renders the same in each state, variant option and viewport. Better Booking draws two frames
+differently, both the bug: its account menu wrapper in "Account menu open" and its sidebar in "Member who can't change
+it" are hidden on phones now, as their mobile patches say.
+
+Editing is unchanged: an edit in a viewport's frame still lands in the base design or the state. So where the viewport's
+patch sets a style key, editing that key in its frame shows no change in any state, as it already did in the base
+design. `nodePatch` in `packages/core/src/render.ts` holds the order, and every reader goes through it.
+
+## Session Replay doesn't record the page while the canvas zooms (PAR-957)
+
+Called on 2026-11-11. Profiling `pnpm perf`'s zoom runs found Session Replay's recorder the largest share of the
+window's JavaScript while zooming: `processMutation` and the `getPropertyValue`, `replaceSync` and
+`parseWithConstructableStylesheet` under it took about 800 ms of each 4-second run, ahead of `board-gutter.ts`'s `apply`
+at 120 to 210 ms. Each frame of a zoom restyles every board's gutters, captions and labels (`useZoomStyle`), and for
+each inline style that changes, rrweb parses the old value into a stylesheet and compares it with the new one, property
+by property. Replay now pauses from the zoom moving until a second after it settles and the window is idle, and goes on
+with the same replay after. My calls:
+
+- **Pause the recorder, rather than block the boards or ignore their mutations.** rrweb checks `block` on a changed
+  element alone, not its ancestors, so blocking the canvas would save the cost only by listing every part that moves,
+  and would leave boards, captions and labels out of every replay. Replay's experimental `ignoreMutations` drops a whole
+  batch when any mutation in it matches, so it would drop the toolbar's and the frames' changes made in the same frame,
+  and leave the replay wrong from then on. Moving the zoom styles into one stylesheet the recorder sees as a few rule
+  changes would keep zooms in replays but changes how boards are drawn, which `useZoomStyle` chose for style
+  recalculation; that's a change of its own if replays of zooms turn out to matter.
+- **It holds through `pageHolds`, as the canvas mounting does (PAR-758),** from `settleZoom` in `CanvasEditor.tsx`,
+  which already knows when the zoom moves and settles. Only a change from the settled zoom takes a hold, so a pan, which
+  restyles only the camera's layer, is still recorded, and so is the canvas mounting's own first settle.
+- **It lets go a second after the zoom settles, once the window is idle** (`zoomHold` in `renderer/replay.ts`, up to 2
+  more seconds). Resuming takes a full snapshot, 100 to 135 ms on the example project; a zoom that starts again within
+  the second keeps the hold and takes no snapshot. Resuming straight after the second put that snapshot among the frames
+  a settled zoom wakes: `pnpm perf`'s layer runs, which wait 1.5 seconds for the design to draw, found no layer in 2 of
+  7 runs, and none in 6 after it waited for idle time. A zoom holds a minute at most.
+- **What a replay loses is the zoom itself.** It shows the canvas before, then a snapshot after; clicks, requests and
+  breadcrumbs during the zoom are still recorded, and Replay resumes on its own if someone clicks.
+
+Measured on `examples/shadcn-vite` (61 designs, 119 frames), React's production build,
+`pnpm perf --runs "zoom, zoom at 100%, zoom hovering a layer, zoom with a layer selected"`, three alternating rounds of
+main with Replay on, main with `PARITY_TELEMETRY=off`, and this change with Replay on, on a machine running other copies
+of the app. Medians:
+
+| Run                        | Main, Replay on       | Main, Replay off | This change, Replay on |
+| -------------------------- | --------------------- | ---------------- | ---------------------- |
+| zoom                       | 31 fps, 16.7 ms/frame | 41.5 fps, 7.2 ms | 41 fps, 7.4 ms         |
+| zoom at 100%               | 15.5 fps, 30.7 ms     | 35.5 fps, 5.3 ms | 45 fps, 4.4 ms         |
+| zoom hovering a layer      | 15.5 fps, 32.7 ms     | 34 fps, 5.5 ms   | 32 fps, 6 ms           |
+| zoom with a layer selected | 18.3 fps, 28.9 ms     | 30.8 fps, 6.9 ms | 40.3 fps, 5.7 ms       |
+
+The milliseconds are the page's JavaScript per frame. Sampled with `--profile`, none of Sentry's functions are among a
+zoom run's twelve slowest with this change; `board-gutter.ts`'s `apply` and `labels.ts` lead.
+
+## Unsaved changes are kept outside the project until they're saved (PAR-905)
+
+A crash, a forced quit or an agent stopping Parity lost every unsaved change. You approved the restore prompt in
+Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
+
+- **The copy is the history's unsaved difference, not its undo history:** each unsaved file as it is, changed modes, and
+  token edits with the value the stylesheet holds. Undo history, the camera and the selection aren't kept. A reopened
+  project starts its history again with one step, the restore.
+- **It's kept in Parity's app data, one file a project, by the service.** The window can't write files, and the service
+  already keeps the open projects there. The project's own files are never written, so agents still can't save.
+- **Written a second after the changes change, removed once none are unsaved.** Saving leaves the history's revision as
+  it is, so the keeper also watches whether anything is unsaved. Quitting brings every copy up to date at once, or
+  removes it after Don't save, before the window closes.
+- **Restore goes over the files without asking.** You decided on 2026-11-11 that a file changed on disk since, as an
+  agent's CLI edit, isn't worth a message: the copy loads, unsaved, and Undo goes back to the file.
+- **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
+  and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
+- **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.

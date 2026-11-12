@@ -1,6 +1,7 @@
 import { readRequest, replies, requestJsonSchema, requests } from "@parity-app/agent/contracts"
 import { CodedError, readErrorDetails } from "@parity-app/core/errors"
-import type { z } from "zod"
+import { jsonValue } from "@parity-app/core/schema"
+import { z } from "zod"
 import { failure, operationError } from "./errors.ts"
 import type { InputSchema, OperationInput, Send } from "./operations.ts"
 
@@ -14,13 +15,18 @@ export type Screenshot = ExecReply["screenshots"][number]
 
 export type Edit = z.output<(typeof requests.exec.options)[1]>["edits"][number]
 
-/** The canonical result: the reply with its failure as one error, which carries the editId to retry a snippet by. */
-const execResult = replies.exec.omit({ error: true, details: true, editId: true }).extend({ error: failure.optional() })
+/**
+ * The canonical result: the reply with its failure as one error, which carries the editId to retry a snippet by. A
+ * quiet call leaves out `created`, the named nodes, and keeps `createdDesigns` (PAR-909).
+ */
+const execResult = replies.exec
+  .omit({ error: true, details: true, editId: true })
+  .extend({ error: failure.optional(), created: replies.exec.shape.created.optional() })
 
 export type ExecResponse = z.output<typeof execResult>
 
 /** The same request fields in both adapters' paths, before MCP renames label and code. */
-const executeFields = ["tab", "label", "code", "editId", "edits"]
+const executeFields = ["tab", "label", "code", "editId", "edits", "quiet"]
 
 /** A reply as the canonical result: the failure's message, code and retry id together in one error. */
 export function execResponse(reply: ExecReply, fields: readonly string[] = executeFields): ExecResponse {
@@ -102,7 +108,7 @@ function discoverySchema(names: ExecuteNames): InputSchema {
 
   return {
     type: "object",
-    properties,
+    properties: { ...properties, quiet: quietSchema },
     additionalProperties: false,
     oneOf: kinds.map(({ json, keys }) => {
       const refused = every
@@ -119,6 +125,37 @@ function discoverySchema(names: ExecuteNames): InputSchema {
   }
 }
 
+/** Quiet is how the result is reported, so the adapters read it and the app never sees it. */
+const quietSchema: InputSchema = {
+  type: "boolean",
+  default: false,
+  description: "Leave out the named nodes created. Designs created are still listed."
+}
+
+/** Just the quiet flag, read on its own since the app's request refuses it. */
+const quietFlag = z.object({ quiet: z.boolean("quiet must be a boolean").default(false) })
+
+/** Input given as fields, which is the only kind that can ask to be quiet. */
+const operationFields = z.record(z.string(), jsonValue.optional())
+
+/** A request with `quiet` taken out, and whether it asked for a quiet result. */
+interface QuietRequest {
+  request: OperationInput
+  quiet: boolean
+}
+
+function readQuiet(input: OperationInput): QuietRequest {
+  const fields = operationFields.safeParse(input).data
+
+  if (!fields) {
+    return { request: input, quiet: false }
+  }
+
+  const { quiet, ...request } = fields
+
+  return { request, quiet: readRequest(quietFlag, { quiet }).quiet }
+}
+
 /** One handler for both adapters. Caller identity stays in the transport's connection context. */
 export const executeOperation = {
   failed: executionFailed,
@@ -127,8 +164,15 @@ export const executeOperation = {
   /** Discovery uses the same contract, with just the two historical MCP field aliases. */
   inputSchema: discoverySchema,
   async run(input: OperationInput, send: Send): Promise<ExecResponse> {
-    const request = executeRequest(input)
+    const { request, quiet } = readQuiet(input)
+    const result = execResponse(await send("exec", executeRequest(request), "tab"))
 
-    return execResponse(await send("exec", request, "tab"))
+    if (!quiet) {
+      return result
+    }
+
+    const { created: _created, ...rest } = result
+
+    return rest
   }
 }

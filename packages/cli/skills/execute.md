@@ -25,6 +25,10 @@ held.
 - A snippet has 5 seconds of computing time. Rendering (screenshots and checks) doesn't count against it.
 - To retry a failed snippet, send `editId` with `edits`, each an exact `{ find, replace }` on the snippet text (`all` to
   replace every match). Omitted edits default to an empty list. Do not send a new snippet with `editId`.
+- The result lists every node you created with a `name` under "Created". A snippet that builds a whole screen can name a
+  hundred. Send `quiet: true` (`parity exec --quiet`) to leave them out: you still get whether it worked, the `editId`
+  to retry with, the output, warnings and suggestions, and the designs it created under "Designs created". Name nodes by
+  `design/name` in later snippets instead of their ids.
 - Both CLI and MCP validate the same request: a nonblank snippet or `editId`, nonblank label and tab when supplied, and
   patches with a nonempty `find`, string `replace` (which can be empty), and optional boolean `all`. Invalid requests
   are rejected before reaching the app.
@@ -45,64 +49,9 @@ rows.forEach((path, index) => Update(path, { name: `Member row ${index + 1}` }))
 
 ## API
 
-```ts
-// Reading
-Designs(): DesignSummary[]                       // every design: id, name, kind, states, what it shows, size
-GetDesign(design): Design                        // a whole design, as in document.md
-Get(path, { depth?, state?, mode? }?): Node      // a design's root or a node; depth cuts children off with "…"
-Get(path?, visit): any[]                         // walks nodes, collecting what visit returns
-Get(path, visit, { state?, mode? }): any[]       // walks nodes as a frame draws them
-Components(): string[]                           // the components designs can use
-Props(component, { all? }?): PropsInfo           // a component's props, from its source
-Icons(): IconSet[]                               // the project's icon sets, with their styles
-Icons(set, { search?, style?, limit? }): Icon[]  // async: a set's icons, as component nodes name them
-GetTokens({ category?, source?, search?, nearest? }?): Token[]   // nearest: the closest to a colour or length first
-GetModes(design?): { settings, variables, viewports, modes, designs }   // modes resolved; what each design shows
-Selection(): { design?, node?, mode? }           // what the person has selected
-
-// Designs
-CreateDesign({ name, kind?, root?, x?, y?, width?, height?, file?, baseState?, params? }): string   // the new design's id
-UpdateDesign(design, { name?, kind?, x?, y?, width?, height?, mode?, showModes?, state?, allStates? }): void
-DeleteDesign(design): void
-
-// Nodes
-Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component, bind; an image's src, alt, credit
-Replace(path, node): string
-Move(path, parent, { index?, slot? }?): void     // within one design
-Copy(path, parent, { index?, slot?, name? }?): string
-Delete(path): void
-Responsive(path, viewport, patch | null): void   // a patch for one viewport, or null to remove it
-
-// States
-AddState(design, { name, changes? }): string     // changes keyed by node id or name
-UpdateState(design, state, { name?, changes? }): void
-DeleteState(design, state): void
-
-// Components
-FindRepeats(design): Repeat[]                    // parts that repeat with the same structure
-ExtractComponent(design, nodes, { name, params?, file? }): string
-AddParam(design, name, { type, default?, description?, options? }): void
-UpdateParam(design, name, { name?, default?, description?, options? }): void
-DeleteParam(design, name): void
-
-// Modes and tokens
-SetModes(settings): void                         // replaces the project's modes
-SetTokens({ name: value | { theme: value } }): void
-
-// Checking
-Screenshot(design, { state?, mode?, scale? }?): number
-Measure(design, { state?, mode? }?): Layout      // one frame: one state id, one mode id
-Problems(design, { state?, mode? }?): Problem[]
-Accessibility(design, { state?, mode? }?): Finding[]
-
-// The canvas
-FindEmptySpace({ width, height, direction?, near?, padding? }): { x, y }
-Overlaps(design?): Overlap[]
-References(design?): Reference[]                          // what's placed beside designs to look at
-PlaceReference(id, { near?, note?, connector? }): string  // async: a find_references screen beside a design
-Print(...values): void
-```
+`reference.md` lists every function with its signature, what it takes and what it returns, field by field. It's
+generated from the code, so where it and this file differ, it's right. Read it before calling a function whose arguments
+or result you haven't used yet. The sections below say how the functions fit together, with examples.
 
 Every function checks its arguments before it does anything. A wrong one fails the call with an `invalid_input` error
 whose path names it, and the message starts with that path:
@@ -111,13 +60,15 @@ whose path names it, and the message starts with that path:
 - A node by `node` (or `root` in `CreateDesign`) and where in it: `node/fontSize: unknown property`.
 - Any other argument by its name: `design`, `path`, `patch`, `nodes`.
 
-An option a function doesn't take is an error too, so check its spelling against the list above.
+An option a function doesn't take is an error too, so check its spelling against `reference.md`.
 
 ## Paths
 
 A design is named by its id or its name. A node is named by `design/node`, where `node` is the node's id or its name, or
-by its id alone when only one design has that id. Names aren't unique, so prefer ids once you have them; `Insert`,
-`Copy` and `CreateDesign` return them, and nodes you create with a `name` are listed under "Created" in the result.
+by its id alone when only one design has that id. A path never lists the node's parents: `profile/heading`, not
+`profile/page/heading`. Only `Update`, and `Get` with a `state` or `mode`, go further, to a layer inside an instance.
+Names aren't unique, so prefer ids once you have them; `Insert`, `Copy` and `CreateDesign` return them, and nodes you
+create with a `name` are listed under "Created" in the result, unless you send `quiet`.
 
 A state is named by its id only, as `Designs()` lists it and `AddState` returns it. A state's name in its place fails
 with `unknown_state`, and the error names the id it belongs to.
@@ -151,8 +102,9 @@ Print(Get("profile/person/title", { state: "selected", mode: "mobile-light" }).t
 ```
 
 `Get(path, visit)` walks the nodes under `path`, or every design without one, and returns what `visit` returns for each.
-`visit(node, { design, path, depth, index, parent, skipChildren })`. Return `undefined` to collect nothing. Given a
-path, `Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
+`visit(node, { design, path, depth, index, parent, skipChildren })`. `parent` is the id of the node it's in, a string,
+and `undefined` for the first node visited. Return `undefined` to collect nothing. Given a path,
+`Get(path, visit, { state, mode })` visits the nodes as that frame draws them, as above.
 
 ```js
 // Every Button in the project, with where it is.
@@ -164,7 +116,8 @@ Print(Get((node, at) => (node.type === "component" && node.component === "Button
 `Components()` is everything a `component` node can name. `Props("Button")` returns the props found in the component's
 source: variants with their options (`variant`, `size`), its own props, including those a library's component adds to
 its element's (Nova's `isActive`), and with `{ all: true }` the attributes it passes to its element. A prop that isn't
-listed, or a variant value outside its options, comes back as a warning.
+listed, or a variant value outside its options, comes back as a warning. A prop typed `Date` takes
+`{ $date: "2026-11-19T00:00:00" }`, which the component gets as `new Date("2026-11-19T00:00:00")`.
 
 Its `composition` says what it needs around it and holds, before you insert it:
 
@@ -268,6 +221,27 @@ Update("avatar", { style: { width: 10, height: 10, radius: "radius-full" } })
 What the person has selected: the design's id, and the node and mode when they picked one. "This", "here" and "the
 selected one" usually mean it.
 
+## How a design fits together
+
+Parity builds the real app, and each design is one component tree, as its code is. Its states are the data and props the
+tree is in, its modes are the screens and themes it's drawn at, and its responsive patches are its breakpoints. Build
+one tree and patch it; never copy a design per screen or per state. When you're unsure how something should draw, ask
+what the code would do.
+
+A desktop menu that opens, while phones have a menu of their own, is `isOpen && <Menu className="max-md:hidden" />` in
+code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity:
+
+```js
+Update("header/Menu", { hidden: true }) // closed in the base design
+AddState("header", { name: "Menu open", changes: { Menu: { hidden: false } } })
+Responsive("header/Menu", "mobile", { hidden: true }) // never on phones, open or not
+```
+
+The open menu shows on desktop and not on mobile. A viewport's patch works like CSS: its `style` wins over states,
+variant options and an instance's overrides, and its `hidden: true` hides a node whatever they say. Its `text`, `props`
+and `hidden: false` are the app's to change, so a state still changes the words, or hides a menu button that only phones
+show.
+
 ## Designs
 
 ### CreateDesign
@@ -322,6 +296,10 @@ const form = Insert("settings/Content", {
 })
 ```
 
+Style keys are in the document reference. Some that trip agents up: a `span` given a width, maximum, `textAlign` or
+`lines: 1` is drawn as a block, so it works in a slot or table cell, and `overflowWrap: "anywhere"` wraps a long word
+such as a web address. An absolutely placed component with `left` and `right` stretches between them.
+
 ### Update
 
 Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style`, `unset`
@@ -369,7 +347,8 @@ Responsive(stats, "mobile", { style: { direction: "column" } })
 Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a
 viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`,
 `text`, `props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to
-remove it. `null` for the patch removes all of it.
+remove it. `null` for the patch removes all of it. The patch applies in every state, as
+[How a design fits together](#how-a-design-fits-together) describes.
 
 ## States
 
@@ -391,8 +370,9 @@ AddState("team-members", {
 })
 ```
 
-Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A text
-node's words are its `text`; a component's are usually its `children` prop.
+Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A state
+can't show a node that a viewport's patch hides, so to keep a part off one screen, hide it there with `Responsive`
+rather than in each state. A text node's words are its `text`; a component's are usually its `children` prop.
 
 ## Components
 
@@ -517,17 +497,20 @@ Frames draw as the canvas does: instances of a library's component designs (from
 token values not yet saved show, the person's edits and this call's own `SetTokens` alike, so
 `SetTokens({ primary: "red" }); await Screenshot(id)` shows the new value in the same call.
 
-`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
-with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
-A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a negative
-margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element the
-project's code writes, such as a component's, has `source`: the file, line and column, as
+`Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node with
+its `box` (`x`, `y`, `width`, `height` from the frame's top left) and the node it's drawn inside (`parent`). A node an
+ancestor cuts off has `clipped`, and that ancestor in `clip` as `{ node, name, box }`, the shape of a problem's
+`container`. A node reaching past an ancestor that scrolls (`overflow` `scroll` or `auto`) has `inView`, the part of its
+box in view. A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a
+negative margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element
+the project's code writes, such as a component's, has `source`: the file, line and column, as
 `src/components/ui/button.tsx:44:5`, to open or edit. Parity's own layers have none. `Problems` checks frames for render
 errors, overflow, clipping, squeezing, unknown components and content drawn outside the frame. Each problem has its
 `kind`:
 
 - `frame-overflow`: the node sticks out of the frame, by its position or its width.
-- `clipped`: an ancestor that hides overflow cuts it off.
+- `clipped`: an ancestor that hides overflow cuts it off. What an ancestor scrolls to isn't a problem, so the items of a
+  row that scrolls sideways aren't reported; the row itself is still checked.
 - `parent-overflow`: it spills out of its parent, which doesn't clip, so it's drawn over what's beside it. Only a node
   in the layout's flow counts; an `outOfFlow` one, such as a badge over a card's corner, may reach past its parent. Let
   it wrap or shrink (`min-w-0`, `truncate`), or give the parent a scroll.
@@ -551,7 +534,7 @@ const layout = await Measure(id)
 Print(
   layout.state,
   layout.mode,
-  layout.nodes.map((node) => `${node.id} in ${node.parent}`)
+  layout.nodes.map((node) => `${node.id} in ${node.parent} at ${node.box.x}, ${node.box.y}`)
 )
 ```
 
@@ -570,7 +553,10 @@ for (const state of signup.states) {
 for (const layout of layouts) Print(`${layout.state} in ${layout.mode}: ${layout.width} × ${layout.height}`)
 ```
 
-`Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong.
+`Accessibility` returns axe-core's findings per node and frame, with the rule, its impact and what's wrong. To fix a
+name on a layout or text layer, give it accessibility props:
+`Update(path, { props: { "aria-label": "Doesn't apply" } })`. A layout or text takes `role`, `id` and `aria-*` props,
+which land on its element.
 
 These frames are drawn in the same window as the canvas's: as wide as the frame, and as tall as the design's fixed
 height for the viewport, else the viewport's screen height, else the device nearest its width. So `100vh` and window

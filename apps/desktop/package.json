@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.62.0",
+  "version": "0.65.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -26,6 +26,7 @@
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",
     "cn": "^0.5.1",
+    "css-tree": "catalog:",
     "lucide-react": "^1.66.0",
     "package-manager-detector": "^1.9.0",
     "semver": "^7.8.5",
@@ -50,6 +51,7 @@
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
+    "@parity-app/style": "workspace:*",
     "@parity-app/styles-tailwind": "workspace:*",
     "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",

@@ -1,16 +1,11 @@
+import type { CssDeclaration } from "./adapter.ts"
 import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
 import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
 import { transitionCss } from "./motion.ts"
 import { fillCss } from "./paint.ts"
 
-/** One CSS declaration a style comes to. */
-export interface Declaration {
-  /** As CSS spells it: `background-color`, `align-self`. */
-  property: string
-  /** As CSS reads it: `var(--primary)`, `calc(var(--spacing) * 4)`. */
-  value: string
-  /** The state, viewport or theme it applies in. Unset, it always applies. */
-  when?: { state?: string; viewport?: string; theme?: string }
+/** One CSS declaration a style comes to, with the key that wrote it. */
+export interface Declaration extends CssDeclaration {
   /**
    * The key that wrote it. What a kind of layer draws before any key is set, such as a layout's `display: flex`, is
    * from the key that would change it.
@@ -29,6 +24,16 @@ export interface StyleContext {
   kind: LayerKind
   /** The direction of the layout the layer sits in. Unset at a design's root and inside a component's slots. */
   parent?: Direction
+  /**
+   * Text whose tag draws inline (`span`, `strong`), which takes no width or alignment of its own outside a layout, as in
+   * a component's slot.
+   */
+  inline?: boolean
+  /**
+   * One of the layer's children is placed against its edges (Absolute), so the layer is the box it's placed in: it's
+   * drawn `relative`, unless its own placement already makes it that box.
+   */
+  anchors?: boolean
 }
 
 /**
@@ -38,22 +43,22 @@ export interface StyleContext {
 export function declarations(style: NodeStyle, context: StyleContext): Declaration[] {
   const css = new Sheet()
 
+  // A layer is drawn with what its code would write and no more (PAR-942): a layout isn't `relative` unless a child is
+  // placed in it, and can't shrink below its content unless it fills, which writes its own `min-width: 0`.
   if (context.kind === "layout") {
     css.set("display", style.display === "grid" ? "grid" : "flex", "display")
-    css.set("position", "relative", "position")
-    css.set("min-width", "0", "minWidth")
   } else if (context.kind === "text") {
     css.set("margin", "0", "margin")
   }
 
   surface(css, style)
   spacingSides(css, style)
-  box(css, style, context.parent)
+  box(css, style, context)
 
   if (context.kind === "layout") {
     layout(css, style)
   } else if (context.kind === "text") {
-    text(css, style)
+    text(css, style, context.inline ?? false)
   }
 
   return css.declarations()
@@ -147,11 +152,22 @@ function layout(css: Sheet, style: NodeStyle): void {
   }
 }
 
-/** Text's own: its width when it hugs, and where it's cut off. */
-function text(css: Sheet, style: NodeStyle): void {
+/** The keys an inline tag ignores until it's drawn as a block: its size, its alignment and a cut-off line. */
+const boxKeys = ["width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight", "textAlign", "lines"] as const
+
+/** Text's own: its width when it hugs, whether an inline tag is drawn as a block, and where it's cut off. */
+function text(css: Sheet, style: NodeStyle, inline: boolean): void {
   // Hugging text is Figma's auto width: as wide as its line, never wrapped by its parent, only by a maximum width.
   if (style.width === "hug") {
     css.set("width", "max-content", "width")
+  }
+
+  // An inline tag's box is its line, which takes no size or alignment; a flex or grid parent blockifies it, but a
+  // component's slot may not. Several lines draw their own box below.
+  const needsBox = inline ? boxKeys.find((key) => style[key] !== undefined) : undefined
+
+  if (needsBox) {
+    css.set("display", "block", needsBox)
   }
 
   if (style.lines === 1) {
@@ -217,7 +233,7 @@ function surface(css: Sheet, style: NodeStyle): void {
  * What applies to any node, including a component's root: its size and place in the parent's layout, opacity, and
  * type, which the text inside inherits.
  */
-function box(css: Sheet, style: NodeStyle, parent: Direction | undefined): void {
+function box(css: Sheet, style: NodeStyle, { kind, parent, anchors }: StyleContext): void {
   if (style.grow) {
     fill(css, parent === "column" ? "height" : "width", parent ?? "row", "grow")
   }
@@ -261,6 +277,10 @@ function box(css: Sheet, style: NodeStyle, parent: Direction | undefined): void 
         css.set(side, spacing(style[side]), side)
       }
     }
+
+    stretchBetweenEdges(css, style, kind)
+  } else if (anchors) {
+    css.set("position", "relative", "position")
   }
 
   // Every node is a flex or grid item, where z-index applies without a position.
@@ -279,6 +299,25 @@ function box(css: Sheet, style: NodeStyle, parent: Direction | undefined): void 
 
   if (transition) {
     css.set("transition", transition, "transitions")
+  }
+}
+
+/**
+ * Placed against both edges of an axis with no length of its own, a box spans between them, as CSS draws an element
+ * with an auto size. A component's root often brings its own size in its classes, such as a separator's `w-full`, which
+ * would win over the edges, so the auto size is written out for it.
+ */
+function stretchBetweenEdges(css: Sheet, style: NodeStyle, kind: LayerKind): void {
+  if (kind !== "component" && kind !== "instance") {
+    return
+  }
+
+  if (style.left !== undefined && style.right !== undefined && style.width === undefined) {
+    css.set("width", "auto", "right")
+  }
+
+  if (style.top !== undefined && style.bottom !== undefined && style.height === undefined) {
+    css.set("height", "auto", "bottom")
   }
 }
 
@@ -341,6 +380,10 @@ function type(css: Sheet, style: NodeStyle): void {
 
   if (style.italic) {
     css.set("font-style", "italic", "italic")
+  }
+
+  if (style.overflowWrap) {
+    css.set("overflow-wrap", style.overflowWrap, "overflowWrap")
   }
 }
 

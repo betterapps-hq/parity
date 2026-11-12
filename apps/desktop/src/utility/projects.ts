@@ -19,6 +19,7 @@ import {
   builderProcessOptions,
   type BuilderProcessSession,
   type BuilderStartOptions,
+  type ClassPrinter,
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
@@ -28,7 +29,8 @@ import {
   type RendererAdapter,
   type StylesAdapter,
   type ThemeVariable,
-  withLibraryCanvas
+  withLibraryCanvas,
+  writeClasses
 } from "@parity-app/core"
 import {
   appFiles,
@@ -55,7 +57,13 @@ import {
 import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
 import { logNote } from "../shared/log.ts"
-import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import type {
+  FrameClassesWritten,
+  ProjectEditResult,
+  ProjectInfo,
+  ServiceMethods,
+  WindowMethods
+} from "../shared/protocol.ts"
 import { inSpan, track } from "../shared/tracing.ts"
 import type { ServedCode } from "./bitmap-store.ts"
 import type { BuilderExit, StartedBuilder } from "./builders.ts"
@@ -190,6 +198,11 @@ interface Project extends OpenProject {
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
   /**
+   * The project's styling framework as a printer, which writes and compiles the classes its frames draw layers with.
+   * Unset until a frame asks, and again when its stylesheets change. Nothing when the framework couldn't be loaded.
+   */
+  frameClasses?: Promise<ClassPrinter | undefined>
+  /**
    * The stamp of its stylesheets' last change, when its builder serves the guest restyled
    * (`BuilderSession.restyledGuestUrl`), so a builder started again on the same port serves it where the windows
    * already draw it rather than at an address they loaded before the change.
@@ -280,6 +293,7 @@ export interface OpenProjects {
   correctComponents: (params: ServiceMethods["project.correctComponents"]["params"]) => Promise<undefined>
   saveDocument: (params: ServiceMethods["document.save"]["params"]) => Promise<undefined>
   saveTokens: (params: ServiceMethods["tokens.save"]["params"]) => Promise<ProjectEditResult>
+  frameClasses: (params: ServiceMethods["styles.classes"]["params"]) => Promise<FrameClassesWritten>
   /** The project's code as the address a job draws from first served it, while the project is open. */
   codeServedAt: (projectId: string, guestUrl: string) => ServedCode | undefined
   previewProject: (projectId: string) => PreviewProject | undefined
@@ -301,6 +315,8 @@ const bitmapFormat = 2
 export function openProjects(adapters: ProjectAdapters): OpenProjects {
   const { checker, detections, listeners, ports } = adapters
   const watch: WatchFolder = adapters.watch ?? watchFolder
+  // The config files every builder looks for, which detection follows (PAR-826).
+  const builderConfigs = [...new Set(adapters.builders.flatMap((builder) => builder.configFiles))]
   const env = adapters.environment ?? environment()
   const allowedOrigins = env.PARITY_ALLOWED_ORIGINS ?? []
   const startedWith = env.PARITY_PROJECT
@@ -345,7 +361,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detect(root: string, opening: Opening) {
     // Read first, so a change made while the project opens is a change from what it opened with.
-    const inputs = await detectionInputs(root).catch(() => undefined)
+    const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
@@ -781,6 +797,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     project.info.theme = styles.theme
+    // Its classes mean what its stylesheets say now, so they're written afresh.
+    project.frameClasses = undefined
 
     if (styles.info) {
       project.info.styles = styles.info
@@ -824,6 +842,24 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // Unless it moved again meanwhile, and what the windows were told is already out of date.
     if (project.info.guestUrl === guestUrl) {
       project.drawnGuestUrl = drawn
+    }
+  }
+
+  /**
+   * The project's styling framework as a printer of classes, or nothing when it can't be loaded: the project's frames
+   * then draw from their rules, which draw the same declarations.
+   */
+  async function loadClassPrinter(
+    adapter: StylesAdapter,
+    info: Pick<ProjectInfo, "root" | "name">,
+    stylesheet: string
+  ): Promise<ClassPrinter | undefined> {
+    try {
+      return await adapter.loadPrinter(info.root, stylesheet)
+    } catch (error) {
+      logNote(`[service] ${info.name}'s frames draw without ${adapter.name}'s classes: ${message(error)}`)
+
+      return undefined
     }
   }
 
@@ -1042,7 +1078,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
-    const inputs = await detectionInputs(root).catch(() => undefined)
+    const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
 
     if (!inputs || projects.get(root) !== project) {
       return false
@@ -1055,7 +1091,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return false
     }
 
-    logNote(`[service] ${project.info.name}'s stylesheets, dependencies or Vite config changed since it opened`)
+    logNote(`[service] ${project.info.name}'s stylesheets, dependencies or builder config changed since it opened`)
 
     return true
   }
@@ -1464,6 +1500,27 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       }
 
       return edit
+    },
+
+    /**
+     * The classes the project's styling framework writes for each declaration (core's `writeClasses`). The framework
+     * is loaded the first time a frame asks, and again once the project's stylesheets change.
+     */
+    async frameClasses({ projectId, declarations, written }) {
+      const project = getProject(projectId)
+      const styles = project.info.styles
+      const adapter = styles && !styles.error ? adapters.styles.find(({ id }) => id === styles.id) : undefined
+
+      if (!styles || !adapter) {
+        return { supported: false, classes: [], css: "" }
+      }
+
+      project.frameClasses ??= loadClassPrinter(adapter, project.info, styles.stylesheet)
+      const printer = await project.frameClasses
+
+      return printer
+        ? { supported: true, ...writeClasses(printer, written, declarations) }
+        : { supported: false, classes: [], css: "" }
     },
 
     codeServedAt: (projectId, guestUrl) => projects.get(projectId)?.fingerprints.get(guestUrl),

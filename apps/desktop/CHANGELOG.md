@@ -1,8 +1,72 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 00:46:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 04:02:26 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.65.0
+
+Thu, 12 Nov 2026 04:02:26 GMT
+
+### Minor changes
+
+- Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the
+  agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take
+  overrides (ajcraswell@gmail.com)
+- Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take
+  role, id and aria-* props on their elements. (ajcraswell@gmail.com)
+
+### Patches
+
+- Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it
+  settles (ajcraswell@gmail.com)
+
+## 0.64.0
+
+Thu, 12 Nov 2026 03:17:27 GMT
+
+### Minor changes
+
+- parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it
+  created (PAR-909) (ajcraswell@gmail.com)
+- Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style
+  breaks long words; an absolutely placed component with left and right stretches between them (ajcraswell@gmail.com)
+
+### Patches
+
+- Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out
+  (PAR-904) (ajcraswell@gmail.com)
+- Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas
+  and offscreen (ajcraswell@gmail.com)
+- Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity (ajcraswell@gmail.com)
+- A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query
+  wins over app state; its text and props stay under them (PAR-902). (ajcraswell@gmail.com)
+
+## 0.63.0
+
+Thu, 12 Nov 2026 02:22:04 GMT
+
+### Minor changes
+
+- Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion
+  and by agents (PAR-934) (ajcraswell@gmail.com)
+- Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s
+  faster per call than npx (ajcraswell@gmail.com)
+- Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam
+  change them, and Update binds a node (PAR-901) (ajcraswell@gmail.com)
+
+### Patches
+
+- Each builder adapter names the config files detection follows, so adding or removing one detects an open project again
+  (ajcraswell@gmail.com)
+- Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window
+  (ajcraswell@gmail.com)
+- Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and
+  shows design/node (ajcraswell@gmail.com)
+- A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that
+  maximum and then sits where it's aligned, instead of hugging its content (PAR-897). (ajcraswell@gmail.com)
+- Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps
+  (ajcraswell@gmail.com)
 
 ## 0.62.0
 

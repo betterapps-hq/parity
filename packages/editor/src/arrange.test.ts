@@ -179,9 +179,9 @@ describe("wrapping in a layout", () => {
   })
 
   it("reads the parent as the board shows it, with the variant options shown and the frame's viewport", () => {
-    // The card's Inline option turns its body into a row with a gap of 6, over the body's mobile gap of 2.
+    // The card's Inline option turns its body into a row, and the body's mobile gap of 2 wins over the option's 6.
     const inline = wrapInLayout(card({ layout: "inline" }), ["avatar", "copy"], card().states[0]!, "mobile")
-    expect(findNode(inline.container.root, inline.id)?.style).toEqual({ direction: "row", gap: 6 })
+    expect(findNode(inline.container.root, inline.id)?.style).toEqual({ direction: "row", gap: 2 })
     const stacked = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "mobile")
     expect(findNode(stacked.container.root, stacked.id)?.style).toEqual({ gap: 2 })
     const desktop = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "desktop")

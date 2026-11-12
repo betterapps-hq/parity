@@ -1,11 +1,11 @@
 import { z } from "zod"
 import { fileObject, finiteNumber, plainObject } from "../schema.ts"
-import { frameParts, isComposite, valueForms } from "./evaluate.ts"
+import { frameParts, isComposite, sampleForms, valueForms } from "./evaluate.ts"
 
 const primitives = [z.string(), finiteNumber, z.boolean(), z.null()] as const
 
 /**
- * A decorator's or sample's value: JSON, or one of five forms that `evaluateValue` works out against a host, the frame
+ * A decorator's or sample's value: JSON, or one of six forms that `evaluateValue` works out against a host, the frame
  * in the guest and a trial outside one in libgen. An object with one of the forms' keys must be that form; any other
  * object is plain JSON, its values values too.
  *
@@ -19,6 +19,8 @@ const primitives = [z.string(), finiteNumber, z.boolean(), z.null()] as const
  *   rules match, as `:host(...)`), or the element standing in for its `<body>`. Also `document`, `dir`, `lang`, and
  *   `selector`, a CSS selector for the body alone.
  * - `{ "$function": ... }`: a function returning the value it holds.
+ * - `{ "$date": "2026-11-19T00:00:00" }`: the `Date` that `new Date("2026-11-19T00:00:00")` makes, from a string or a
+ *   number of milliseconds since 1970.
  *
  * Values are checked once, when their library file loads. The guest evaluates them on every frame without zod. A
  * sample's values are `sampleValue`s.
@@ -34,16 +36,24 @@ export const decoratorValue: z.ZodType<unknown> = z.lazy(() =>
     form("$global", globalValue),
     form("$frame", frameValue),
     form("$function", functionValue),
+    form("$date", dateValue),
     plain(valueForms, decoratorValue)
   ])
 )
 
 /**
- * A sample's value, which a design node's props copy: JSON, and values the package makes (`$call`), as an example
- * passes them. The other forms are a decorator's alone, so in a sample an object with their keys is data as written.
+ * A sample's value, which a design node's props copy: JSON, values the package makes (`$call`), as an example
+ * passes them, and dates (`$date`). The other forms are a decorator's alone, so in a sample an object with their keys
+ * is data as written.
  */
 export const sampleValue: z.ZodType<unknown> = z.lazy(() =>
-  z.union([...primitives, z.array(sampleValue), form("$call", made(sampleValue)), plain(["$call"], sampleValue)])
+  z.union([
+    ...primitives,
+    z.array(sampleValue),
+    form("$call", made(sampleValue)),
+    form("$date", dateValue),
+    plain(sampleForms, sampleValue)
+  ])
 )
 
 /** Something the package exports, such as a theme object. */
@@ -79,6 +89,18 @@ const globalValue = fileObject({
 })
 
 export type GlobalValue = z.infer<typeof globalValue>
+
+/**
+ * A `Date`, as `new Date($date)` makes it in the project's code: from a string JavaScript reads as a date, or from
+ * milliseconds since 1970. A string `new Date` can't read is refused, as it would make an invalid date.
+ */
+export const dateValue = fileObject({
+  $date: z.union([z.string(), finiteNumber]).refine((value) => !Number.isNaN(new Date(value).getTime()), {
+    message: "expected a date, such as 2026-11-19T00:00:00"
+  })
+})
+
+export type DateValue = z.infer<typeof dateValue>
 
 /** Part of the frame itself. */
 const frameValue = fileObject({ $frame: z.enum(frameParts) })

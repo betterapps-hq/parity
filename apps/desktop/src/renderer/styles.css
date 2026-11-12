@@ -1,6 +1,7 @@
 @import "tailwindcss";
 /* Buildkit's Base UI Nova: its theme tokens, light and dark, its animations and variants, and its components' classes. */
 @import "@buildkitgg/shadcn-baseui-kit/tailwind.css";
+@import "./scrollbars.css";
 /*
  * The kit's code highlighting (Shiki) colors each token by classes in its `lib`, which its stylesheet doesn't scan, so
  * the Code tab's code showed in one color (PAR-167).
@@ -343,25 +344,9 @@ body,
   overflow: clip;
 }
 
-/*
- * Scrollbars are a 6px rounded thumb on no track, with no arrows, darker under the pointer (PAR-767), in place of
- * Chromium's 15px Windows scrollbar. Chromium skips these rules on an element that sets `scrollbar-width` or
- * `scrollbar-color`, so those are only for hiding a scrollbar (`scrollbar-width: none`).
- */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track,
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+/* Parity's own scrollbars, which touch frames share (see scrollbars.css), drawn in its text color. */
 ::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  background: color-mix(in oklch, var(--foreground) 18%, transparent);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklch, var(--foreground) 35%, transparent);
+  color: var(--foreground);
 }
 
 /* Selection colors, one per kind of thing on the canvas. */

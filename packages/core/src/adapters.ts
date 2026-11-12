@@ -1,3 +1,4 @@
+import type { StylePrinter } from "@parity-app/style"
 import { z } from "zod"
 import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
@@ -133,6 +134,9 @@ export interface BuilderStartOptions {
   port?: number
 }
 
+/** The extensions a JavaScript tool's config file may have: `vite.config.ts`, `.storybook/main.mjs`. */
+export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] as const
+
 /**
  * Compiles a customer's components with the customer's own build setup (Vite, webpack, Next.js…) and serves them to the
  * canvas as a guest module.
@@ -140,6 +144,12 @@ export interface BuilderStartOptions {
 export interface BuilderAdapter {
   id: string
   name: string
+  /**
+   * The config files, relative to the project root, that say whether this builder serves the project (PAR-826).
+   * Detection follows them, so adding or taking one away detects an open project again; the build tool follows a
+   * change to one's contents itself.
+   */
+  configFiles: readonly string[]
   /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
   detect(root: string): Promise<BuilderDetection>
   start(options: BuilderStartOptions): Promise<BuilderSession>
@@ -376,6 +386,21 @@ export interface StylesAdapter {
   detect(source: string): boolean
   /** Every theme variable, resolved by the project's own copy of the framework. */
   loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
+  /**
+   * The framework's way of writing a layer's declarations, and of reading its code back, as the project's own copy
+   * means it. Its code is a list of classes.
+   */
+  loadPrinter(root: string, stylesheet: string): Promise<ClassPrinter>
+}
+
+/** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
+export interface ClassPrinter extends StylePrinter<string[]> {
+  /**
+   * The CSS these classes compile to in this project, as one stylesheet in the framework's own cascade layer and
+   * order, so a frame that gives its elements the classes draws them as the project's built CSS would (PAR-942). A
+   * class the framework doesn't know compiles to nothing.
+   */
+  css(classes: readonly string[]): string
 }
 
 /** A theme variable without its `--`, as the framework defines it. */

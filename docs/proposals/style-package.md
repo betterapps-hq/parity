@@ -1,8 +1,11 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Step 1 is built (PAR-939): the package holds the stored style
-and `declarations`, which render calls. The rest isn't built yet. It sets where the rules for what a layer's style means
-live, so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one set.
+Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Steps 1, 2, 4, 5 and 6 are built: the package holds the stored
+style and `declarations`, which render calls (PAR-939), the ledger and `validate` (PAR-940), the adapter contract, which
+`@parity-app/styles-tailwind` implements (PAR-943), the plain CSS printer and reader (PAR-944), and frames draw from
+rules and compiled classes (PAR-942, in [editor.md](../editor.md), Rendering frames). Step 3, the format change, isn't
+built yet. It sets where the rules for what a layer's style means live, so the canvas, Copy as code, writing components
+(PAR-265) and reading code back all follow one set.
 
 ## In one line
 
@@ -131,16 +134,23 @@ interface StylePrinter<Output> {
 }
 ```
 
+As built (PAR-943), the contract is in `adapter.ts` and differs in three ways. A printer takes no tokens: it's made for
+one project, with what it needs of that project already in hand, as the Tailwind printer is made from the project's
+design system. `print` returns its output with the declarations it had no way to write (`unwritten`), such as one for a
+theme the project's code has no variant for. And `when` is in CSS's terms, so every adapter reads it alike: a state is
+the selector that follows the layer (`:hover`, `[data-state="open"]`), a viewport the least width it applies from
+(`48rem`), a theme its name.
+
 `StylesAdapter` in core gains a printer beside `detect` and `loadTheme`. Detection doesn't change: the stylesheet regex
 picks the adapter, and a project with none gets plain CSS.
 
 ## The adapters
 
-| Adapter     | Where                         | Prints                                                                                            | Reads back                                  |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                                  |
-| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations                   |
-| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with Lightning CSS |
+| Adapter     | Where                         | Prints                                                                                            | Reads back                             |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Canvas      | `@parity-app/style`           | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
+| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations              |
+| Plain CSS   | `@parity-app/style`           | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
 
 **The Tailwind adapter leans on Tailwind rather than a table of its own.** It already loads the project's design system
 to read the theme. That object, in Tailwind 4.3.3, also has:
@@ -177,8 +187,11 @@ plain rules are the fallback and the reference the round trip is tested against.
 | What a Tailwind class compiles to     | The project's own Tailwind        | Its design system object                | Loaded today                    |
 
 `@webref/css` and `css-tree` overlap: webref is the spec data itself, and css-tree brings a validator built on MDN's
-copy of it. The ledger can be generated from either. One is enough if css-tree's data is current for the properties the
-ledger counts.
+copy of it. PAR-940 uses both, each for one thing. css-tree's own data (3.2.1, March 2026) lacks 52 of the properties
+Chromium 156 draws, among them `border-shape` and the `row-rule` family, so the ledger's grammars come from webref,
+which has them all. webref has no matcher, so css-tree matches values against those grammars: `validate` builds
+css-tree's lexer from the ledger's grammars and never asks css-tree's own dictionary about a property. webref and
+web-features are read only when `spec.json` is generated, so only css-tree ships in the app.
 
 ## Where it sits
 

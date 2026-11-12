@@ -1,8 +1,12 @@
 import {
   collectCustomProperties,
   type EnclosingAtRule,
+  type FrameRulesOptions,
+  frameRules,
   type Guest,
   prepareCanvasCss,
+  previewRules,
+  type RenderNode,
   rewriteFrameUnits,
   rewriteSheetFrameUnits,
   type ThemeVariable
@@ -16,7 +20,7 @@ import {
   type TokenChange
 } from "@parity-app/tokens"
 
-export interface LoadedGuest {
+export interface LoadedGuest extends FrameCss {
   guest: Guest
   /** Adopted by every rendered mode's shadow root. */
   sheet: CSSStyleSheet
@@ -24,6 +28,19 @@ export interface LoadedGuest {
   tokens: Token[]
   /** The attributes that switch on each theme the project sets by attribute, which frames in its mode get. */
   themeAttributes: Record<string, Record<string, string>>
+}
+
+/** The CSS Parity writes for a project's frames, beside the project's own. */
+export interface FrameCss {
+  /**
+   * The rules a frame draws a tree's elements from (core's `frameRules`), prepared for a frame as the project's CSS
+   * is, and in the cascade layer the project's own utility classes are in, when it has one.
+   */
+  rules(tree: readonly RenderNode[]): string
+  /** The rules that show a frame drawing `drawn` as `next`, a style edit not yet made (core's `previewRules`). */
+  previewRules(drawn: readonly RenderNode[], next: readonly RenderNode[]): string
+  /** CSS written for this project's frames, such as its styling framework's classes, prepared as its own CSS is. */
+  prepare(css: string): { scoped: string; global: string }
 }
 
 interface Loading {
@@ -109,8 +126,34 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
     guest,
     sheet,
     tokens: extractTokens(written.scoped, theme, guest.tokenCategories),
-    themeAttributes: themeAttributes(collectCustomProperties(written.scoped))
+    themeAttributes: themeAttributes(collectCustomProperties(written.scoped)),
+    ...frameCss(guest.css, new URL(url).origin)
   }
+}
+
+/**
+ * What writes the CSS for the frames of a project whose compiled styles are `css`, served from `origin`: each is
+ * prepared as the project's own CSS is, so its lengths measure the frame and its `url()`s are the project's.
+ */
+export function frameCss(css: string, origin: string): FrameCss {
+  const prepare = (text: string) => prepareCanvasCss(text, { baseUrl: origin })
+  const layer = rulesLayer(css)
+
+  return {
+    rules: (tree) => prepare(frameRules(tree, layer)).scoped,
+    previewRules: (drawn, next) => prepare(previewRules(drawn, next, layer)).scoped,
+    prepare
+  }
+}
+
+/**
+ * Where a project's frames put the rules they draw layers from. A project whose CSS has a `utilities` cascade layer,
+ * as Tailwind's does, takes them there, where the classes its code would have go: over its base styles, and ranked
+ * with a component's own classes. Any other project's CSS isn't layered, and a layered rule would lose to all of it,
+ * a reset's `* { padding: 0 }` included, so its rules aren't either.
+ */
+function rulesLayer(css: string): FrameRulesOptions {
+  return /@layer\s[^{;]*\butilities\b/.test(css) ? { layer: "utilities" } : {}
 }
 
 /** Each guest stylesheet's CSS as compiled, which a frame drawn offscreen starts from. */

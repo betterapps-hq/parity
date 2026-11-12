@@ -10,6 +10,8 @@ allowBuilds:
   msw: false
   # sentry-cli's binary comes from its platform package; its install script only downloads one when that is missing.
   "@sentry/cli": false
+  # workerd, the Workers runtime Wrangler runs locally, comes from its platform package too.
+  workerd: false
 minimumReleaseAgeExclude:
   - electron@45.1.0
   - "@tldraw/driver@5.5.4"
@@ -25,6 +27,9 @@ minimumReleaseAgeExclude:
   - skills@1.7.6
   - "@buildkitgg/shadcn-baseui-nova@0.5.0"
   - "@buildkitgg/storybook-config@0.2.0"
+  - "@cloudflare/vite-plugin@1.69.0"
+  - miniflare@5.20261110.1-beta
+  - wrangler@4.160.1
 verifyDepsBeforeRun: error
 # pnpm shortens node_modules/.pnpm's folder names to 60 characters on Windows and 120 elsewhere. The same length on every
 # system keeps the source maps' paths, and so each bundle's Sentry debug ID, the same, so maps built on Ubuntu match
@@ -39,7 +44,9 @@ catalog:
   "@sentry/cli": 3.8.2
   "@sentry/electron": 8.3.0
   "@sentry/node": 11.8.0
+  "@webref/css": 8.7.8
   beachball: 2.66.0
+  css-tree: 3.2.1
   electron-builder: 26.18.0
   electron-updater: 6.8.11
   jiti: 2.7.0
@@ -48,6 +55,7 @@ catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
   vitest: 5.0.5
+  web-features: 3.45.0
   zod: 4.6.7
 # Vite+ runs on its own core, so every package's Vite is that core, apart from two that stand in for or drive a
 # customer's project and keep stock Vite: the example project, and builder-vite, whose tests start a stock Vite server.

@@ -38,6 +38,13 @@ A box that lays out its `children`: a flex box by default, or a grid. Most struc
 { "type": "layout", "name": "Actions", "style": { "direction": "row", "gap": 2, "justify": "end" }, "children": [] }
 ```
 
+A layout or text can take accessibility `props`: `role`, `id` and `aria-*`, written on its element as code writes them.
+Name what reads wrong to a screen reader, or point `aria-labelledby` at another layer's `id`:
+
+```json
+{ "type": "layout", "name": "Chart", "props": { "role": "img", "aria-labelledby": "chart-title" }, "children": [] }
+```
+
 ### `component`
 
 One of the project's components. `component` is a name from `Components()`; `props` are its props; `slots` hold child
@@ -58,6 +65,20 @@ nodes, where `children` is what goes between its tags and any other slot becomes
 ```
 
 Text that's only a component's label can be its `children` prop instead: `"props": { "children": "Export" }`.
+
+A prop that takes a `Date` (a Calendar's `selected`, a date picker's `defaultValue`) is `{ "$date": ... }`, which the
+component gets as `new Date(...)` would make it in code. Give a date and time without a zone for a day, since a
+date-only string is midnight UTC and lands on the day before west of UTC, as it does in code:
+
+```json
+{
+  "type": "component",
+  "component": "nova/Calendar",
+  "props": { "mode": "single", "selected": { "$date": "2026-11-19T00:00:00" } }
+}
+```
+
+A date can sit inside other values too: `"disabled": { "before": { "$date": "2026-11-12T00:00:00" } }`.
 
 ### `instance`
 
@@ -82,11 +103,15 @@ state.
 ### `text`
 
 Words. `tag` is `p` (the default), `span`, `h1` to `h4` or `strong`, and sets what the text is, not how it looks; size
-and weight come from `style`.
+and weight come from `style`. A `span` or `strong` given a width, a minimum or maximum, `textAlign` or `lines: 1` is
+drawn as a block, so the style works in a component's slot or a table cell too; without them it stays in the line.
 
 ```json
 { "type": "text", "tag": "h2", "text": "Recent activity", "style": { "size": "text-lg", "weight": 600 } }
 ```
+
+An en dash in a table cell reads as "en dash"; give it the words it stands for:
+`{ "type": "text", "tag": "span", "text": "–", "props": { "aria-label": "Doesn't apply" } }`.
 
 ### `image`
 
@@ -140,6 +165,7 @@ type name a token from `GetTokens()`, without the `--`.
 | `textAlign`                                      | `start`, `center`, `end` or `justify`                                     |
 | `textTransform`, `decoration`, `italic`          | `uppercase` and the like, `underline` or `line-through`, `true`           |
 | `lines`                                          | Lines of text before an ellipsis                                          |
+| `overflowWrap`                                   | Where a word too long for its line breaks: `anywhere` or `break-word`     |
 | `transitions`                                    | How the layer moves when its style changes; see Transitions below         |
 
 Effects stack. `shadow` as a list is drawn top first. Colors there are a color token with an optional `alpha` from 0 to
@@ -177,6 +203,15 @@ A `fill` across the parent with a `maxWidth` takes the parent's width up to that
 parent's `align` puts it, as `w-full max-w-… mx-auto` does: a content column centred at 160 steps is
 `{ width: "fill", maxWidth: 160, self: "center" }`, and it still narrows on a phone. `hug` with `self` stays as wide as
 its content.
+
+`overflowWrap` breaks a long word, such as a web address, so it stays in its box: `anywhere` also lets a table cell or a
+hugging layout narrow to fit it, and `break-word` breaks it only once it can't fit on a line of its own. Set on a
+layout, the text inside takes it.
+
+`position` takes only `absolute`, which places the node against its parent's edges; the parent needs nothing set,
+because every layout is a positioning context. An absolutely placed node with both `left` and `right` and no `width`
+spans between them, components included, over any width their own classes give them; `top` and `bottom` with no `height`
+do the same.
 
 ### Fill
 

@@ -94,6 +94,7 @@ import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
   agentCalled,
   applyTelemetry,
+  crashSigns,
   keepFailedFrame,
   personActed,
   recordForwarded,
@@ -103,6 +104,7 @@ import {
   startEvents,
   startTelemetry,
   quitCancelled,
+  watchWindowGone,
   watchWindowHangs
 } from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
@@ -302,6 +304,8 @@ function startService(): UtilityProcess {
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
       PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
+      // Projects' unsaved changes, kept outside the projects, so a crash or forced quit doesn't lose them (PAR-905).
+      PARITY_RECOVERY_DIR: join(app.getPath("userData"), "recovery"),
       // Frame bitmaps and component previews are kept in the app's own data, so an installed Parity never writes them
       // into a project.
       PARITY_BITMAP_DIR: bitmapFolder(),
@@ -492,6 +496,7 @@ function createWindow(): void {
   })
 
   watchWindowHangs(window, "window", "renderer", () => appLife.windowHung())
+  watchWindowGone(window, "renderer")
   appLife.mark("windowShown")
   window.once("ready-to-show", () => appLife.mark("firstPaint"))
   // A key pressed in the window is the person's, so what follows is tagged as theirs, not an agent's (PAR-630).
@@ -955,6 +960,7 @@ const reports = createReports({
   flushLogs: events.flushLogs,
   sessionId: events.run.sessionId,
   offerCrash: offersCrashReports(telemetryStart.environment),
+  crashSigns: crashSigns(),
   telemetry: events.telemetry,
   level: () => telemetrySetting.get().level
 })
@@ -1303,6 +1309,7 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
     })
 
     watchWindowHangs(window, "offscreen renderer", "render", () => appLife.windowHung())
+    watchWindowGone(window, "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
     recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, () => drawing.get(window))
     render = { window, loaded: window.loadURL(new URL("render.html", rendererUrl).href) }

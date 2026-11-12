@@ -80,6 +80,20 @@ jobs:
     # otherwise (PAR-512, actions/runner#4453). The template reads the build secret by build-secret-env's name.
     secrets: inherit
 
+  # Parity's service, apps/portal, as a preview of staging's Worker (PAR-947). It comments its own URL, apart from the
+  # comment below, and preview-cleanup.yml deletes it.
+  portal:
+    name: Service
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/preview-web.yml@main
+    with:
+      build-command: CLOUDFLARE_ENV=staging pnpm --filter @parity-app/portal exec vp build
+      app-directory: apps/portal
+    secrets: inherit
+
   comment:
     name: Comment
     needs: [npm, desktop, storybook]

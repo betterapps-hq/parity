@@ -70,6 +70,7 @@ function fakeBuilder() {
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
+    configFiles: ["fake.config.ts"],
     detect: () =>
       failures.detection
         ? Promise.reject(failures.detection)
@@ -477,6 +478,21 @@ describe("an open project's files", () => {
     await projects.close(root)
     expect((await projects.open(root)).notes).toContain("styles from components.json: src/styles/app.css")
     expect(await projects.detectAgain(root)).toBe(false)
+  })
+
+  it("tell the windows when a config file a registered builder names is added, and not one no builder names", async () => {
+    const { projects, watcher, detectionChanged } = setUp()
+    await projects.open(root)
+
+    await write("vite.config.ts", "export default {}")
+    watcher.change("vite.config.ts")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
+
+    await write("fake.config.ts", "export default {}")
+    watcher.change("fake.config.ts")
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
   })
 
   it("tell the windows when what detection reads changed while the project opened", async () => {

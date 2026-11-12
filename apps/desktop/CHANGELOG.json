@@ -2,6 +2,163 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 04:02:26 GMT",
+      "version": "0.65.0",
+      "tag": "@parity-app/desktop_v0.65.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0d3f13e42602272b668ee9f21374db9e1ecb2eeb",
+            "comment": "Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take overrides"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "48261bcd8e27a18d85f5f7e555fa57daef8b0608",
+            "comment": "Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take role, id and aria-* props on their elements."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "803709527c8f576be6ad842fa32c1aa74e0ad07e",
+            "comment": "Undo this branch's status bar change; nothing ships"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "227c91f1afead13c9f7000f6b4e5fc56297cd944",
+            "comment": "Print style declarations as plain CSS rules and read them back; nothing in the app calls it yet"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "28e3ae97ad57472edee28a4bc4e00f4b1f322fad",
+            "comment": "Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it settles"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 03:17:27 GMT",
+      "version": "0.64.0",
+      "tag": "@parity-app/desktop_v0.64.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1726ec985e2fdd10929b7a220a63a11e7422941c",
+            "comment": "parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it created (PAR-909)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7a697a050d46dd1d83b357b6b310d3bc151e7fef",
+            "comment": "Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style breaks long words; an absolutely placed component with left and right stretches between them"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c0d9c1441c6ec1c4a78aa7dda6592b3687791779",
+            "comment": "Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out (PAR-904)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cfac23a00ec6aeedefe4b39484ac4db796fe414a",
+            "comment": "Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas and offscreen"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0e1593849445afcec54342b40cb624e6438f9dd6",
+            "comment": "Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ed01b5b1f93009f40d21b910e33401159311d3d8",
+            "comment": "A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query wins over app state; its text and props stay under them (PAR-902)."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c14e7816517215f9d1167f69237c28ce1a68c711",
+            "comment": "Print style declarations as Tailwind classes and read classes back; nothing in the app calls it yet"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 02:22:04 GMT",
+      "version": "0.63.0",
+      "tag": "@parity-app/desktop_v0.63.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7b58c948737dd0bb161db1e0a033c7d14e671dab",
+            "comment": "Each builder adapter names the config files detection follows, so adding or removing one detects an open project again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b0802d32f4ca5f8661509720861565edf5dccee9",
+            "comment": "Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b306ad98eff8da09abab1158f18c63bcda706864",
+            "comment": "Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and shows design/node"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "15ec2b4e2891b96c45fbcb013e0b8bd89fcf530b",
+            "comment": "A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that maximum and then sits where it's aligned, instead of hugging its content (PAR-897)."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d9a7970b52fa2825bf0d63cdf8e71b85cc87cae6",
+            "comment": "Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c0736d25bfcd4693edb6d2dc487a5b2317f5f8b4",
+            "comment": "Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion and by agents (PAR-934)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6e1dfa30888c57df4aab64eb92e35b443239593d",
+            "comment": "Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s faster per call than npx"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ec9ac2a5badd5a78421e3563caafdbe20e6e6397",
+            "comment": "Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam change them, and Update binds a node (PAR-901)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 00:46:21 GMT",
       "version": "0.62.0",
       "tag": "@parity-app/desktop_v0.62.0",

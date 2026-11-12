@@ -2,6 +2,7 @@ import {
   type ComponentSource,
   type FrameGeometry,
   type GuestComponentSource,
+  isTouchMode,
   modeGlobals,
   type RenderNode,
   type ResolvedMode,
@@ -114,6 +115,10 @@ export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): RenderJ
     jobMode.height = frame.height
   }
 
+  if (isTouchMode(mode)) {
+    jobMode.touch = true
+  }
+
   return jobMode
 }
 
@@ -152,7 +157,7 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
     guest.id,
     JSON.stringify(drawnComponents(job.tree, {}, job.components)),
     job.guestUrl,
-    JSON.stringify([mode.classNames, mode.attributes, mode.globals]),
+    JSON.stringify([mode.classNames, mode.attributes, mode.globals, mode.touch]),
     JSON.stringify(job.tree)
   ].join("|")
 
@@ -209,7 +214,7 @@ export function previewName(job: RenderJob) {
 
 /**
  * A job's mode as the disk names have it, field by field, so a field added to the mode is in neither. The names are
- * JSON, which leaves out `height` and `globals` when they're `undefined`.
+ * JSON, which leaves out `height`, `globals` and `touch` when they're `undefined`.
  */
 function drawnMode(mode: RenderJob["mode"]): RenderJob["mode"] {
   return {
@@ -218,7 +223,8 @@ function drawnMode(mode: RenderJob["mode"]): RenderJob["mode"] {
     viewport: { width: mode.viewport.width, height: mode.viewport.height },
     classNames: mode.classNames,
     attributes: mode.attributes,
-    globals: mode.globals
+    globals: mode.globals,
+    touch: mode.touch
   }
 }
 

@@ -47,6 +47,7 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             take) and what each design shows; a design adds its frames' sizes
   parity exec [file] --label "Do x"         run a snippet (from a file, or stdin) as one undoable step
        [--edit-id id --edits '[{"find":"a","replace":"b"}]']   retry a failed snippet with edits
+       [--quiet]                            leave out the named nodes created; designs created are still listed
   parity screenshot <design> [--state s|all] [--mode m|shown|all] [--scale 2] [--sheet] [--tab t]
                                             render a design offscreen and save each frame as a PNG; --sheet saves
                                             one labeled image of every frame instead
@@ -157,6 +158,7 @@ const { positionals, values } = parseArgs({
     mode: { type: "string", multiple: true },
     scale: { type: "string" },
     json: { type: "boolean" },
+    quiet: { type: "boolean" },
     record: { type: "boolean" },
     sheet: { type: "boolean" },
     clear: { type: "boolean" },
@@ -293,7 +295,10 @@ async function main(): Promise<void> {
         throw invalidInput("edits", "edits must be JSON: a list of {find, replace}")
       }
 
-      const result = await executeOperation.run({ tab: values.tab, label: values.label, code, editId, edits }, call)
+      const result = await executeOperation.run(
+        { tab: values.tab, label: values.label, code, editId, edits, quiet: values.quiet },
+        call
+      )
 
       if (values.json) {
         print(executeOperation.structured(result))

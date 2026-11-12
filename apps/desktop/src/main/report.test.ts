@@ -1,4 +1,4 @@
-import type { Envelope, TelemetryLevel } from "@parity-app/telemetry"
+import type { Envelope, LoggedEvent, TelemetryLevel } from "@parity-app/telemetry"
 import type { BrowserWindow } from "electron"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
@@ -61,14 +61,20 @@ const window: BrowserWindow = {
   webContents: { capturePage: async () => ({ isEmpty: () => false, toPNG: () => Buffer.from("window") }) }
 } as never
 
-function reports(level: TelemetryLevel = "all") {
+function reports(
+  level: TelemetryLevel = "all",
+  crash: Pick<Parameters<typeof createReports>[0], "readEvents" | "offerCrash" | "crashSigns"> = {
+    readEvents: () => [],
+    offerCrash: false,
+    crashSigns: { minidumps: [], openHangs: [] }
+  }
+) {
   const track = vi.fn<(name: string, attributes: Envelope["attributes"]) => void>()
 
   const created = createReports({
-    readEvents: () => [],
+    ...crash,
     flushLogs: () => undefined,
     sessionId: "s1",
-    offerCrash: false,
     // SAFETY: reports only track events with the telemetry they're given.
     telemetry: { track } as never,
     level: () => level
@@ -89,6 +95,33 @@ describe("crash reports offered after a crash", () => {
   it("are offered in every installed build, production included, and never in a checkout or CI", () => {
     expect(["preview", "release", "production"].map(offersCrashReports)).toEqual([true, true, true])
     expect(["development", "ci"].map(offersCrashReports)).toEqual([false, false])
+  })
+
+  /** A run that ended without quitting, before this one, `s1`. */
+  const unfinished: LoggedEvent[] = [
+    {
+      process: "main",
+      installId: "i",
+      sessionId: "s0",
+      name: "app.started",
+      time: "2026-11-11T10:00:00.000Z",
+      level: "info",
+      attributes: {}
+    }
+  ]
+
+  const after = (crashSigns: { minidumps: number[]; openHangs: number[] }) =>
+    reports("all", { readEvents: () => unfinished, offerCrash: true, crashSigns }).created
+
+  it("aren't offered after a run that was stopped, as an agent or a force-quit stops it (PAR-956)", () => {
+    expect(after({ minidumps: [], openHangs: [] }).takeLastCrash()).toBeUndefined()
+  })
+
+  it("are offered once after a run that left a minidump", () => {
+    const created = after({ minidumps: [Date.parse("2026-11-11T10:05:00.000Z")], openHangs: [] })
+
+    expect(created.takeLastCrash()).toEqual({ time: "2026-11-11T10:00:00.000Z" })
+    expect(created.takeLastCrash()).toBeUndefined()
   })
 })
 

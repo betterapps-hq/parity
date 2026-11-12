@@ -7,8 +7,10 @@ rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-
 models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and the selection model and edit target
 (PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
 `@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
-(PAR-618), on 2026-11-05. `@parity-app/style` holds the stored style and its CSS declarations (PAR-939), on 2026-11-11.
-The rule and the first items are in [decisions.md](../decisions.md) and in Linear's Package boundaries stream.
+(PAR-618), on 2026-11-05. `@parity-app/style` holds the stored style and its CSS declarations (PAR-939), and the ledger
+of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints and reads
+classes through (PAR-943), on 2026-11-11. The rule and the first items are in [decisions.md](../decisions.md) and in
+Linear's Package boundaries stream.
 
 ## In one line
 
@@ -87,7 +89,8 @@ when it's spread through UI code. Today:
   `renderer-react` and the media player are the packages with React.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
   imports nothing but zod, which checks the data Parity didn't make (PAR-588), and `@parity-app/style`, which a
-  document's styles are held in and drawn through (PAR-939). `@parity-app/style` imports nothing but zod.
+  document's styles are held in and drawn through (PAR-939). `@parity-app/style` imports nothing but zod and css-tree,
+  which matches a value against a property's grammar (PAR-940).
 - **Each package's tests run in Vitest without Electron.** They may use Node to set up files. A rule that changes gets a
   test where it lives.
 - **The guard is mechanical.** pnpm already stops a package importing what its `package.json` doesn't declare, and

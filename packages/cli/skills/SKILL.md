@@ -13,6 +13,7 @@ it.
 | --------------------------- | -------------------------------------------------------------------------------------- |
 | `execute.md`                | Before any change: the functions a snippet can call, with examples. Required.          |
 | `document.md`               | Before any change: designs, nodes, styles, states and responsive patches. Required.    |
+| `reference.md`              | Before calling a function you haven't used: its exact arguments and result.            |
 | `guide/components.md`       | Using the project's components, making component designs, instances and params, icons. |
 | `guide/states-and-modes.md` | Loading, empty, error and other states; themes, viewports and locales.                 |
 | `guide/checking.md`         | Screenshots, layout problems, accessibility, the console, and trying a design.         |

@@ -369,7 +369,7 @@ describe("copying and pasting style", () => {
 
   it("copies a layer's look with the variant options the board shows and the frame's viewport", () => {
     const inline = card({ layout: "inline" })
-    expect(styleOf(inline, "body", inline.states[0]!, "mobile")).toEqual({ direction: "row", gap: 6, padding: 2 })
+    expect(styleOf(inline, "body", inline.states[0]!, "mobile")).toEqual({ direction: "row", gap: 2, padding: 2 })
     expect(styleOf(card(), "body", inline.states[0]!, "desktop")).toEqual({ direction: "column", gap: 4, padding: 4 })
   })
 
