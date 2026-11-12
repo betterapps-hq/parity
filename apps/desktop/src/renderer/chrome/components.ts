@@ -12,7 +12,7 @@ import { recordComponentChange } from "./component-events.ts"
  * store, and records it as `component.changed` (PAR-728).
  */
 export function extractIntoComponent(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "store">,
   entry: ContainerEntry,
   occurrences: string[],
   name: string,

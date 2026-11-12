@@ -3,7 +3,7 @@
 Status: an audit and plan from the Design Editor session, 2026-10-29. You asked for "an award winning editor experience"
 that surpasses Figma, Canva and Pen.dev for people going from design to implementation, and to look at how designers and
 engineers each work for gaps. The tasks are in Linear as PAR-161 to PAR-189, ranked here by impact. Nothing here is
-decided until it's in [decisions.md](../decisions.md).
+decided until the user agrees to it.
 
 ## In one line
 
@@ -241,8 +241,8 @@ its Linear issue.
    by 10, scrubbing by dragging the label, a live preview while typing, focus kept on Enter, and nothing cleared or
    silently dropped. Lengths off the spacing scale are kept and flagged "off scale", with the nearest step one click
    away, for sizes and insets only; colours, type, radius and shadows stay tokens. A sidebar 280px wide is a fact of
-   real apps, and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths, so it goes in
-   decisions.md when built.
+   real apps, and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths, so it needs the
+   user's agreement before it's built.
 7. **Put every change through Save and Undo, in the state being edited** (PAR-164; M). Token edits are undoable and
    saved with everything else; edits that can't be per state say so first; the text editor opens on the state's text;
    values keep their types; turning Show every state off again leaves the file clean.

@@ -1,7 +1,7 @@
 import { type ContainerKind, resolveModes } from "@parity-app/core"
 import { newDesign, rightOfEverything } from "@parity-app/editor"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 
 /**
  * Adds an empty design to the project file and selects it: New screen and New component, from the menus, Search
@@ -11,7 +11,7 @@ import type { ProjectSession } from "../workspace.ts"
  * store.
  */
 export function createDesign(
-  session: ProjectSession,
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
   kind: ContainerKind = "screen",
   at?: { x: number; y: number }
 ): string {

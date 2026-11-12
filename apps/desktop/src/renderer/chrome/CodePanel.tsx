@@ -35,7 +35,7 @@ import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../
 import { findFrames, findNodeElements, subscribeFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { request } from "../service.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { openSource, viewCode } from "./code-editor.ts"
 import { Hint } from "./Hint.tsx"
 import { Name } from "./Name.tsx"
@@ -88,7 +88,7 @@ export function CodePanel() {
 }
 
 /** The selected layer as the board shows it, whether it's the design's own or inside an instance. */
-function selectedLayer(session: ProjectSession, entry: ContainerEntry, nodeId: string): DesignNode | undefined {
+function selectedLayer(session: ProjectDesigns, entry: ContainerEntry, nodeId: string): DesignNode | undefined {
   const { container } = entry
 
   if (!isInnerPath(nodeId)) {
@@ -182,7 +182,7 @@ function ComponentCode({
                     variant="ghost"
                     size="icon-xs"
                     aria-label={`Open ${name} in your editor`}
-                    onClick={() => void viewCode(session, node.component)}
+                    onClick={() => void viewCode(session.info, node.component)}
                   >
                     <SquareArrowOutUpRight />
                   </Button>
@@ -269,7 +269,7 @@ function ElementList({
 
 /** The lines an element is written on, its own highlighted, from the project's file as it is on disk. */
 function SourceLines({ session, source }: { session: ProjectSession; source: ElementSource }) {
-  const file = useProjectFile(session, source.path)
+  const file = useProjectFile(session.id, source.path)
   const first = Math.max(1, source.line - around.before)
   const shown = file.state === "read" ? file.text.split("\n").slice(first - 1, source.line + around.after) : []
   const lines = useHighlightedCode(shown.join("\n"), source.path.endsWith(".jsx") ? "jsx" : "tsx")
@@ -288,7 +288,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
               variant="ghost"
               size="icon-xs"
               aria-label={`Open ${fileName(source.path)} at line ${source.line}`}
-              onClick={() => void openSource(session, source)}
+              onClick={() => void openSource(session.info, source)}
             >
               <SquareArrowOutUpRight />
             </Button>
@@ -360,12 +360,12 @@ function sameElements(a: SourcedElement[], b: SourcedElement[]): boolean {
  * A project file's text, an error saying why it couldn't be read, or that it's still being read. It's read each time
  * the element or the tab changes, so an edit made in the editor shows.
  */
-function useProjectFile(session: ProjectSession, path: string): ProjectFile {
-  const key = `${session.id}\n${path}`
+function useProjectFile(projectId: string, path: string): ProjectFile {
+  const key = `${projectId}\n${path}`
   const [read, setRead] = useState<{ key: string; file: ProjectFile }>()
   useEffect(() => {
     let cancelled = false
-    request("code.read", { projectId: session.id, path }).then(
+    request("code.read", { projectId, path }).then(
       ({ text }) => !cancelled && setRead({ key, file: { state: "read", text } }),
       (cause: unknown) =>
         !cancelled &&
@@ -375,7 +375,7 @@ function useProjectFile(session: ProjectSession, path: string): ProjectFile {
     return () => {
       cancelled = true
     }
-  }, [key, path, session.id])
+  }, [key, path, projectId])
 
   return read?.key === key ? read.file : { state: "reading" }
 }

@@ -5,11 +5,6 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
   ToggleGroup,
   ToggleGroupItem
@@ -34,6 +29,7 @@ import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, kindColors } from "../../canvas/kinds.tsx"
 import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { extractIntoComponent } from "../../chrome/components.ts"
 import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
@@ -229,7 +225,10 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
       }
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
-      <Select
+      <AppSelect
+        variant="panel"
+        aria-label="State to edit"
+        className="h-6 flex-1 border-none bg-transparent px-1.5 shadow-none dark:bg-transparent"
         items={designStates(entry.container).map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
@@ -241,22 +240,7 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
-      >
-        <SelectTrigger
-          size="sm"
-          aria-label="State to edit"
-          className="h-6 flex-1 border-none bg-transparent px-1.5 text-xs shadow-none dark:bg-transparent"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {designStates(entry.container).map((candidate) => (
-            <SelectItem key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      />
       <span className="shrink-0 text-muted-foreground">{changes}</span>
     </div>
   )

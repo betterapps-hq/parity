@@ -2,7 +2,7 @@ import { z } from "zod"
 
 /**
  * Whether Parity sends to Sentry: everything, or nothing. Every run sends unless it's turned off, as decided on
- * 2026-11-05 (docs/decisions.md, "Parity's own telemetry goes to Sentry, on by default"). There's no level between, as
+ * 2026-11-05. There's no level between, as
  * you chose for PAR-626: "Either send or don't."
  */
 export type TelemetryLevel = "all" | "off"

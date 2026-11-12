@@ -118,7 +118,7 @@ returns each component as an `AppComponent` with those fields. React's finder is
 
 ## Decisions
 
-You took the recommended answer to each of these on 2026-10-28. They're in [decisions.md](../decisions.md).
+You took the recommended answer to each of these on 2026-10-28.
 
 1. **Ids:** the bare name, with the folder added only on a clash.
 2. **Libraries:** only libraries with a `.lib.par` or in the registry, plus workspace packages.

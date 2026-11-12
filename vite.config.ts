@@ -215,6 +215,41 @@ export default defineConfig({
         rules: { "typescript/no-implied-eval": "off" }
       },
       {
+        // Every select is AppSelect, which puts the kit's parts together as shadcn does. Selects built by hand kept
+        // missing a part, such as the SelectGroup that insets the items (PAR-1023). No earlier entry sets this rule
+        // for the apps, so it replaces nothing.
+        files: ["apps/**"],
+        rules: {
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@buildkitgg/shadcn-baseui-kit",
+                  importNames: [
+                    "Select",
+                    "SelectContent",
+                    "SelectGroup",
+                    "SelectItem",
+                    "SelectLabel",
+                    "SelectScrollDownButton",
+                    "SelectScrollUpButton",
+                    "SelectSeparator",
+                    "SelectTrigger",
+                    "SelectValue"
+                  ],
+                  message: "Use AppSelect from apps/desktop/src/renderer/chrome/AppSelect.tsx."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        files: ["apps/desktop/src/renderer/chrome/AppSelect.tsx"],
+        rules: { "eslint/no-restricted-imports": "off" }
+      },
+      {
         // reportError is the one place that shows an error notification itself; everything else calls it.
         files: ["apps/desktop/src/renderer/report-error.ts"],
         rules: { "eslint/no-restricted-properties": "off" }

@@ -3,7 +3,7 @@ import { announceEdit } from "../chrome/project-edits.tsx"
 import { containerKey } from "../design-store.ts"
 import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { mediaFilesOf } from "./project-media.ts"
 
 /*
@@ -14,7 +14,10 @@ import { mediaFilesOf } from "./project-media.ts"
  */
 
 /** Removes an image, with whatever its removal takes. */
-export async function removeMedia(session: ProjectSession, image: ProjectImage): Promise<void> {
+export async function removeMedia(
+  session: ProjectDesigns & Pick<ProjectSession, "id" | "untilClosed">,
+  image: ProjectImage
+): Promise<void> {
   const removal = removalOf(image)
 
   if (removal === "code") {
@@ -60,7 +63,7 @@ export async function removeMedia(session: ProjectSession, image: ProjectImage):
  * Removes every layer that shows an image, in every design, as one step, and returns that step. A selected layer
  * among them leaves its design selected.
  */
-function removeLayersShowing(session: ProjectSession, image: ProjectImage): HistoryEntry | undefined {
+function removeLayersShowing(session: ProjectDesigns, image: ProjectImage): HistoryEntry | undefined {
   const { store, selection } = session
   const designs = designsUsing(image)
   const keys = designs.map((design) => containerKey(design.document, design.design))

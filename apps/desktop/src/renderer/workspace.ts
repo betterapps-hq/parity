@@ -177,7 +177,7 @@ export interface Tab {
 /** The Home tab's id. It's pinned first in the tab strip and can't be closed, so it's never in the list of tabs. */
 export const homeTab = "home"
 
-/** One open or reopen of a tab's project, which closing the tab abandons. */
+/** One open, reopen or reconnect of a tab's project, which closing the tab abandons. */
 interface Attempt {
   abandoned: boolean
   /** The project the service opened for it, once it says. */
@@ -212,7 +212,7 @@ export class Workspace {
   private nextPlaceholder = 1
   private nextBlank = 1
   /**
-   * Opens and reopens in flight, by the id of the tab they load into. Closing that tab marks its open abandoned, so
+   * Opens, reopens and reconnects in flight, by the id of the tab they load into. Closing that tab marks its open abandoned, so
    * that open, and only that one, closes its project once the service has it.
    */
   private readonly attempts = new Map<string, Attempt>()
@@ -386,14 +386,9 @@ export class Workspace {
       return this.getTab(info.id)!
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      this.endAttempt(attempt, current)
 
-      if (attempt.abandoned) {
+      if (this.failAttempt(attempt, current, opened)) {
         asked.dropped()
-
-        if (opened) {
-          this.dropAbandoned(opened)
-        }
 
         return { ...opening, status: "error", message }
       }
@@ -612,14 +607,8 @@ export class Workspace {
       this.settleMove(id)
       this.settleDetection(id)
     } catch (error) {
-      this.endAttempt(attempt, id)
-
-      if (attempt.abandoned) {
+      if (this.failAttempt(attempt, id, opened)) {
         asked.dropped()
-
-        if (opened) {
-          this.dropAbandoned(opened)
-        }
 
         return
       }
@@ -677,27 +666,51 @@ export class Workspace {
   async reconnect(): Promise<void> {
     await Promise.all(
       this.tabs.map(async ({ id, session }) => {
+        // A tab still opening or reopening has no session yet, and gets its project from that.
         if (!session) {
           return
         }
 
+        // Closing the tab abandons it like an open, so what the service reopens for it is closed again. A reconnect
+        // still in flight from an earlier restart is overtaken by this one.
+        const earlier = this.attempts.get(id)
+
+        if (earlier) {
+          earlier.abandoned = true
+        }
+
+        const attempt = this.startAttempt(id)
+        attempt.projectId = id
+        let opened: string | undefined
+
         try {
           const info = await request("project.open", { root: id })
-          const loaded = await loadGuest(info.guestUrl, info.theme)
-          inferComponents(info, session.components)
-          const current = this.getTab(id)
+          opened = info.id
 
-          if (!current?.session) {
-            return
+          if (attempt.abandoned) {
+            return this.dropAbandoned(info.id)
           }
 
-          const before = current.session.info.guestUrl
-          this.drawFrom(current, current.session, info, loaded)
+          const loaded = await loadGuest(info.guestUrl, info.theme)
+
+          if (attempt.abandoned) {
+            return this.dropAbandoned(info.id, info.guestUrl)
+          }
+
+          this.endAttempt(attempt, id)
+          inferComponents(info, session.components)
+          const current = this.getTab(id)!
+          const before = session.info.guestUrl
+          this.drawFrom(current, session, info, loaded)
 
           if (before !== info.guestUrl) {
             releaseGuest(before)
           }
         } catch (error) {
+          if (this.failAttempt(attempt, id, opened)) {
+            return
+          }
+
           reportError(error, {
             operation: "project.reopen",
             title: `Couldn't reopen ${session.info.name}`,
@@ -1019,6 +1032,24 @@ export class Workspace {
     }
 
     this.settleDrops()
+  }
+
+  /**
+   * Ends an open, reopen or reconnect that failed. Says whether its tab closed meanwhile, in which case the project the
+   * service opened for it, if it got that far, is closed and the failure is no one's to show.
+   */
+  private failAttempt(attempt: Attempt, id: string, opened: string | undefined): boolean {
+    this.endAttempt(attempt, id)
+
+    if (!attempt.abandoned) {
+      return false
+    }
+
+    if (opened) {
+      this.dropAbandoned(opened)
+    }
+
+    return true
   }
 
   /** Closes the project an abandoned open got, and lets go of its guest, once nothing else could still want it. */

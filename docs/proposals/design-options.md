@@ -135,14 +135,12 @@ from. [design-options-code.md](design-options-code.md) has the details.
 
 ## Calls to make
 
-Andrew answered these from 2026-11-06 to 2026-11-08 ([decisions.md](../decisions.md#the-design-panels-calls-par-652)).
-Calls 3 and 7 have follow-up issues.
+Andrew answered these from 2026-11-06 to 2026-11-08. Calls 3 and 7 have follow-up issues.
 
-1. **Can a layer use a value that isn't a token?** Decided: yes, if it's valid
-   ([decisions.md](../decisions.md#a-layer-can-use-its-own-values-not-only-tokens-if-theyre-valid-par-652)). Every field
-   takes a value of its own, checked against its value type and `CSS.supports` before it's stored, and marked as not a
-   token, with the nearest token one click away. Four levels per kind (Any value, Marked, Tokens only, Semantic only for
-   colors), set in the project's `.lib.par` so CI reads them, with Allow here for a reasoned exception
+1. **Can a layer use a value that isn't a token?** Decided: yes, if it's valid. Every field takes a value of its own,
+   checked against its value type and `CSS.supports` before it's stored, and marked as not a token, with the nearest
+   token one click away. Four levels per kind (Any value, Marked, Tokens only, Semantic only for colors), set in the
+   project's `.lib.par` so CI reads them, with Allow here for a reasoned exception
    ([design-options-tokens.md](design-options-tokens.md), Levels).
 2. **What does Stroke's position write?** CSS has no single stroke with Figma's inside, center and outside. Decided:
    Stroke owns `border` and `outline`, and Effects alone owns `box-shadow`. Include in layout, on for a new stroke,
@@ -182,9 +180,9 @@ Calls 3 and 7 have follow-up issues.
    only where its value differs from the one below (`p-4 md:p-6 lg:p-8`). The frame draws a viewport's values from its
    prefix up to the next one, so it draws what the code does ([design-options-code.md](design-options-code.md),
    Viewports).
-9. **A class Parity can't read back.** decisions.md says Parity asks whether to freeze the component as code or
-   overwrite the edit. Decided: a third answer, offered first, keeps the class on the layer as a From the code row,
-   written back unchanged on every later write. It saves a whole component from being frozen over one class
+9. **A class Parity can't read back.** Parity was to ask whether to freeze the component as code or overwrite the edit.
+   Decided: a third answer, offered first, keeps the class on the layer as a From the code row, written back unchanged
+   on every later write. It saves a whole component from being frozen over one class
    ([design-options-code.md](design-options-code.md)).
 10. **What does a typed % mean in a length?** Today it's a share of the value there, as in Figma's dimension fields
     (editor.md, CAN-48). Decided: in a field whose CSS takes a percentage, `%` is CSS's percentage, as Webflow, Framer's

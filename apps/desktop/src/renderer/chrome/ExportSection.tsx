@@ -1,9 +1,9 @@
-import { Button, Select, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { describeFiles, type ExportSize, exportFiles, nextExportSize } from "@parity-app/editor"
 import { Download, Minus, Plus } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import { type ExportTarget, exportLayers } from "./commands.ts"
-import { PanelSelectContent } from "./fields.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { setPreferences, usePreferences } from "./preferences.ts"
@@ -40,31 +40,29 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
       <ul aria-label="Sizes" className="flex flex-col gap-1.5">
         {sizes.map((size, index) => (
           <li key={index} className="flex items-center gap-1.5">
-            <Select<ExportSize["scale"]>
+            <AppSelect<ExportSize["scale"]>
+              variant="panel"
+              aria-label="Scale"
+              className="w-20"
+              items={[
+                { value: 1, label: "1x" },
+                { value: 2, label: "2x" },
+                { value: 3, label: "3x" }
+              ]}
               value={size.scale}
               onValueChange={(scale) => scale && change(index, { scale })}
-            >
-              <SelectTrigger size="sm" className="h-7 w-20 text-xs" aria-label="Scale">
-                <SelectValue>{(value: ExportSize["scale"]) => `${value}x`}</SelectValue>
-              </SelectTrigger>
-              <PanelSelectContent>
-                <SelectItem value={1}>1x</SelectItem>
-                <SelectItem value={2}>2x</SelectItem>
-                <SelectItem value={3}>3x</SelectItem>
-              </PanelSelectContent>
-            </Select>
-            <Select<ExportSize["format"]>
+            />
+            <AppSelect<ExportSize["format"]>
+              variant="panel"
+              aria-label="Format"
+              className="min-w-0 flex-1"
+              items={[
+                { value: "png", label: "PNG" },
+                { value: "jpg", label: "JPG" }
+              ]}
               value={size.format}
               onValueChange={(format) => format && change(index, { format })}
-            >
-              <SelectTrigger size="sm" className="h-7 min-w-0 flex-1 text-xs" aria-label="Format">
-                <SelectValue>{(value: ExportSize["format"]) => value.toUpperCase()}</SelectValue>
-              </SelectTrigger>
-              <PanelSelectContent>
-                <SelectItem value="png">PNG</SelectItem>
-                <SelectItem value="jpg">JPG</SelectItem>
-              </PanelSelectContent>
-            </Select>
+            />
             <IconButton
               label="Remove this size"
               disabled={sizes.length === 1}
@@ -85,7 +83,7 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
         variant="outline"
         size="sm"
         className="mt-3 w-full"
-        onClick={() => void exportLayers(session, targets, sizes)}
+        onClick={() => void exportLayers(session.id, targets, sizes)}
       >
         <Download /> {label}
       </Button>

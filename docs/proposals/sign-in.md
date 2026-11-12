@@ -3,9 +3,8 @@
 Status: draft, 2026-11-05 (PAR-610). `@parity-app/account` is built (PAR-613), and so is the app's side (PAR-612),
 except trying it in an installed build. The screens are the stories under Parity/Sign in
 ([SignIn.stories.tsx](../../apps/desktop/src/renderer/account/SignIn.stories.tsx)), which replaced the exploration's
-(PAR-798), and the account menu is [AccountMenu.tsx](../../apps/desktop/src/renderer/account/AccountMenu.tsx). The calls
-made are in [decisions.md](../decisions.md#signing-in-goes-through-workos-in-the-browser-par-610), and the work is in
-Linear, PAR-611 to PAR-616.
+(PAR-798), and the account menu is [AccountMenu.tsx](../../apps/desktop/src/renderer/account/AccountMenu.tsx). The work
+is in Linear, PAR-611 to PAR-616.
 
 ## In one line
 
@@ -18,8 +17,8 @@ the portal's service.
 
 You chose it on 2026-11-05 for its organizations. A WorkOS organization has members with roles, can sign in through its
 own identity provider (Okta, Entra ID, Google Workspace) on a verified domain, and can add SCIM later. That's what the
-portal's plans sell: single sign-on with Organization and SCIM with Enterprise (decisions.md, "The portal"). It's also
-the tech stack's choice for B2B apps, and Better Apps already has a WorkOS identity adapter.
+portal's plans sell: single sign-on with Organization and SCIM with Enterprise. It's also the tech stack's choice for
+B2B apps, and Better Apps already has a WorkOS identity adapter.
 
 ## How signing in works
 
@@ -43,8 +42,8 @@ is in [Still to check](#still-to-check).
 
 ## Where the browser hands back to
 
-Several copies of Parity can run at once: the person's app, a session's `pnpm dev`, `pnpm perf` (decisions.md, "Agents'
-calls go to the copy that has their project open"). The copy that started a sign-in has to get its answer.
+Several copies of Parity can run at once: the person's app, a session's `pnpm dev`, `pnpm perf`. The copy that started a
+sign-in has to get its answer.
 
 - **Installed apps use `parity://auth/callback`,** against WorkOS's production environment. The installer registers the
   scheme, so the system sends the link to the installed app. On macOS the running app gets it as `open-url`. On Windows
@@ -84,8 +83,7 @@ Electron package, `@workos/authkit-electron`, but it's at 0.1.2, needs `@workos-
 
 ## The screens
 
-From the Sign in stories, which work as one prototype (PAR-614). The calls behind them are in
-[decisions.md](../decisions.md#the-rest-of-signing-in-is-designed-par-614).
+From the Sign in stories, which work as one prototype (PAR-614).
 
 | Story                                               | Used                                                                                     |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -109,8 +107,7 @@ From the Sign in stories, which work as one prototype (PAR-614). The calls behin
 
 - **The account menu is the start page's:** the avatar at the end of the title bar, with the person's name, their
   organization and role, and Sign out. Someone in no organization sees their email instead. The built start page left it
-  out until sign-in exists (decisions.md, "The start page is built"). Home's organization switcher shows the session's
-  organization, or Personal alone.
+  out until sign-in exists. Home's organization switcher shows the session's organization, or Personal alone.
 - **Signing in is required** (your call, 2026-11-12, PAR-1008, replacing the earlier call that it was optional). Signed
   out, the sign-in screen covers everything, with no way past it, and its foot says Parity never sees your password. A
   copy run from source asks too, and shares the installed app's kept session.
@@ -143,16 +140,16 @@ By hand, in WorkOS's dashboard and each provider's console (PAR-611):
 2. Google, GitHub and Microsoft turned on in each. The sandbox can use WorkOS's demo credentials. Production needs
    Parity's own Google OAuth client, GitHub OAuth app and Microsoft Entra app.
 3. The redirects: `parity://auth/callback` in production, and `http://127.0.0.1:*/auth/callback` in the sandbox.
-4. The roles: admin, billing admin, member and guest (decisions.md, "The portal").
+4. The roles: admin, billing admin, member and guest.
 5. Each environment's client ID, which goes in Parity's code. Client IDs are public. The API key stays in WorkOS's
    dashboard until the service needs it.
 
 ## Still to check
 
-PAR-612 tries these and records what it finds in decisions.md:
+PAR-612 tries these:
 
 - **Whether a public client can refresh, and switch organization:** it can, both with the client ID alone, tried in
-  Staging on 2026-11-05 (decisions.md, "Signing in is built").
+  Staging on 2026-11-05.
 - **Whether WorkOS asks Parity to pick an organization** when a button skips AuthKit's page, and whether a public client
   can answer without the API key.
 - **The URL scheme on each system's installed build,** which only a packaged build can show: unsigned macOS builds

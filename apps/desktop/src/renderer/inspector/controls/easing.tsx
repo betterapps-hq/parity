@@ -4,10 +4,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Slider,
   Tabs,
   TabsContent,
@@ -16,7 +12,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { PanelSelectContent } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { EasingArt, easingRange, easingScale, useReducedMotion } from "../../chrome/token-previews.tsx"
@@ -669,7 +665,10 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
         <span id={id} className="text-xs text-muted-foreground">
           Set by
         </span>
-        <Select
+        <AppSelect
+          variant="panel"
+          aria-labelledby={id}
+          className="w-full"
           items={springModeItems}
           value={mode}
           onValueChange={(next) => {
@@ -679,18 +678,7 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
               onChange({ ...defaultSprings[picked] })
             }
           }}
-        >
-          <SelectTrigger size="sm" aria-labelledby={id} className="h-7 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <PanelSelectContent>
-            {springModeItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </PanelSelectContent>
-        </Select>
+        />
       </div>
       {"duration" in shown ? (
         <>

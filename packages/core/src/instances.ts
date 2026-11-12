@@ -119,8 +119,8 @@ function holderPath(path: string): string {
 }
 
 /**
- * The part of a change to a node that its component binds to params, as values for those params: a bound text, prop
- * or visibility is changed by giving the instance around it a value, so the copy keeps following its param.
+ * The part of a change to a node that its component binds to params, as values for those params: a bound text or prop
+ * is changed by giving the instance around it a value, so the copy keeps following its param.
  */
 function boundArgs(node: DesignNode, change: NodeChange): BoundChange {
   const bind = node.bind
@@ -135,11 +135,6 @@ function boundArgs(node: DesignNode, change: NodeChange): BoundChange {
   if (Object.hasOwn(change, "text") && bind.text) {
     args[bind.text] = change.text
     delete rest.text
-  }
-
-  if (Object.hasOwn(change, "hidden") && bind.visible) {
-    args[bind.visible] = change.hidden === undefined ? undefined : !change.hidden
-    delete rest.hidden
   }
 
   if (change.props && bind.props) {
@@ -191,8 +186,8 @@ function editAt(
 /**
  * Writes a change to a node inside an instance. In the base state it's the instance's own override: only this copy
  * changes, and it stays linked to the component for everything else. In another state, or a variant option, it's that
- * state's or option's patch for the node's path. A text, prop or visibility the component binds to a param sets the
- * param's value on the instance around the node instead.
+ * state's or option's patch for the node's path. A text or prop the component binds to a param sets the param's
+ * value on the instance around the node instead.
  */
 export function editInner(
   container: ContainerSpec,
@@ -285,15 +280,11 @@ function boundParams(node: DesignNode, field: PatchField | undefined): string[] 
   }
 
   if (!field) {
-    return [bind.text, bind.visible, ...Object.values(bind.props ?? {})].filter((param) => param !== undefined)
+    return [bind.text, ...Object.values(bind.props ?? {})].filter((param) => param !== undefined)
   }
 
   if (field.kind === "text") {
     return bind.text ? [bind.text] : []
-  }
-
-  if (field.kind === "hidden") {
-    return bind.visible ? [bind.visible] : []
   }
 
   if (field.kind === "props") {
@@ -346,10 +337,6 @@ export function innerChanges(
 
   if (has(bind?.text)) {
     changes.text = String(given![bind!.text!])
-  }
-
-  if (has(bind?.visible)) {
-    changes.hidden = !given![bind!.visible!]
   }
 
   for (const [prop, param] of Object.entries(bind?.props ?? {})) {

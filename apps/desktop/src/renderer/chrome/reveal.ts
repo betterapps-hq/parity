@@ -6,7 +6,7 @@ import type { ProjectSession } from "../workspace.ts"
  * Brings the selection into view without changing the zoom unless it has to: a design that's off screen is centered,
  * and a layer is scrolled to within its frame.
  */
-export function revealSelection(session: ProjectSession): void {
+export function revealSelection(session: Pick<ProjectSession, "editor" | "selection">): void {
   const editor = session.editor
   const { design, node, note } = session.selection.get()
   const key = note ?? design
