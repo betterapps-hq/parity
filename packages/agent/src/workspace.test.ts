@@ -337,9 +337,19 @@ describe("Get reading the layers an instance fills its slots with (PAR-966)", ()
           id: "copy",
           design: "panel",
           slots: {
-            content: [{ type: "layout", id: "fill", children: [{ type: "text", id: "status", text: "Saving" }] }]
+            content: [
+              {
+                type: "layout",
+                id: "fill",
+                children: [
+                  { type: "text", id: "status", text: "Saving", responsive: { mobile: { text: "Saving offline" } } }
+                ]
+              }
+            ]
           }
-        }
+        },
+        { type: "layout", id: "spacer", children: [] },
+        { type: "instance", id: "blank", design: "panel", slots: { content: [] } }
       ]
     },
     states: [
@@ -348,22 +358,31 @@ describe("Get reading the layers an instance fills its slots with (PAR-966)", ()
     ]
   }
 
-  it("reads them as the state draws them, on the instance they fill", async () => {
+  it("reads them as the state and mode draw them, on the instance they fill", async () => {
     const result = await read(
       [panel, page],
-      `Print(JSON.stringify(Get("page/copy", { state: "done" }).slots.content[0].children))`
+      `const status = (options) => Get("page/copy", options).slots.content[0].children[0].text
+Print(JSON.stringify([status({ state: "done" }), status({ mode: "mobile-light" })]))`
     )
 
-    expect(result).toEqual([{ type: "text", id: "status", text: "Saved" }])
+    expect(result).toEqual(["Saved", "Saving offline"])
   })
 
   it("leaves them out past the depth asked for, as it does a layout's children", async () => {
     const result = await read(
       [panel, page],
-      `Print(JSON.stringify([Get("page", { depth: 1 }).children[0].slots, Get("page", { depth: 2 }).children[0].slots.content[0].children]))`
+      `Print(JSON.stringify([Get("page", { depth: 1 }).children, Get("page", { depth: 2 }).children[0].slots.content[0].children]))`
     )
 
-    expect(result).toEqual([{ content: ["…"] }, ["…"]])
+    // Past the depth an empty layout reads as empty, and a slot as "…" even when nothing fills it.
+    expect(result).toEqual([
+      [
+        { type: "instance", id: "copy", design: "panel", slots: { content: ["…"] } },
+        { type: "layout", id: "spacer", children: [] },
+        { type: "instance", id: "blank", design: "panel", slots: { content: ["…"] } }
+      ],
+      ["…"]
+    ])
   })
 })
 

@@ -2306,14 +2306,15 @@ from the name, and whole-pixel moves; notes beside where they were and at a plac
 variant and viewport, and pasting it in the base and in another state, where the state shows only the copied style,
 taking away the design's values and keeping nothing for what the design doesn't set; and missing components at any
 depth, and none while the project's aren't known. `mapNodes` and `mapChildLists` are tested in
-`packages/core/src/edit.test.ts` ("mapping every node", 5): every place a node holds nodes reached in order, a
-replacement's own layers gone into, the same tree back when nothing changes, each list mapped by its slot, and fresh ids
-for a copy's filled slots. The new screen layers make, its name and the bindings it keeps none of, are in
-`packages/editor/src/new-screen.test.ts` (PAR-546). What a state takes away is tested in `packages/core`: `edit.test.ts`
-("taking a value away"), a prop taken away in one state, a value the state set taken away with nothing kept, setting it
-again and Reset, and removal in the base; `render.test.ts`, a state taking style and props away over the design and the
-viewport's patch, layered patches, an instance's param back to its default, and reading `unset` from a file;
-`packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in one state and refusing an unknown key.
+`packages/core/src/edit.test.ts` ("mapping every node", 6): every place a node holds nodes reached in order, a
+replacement's own layers gone into, the same tree back when nothing changes, each list mapped by its slot, one node
+replaced and one removed inside a filled slot, and fresh ids for a copy's filled slots. The new screen layers make, its
+name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What a state takes
+away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state, a value the
+state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a state
+taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to its
+default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in
+one state and refusing an unknown key.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
 a value a state takes away has no automated DOM test.
@@ -3596,7 +3597,8 @@ Tests:
 - `packages/core/src/decompose.test.ts`, "findRepeats among instances filling a slot" (2, PAR-966): instances told apart
   by their fills with the values that differ found, and a shorter fill beside a longer one.
 - `packages/agent/src/workspace.test.ts`, "Get reading the layers an instance fills its slots with" (2, PAR-966): the
-  fill as a state draws it, and left out past the depth asked for.
+  fill as a state and a mode draw it, and left out past the depth asked for, an empty layout reading as empty and an
+  empty fill as `"…"`.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
 - Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
 

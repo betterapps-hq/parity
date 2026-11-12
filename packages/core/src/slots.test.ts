@@ -4,7 +4,8 @@ import {
   type DesignNode,
   type InstanceNode,
   type LayoutNode,
-  parseCanvasDocument
+  parseCanvasDocument,
+  walkNodes
 } from "./document.ts"
 import { findNode, insertNode, locateNode, mapNode, withFreshIds } from "./edit.ts"
 import { detachInstance } from "./instances.ts"
@@ -303,7 +304,17 @@ describe("filling an instance's slots", () => {
     const detached = detachInstance(detachInstance(screen, "billing", both), "usage", both)
     expect(texts(resolveDesign(detached.root, undefined, "desktop", both))).toEqual(before)
     expect(JSON.stringify(detached.root)).not.toContain('"bind"')
-    // Two copies of one component don't share the ids of what its instance filled its slot with.
+    // Each copy's lead gets an id of its own, not the component's, so the design never holds one id twice.
+    const leads: string[] = []
+
+    walkNodes(detached.root, (node) => {
+      if (node.type === "text" && (node.text === "Billing" || node.text === "Usage")) {
+        leads.push(node.id)
+      }
+    })
+
+    expect(leads).toHaveLength(2)
+    expect(new Set([...leads, "lead"]).size).toBe(3)
     expect(() => parseCanvasDocument({ version: 3, containers: [component, panel, detached] })).not.toThrow()
   })
 
