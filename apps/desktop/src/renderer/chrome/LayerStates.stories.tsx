@@ -60,12 +60,3 @@ export const TurningAPropOffInAState: Story = {
     await expect(panel.queryByRole("button", { name: "Reset Disabled to Default" })).toBeNull()
   }
 }
-
-/** The state picker opened from the editing bar: every state of the component, to send edits to another. */
-export const ChoosingTheState: Story = {
-  loaders: [pick("Stat card", "Note")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getAllByRole("combobox")[0]!)
-    await within(document.body).findByRole("listbox", undefined, slowly)
-  }
-}

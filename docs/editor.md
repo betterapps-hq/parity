@@ -4527,8 +4527,8 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerPanel.stories.tsx`
-  DesignInstance (no State row), and `chrome/StatesSection.stories.tsx` on components.
+- Stories: `chrome/LayerPanel.stories.tsx` Text (a screen's layer, no Editing control) and DesignInstance (no State
+  row), and `chrome/StatesSection.stories.tsx` on components.
 
 ### A design's modes in its own order (PAR-923)
 
