@@ -14,7 +14,7 @@ import { setPicking } from "./inspect.ts"
  * server, which tags each element its files write.
  */
 const meta = {
-  title: "Parity/Explorations/Code panel",
+  title: "Parity/Explorations/Code/Code panel",
   component: CodeExploration
 } satisfies Meta<typeof CodeExploration>
 

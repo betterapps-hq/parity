@@ -74,8 +74,8 @@ describe("layerKind", () => {
 })
 
 describe("layerActions", () => {
-  const all = { stories: true, code: true, design: true }
-  const none = { stories: false, code: false, design: false }
+  const all = { stories: true, design: true }
+  const none = { stories: false, design: false }
   const actions = (node: DesignNode, has = all) => layerActions(node, has, libraries)
 
   it("goes to the component from an instance of a design, when the design is the project's", () => {
@@ -83,14 +83,9 @@ describe("layerActions", () => {
     expect(actions({ type: "instance", id: "i", design: "plan-card" }, none)).toEqual([])
   })
 
-  it("opens a code component in Storybook and the editor, each only where the project has it", () => {
-    expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual([
-      "open-in-storybook",
-      "open-in-editor"
-    ])
-    expect(actions({ type: "component", id: "n", component: "nova/Card" }, { ...none, code: true })).toEqual([
-      "open-in-editor"
-    ])
+  it("opens a code component in Storybook only where the project has its stories, and never offers the editor", () => {
+    expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual(["open-in-storybook"])
+    expect(actions({ type: "component", id: "n", component: "nova/Card" }, none)).toEqual([])
   })
 
   it("offers nothing for an icon or a layer that isn't a component", () => {

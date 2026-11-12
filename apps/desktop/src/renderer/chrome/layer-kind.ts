@@ -66,19 +66,21 @@ export function layerKind(
   return plain(layout)
 }
 
-/** What a selection's header does at the end of its row, before a layer's eye. */
+/**
+ * What a selection's header does at the end of its row, before a layer's eye. `open-in-editor` is only drawn by the
+ * Open in editor exploration, since the code side was set aside (PAR-1027).
+ */
 export type HeaderAction = "open-in-storybook" | "open-in-editor" | "go-to-component"
 
-/** What the project has for a layer's component: stories for it, its code, and a design of it to go to. */
+/** What the project has for a layer's component: stories for it, and a design of it to go to. */
 export interface ComponentHas {
   stories: boolean
-  code: boolean
   design: boolean
 }
 
 /**
  * What a layer's header offers: an instance of a design goes to the component, and a code component opens in Storybook
- * where it has stories and in the editor where the project has its code. An icon and a layer that isn't a component
+ * where it has stories. Open in editor was set aside with the code side (Explorations › Code › Open in editor). An icon and a layer that isn't a component
  * offer nothing but the eye.
  */
 export function layerActions(
@@ -94,17 +96,7 @@ export function layerActions(
     return []
   }
 
-  const actions: HeaderAction[] = []
-
-  if (has.stories) {
-    actions.push("open-in-storybook")
-  }
-
-  if (has.code) {
-    actions.push("open-in-editor")
-  }
-
-  return actions
+  return has.stories ? ["open-in-storybook"] : []
 }
 
 /** The library a component comes from: the one whose id begins the component's, as `lucide` begins `lucide/Check`. */
