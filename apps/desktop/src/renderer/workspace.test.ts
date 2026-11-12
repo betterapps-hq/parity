@@ -559,6 +559,90 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTabs()).toEqual([])
   })
 
+  const restarted = { ...info, guestUrl: "http://127.0.0.1:5008/guest" }
+
+  it("closes the project a reconnect reopened when its tab closed meanwhile (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    await workspace.close(info.id)
+    expect(closes).toEqual([info.id])
+    opens[1]!(restarted)
+    await reconnecting
+    expect(closes).toEqual([info.id, info.id])
+    expect(guest.loads).toHaveLength(1)
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project and lets go of the guest a reconnect loaded when its tab closed meanwhile (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    opens[1]!(restarted)
+    await settle()
+    await workspace.close(info.id)
+    guest.loads[1]!(loaded)
+    await reconnecting
+    expect(closes).toEqual([info.id, info.id])
+    expect(guest.released).toEqual([info.guestUrl, restarted.guestUrl])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project when a reconnect's guest fails to load after its tab closed (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    opens[1]!(restarted)
+    await settle()
+    await workspace.close(info.id)
+    guest.failures[1]!(new Error("The guest didn't load"))
+    await reconnecting
+    expect(closes).toEqual([info.id, info.id])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("leaves one project and one guest for a tab closed and opened again during a reconnect (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    opens[1]!(restarted)
+    await settle()
+    await workspace.close(info.id)
+    const reopening = workspace.open(info.root)
+    opens[2]!(restarted)
+    await settle()
+    const fresh = { guest: { fresh: true }, sheet: {}, tokens: [] }
+    guest.loads[2]!(fresh)
+    await reopening
+    guest.loads[1]!(loaded)
+    await reconnecting
+    expect(closes).toEqual([info.id])
+    expect(guest.released).toEqual([info.guestUrl])
+    const { session } = workspace.getTab(info.id)!
+    expect(session?.info.guestUrl).toBe(restarted.guestUrl)
+    expect(session?.loaded).toBe(fresh)
+  })
+
+  it("draws a tab from the latest reconnect when the service restarts again during one (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const first = workspace.reconnect()
+    const second = workspace.reconnect()
+    const again = { ...info, guestUrl: "http://127.0.0.1:5016/guest" }
+    opens[2]!(again)
+    await settle()
+    const latest = { guest: { latest: true }, sheet: {}, tokens: [] }
+    guest.loads[1]!(latest)
+    await second
+    opens[1]!(restarted)
+    await first
+    expect(guest.loads).toHaveLength(2)
+    const { session } = workspace.getTab(info.id)!
+    expect(session?.info.guestUrl).toBe(again.guestUrl)
+    expect(session?.loaded).toBe(latest)
+    expect(closes).toEqual([])
+  })
+
   it("opens a project again when asked to detect it again only once what detection reads changed (PAR-820)", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)

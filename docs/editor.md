@@ -6128,18 +6128,25 @@ to load after its tab closed. Each open is tracked on its own, so an earlier ope
 a newer tab for the same project. While another tab's open hasn't heard which project it is, as one opening the default
 project or a `.par` file hasn't, the close waits for it, since it may be the same project.
 
-Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts` and
-`settleDrops`.
+When the project service starts again, after a crash or a change to its code, each tab opens its project in the new
+service and loads its guest from there (`reconnect`). A tab closed meanwhile closes what the new service opened for it
+and lets go of the guest it loaded, so no builder runs on for it (PAR-978). One closed and opened again keeps the one
+project and draws the guest its new open loaded. When the service starts again during a reconnect, the tab draws from
+the latest one.
+
+Code: `closeNow`, `open`, `reload` and `reconnect` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts`
+and `settleDrops`.
 
 A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
 cancels it.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (13: closed before the service answers, closed while the guest
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (18: closed before the service answers, closed while the guest
 loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
 project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
 guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
-the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, and a project that
-finished opening, closed with its tab).
+the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, closed while a reconnect
+opens the project and while it loads the guest, a reconnect's guest failing after its tab closed, closed and opened
+again during a reconnect, a second reconnect during one, and a project that finished opening, closed with its tab).
 
 Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
 after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
