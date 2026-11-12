@@ -37,6 +37,15 @@ const mainEnvironment = z.object({
     .string()
     .regex(/^[0-9a-f]{40}$/, "expected a full commit hash")
     .optional(),
+  /**
+   * Makes a copy run from source ask for sign-in before anything else, as an installed copy always does (PAR-1008).
+   */
+  PARITY_REQUIRE_SIGN_IN: z.literal("1").optional(),
+  /**
+   * Someone to start signed in as, as JSON, for the end-to-end tests and `pnpm perf`: `{"email":"ada@example.com"}`.
+   * A stand-in with no tokens, which never asks WorkOS. Only a copy run from source takes it.
+   */
+  PARITY_SIGNED_IN_AS: nonBlankString.optional(),
   /** The dev runner's process id, which it sets on the copy it runs. */
   PARITY_DEV_RUNNER: wholeNumber.pipe(z.int().min(1)).optional(),
   /** Names a test pass, so its events, errors and replays group together in Sentry (PAR-630). */

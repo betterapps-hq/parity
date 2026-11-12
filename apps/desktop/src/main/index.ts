@@ -57,7 +57,7 @@ import type {
 } from "../shared/service.ts"
 import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from "../shared/telemetry-run.ts"
 import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "../shared/tracing.ts"
-import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
+import { type Account, createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { retryingCapture } from "./capture-retry.ts"
@@ -81,6 +81,7 @@ import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, rende
 import { createReports, offersCrashReports } from "./report.ts"
 import { localHistory } from "./search-history.ts"
 import { sessionStore } from "./session-store.ts"
+import { readStandIn, standInAccount } from "./stand-in-account.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
   agentCalled,
@@ -135,6 +136,12 @@ const telemetrySetting = new TelemetrySetting({
 const appManifest = (): JsonValue => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8"))
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
+
+/**
+ * Whether this copy needs someone signed in before anything else (PAR-1008): an installed copy always, and one run from
+ * source only with `PARITY_REQUIRE_SIGN_IN`, so agents and the tests work without an account.
+ */
+const signInRequired = installed || environment.PARITY_REQUIRE_SIGN_IN === "1"
 const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
 
 /** What GitHub says this version is: a beta, or promoted to everyone, kept between runs. */
@@ -501,7 +508,8 @@ function createWindow(): void {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
         `${telemetryRunArgument}${telemetryRun}`,
-        ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : [])
+        ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : []),
+        ...(signInRequired ? ["--parity-sign-in-required"] : [])
       ],
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,
@@ -736,44 +744,51 @@ function appWindows(): BrowserWindow[] {
  */
 const packaged = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 
-const account = createAccount({
-  clientId: workosClientId,
-  fetch: (url, init) => net.fetch(url, init),
-  redirect: () =>
-    packaged
-      ? Promise.resolve({ uri: schemeRedirect, close: () => undefined })
-      : listenOnLoopback((link) => account.takeLink(link)),
-  openBrowser: (url) => shell.openExternal(url),
-  store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform, (problem) =>
-    events.telemetry.track("account.storeFailed", problem)
-  ),
-  changed: (state: AccountState) => {
-    for (const window of appWindows()) {
-      window.webContents.send(ipc.accountChanged, state)
-    }
-  },
-  focus: () => {
-    const [window] = appWindows()
+const accountChanged = (state: AccountState) => {
+  for (const window of appWindows()) {
+    window.webContents.send(ipc.accountChanged, state)
+  }
+}
 
-    if (!window) {
-      return
-    }
+/** Who the tests and `pnpm perf` start signed in as, without WorkOS. An installed copy never takes one. */
+const standIn = packaged || !environment.PARITY_SIGNED_IN_AS ? undefined : readStandIn(environment.PARITY_SIGNED_IN_AS)
 
-    if (window.isMinimized()) {
-      window.restore()
-    }
+const account: Account = standIn
+  ? standInAccount(standIn, accountChanged)
+  : createAccount({
+      clientId: workosClientId,
+      fetch: (url, init) => net.fetch(url, init),
+      redirect: () =>
+        packaged
+          ? Promise.resolve({ uri: schemeRedirect, close: () => undefined })
+          : listenOnLoopback((link) => account.takeLink(link)),
+      openBrowser: (url) => shell.openExternal(url),
+      store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform, (problem) =>
+        events.telemetry.track("account.storeFailed", problem)
+      ),
+      changed: accountChanged,
+      focus: () => {
+        const [window] = appWindows()
 
-    window.show()
-    window.focus()
-  },
-  now: Date.now,
-  later: (run, ms) => {
-    const timer = setTimeout(run, ms)
+        if (!window) {
+          return
+        }
 
-    return () => clearTimeout(timer)
-  },
-  telemetry: events.telemetry
-})
+        if (window.isMinimized()) {
+          window.restore()
+        }
+
+        window.show()
+        window.focus()
+      },
+      now: Date.now,
+      later: (run, ms) => {
+        const timer = setTimeout(run, ms)
+
+        return () => clearTimeout(timer)
+      },
+      telemetry: events.telemetry
+    })
 
 /** A sign-in link this copy got from the system: its own sign-in's, or another copy's, which it passes on. */
 async function receiveLink(link: string): Promise<boolean> {

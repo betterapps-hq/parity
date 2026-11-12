@@ -4981,7 +4981,8 @@ taking my recommendation:
 - **Parity talks to WorkOS itself, with no new library:** a public client with PKCE, on `fetch` and zod, in a new
   `@parity-app/account` package. `@workos/authkit-electron` was passed over: it's at 0.1.2, needs an older
   `@workos-inc/node` than Better Apps uses, and brings `electron-store` and its own React provider.
-- **Signing in is optional.** Nothing that works on local folders asks for it.
+- **Signing in is optional.** Nothing that works on local folders asks for it. (Replaced on 2026-11-12: an installed
+  copy requires it, PAR-1008.)
 
 My calls:
 
@@ -8008,3 +8009,25 @@ skipped the sender check. My calls:
   apart.
 - **The second domain is its own Terraform resource,** since the shared `cloudflare-web` module takes one custom domain
   for an environment.
+
+## An installed copy needs you signed in (PAR-1008)
+
+Your calls, on 2026-11-12: you must sign in when the app opens, the sign-in screen loses "Open a folder on this computer
+without signing in", and "Parity never sees your password" sits at its foot in that link's place. This replaces "Signing
+in is optional".
+
+My calls:
+
+- **Only an installed copy requires it.** A copy run from source asks nobody, so agents, `pnpm perf` and the end-to-end
+  tests work without an account, and `PARITY_REQUIRE_SIGN_IN=1` makes one ask, to try it.
+- **The screen covers what's open and changes nothing under it.** Open projects and unsaved changes stay as they are, as
+  with Session ended. The title bar and its menus still show, so a project opened from the File menu opens behind the
+  screen.
+- **A session that ends with another account still signed in** moves you to that account and says so in the dialog, as
+  before. Only with nobody left does the screen show.
+- **Tests start signed in as a stand-in,** from `PARITY_SIGNED_IN_AS`, with no tokens and without WorkOS, so no real
+  account or token is in CI. An installed copy never takes one. Nothing that needs Parity's service works as a stand-in.
+- **A first launch with no connection stays on the screen,** since there's no way to sign in without one. Someone who
+  signed in before stays signed in offline, as before.
+- **It ships after signing in is proven in an installed build** (PAR-651), since nothing gets past the screen without
+  it.

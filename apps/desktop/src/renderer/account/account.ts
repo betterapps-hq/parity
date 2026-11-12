@@ -8,9 +8,7 @@ import {
   type SignInRequest,
   signedOut
 } from "../../shared/account.ts"
-import { actions } from "../chrome/actions.ts"
 import { errorMessage, reportError, track } from "../report-error.ts"
-import { workspace } from "../workspace.ts"
 import { currentOrganization } from "./OrganizationBadge.tsx"
 
 /**
@@ -43,31 +41,22 @@ export function resetAccountView(): void {
   update({ loaded: true, state: signedOut, place: undefined, untilQuit: false })
 }
 
-/** The person's choice on the sign-in screen, so it shows only on first launch. */
-const choiceKey = "parity.signIn"
-
-function remember(choice: "skipped" | "signed-in"): void {
-  try {
-    localStorage.setItem(choiceKey, choice)
-  } catch {
-    // Storage that's full or off only means the screen may show again.
-  }
-}
+/**
+ * Whether this copy needs someone signed in before anything else (PAR-1008): an installed copy does, and a copy run
+ * from source only when it's asked to, so agents and the tests work without an account. Main says which.
+ */
+const required = (): boolean => window.canvasHost.signInRequired === true
 
 /**
- * Whether this is the first launch, when the sign-in screen shows: no choice made on it yet, no project Parity knows,
- * and none it was started with, as the dev runner and the end-to-end tests start it.
+ * Where the sign-in screens show for a state: over everything while this copy needs someone signed in and nobody is,
+ * and otherwise wherever they were.
  */
-function firstLaunch(): boolean {
-  let chosen: string | null = null
-
-  try {
-    chosen = localStorage.getItem(choiceKey)
-  } catch {
-    // Unreadable storage counts as no choice.
+function placeFor(state: AccountState, place: AccountView["place"]): AccountView["place"] {
+  if (required() && !state.account) {
+    return "screen"
   }
 
-  return chosen === null && !window.canvasHost.initialProject && workspace.getProjects().length === 0
+  return place === "screen" ? undefined : place
 }
 
 /** Takes what main says, checked against its schema, since IPC is data from outside. */
@@ -95,10 +84,6 @@ export function receiveAccount(raw: unknown): void {
   const signedIn = !!state.account && (!was.account || (was.attempt?.at === "waiting" && !state.attempt))
   let place = before.place
 
-  if (!before.loaded && !state.account && firstLaunch()) {
-    place = "screen"
-  }
-
   if (signedIn) {
     place = undefined
   }
@@ -108,11 +93,7 @@ export function receiveAccount(raw: unknown): void {
     place = "dialog"
   }
 
-  update({ loaded: true, state, place })
-
-  if (signedIn) {
-    remember("signed-in")
-  }
+  update({ loaded: true, state, place: placeFor(state, place) })
 
   if (signedIn && before.loaded && state.account) {
     joinedToast(state.account.email, was.accounts)
@@ -200,24 +181,7 @@ export const accountActions = {
   back: () => void window.canvasHost.account.cancel(),
   /** Closes the dialog, stopping a sign-in that's waiting. */
   close: () => {
-    update({ place: undefined })
-    void window.canvasHost.account.cancel()
-  },
-  /** "Open a folder on this computer without signing in": the folder picker, over Home, which stays if it's closed. */
-  skip: () => {
-    remember("skipped")
-    update({ place: undefined })
-    void window.canvasHost.account.cancel()
-    void actions.openFolder.run("panel")
-  },
-  /** A project opened another way while the sign-in screen showed, as from the File menu: that's going on without. */
-  leaveScreen: () => {
-    if (view.place !== "screen") {
-      return
-    }
-
-    remember("skipped")
-    update({ place: undefined })
+    update({ place: placeFor(view.state, undefined) })
     void window.canvasHost.account.cancel()
   },
   /** Signing in again as an account whose session ended: straight to the browser, the way it signed in before. */

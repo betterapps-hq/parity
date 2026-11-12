@@ -6271,14 +6271,18 @@ Gaps: nothing checks automatically that the lights stay on opacity and transform
 
 You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
 [proposals/sign-in.md](proposals/sign-in.md) designs it, and can stay signed in to several accounts, such as your own
-and your company's. Signing in is optional: nothing that works on local folders asks for it. Parity carries WorkOS's
+and your company's. An installed copy needs you signed in before anything else (PAR-1008). Parity carries WorkOS's
 client ID and never its API key, and the window never sees a token.
 
-- **The first launch shows the sign-in screen** in Home's place: Continue with Google, GitHub or Microsoft, or a work
-  email, and "Open a folder on this computer without signing in", which opens the folder picker over Home. Signing in or
-  going on without is remembered (`parity.signIn` in local storage), and so is opening a project another way while it
-  shows. It doesn't show when Parity already knows a project, or was started with one, as `pnpm dev` and the end-to-end
-  tests start it.
+- **Signed out, an installed copy shows the sign-in screen** over everything: Continue with Google, GitHub or Microsoft,
+  or a work email, and at its foot that Parity never sees your password. There's no way past it. Signing out, or a
+  session WorkOS ended with no other account to fall back to, leads back to it, and what was open stays as it was
+  underneath (`placeFor`).
+- **A copy run from source asks nobody to sign in,** so agents, `pnpm perf` and the end-to-end tests work without an
+  account. `PARITY_REQUIRE_SIGN_IN=1` makes one ask as an installed copy does. `pnpm dev` shares the installed app's
+  kept accounts, so signing in once on a computer covers it; a copy with its own user data folder, as the tests have,
+  starts signed in as a stand-in with `PARITY_SIGNED_IN_AS`, JSON naming an email, with no tokens and without WorkOS
+  (`main/stand-in-account.ts`, `launch({ signedInAs })`). An installed copy takes neither.
 - **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
   Signed in already, it's Add another account, which says the accounts you're in stay signed in.
