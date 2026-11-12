@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

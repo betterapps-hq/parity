@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 05:54:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 07:22:15 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.68.1
+
+Thu, 12 Nov 2026 07:22:15 GMT
+
+### Patches
+
+- Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes
+  (ajcraswell@gmail.com)
+- Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI
+  (ajcraswell@gmail.com)
 
 ## 0.68.0
 
