@@ -7,10 +7,10 @@ rules and snapping (PAR-33) and the design store's history (PAR-34), on 2026-10-
 models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and the selection model and edit target
 (PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
 `@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
-(PAR-618), on 2026-11-05. `@parity-app/style` holds the stored style and its CSS declarations (PAR-939), and the ledger
-of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints and reads
-classes through (PAR-943), on 2026-11-11. The rule and the first items are in [decisions.md](../decisions.md) and in
-Linear's Package boundaries stream.
+(PAR-618), on 2026-11-05. `@parity-app/style-schema` holds the stored style and its CSS declarations (PAR-939), and the
+ledger of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints
+and reads classes through (PAR-943), on 2026-11-11. The rule and the first items are in [decisions.md](../decisions.md)
+and in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -88,9 +88,9 @@ when it's spread through UI code. Today:
   (`renderer-react`, `builder-vite` and `styles-tailwind`), `@parity-app/media-player` and the fixtures.
   `renderer-react` and the media player are the packages with React.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
-  imports nothing but zod, which checks the data Parity didn't make (PAR-588), and `@parity-app/style`, which a
-  document's styles are held in and drawn through (PAR-939). `@parity-app/style` imports nothing but zod and css-tree,
-  which matches a value against a property's grammar (PAR-940).
+  imports nothing but zod, which checks the data Parity didn't make (PAR-588), and `@parity-app/style-schema`, which a
+  document's styles are held in and drawn through (PAR-939). `@parity-app/style-schema` imports nothing but zod and
+  css-tree, which matches a value against a property's grammar (PAR-940).
 - **Each package's tests run in Vitest without Electron.** They may use Node to set up files. A rule that changes gets a
   test where it lives.
 - **The guard is mechanical.** pnpm already stops a package importing what its `package.json` doesn't declare, and
@@ -112,7 +112,7 @@ when it's spread through UI code. Today:
 | `@parity-app/channel`                   | Requests and replies over any port: request ids, waiting for a port, failing on close, coded details both ways, unknown methods and checked params.                                                                          | The preload script, `utility/index.ts`, `render.ts`, `console.ts`, `worker-client.ts` and main (PAR-565).             |
 | `@parity-app/telemetry`                 | Telemetry's event model without Sentry: the envelope, registered events with zod schemas, spans with W3C trace IDs, sinks, a test sink and the last 500 events.                                                              | New code, from [product-telemetry.md](product-telemetry.md) (PAR-618).                                                |
 | `@parity-app/media-player`              | Playing video with the app's own controls, at the edge since it's React: the player, a tile's preview and its length, and what the player's keys do.                                                                         | New code, approved in Storybook (PAR-891).                                                                            |
-| `@parity-app/style`                     | What a layer's style means: the stored style, its CSS declarations both ways, the ledger of CSS properties, validation, and the contract each styling framework's adapter implements ([style-package.md](style-package.md)). | `nodeStyle` in `core/document.ts` and the style-to-CSS in `core/render.ts` (PAR-939); the rest is PAR-940 to PAR-944. |
+| `@parity-app/style-schema`              | What a layer's style means: the stored style, its CSS declarations both ways, the ledger of CSS properties, validation, and the contract each styling framework's adapter implements ([style-package.md](style-package.md)). | `nodeStyle` in `core/document.ts` and the style-to-CSS in `core/render.ts` (PAR-939); the rest is PAR-940 to PAR-944. |
 
 ### `@parity-app/code`: design and code, both ways
 
@@ -232,6 +232,9 @@ Electron, with no tests.
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
   service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`.
+- **What a window asks main over IPC** (PAR-965). `shared/host-methods.ts` declares each method with its params' schema,
+  its answer and who may ask. `main/host-methods.ts` checks each request against it and `main/host-handlers.ts` answers,
+  both without Electron; `main/index.ts` passes them what they need of the app.
 - **Agent calls' desktop half** (PAR-564): `utility/agent.ts` is the HTTP endpoint and `desktopHost`, which reaches the
   window, the offscreen renderer and the console, and writes PNG files. Which method does what is `@parity-app/agent`'s.
 - **The renderer:** views, tldraw wiring, hooks, and DOM measuring.

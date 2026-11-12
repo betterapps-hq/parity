@@ -1,5 +1,9 @@
 # Decisions
 
+- **The style package is `@parity-app/style-schema` (PAR-999).** You found `@parity-app/style` too vague on 2026-11-12
+  and chose this name. Only the name and the folder (`packages/style-schema`) changed: the schema, the ledger,
+  `validate` and the adapter contract are as they were. Entries below written before the rename use the new name.
+
 - **Tokens come in and go out through the styles adapter, and nothing between knows the framework (PAR-911).** You asked
   for this on 2026-11-11, instead of special cases per library. `StylesAdapter` already read a framework's theme
   (`loadTheme`); it now writes token values too (`writeTokens`), and `@parity-app/tokens` keeps only the plain writer
@@ -51,9 +55,9 @@
     Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
     Layer order in a Block layout wait for those.
 
-- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
-  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
-  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+- **Plain CSS is printed and read in `@parity-app/style-schema`, with css-tree's parser, not Lightning CSS (PAR-944).**
+  Step 6 of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for
+  each place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
   `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
   rules it would have written and keeps the rest as text.
   - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
@@ -120,7 +124,7 @@
     browser and check nothing without one. A refusal now names the line of the snippet, and the browser is still asked
     after.
 
-- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+- **`@parity-app/style-schema` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
   [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
   `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
   - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
@@ -132,16 +136,16 @@
     replaces the inline styles with rules.
   - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
     `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
-    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
-    itself.
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports
+    `@parity-app/style-schema` itself.
 
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
-  package, `@parity-app/style`, holds the stored style, moved out of core, and turns it into CSS declarations and back;
-  each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling each
-  class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data, gives
-  each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
+  package, `@parity-app/style-schema`, holds the stored style, moved out of core, and turns it into CSS declarations and
+  back; each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling
+  each class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data,
+  gives each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
   package, with the schema leaving core; one format change that renames the keys after their CSS properties, after
   PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
   rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
@@ -3677,6 +3681,37 @@ longer wake the measuring PAR-522 set up; the overlay follows the camera on its 
   measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
   through every zoom.
 
+## One reading of a frame for every gesture (PAR-967)
+
+The architecture review of 2026-11-11 found screen pixels per design pixel worked out three ways in thirteen places, and
+one drag mixing two of them (see editor.md, One reading of a frame for every gesture). `canvas/frame-geometry.ts` now
+answers for a frame host. My calls:
+
+- **Read from the DOM, not the camera.** The scale is the frame's drawn width over its laid out width. The camera's zoom
+  times `data-scale` was cheaper but disagrees with the boxes it's used beside until tldraw has drawn the camera, and
+  tldraw writes the camera rounded, so it's off at far zooms too. `editor.getZoomLevel()` stays only where there's no
+  frame to read: drawing a new frame on the canvas, boards, labels and the zoom control. The host's `data-scale` is
+  gone.
+- **Screen pixels throughout, converted once.** Boxes come back in screen pixels, as pointer events, hit testing and
+  tldraw's `screenToPage` speak, and `areaSpace` takes them to the overlay's pixels where it draws. Answering in the
+  overlay's pixels with the area passed in was rejected: every gesture would mix two spaces.
+- **Lazy and kept by nobody.** A `FrameGeometry` reads only what's asked of it, when it's asked, and keeps nothing, so
+  the overlay still chooses what to measure (PAR-577) and nothing is cached in page units (PAR-653). A gesture that
+  wants the frame as it began keeps the numbers it read.
+- **An app module, with its arithmetic apart.** It reads the DOM, so it's the app's. The sums are exported functions
+  tested from numbers, and what gestures make of it, `layer-measure.ts`, takes the geometry as plain boxes, so the
+  consumers are tested in Node. One Chrome suite reads a real frame across zoom, frame scale and a transform.
+- **A node's own scale includes its transforms,** read as its border box on screen over its computed size, which is
+  exact. The text editor and padding handles used `rect.width / offsetWidth`, which rounds to the pixel and ignored a
+  layer turned on its side; one turned or stretched unevenly now takes the frame's scale.
+- **A containing block outside the frame is measured at the frame's scale.** A layer placed absolutely with nothing
+  positioned around it in the design has the frame's outline, `.mode-frame`, as its `offsetParent`, and the frame's
+  `zoom` doesn't scale that outline. Read at its own scale, a companion frame at half size gave half the insets. A
+  review of this change found it before it merged.
+- **Frame skeletons keep their own ratio for now.** `measureFrame` in `canvas/frame-skeletons.ts` divides the frame's
+  drawn width by its width too, but PAR-954 and PAR-955, in progress, work on frames' bitmaps and skeletons, so it moves
+  over in PAR-996 once they land.
+
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
 The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
@@ -4313,9 +4348,10 @@ below. My calls on how they move:
     gives no contrast detail, and axe-core's own message shows instead.
 - **The main process checks its inputs (PAR-592).** My calls:
   - Each `ipcMain.handle` argument has a schema in `shared/ipc-checks.ts`, and `checked(schema, handler)` refuses a bad
-    one with `TypeError` and the pointer before the handler runs. Open in editor's request is a strict object whose
-    `file` must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's
-    types for these come from the schemas, through `import type`, so the window doesn't load zod for them.
+    one with `TypeError` and the pointer before the handler runs. (Since PAR-965, below, `hostMethods` gives each method
+    its schema and main's one registration does the check.) Open in editor's request is a strict object whose `file`
+    must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's types
+    for these come from the schemas, through `import type`, so the window doesn't load zod for them.
   - Main's environment variables are one schema in `main/environment.ts`, read once as main starts. A bad value stops
     main there, naming the variable, since only scripts, tests and the AppImage runtime set them. An empty variable
     counts as unset. `PARITY_WINDOW_SIZE` is read as a width and height, the ports and process ids as numbers.
@@ -5256,7 +5292,7 @@ requests, the worker client and main, and the copies disagreed. Now `@parity-app
   its tree took 0.2 ms, and `previews.lookup` with 300 such previews 23 ms. A save waits on it, which the person doesn't
   see, so it stays.
 - **The `canvas:*` IPC names are declared once,** in `shared/channels.ts`, for the preload script and main. Checking
-  main's IPC arguments is PAR-592.
+  main's IPC arguments is PAR-592. (What a window asks main got its own method map in PAR-965, below.)
 - **The window's answers keep their details on the way to the service,** since the preload passes them through. The
   service's answers keep them on the way to the page too (PAR-580, below).
 
@@ -7586,9 +7622,9 @@ My calls:
   in its state. Showing one frame going from state to state is a feature of its own.
 - **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
   offer Create token, and the Design tab's other fields don't either.
-- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
-  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
-  spring maths from there.
+- **The schema, its CSS and the spring maths are in `@parity-app/style-schema`** (`motion.ts`), beside the rest of the
+  stored style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import
+  the spring maths from there.
 
 ## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
 
@@ -7840,25 +7876,28 @@ the old pictures, "that's the point of the cache", with the screens' sizes. My c
 ## One function maps every node (PAR-966)
 
 Core had `walkNodes` and `childEntries` to visit a tree but nothing to rebuild one, so each caller descended by a node's
-type, and seven of them checked `type === "component"` and stopped at an instance. The layers an instance fills its
+type, and eight of them checked `type === "component"` and stopped at an instance. The layers an instance fills its
 slots with (PAR-84) were skipped. My calls:
 
 - **`mapChildLists` is where a node is known to hold nodes when a tree is rebuilt,** and `childEntries` where it's read:
   a layout's children, a code component's slots, an instance's filled slots. `mapNodes` rebuilds a whole tree on it, a
   node before what it holds, and `mapNode`, `withFreshIds`, Detach, the clipboard's `asShown` and `fitBindings`,
-  `libraryDesigns` and the composition example's numbering all go through it. They sit in `edit.ts` beside `mapNode` and
-  `childEntries`; `walkNodes` stays in `document.ts`, which `edit.ts` imports.
+  `libraryDesigns`, the composition example's numbering and the agent's `drawnLayer` all go through it. They sit in
+  `edit.ts` beside `mapNode` and `childEntries`.
+- **`walkNodes` is left as a second place that knows,** checking types itself. It's in `document.ts`, and calling
+  `childEntries` from there would import `edit.ts`, which imports `render.ts`, which imports `document.ts` back.
 - **What isn't a node tree reads `childEntries` instead.** `structure` in `decompose.ts` makes a string to compare, and
   the agent's `elide` makes a tree that holds `"…"`, so neither maps nodes to nodes. Both now ask `childEntries` where
   the layers are rather than checking the node's type.
-- **Five of the seven were wrong, each shown by a test that failed first.** A copy left an instance's fill as the base
-  state has it; a paste kept the fill's bindings to params the design lacks; a library's design left an instance in a
-  fill pointing at `settings-row` rather than `nova/settings-row`, which the app drew as a missing design; Detach left a
-  nested instance's fill bound, with the component's ids, so detaching two copies gave one design the same id twice; and
-  an agent's `Get` in a state read the fill as stored and ignored `depth` for it.
-- **`findRepeats` was wrong in a way the review didn't name.** It took two instances of one component for the same part
-  whatever filled their slots, then read the values that differ by position, so a shorter fill after a longer one threw
-  a `TypeError`. A fill now counts as structure.
+- **Seven of the eight were wrong, each shown by a test that failed first.** Six as the review reasoned: a copy left an
+  instance's fill as the base state has it; a paste kept the fill's bindings to params the design lacks; a library's
+  design left an instance in a fill pointing at `settings-row` rather than `nova/settings-row`, which the app drew as a
+  missing design; Detach left a nested instance's fill bound, with the component's ids, so detaching two copies gave one
+  design the same id twice; and an agent's `Get` in a state read the fill as stored (`drawnLayer`) and ignored `depth`
+  for it (`elide`).
+- **The seventh, `structure`, broke `findRepeats` in a way the review didn't name.** It took two instances of one
+  component for the same part whatever filled their slots, then read the values that differ by position, so a shorter
+  fill after a longer one threw a `TypeError`. A fill now counts as structure.
 - **The composition example's `numbered` was never wrong.** It's built from a code component's sample, which has no
   instances. It moved onto `mapNodes` so no walker is left that would skip one.
 - **`elide` keeps one difference:** past the depth a layout with nothing in it reads as `[]`, and a slot as `["…"]`
@@ -7886,6 +7925,52 @@ too, and for the hashes to serve change detection, highlighting and affected tes
   per lockfile format; until then a dependency update recaptures everything, as before.
 - **Traces are built in the service, in `utility/frame-traces.ts`, over `contentReader` and `traceDigest` in
   `@parity-app/project`,** so visual tests and change highlighting can take traces of their own from the same parts.
+
+## What a window asks main is one method map (PAR-965)
+
+The window's requests to main were the one link without a method map. Each of 37 handlers was wired by hand in five
+places: its channel's name, its argument's schema, its type in `CanvasHost`, its `invoke` in the preload with the result
+cast, and its `handle` in `main/index.ts` with the check and the sender check, when someone remembered. 16 handlers
+skipped the sender check. My calls:
+
+- **`hostMethods` in `shared/host-methods.ts` declares each method once:** its name, the schema its params are checked
+  with, the type it answers, and who may ask. The types the preload and main use are derived from it. The schemas stay
+  in `shared/ipc-checks.ts`, `shared/account.ts` and `shared/connectors.ts`.
+- **The preload imports the map's types only.** It's sandboxed and can't load zod, so main still does every check, and
+  `preload/index.test.ts` fails if the preload's bundle takes in zod. `ask` and `tell` in `preload/main.ts` send a
+  method by name, typed by the map, so a line of the bridge that sends the wrong thing or promises the page something
+  main doesn't answer doesn't compile. The `InvokeArgument` union and the result casts are gone.
+- **Two IPC channels carry everything,** `canvas:ask` for what the window waits on and `canvas:tell` for what it
+  doesn't, with the method's name first. `shared/channels.ts` keeps those and what main sends a window.
+- **`answerWindows` in `main/host-methods.ts` is the one registration.** It finds the method, checks who's asking,
+  checks the params, then runs the handler in its `request.handled` span. A method main doesn't have is refused before
+  any span, so a made-up name never names one. A method that takes nothing refuses anything sent with it.
+- **The sender check is on unless a method says `from: "any"`.** By default only the Parity window's own page may ask:
+  its main frame, at Parity's address, never a guest or an offscreen render window. `fromParityPage` decides it, and
+  compares the page by its scheme, host and path, so a query or hash can't silently drop the window's close replies and
+  skip its unsaved-changes prompt. A handler is given that window. An open method's handler is given the sender instead,
+  so it can't assume a window. `main/host-methods.test.ts` lists the open methods and refuses every other one from a
+  guest and a render window, so opening one is a choice made twice.
+- **Two methods stay open, since the render windows' preload uses them:** `record`, what a page's telemetry sends main,
+  and `telemetrySecrets`. Who gets the `.env` values is PAR-983's to decide. The other 14 that skipped the check now
+  have it: the three pickers, `showItem`, `copiedFiles`, `openInEditor`, `installCli`, `consoleAnnounce`, `consoleRead`,
+  `consoleClear`, `quit`, `toggleDevTools`, `setTheme` and `metrics`.
+- **One refusal for every method:** "Only the Parity window can ask for `<method>`." The five worded ones went with the
+  checks they belonged to; only a page that isn't Parity's ever gets one.
+- **What a window tells is dropped without a word when it's refused,** whether for its sender or its params, as a
+  console announcement that isn't one already was. What it asks fails with why.
+- **The window's close replies are methods too** (`closePending`, `closeReady`, `closeCancel`), so nothing a window
+  sends is registered outside the map. Each window keeps its close's state as before, and the replies reach it by the
+  window that sent them. `closePending` gets a span now, as the other two had.
+- **The page's telemetry is `record`,** as the service's is, so `handleInSpan` leaves both out of spans by the one name,
+  and `handlerInSpan` is gone. The other methods keep the names their spans had.
+- **Handlers are plain functions.** `hostHandlers` in `main/host-handlers.ts` takes what they need of the app
+  (`HostNeeds`: the account, the connectors, the dialogs, the theme and so on) and `main/index.ts` passes Electron's.
+  Neither module imports Electron, and their tests run without it. `main/ipc-handlers.ts` and `checked` are gone.
+- **`window.canvasHost` keeps its shape.** I considered one `canvasHost.main(method, params)` for the page, as `ask` is
+  for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
+  stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
+  map, its handler, and its line in the bridge, and the compiler holds the three together.
 
 ## Far frames show bitmaps from 10% zoom, on every screen (PAR-954)
 

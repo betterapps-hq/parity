@@ -332,13 +332,17 @@ function structure(node: DesignNode): string {
       return JSON.stringify({
         ...base,
         component: node.component,
-        props: Object.fromEntries(
-          Object.entries(node.props ?? {})
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, value]) => [key, contentKind(value) ?? value])
-        )
+        props: Object.fromEntries(propsInOrder(node.props).map(([key, value]) => [key, contentKind(value) ?? value]))
       })
   }
+}
+
+/**
+ * A component's props sorted by name: `structure` compares them in this order and `slotsOf` lists them in it, so two
+ * parts that write the same props in another order have each prop's value in the same place.
+ */
+function propsInOrder(props: PropValues | undefined): [string, PropValue][] {
+  return Object.entries(props ?? {}).sort(([a], [b]) => a.localeCompare(b))
 }
 
 /** Which kind of content a value is, or `undefined` for one that's structure: an object, a list or `null`. */
@@ -357,7 +361,7 @@ function slotsOf(node: DesignNode, path = ""): Slot[] {
   }
 
   if (node.type === "component") {
-    for (const [prop, value] of Object.entries(node.props ?? {})) {
+    for (const [prop, value] of propsInOrder(node.props)) {
       if (contentKind(value)) {
         slots.push({ path, field: `props.${prop}`, node })
       }

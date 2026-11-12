@@ -3,10 +3,10 @@
 Part of [design-options.md](design-options.md) (PAR-652). This page places each CSS property a frame can draw in the
 Design tab, so the panel's coverage can be checked property by property rather than by feel.
 
-**The ledger is data now (PAR-940).** `packages/style/src/placements.ts` holds the placing in the tables below, and
-`spec.json` beside it the property list, each property's grammar and its Baseline status, generated from `@webref/css`
-and `web-features`. `ledger.ts` joins them, and its tests fail when a property Chromium draws isn't placed exactly once.
-Change a placing there; this page describes it.
+**The ledger is data now (PAR-940).** `packages/style-schema/src/placements.ts` holds the placing in the tables below,
+and `spec.json` beside it the property list, each property's grammar and its Baseline status, generated from
+`@webref/css` and `web-features`. `ledger.ts` joins them, and its tests fail when a property Chromium draws isn't placed
+exactly once. Change a placing there; this page describes it.
 
 ## What's counted
 
@@ -303,9 +303,9 @@ flag), the web-features project's Baseline status by compat key, and the W3C's
 [list of all CSS properties](https://www.w3.org/Style/CSS/all-properties.en.html), then checked that each of the 562 was
 placed exactly once.
 
-Since PAR-940 the join is `packages/style/src/spec.test.ts`, which writes `spec.json` from two packages: `web-features`
-for the properties Chromium 156 draws (each compat key's Chrome version) and their Baseline status, and `@webref/css`,
-the W3C's spec data, for each property's value grammar. It lists the same 562, naming the 15 that web-features has no
-entry for yet, and with them the ten prefixed properties from the table above, 572 in all. When Electron moves to a
-newer Chromium, change `chromium` there and run it with `-u`: the ledger's test then fails until each property that
-shipped in between is given a place in `placements.ts`, the CSS row's if nothing better.
+Since PAR-940 the join is `packages/style-schema/src/spec.test.ts`, which writes `spec.json` from two packages:
+`web-features` for the properties Chromium 156 draws (each compat key's Chrome version) and their Baseline status, and
+`@webref/css`, the W3C's spec data, for each property's value grammar. It lists the same 562, naming the 15 that
+web-features has no entry for yet, and with them the ten prefixed properties from the table above, 572 in all. When
+Electron moves to a newer Chromium, change `chromium` there and run it with `-u`: the ledger's test then fails until
+each property that shipped in between is given a place in `placements.ts`, the CSS row's if nothing better.

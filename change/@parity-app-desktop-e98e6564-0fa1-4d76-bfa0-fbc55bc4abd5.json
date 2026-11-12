@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check that every request a window sends main comes from Parity's own window, unless the request is one the render windows send too",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

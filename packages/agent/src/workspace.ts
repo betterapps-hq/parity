@@ -94,7 +94,7 @@ import {
   referenceSize,
   turnInto
 } from "@parity-app/editor"
-import { validate } from "@parity-app/style"
+import { validate } from "@parity-app/style-schema"
 import {
   builtOn,
   checkTokenEdit,

@@ -1,4 +1,4 @@
-import type { CssDeclaration } from "@parity-app/style"
+import type { CssDeclaration } from "@parity-app/style-schema"
 import type { LoadedGuest } from "./guest.ts"
 import { request } from "./service.ts"
 

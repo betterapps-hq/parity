@@ -4,11 +4,12 @@ import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
 // What a layer snaps to is measured in a real frame (`LayerSnapping.measure`), so this lays one out in Chrome: Node
-// has no layout. It needs Chrome installed.
+// has no layout. It needs Chrome installed. The same from plain boxes is in layer-measure.test.ts.
 let browser: Browser
 let page: Page
 
-const entry = `export { LayerSnapping } from "./layer-snap.ts"
+const entry = `export { frameGeometry } from "./frame-geometry.ts"
+export { LayerSnapping } from "./layer-snap.ts"
 export { snapLayer } from "@parity-app/editor"`
 
 /**
@@ -106,7 +107,7 @@ function moved(layer: string, by: number) {
     ({ container, layer, by }) => {
       const host = document.querySelector<HTMLElement>("#host")!
       // @ts-expect-error The bundle's global.
-      const measured = snapping.LayerSnapping.measure(undefined, host, container, layer, 0.5)
+      const measured = snapping.LayerSnapping.measure(undefined, snapping.frameGeometry(host), container, layer)
       const from = measured.box
       // @ts-expect-error The bundle's global.
       const snapped = snapping.snapLayer({ ...from, x: from.x + by }, measured.scene, 0.5)

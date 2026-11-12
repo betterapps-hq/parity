@@ -27,7 +27,7 @@ import type {
 } from "@parity-app/core"
 import type { CodeReference, EditStatus, ExportSize, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
-import type { CssDeclaration } from "@parity-app/style"
+import type { CssDeclaration } from "@parity-app/style-schema"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"

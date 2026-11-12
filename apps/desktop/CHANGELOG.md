@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 08:08:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 08:27:06 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.69.0
+
+Thu, 12 Nov 2026 08:27:06 GMT
+
+### Minor changes
+
+- Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or
+  an edit to one component no longer recaptures every frame (ajcraswell@gmail.com)
 
 ## 0.68.3
 
