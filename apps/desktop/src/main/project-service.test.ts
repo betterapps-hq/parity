@@ -2,6 +2,7 @@ import type { Handlers, NodeEmitter } from "@parity-app/channel"
 import type { serviceCrash, serviceExit } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { MainMethods } from "../shared/service.ts"
+import { onPage } from "./parity-page.ts"
 import { createProjectService, type ServiceProcess } from "./project-service.ts"
 
 beforeEach(() => {
@@ -53,7 +54,12 @@ function fakeService(): FakeService {
 interface FakeWindow {
   name: string
   loading: boolean
+  /** The page's address, when it isn't Parity's page as it opened. */
+  url?: string
 }
+
+/** Parity's page in a development copy. */
+const parityUrl = "http://localhost:5310/"
 
 // SAFETY: the lifecycle passes handlers to the channel without calling them, and these tests never send it a request.
 const handlers = {} as Handlers<MainMethods>
@@ -82,6 +88,7 @@ function setup({ missing }: { missing?: string } = {}) {
     handlers,
     windows: () => windows,
     loading: (window) => window.loading,
+    parityPage: (window) => onPage(window.url ?? parityUrl, parityUrl),
     join: (to, window) => void joined.push([to, window.name]),
     quitting: () => quitting,
     missingEntry: () => missing,
@@ -129,6 +136,34 @@ describe("createProjectService", () => {
       [forked[0], "open"],
       [forked[0], "loaded"]
     ])
+  })
+
+  it("gives a reload of Parity's page a fresh channel, and a page the window was taken to none", () => {
+    const { service, forked, windows, joined } = setup()
+    const window: FakeWindow = { name: "window", loading: true }
+    windows.push(window)
+    service.connect(window)
+    // The person reloads the page, which keeps its query.
+    window.url = `${parityUrl}?project=demo`
+    service.connect(window)
+    // A link in a design's code took the window to another site.
+    window.url = "https://example.com/"
+    service.connect(window)
+    expect(joined).toEqual([
+      [forked[0], "window"],
+      [forked[0], "window"]
+    ])
+  })
+
+  it("starts no service for a page that isn't Parity's, and leaves it out when one starts", () => {
+    const { service, forked, windows, joined } = setup()
+    const elsewhere = { name: "elsewhere", loading: false, url: "http://localhost:5310/render.html" }
+    windows.push(elsewhere)
+    service.connect(elsewhere)
+    expect(forked).toHaveLength(0)
+    windows.push({ name: "parity", loading: false })
+    service.start()
+    expect(joined).toEqual([[forked[0], "parity"]])
   })
 
   it("retires the running service when it starts a fresh one, and doesn't count its exit as a crash", () => {

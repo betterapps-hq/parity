@@ -48,6 +48,7 @@ import { answerWindows, fromParityPage } from "./host-methods.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
+import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { localPlacements } from "./placements.ts"
 import { privateMemory } from "./private-memory.ts"
@@ -353,6 +354,7 @@ const projectService = createProjectService({
   },
   windows: () => appWindows(),
   loading: (window) => window.webContents.isLoading(),
+  parityPage: (window) => onPage(window.webContents.getURL(), rendererUrl),
   join(service, window) {
     const { port1, port2 } = new MessageChannelMain()
     service.messages.postMessage({ type: "connect" } satisfies ConnectMessage, [port1])
@@ -423,8 +425,12 @@ function createWindow(): void {
   recordConsole(consoleLog, window.webContents, "canvas", new URL(rendererUrl).origin, (level) =>
     announced.take(contents, level)
   )
-  // Every page load gets its own channel to the service.
+  // Every load of Parity's page gets its own channel to the service; `parityPage` refuses any other page one.
   window.webContents.on("did-finish-load", () => projectService.connect(window))
+  // Project code runs in the page, so a link or script there can't take the window off Parity's page (PAR-975).
+  const guard = pageGuard({ page: rendererUrl, openBrowser: (url) => void shell.openExternal(url) })
+  window.webContents.on("will-navigate", guard.navigate)
+  window.webContents.on("will-redirect", guard.redirect)
   // The page decides whether the window closes, through `hostMethods`' close methods, which only its own page may send.
   closeFlow.watch({
     id: window.id,
@@ -437,8 +443,7 @@ function createWindow(): void {
   })
   // Links open in the person's browser, never in a new app window.
   window.webContents.setWindowOpenHandler(({ url }) => {
-    // Web pages, and dev servers on this machine such as the project's Storybook.
-    if (url.startsWith("https://") || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(url)) {
+    if (opensInBrowser(url)) {
       void shell.openExternal(url)
     }
 
@@ -748,10 +753,15 @@ const renderPool = createRenderPool<OffscreenWindow>({
     watchWindowGone(window, "render")
     // A message is the design's the window is drawing as it's written (PAR-147).
     recordConsole(consoleLog, window.webContents, "offscreen", new URL(rendererUrl).origin, drawing)
+    // The page runs the project's components, so it stays on the render page, and nobody sees a link to open (PAR-975).
+    const page = new URL("render.html", rendererUrl).href
+    const guard = pageGuard({ page })
+    window.webContents.on("will-navigate", guard.navigate)
+    window.webContents.on("will-redirect", guard.redirect)
 
     return {
       window,
-      loaded: window.loadURL(new URL("render.html", rendererUrl).href),
+      loaded: window.loadURL(page),
       destroyed: () => window.isDestroyed(),
       crashed: () => window.webContents.isCrashed(),
       destroy: () => window.destroy(),

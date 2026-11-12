@@ -6369,6 +6369,26 @@ error's event ID is kept and an uncaught one's isn't. `shared/ipc-checks.test.ts
 functions check that Try again draws a part afresh, that a second failure offers Reopen project, and that closing a
 failed dialog closes it and Settings opens again afterwards.
 
+### The window stays on Parity's page (PAR-975)
+
+A design's code runs in the window's page, so a link in a design, followed in Interact, could otherwise replace the
+editor. The window refuses to leave Parity's page: a link to a web page or a dev server on this machine opens in your
+browser, as a link that opens a new window already did, and anything else does nothing. A server's redirect away from
+the page is refused too. Reloading the page still works, and frames inside a design, such as an embedded video, load as
+they would in a browser. The offscreen windows that draw frames for agents stay on their own page the same way, with
+nothing opened in the browser. Only Parity's page gets a channel to the project service when it loads.
+
+Code: `pageGuard`, `onPage` and `opensInBrowser` in `apps/desktop/src/main/parity-page.ts`, set on both kinds of window
+in `main/index.ts`; `parityPage` in `main/project-service.ts` decides which pages connect.
+
+Tests: `apps/desktop/src/main/parity-page.test.ts` (10: the same page with a query or hash, other paths, ports, hosts
+and schemes, what opens in the browser, a refused link opened in the browser, a refused file address not opened, a
+reload let through, a refused redirect, frames left alone, a render window kept on its page) and
+`main/project-service.test.ts` (2: a reload of Parity's page gets a fresh channel and a page the window was taken to
+none; no service starts for a page that isn't Parity's). Gaps: Electron's own events aren't driven in a test. Checked in
+the app on 2026-11-12 with `scripts/drive.ts` on `pnpm dev`: a clicked link and a script setting `location.href` left
+the window on its page, and after a reload the page's channel reached the service again.
+
 ### The page never scrolls (PAR-424)
 
 The window's page is always exactly the window: no part of the chrome makes it taller or wider, so it never scrolls.
