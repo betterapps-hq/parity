@@ -21,8 +21,11 @@ import {
   type WeightValue,
   weightWrites
 } from "./text-writes.ts"
-import { leadingTokens, trackingTokens, weightTokens } from "./tokens.ts"
+import type { TokenSets } from "./tokens.ts"
 import { mergeWrites, type StoredObject, type Writes } from "./writes.ts"
+
+/** The project's tokens type values name, which a preset's and a layer's values are measured with. */
+export type TypeTokens = Pick<TokenSets, "font" | "size" | "weight" | "leading" | "tracking">
 
 export type TypeField = "font" | "size" | "weight" | "lineHeight" | "letterSpacing"
 
@@ -211,13 +214,14 @@ export function typeOf(layer: PresetLayer): Required<TypeValues> {
   return values
 }
 
-const weightNumber = (weight: WeightValue) =>
-  "token" in weight ? (weightTokens.find((token) => token.name === weight.token)?.weight ?? 400) : weight.value
+const weightNumber = (weight: WeightValue, tokens: TypeTokens) =>
+  "token" in weight ? (tokens.weight.find((token) => token.name === weight.token)?.weight ?? 400) : weight.value
 
-export const weightLabel = (weight: WeightValue) =>
-  weightTokens.find((token) => token.weight === weightNumber(weight))?.label ?? String(weightNumber(weight))
+export const weightLabel = (weight: WeightValue, tokens: TypeTokens) =>
+  tokens.weight.find((token) => token.weight === weightNumber(weight, tokens))?.label ??
+  String(weightNumber(weight, tokens))
 
-function lineHeightPx(lineHeight: LineHeight, size: number): number {
+function lineHeightPx(lineHeight: LineHeight, size: number, tokens: TypeTokens): number {
   if ("keyword" in lineHeight) {
     return Math.round(size * 1.2)
   }
@@ -229,31 +233,31 @@ function lineHeightPx(lineHeight: LineHeight, size: number): number {
   const multiple =
     "multiple" in lineHeight
       ? lineHeight.multiple
-      : (leadingTokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5)
+      : (tokens.leading.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5)
 
   return Math.round(size * multiple * 100) / 100
 }
 
-function letterSpacingEm(spacing: LetterSpacing, size: number): number {
+function letterSpacingEm(spacing: LetterSpacing, size: number, tokens: TypeTokens): number {
   if ("token" in spacing) {
-    return trackingTokens.find((token) => token.name === spacing.token)?.em ?? 0
+    return tokens.tracking.find((token) => token.name === spacing.token)?.em ?? 0
   }
 
   return "em" in spacing ? spacing.em : spacing.px / size
 }
 
 /** A set of type values in numbers, for the summary, the preview and matching a preset. */
-export function measured(values: Required<TypeValues>) {
-  const size = sizePx(values.size)
-  const font = resolveFont(values.font)
+export function measured(values: Required<TypeValues>, tokens: TypeTokens) {
+  const size = sizePx(values.size, tokens.size)
+  const font = resolveFont(values.font, tokens.font)
 
   return {
     font: font?.name ?? "",
     stack: font?.stack ?? "sans-serif",
     size,
-    weight: weightNumber(values.weight),
-    lineHeight: lineHeightPx(values.lineHeight, size),
-    letterSpacing: letterSpacingEm(values.letterSpacing, size)
+    weight: weightNumber(values.weight, tokens),
+    lineHeight: lineHeightPx(values.lineHeight, size, tokens),
+    letterSpacing: letterSpacingEm(values.letterSpacing, size, tokens)
   }
 }
 
@@ -261,21 +265,21 @@ export function measured(values: Required<TypeValues>) {
 export const presetType = (preset: TypePreset): Required<TypeValues> => ({ ...inherited, ...preset.values })
 
 /** "Geist 20/28 Semibold": the font, size and line height, and weight a preset sets, in what it sets. */
-export function summary(preset: TypePreset): string {
-  const values = measured(presetType(preset))
+export function summary(preset: TypePreset, tokens: TypeTokens): string {
+  const values = measured(presetType(preset), tokens)
   const covered = new Set(coveredBy(preset))
 
   const parts = [
     covered.has("font") ? values.font : undefined,
     `${formatNumber(values.size)}/${formatNumber(values.lineHeight)}`,
-    covered.has("weight") ? weightLabel(presetType(preset).weight) : undefined
+    covered.has("weight") ? weightLabel(presetType(preset).weight, tokens) : undefined
   ]
 
   return parts.filter(Boolean).join(" ")
 }
 
 /** What a row is in each viewport, for the dot after its name: "36px on Mobile, 48px from Desktop". */
-export function viewportsOf(preset: TypePreset | undefined, field: TypeField): string | undefined {
+export function viewportsOf(preset: TypePreset | undefined, field: TypeField, tokens: TypeTokens): string | undefined {
   const wider = preset?.wider?.values[field]
 
   if (!preset?.wider || wider === undefined) {
@@ -285,7 +289,7 @@ export function viewportsOf(preset: TypePreset | undefined, field: TypeField): s
   const base = preset.values[field]
 
   const words = (value: TypeValues[TypeField]) => {
-    const numbers = measured({ ...presetType(preset), ...rowValues(field, value) })
+    const numbers = measured({ ...presetType(preset), ...rowValues(field, value) }, tokens)
 
     return field === "size" ? `${formatNumber(numbers.size)}px` : `${formatNumber(numbers.lineHeight)}px`
   }
@@ -318,15 +322,15 @@ const nearSteps = 3
  * steps between its rows and the preset's summed over the rows the preset sets, when that's within `nearSteps`. A layer
  * that sets no type of its own is offered none: it has the type it inherits, which isn't a choice to match.
  */
-export function closestPreset(layer: PresetLayer): PresetMatch | undefined {
+export function closestPreset(layer: PresetLayer, tokens: TypeTokens): PresetMatch | undefined {
   if (layer.preset !== undefined || typeFields.every(({ field }) => layer.own[field] === undefined)) {
     return undefined
   }
 
-  const mine = measured(typeOf(layer))
+  const mine = measured(typeOf(layer), tokens)
 
   const matches = typePresets.map((preset) => {
-    const theirs = measured(presetType(preset))
+    const theirs = measured(presetType(preset), tokens)
 
     const steps = coveredBy(preset).map((field) => ({
       field,
@@ -349,15 +353,15 @@ export function closestPreset(layer: PresetLayer): PresetMatch | undefined {
 }
 
 /** Words for a row's value, as the locked row and Use's hint say it. */
-export function valueWords(field: TypeField, values: Required<TypeValues>): string {
-  const numbers = measured(values)
+export function valueWords(field: TypeField, values: Required<TypeValues>, tokens: TypeTokens): string {
+  const numbers = measured(values, tokens)
 
   if (field === "font") {
     return numbers.font
   }
 
   if (field === "weight") {
-    return weightLabel(values.weight)
+    return weightLabel(values.weight, tokens)
   }
 
   if (field === "letterSpacing") {

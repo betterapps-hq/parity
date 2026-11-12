@@ -32,8 +32,7 @@ import {
   sizeCss,
   type SizeMode,
   trackCss,
-  typedContentSizes,
-  usedColors
+  typedContentSizes
 } from "./data.ts"
 import {
   ChangeMark,
@@ -55,6 +54,7 @@ import {
   usePercentUnit,
   useTokens,
   useTokenSets,
+  useUsedColors,
   ValueField,
   wrappingText
 } from "./field-parts.tsx"
@@ -63,7 +63,7 @@ import { HighlightOverlay } from "./highlight.tsx"
 import { ClipContentField } from "./keyword-sets.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { OpacityRow } from "./opacity-blend.tsx"
-import { drawnStyle, PreviewStage } from "./playground.tsx"
+import { drawnStyle, PreviewStage } from "./preview-card.tsx"
 import { sideNumber, sideRules, type Sides } from "./sides-writes.ts"
 import { FourSidesField } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
@@ -1135,6 +1135,7 @@ const everySide = (px: number): Sides => [{ number: px }, { number: px }, { numb
 
 export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
   const borderWidths = useTokens("borderWidth").tokens
+  const usedColors = useUsedColors()
   // A new stroke is in layout (call 2): a border. Out of layout, it's an outline at its position.
   const inLayout = draft.strokeInLayout ?? true
   const position: StrokePosition = inLayout ? "inside" : (draft.strokePosition ?? "inside")

@@ -4,7 +4,9 @@ import { userEvent, within } from "storybook/test"
 import { AdjustmentsEditor, FilterList, FilterPreview } from "./filter-list.tsx"
 import type { Adjustments, FilterEntry } from "./lists-data.ts"
 import { filterWrites } from "./lists-writes.ts"
-import { Playground, PreviewStage } from "./playground.tsx"
+import { Playground } from "./playground.tsx"
+import { PreviewStage } from "./preview-card.tsx"
+import { standInTokenSets } from "./stand-in-tokens.ts"
 
 /**
  * The filter list (PAR-652's Filter list): `filter` on the layer and `backdrop-filter` behind it. Layer blur, Background
@@ -27,7 +29,7 @@ function Filters({ start, tokensOnly, openId }: { start: FilterEntry[]; tokensOn
 
   return (
     <Playground
-      writes={filterWrites(entries)}
+      writes={filterWrites(entries, standInTokenSets)}
       preview={
         <PreviewStage>
           <FilterPreview entries={entries} />
@@ -159,7 +161,7 @@ export const OnAnImage: Story = {
 
     return (
       <Playground
-        writes={filterWrites(entries)}
+        writes={filterWrites(entries, standInTokenSets)}
         preview={
           <PreviewStage>
             <FilterPreview entries={entries} />

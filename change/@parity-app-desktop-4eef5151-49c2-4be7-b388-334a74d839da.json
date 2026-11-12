@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's selected by then, and Paste to replace replaces nothing when the selection changed meanwhile",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

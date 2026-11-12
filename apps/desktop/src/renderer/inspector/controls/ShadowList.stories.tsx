@@ -4,9 +4,11 @@ import { userEvent, within } from "storybook/test"
 import { useTokenSets } from "./field-parts.tsx"
 import type { ShadowEntry, ShadowLayer } from "./lists-data.ts"
 import { shadowWrites } from "./lists-writes.ts"
-import { Playground, PreviewStage } from "./playground.tsx"
+import { Playground } from "./playground.tsx"
+import { PreviewStage } from "./preview-card.tsx"
 import { ShadowList, ShadowPreview } from "./shadow-list.tsx"
-import { type TokenSets, tokenSets } from "./tokens.ts"
+import { standInTokenSets as tokenSets } from "./stand-in-tokens.ts"
+import { type TokenSets } from "./tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**

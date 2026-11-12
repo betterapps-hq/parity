@@ -195,7 +195,7 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
   )
 }
 
-/** The state, or variant, the root's edits go to, and a switch to another. LayerPanel's StateTarget, reworded. */
+/** The state, or variant, the root's edits go to, and a switch to another. LayerPanel's ComponentStateSelector, reworded. */
 function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)

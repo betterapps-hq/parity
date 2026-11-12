@@ -6,7 +6,16 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { BlurChoice } from "./controls.tsx"
 import { isLengthToken, type Length } from "./data.ts"
-import { MessageLine, type Reading, TokenChip, TokenList, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
+import {
+  MessageLine,
+  type Reading,
+  TokenChip,
+  TokenList,
+  TokenMark,
+  useTokens,
+  useTokenSets,
+  ValueField
+} from "./field-parts.tsx"
 import { TitleMenu } from "./field-row.tsx"
 import { CenteredSlider, entryList, ListRow } from "./list-parts.tsx"
 import {
@@ -26,9 +35,8 @@ import {
 } from "./lists-data.ts"
 import { adjustmentWrites, filterDrawing } from "./lists-writes.ts"
 import { angleUnits, splitUnit } from "./motion-data.ts"
-import { Card } from "./playground.tsx"
+import { Card } from "./preview-card.tsx"
 import { ShadowCard, ShadowEditor } from "./shadow-list.tsx"
-import { dropShadowTokens } from "./tokens.ts"
 import { optionNamed } from "./typing.ts"
 
 /*
@@ -180,6 +188,7 @@ function FilterRow({
   onRemove: () => void
 }) {
   const { tokens: blurs } = useTokens("blur")
+  const { tokens: dropShadows } = useTokens("dropShadow")
   // A blur's popover is its tokens, and picking one closes it, as a menu does.
   const [blurOpen, setBlurOpen] = useState(startOpen)
 
@@ -268,7 +277,7 @@ function FilterRow({
 
   if (entry.kind === "dropShadow") {
     const { shadow } = entry
-    const token = dropShadowTokens.find((option) => option.name === shadow.token)
+    const token = dropShadows.find((option) => option.name === shadow.token)
 
     return (
       <ListRow
@@ -671,8 +680,8 @@ function CustomEntry({
  * filter what shows through it.
  */
 export function FilterPreview({ entries }: { entries: FilterEntry[] }) {
-  const { tokens: colors } = useTokens("color")
-  const drawing = filterDrawing(entries, (value: ListColor) => drawListColor(value, colors))
+  const { color, blur, dropShadow } = useTokenSets()
+  const drawing = filterDrawing(entries, (value: ListColor) => drawListColor(value, color), { blur, dropShadow })
 
   return (
     <Card

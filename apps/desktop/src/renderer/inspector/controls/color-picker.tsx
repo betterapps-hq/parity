@@ -546,7 +546,7 @@ export function ColorInput({
   allowed?: string
   onAllow?: (reason: string | undefined) => void
   /** Colors the design already uses, offered at the bottom of Custom. */
-  used?: string[]
+  used?: readonly string[]
   open?: boolean
   /** The tab it opens on at first, for a story; afterwards it opens on the one for the color's form. */
   tab?: "tokens" | "custom"

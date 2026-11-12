@@ -21,7 +21,7 @@ import {
   type PaintEntry,
   type ShadowEntry
 } from "./lists-data.ts"
-import { blurTokens, type GradientToken, gradientTokens, lengthPx, type ShadowToken } from "./tokens.ts"
+import { type GradientToken, type LengthToken, lengthPx, type ShadowToken } from "./tokens.ts"
 import { noWrites, type StoredObject, withAllow, type Writes } from "./writes.ts"
 
 /** A list entry's color as CSS writes it: a token's variable, mixed toward transparent for its alpha, or a plain color. */
@@ -54,13 +54,10 @@ export function colorStored(value: ListColor, allowed?: string): StoredObject {
 /* Paint stack */
 
 /**
- * A gradient token's paint, among the project's `tokens` (the stand-ins unless it's given its own), or the paint as it
- * is, which keeps the stops it had when the token was taken.
+ * A gradient token's paint, among the project's `tokens`, or the paint as it is, which keeps the stops it had when the
+ * token was taken.
  */
-export function resolveGradient(
-  paint: GradientPaint,
-  tokens: readonly GradientToken[] = gradientTokens
-): GradientPaint {
+export function resolveGradient(paint: GradientPaint, tokens: readonly GradientToken[]): GradientPaint {
   if (paint.token === undefined) {
     return paint
   }
@@ -236,7 +233,7 @@ function paintStored(entry: PaintEntry): StoredObject {
 }
 
 /** The fills drawn, top first: the bottom solid as the color, the rest as image layers. */
-export function paintLayers(entries: PaintEntry[], tokens?: readonly GradientToken[]) {
+export function paintLayers(entries: PaintEntry[], tokens: readonly GradientToken[]) {
   // A solid whose color was taken off draws nothing until another is typed or picked.
   const shown = entries.flatMap((entry) => {
     if (entry.off || (entry.paint.kind === "solid" && entry.paint.color === "")) {
@@ -256,7 +253,7 @@ export function paintLayers(entries: PaintEntry[], tokens?: readonly GradientTok
   return { base, images: base ? shown.slice(0, -1) : shown }
 }
 
-export function paintWrites(entries: PaintEntry[], tokens?: readonly GradientToken[]): Writes {
+export function paintWrites(entries: PaintEntry[], tokens: readonly GradientToken[]): Writes {
   if (entries.length === 0) {
     return noWrites
   }
@@ -410,7 +407,7 @@ function shadowStored(entry: ShadowEntry): StoredObject {
 }
 
 /** A drop shadow's layers as `drop-shadow()` functions, which take no spread. */
-function dropShadowFunctions(entry: ShadowEntry, color: (value: ListColor) => string, tokens: ShadowToken[] = []) {
+function dropShadowFunctions(entry: ShadowEntry, color: (value: ListColor) => string, tokens: readonly ShadowToken[]) {
   return layersOf(entry, tokens).map((part) => `drop-shadow(${shadowCss([part], color, { spread: false })})`)
 }
 
@@ -418,12 +415,12 @@ export function shadowWrites(
   entries: ShadowEntry[],
   {
     shadowOfText = false,
-    tokens = []
+    tokens
   }: {
     shadowOfText?: boolean
-    /** The project's shadow tokens, where it has more than the stand-ins, as one made with Create token. */
-    tokens?: ShadowToken[]
-  } = {}
+    /** The project's shadow tokens of every kind. */
+    tokens: readonly ShadowToken[]
+  }
 ): Writes {
   if (entries.length === 0) {
     return noWrites
@@ -502,7 +499,11 @@ export function dropShadowClasses(entry: ShadowEntry): string[] {
 }
 
 /** The CSS a shadow list draws with, colors as `draw` gives them, for a preview or an entry's card. */
-export function shadowDrawing(entries: ShadowEntry[], draw: (value: ListColor) => string, tokens: ShadowToken[] = []) {
+export function shadowDrawing(
+  entries: ShadowEntry[],
+  draw: (value: ListColor) => string,
+  tokens: readonly ShadowToken[]
+) {
   const shown = entries.filter((entry) => !entry.off)
 
   return {
@@ -542,11 +543,17 @@ export function adjustmentWrites(key: AdjustmentKey, value: number) {
 /** An adjustment at its neutral value writes nothing. */
 const neutral = (value: number | undefined) => value === undefined || value === 0
 
-function blurWrite(value: Length, behind: boolean) {
+/** The project's tokens a filter list names: its blurs and its drop shadows. */
+export interface FilterTokens {
+  blur: readonly LengthToken[]
+  dropShadow: readonly ShadowToken[]
+}
+
+function blurWrite(value: Length, behind: boolean, blurs: readonly LengthToken[]) {
   const prefix = behind ? "backdrop-blur" : "blur"
 
   if (isLengthToken(value)) {
-    const known = blurTokens.some((token) => token.name === value)
+    const known = blurs.some((token) => token.name === value)
 
     return {
       css: `blur(var(--${value}))`,
@@ -592,15 +599,20 @@ function filterStored(entry: FilterEntry): StoredObject {
  * shadow. A Custom entry's text comes first, as it was read. Written, colors and blur tokens are variables; `drawn`
  * gives a preview's colors and draws a blur token at its size, since the story's page doesn't define its variable.
  */
-function filterFunctions(entries: FilterEntry[], behind: boolean, drawn?: (value: ListColor) => string) {
+function filterFunctions(
+  entries: FilterEntry[],
+  behind: boolean,
+  tokens: FilterTokens,
+  drawn?: (value: ListColor) => string
+) {
   const functions: string[] = []
   const classes: string[] = []
   const prefix = behind ? "backdrop-" : ""
 
   for (const entry of entries) {
     if ((entry.kind === "blur" || entry.kind === "backdropBlur") && entry.value !== undefined) {
-      const write = blurWrite(entry.value, behind)
-      functions.push(drawn ? `blur(${formatNumber(lengthPx(entry.value, blurTokens))}px)` : write.css)
+      const write = blurWrite(entry.value, behind, tokens.blur)
+      functions.push(drawn ? `blur(${formatNumber(lengthPx(entry.value, tokens.blur))}px)` : write.css)
       classes.push(write.className)
     }
   }
@@ -628,7 +640,7 @@ function filterFunctions(entries: FilterEntry[], behind: boolean, drawn?: (value
       continue
     }
 
-    functions.push(...dropShadowFunctions(entry.shadow, drawn ?? listColorCss))
+    functions.push(...dropShadowFunctions(entry.shadow, drawn ?? listColorCss, tokens.dropShadow))
     classes.push(...dropShadowClasses(entry.shadow))
   }
 
@@ -638,8 +650,8 @@ function filterFunctions(entries: FilterEntry[], behind: boolean, drawn?: (value
 }
 
 /** One property's functions and classes, in Tailwind's order, or the Custom text with the rest after it. */
-function propertyWrites(entries: FilterEntry[], behind: boolean) {
-  const { functions, classes, custom } = filterFunctions(entries, behind)
+function propertyWrites(entries: FilterEntry[], behind: boolean, tokens: FilterTokens) {
+  const { functions, classes, custom } = filterFunctions(entries, behind, tokens)
 
   if (custom) {
     const all = functions.join(" ")
@@ -650,7 +662,7 @@ function propertyWrites(entries: FilterEntry[], behind: boolean) {
   return { functions, classes }
 }
 
-export function filterWrites(entries: FilterEntry[]): Writes {
+export function filterWrites(entries: FilterEntry[], tokens: FilterTokens): Writes {
   if (entries.length === 0) {
     return noWrites
   }
@@ -659,10 +671,11 @@ export function filterWrites(entries: FilterEntry[]): Writes {
 
   const layer = propertyWrites(
     shown.filter((entry) => !isBehind(entry)),
-    false
+    false,
+    tokens
   )
 
-  const back = propertyWrites(shown.filter(isBehind), true)
+  const back = propertyWrites(shown.filter(isBehind), true, tokens)
   const css: string[] = []
 
   if (layer.functions.length > 0) {
@@ -689,11 +702,11 @@ export function filterWrites(entries: FilterEntry[]): Writes {
 }
 
 /** The CSS a filter list draws with, for a preview: blur tokens at their size, colors as `draw` gives them. */
-export function filterDrawing(entries: FilterEntry[], draw: (value: ListColor) => string) {
+export function filterDrawing(entries: FilterEntry[], draw: (value: ListColor) => string, tokens: FilterTokens) {
   const shown = entries.filter((entry) => !entry.off)
 
   const drawn = (list: FilterEntry[], behind: boolean) =>
-    filterFunctions(list, behind, draw).functions.join(" ") || undefined
+    filterFunctions(list, behind, tokens, draw).functions.join(" ") || undefined
 
   return {
     filter: drawn(

@@ -30,7 +30,7 @@ import {
 } from "./field-parts.tsx"
 import { Segments, TitleMenu } from "./field-row.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
-import { cursorTokens } from "./tokens.ts"
+import type { FieldToken } from "./tokens.ts"
 
 /*
  * Keyword sets (PAR-186, design-options-values.md's Keyword sets): icon toggles or a menu, each option's hint naming
@@ -601,29 +601,37 @@ const cursor = (value: string, label: string): KeywordChoice => ({
   tailwind: `cursor-${value}`
 })
 
-const cursorTokenValue = (name: string) => cursorTokens.find((token) => token.name === `cursor-${name}`)?.value
-
 /**
- * Interaction's Cursor: the project's cursor tokens, each with the cursor it comes to, then each cursor, drawn and
- * shown as the pointer on hover.
+ * Interaction's Cursor: the project's cursor tokens (`cursor-interactive`), each with the cursor it comes to, then each
+ * cursor, drawn and shown as the pointer on hover.
  */
-export const cursorChoices: KeywordChoice[] = [
-  {
-    value: "interactive",
-    label: "Interactive",
-    css: "cursor: var(--cursor-interactive)",
-    tailwind: "cursor-(--cursor-interactive)",
-    token: true,
-    comesTo: cursorTokenValue("interactive")
-  },
-  {
-    value: "busy",
-    label: "Busy",
-    css: "cursor: var(--cursor-busy)",
-    tailwind: "cursor-(--cursor-busy)",
-    token: true,
-    comesTo: cursorTokenValue("busy")
-  },
+export function cursorChoices(tokens: readonly FieldToken[]): KeywordChoice[] {
+  const named = tokens.flatMap((token): KeywordChoice[] => {
+    const value = /^cursor-(.+)$/.exec(token.name)?.[1]
+
+    if (value === undefined) {
+      return []
+    }
+
+    const label = `${value[0]!.toUpperCase()}${value.slice(1).replaceAll("-", " ")}`
+
+    return [
+      {
+        value,
+        label,
+        css: `cursor: var(--${token.name})`,
+        tailwind: `cursor-(--${token.name})`,
+        token: true,
+        comesTo: token.value
+      }
+    ]
+  })
+
+  return [...named, ...cursors]
+}
+
+/** Each cursor CSS has, as Cursor lists them under the project's tokens. */
+const cursors: KeywordChoice[] = [
   cursor("default", "Default"),
   cursor("pointer", "Pointer"),
   cursor("text", "Text"),
@@ -643,17 +651,18 @@ export const cursorChoices: KeywordChoice[] = [
   cursor("none", "None")
 ]
 
-/** The CSS cursor a cursor choice comes to, a token's included. */
-export const cursorValue = (value: string): string =>
-  cursorTokens.find((token) => token.name === `cursor-${value}`)?.value ?? value
+/** The CSS cursor a cursor choice comes to, one of the project's cursor `tokens` included. */
+export const cursorValue = (value: string, tokens: readonly FieldToken[]): string =>
+  tokens.find((token) => token.name === `cursor-${value}`)?.value ?? value
 
 /**
  * Draws a cursor option as the Tokens panel draws a cursor token (chrome's `TokenArt`), so a token and the cursor it
  * holds look the same, and shows that cursor while it's hovered.
  */
-export function drawCursor(choice: KeywordChoice) {
-  return <TokenMark kind="cursor" value={cursorValue(choice.value)} width={16} height={16} />
-}
+export const cursorDrawer = (tokens: readonly FieldToken[]) =>
+  function drawCursor(choice: KeywordChoice) {
+    return <TokenMark kind="cursor" value={cursorValue(choice.value, tokens)} width={16} height={16} />
+  }
 
 const strokeStyle = (value: string, label: string, more = false): KeywordChoice => ({
   value,

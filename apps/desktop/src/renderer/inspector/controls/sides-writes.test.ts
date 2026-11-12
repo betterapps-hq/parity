@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { readSide, sideRules, sideShown, stepSide } from "./sides-writes.ts"
-import { spacingTokens, zIndexTokens } from "./tokens.ts"
+import { spacingTokens, zIndexTokens } from "./stand-in-tokens.ts"
 
 const padding = sideRules.padding
 const margin = sideRules.margin

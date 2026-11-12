@@ -1,32 +1,13 @@
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, ImagePlus, Search } from "lucide-react"
-import {
-  createContext,
-  type DragEvent,
-  type ReactNode,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore
-} from "react"
+import { type DragEvent, type ReactNode, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
+import { useProjectData } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
-import {
-  addProjectImage,
-  type ImageFit,
-  type ImagePaint,
-  imageName,
-  imagePreview,
-  projectImages,
-  type StockPhoto,
-  stockPhotos,
-  stockSrc,
-  watchProjectImages
-} from "./lists-data.ts"
+import { addProjectImage, type ImageFit, type ImagePaint, type StockPhoto, stockSrc } from "./lists-data.ts"
 import { PercentField } from "./number-field.tsx"
 import { PositionInBox } from "./position-box.tsx"
 
@@ -72,8 +53,8 @@ export interface SourceImage {
 }
 
 /**
- * Where a fill's images come from: the project's own, a stock library's, and how one is added. The stories use the
- * stand-ins in lists-data.ts; the Design tab gives the project's (PAR-931).
+ * Where a fill's images come from: the project's own, a stock library's, and how one is added. The stories give the
+ * stand-ins in lists-data.ts through `ProjectData`; the Design tab gives the project's (PAR-931).
  */
 export interface ImageSource {
   images: readonly SourceImage[]
@@ -87,28 +68,9 @@ export interface ImageSource {
   name: (src: string) => string
 }
 
-const ImageSourceContext = createContext<ImageSource | undefined>(undefined)
-
-/** Gives the image fills inside their images. */
-export const ImageSourceProvider = ImageSourceContext
-
-/** Where the image fills here take their images from: what's given, or the stand-ins. */
+/** Where the image fills here take their images from: the project's, as `ProjectData` gives them. */
 export function useImageSource(): ImageSource {
-  const given = useContext(ImageSourceContext)
-  const images = useSyncExternalStore(watchProjectImages, projectImages)
-
-  const standIns = useMemo<ImageSource>(
-    () => ({
-      images: images.map((image) => ({ src: `/images/${image.name}`, name: image.name, preview: image.preview })),
-      stock: stockPhotos,
-      add: (file) => Promise.resolve(addImageFile(file)),
-      preview: imagePreview,
-      name: imageName
-    }),
-    [images]
-  )
-
-  return given ?? standIns
+  return useProjectData().images
 }
 
 /**

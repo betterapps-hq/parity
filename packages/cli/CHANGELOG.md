@@ -1,8 +1,22 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 22:11:04 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 22:46:32 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.60.0
+
+Thu, 12 Nov 2026 22:46:32 GMT
+
+### Minor changes
+
+- Design tab: regrouped sections, the approved Component instance and props rows, measured sizes, and field errors that
+  stay as typed (ajcraswell@gmail.com)
+
+### Patches
+
+- Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's
+  selected by then, and Paste to replace replaces nothing when the selection changed meanwhile (ajcraswell@gmail.com)
 
 ## 0.59.0
 

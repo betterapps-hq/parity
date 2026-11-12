@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from "react"
-import { drawnColor } from "./tokens.ts"
 
 /*
  * Previews for the text, keyword and opacity stories: a paragraph set in the style being edited, and the look of a
@@ -18,5 +17,5 @@ export function TextSample({ style, children }: { style: CSSProperties; children
   )
 }
 
-/** A layer filled in blue-600 with white text, rounded, as the stories that change a whole layer draw Card. */
-export const filledLayer: CSSProperties = { background: drawnColor("blue-600"), color: "white", borderRadius: 12 }
+/** A layer filled in blue (Tailwind's blue-600) with white text, rounded, as the stories that change a whole layer draw Card. */
+export const filledLayer: CSSProperties = { background: "#2563eb", color: "white", borderRadius: 12 }

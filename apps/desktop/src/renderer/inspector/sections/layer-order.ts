@@ -1,29 +1,6 @@
 import type { NodeStyle } from "@parity-app/core"
 import type { StackingContext } from "@parity-app/editor"
-import { defaultValues, previewKind, type Token } from "@parity-app/tokens"
-import { comesTo } from "../../token-values.ts"
 import type { Side } from "../controls/sides-writes.ts"
-import type { LengthToken } from "../controls/tokens.ts"
-
-/** The project's z-index tokens as Layer order offers them, a count each, in the order they stack. */
-export function projectZIndexTokens(tokens: readonly Token[]): LengthToken[] {
-  const byName = new Map(tokens.map((token) => [token.name, token]))
-  const lookup = defaultValues(tokens)
-
-  const found = tokens.flatMap((token): LengthToken[] => {
-    if (previewKind(token, undefined, lookup) !== "z-index") {
-      return []
-    }
-
-    const order = Number(comesTo(byName, token.name))
-
-    return Number.isInteger(order)
-      ? [{ name: token.name, kind: "z-index", value: String(order), detail: String(order), px: order }]
-      : []
-  })
-
-  return found.toSorted((one, other) => one.px - other.px)
-}
 
 /** A layer order as the field shows it: a number, a token, or unset for Auto. */
 export function layerOrderSide(zIndex: NodeStyle["zIndex"]): Side {

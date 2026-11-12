@@ -15,7 +15,7 @@ import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
-import { LayerPanel } from "./LayerPanel.tsx"
+import { LayerPanel, type LayerPart } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -30,7 +30,7 @@ import { ModeViewportIcon } from "./viewports.tsx"
  * The Design tab: whatever is selected, a design, one of its layers or modes, or text on the canvas. Its number fields
  * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
  */
-export function DesignTab() {
+export function DesignTab({ only }: { only?: LayerPart }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
@@ -38,13 +38,13 @@ export function DesignTab() {
   return (
     <FieldTarget value={selectionKey(selected)}>
       <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>
-        <SelectedPanel />
+        <SelectedPanel only={only} />
       </FirstStateName>
     </FieldTarget>
   )
 }
 
-function SelectedPanel() {
+function SelectedPanel({ only }: { only?: LayerPart }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
@@ -78,7 +78,7 @@ function SelectedPanel() {
   }
 
   if (selected.node) {
-    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} only={only} />
   }
 
   return <DesignPanel entry={entry} />

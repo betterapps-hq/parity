@@ -21,7 +21,7 @@ import {
 } from "./field-parts.tsx"
 import { type Bezier, bezierCss, type EasingPlot, readEasingValue } from "./motion-data.ts"
 import { NumberField } from "./number-field.tsx"
-import { colorTokens, lengthVars } from "./tokens.ts"
+import { colorTokens, lengthVars } from "./stand-in-tokens.ts"
 import type { StoredObject, Writes } from "./writes.ts"
 
 /*

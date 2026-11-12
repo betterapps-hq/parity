@@ -5,7 +5,8 @@ import { ColorInput } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
 import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
-import { CardPreview, Playground, useDraft } from "./playground.tsx"
+import { Playground, useDraft } from "./playground.tsx"
+import { CardPreview } from "./preview-card.tsx"
 import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
 
 /**

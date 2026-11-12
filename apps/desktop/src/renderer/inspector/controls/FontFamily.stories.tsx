@@ -4,6 +4,7 @@ import { userEvent, within } from "storybook/test"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
+import { fontTokens } from "./stand-in-tokens.ts"
 import { projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites } from "./text-writes.ts"
@@ -32,7 +33,7 @@ const geist = projectFonts[0]!
 function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: boolean; mixed?: boolean }) {
   const [value, setValue] = useState(start)
   const [preview, setPreview] = useState<FontValue>()
-  const shown = resolveFont(preview ?? value)
+  const shown = resolveFont(preview ?? value, fontTokens)
 
   return (
     <Playground writes={fontWrites(value)} preview={<TextSample style={{ fontFamily: shown?.stack ?? geist.stack }} />}>

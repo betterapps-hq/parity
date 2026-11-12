@@ -5,6 +5,7 @@ import { useTokenSets } from "./field-parts.tsx"
 import type { TransitionEntry } from "./motion-data.ts"
 import { transitionsWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
+import { durationTokens } from "./stand-in-tokens.ts"
 import { newEntryId, previewTransition, TransitionsSection } from "./transitions.tsx"
 
 /**
@@ -59,7 +60,10 @@ function Transitions({ start }: { start: Omit<TransitionEntry, "id">[] }) {
   const [savedAs, setSavedAs] = useState<string>()
 
   return (
-    <Playground writes={transitionsWrites(entries, savedAs)} preview={<TransitionsPreview entries={entries} />}>
+    <Playground
+      writes={transitionsWrites(entries, durationTokens, savedAs)}
+      preview={<TransitionsPreview entries={entries} />}
+    >
       <TransitionsSection entries={entries} savedAs={savedAs} onSaveToken={setSavedAs} onChange={setEntries} />
     </Playground>
   )

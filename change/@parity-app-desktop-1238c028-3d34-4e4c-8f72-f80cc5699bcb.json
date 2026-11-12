@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Rebuild the Design tab's style sections on the approved controls, editing the document's styles with the project's own tokens",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

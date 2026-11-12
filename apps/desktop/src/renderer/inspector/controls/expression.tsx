@@ -24,7 +24,8 @@ import {
   ValueField,
   wrappingText
 } from "./field-parts.tsx"
-import { colorTokens, type FieldToken, lengthToken, lengthVars } from "./tokens.ts"
+import { colorTokens, lengthVars } from "./stand-in-tokens.ts"
+import { type FieldToken, lengthToken } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /*

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and the inspector. Text and props still bind.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

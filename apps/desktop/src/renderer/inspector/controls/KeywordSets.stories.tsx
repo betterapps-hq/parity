@@ -7,9 +7,9 @@ import {
   caseChoices,
   ClipContentField,
   clipChoices,
-  cursorChoices,
+  cursorChoices as cursorChoicesOf,
+  cursorDrawer,
   cursorValue,
-  drawCursor,
   drawStrokeStyle,
   type KeywordChoice,
   KeywordMenu,
@@ -17,7 +17,9 @@ import {
   strokeStyleChoices,
   wrapChoices
 } from "./keyword-sets.tsx"
-import { Card, Playground, PreviewStage } from "./playground.tsx"
+import { Playground } from "./playground.tsx"
+import { Card, PreviewStage } from "./preview-card.tsx"
+import { cursorTokens } from "./stand-in-tokens.ts"
 import { filledLayer, TextSample } from "./text-preview.tsx"
 import { type KeywordValue, keywordWrites } from "./text-writes.ts"
 
@@ -34,6 +36,9 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
+const cursorChoices = cursorChoicesOf(cursorTokens)
+const drawCursor = cursorDrawer(cursorTokens)
 
 type Story = StoryObj<typeof meta>
 
@@ -63,7 +68,7 @@ function drawn(value: KeywordValue | undefined, choices: readonly KeywordChoice[
 
   const [name, css] = choice.css.split(": ")
 
-  return { [camel(name)]: choice.token ? cursorValue(choice.value) : css }
+  return { [camel(name)]: choice.token ? cursorValue(choice.value, cursorTokens) : css }
 }
 
 function Toggles({

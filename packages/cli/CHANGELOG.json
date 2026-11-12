@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 22:46:32 GMT",
+      "version": "0.60.0",
+      "tag": "@parity-app/cli_v0.60.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "edbb4794472aa92d91106a856b6e275d20d9d37e",
+            "comment": "Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's selected by then, and Paste to replace replaces nothing when the selection changed meanwhile"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "47b9278a2f2722ed307520704327aa3dda6205a7",
+            "comment": "Design tab: regrouped sections, the approved Component instance and props rows, measured sizes, and field errors that stay as typed"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 22:11:04 GMT",
       "version": "0.59.0",
       "tag": "@parity-app/cli_v0.59.0",

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "The Design tab's fields run through one edit session: Escape cancels a scrub, a run of Up and Down or a drag inside a control is one undo step that Escape takes back, Fill, Effects and Motion preview too, and +8, Up and scrubs in a mixed W, H or side work from each layer's own value",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

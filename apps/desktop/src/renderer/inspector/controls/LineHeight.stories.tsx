@@ -4,9 +4,10 @@ import { userEvent, within } from "storybook/test"
 import { Field } from "./field-row.tsx"
 import { LetterSpacingField, LineHeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
+import { leadingTokens, sizeTokens, trackingTokens } from "./stand-in-tokens.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type LetterSpacing, letterSpacingWrites, type LineHeight, lineHeightWrites } from "./text-writes.ts"
-import { leadingTokens, type SizeToken, sizeTokens, trackingTokens } from "./tokens.ts"
+import { type SizeToken } from "./tokens.ts"
 import { mergeWrites } from "./writes.ts"
 
 /**

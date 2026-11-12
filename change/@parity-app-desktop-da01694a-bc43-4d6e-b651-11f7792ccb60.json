@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Mark a value changed in the state being edited with a dot on its control",
+  "comment": "Edit a className prop as tags",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
