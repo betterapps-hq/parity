@@ -297,6 +297,8 @@ export interface OpenProjects {
   /** The project's code as the address a job draws from first served it, while the project is open. */
   codeServedAt: (projectId: string, guestUrl: string) => ServedCode | undefined
   previewProject: (projectId: string) => PreviewProject | undefined
+  /** The project files the modules of `files` load, by its builder's account (PAR-994); none when it can't say. */
+  loadedFiles: (projectId: string, files: string[]) => Promise<string[] | undefined>
 }
 
 /**
@@ -1541,7 +1543,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         : project.stylesheets
 
       return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
-    }
+    },
+
+    loadedFiles: (projectId, files) => projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined)
   }
 }
 
@@ -1550,9 +1554,10 @@ function builderProcessId(root: string): string {
 }
 
 /**
- * The project's code as its guest will draw it, for kept bitmaps: its files, and the guest module Parity draws it with,
- * so a new version of Parity doesn't show bitmaps the last one drew, and the components the builder serves it with now,
- * which change in place later. `bitmapFormat` goes up when what's kept changes.
+ * The project's code as its guest will draw it, for kept bitmaps and previews: its files, and the guest module Parity
+ * draws it with, as the snapshot's salt, so a new version of Parity doesn't show bitmaps the last one drew, and the
+ * components the builder serves it with now, which change in place later. `bitmapFormat` goes up when what's kept
+ * changes.
  */
 function servedCode(root: string, options: BuilderStartOptions): ServedCode {
   const guest = readFile(options.rendererGuestPath).catch(() => Buffer.alloc(0))
@@ -1563,7 +1568,6 @@ function servedCode(root: string, options: BuilderStartOptions): ServedCode {
 
   return {
     code,
-    fingerprint: code.then(({ fingerprint }) => fingerprint),
     sources: { ...options.config.components }
   }
 }

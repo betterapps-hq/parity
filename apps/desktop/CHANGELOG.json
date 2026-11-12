@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 08:08:09 GMT",
+      "version": "0.68.3",
+      "tag": "@parity-app/desktop_v0.68.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "73084b479a2dfdd45e9eef95b0007beefbf31693",
+            "comment": "An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 07:49:23 GMT",
       "version": "0.68.2",
       "tag": "@parity-app/desktop_v0.68.2",

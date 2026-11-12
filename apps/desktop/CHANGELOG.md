@@ -1,8 +1,18 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 07:49:23 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 08:08:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.68.3
+
+Thu, 12 Nov 2026 08:08:09 GMT
+
+### Patches
+
+- An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's
+  design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get
+  (ajcraswell@gmail.com)
 
 ## 0.68.2
 

@@ -20,6 +20,8 @@ export type BuilderProcessRequest =
   | { type: "usage"; id: number }
   /** Where it serves the guest with the stylesheets of the change stamped `stamp` (PAR-821). */
   | { type: "restyledGuestUrl"; id: number; stamp: number }
+  /** The project files the modules of `files` load, as the build tool resolved them (PAR-994). */
+  | { type: "loadedFiles"; id: number; files: string[] }
   /** Closes the builder, then ends the process. */
   | { type: "close" }
 
@@ -32,6 +34,8 @@ export type BuilderProcessReply =
   | ({ type: "usage"; id: number } & ProcessTimes)
   /** The restyled guest's address, or none when the builder doesn't offer one. */
   | { type: "restyledGuestUrl"; id: number; guestUrl?: string }
+  /** The files `loadedFiles` asked about load, or none when the builder can't say. */
+  | { type: "loadedFiles"; id: number; files?: string[] }
 
 /** A process's CPU time and memory, as it reads them itself. */
 export interface ProcessTimes {
@@ -129,6 +133,12 @@ export function serveBuilderProcess(
         .then((guestUrl) =>
           side.send(guestUrl ? { type: "restyledGuestUrl", id, guestUrl } : { type: "restyledGuestUrl", id })
         )
+    } else if (request.type === "loadedFiles") {
+      const { id, files } = request
+      void session
+        .then((started) => started?.loadedFiles?.(files))
+        .catch(() => undefined)
+        .then((loaded) => side.send(loaded ? { type: "loadedFiles", id, files: loaded } : { type: "loadedFiles", id }))
     } else if (!closing) {
       closing = true
       void session
@@ -147,12 +157,17 @@ export interface BuilderProcessLink {
 }
 
 /** A builder session whose builder runs in a process of its own. */
-export interface BuilderProcessSession extends Omit<BuilderSession, "restyledGuestUrl"> {
+export interface BuilderProcessSession extends Omit<BuilderSession, "restyledGuestUrl" | "loadedFiles"> {
   /**
    * Where the builder serves the guest with the stylesheets of the change stamped `stamp`, asked of its process; none
    * when it doesn't offer one (see `BuilderSession.restyledGuestUrl`) or its process has ended.
    */
   restyledGuestUrl?(stamp: number): Promise<string | undefined>
+  /**
+   * The project files the modules of `files` load, asked of its process (see `BuilderSession.loadedFiles`); none when
+   * the builder can't say, its process has ended or it doesn't answer in time.
+   */
+  loadedFiles(files: string[]): Promise<string[] | undefined>
   /** Passes on the components the guest imports, after the type checker or a changed file changed them. */
   setComponents(components: Record<string, ComponentSource>): void
   /** Its process's CPU and memory, or nothing when it doesn't answer in time. */
@@ -187,6 +202,8 @@ export interface BuilderProcessClientOptions {
   closeTimeout?: number
   /** How long a usage reading is waited for, in milliseconds. */
   usageTimeout?: number
+  /** How long the files modules load are waited for, in milliseconds. */
+  loadedFilesTimeout?: number
   /** The computer's cores, which a CPU share is of. */
   cores?: number
 }
@@ -199,7 +216,14 @@ export interface BuilderProcessClientOptions {
 export function connectBuilderProcess(
   link: BuilderProcessLink,
   options: BuilderProcessOptions,
-  { onCrash, onCodeChange, closeTimeout = 5000, usageTimeout = 500, cores = 1 }: BuilderProcessClientOptions = {}
+  {
+    onCrash,
+    onCodeChange,
+    closeTimeout = 5000,
+    usageTimeout = 500,
+    loadedFilesTimeout = 2000,
+    cores = 1
+  }: BuilderProcessClientOptions = {}
 ): BuilderProcessClient {
   let state: "starting" | "running" | "closing" | "ended" = "starting"
   let resolveStart: (session: BuilderProcessSession) => void = () => undefined
@@ -215,6 +239,7 @@ export function connectBuilderProcess(
   let killTimer: ReturnType<typeof setTimeout> | undefined
   const readings = new Map<number, (reply?: ProcessTimes) => void>()
   const addresses = new Map<number, (guestUrl?: string) => void>()
+  const loads = new Map<number, (files?: string[]) => void>()
   let nextReading = 1
   let lastReading: ProcessTimes | undefined
 
@@ -273,6 +298,26 @@ export function connectBuilderProcess(
     })
   }
 
+  const loadedFiles = (files: string[]): Promise<string[] | undefined> => {
+    if (state !== "running") {
+      return Promise.resolve(undefined)
+    }
+
+    const id = nextReading++
+
+    return new Promise((resolve) => {
+      const answer = (loaded?: string[]) => {
+        loads.delete(id)
+        clearTimeout(timer)
+        resolve(loaded)
+      }
+
+      const timer = setTimeout(() => answer(), loadedFilesTimeout)
+      loads.set(id, answer)
+      link.send({ type: "loadedFiles", id, files })
+    })
+  }
+
   link.send({ type: "start", options })
 
   return {
@@ -284,6 +329,8 @@ export function connectBuilderProcess(
         readings.get(id)?.(reading)
       } else if (reply.type === "restyledGuestUrl") {
         addresses.get(reply.id)?.(reply.guestUrl)
+      } else if (reply.type === "loadedFiles") {
+        loads.get(reply.id)?.(reply.files)
       } else if (reply.type === "codeChanged") {
         if (state === "running") {
           const { type: _, ...change } = reply
@@ -300,6 +347,7 @@ export function connectBuilderProcess(
           setComponents: (components) => state === "running" && link.send({ type: "components", components }),
           usage,
           restyledGuestUrl,
+          loadedFiles,
           close
         })
       } else {
@@ -316,7 +364,7 @@ export function connectBuilderProcess(
       state = "ended"
       clearTimeout(killTimer)
 
-      for (const answer of [...readings.values(), ...addresses.values()]) {
+      for (const answer of [...readings.values(), ...addresses.values(), ...loads.values()]) {
         answer()
       }
 
