@@ -93,9 +93,9 @@ describe("editing another state", () => {
   it("keeps an override that matches the base value when asked to, as agents' changes are written", () => {
     const kept = { keepEqual: true }
     const next = editNode(design, "loading", "title", { text: "Create an account", hidden: false }, kept)
-    expect(next.states[1]?.overrides?.title).toEqual({ text: "Create an account", hidden: false })
+    expect(next.states![1]?.overrides?.title).toEqual({ text: "Create an account", hidden: false })
     const style = editNode(design, "loading", "page", { style: { gap: { step: 4 } } }, kept)
-    expect(style.states[1]?.overrides?.page).toEqual({ style: { gap: { step: 4 } } })
+    expect(style.states![1]?.overrides?.page).toEqual({ style: { gap: { step: 4 } } })
   })
 
   it("shows the node as the state sees it", () => {

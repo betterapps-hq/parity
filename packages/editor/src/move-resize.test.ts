@@ -831,7 +831,7 @@ describe("nudging a design's layers", () => {
     const loading = card().states![1]!
     const moved = nudgeLayers(card(), ["badge"], loading, "down", false, 4, nothingDrawn).container
     expect(findNode(moved.root, "badge")?.style?.top).toEqual({ step: 2 })
-    expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: { step: 2.25 } } })
+    expect(moved.states![1]?.overrides?.badge).toEqual({ style: { top: { step: 2.25 } } })
   })
 
   it("names a token it couldn't move by", () => {

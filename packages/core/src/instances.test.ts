@@ -215,7 +215,7 @@ describe("instance overrides", () => {
     expect(textOf(tree, "second/body")).toBe("Body copy")
     // The component changing still reaches the copy, for whatever the copy doesn't change itself.
     const restyled = editNode(card, "default", "body", { style: { color: { token: "primary" } } })
-    const later = render(edited, edited.states[0], componentLibrary([badge, restyled]))
+    const later = render(edited, designStates(edited)[0], componentLibrary([badge, restyled]))
     expect(css(later, "first/body")).toMatchObject({ color: "var(--primary)", "font-weight": "600" })
   })
 
@@ -428,7 +428,7 @@ describe("a component's board", () => {
     expect(layerOnBoard(card, "title", library, empty)).toMatchObject({ text: "Title" })
     expect(layerOnBoard(card, "status/label", library, empty)).toMatchObject({ text: "Active" })
     const danger = { ...badge, view: { variants: { tone: "danger" } } }
-    const shown = layerOnBoard(danger, "badge", library, danger.states[0])
+    const shown = layerOnBoard(danger, "badge", library, designStates(danger)[0])
     expect(shown?.style).toMatchObject({ fills: [{ type: "solid", color: { token: "destructive" } }] })
   })
 })

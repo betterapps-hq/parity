@@ -175,8 +175,7 @@ describe("resolveDesign", () => {
       name: "Gap",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "root", style: { width: { step: 6 }, height: { step: 4 } }, children: [] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "root", style: { width: { step: 6 }, height: { step: 4 } }, children: [] }
     }
 
     const [row] = resolveDesign(
@@ -768,7 +767,6 @@ describe("sizing", () => {
             style: { width: { step: 80 }, padding: [{ step: 1 }, { step: 2 }, { step: 3 }, { step: 4 }] },
             children: []
           },
-          states: [{ id: "default", name: "Default" }],
           frames: { mobile: { height: 844 } }
         }
       ]

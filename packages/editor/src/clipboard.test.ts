@@ -460,12 +460,12 @@ describe("copying and pasting style", () => {
 
   it("copies a layer's look with the variant options the board shows and the frame's viewport", () => {
     const inline = card({ layout: "inline" })
-    expect(styleOf(inline, "body", inline.states[0]!, "mobile")).toEqual({
+    expect(styleOf(inline, "body", inline.states![0]!, "mobile")).toEqual({
       flexDirection: "row",
       gap: { step: 2 },
       padding: { step: 2 }
     })
-    expect(styleOf(card(), "body", inline.states[0]!, "desktop")).toEqual({
+    expect(styleOf(card(), "body", inline.states![0]!, "desktop")).toEqual({
       flexDirection: "column",
       gap: { step: 4 },
       padding: { step: 4 }
@@ -482,19 +482,19 @@ describe("copying and pasting style", () => {
     const container = applyStyle(form(), ["fields"], error, { padding: { step: 4 } })
     const fields = findNode(container.root, "fields")!
     expect(fields.style).toEqual({ flexDirection: "row", gap: { step: 3 }, padding: { step: 1 } })
-    expect(nodeInState(fields, container.states[1]).style).toMatchObject({ padding: { step: 4 } })
+    expect(nodeInState(fields, container.states![1]).style).toMatchObject({ padding: { step: 4 } })
   })
 
   it("leaves only the copied style in a state other than the base, taking away what the design sets", () => {
     const container = applyStyle(form(), ["fields"], error, { padding: { step: 4 } })
     const fields = findNode(container.root, "fields")!
-    expect(nodeInState(fields, container.states[1]).style).toEqual({ padding: { step: 4 } })
+    expect(nodeInState(fields, container.states![1]).style).toEqual({ padding: { step: 4 } })
     // The state keeps it as its changes: the padding, and the design's flex direction and gap taken away.
-    expect(container.states[1]!.overrides?.fields).toEqual({
+    expect(container.states![1]!.overrides?.fields).toEqual({
       style: { padding: { step: 4 } },
       unset: { style: ["flexDirection", "gap"] }
     })
-    expect(nodeInState(fields, container.states[0]).style).toEqual({
+    expect(nodeInState(fields, container.states![0]).style).toEqual({
       flexDirection: "row",
       gap: { step: 3 },
       padding: { step: 1 }
@@ -503,7 +503,7 @@ describe("copying and pasting style", () => {
 
   it("takes away nothing the design doesn't set, pasted in a state", () => {
     const container = applyStyle(form(), ["heading"], error, { padding: { step: 2 } })
-    expect(container.states[1]!.overrides?.heading).toEqual({ style: { padding: { step: 2 } } })
+    expect(container.states![1]!.overrides?.heading).toEqual({ style: { padding: { step: 2 } } })
   })
 })
 

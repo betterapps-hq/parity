@@ -94,7 +94,6 @@ const profile: ContainerSpec = {
         id: "person",
         design: "card",
         args: { title: "Ada Lovelace", layout: "inline" },
-        state: "compact",
         overrides: { meta: { text: "Joined 1843" }, "avatar/initials": { text: "AL", style: { fontWeight: 700 } } },
         responsive: { mobile: { props: { layout: "stacked" } } }
       }

@@ -466,8 +466,7 @@ describe("a frame in a project whose styling framework writes classes (PAR-942)"
       id: "root",
       style: { padding: { step: 4 }, gap: { step: 2 } },
       children: [{ type: "text", id: "title", text: "Plans", style: { width: { step: 20 } } }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   /** How each layer is drawn: its classes, whether the frame has a rule for it, and its box and padding. */

@@ -179,8 +179,7 @@ describe("a new design of dropped images", () => {
           gap: { step: 4 },
           width: { size: "hug" }
         }
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     })
   })
 

@@ -1,6 +1,14 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
-import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes, tokenColor } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  designStates,
+  findNode,
+  mapNode,
+  type ModeSettings,
+  shownModes,
+  tokenColor
+} from "@parity-app/core"
 import { kindName, type Selection } from "@parity-app/editor"
 import {
   ArrowUpRight,

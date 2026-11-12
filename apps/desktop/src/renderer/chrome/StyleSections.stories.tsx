@@ -149,7 +149,7 @@ export const TextInside: Story = { loaders: [pick("Pricing", "Footer")] }
 
 /** Styles a state changes, Stat card's label in Loading: their names in the agent color, each with a reset. */
 export const ChangedInAState: Story = {
-  loaders: [pick("Pricing", "Headline", { color: { token: "primary" }, fontWeight: 700 }, "yearly")]
+  loaders: [pick("Stat card", "Label", { color: { token: "primary" }, fontWeight: 700 }, "loading")]
 }
 
 /** The fill picker open: the project's colors with swatches, searchable, and None. */

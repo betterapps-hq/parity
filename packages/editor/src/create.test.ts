@@ -27,8 +27,7 @@ describe("a new design", () => {
             style: { fontSize: { token: "text-2xl" }, fontWeight: 600 }
           }
         ]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     })
     expect(screen).not.toHaveProperty("frames")
   })

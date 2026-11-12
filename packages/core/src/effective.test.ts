@@ -215,7 +215,7 @@ describe("effectiveNode", () => {
   })
 
   it("applies the state over the variant options", () => {
-    expect(body({ layout: "inline" }, "desktop", card.states[1])).toMatchObject({
+    expect(body({ layout: "inline" }, "desktop", card.states![1])).toMatchObject({
       flexDirection: "row",
       gap: { step: 2 }
     })
@@ -234,22 +234,24 @@ describe("effectiveNode", () => {
     expect(title("desktop", profile.states![1])).toMatchObject({ text: "Selected" })
     // The instance's responsive patch picks Stacked on mobile. It shows the card's base state, not its Compact one.
     expect(effectiveNode(profile, "person/body", { library, viewport: "mobile" })?.style).toMatchObject({
-      flexDirection: "column",
-      gap: { step: 2 }
+      flexDirection: "column"
     })
     expect(effectiveNode(profile, "person/body", { library, viewport: "desktop" })?.style).toMatchObject({
-      flexDirection: "row",
-      gap: { step: 2 }
+      flexDirection: "row"
     })
     expect(effectiveNode(profile, "person/body", { library })?.style?.gap).not.toBe(2)
   })
 
   it("reaches through nested instances", () => {
-    const initials = (state = profile.states[0]) => effectiveNode(profile, "person/avatar/initials", { library, state })
+    const initials = (state = profile.states![0]) =>
+      effectiveNode(profile, "person/avatar/initials", { library, state })
+
     expect(initials()).toMatchObject({ text: "AL", style: { fontWeight: 700 } })
-    expect(effectiveNode(profile, "person/avatar/circle", { library, state: profile.states[1] })?.style).toMatchObject({
-      fills: [{ type: "solid", color: { token: "accent" } }]
-    })
+    expect(effectiveNode(profile, "person/avatar/circle", { library, state: profile.states![1] })?.style).toMatchObject(
+      {
+        fills: [{ type: "solid", color: { token: "accent" } }]
+      }
+    )
     expect(effectiveNode(design("card"), "avatar/initials", { library })).toMatchObject({ text: "CD" })
   })
 
@@ -364,8 +366,8 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
 
     expect(at("top/bar", "mobile")?.style).toMatchObject({ gap: { step: 2 } })
     expect(at("top/bar", "desktop")?.style).toMatchObject({ gap: { step: 8 } })
-    expect(at("top/menu", "mobile", screen.states[1])?.hidden).toBe(true)
-    expect(at("top/menu", "desktop", screen.states[1])?.hidden).toBeUndefined()
+    expect(at("top/menu", "mobile", screen.states![1])?.hidden).toBe(true)
+    expect(at("top/menu", "desktop", screen.states![1])?.hidden).toBeUndefined()
   })
 
   it("draws the same in resolveDesign", () => {

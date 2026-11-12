@@ -100,8 +100,7 @@ describe("layers with nothing to go into", () => {
           fills: [{ type: "solid", color: { token: "background" } }],
           color: { token: "foreground" }
         }
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     })
     expect(design).not.toHaveProperty("size")
     expect(inside(design)).toMatchObject([{ type: "text", text: "Welcome back" }])

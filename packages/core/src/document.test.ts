@@ -67,7 +67,7 @@ describe("states in a project file (PAR-1002)", () => {
   const hover = { id: "hover", name: "Hover", overrides: { label: { text: "Save now" } } }
 
   const file = (design: Partial<ContainerSpec>) => ({
-    version: 3,
+    version: 4,
     containers: [{ id: "button", name: "Button", position: { x: 0, y: 0 }, root, ...design }]
   })
 

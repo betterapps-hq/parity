@@ -207,7 +207,7 @@ Update("submit", {style: {transition: null}}, {state: "pressed"})`
     expect(findNode(container.root, "submit")?.style?.transition).toEqual([
       { property: "colors", duration: { step: 200 }, easing: { keyword: "ease-out" } }
     ])
-    expect(container.states[1]?.overrides?.submit?.style?.transition).toBeUndefined()
+    expect(container.states![1]?.overrides?.submit?.style?.transition).toBeUndefined()
   })
 
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
@@ -2181,7 +2181,7 @@ describe("Replace", () => {
       }
     ])
     const after = result.changes.designs[0]!.after!
-    expect(after.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(after.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
     expect(after.root.responsive).toEqual({ mobile: { style: { gap: { step: 2 } } } })
   })
 
