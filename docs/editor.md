@@ -2672,7 +2672,7 @@ Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediu
 the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
-grid), `project-media.ts` (the scan, kept per open project) and `remove-media.ts`.
+grid), `project-media.ts` (the scan, kept per open project, through code changes and reconnects) and `remove-media.ts`.
 
 Tests:
 
@@ -2690,6 +2690,7 @@ Tests:
   the code names, dropping files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
+- `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
@@ -5186,6 +5187,49 @@ channel around a card's shadow, which is how they rasterize; a third differs bet
 windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
 profile, so it captures its frames this way.
 
+### What changed since a frame was first looked at (PAR-997)
+
+Whether a frame, a node in it, or its board changed is answered by `@parity-app/change-detection`, never worked out from
+what a bitmap or a render key says. A first try at outlining changed boards read the bitmap cache's `stale` flag, which
+means "this picture isn't for this key", and stayed yellow after an edit was undone.
+
+- **A status is unknown, unchanged, or changed with the files that changed.** It compares the frame's trace now with its
+  baseline: the files it reads, each with a hash of its contents (see Bitmaps kept between sessions), so undoing an edit
+  gives the same digest and the frame is unchanged again. When only Parity's renderer changed, it's changed with no
+  files.
+- **The baseline is the frame's first trace while its project is open.** `ChangeBaselines` keeps it by the frame's id
+  (project, design, state and mode), so a new guest or render key doesn't make it another frame, and drops a project's
+  when it closes. A git ref or an accepted visual-test baseline would be compared the same way.
+- **Nodes.** A trace also lists the files each component the frame draws reads. A node changed when its component's
+  files did, or a file no component reads, such as a stylesheet, a tool's config or a lockfile, or a node inside it,
+  since it draws what's inside it. A trace without the list, as kept in a bitmap, gives every node the frame's status.
+- **A board adds its frames up:** changed when one is, unknown when none has said and one can't, else unchanged.
+- **The service answers, the canvas asks.** `frames.changes` takes frames by id with their jobs, traces each and
+  compares it with its baseline. Each frame asks again whenever its key changes, all the canvas's frames in one request,
+  and `useFrameChange` and `useDesignChange` read the answers. A board whose frames changed has `data-changed`, for
+  tools and tests to read; nothing shows it yet.
+
+Tried in a development build on the example project, with a yellow outline on `data-changed` added locally for testing:
+just opened, no board was outlined; after adding a comment to `badge.tsx`, the 30 boards whose frames draw a badge were;
+after undoing it, none was.
+
+Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `trace.ts`); `componentReads` and the `components`
+list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
+`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
+
+Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
+digest and the files that differ, came or went otherwise; a board changed with every frame's files, unknown when one
+can't say and none changed or there are none, else unchanged; the node whose component's file changed and the nodes
+holding it, but not the rest; every component reading a shared file; every node for a stylesheet; a component that
+started reading a file; and the frame's status for every node when it's unchanged, unknown or traced without
+components). `packages/change-detection/src/baselines.test.ts` (3: counted from the first trace and unchanged once the
+files are back; unknown for a frame not traced, which takes no baseline; each frame's own baseline, started again once
+its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads.
+`apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and each
+gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go). Gaps:
+`frames.changes` itself, and that a frame asks again when its key changes, have no test of their own; both were tried in
+the app.
+
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
 Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the
@@ -5598,7 +5642,9 @@ at the end of the strip. Both are the start page from the explorations (decision
   shadow of its own, so it stands off the main frame it overlaps.
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
-    Edits not saved yet are never pictured: a picture that would show them waits for the next save.
+    Edits not saved yet are never pictured: a picture that would show them waits for the next save. A code change, the
+    guest moving or the service restarting doesn't take it again, since the project stays the same session until its tab
+    closes; reopening it does (PAR-1004).
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
@@ -5613,34 +5659,36 @@ each project's notes, and asks the service which folders are gone and where the 
 `chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
 `start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
 (`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
-started by `ProjectView.tsx`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in
-`canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`,
-through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main
-names as `PARITY_PICTURE_DIR`.
+started for each session by `keepPictureOf` in `workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
+`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
+`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
+in the folder main names as `PARITY_PICTURE_DIR`.
 
 Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
 scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
-tabs" (8, with a project's picture let go once it isn't listed), "starting the workspace" (Home on a fresh install, and
-staying there) and "checking the start page's folders" (2: gone folders flagged and the example kept; checked again when
-Home shows). `utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where
-Parity runs once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a
-phone frame first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone
-beside a phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame
-cut to its window and read back; the latest in place of the one before; projects with none, or a file that can't be
-read, left out; a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial
-files only once old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping
-through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
-which plays, Starred, Shared with you, a project's menu, New project, Open, a new tab), with the example project's
-pictures, Parity/App's On Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab
-and New tab tooltip. Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again
-with Home's Resume. Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on
-2026-11-05, where opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving
-across its card flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and
-saved with Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as
-tall as its content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on
-2026-11-06: with the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects,
-and Open Acme opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it
-showed where it was with Remove.
+tabs" (8, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
+and picture through a code change and a reconnect, telling subscribers, the picture stopping when the tab closes, and a
+new session and picture on reopening), "starting the workspace" (Home on a fresh install, and staying there) and
+"checking the start page's folders" (2: gone folders flagged and the example kept; checked again when Home shows).
+`utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where Parity runs
+once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame
+first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone beside a
+phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its
+window and read back; the latest in place of the one before; projects with none, or a file that can't be read, left out;
+a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial files only once
+old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping through screens, which
+plays, Home without pictures, the first time with and without the example, folders that are gone, which plays, Starred,
+Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures, Parity/App's On
+Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip.
+Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
+Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where
+opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving across its card
+flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and saved with
+Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as tall as its
+content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with
+the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme
+opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it showed where
+it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
