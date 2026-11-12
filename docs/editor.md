@@ -4814,11 +4814,11 @@ tab isn't showing.
 
 ### Frames sleep while their bitmaps show (PAR-197)
 
-Once the camera comes to rest zoomed far enough out that frames are drawn no larger than their bitmaps (25% on a 1x
-screen), every frame showing its bitmap sleeps: its design's React root is unmounted and the elements it drew are
-removed, which is most of what a frame holds. The frame keeps its host element, its size and its bitmap, and its board
-keeps its size, so agents' snapshots, hit testing at the frame's edges and the layout around it are unchanged. Zooming
-back in, a sleeping frame keeps showing its bitmap until it wakes, then draws its design again at the size it had.
+Once the camera comes to rest zoomed out to 10% or further, the same on every screen (`farZoom`, PAR-954), every frame
+showing its bitmap sleeps: its design's React root is unmounted and the elements it drew are removed, which is most of
+what a frame holds. The frame keeps its host element, its size and its bitmap, and its board keeps its size, so agents'
+snapshots, hit testing at the frame's edges and the layout around it are unchanged. Zooming back in, a sleeping frame
+keeps showing its bitmap until it wakes, then draws its design again at the size it had.
 
 - **What sleeps:** a frame showing its bitmap, once the zoom has settled past the line, so a zoom passing through puts
   nothing to sleep. Not the selected board's frames, which outlines and panels measure, and nothing while interacting. A

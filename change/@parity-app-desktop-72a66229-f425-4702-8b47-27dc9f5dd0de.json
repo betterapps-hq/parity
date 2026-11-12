@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

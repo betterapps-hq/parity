@@ -623,7 +623,7 @@ export class App {
         const camera = editor.getCamera()
         const elements = host.shadowRoot?.querySelectorAll("*").length
         const board = host.closest(".container-view")
-        const wakes = camera.z * devicePixelRatio > 0.25 * 1.15 || !!board?.hasAttribute("data-live")
+        const wakes = camera.z > 0.1 * 1.15 || !!board?.hasAttribute("data-live")
 
         return {
           now: `${x},${y},${width},${height},${elements},${camera.x},${camera.y},${camera.z}`,

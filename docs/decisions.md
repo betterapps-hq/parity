@@ -618,15 +618,15 @@ still need your call.
   file, so agents keep talking to the person's app; and it serves the code as it was when it started, so edits made
   meanwhile can't reload what's measured. Its window says it's the measuring copy.
 - **Zoomed far out, frames show bitmaps.** Once a frame has stayed the same for a second, the offscreen renderer
-  captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. Wherever the canvas
-  draws frames no larger than that (25% zoom on a 1x screen), each shows its bitmap, and its live frame skips drawing;
-  once the zoom settles, its design is unmounted too, keeping its host (see the next decision). The selected design
-  stays live, as does everything while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from
-  the live frame once it has stayed the same for a second, its text as faded bars in the text's colour and its cards,
-  fields, buttons and images as flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured
-  height. A frame not measured yet stays live. Skeletons are kept in memory only. Bitmaps are also kept on disk for the
-  next session (PAR-179), named by what they show, the project's code included, so a code change never shows a stale
-  one. Below about 5%, boards and frames also drop their shadows.
+  captures it at a quarter of its size, one frame at a time so agents' renders still get their turn. From 10% zoom, on
+  every screen (PAR-954), each frame shows its bitmap, and its live frame skips drawing; once the zoom settles, its
+  design is unmounted too, keeping its host (see the next decision). The selected design stays live, as does everything
+  while interacting. Until its bitmap is taken, a frame shows its skeleton: measured from the live frame once it has
+  stayed the same for a second, its text as faded bars in the text's colour and its cards, fields, buttons and images as
+  flat shapes, drawn as a few SVG paths per frame, and keeping the frame's measured height. A frame not measured yet
+  stays live. Skeletons are kept in memory only. Bitmaps are also kept on disk for the next session (PAR-179), named by
+  what they show, the project's code included, so a code change never shows a stale one. Below about 5%, boards and
+  frames also drop their shadows.
 - **Frames showing bitmaps sleep (PAR-197).** Once the zoom settles past that line, a frame showing its bitmap unmounts
   its design's React root and its elements, keeping its host, its height and its bitmap; it wakes as its board comes
   near the view, one frame each animation frame. On the example project (119 frames, 1440×900 window, 1x screen),
@@ -8194,3 +8194,20 @@ and the canvas and Layers menus all read it through `commandsFor` in `chrome/act
   exported the selection at the Export section's sizes. The menu now does what they do, and only Export all writes every
   state and mode. Export all, Snap, Performance stats, Clear bitmap cache and About still have no command, so they
   aren't recorded, as before.
+
+## Far frames show bitmaps from 10% zoom, on every screen (PAR-954)
+
+Frames switched to their bitmaps once they were drawn no larger than the bitmaps: the zoom times the screen's pixel
+ratio at 25%, which is 25% zoom on a 1x screen and 17% at 1.5x. You found designs still usable at 15%, so they shouldn't
+be pictures there, and the line moving from screen to screen made it hard to know what zoom to select things at. You
+asked on 2026-11-11 for 10%, about where a design's details stop showing. My calls:
+
+- **The line is a plain zoom, 10%, whatever the screen** (`farZoom` in `frame-bitmaps.ts`), so the zoom you read is the
+  zoom it switches at. Where `data-tiny` drops shadows still goes by the screen's own pixels, since that's about what
+  costs to draw, not what you see.
+- **Bitmaps stay a quarter of the frame's size.** That's sharp at 10% on screens up to 2.5x, so none is taken again and
+  the ones kept on disk still fit.
+- **The margin zooming back in stays,** now 10% to 11.5%, so a camera resting on the line doesn't flip frames back and
+  forth.
+- **Between 10% and the old line, frames draw their designs.** At 1.5x that's 10% to 17%. More frames are live at those
+  zooms, so `pnpm perf`'s zoom run and `canvas.restedFar` (PAR-949) show what it costs and whether the bitmaps arrive.
