@@ -200,9 +200,9 @@ describe("batchRun", () => {
     expect(run.source).toBeUndefined()
   })
 
-  it("reports the package npm published as the release", () => {
+  it("reports the package npm published as beta until it's promoted", () => {
     expect(batchRun({}, "install", true, { published: true })).toMatchObject({
-      environment: "release",
+      environment: "beta",
       published: true
     })
   })

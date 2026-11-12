@@ -19,7 +19,13 @@ export const appStarted = defineEvent(
     firstPaintMs: ms("From the process starting to the first window's first paint"),
     serviceReadyMs: ms("From the process starting to the project service starting to run")
   }),
-  { level: "info", sentBy: ["main"], when: "The first window has painted and the project service is running." }
+  {
+    level: "info",
+    sentBy: ["main"],
+    when:
+      "The first window has painted and the project service is running. Not sent when the screen was locked, the " +
+      "computer slept or the window was minimized before then."
+  }
 )
 
 export const appFirstProject = defineEvent(
@@ -30,7 +36,13 @@ export const appFirstProject = defineEvent(
       .boolean()
       .describe("Whether the window opened it as it started, as last time's tabs, rather than the person choosing it")
   }),
-  { level: "info", sentBy: ["main"], when: "The first project opened since the app started has its tab ready to draw." }
+  {
+    level: "info",
+    sentBy: ["main"],
+    when:
+      "The first project opened since the app started has its tab ready to draw. Not sent when the screen was locked, " +
+      "the computer slept or the window was minimized before then."
+  }
 )
 
 export const appQuit = defineEvent(
@@ -325,6 +337,65 @@ export function serviceExit({
   return { exitCode, ranMs: Math.max(0, Math.round(ranMs)), restarted: replaced }
 }
 
+/**
+ * What a process printed, kept to its last `limit` lines as it arrives in chunks, so a crash can be reported with the
+ * output that explains it.
+ */
+export function outputTail(limit = 50) {
+  let kept = ""
+
+  return {
+    add(chunk: string) {
+      kept = (kept + chunk)
+        .split(/\r?\n/)
+        .slice(-(limit + 1))
+        .join("\n")
+    },
+    text: () => kept.trimEnd().split("\n").slice(-limit).join("\n")
+  }
+}
+
+/** A project service that exited unexpectedly, as it's reported to Sentry. */
+export interface ServiceCrash {
+  message: string
+  fingerprint: string[]
+  output: string
+}
+
+/** The first line of `output` that names a thrown error, as Node prints an uncaught one: `TypeError: …`. */
+const errorLine = /^\s*(?:Uncaught )?((?:[A-Z]\w*)?(?:Error|Exception)(?: \[\w+\])?: .+)$/m
+
+/**
+ * The report for a project service that exited with `exitCode` and printed `output`, or nothing when the exit is
+ * expected: the app quitting, a service being replaced, or one ending cleanly (PAR-950). It's named and grouped by the
+ * error it printed, so each cause is its own Sentry issue, and Linear gets a bug that says what went wrong. Without
+ * one, `missing` names the script the service couldn't find, since a utility process prints nothing then (PAR-489).
+ */
+export function serviceCrash({
+  exitCode,
+  output,
+  expected,
+  missing
+}: {
+  exitCode: number
+  output: string
+  expected: boolean
+  missing?: string | undefined
+}): ServiceCrash | undefined {
+  if (expected || exitCode === 0) {
+    return undefined
+  }
+
+  const cause = errorLine.exec(output)?.[1]?.trim() ?? (missing ? `${missing} doesn't exist` : undefined)
+  const exited = `The project service exited with code ${exitCode}`
+
+  return {
+    message: cause ? `${exited}: ${cause}` : exited,
+    fingerprint: ["service-exited", cause ?? `code ${exitCode}`],
+    output
+  }
+}
+
 /** How often each process's memory is recorded, in milliseconds. */
 export const memoryEveryMs = 5 * 60_000
 
@@ -381,15 +452,26 @@ export type StartupRecord =
  * Times startup from `origin`, the process starting. Each step counts the first time it's marked. `mark` gives
  * `app.started` once, when its last step is in, and `app.first_project` once, when the first project shows, saying
  * whether it was `restored` from last time.
+ *
+ * Marking `interrupted` says the person couldn't have seen the window yet: the screen was locked, the computer slept
+ * or the window was minimized. A window nobody can see isn't painted, so the steps still to come would time the wait
+ * rather than the start, and neither event is given after it (PAR-831).
  */
 export function startupTimer(
   origin: number
-): (step: StartupStep, at: number, how?: { restored: boolean }) => StartupRecord | undefined {
+): (step: StartupStep | "interrupted", at: number, how?: { restored: boolean }) => StartupRecord | undefined {
   const marks = new Map<StartupStep, number>()
   let sent = false
+  let interrupted = false
 
   return (step, at, how) => {
-    if (marks.has(step)) {
+    if (step === "interrupted") {
+      interrupted = true
+
+      return undefined
+    }
+
+    if (interrupted || marks.has(step)) {
       return undefined
     }
 

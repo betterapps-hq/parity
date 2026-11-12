@@ -104,14 +104,14 @@ describe("desktopDataFolder", () => {
 })
 
 describe("telemetryEnvironment", () => {
-  it("names the published app and CLI release, and any other installed build a preview", () => {
-    expect(telemetryEnvironment({}, { installed: true, published: true })).toBe("release")
+  it("names the published app and CLI beta, and any other installed build a preview", () => {
+    expect(telemetryEnvironment({}, { installed: true, published: true })).toBe("beta")
     expect(telemetryEnvironment({}, { installed: true, published: false })).toBe("preview")
   })
 
   it("names a published build promoted to everyone production, and nothing else", () => {
     expect(telemetryEnvironment({}, { installed: true, published: true, promoted: true })).toBe("production")
-    expect(telemetryEnvironment({}, { installed: true, published: true, promoted: false })).toBe("release")
+    expect(telemetryEnvironment({}, { installed: true, published: true, promoted: false })).toBe("beta")
     expect(telemetryEnvironment({}, { installed: true, published: false, promoted: true })).toBe("preview")
     expect(telemetryEnvironment({}, { installed: false, published: true, promoted: true })).toBe("development")
     expect(telemetryEnvironment({ CI: "1" }, { installed: true, published: true, promoted: true })).toBe("ci")

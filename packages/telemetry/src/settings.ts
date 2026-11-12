@@ -8,11 +8,12 @@ import { z } from "zod"
 export type TelemetryLevel = "all" | "off"
 
 /**
- * Which runs an event came from: a checkout, CI, a pull request's preview installer, the published app and CLI, which
- * testers install (PAR-778), or a published build promoted to everyone (PAR-779). `preview` and `release` were one
- * `tester` environment until 2026-11-09.
+ * Which runs an event came from: a checkout, CI, a pull request's preview installer, the published app and CLI before
+ * promotion, which the beta channel and npm's `next` get, or a published build promoted to everyone (PAR-779).
+ * `preview` and `beta` were one `tester` environment until 2026-11-09 (PAR-778), and `beta` was `release` until
+ * 2026-11-12 (PAR-950).
  */
-export type TelemetryEnvironment = "development" | "ci" | "preview" | "release" | "production"
+export type TelemetryEnvironment = "development" | "ci" | "preview" | "beta" | "production"
 
 /** The environment variables that decide what's sent. Empty counts as unset, as a shell's `NAME=` means. */
 export interface TelemetryVariables {
@@ -154,7 +155,7 @@ export interface TelemetryBuild {
 
 /**
  * Which environment a run reports as: `ci` wherever CI is set; else `production` for a published build that's been
- * promoted to everyone (PAR-779), `release` for any other published app or CLI, `preview` for any other installed
+ * promoted to everyone (PAR-779), `beta` for any other published app or CLI, `preview` for any other installed
  * build, such as a pull request's installer or a pkg.pr.new package, and `development` for a checkout (PAR-778).
  */
 export function telemetryEnvironment(
@@ -173,7 +174,7 @@ export function telemetryEnvironment(
     return "preview"
   }
 
-  return promoted ? "production" : "release"
+  return promoted ? "production" : "beta"
 }
 
 /** Whether this run is in CI: `CI` is set, and not to `0` or `false`. */
