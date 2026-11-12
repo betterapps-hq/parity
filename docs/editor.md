@@ -3464,6 +3464,40 @@ Tests:
 Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
 use one from its field.
 
+### Agents declare a component's params (PAR-901)
+
+An agent can give a component design params without extracting it from copies. `CreateDesign` takes `params` in the
+`.par` shape, with nodes in its `root` binding them, and `AddParam`, `UpdateParam` and `DeleteParam` in `execute` change
+them later. `Update(path, { bind })` binds or unbinds a node's text, visibility or a code component's props, in the base
+design. Props and Variants show what an agent adds, as they show what Add makes.
+
+- **Variant options** take an id made from the name unless given, and their changes keyed by node id or name. A default
+  can be an option's id or name.
+- **Renaming** changes the nodes that bind the param, the option the board shows, and every instance's args and patches
+  in the tab: the instance's own, its responsive patches, and the states', variant options' and other instances' patches
+  that set it.
+- **A new list of options** keeps an option named as before, with its id and changes. Instances that picked an option
+  that went show the default.
+- **Deleting** leaves each bound node with the param's default as its own value, as unbinding in Props does, and takes
+  the arg out of every instance.
+- **Refused:** a name code couldn't use or another prop's or slot's, a default of the wrong kind, options on a param
+  that isn't a variant, a changed type, params on a screen or frame, and a `bind` that names a missing param, one of the
+  wrong type, or sits outside a component design.
+
+Rules in `@parity-app/core`, `params.ts`: `addParam`, `updateParam`, `renameParam`, `deleteParam`, `bindNode`,
+`bindingProblem` and `changeArgs`. Code: `AddParam`, `UpdateParam`, `DeleteParam` and `withParams` in
+`packages/agent/src/workspace.ts`, with `paramInput` and `paramUpdate` in `arguments.ts`.
+
+Tests:
+
+- `packages/core/src/params.test.ts`: adding, with each refusal; renaming binds and the board's option; deleting keeping
+  values; changing defaults and options; binding and unbinding, and binds refused; and args renamed or dropped in
+  instances, responsive patches and states.
+- `packages/agent/src/params.test.ts`: `CreateDesign` with params and a variant's changes by node name; adding a param
+  and binding it with `Update`; renaming across instances; a new options list keeping changes and dropping picks;
+  deleting; and the calls refused.
+- `packages/cli/src/skill-examples.test.ts`: execute.md's App sidebar example runs.
+
 ### Filling a slot from an instance (PAR-84)
 
 An instance fills its component's slots with layers of the design it sits in, shown in place of each slot's placeholder.
