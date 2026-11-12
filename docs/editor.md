@@ -4858,9 +4858,9 @@ decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts th
 and shows the placeholder, with the `.frame-placeholder` rule in `styles.css`; the board's `near` and `dormant` signals
 in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`;
 `capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture; `captureWindow` in
-`apps/desktop/src/main/index.ts`, which takes a capture up to three times, after the offscreen window paints again, when
-Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component previews and
-exports all capture through it.
+`apps/desktop/src/main/render-pool.ts`, which takes a capture up to three times, after the offscreen window paints
+again, when Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component
+previews and exports all capture through it.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
@@ -5186,8 +5186,9 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   next change.
 
 Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
-`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
-`ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
+`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `createRenderPool` in
+`apps/desktop/src/main/render-pool.ts`, which opens the offscreen windows, closes them a minute after the last job and
+opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
 `frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
 `packages/builder-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
@@ -5228,20 +5229,24 @@ crop covering its box, and boxes and heights measured back in CSS pixels). `pack
 text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
 images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
 the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, the frame's latest from other code comes as stale and the frame is still captured (PAR-993),
-frames with the same key share a read, frames asking together share one request and each gets its own bitmap, none when
-the service couldn't say, none when none was kept, and a capture taken during the read wins). Gaps: that a frame waits
-for the read before its capture, and the fingerprint kept per address, have no test of their own; both were checked by
-reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on `examples/shadcn-vite`: the first session kept
-119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were shown from disk with no capture, about 2 seconds
-after the window loaded, the service answering each read in about a millisecond once it reached it; Clear bitmap cache
-emptied the folder and showed its toast. Before the fix to wait for the read, the service answered after the 1-second
-wait, so every frame was captured again anyway. The four windows were checked against one in debug copies on fresh
-profiles: of the 119 bitmaps both kept, 117 were the same file byte for byte, and 2 differed by at most 6 of 255 in a
-channel around a card's shadow, which is how they rasterize; a third differs between two runs with the same number of
-windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
-profile, so it captures its frames this way.
+`apps/desktop/src/main/render-pool.test.ts` (9: a window opened for the first job is kept for the next, a renderer that
+crashes fails its job and its window opens again for the next, a crashed frame isn't pictured, the windows close a
+minute after the last job and open again for the next, they stay open while a job draws, closing them all forgets the
+close that waited, what a window writes is tagged with the design it draws, a capture gives the frame's picture, and a
+preview of one color drew nothing). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in
+for its key, with its height, so no capture is asked for, the frame's latest from other code comes as stale and the
+frame is still captured (PAR-993), frames with the same key share a read, frames asking together share one request and
+each gets its own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the
+read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
+of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+`examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
+shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
+millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
+the read, the service answered after the 1-second wait, so every frame was captured again anyway. The four windows were
+checked against one in debug copies on fresh profiles: of the 119 bitmaps both kept, 117 were the same file byte for
+byte, and 2 differed by at most 6 of 255 in a channel around a card's shadow, which is how they rasterize; a third
+differs between two runs with the same number of windows. That captures go to separate windows has no automated test;
+the end-to-end suite starts each copy on a fresh profile, so it captures its frames this way.
 
 ### What changed since a frame was first looked at (PAR-997)
 
@@ -5401,11 +5406,11 @@ and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
 and `previews.make` handlers and their checks in `apps/desktop/src/shared/service-checks.ts`,
 `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`; `renderJob`, `previewName`,
-`deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; `renderPreview`, `renderOffscreen` and
-`servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`, `startPreviews`, `useComponentPreview` and
-`usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`; `previewMode` and `modeAppearance` in
-`packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
-`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
+`apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
+`startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
+`previewMode` and `modeAppearance` in `packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`;
+`ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
 `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
@@ -5873,11 +5878,11 @@ while the tools are found was tried and gained nothing, as both work on the serv
 Code: `useFirstDrawWaits`, `holdsFirstDraw`, `drawnHeight`, and the `measure` and `holding` that `useFrameBitmap` and
 `capture` take, in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `FrameTile` in `canvas/ContainerView.tsx`, and
 the `[data-measured]` and `.frame-placeholder` rules in `styles.css`; `window.canvasHeight` in `renderer/render.ts`,
-which `renderFrame` in `main/index.ts` asks after a capture, and the `frames.capture` handler in `utility/index.ts`,
-which keeps it; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`; `withoutPatternFills` in
-`canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in `utility/index.ts`, with
-`roots` of `openProjects` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the opening
-timings in `apps/desktop/scripts/perf.ts`.
+which the render pool's `render` in `main/render-pool.ts` asks after a capture, and the `frames.capture` handler in
+`utility/index.ts`, which keeps it; the first fit in `handleMount` in `canvas/CanvasEditor.tsx`; `withoutPatternFills`
+in `canvas/tldraw-fills.ts`; `startReopening` in `apps/desktop/src/utility/reopening.ts`, wired in `utility/index.ts`,
+with `roots` of `openProjects` in `utility/projects.ts` and `PARITY_REOPEN_FILE`, which main gives the service; the
+opening timings in `apps/desktop/scripts/perf.ts`.
 
 Tests: `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (3 for `holdsFirstDraw`: a frame zoomed far out waits
 while its bitmap is to come, kept or captured, and once it has come, until it falls asleep on it; draws once its capture
@@ -6125,14 +6130,15 @@ Smoke check, on Windows, from a fresh worktree:
 Checked on Windows 11 (10.0.26200) on 2026-11-03 with `examples/shadcn-vite`: both runs showed the same 119 modes with
 no errors. With the dev runner's check removed, the copy failed as above and logged the missing path.
 
-Code: `isPackaged` in `apps/desktop/src/main/packaged.ts`, `serviceEntry` and `startService` in
-`apps/desktop/src/main/index.ts`; `parityElectron` in `apps/desktop/scripts/parity-electron.ts`, which `scripts/dev.ts`
-skips under `PARITY_STANDARD_ELECTRON=1`.
+Code: `isPackaged` in `apps/desktop/src/main/packaged.ts`, `serviceEntry` in `apps/desktop/src/main/index.ts`, and
+`createProjectService` in `main/project-service.ts`, which names a missing script when the service exits;
+`parityElectron` in `apps/desktop/scripts/parity-electron.ts`, which `scripts/dev.ts` skips under
+`PARITY_STANDARD_ELECTRON=1`.
 
-Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev runner counting as not packaged. The app
-tests start Parity through `scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing
-automated starts the service from a freshly made copy and compares it with Electron as installed. That's the smoke check
-above.
+Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev runner counting as not packaged, and
+`main/project-service.test.ts` a crash that names the missing script. The app tests start Parity through
+`scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing automated starts the service
+from a freshly made copy and compares it with Electron as installed. That's the smoke check above.
 
 ## The window
 
@@ -6211,15 +6217,18 @@ the beta setting and beta/stable installed builds independently of the preferenc
 toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
-operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement, and
-`main/host-handlers.ts` answers the window's update methods, through `preload/index.ts`. `renderer/chrome/updates.tsx`
-shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close acknowledgement, for the
+windows `main/index.ts` gives it, and `main/host-handlers.ts` answers the window's update methods, through
+`preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
+`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
-failure resetting the close decision, disabled development builds and the Mac fallback. `main/update-channel.test.ts`
-runs electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping
-stable on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
+failure resetting the close decision, disabled development builds and the Mac fallback. `main/close-flow.test.ts` covers
+each way a close starts (closing, quitting, restarting for an update) against each answer the page gives, in one table,
+and an install that fails after the page agreed, which asks again at the next close. `main/update-channel.test.ts` runs
+electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping stable
+on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
 `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
 losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
 checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
