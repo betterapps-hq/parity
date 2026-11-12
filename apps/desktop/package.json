@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.68.3",
+  "version": "0.69.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
