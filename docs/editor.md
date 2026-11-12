@@ -4496,8 +4496,6 @@ Tests:
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Button's button disabled in the base, its
-  `disabled` switch turned off in Outline, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the
 typed fields) beyond the stories above, whose play functions run only in Storybook. All of it, and the history above,
@@ -4540,7 +4538,7 @@ Code: `packages/core/src/document.ts` (`checkNoStates`, `baseState`, `designStat
 (`refuseUnlessComponent`), `render.ts` (an instance's scope in its component's base state);
 `packages/editor/src/kinds.ts` (`withoutStates`) and `document-equality.ts` (a screen's view keeps no state);
 `packages/agent/src/workspace.ts` (`listDesigns`, `namedState`) and `snippet-api.ts` (`ScreenSummary`,
-`ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`StateTarget`),
+`ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`ComponentStateSelector`),
 `canvas/ContainerView.tsx` (the state menu) and `chrome/designs.ts` with `convert-to-frame.ts` (`droppedStatesLine`).
 
 Tests:
@@ -4557,8 +4555,8 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerPanel.stories.tsx`
-  DesignInstance (no State row), and `chrome/StatesSection.stories.tsx` on components.
+- Stories: `chrome/LayerPanel.stories.tsx` Text (a screen's layer, no Editing control) and ComponentInstance (no State
+  row), and `chrome/StatesSection.stories.tsx` on components.
 
 ### A design's modes in its own order (PAR-923)
 

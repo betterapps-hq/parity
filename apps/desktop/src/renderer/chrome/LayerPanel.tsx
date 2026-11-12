@@ -82,15 +82,23 @@ import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
 
 /**
+ * One part of a design layer's panel, which a story shows on its own (PAR-1022): the header, with the layer's name, eye,
+ * the editing bar and Make component or Make slot; an instance's props and slots; a text's content; or a code
+ * component's props.
+ */
+export type LayerPart = "header" | "state" | "instance" | "content" | "props"
+
+/**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a
- * component's board takes edits the same way. Inside an instance, edits change only that copy.
+ * component's board takes edits the same way. Inside an instance, edits change only that copy. `only` draws one part
+ * of a design layer's panel, as a story does; the app draws them all.
  */
-export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+export function LayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: LayerPart }) {
   const { store } = useProject()
 
   if (!isInnerPath(nodeId)) {
-    return <DesignLayerPanel entry={entry} nodeId={nodeId} />
+    return <DesignLayerPanel entry={entry} nodeId={nodeId} only={only} />
   }
 
   // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
@@ -133,8 +141,8 @@ function LayerActions({ node }: { node: DesignNode }) {
   return <HeaderActions actions={actions} onAction={act} />
 }
 
-/** One of the design's own layers. */
-function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+/** One of the design's own layers, or one part of its panel. */
+function DesignLayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: LayerPart }) {
   const session = useProject()
   const { store, selection } = session
   const selected = useSelection(selection)
@@ -191,76 +199,110 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
     })
   }
 
-  return (
-    <>
-      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <SelectionHeading
-          icon={<NodeIcon node={location.node} className={headingIcon} />}
-          color={nodeColor(location.node)}
-          name={
-            <NameInput
-              key={`${nodeId}:${location.node.name ?? ""}`}
-              defaultValue={location.node.name ?? ""}
-              placeholder={layerLabel(location.node, entries, store.getComponentLibrary(), session.info.libraries)}
-              aria-label="Layer name"
-              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
-              onBlur={(event) => {
-                const name = event.currentTarget.value.trim()
+  const selector = <ComponentStateSelector entry={entry} state={state} target={target} />
 
-                if (name === (location.node.name ?? "")) {
-                  return
-                }
+  const header = (
+    <div className={`border-b py-3 pl-4 ${panelEnd}`}>
+      <SelectionHeading
+        icon={<NodeIcon node={location.node} className={headingIcon} />}
+        color={nodeColor(location.node)}
+        name={
+          <NameInput
+            key={`${nodeId}:${location.node.name ?? ""}`}
+            defaultValue={location.node.name ?? ""}
+            placeholder={layerLabel(location.node, entries, store.getComponentLibrary(), session.info.libraries)}
+            aria-label="Layer name"
+            className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
+            onBlur={(event) => {
+              const name = event.currentTarget.value.trim()
 
-                renameAndRecord(store, key, name || undefined, nodeId)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur()
-                }
-              }}
-            />
-          }
-          kind={kind.label}
-          detail={kind.description}
-          action={
-            <>
-              <LayerActions node={location.node} />
-              <VisibleToggle node={node} override={override} change={change} reset={reset} />
-            </>
-          }
-        />
-        <StateTarget entry={entry} state={state} target={target} />
-        {/* A component or an instance is already one, so it has no Make component. */}
-        {location.ancestors.length > 0 && location.node.type !== "instance" && location.node.type !== "component" && (
-          <MakeComponent
-            entry={entry}
-            nodeId={nodeId}
-            beside={
-              location.node.type === "layout" &&
-              container.kind === "component" && <MakeSlot entry={entry} node={location.node} />
-            }
+              if (name === (location.node.name ?? "")) {
+                return
+              }
+
+              renameAndRecord(store, key, name || undefined, nodeId)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur()
+              }
+            }}
           />
-        )}
-        {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
-        {location.ancestors.length === 0 && location.node.type === "layout" && container.kind === "component" && (
-          <div className="mt-2 flex">
-            <MakeSlot entry={entry} node={location.node} />
-          </div>
-        )}
-      </div>
-
-      {node.type === "instance" && (
-        <InstanceSection
+        }
+        kind={kind.label}
+        detail={kind.description}
+        action={
+          <>
+            <LayerActions node={location.node} />
+            <VisibleToggle node={node} override={override} change={change} reset={reset} />
+          </>
+        }
+      />
+      {selector}
+      {/* A component or an instance is already one, so it has no Make component. */}
+      {location.ancestors.length > 0 && location.node.type !== "instance" && location.node.type !== "component" && (
+        <MakeComponent
           entry={entry}
-          node={node}
-          own={location.node.type === "instance" ? location.node : undefined}
-          changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
-          onReset={(name) => reset({ kind: "props", key: name })}
+          nodeId={nodeId}
+          beside={
+            location.node.type === "layout" &&
+            container.kind === "component" && <MakeSlot entry={entry} node={location.node} />
+          }
         />
       )}
+      {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
+      {location.ancestors.length === 0 && location.node.type === "layout" && container.kind === "component" && (
+        <div className="mt-2 flex">
+          <MakeSlot entry={entry} node={location.node} />
+        </div>
+      )}
+    </div>
+  )
 
-      <LayerSections entry={entry} nodeId={nodeId} node={node} override={override} change={change} reset={reset} />
+  const instance = node.type === "instance" && (
+    <InstanceSection
+      entry={entry}
+      node={node}
+      own={location.node.type === "instance" ? location.node : undefined}
+      changed={(name) => changesField(override, { kind: "props", key: name })}
+      onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
+      onReset={(name) => reset({ kind: "props", key: name })}
+    />
+  )
+
+  const sections = (part?: "content" | "props") => (
+    <LayerSections
+      entry={entry}
+      nodeId={nodeId}
+      node={node}
+      override={override}
+      change={change}
+      reset={reset}
+      only={part}
+    />
+  )
+
+  if (only === "header") {
+    return header
+  }
+
+  if (only === "state") {
+    return <div className={`px-4 pb-3 ${panelEnd}`}>{selector}</div>
+  }
+
+  if (only === "instance") {
+    return instance
+  }
+
+  if (only) {
+    return sections(only)
+  }
+
+  return (
+    <>
+      {header}
+      {instance}
+      {sections()}
     </>
   )
 }
@@ -394,7 +436,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
             </div>
           </div>
         ) : (
-          <StateTarget entry={entry} state={state} target={target} />
+          <ComponentStateSelector entry={entry} state={state} target={target} />
         )}
         {owner && (
           <Button
@@ -427,7 +469,10 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
   )
 }
 
-/** The sections every layer has: its content, visibility, props and style, edited through `change` and `reset`. */
+/**
+ * The sections every layer has: its content, visibility, props and style, edited through `change` and `reset`, or with
+ * `only`, its content or a code component's props alone.
+ */
 function LayerSections({
   entry,
   nodeId,
@@ -435,7 +480,8 @@ function LayerSections({
   override,
   change,
   reset,
-  inner = false
+  inner = false,
+  only
 }: {
   entry: ContainerEntry
   nodeId: string
@@ -448,6 +494,7 @@ function LayerSections({
   reset: (field?: PatchField) => void
   /** Inside an instance, where an image's file and description belong to the component. */
   inner?: boolean
+  only?: "content" | "props"
 }) {
   const session = useProject()
   const components = useComponents(session.components)
@@ -469,35 +516,47 @@ function LayerSections({
       field
     )
 
+  const content = node.type === "text" && (
+    <ContentSection
+      text={node.text}
+      tag={undefined}
+      onText={(text) => change("Edit text", { text })}
+      onTag={() => undefined}
+      textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
+      aroundText={(field) => withTextProp(field)}
+    />
+  )
+
+  const props = node.type === "component" && (
+    <PropsSection
+      node={node}
+      info={components[node.component]}
+      changed={(name) => changesField(override, { kind: "props", key: name })}
+      taken={override?.unset?.props}
+      onChange={(name, value, gesture) =>
+        previewedProp.commit(node, change, `Change ${name}`, propChange(name, value), gesture)
+      }
+      onPreview={(name, value) => previewedProp.show(node, change, `Change ${name}`, propChange(name, value))}
+      onCancel={() => previewedProp.cancel()}
+      onReset={(name) => reset({ kind: "props", key: name })}
+    />
+  )
+
+  if (only === "content") {
+    return content
+  }
+
+  if (only === "props") {
+    return props
+  }
+
   return (
     <>
-      {node.type === "text" && (
-        <ContentSection
-          text={node.text}
-          tag={undefined}
-          onText={(text) => change("Edit text", { text })}
-          onTag={() => undefined}
-          textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
-          aroundText={(field) => withTextProp(field)}
-        />
-      )}
+      {content}
 
       {(node.type === "image" || node.type === "video") && !inner && <MediaSection entry={entry} node={node} />}
 
-      {node.type === "component" && (
-        <PropsSection
-          node={node}
-          info={components[node.component]}
-          changed={(name) => changesField(override, { kind: "props", key: name })}
-          taken={override?.unset?.props}
-          onChange={(name, value, gesture) =>
-            previewedProp.commit(node, change, `Change ${name}`, propChange(name, value), gesture)
-          }
-          onPreview={(name, value) => previewedProp.show(node, change, `Change ${name}`, propChange(name, value))}
-          onCancel={() => previewedProp.cancel()}
-          onReset={(name) => reset({ kind: "props", key: name })}
-        />
-      )}
+      {props}
 
       {node.type === "component" && components[node.component]?.takesStyle === false && (
         <NoStyleNote component={node.component} wrap={!inner} />
@@ -806,7 +865,15 @@ function instanceRows(
  * Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. Only a
  * component has states and variants, so a screen's or a frame's edits always change the design, and it shows nothing.
  */
-function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: StateSpec; target: EditTarget }) {
+function ComponentStateSelector({
+  entry,
+  state,
+  target
+}: {
+  entry: ContainerEntry
+  state: StateSpec
+  target: EditTarget
+}) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
 
