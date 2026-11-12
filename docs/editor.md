@@ -356,12 +356,12 @@ checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the can
 ### One reading of a frame for every gesture (PAR-967)
 
 Whatever the canvas measures in a frame comes from one place: the outlines' sizes, resizing, dragging and nudging a
-layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes and the
-corners of an agent's scan. Frame skeletons still work theirs out (PAR-996). How many screen pixels make one of the
-design's had been worked out three ways in thirteen places: the camera's zoom times the frame's own scale, an element's
-drawn width over its offset width, and the frame's drawn width over the width it was given. Nothing checked they agreed,
-and dragging an absolutely placed layer took its scale from the camera and its insets from the page, which agree only
-once tldraw has drawn the camera's latest move.
+layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes, the
+corners of an agent's scan, frame skeletons (PAR-996), and where the inspector and tab order mark elements. How many
+screen pixels make one of the design's had been worked out three ways in thirteen places: the camera's zoom times the
+frame's own scale, an element's drawn width over its offset width, and the frame's drawn width over the width it was
+given. Nothing checked they agreed, and dragging an absolutely placed layer took its scale from the camera and its
+insets from the page, which agree only once tldraw has drawn the camera's latest move.
 
 - **The scale is read from where the frame is drawn,** its width on screen over its width as laid out, so it always
   agrees with the boxes beside it, whatever the camera, a companion mode's smaller frame or anything else multiplies
@@ -383,10 +383,12 @@ once tldraw has drawn the camera's latest move.
 Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` reads a frame's host (its `scale`, `rect`,
 `node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
 `parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
-frame's, and `areaSpace` takes screen pixels to the overlay's. `canvas/layer-measure.ts` turns that into what
-`@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`, `snapScene` and `spacingMeasure`. The host's
-`data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are in decisions.md, One reading of a frame for
-every gesture.
+frame's, and `areaSpace` takes screen pixels to the overlay's. `measureFrame` in `canvas/frame-skeletons.ts` takes a
+skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/InspectOverlay.tsx` and `canvas/TabOrderOverlay.tsx`
+place their marks with `areaSpace`; the inspector reads the area's box only once it has a mark to place (PAR-653).
+`canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`,
+`snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are
+in decisions.md, One reading of a frame for every gesture.
 
 Tests:
 
@@ -400,6 +402,10 @@ Tests:
   frame at two fifths, whose borders Chrome rounds, gives insets from where they're drawn; and a layer whose containing
   block is the outline around a half-size frame gives the design's insets, where reading that outline at its own scale
   gave half of them.
+- `canvas/frame-skeletons-drawn.test.ts` (26), in Chrome: a frame's skeleton measured with the camera at 5% to 100%, by
+  itself and at half its own size, as a companion frame is drawn: its height, its page, a card with a border all round,
+  a picture and a line of text come out in the design's pixels, in the order they're drawn, and a frame that hasn't
+  drawn its design, or isn't drawn, has none.
 - `canvas/frame-geometry.test.ts` (15), from numbers: the scale from two sizes, by the longer side, at any zoom times a
   frame's scale, and none for a box that isn't drawn, is turned or stretched; a box inside its sides, never inside out;
   insets between two boxes at any scale; between screen pixels and the frame's; and the overlay's pixels.
@@ -4883,6 +4889,27 @@ checked by reading `wakeNext`. The memory it gives back and the time waking take
 capture failing with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and
 any other failure is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the
 failure came from about one capture in each CI run, and Sentry's count from CI after the change is the check.
+
+### Frame skeletons (PAR-996)
+
+Zoomed far out, a frame shows its skeleton until its bitmap is taken: its text as faded bars in the text's color, and
+its cards, fields, buttons and images as flat shapes, a few SVG paths per frame, at the frame's measured height. It's
+measured from the live frame once the frame has stayed the same for a second, when the browser is idle, and again 2
+seconds later for a frame that hasn't drawn its design yet or is out of view. Boxes are read as drawn and taken to the
+frame's own pixels through the frame's geometry (see One reading of a frame for every gesture), so a skeleton is the
+same at any zoom and in a companion mode's smaller frame. The last 400 are kept in memory, by what their frame shows.
+
+Code: `useFrameSkeleton` and `measureFrame` in `apps/desktop/src/renderer/canvas/frame-skeletons.ts`; `frameSkeleton` in
+`packages/core/src/skeleton.ts`, which turns the boxes into paths; `canvas/FrameSkeleton.tsx`, which draws them; the
+`.frame-skeleton` rules in `styles.css`.
+
+Tests: `apps/desktop/src/renderer/canvas/frame-skeletons-drawn.test.ts` (26, in Chrome: what a frame draws, measured at
+zooms from 5% to 100% and at half the frame's size, in the design's pixels; nothing for a frame that hasn't drawn or
+isn't drawn). `packages/core/src/skeleton.test.ts` (8: the background, text as bars, borders, what's too thin or past
+the frame, boxes drawn alike in one path, overlaps kept in order, the largest boxes kept when there are too many, and an
+empty frame). Gap: a skeleton shown on the canvas has no test of its own; it was checked by measuring the example
+project's Billing frames, main and companion, at 100%, 10% and 5% in the running app, which agreed to within a hundredth
+of a pixel.
 
 ### A hidden tab's frames sleep (PAR-153)
 

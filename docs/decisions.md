@@ -3778,9 +3778,6 @@ answers for a frame host. My calls:
   positioned around it in the design has the frame's outline, `.mode-frame`, as its `offsetParent`, and the frame's
   `zoom` doesn't scale that outline. Read at its own scale, a companion frame at half size gave half the insets. A
   review of this change found it before it merged.
-- **Frame skeletons keep their own ratio for now.** `measureFrame` in `canvas/frame-skeletons.ts` divides the frame's
-  drawn width by its width too, but PAR-954 and PAR-955, in progress, work on frames' bitmaps and skeletons, so it moves
-  over in PAR-996 once they land.
 
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
