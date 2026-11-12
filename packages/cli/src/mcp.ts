@@ -196,7 +196,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "open_project",
-    "Open a project folder in a new Parity tab, or switch to it if it's already open.",
+    "Open a project folder in a new Parity tab, or switch to it if it's already open. For a project that's already open, it detects the project again when its components.json, stylesheet setup, builder config or dependencies changed. Don't quit, restart or kill Parity to pick up changes: that loses the person's unsaved work.",
     operations.open,
     json
   ),
