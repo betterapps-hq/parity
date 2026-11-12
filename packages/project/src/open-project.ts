@@ -56,11 +56,10 @@ export interface ProjectInfo {
   modes: { settings: ModeSettings; custom: boolean }
 }
 
-/** A design file, or the reason it couldn't be read. */
+/** A design file and its designs. */
 export interface DocumentEntry {
   path: string
-  document?: CanvasDocument
-  error?: string
+  document: CanvasDocument
 }
 
 /** What's told about an open project apart from its component list, which changes as it's open. */
@@ -83,7 +82,7 @@ export interface OpenedProject {
 /** The project as the windows are first told about it, with the modes its main project file sets, if any. */
 export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
   const { config } = opened
-  const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document?.modes
+  const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document.modes
 
   return {
     id: opened.root,
@@ -139,13 +138,34 @@ export function pickMainDocument(documents: string[], name: string): string {
   return `${slug || "project"}.par`
 }
 
-/** A project file's designs: a `.par` is them, and a library's `.lib.par` keeps them in its `canvas`. */
+/**
+ * A project file's designs: a `.par` is them, and a library's `.lib.par` keeps them in its `canvas`. A file that isn't
+ * JSON, or that doesn't match its format, throws an error naming the file, which stops the project opening (PAR-1011).
+ */
 export function readDesigns(path: string, text: string): CanvasDocument {
-  const value: unknown = JSON.parse(text)
+  let value: unknown
 
-  return path.endsWith(libraryManifestExtension)
-    ? libraryCanvas(parseLibraryManifest(value))
-    : parseCanvasDocument(value)
+  try {
+    value = JSON.parse(text)
+  } catch (error) {
+    throw new Error(`${path} isn't valid JSON:\n${reason(error)}`, { cause: error })
+  }
+
+  const library = path.endsWith(libraryManifestExtension)
+
+  try {
+    return library ? libraryCanvas(parseLibraryManifest(value)) : parseCanvasDocument(value)
+  } catch (error) {
+    const format = library ? "library" : "design"
+
+    throw new Error(`${path} doesn't match the ${format} file format:\n${reason(error)}`, { cause: error })
+  }
+}
+
+/** A thrown value's message. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript can throw anything
+function reason(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /**

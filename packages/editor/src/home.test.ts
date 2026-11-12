@@ -23,20 +23,10 @@ describe("the designs a project opens with", () => {
     expect(parseCanvasDocument(designs[0]!.document)).toEqual(designs[0]!.document)
   })
 
-  it("opens a project's own files as they are, and none of them broken ones", () => {
+  it("opens a project's own files as they are", () => {
     const document: CanvasDocument = { version: 4, containers: [] }
-
-    const files = [
-      { path: "shop.par", document },
-      { path: "flows/broken.par", error: "Unexpected token" }
-    ]
-
-    expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual([{ path: "shop.par", document }])
-  })
-
-  it("adds no Home screen beside a file that couldn't be read, so it's never written over", () => {
-    const files = [{ path: "shop.par", error: "Unexpected token" }]
-    expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual([])
+    const files = [{ path: "shop.par", document }]
+    expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual(files)
   })
 })
 

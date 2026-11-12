@@ -403,19 +403,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     opening.builder = builder.id
     opening.name = name
     const config = await discoverProject(root, renderer, pkg)
-    // One broken project file shouldn't hide the others; its error is shown instead.
+    // A project file that can't be read stops the project opening, with an error naming it (PAR-1011).
     const known = new Map<string, string>()
 
     const documents = await Promise.all(
       config.documents.map(async (path) => {
-        try {
-          const text = await readFile(join(root, path), "utf8")
-          known.set(path, text)
+        const text = await readFile(join(root, path), "utf8")
+        known.set(path, text)
 
-          return { path, document: readDesigns(path, text) }
-        } catch (error) {
-          return { path, error: message(error) }
-        }
+        return { path, document: readDesigns(path, text) }
       })
     )
 
@@ -495,7 +491,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         ...common(),
         cached: opening.cached,
         components: Object.keys(info.sources).length,
-        designs: info.documents.reduce((sum, entry) => sum + (entry.document?.containers.length ?? 0), 0),
+        designs: info.documents.reduce((sum, entry) => sum + entry.document.containers.length, 0),
         tokens: info.theme.length,
         libraries: info.libraries.length
       })
@@ -954,7 +950,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         const entry = project.info.documents.find((candidate) => candidate.path === path)
 
         if (entry) {
-          Object.assign(entry, { document, error: undefined })
+          entry.document = document
         } else {
           project.info.documents.push({ path, document })
         }
@@ -1439,10 +1435,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     async saveDocument({ projectId, path, document }) {
       const project = getProject(projectId)
       const entry = project.info.documents.find((candidate) => candidate.path === path)
-
-      if (entry && !entry.document) {
-        throw new Error(`${path} couldn't be read, so it isn't overwritten`)
-      }
 
       const target = documentTarget(project.info.root, path)
 

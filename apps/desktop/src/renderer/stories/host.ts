@@ -866,7 +866,7 @@ function findingsFor(key: string): AccessibilityFinding[] {
 
   const container = example.info.documents
     .find((entry) => entry.path === path)
-    ?.document?.containers.find((candidate) => candidate.id === id)
+    ?.document.containers.find((candidate) => candidate.id === id)
 
   if (!container) {
     return []
