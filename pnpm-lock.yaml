@@ -840,6 +840,9 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
+      '@parity-app/style':
+        specifier: workspace:*
+        version: link:../style
 
   packages/telemetry:
     dependencies:

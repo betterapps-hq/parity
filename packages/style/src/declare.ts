@@ -1,16 +1,11 @@
+import type { CssDeclaration } from "./adapter.ts"
 import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
 import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
 import { transitionCss } from "./motion.ts"
 import { fillCss } from "./paint.ts"
 
-/** One CSS declaration a style comes to. */
-export interface Declaration {
-  /** As CSS spells it: `background-color`, `align-self`. */
-  property: string
-  /** As CSS reads it: `var(--primary)`, `calc(var(--spacing) * 4)`. */
-  value: string
-  /** The state, viewport or theme it applies in. Unset, it always applies. */
-  when?: { state?: string; viewport?: string; theme?: string }
+/** One CSS declaration a style comes to, with the key that wrote it. */
+export interface Declaration extends CssDeclaration {
   /**
    * The key that wrote it. What a kind of layer draws before any key is set, such as a layout's `display: flex`, is
    * from the key that would change it.

@@ -1,5 +1,37 @@
 # Decisions
 
+- **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
+  Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
+  draw the classes it writes. `@parity-app/styles-tailwind` has no table of utilities:
+  - **Every declaration starts as an arbitrary property** (`[padding:calc(var(--spacing)*4)]`), which Tailwind always
+    takes. `canonicalizeCandidates` then spells it as Tailwind's tools would (`p-4`, `flex`, `md:grid`,
+    `focus-visible:…`).
+  - **A token's variable is tried as the utility's own value first** (`bg-primary` for `var(--primary)`), then the
+    variable shorthand, bare and with each type it can name (`text-(length:--text-lg)`), then the value in brackets,
+    then the arbitrary property.
+  - **A class is written only when reading it back gives the declaration it came from,** property, value and where it
+    applies. Reading is `candidatesToAst`: one rule of plain declarations, with its variants read from the end of its
+    selector and the `@media` around it. So a class that means something else in a project is never written. In the
+    example project, whose theme is inline, `rounded-md` holds the radius itself, so `var(--radius-md)` is written
+    `rounded-(--radius-md)`.
+  - **The printer loads the project's Tailwind twice.** Asking a design system for a spelling changes what it compiles
+    afterwards (`bg-primary` is `var(--primary)` before and `var(--color-primary)` after, in 4.3.3), so one copy only
+    spells and the other compiles, reads and sorts. `design-system.test.ts` pins this and each part of the unstable
+    design system the adapter uses, against Tailwind 4.3.
+  - **The contract changed from the proposal in three ways,** set out there: a printer is made per project and takes no
+    tokens, `print` also returns what it couldn't write, and `when` is in CSS's terms (a state's selector, a viewport's
+    least width, a theme's name).
+  - **Exact before idiomatic.** Today's declarations aren't always what Tailwind's utilities write, so some classes are
+    plainer than a developer's: `[background:var(--card)]` since `bg-card` writes `background-color`,
+    `[border-width:1px]` since `border` goes through `--tw-border-style`, `p-[--spacing(2)_--spacing(4)]` for
+    `px-4 py-2`, `[box-shadow:var(--shadow-md)]`, and a font size without its line height. PAR-941 and PAR-942 change
+    what a style declares, which is where these get their utilities. Alpha modifiers, `group-` and `peer-` states,
+    ranges of widths and Save as token from [design-options-code.md](proposals/design-options-code.md) aren't written
+    yet either; what the reader meets of them is kept as unread.
+  - **Nothing calls it yet.** Copy as Tailwind and the hint live in the controls kit in Storybook, in the window, where
+    a project's Tailwind can't load; they get the printer through the project service as each control moves into the
+    app.
+
 - **The ledger's grammars are the W3C's, matched by css-tree, and both packages are used (PAR-940).** You approved
   `@webref/css` or `css-tree`, with `web-features`, on 2026-11-11 and left the pick to this step. Neither is enough
   alone:
