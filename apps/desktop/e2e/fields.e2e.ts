@@ -143,9 +143,9 @@ describe("stepping and scrubbing", () => {
     await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toBe(40)
   })
 
-  it("scrubs the Width label a pixel at a time, previewing on the canvas, and makes one undo step on release", async () => {
+  it("scrubs W a spacing step per two pixels, previewing on the canvas, and makes one undo step on release", async () => {
     await selectBrand()
-    const label = app.page.getByText("Width", { exact: true }).first()
+    const label = app.page.getByText("W", { exact: true }).first()
     const box = (await label.boundingBox())!
     const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 

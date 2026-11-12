@@ -3055,8 +3055,7 @@ dimmed, so each section matches its story; PAR-924 to PAR-935 turn them on as th
   evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Disabled: Reverse direction, Lines for
   wrapped lines, lining up text baselines, Fill gaps, a grid's track sizes, Each column and Each row, and Fit.
 - **Size:** W and H on one line, with the Sizing menu: Hug, Fill where the layer can fill, and Min and Max to add, each
-  a row of its own. Align self and a grid layer's Span stay here until Grid placement is built. Disabled: the aspect
-  lock.
+  a row of its own. Disabled: the aspect lock.
 - **Spacing:** the box model, padding inside margin, or padding alone for a design's root. Editing a side changes only
   that side of each selected layer.
 - **Position:** Placement, in its layout or absolute, beside Layer order once the layer is absolute or has one, and an
@@ -3064,9 +3063,9 @@ dimmed, so each section matches its story; PAR-924 to PAR-935 turn them on as th
   border, as nudging measures them. Disabled: Fixed, Sticky, Relative, centering and Scale.
 - **Appearance:** Radius from the project's radius tokens, Opacity, and Clip content. Disabled: Corner shape, Each
   corner, Blend mode, and Scroll always.
-- **Text** (Text inside on a layout, a component or an instance): color, font, size, weight with italic, line height,
-  letter spacing, align, decoration and case, with Resizing, Max lines and Tag for a text layer. Disabled: Typography
-  preset, the color's opacity, Small caps and Tag.
+- **Text** (Text inside on a layout, a component or an instance): color, font, weight with italic, line height, letter
+  spacing, align and case, with Tag for a text layer. Disabled: Typography preset, the color's opacity, Small caps and
+  Tag.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Disabled: the color's
   opacity, Each side and Position.
 
@@ -3239,7 +3238,7 @@ out once: `box` (a layout), `root` (its design's outermost layout), `frame` (a f
 layout, a component or an instance), `media` (an image or a video), `inFlex` and `inGrid` (its parent's layout), and
 `styled` (every layer but a code component whose props take no `className`). With several layers selected, one holds
 when it holds for every layer, except `text`, which holds when any of them is text: a mixed selection's text layers get
-Resizing and Max lines, and Resizing changes only them.
+the text-only controls.
 
 One table lists every section, and every control only some layers get, with what it needs, in the order the panel shows
 them. It's the agreed table in [proposals/design-panel-sections.md](proposals/design-panel-sections.md):
@@ -3249,9 +3248,9 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A
-  frame's Frame size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the
-  agreed table, which has it only in Grid placement; it stays as it was.
+- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing. A frame's Frame size is today's Size, whose
+  width and height are the frame's. Since PAR-923 the panel draws only approved controls, so Align self, Span, Resizing
+  and Max lines, which have none yet, aren't drawn though the table still lists them.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3614,9 +3613,10 @@ picker.
 
 ### Auto width, auto height and fixed text (PAR-175)
 
-A text layer sizes in one of Figma's three ways, picked under Text > Resizing in the inspector (for a text layer; a
-component's text sizes as the component does). The mode is read from the layer's width and height, so it isn't a
-separate setting that could disagree with them, and the resize handles change it as Figma's do.
+A text layer sizes in one of Figma's three ways (for a text layer; a component's text sizes as the component does). The
+mode is read from the layer's width and height, so it isn't a separate setting that could disagree with them, and the
+resize handles change it as Figma's do. The inspector's Resizing control left the panel with PAR-923, since it has no
+approved control yet; `textSizingEdit` still makes each switch, for the control that replaces it.
 
 - **Auto width:** `width: "hug"`. The layer is as wide as its line and never wraps for its parent, only at a maximum
   width if it has one, as in Figma. It's drawn `width: max-content`, Tailwind's `w-max`; hug on other layers stays
@@ -3644,9 +3644,9 @@ in one state, `wordAt`, `openingSelection`, `textSizing`, `withTextSizing`, and 
 switch writes and a reset clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The
 editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the
 text's own ranges, measures the text each frame, and handles the keys. The double-click passes its point through
-`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. The Resizing control is `TextResizing` in
-`inspector/sections/TextSection.tsx`, whose edit is `textSizingEdit` in `packages/editor/src/style-editing.ts`, rounding
-each layer's measure up with `stepUp`. The agent's skill says how text sizes in `packages/cli/skills/document.md`.
+`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. A switch's edit is `textSizingEdit` in
+`packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The agent's skill says how text
+sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
@@ -3664,26 +3664,24 @@ Tests:
   widths as before.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
-- `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
-  "upgrade" and on "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over
-  the text's 560px box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and
-  Ctrl and the wheel zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text
-  step with the layer still selected; Enter and Escape during a composition leave it open and change nothing, and Enter
-  after `compositionend` keeps it; and Resizing switches the heading, fixed at 80px, to auto width on one line, then
-  auto height at the width it's drawn at, then fixed at its height. Six of the seven fail against the code before
-  PAR-175; Enter already selected the whole text.
+- `apps/desktop/e2e/text.e2e.ts` (6), end to end (PAR-202), on Pricing's subtitle: a double-click on "upgrade" and on
+  "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over the text's 560px
+  box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and Ctrl and the wheel
+  zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text step with the layer
+  still selected; Enter and Escape during a composition leave it open and change nothing, and Enter after
+  `compositionend` keeps it. The test of switching from Resizing went with the control (PAR-923).
 
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
-been tried. With several layers selected, Resizing measures each text layer in its own box, changes only the text layers
-of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, as the panel's
-edits are only driven end to end. Each click on a mode is an undo step of its own (PAR-441). The resize handles changing
-the mode follows from reading it from the width and height, and has no test of its own. A text layer's own new lines,
-typed with Shift+Enter, are kept in the text but drawn as spaces, since text layers don't preserve white space (older
-than PAR-175). While the editor is open the text under it doesn't reflow as it's typed in, so layers after it move only
-once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it,
-the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text
-step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
-maximum still wraps.
+been tried. With several layers selected, a switch measures each text layer in its own box, changes only the text layers
+of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, and with the
+Resizing control gone, nothing drives a switch end to end. The resize handles changing the mode follows from reading it
+from the width and height, and has no test of its own. A text layer's own new lines, typed with Shift+Enter, are kept in
+the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). While the editor is
+open the text under it doesn't reflow as it's typed in, so layers after it move only once the edit is kept. Checked in
+an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and
+a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and
+Resizing showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923
+took Resizing out of the panel).
 
 ## Saving and undo
 

@@ -101,8 +101,7 @@ export function SizeSection({
   tokensShown,
   modes,
   takesPercent,
-  mixedAxes,
-  children
+  mixedAxes
 }: SectionProps & {
   /** The layer's drawn size and its parent's width, from the canvas. */
   measured?: Measured
@@ -113,8 +112,6 @@ export function SizeSection({
   takesPercent?: boolean
   /** The axes whose size differs across the selected layers. */
   mixedAxes?: { width?: boolean; height?: boolean }
-  /** Rows under the size's own, as Align self in a flex parent. */
-  children?: ReactNode
 }) {
   // An unset width shows what the layer comes to, and writes nothing until it's changed.
   const width = draft.width ?? measured?.width ?? 100
@@ -225,7 +222,6 @@ export function SizeSection({
             <RatioField aspect={draft.aspect} onChange={(aspect) => set({ aspect })} />
           </Field>
         )}
-        {children}
       </div>
     </PanelSection>
   )
