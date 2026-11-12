@@ -26,6 +26,7 @@ import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
+import { frameTraces } from "./frame-traces.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -84,6 +85,7 @@ const projects = openProjects({
 })
 
 const previews = componentPreviews(projects)
+const traces = frameTraces(projects)
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
@@ -135,6 +137,8 @@ const handlers: Handlers<ServiceMethods> = {
   "layers.export": (params) => exportLayers(editorWindow(), params),
   "layers.picture": (params) => layersPicture(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
+    // Taken before the capture, so a file changed meanwhile leaves the bitmap stale rather than current (PAR-994).
+    const trace = await traces.trace(job).catch(() => undefined)
     const { frame, png } = await renderOffscreen(job, true)
 
     if (frame.error || !png) {
@@ -154,7 +158,7 @@ const handlers: Handlers<ServiceMethods> = {
     const served = projects.codeServedAt(job.projectId, job.guestUrl)
 
     if (served) {
-      void storeBitmap(served, job, webp, kept)
+      void storeBitmap(served, job, webp, kept, trace)
     }
 
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
@@ -163,7 +167,7 @@ const handlers: Handlers<ServiceMethods> = {
     kept: await Promise.all(
       parseInput(storedJobs, jobs).map(async (job) => {
         const served = projects.codeServedAt(job.projectId, job.guestUrl)
-        const kept = served && (await storedBitmap(served, job))
+        const kept = served && (await storedBitmap(served, job, (trace) => traces.holds(job, trace)))
 
         if (served) {
           cacheUse.frame(kept !== undefined && !kept.stale)
