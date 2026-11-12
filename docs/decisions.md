@@ -7337,6 +7337,24 @@ project that switches its dark theme by attribute on the root still drew light v
 Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
 a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
 
+## Agents declare a component's params directly (PAR-901)
+
+Agents could only give a component design params through `ExtractComponent`, which needs two or more built copies, so a
+part built once, such as an app's sidebar, meant building throwaway copies. You approved this shape on 2026-11-11:
+
+- **`CreateDesign` takes `params`,** in the `.par` file's shape, and nodes in its `root` bind them with `bind`, as
+  document.md describes, so an agent learns one shape. A variant option's id is made from its name unless given, its
+  changes are keyed by node id or name as `AddState`'s are, and a variant's default can be an option's id or name.
+- **`AddParam`, `UpdateParam` and `DeleteParam` change them afterwards,** as `AddState`, `UpdateState` and `DeleteState`
+  change states, and `Update(path, { bind })` binds or unbinds a node in the base design.
+- **Renaming carries everything with it:** the binds, the board's option, and every instance's args and patches in the
+  tab. A param's type doesn't change; delete it and add it again.
+- **Deleting a param or unbinding a field keeps what it showed,** the param's default as the node's own value, as
+  unbinding in Props does, and instances drop the arg.
+- **A bind that can't work fails the call:** one naming a param the design doesn't have, one of the wrong type, or one
+  outside a component design. Nothing checked binds before.
+- **The editor's Props and Variants sections need no change;** they show whatever params a design has.
+
 ## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
 
 The design is in [proposals/service.md](proposals/service.md). Your calls, on 2026-11-11:
