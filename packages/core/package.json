@@ -14,7 +14,7 @@
     "./values/evaluate": "./src/values/evaluate.ts"
   },
   "dependencies": {
-    "@parity-app/style": "workspace:*",
+    "@parity-app/style-schema": "workspace:*",
     "zod": "catalog:"
   }
 }

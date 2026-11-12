@@ -1109,12 +1109,12 @@ past its parent, so the layer's style writes `width: auto` (or `height: auto`) o
 keeps it at that size. Layouts and text span between their insets already, and an image or a video keeps the size of its
 picture unless it's given one.
 
-Code: `stretchBetweenEdges` in `packages/style/src/declare.ts`, which `packages/core/src/render.ts` draws as the
+Code: `stretchBetweenEdges` in `packages/style-schema/src/declare.ts`, which `packages/core/src/render.ts` draws as the
 component's inline style, over its own.
 
-Tests: `packages/style/src/declare.test.ts`, declarations: a component placed against all four sides writing an auto
-width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose own
-style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
+Tests: `packages/style-schema/src/declare.test.ts`, declarations: a component placed against all four sides writing an
+auto width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose
+own style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
 
 Gaps: none known. Checked in an isolated copy of the app on 2026-11-11: a Separator placed at left 14, right 0 in an
 80-step layout was drawn from 56px in to the layout's right edge, 264px wide, where it had run past it.
@@ -3356,16 +3356,16 @@ it, and an entry can be dragged to another place.
   duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
   forms.
 
-Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style/src/motion.ts`, with
+Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style-schema/src/motion.ts`, with
 `NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
 `packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
-Tests: `packages/style/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables, a
-curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, and
-what the schema refuses. `packages/style/src/declare.test.ts`: the `transition` declaration, leaving out a hidden entry.
-`packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
+a curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema,
+and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving out a
+hidden entry. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
@@ -3722,7 +3722,7 @@ Tests:
 - `packages/core/src/render.test.ts`, sizing (PAR-897): a fill across the parent with a maximum or `self` drawn at the
   whole width up to its maximum, placed by `self` or the parent's `align` rather than stretched, so a centred column
   doesn't hug its content; a fill along the parent still growing; and hug with `self` still hugging. The CSS is `size`
-  and `fill` in `packages/style/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
+  and `fill` in `packages/style-schema/src/declare.ts`, whose `declare.test.ts` has the same cases as declarations.
 - `packages/editor/src/paste-here.test.ts`, "placing at a point" (2, PAR-570): where the text tool's layer lands. Where
   the editor reads and writes is `editFrame`'s, under Edits in the state and variant shown.
 - `apps/desktop/e2e/text.e2e.ts` (7), end to end (PAR-202), on Pricing's subtitle and FAQ heading: a double-click on
@@ -3759,11 +3759,11 @@ which also lets a table cell or a hugging layout narrow to fit, or `break-word`,
 on a line of its own. Set on a layout, the text inside takes it. Unset, a long word runs out of its box. The Text
 section has no control for it yet; agents set it.
 
-Code: `text` (with `boxKeys`) and `type` in `packages/style/src/declare.ts`, the `overflowWrap` key in
-`packages/style/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's tag is
-inline.
+Code: `text` (with `boxKeys`) and `type` in `packages/style-schema/src/declare.ts`, the `overflowWrap` key in
+`packages/style-schema/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's
+tag is inline.
 
-Tests: `packages/style/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
+Tests: `packages/style-schema/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
 alignment, drawn as a block; several lines keeping the box that clamps them; inline text with nothing that needs a box
 staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: in a component's slot, a `span` aligned
 to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
@@ -4330,10 +4330,10 @@ panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name them
 project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
 (PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
 `valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
-and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style` as it runs, which checks the
-value against its property's grammar without a browser (PAR-940), then asks the window's browser once the snippet ends.
-The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came from, with Save
-in place of Apply.
+and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style-schema` as it runs, which
+checks the value against its property's grammar without a browser (PAR-940), then asks the window's browser once the
+snippet ends. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came
+from, with Save in place of Apply.
 
 Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
 left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a
@@ -6327,7 +6327,7 @@ container query, a `group-hover:` rule.
   (`prepareCanvasCss`): `rem` and viewport units measure the frame, a width media query asks the frame's width, and a
   root-relative `url()` is the project's.
 
-Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style`'s
+Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style-schema`'s
 `declarations`, and marks a layout whose child is Absolute (`anchors`). `packages/core/src/frame-rules.ts` has
 `frameRules` (a tree's rules, through `cssPrinter`), `previewRules`, `withClasses` and `writeClasses`.
 `apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and one for a preview, after the
@@ -6346,8 +6346,8 @@ Tests:
   `revert-layer` first for what it takes away; classes put on the elements a framework wrote them for; and classes
   written one declaration at a time, compiled together with the ones the frames already have.
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
-- `packages/style/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a child
-  is placed in is `relative`; an Absolute one stays Absolute.
+- `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
+  child is placed in is `relative`; an Absolute one stays Absolute.
 - `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.

@@ -1,4 +1,4 @@
-import { filterCss, type NodeStyle, shadowCss, transformCss } from "@parity-app/style"
+import { filterCss, type NodeStyle, shadowCss, transformCss } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import { type DesignNode, parseDesignNode } from "./document.ts"
 import { resolveDesign } from "./render.ts"
