@@ -53,3 +53,12 @@ export const ActualSize: Story = {
     await waitFor(() => expect(tooltip()).toHaveTextContent("Zoom to 100%"))
   }
 }
+
+/** A project with no designs or notes: zooming works, but Zoom to fit has nothing to fit, so it's unavailable (PAR-971). */
+export const NothingToFit: Story = {
+  loaders: [() => openProjects("designless")],
+  play: async () => {
+    await waitFor(() => expect(body().getByRole("button", { name: /^Zoom in/ })).toBeEnabled())
+    await expect(body().getByRole("button", { name: /^Zoom to fit/ })).toBeDisabled()
+  }
+}
