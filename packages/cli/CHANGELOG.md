@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 22:46:32 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 23:05:06 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.60.1
+
+Thu, 12 Nov 2026 23:05:06 GMT
+
+### Patches
+
+- The Design panel lists only the project's own tokens, converted once, and new shadows name only tokens the project has
+  (ajcraswell@gmail.com)
 
 ## 0.60.0
 

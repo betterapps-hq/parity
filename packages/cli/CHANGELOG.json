@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 23:05:06 GMT",
+      "version": "0.60.1",
+      "tag": "@parity-app/cli_v0.60.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "fc0309ae56ac88dbc41366ba75eeb03a581c6088",
+            "comment": "The Design panel lists only the project's own tokens, converted once, and new shadows name only tokens the project has"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 22:46:32 GMT",
       "version": "0.60.0",
       "tag": "@parity-app/cli_v0.60.0",
