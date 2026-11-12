@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 23:26:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 23:58:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.77.1
+
+Thu, 12 Nov 2026 23:58:16 GMT
+
+### Patches
+
+- Selection headers no longer offer Open in editor; its design is kept as an exploration (ajcraswell@gmail.com)
+- Show the newest accessibility check's result when a design is checked again before the last check answers (PAR-979)
+  (ajcraswell@gmail.com)
+- Class names and a slot's layer share one chips field built on the kit's Combobox chips (ajcraswell@gmail.com)
 
 ## 0.77.0
 
