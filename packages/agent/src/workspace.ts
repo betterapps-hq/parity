@@ -48,6 +48,7 @@ import {
   locateEffective,
   locateInner,
   locateNode,
+  mapChildLists,
   mapNode,
   type ModeSettings,
   modeSettings,
@@ -2478,30 +2479,25 @@ function drawnLayer(node: DesignNode, path: string, scope: EvalScope, viewport: 
   const where = slot === undefined ? { path } : { path, slot }
   const prefix = path.slice(0, path.length - node.id.length)
 
-  const children = childEntries(node).flatMap((entry) =>
-    entry.nodes.map((child) =>
-      drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, entry.slot)
-    )
+  const children: ShownLayer[] = []
+
+  // Wherever the node holds layers, the ones an instance fills its slots with included, it holds them drawn.
+  const drawn = mapChildLists(node, (nodes, inSlot) =>
+    nodes.map((child) => {
+      const layer = drawnLayer(drawnNode(child, scope, viewport), `${prefix}${child.id}`, scope, viewport, inSlot)
+      children.push(layer)
+
+      return layer.node
+    })
   )
 
-  if (node.type === "layout") {
-    return { ...where, node: { ...node, children: children.map((child) => child.node) }, children }
-  }
-
-  if (node.type === "component" && node.slots) {
-    const slots = Object.fromEntries(
-      Object.keys(node.slots).map((name) => [
-        name,
-        children.filter((child) => child.slot === name).map((child) => child.node)
-      ])
-    )
-
-    return { ...where, node: { ...node, slots }, children }
-  }
-
-  return { ...where, node, children }
+  return { ...where, node: drawn, children }
 }
 
+/**
+ * A node as a read gives it at `depth`: what's past that many levels left out, as `"…"`. That isn't a node tree, so it
+ * reads where a node holds layers from `childEntries` rather than mapping one.
+ */
 function elide(node: DesignNode, depth: number | undefined, level = 0): ReadNode {
   if (depth === undefined) {
     return node
@@ -2509,21 +2505,16 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): ReadNode
 
   const copy: ReadNode = { ...node }
 
-  if (node.type === "layout") {
-    if (level < depth) {
-      copy.children = node.children.map((child) => elide(child, depth, level + 1))
-    } else {
-      copy.children = node.children.length > 0 ? ["…"] : []
-    }
-  }
+  for (const { slot, nodes } of childEntries(node)) {
+    // Past the depth, a layout with nothing in it still reads as empty.
+    const left: NonNullable<ReadNode["children"]> = slot === undefined && nodes.length === 0 ? [] : ["…"]
+    const inside = level < depth ? nodes.map((child) => elide(child, depth, level + 1)) : left
 
-  if (node.type === "component" && node.slots) {
-    copy.slots = Object.fromEntries(
-      Object.entries(node.slots).map(([slot, nodes]) => [
-        slot,
-        level >= depth ? ["…"] : nodes.map((child) => elide(child, depth, level + 1))
-      ])
-    )
+    if (slot === undefined) {
+      copy.children = inside
+    } else {
+      copy.slots = { ...copy.slots, [slot]: inside }
+    }
   }
 
   return copy
