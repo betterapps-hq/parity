@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { PixelField } from "./controls.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { NumberField } from "./number-field.tsx"
 import { Playground } from "./playground.tsx"
@@ -218,4 +219,16 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "wide{Enter}")
   }
+}
+
+/**
+ * Changed from what it comes from (PAR-1020): the purple dot on the box's corner, as a token's pill marks a part
+ * changed. Here 24 where the state or token gives 16.
+ */
+export const Changed: Story = {
+  render: () => (
+    <MarkChanged>
+      <GapField start={{ number: 24 }} />
+    </MarkChanged>
+  )
 }

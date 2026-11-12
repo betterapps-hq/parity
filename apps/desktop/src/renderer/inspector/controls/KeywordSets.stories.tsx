@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import { DoesNothing } from "./field-parts.tsx"
+import { Changed as MarkChanged, DoesNothing } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import {
   alignChoices,
@@ -391,3 +391,36 @@ export const ClipContent: Story = { render: () => <Clip start={{ option: "clip" 
 
 /** Scroll when needed: `overflow-auto`. */
 export const ClipScrollWhenNeeded: Story = { render: () => <Clip start={{ option: "auto" }} /> }
+
+/** Toggles changed from what they come from (PAR-1020): the dot on the corner of the row of options. */
+export const AlignChanged: Story = {
+  render: () => (
+    <MarkChanged>
+      <Toggles
+        label="Align"
+        property="text-align"
+        choices={alignChoices}
+        inherited="start"
+        start={{ option: "center" }}
+      />
+    </MarkChanged>
+  )
+}
+
+/** A menu changed from what it comes from (PAR-1020): the dot on the corner of its box. */
+export const CursorChanged: Story = {
+  render: () => (
+    <MarkChanged>
+      <Menu
+        label="Cursor"
+        property="cursor"
+        choices={cursorChoices}
+        start={{ option: "pointer" }}
+        placeholder="Auto"
+        inherits
+        draw={drawCursor}
+        preview={cursorPreview}
+      />
+    </MarkChanged>
+  )
+}

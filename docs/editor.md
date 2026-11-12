@@ -3232,10 +3232,10 @@ each whole under its own quieter title: Position holds Transform, Size holds Spa
 section with the group's own title leads it without a title of its own, and its action goes on the group's title row.
 
 - **Header:** the layer's kind and name, an instance's kind being Component instance, with an eye at the end of the
-  name's row that hides or shows it, crossed out while hidden. Changed in a state, the eye is in the change color with a
-  reset arrow before it. In a component design, the button beside it uses one of the component's props for whether the
-  layer shows. Visibility has no section. Make component is under it for any layer inside a design but a component or an
-  instance, which already is one.
+  name's row that hides or shows it, crossed out while hidden. Changed in a state, the eye has the change mark (see "A
+  changed value's mark") with a reset arrow before it. In a component design, the button beside it uses one of the
+  component's props for whether the layer shows. Visibility has no section. Make component is under it for any layer
+  inside a design but a component or an instance, which already is one.
 - **Component instance**, the same section for an instance of a component design and of a code component: the
   component's name in the title row, which goes to a project design's component, or for a library's says where it's
   linked from. A code component's links, to its stories and its file, are in the header. Beside the name, a code
@@ -3426,6 +3426,24 @@ Tests:
 - `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
+
+### A changed value's mark (PAR-1020)
+
+A value that differs from what it comes from is marked on its control: a purple dot, the component color, on the corner
+of the field's box, a switch, a row of options or a select, as a token's pill marks a part of the token changed. It's
+one mark for a value changed in the state being edited and for one set over a token or a preset. The row's name stays
+grey, and its reset arrow puts back the base state's value or the preset's. A row of several fields can mark the one
+that changed: Padding marks only the sides it's given. A layer's eye in its header has the mark while the state changes
+whether it shows. The pen in Layers on a layer the state changes, the Editing bar and the note over a state's fields are
+in the same color.
+
+Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/inspector/controls/field-parts.tsx`;
+`Field` and `SwitchRow` in `inspector/controls/field-row.tsx` and `Field` in `chrome/fields.tsx` mark their control;
+`changedSides` on `FourSidesField` in `inspector/controls/sides.tsx`.
+
+Tests: none; it's checked in each control's Changed story in `inspector/controls`: Number field, Color field, Token
+length, Angle, Time, Keyword sets (Align Changed, Cursor Changed), Switch, Icon segments, Component instance, and
+Padding's One Side Changed.
 
 ### Selects (PAR-1023)
 

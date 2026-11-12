@@ -695,6 +695,35 @@ export function drag(
  */
 export const overrideColor = kindColors.component
 
+/**
+ * Whether the controls inside hold a value changed from what it comes from: changed in the state being edited, or set
+ * over a token or preset (PAR-1020). Each control draws `ChangeMark` on its corner, so a row marks its control, or the
+ * one part of it that changed, without passing it down.
+ */
+const ChangedContext = createContext(false)
+
+export function Changed({ when = true, children }: { when?: boolean; children: ReactNode }) {
+  return <ChangedContext value={when}>{children}</ChangedContext>
+}
+
+/** Whether the control holds a changed value, as `Changed` around it says. */
+export const useChanged = () => useContext(ChangedContext)
+
+/**
+ * A changed value's mark: a dot over the corner of the control that holds it, in `overrideColor`, as a token's pill
+ * marks a part changed. It's drawn above what the control draws, as a switch's thumb, and its control's row says it
+ * in words, so the dot is for the eye alone.
+ */
+export function ChangeMark() {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 size-1.5 rounded-full ring-1 ring-background"
+      style={{ background: overrideColor }}
+    />
+  )
+}
+
 /* The field's box */
 
 /**
@@ -1172,12 +1201,10 @@ export function TokenChip({
         </button>
       )}
       {overridden && (
-        <span
-          className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-1 ring-background"
-          style={{ background: overrideColor }}
-        >
+        <>
+          <ChangeMark />
           <span className="sr-only">A part is changed here</span>
-        </span>
+        </>
       )}
     </span>
   )
@@ -2817,10 +2844,12 @@ export function ValueField<T>({
   )
 
   const boxExtra = `flex-1 ${room} ${disabled ? "opacity-50" : ""}`
+  const changed = useChanged()
 
   const box = (
     <Hint label={hintLabel} detail={hintDetail} hidden={open} wait>
       <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
+        {changed && <ChangeMark />}
         {labelSlot}
         {picker?.swatch !== undefined && (
           // The picker's one trigger, so it stays before a token's pill: what the picker's anchored to never leaves
