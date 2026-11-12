@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { homedir, platform, release, arch } from "node:os"
 import { join, resolve } from "node:path"
-import { desktopDataFolder, diagnosticFiles, lastRunCrash } from "@parity-app/telemetry"
+import { desktopDataFolder, diagnosticFiles, lastUnfinishedRun } from "@parity-app/telemetry"
 import { z } from "zod"
 import { readEvents } from "./logs.ts"
 import { zipFiles } from "./zip.ts"
@@ -57,7 +57,7 @@ export function writeDiagnostics({
 }: { out?: string; folder?: string; now?: Date } = {}): DiagnosticsResult {
   const events = readEvents(join(folder, "logs"))
   // The latest run that didn't quit: the one open now, if Parity is running, which is said in the README.
-  const crash = lastRunCrash(events, "")
+  const crash = lastUnfinishedRun(events, "")
 
   const files = diagnosticFiles({
     events,

@@ -5761,17 +5761,21 @@ as a replay, the last hour of the local log, the versions of Parity and the syst
 off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is, even
 while it's sent (PAR-813). What was written loses its secrets, as every event does. A sent report says thanks and
 nothing more: no link, since only the team can open it. A report that can't be sent says to check the connection, and
-keeps what was written. When the last run of an installed build ended without quitting, Parity offers the same dialog as
-it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in place of Cancel. Opened from a
-part's fallback, the list starts with the error that part caught, named by the part's title: "The error from Layers"
-(PAR-757). It's listed only when the report is linked to that error, which a thrown string or number can't be.
-`parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+keeps what was written. When the last run of an installed build crashed, Parity offers the same dialog as it starts,
+titled "Parity closed unexpectedly", with the crash in the list and Not now in place of Cancel. A run counts as crashed
+when its editor window's renderer went, or when it ended without quitting and left a minidump, a hang still open or a
+`fatal` event. One that an agent, the CLI, a dev runner or a force-quit stopped left none of those, so nothing is
+offered after it (PAR-956). Opened from a part's fallback, the list starts with the error that part caught, named by the
+part's title: "The error from Layers" (PAR-757). It's listed only when the report is linked to that error, which a
+thrown string or number can't be. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
 
 `@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
-recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and
-the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
-zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, from a
-fallback, sending, sent and failed, with Send moving from one to the next.
+recorded), telling one that crashed from one that was stopped (PAR-956), reading the local log's lines, and the files a
+report takes: the last hour of events, versions, projects and the crash. The desktop's `main/report.test.ts` covers
+offering the crash once, and nothing after a run that was stopped. `chrome/report-time.test.ts` covers how the crash's
+time reads. The CLI's `diagnostics.test.ts` covers the zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows
+the dialog empty, written, after a crash, from a fallback, sending, sent and failed, with Send moving from one to the
+next.
 
 ### Install the parity command (PAR-906)
 
