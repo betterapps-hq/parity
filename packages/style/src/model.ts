@@ -201,6 +201,11 @@ export const nodeStyle = stored({
   italic: z.boolean().optional(),
   /** Lines of text before it's cut off with an ellipsis. */
   lines: finiteNumber.optional(),
+  /**
+   * Where a word too long for its line may break: `anywhere`, which also lets a table cell or hugging layout narrow to
+   * fit it, or `break-word`, only once it can't fit on a line of its own. Unset, a long word spills out.
+   */
+  overflowWrap: z.enum(["anywhere", "break-word"]).optional(),
 
   // Motion.
   /** How the layer moves from one look to the next, as a state change shows it. */

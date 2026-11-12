@@ -1100,6 +1100,25 @@ and Escape are covered under "Snapping layers while moving and resizing".
 
 Gaps: none known. Dragging itself was first checked by hand, as the end-to-end test now does it.
 
+### A component placed between both edges (PAR-899)
+
+An absolutely placed component or instance with a left and a right inset and no width spans between them, as an element
+with no width of its own does in CSS; with a top and a bottom and no height, it spans those too. A component's root
+often brings its own size in its classes, such as a separator's `w-full`, which would win over the insets and run it
+past its parent, so the layer's style writes `width: auto` (or `height: auto`) over it. A width or height the layer sets
+keeps it at that size. Layouts and text span between their insets already, and an image or a video keeps the size of its
+picture unless it's given one.
+
+Code: `stretchBetweenEdges` in `packages/style/src/declare.ts`, which `packages/core/src/render.ts` draws as the
+component's inline style, over its own.
+
+Tests: `packages/style/src/declare.test.ts`, declarations: a component placed against all four sides writing an auto
+width and height, and one with a width keeping it. `packages/core/src/render.test.ts`, sizing: a separator whose own
+style is `width: 100%`, placed at left 14 and right 0, drawn `width: auto` between them.
+
+Gaps: none known. Checked in an isolated copy of the app on 2026-11-11: a Separator placed at left 14, right 0 in an
+80-step layout was drawn from 56px in to the layout's right edge, 264px wide, where it had run past it.
+
 ### Resize handles (CAN-47)
 
 A selected layer has square handles on its corners and invisible strips along its sides, as in Figma, and a selected
@@ -3675,6 +3694,33 @@ once the edit is kept. Checked in an isolated copy of the app on 2026-10-30: a d
 the editor followed a wheel pan and a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text
 step with Lede still selected, and Resizing showed Auto height pressed and switched Lede to auto width, which its 560px
 maximum still wraps.
+
+### Inline text, alignment and long words (PAR-898)
+
+A text layer whose tag is drawn inline, `span` or `strong`, has no box of its own outside a flex or grid layout, as in a
+component's slot or a table cell, so a width, height, minimum or maximum, `textAlign` or `lines: 1` would do nothing
+there. Given any of these, it's drawn `display: block`, so a `span` with a maximum width is cut off at it and a number
+in a table cell lines up at its end. Without them it stays inline, in the line of text around it. More than one line
+already draws its own box, which clamps it. A `p` or a heading is a block anyway.
+
+`overflowWrap` says where a word too long for its line breaks, such as a web address in a narrow column: `anywhere`,
+which also lets a table cell or a hugging layout narrow to fit, or `break-word`, which breaks it only once it can't fit
+on a line of its own. Set on a layout, the text inside takes it. Unset, a long word runs out of its box. The Text
+section has no control for it yet; agents set it.
+
+Code: `text` (with `boxKeys`) and `type` in `packages/style/src/declare.ts`, the `overflowWrap` key in
+`packages/style/src/model.ts`, and `inlineTags` in `packages/core/src/render.ts`, which tells the style a text's tag is
+inline.
+
+Tests: `packages/style/src/declare.test.ts`, declarations: inline text given a maximum width and one line, or an
+alignment, drawn as a block; several lines keeping the box that clamps them; inline text with nothing that needs a box
+staying inline; and `overflowWrap`. `packages/core/src/render.test.ts`, sizing: in a component's slot, a `span` aligned
+to the end drawn as a block, and a plain `strong` and a `p` with a maximum width left as they are.
+
+Gaps: no warning says when a style has no effect for another reason. Checked in an isolated copy of the app on
+2026-11-11, in a shadcn table: a `span` with `maxWidth: 40` and `lines: 1` in a cell was cut off with an ellipsis at
+160px, a `span` aligned to the end lined up at its cell's end, and a web address with `overflowWrap: "anywhere"` wrapped
+onto three lines in a 224px column.
 
 ## Saving and undo
 
