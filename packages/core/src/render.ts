@@ -13,6 +13,7 @@ import {
   type ComponentNode,
   type ContainerSpec,
   type DesignNode,
+  designStates,
   type FrameSize,
   type InstanceNode,
   isAccessibilityProp,
@@ -652,7 +653,8 @@ export function instanceScope(
   // A param the patch takes away goes back to its default.
   const given = { ...without(node.args, patch.unset?.props), ...patch.props }
   const choices = variantChoices(component.params, given)
-  const componentState = component.states.find((candidate) => candidate.id === node.state) ?? component.states[0]
+  // An instance shows its component's base state: other states only stress-test the component on its own board.
+  const componentState = designStates(component)[0]
 
   return {
     args: { ...defaults, ...given, ...choices },

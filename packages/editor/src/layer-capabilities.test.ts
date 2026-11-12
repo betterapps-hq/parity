@@ -38,8 +38,7 @@ function screen(kind: ContainerSpec["kind"] = "screen"): ContainerSpec {
         ...kinds("flex"),
         { type: "layout", id: "grid", style: { display: "grid", columns: 2 }, children: kinds("grid") }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 

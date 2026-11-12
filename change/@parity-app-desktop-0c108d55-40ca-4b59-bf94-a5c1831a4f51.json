@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs() lists states for components alone",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

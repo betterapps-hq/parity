@@ -13,8 +13,8 @@ Designs(): DesignSummary[]
 GetDesign(design: string): ContainerSpec
 
 /**
- * A design's root or a node. `depth` cuts children off with `"…"`; `state` and `mode` read it as that frame draws
- * it.
+ * A design's root or a node. `depth` cuts children off with `"…"`; `state` (a component's) and `mode` read it as
+ * that frame draws it.
  */
 Get(path: string, options?: GetOptions): ReadNode
 /**
@@ -76,7 +76,7 @@ document: "document"
  */
 Insert(parent: string, node: unknown, options?: PlaceOptions | DocumentPlacement): string
 
-/** Changes a node in the base design, or in a state given `state`. */
+/** Changes a node in the base design, or in a component's state given `state`. */
 Update(path: string, change: UpdateChange, options?: UpdateOptions): void
 
 /** Swaps a node for a new one in the same place and returns its id. */
@@ -97,12 +97,16 @@ Responsive(path: string, viewport: string, patch: PatchInput | null): void
 ## States
 
 ```ts
-/** Adds a state and returns its id. `changes` are keyed by node id or name. */
-AddState(design: string, spec: StateInput): string
+/**
+ * Adds a state to a component and returns its id. `changes` are keyed by node id or name. Only a component has
+ * states, to show it in its variations; a screen or a frame has none.
+ */
+AddState(component: string, spec: StateInput): string
 
-UpdateState(design: string, state: string, spec: StateUpdate): void
+/** Renames a component's state or changes what it changes. */
+UpdateState(component: string, state: string, spec: StateUpdate): void
 
-DeleteState(design: string, state: string): void
+DeleteState(component: string, state: string): void
 ```
 
 ## Components
@@ -184,26 +188,8 @@ These are the document format, which document.md describes:
 ### DesignSummary
 
 ```ts
-/** A design as `Designs()` lists it. */
-interface DesignSummary {
-  id: string
-  name: string
-  kind: "screen" | "component" | "frame"
-  /** The project file it's in. */
-  file: string
-  /** Where it is on the canvas. */
-  x: number
-  y: number
-  /** Its board's size, as the canvas last drew it. Unset until it's drawn. */
-  width?: number
-  height?: number
-  /** Each state, by the id other functions take and the name it shows. */
-  states: { id: string; name: string }[]
-  /** The state its board shows, its main frame's mode and the modes beside it. */
-  showing: { state: string; mode: string; beside: string[] }
-  /** How many nodes it has. */
-  nodes: number
-}
+/** A design as `Designs()` lists it. Only a component has states, so only a component lists them. */
+type DesignSummary = ScreenSummary | ComponentSummary
 ```
 
 ### GetOptions
@@ -739,6 +725,30 @@ interface ReferenceOptions {
 }
 ```
 
+### ScreenSummary
+
+```ts
+/** A screen or a frame: drawn as its layers are, with no states. */
+interface ScreenSummary extends SummaryFields {
+  kind: "screen" | "frame"
+  /** Its main frame's mode and the modes beside it. */
+  showing: { mode: string; beside: string[] }
+}
+```
+
+### ComponentSummary
+
+```ts
+/** A component, with the states it's shown in. */
+interface ComponentSummary extends SummaryFields {
+  kind: "component"
+  /** Each state, the base first, by the id other functions take and the name it shows. */
+  states: { id: string; name: string }[]
+  /** The state its board shows, its main frame's mode and the modes beside it. */
+  showing: { state: string; mode: string; beside: string[] }
+}
+```
+
 ### VisitContext
 
 ```ts
@@ -950,6 +960,26 @@ interface ContrastDetail {
    * `"none"` when no token does.
    */
   fix?: TokenFix | "none"
+}
+```
+
+### SummaryFields
+
+```ts
+/** What `Designs()` says about every design. */
+interface SummaryFields {
+  id: string
+  name: string
+  /** The project file it's in. */
+  file: string
+  /** Where it is on the canvas. */
+  x: number
+  y: number
+  /** Its board's size, as the canvas last drew it. Unset until it's drawn. */
+  width?: number
+  height?: number
+  /** How many nodes it has. */
+  nodes: number
 }
 ```
 

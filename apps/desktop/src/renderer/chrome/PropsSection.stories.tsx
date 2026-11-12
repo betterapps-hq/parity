@@ -1,4 +1,4 @@
-import { editNode } from "@parity-app/core"
+import { designStates, editNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
@@ -55,7 +55,7 @@ export const AttributeWithOptions: Story = {
       const key = design("Sign in")
       const id = node("Sign in", "Sign in button")
       example().store.updateContainer(key, "Change type", (container) =>
-        editNode(container, container.states[0]!.id, id, { props: { type: "submit" } })
+        editNode(container, designStates(container)[0]!.id, id, { props: { type: "submit" } })
       )
 
       return layersSelection(key, [id])
@@ -73,7 +73,7 @@ export const NumberAsContent: Story = {
       const key = design("Pricing")
       const id = node("Pricing", "Badge")
       example().store.updateContainer(key, "Change children", (container) =>
-        editNode(container, container.states[0]!.id, id, { props: { children: 12 } })
+        editNode(container, designStates(container)[0]!.id, id, { props: { children: 12 } })
       )
 
       return layersSelection(key, [id])
@@ -99,8 +99,8 @@ export const PropsNotReadYet: Story = {
   ]
 }
 
-/** Props a state changes, the password field's in Wrong password: their names in the agent color, each with a reset. */
-export const ChangedInAState: Story = { loaders: [pick("Sign in", "Password input", "wrong-password")] }
+/** Props a state changes, Button's in Outline: their names in the agent color, each with a reset. */
+export const ChangedInAState: Story = { loaders: [pick("Button", "Button", "outline")] }
 
 /** A variant's options open: every option, and the default to go back to. */
 export const ChoosingAVariant: Story = {

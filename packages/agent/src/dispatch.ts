@@ -1,4 +1,11 @@
-import { CodedError, describeRenderStatus, renderProblem, resolveModes, unknownReference } from "@parity-app/core"
+import {
+  CodedError,
+  describeRenderStatus,
+  designStates,
+  renderProblem,
+  resolveModes,
+  unknownReference
+} from "@parity-app/core"
 import type { ChangeConflict, ImageCredit } from "@parity-app/core"
 import {
   type CodeReference,
@@ -849,7 +856,7 @@ async function contactSheets(
         shots.map((shot) => ({
           state: {
             id: shot.state,
-            name: container?.states.find((state) => state.id === shot.state)?.name ?? shot.state
+            name: (container && designStates(container).find((state) => state.id === shot.state)?.name) ?? shot.state
           },
           mode: { id: shot.mode, name: modes.get(shot.mode) ?? shot.mode },
           width: Math.round(shot.width * scale),
@@ -920,7 +927,7 @@ export async function exportPictures(
 
   const files = result.screenshots.map((shot) => {
     const container = containers.get(shot.design)
-    const state = container?.states.find((candidate) => candidate.id === shot.state)
+    const state = container && designStates(container).find((candidate) => candidate.id === shot.state)
     const parts = [container?.name ?? shot.design]
 
     if (perDesign(shot.design, "state") > 1) {

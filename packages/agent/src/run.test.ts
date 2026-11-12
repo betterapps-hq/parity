@@ -2,6 +2,7 @@ import {
   type ContainerSpec,
   defaultModeSettings,
   type DesignNode,
+  designStates,
   findNode,
   frameGeometry,
   resolveModes
@@ -41,6 +42,8 @@ function snapshot(): AgentSnapshot {
             {
               id: "signup",
               name: "Sign up",
+              // A component, since only a component has states, which most of these calls exercise.
+              kind: "component",
               position: { x: 0, y: 0 },
               root: {
                 type: "layout",
@@ -56,8 +59,7 @@ function snapshot(): AgentSnapshot {
                     props: { children: "Sign up" }
                   }
                 ]
-              },
-              states: [{ id: "default", name: "Default" }]
+              }
             }
           ]
         }
@@ -172,7 +174,7 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(result.created.Hint).toMatch(/^[a-zA-Z0-9]{5}$/)
     const container = result.changes.designs[0]!.after!
     expect(findNode(container.root, "submit")).toMatchObject({ props: { children: "Sign up", variant: "outline" } })
-    expect(container.states[1]).toEqual({
+    expect(container.states![1]).toEqual({
       id: "loading",
       name: "Loading",
       overrides: { submit: { props: { disabled: true } } }
@@ -202,7 +204,7 @@ Update("submit", {style: {transitions: null}}, {state: "pressed"})`
     expect(findNode(container.root, "submit")?.style?.transitions).toEqual([
       { property: "colors", duration: 200, easing: "ease-out" }
     ])
-    expect(container.states[1]?.overrides?.submit?.style?.transitions).toBeUndefined()
+    expect(container.states![1]?.overrides?.submit?.style?.transitions).toBeUndefined()
   })
 
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
@@ -1081,8 +1083,7 @@ Print(await Screenshot("signup", {mode: ${JSON.stringify(modes)}}))`
         name: "Member row",
         kind: "component",
         position: { x: 0, y: 1000 },
-        root: { type: "layout", id: "row", children: [] },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "layout", id: "row", children: [] }
       }
     ]
 
@@ -1136,8 +1137,7 @@ describe("render inputs", () => {
         name: "Label",
         kind: "component",
         position: { x: 0, y: 0 },
-        root: { type: "text", id: "text", text: "From the kit" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "From the kit" }
       }
     ]
     const requests: FrameRequest[] = []
@@ -1165,8 +1165,7 @@ describe("render inputs", () => {
         name: "Label",
         kind: "component",
         position: { x: 0, y: 0 },
-        root: { type: "text", id: "text", text: "From the kit" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "From the kit" }
       }
     ]
 
@@ -1198,8 +1197,7 @@ Insert("page", {type: "instance", design: "kit/missing"})`
         name: "Label",
         kind: "component",
         position: { x: 0, y: 1000 },
-        root: { type: "text", id: "text", text: "The project's own" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "The project's own" }
       }
     ]
     project.libraryDesigns = [
@@ -1711,12 +1709,11 @@ Print(GetModes(id).designs[0].frames)`
     expect(result.changes.designs[0]!.after).toMatchObject({
       kind: "frame",
       size: { width: 400, height: 300 },
-      root: { type: "layout", children: [{ type: "text", text: "Idea" }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", children: [{ type: "text", text: "Idea" }] }
     })
     expect(result.changes.designs[0]!.after).not.toHaveProperty("view")
     expect(result.output).toEqual([
-      '{"state":"default","mode":"desktop-light","beside":[]} 1',
+      '{"mode":"desktop-light","beside":[]} 1',
       '[{"mode":"desktop-light","width":400,"height":300,"window":{"width":400,"height":300}}]'
     ])
     expect(result.screenshots).toMatchObject([{ mode: "desktop-light", width: 400 }])
@@ -1734,10 +1731,13 @@ Print(GetModes(id).designs[0].frames)`
     expect(result.changes.designs[0]!.after!.position.x).toBeGreaterThan(1400)
   })
 
-  it("turns a screen into a frame, saying what it dropped, and back", async () => {
+  it("turns a component into a frame, saying what it dropped, and into a screen", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.states.push({ id: "error", name: "Error", overrides: { title: { text: "Try again" } } })
+    signup.states = [
+      ...designStates(signup),
+      { id: "error", name: "Error", overrides: { title: { text: "Try again" } } }
+    ]
     signup.view = { modes: ["mobile-light"], state: "error" }
 
     const result = await execute(
@@ -1755,7 +1755,8 @@ Print(GetDesign("signup").frames)`
     expect(result.error).toBeUndefined()
     expect(result.warnings).toContain("Sign up is a frame now. States dropped: Error. Modes dropped: mobile-light.")
     expect(result.output).toEqual(['{"width":600}', '{"desktop":{"width":600}}'])
-    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen", states: [{ id: "default" }] })
+    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen" })
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("states")
   })
 
   it("refuses what a frame doesn't have: other states, modes and sizes per viewport", async () => {
@@ -1764,7 +1765,7 @@ Print(GetDesign("signup").frames)`
     base.documents[0]!.document.containers = [frame]
 
     const calls: [string, string, string][] = [
-      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, which has one state"],
+      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, and only a component has states"],
       [`UpdateDesign("signup", { showModes: ["mobile-light"] })`, "showModes", "takes no showModes"],
       [`await Screenshot("signup", { mode: "mobile-light" })`, "mode", "drawn only in the primary mode, desktop-light"],
       [`UpdateDesign(CreateDesign({ name: "Home" }), { width: 400 })`, "width", "only a frame takes a width"]
@@ -1797,6 +1798,64 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
       kind: "screen",
       frames: { desktop: { width: 480, height: 320 } }
     })
+  })
+})
+
+describe("states, only a component's (PAR-1002)", () => {
+  /** Sign up, a component, beside Home, a screen with the same layers. */
+  function withScreen(): AgentSnapshot {
+    const base = snapshot()
+    const [signup] = base.documents[0]!.document.containers
+    const { states: _states, ...layers } = structuredClone(signup!)
+    base.documents[0]!.document.containers.push({
+      ...layers,
+      id: "home",
+      name: "Home",
+      kind: "screen",
+      position: { x: 3000, y: 0 }
+    })
+
+    return base
+  }
+
+  it("lists a component's states and showing state, and a screen's modes alone", async () => {
+    const result = await execute({ label: "Read", code: `Print(JSON.stringify(Designs()))` }, withScreen(), hooks())
+    const [component, screen] = JSON.parse(result.output[0]!)
+
+    expect(component).toMatchObject({ id: "signup", kind: "component", states: [{ id: "default", name: "Default" }] })
+    expect(component.showing).toEqual({ state: "default", mode: "desktop-light", beside: [] })
+    expect(screen).toMatchObject({ id: "home", kind: "screen", showing: { mode: "desktop-light", beside: [] } })
+    expect(screen).not.toHaveProperty("states")
+    expect(screen.showing).not.toHaveProperty("state")
+  })
+
+  it.each([
+    `AddState("home", { name: "Loading" })`,
+    `UpdateState("home", "loading", { name: "Waiting" })`,
+    `DeleteState("home", "loading")`,
+    `Update("home/title", { text: "Hi" }, { state: "loading" })`,
+    `Get("home/title", { state: "loading" })`,
+    `UpdateDesign("home", { allStates: true })`,
+    `CreateDesign({ name: "About", baseState: "Signed out" })`,
+    `await Screenshot("home", { state: "loading" })`
+  ])("refuses %s on a screen, saying only a component has states", async (code) => {
+    const result = await execute({ label: "Try", code }, withScreen(), hooks())
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/is a screen, and only a component has states/)
+    expect(result.details).toMatchObject({ code: "invalid_input", field: "design" })
+  })
+
+  it("draws and edits a screen in its base state", async () => {
+    const result = await execute(
+      { label: "Edit", code: `Update("home/title", { text: "Welcome" })\nawait Screenshot("home", { state: "all" })` },
+      withScreen(),
+      hooks()
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toMatchObject([{ design: "home", state: "default" }])
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("states")
   })
 })
 
@@ -1898,7 +1957,7 @@ describe("coded failures", () => {
     )
 
     expect(byId.error).toBeUndefined()
-    expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
+    expect(byId.changes.designs[0]!.after!.states![1]).toEqual({ id: "loading", name: "Waiting" })
   })
 
   it("explains that Measure draws one frame when given a list, all or shown, before rendering (PAR-461)", async () => {
@@ -2070,7 +2129,7 @@ UpdateState("signup", "error", { changes: { title: null } })`
     const after = result.changes.designs[0]!.after!
     expect(findNode(after.root, "title")).toEqual({ type: "text", id: "title", text: "Create an account" })
     expect(after.root.responsive).toBeUndefined()
-    expect(after.states[1]).toEqual({ id: "error", name: "Error" })
+    expect(after.states![1]).toEqual({ id: "error", name: "Error" })
   })
 })
 
@@ -2082,7 +2141,10 @@ describe("Replace", () => {
     const page = layoutRoot(design)
     page.responsive = { mobile: { style: { gap: 2 } } }
     page.children[0]!.responsive = { mobile: { hidden: true }, tablet: { text: "Sign up" } }
-    design!.states.push({ id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } })
+    design!.states = [
+      ...designStates(design!),
+      { id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } }
+    ]
     design!.params = {
       size: {
         type: "variant",
@@ -2116,7 +2178,7 @@ describe("Replace", () => {
       }
     ])
     const after = result.changes.designs[0]!.after!
-    expect(after.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(after.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
     expect(after.root.responsive).toEqual({ mobile: { style: { gap: 2 } } })
   })
 
@@ -2147,8 +2209,8 @@ describe("Replace", () => {
 
     expect(result.error).toBeUndefined()
     const change = result.changes.designs[0]!
-    expect(change.base!.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
-    expect(change.after!.states[1]!.overrides).toBeUndefined()
+    expect(change.base!.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(change.after!.states![1]!.overrides).toBeUndefined()
   })
 
   it("reports nothing when the call fails and changes nothing", async () => {
@@ -2194,6 +2256,6 @@ UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up�
     const after = result.changes.designs[0]!.after!
     const title = result.discarded![0]!.replacement
     expect(findNode(after.root, title)?.responsive).toEqual({ mobile: { hidden: true } })
-    expect(after.states[1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
+    expect(after.states![1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
   })
 })

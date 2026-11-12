@@ -1,4 +1,12 @@
-import type { ContainerSpec, DesignNode, InstanceNode, NodePatch, PropValues, StateSpec } from "./document.ts"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  designStates,
+  type InstanceNode,
+  type NodePatch,
+  type PropValues,
+  type StateSpec
+} from "./document.ts"
 import {
   childEntries,
   editNode,
@@ -444,7 +452,7 @@ export function pushOverrides(
     }
 
     if (rest.length === 0) {
-      main = editNode(main, main.states[0]!.id, first!, patchChange(patch))
+      main = editNode(main, designStates(main)[0]!.id, first!, patchChange(patch))
       continue
     }
 
@@ -506,7 +514,7 @@ function flatten(layers: readonly PatchLayer[]): Record<string, NodePatch> | und
 }
 
 /**
- * Replaces an instance with a copy of what it shows, no longer linked to the component: its variants, state,
+ * Replaces an instance with a copy of what it shows, no longer linked to the component: its variants,
  * overrides and param values are baked in, and every node gets a fresh id except the root, which keeps the
  * instance's. A slot it fills keeps the fill's layers, with their ids, in place of the placeholder. Nested instances
  * stay instances. Patches the design's states make inside the instance follow the nodes to their new ids.
@@ -601,9 +609,8 @@ export function detachInstance(container: ContainerSpec, instanceId: string, lib
 }
 
 /**
- * Points an instance at another component design. It keeps the param values the new component has params for, its
- * state if the new component has one with the same id, and the overrides for nodes the new component has too, by id
- * or by layer name; the rest are dropped, here and in the design's states and variants.
+ * Points an instance at another component design. It keeps the param values the new component has params for, and
+ * the overrides for nodes the new component has too, by id or by layer name; the rest are dropped, here and in the design's states and variants.
  */
 export function swapInstance(
   container: ContainerSpec,
@@ -689,7 +696,6 @@ export function swapInstance(
 
   const swapped: InstanceNode = { ...instance, design: after.id }
   delete swapped.args
-  delete swapped.state
   delete swapped.overrides
   delete swapped.name
 
@@ -699,10 +705,6 @@ export function swapInstance(
 
   if (Object.keys(args).length > 0) {
     swapped.args = args
-  }
-
-  if (instance.state && after.states.slice(1).some((state) => state.id === instance.state)) {
-    swapped.state = instance.state
   }
 
   if (Object.keys(overrides).length > 0) {

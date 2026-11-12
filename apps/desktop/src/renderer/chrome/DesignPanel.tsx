@@ -33,7 +33,7 @@ export function DesignTab() {
 
   return (
     <FieldTarget value={selectionKey(selected)}>
-      <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
+      <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>
         <SelectedPanel />
       </FirstStateName>
     </FieldTarget>
@@ -163,7 +163,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
 
   return (
     <>
-      <StatesSection entry={entry} />
+      {container.kind === "component" && <StatesSection entry={entry} />}
       {container.kind === "component" ? <ParamsSection entry={entry} /> : <ComponentsSection entry={entry} />}
 
       <PanelSection

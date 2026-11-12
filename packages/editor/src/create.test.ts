@@ -15,8 +15,7 @@ describe("a new design", () => {
         name: "Page",
         style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
         children: [{ type: "text", tag: "h1", text: "Untitled screen", style: { size: "text-2xl", weight: 600 } }]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     })
     expect(screen).not.toHaveProperty("frames")
   })
@@ -51,7 +50,6 @@ describe("a new design", () => {
         style: { padding: 6, gap: 4, background: "background", foreground: "foreground" },
         children: []
       },
-      states: [{ id: "default", name: "Default" }],
       size: { width: 400, height: 300 }
     })
     expect(parseCanvasDocument({ version: 3, containers: [frame] }).containers[0]).toEqual(frame)

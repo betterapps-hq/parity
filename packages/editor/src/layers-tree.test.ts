@@ -25,7 +25,6 @@ function design(key: string, root: DesignNode, more: Partial<ContainerSpec> = {}
     name: key,
     position: { x: 0, y: 0 },
     root,
-    states: [{ id: "default", name: "Default" }],
     ...more
   }
 

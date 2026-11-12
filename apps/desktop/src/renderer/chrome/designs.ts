@@ -5,7 +5,7 @@ import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { dropLines, frameDrops } from "./convert-to-frame.ts"
+import { droppedStatesLine, dropLines, frameDrops } from "./convert-to-frame.ts"
 import { askToConvertToFrame } from "./ConvertToFrameDialog.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
 
@@ -95,11 +95,21 @@ export function setDesignKind(session: ProjectSession, entry: ContainerEntry, ki
     return
   }
 
+  const { dropped } = turnInto(entry.container, kind, store.getModes())
+
   store.updateContainer(
     entry.key,
     `Convert to ${kindName(kind)}`,
     (container) => turnInto(container, kind, store.getModes()).design
   )
+
+  // Only a component has states, so a component made a screen keeps its first state's look and loses the others.
+  if (dropped.states.length > 0) {
+    toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
+      description: droppedStatesLine(dropped.states.map((state) => state.name)),
+      action: { label: "Undo", onClick: () => store.undo() }
+    })
+  }
 
   if (from === "frame") {
     toast.success(`${entry.container.name} is a ${kindName(kind)}`, {

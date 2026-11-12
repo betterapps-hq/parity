@@ -85,8 +85,8 @@ export const LayersInDifferentLayouts: Story = {
 export const LayersInAState: Story = {
   loaders: [
     inspecting("design", () =>
-      layersSelection(design("Sign in"), [node("Sign in", "Email input"), node("Sign in", "Password input")], {
-        state: "signing-in"
+      layersSelection(design("Stat card"), [node("Stat card", "Label"), node("Stat card", "Value")], {
+        state: "loading"
       })
     )
   ]

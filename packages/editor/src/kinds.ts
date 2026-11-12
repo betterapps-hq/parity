@@ -3,6 +3,7 @@ import {
   type ContainerKind,
   type ContainerSpec,
   type DesignNode,
+  designStates,
   frameSize,
   generateId,
   type LayoutNode,
@@ -17,13 +18,15 @@ import { asShown, fitBindings, type Pasted, pasteLayers, type PasteTarget } from
 
 /**
  * Turning a design into another kind, and a frame going inside another design. A frame is the light kind: a layout on
- * the canvas, drawn once at its own size in the project's primary mode, with one state and no params. Each rule takes
+ * the canvas, drawn once at its own size in the project's primary mode, with no params. Only a component has states. Each rule takes
  * designs as data and returns them changed, for the app to apply as one undo step.
  */
 
-/** What a design leaves behind in becoming a frame, so the app can say so before it does. Empty when nothing goes. */
+/**
+ * What a design leaves behind in becoming another kind, so the app can say so before it does. Empty when nothing goes.
+ */
 export interface DroppedParts {
-  /** Its states after the first. */
+  /** A component's states after the first. */
   states: { id: string; name: string }[]
   /** The modes its board showed other than the primary one, by id: its own main mode, then those beside it. */
   modes: string[]
@@ -40,7 +43,8 @@ export interface TurnedInto {
 }
 
 /**
- * The design as another kind, with what it dropped. A screen and a component become each other by their kind alone.
+ * The design as another kind, with what it dropped. A screen becomes a component by its kind alone. A component
+ * becomes a screen as its board shows its first state, dropping its other states, since only a component has them.
  *
  * Becoming a frame, a design keeps its layers as its board showed them in its first state, with the variant options it
  * showed and each bound value as it showed, since its params and their bindings go. Responsive patches stay on the
@@ -63,7 +67,7 @@ export function turnInto(design: ContainerSpec, kind: ContainerKind, modes: Mode
   }
 
   if (from !== "frame") {
-    return { design: { ...design, kind }, dropped }
+    return kind === "component" ? { design: { ...design, kind }, dropped } : withoutStates({ ...design, kind })
   }
 
   const { size, ...rest } = design
@@ -79,8 +83,27 @@ export function turnInto(design: ContainerSpec, kind: ContainerKind, modes: Mode
   return { design: turned, dropped }
 }
 
+/** A component made a screen: its layers as its first state shows them, and no states, nor a view of them. */
+function withoutStates(design: ContainerSpec): TurnedInto {
+  const { states: _states, view, ...rest } = design
+  const [first, ...others] = designStates(design)
+  // The base state rarely patches anything; when it does, its patches go into the layers it's drawn with.
+  const patched = Object.keys(first?.overrides ?? {}).length > 0
+  const turned: ContainerSpec = { ...rest, root: patched ? asShown(design, design.root, first) : design.root }
+  const { state: _state, allStates: _allStates, ...kept } = view ?? {}
+
+  if (Object.keys(kept).length > 0) {
+    turned.view = kept
+  }
+
+  return {
+    design: turned,
+    dropped: { states: others.map(({ id, name }) => ({ id, name })), modes: [], params: [], variants: [] }
+  }
+}
+
 function asFrame(design: ContainerSpec, modes: ModeSettings): TurnedInto {
-  const [first] = design.states
+  const [first, ...others] = designStates(design)
   const { main, beside, all } = shownModes(modes, design)
   const primary = all[0]!
   const shown = fitBindings(asShown(design, design.root, first), { ...design, params: undefined })
@@ -96,7 +119,6 @@ function asFrame(design: ContainerSpec, modes: ModeSettings): TurnedInto {
     kind: "frame",
     position: design.position,
     root,
-    states: [{ id: first!.id, name: first!.name }],
     size: frameSize(design, primary)
   }
 
@@ -107,7 +129,7 @@ function asFrame(design: ContainerSpec, modes: ModeSettings): TurnedInto {
   return {
     design: frame,
     dropped: {
-      states: design.states.slice(1).map(({ id, name }) => ({ id, name })),
+      states: others.map(({ id, name }) => ({ id, name })),
       modes: [main, ...beside].flatMap((mode) => (mode === primary ? [] : [mode.id])),
       params: params.flatMap(([name, param]) => (param.type === "variant" ? [] : [name])),
       variants: params.flatMap(([name, param]) => (param.type === "variant" ? [name] : []))

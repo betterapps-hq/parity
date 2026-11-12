@@ -183,14 +183,14 @@ export const AnotherModeFirst: Story = {
   ]
 }
 
-/** Looking at another state than the base: Sign in showing Wrong password, its changes listed under States. */
+/** Looking at another state than the base: Stat card showing Loading, its changes listed under States. */
 export const ShowingAnotherState: Story = {
   loaders: [
     inspecting("design", () => {
-      const key = design("Sign in")
-      example().store.updateView(key, "Show Wrong password", (view) => ({
+      const key = design("Stat card")
+      example().store.updateView(key, "Show Loading", (view) => ({
         ...view,
-        state: "wrong-password",
+        state: "loading",
         allStates: false
       }))
 

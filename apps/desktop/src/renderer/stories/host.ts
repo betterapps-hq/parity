@@ -12,6 +12,7 @@ import {
   type ContainerSpec,
   defaultModeSettings,
   type DesignNode,
+  designStates,
   parseData
 } from "@parity-app/core"
 import {
@@ -872,7 +873,7 @@ function findingsFor(key: string): AccessibilityFinding[] {
   }
 
   const nodes = componentNodes(container)
-  const states = container.states.slice(0, 2)
+  const states = designStates(container).slice(0, 2)
 
   return states.flatMap((state): AccessibilityFinding[] => [
     ...nodes.slice(0, 2).map((node) => ({
