@@ -23,13 +23,10 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * A layer picked in another state, Stat card's value skeleton in Loading: the editing bar turns the component color and
- * says edits change only this state, and what that state changes can be reset.
+ * A layer picked in another state, Stat card's note in Loading: the editing bar turns the component color and says
+ * edits change only this state, and the eye is marked, because Loading hides the note.
  */
-export const EditingAState: Story = { loaders: [pick("Stat card", "Value skeleton", "loading")] }
-
-/** A layer of a screen, Sign in's password field: a screen has no states, so there's no editing bar (PAR-1002). */
-export const LayerOfAScreen: Story = { loaders: [pick("Sign in", "Password input")] }
+export const EditingAState: Story = { loaders: [pick("Stat card", "Note", "loading")] }
 
 /**
  * A prop the base design turns on, turned off in one state (PAR-421): Button's button is disabled in the base, and in
@@ -66,7 +63,7 @@ export const TurningAPropOffInAState: Story = {
 
 /** The state picker opened from the editing bar: every state of the component, to send edits to another. */
 export const ChoosingTheState: Story = {
-  loaders: [pick("Stat card", "Value")],
+  loaders: [pick("Stat card", "Note")],
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getAllByRole("combobox")[0]!)
     await within(document.body).findByRole("listbox", undefined, slowly)
