@@ -150,6 +150,22 @@ describe("updateRecord", () => {
     expect(updateRecord({ phase: "checking" }, failed, running)?.attributes).toMatchObject({ stage: "check" })
   })
 
+  it("records the updater's error code apart from its message", () => {
+    const failed = {
+      phase: "error",
+      message: "Cannot find latest.yml",
+      code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND"
+    } as const
+
+    expect(updateRecord({ phase: "checking" }, failed, running)?.attributes).toEqual({
+      channel: "stable",
+      version: "0.4.0",
+      stage: "check",
+      message: "Cannot find latest.yml",
+      code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND"
+    })
+  })
+
   it("records nothing for progress or a repeated state", () => {
     const downloading = { phase: "downloading", version: "0.5.0" } as const
     expect(updateRecord(downloading, downloading, running)).toBeUndefined()

@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Core's update state and the update.failed event carry the updater's error code; the CLI doesn't change",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

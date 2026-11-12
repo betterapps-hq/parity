@@ -72,7 +72,8 @@ export const updateFailed = defineEvent(
     channel,
     version,
     stage: z.enum(["check", "download", "install"]).describe("What was under way when it failed"),
-    message: z.string().describe("What went wrong")
+    message: z.string().describe("What went wrong, its first line"),
+    code: z.string().optional().describe("electron-updater's error code, such as ERR_UPDATER_CHANNEL_FILE_NOT_FOUND")
   }),
   { level: "warn", sentBy: ["main"], when: "Checking for, downloading or installing an update fails." }
 )
@@ -447,7 +448,7 @@ export function lagCheck({ every, threshold, start }: { every: number; threshold
 export type UpdatePhase =
   | { phase: "disabled" | "idle" | "checking" | "current" }
   | { phase: "downloading" | "ready" | "manual" | "installing"; version: string }
-  | { phase: "error"; message: string }
+  | { phase: "error"; message: string; code?: string }
 
 /** An update event to record for a change in the update state, if the change is one. */
 export type UpdateRecord =
@@ -489,7 +490,9 @@ export function updateRecord(
 
     const stage = stages[previous.phase] ?? "check"
 
-    return { name: "update.failed", attributes: { ...base, stage, message: next.message } }
+    const attributes: z.input<typeof updateFailed.schema> = { ...base, stage, message: next.message }
+
+    return { name: "update.failed", attributes: next.code ? { ...attributes, code: next.code } : attributes }
   }
 
   return undefined

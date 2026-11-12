@@ -25,6 +25,7 @@ vi.mock("electron-updater", () => ({
   }
 }))
 
+import electronUpdater from "electron-updater"
 import { createUpdates } from "./updates.ts"
 
 /** An AppImage, so updates are on when the tests run on Linux too. */
@@ -58,6 +59,18 @@ describe("installed updater empty-feed handling", () => {
     await session.check()
     expect(session.get()).toEqual({ phase: "error", beta: false, message: "Network unavailable" })
     expect(platform.download).not.toHaveBeenCalled()
+  })
+
+  it("names the channel on each check and never allows a downgrade", async () => {
+    platform.check.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: "0.3.0" } })
+    const session = createUpdates(vi.fn(), installed)
+    const { autoUpdater } = electronUpdater
+    session.setBeta(true)
+    await session.check()
+    expect(autoUpdater).toMatchObject({ channel: "beta", allowPrerelease: true, allowDowngrade: false })
+    session.setBeta(false)
+    await session.check()
+    expect(autoUpdater).toMatchObject({ channel: "latest", allowPrerelease: false, allowDowngrade: false })
   })
 
   it("does not probe GitHub or replace a successful generic-feed check", async () => {
