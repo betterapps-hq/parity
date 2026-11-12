@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Select popups inset their items by 4px, like the app's other menus",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
