@@ -261,6 +261,52 @@ describe("filling an instance's slots", () => {
     expect(JSON.stringify(detached.root)).not.toContain("Content goes here")
   })
 
+  it("is baked in by Detach where the component's own instance has one: the values shown, unbound, ids fresh (PAR-966)", () => {
+    // A panel placing the card, whose content slot it fills with a lead bound to its own `heading` param.
+    const panel: ContainerSpec = {
+      id: "panel",
+      name: "Panel",
+      kind: "component",
+      position: { x: 0, y: 400 },
+      params: { heading: { type: "text", default: "Heading" } },
+      root: {
+        type: "layout",
+        id: "panel",
+        children: [
+          {
+            type: "instance",
+            id: "inner",
+            design: "card",
+            slots: { content: [{ type: "text", id: "lead", text: "Lead", bind: { text: "heading" } }] }
+          }
+        ]
+      },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    const both = componentLibrary([component, panel])
+
+    const screen: ContainerSpec = {
+      ...page,
+      root: {
+        type: "layout",
+        id: "page",
+        children: [
+          { type: "instance", id: "billing", design: "panel", args: { heading: "Billing" } },
+          { type: "instance", id: "usage", design: "panel", args: { heading: "Usage" } }
+        ]
+      }
+    }
+
+    const before = texts(resolveDesign(screen.root, undefined, "desktop", both))
+    expect(before).toEqual(["Title", "Billing", "Title", "Usage"])
+    const detached = detachInstance(detachInstance(screen, "billing", both), "usage", both)
+    expect(texts(resolveDesign(detached.root, undefined, "desktop", both))).toEqual(before)
+    expect(JSON.stringify(detached.root)).not.toContain('"bind"')
+    // Two copies of one component don't share the ids of what its instance filled its slot with.
+    expect(() => parseCanvasDocument({ version: 3, containers: [component, panel, detached] })).not.toThrow()
+  })
+
   it("is read from a project file, which refuses a fill reusing one of the design's ids", () => {
     const file = (container: ContainerSpec) => ({ version: 3, containers: [component, container] })
     expect(parseCanvasDocument(file(filled(page))).containers[1]).toEqual(filled(page))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerSpec } from "./document.ts"
+import type { ContainerSpec, DesignNode } from "./document.ts"
 import {
   addState,
   addVariant,
@@ -10,7 +10,10 @@ import {
   findNode,
   insertNode,
   locateNode,
+  mapChildLists,
+  mapNodes,
   moveNode,
+  nodeIds,
   nodeInState,
   nodeLabel,
   propChange,
@@ -229,6 +232,103 @@ describe("tree edits", () => {
     const copy = withFreshIds(findNode(design.root, "card")!, new Set(["page"]))
     expect(copy.id).not.toBe("card")
     expect(copy.type === "component" && copy.slots?.children?.[0]?.id).not.toBe("submit")
+  })
+})
+
+describe("mapping every node (PAR-966)", () => {
+  // A layout holding a code component, whose slot holds an instance, which fills its own slot with a layout of texts.
+  const tree: DesignNode = {
+    type: "layout",
+    id: "page",
+    children: [
+      { type: "text", id: "title", text: "Team" },
+      {
+        type: "component",
+        id: "card",
+        component: "Card",
+        slots: {
+          children: [
+            {
+              type: "instance",
+              id: "row",
+              design: "row",
+              slots: {
+                content: [{ type: "layout", id: "fill", children: [{ type: "text", id: "name", text: "Avery" }] }],
+                actions: [{ type: "image", id: "photo", src: "/avery.jpg" }]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+
+  it("reaches a layout's children, a code component's slots and the layers an instance fills its slots with", () => {
+    const met: string[] = []
+
+    const next = mapNodes(tree, (node) => {
+      met.push(node.id)
+
+      return { ...node, name: node.id.toUpperCase() }
+    })
+
+    // A node before what it holds, in the order the tree holds them.
+    expect(met).toEqual(["page", "title", "card", "row", "fill", "name", "photo"])
+    expect([...nodeIds(next)]).toEqual(met)
+
+    for (const id of met) {
+      expect(findNode(next, id)).toMatchObject({ name: id.toUpperCase() })
+    }
+
+    expect(locateNode(next, "photo")).toMatchObject({ slot: "actions", index: 0 })
+  })
+
+  it("goes into what a node's replacement holds, not what the node held", () => {
+    const next = mapNodes(tree, (node) =>
+      node.id === "row" && node.type === "instance"
+        ? { ...node, slots: { content: [{ type: "text", id: "swapped", text: "Swapped" }] } }
+        : { ...node, hidden: true }
+    )
+
+    expect(findNode(next, "swapped")).toMatchObject({ hidden: true })
+    expect(findNode(next, "name")).toBeUndefined()
+  })
+
+  it("gives back the same tree when nothing changes, and the same branches beside one that does", () => {
+    expect(mapNodes(tree, (node) => node)).toBe(tree)
+    const next = mapNodes(tree, (node) => (node.id === "name" ? { ...node, hidden: true } : node))
+    expect(next).not.toBe(tree)
+    expect(findNode(next, "title")).toBe(findNode(tree, "title"))
+    expect(findNode(next, "photo")).toBe(findNode(tree, "photo"))
+  })
+
+  it("maps each list a node holds by the slot it's in, and leaves a node that holds none as it is", () => {
+    const row = findNode(tree, "row")!
+    const slots: (string | undefined)[] = []
+
+    const emptied = mapChildLists(row, (nodes, slot) => {
+      slots.push(slot)
+
+      return slot === "actions" ? [] : nodes
+    })
+
+    expect(slots).toEqual(["content", "actions"])
+    expect(emptied).toMatchObject({ slots: { content: [{ id: "fill" }], actions: [] } })
+    expect(mapChildLists(tree, (nodes, slot) => (slot === undefined ? nodes.slice(0, 1) : nodes))).toMatchObject({
+      children: [{ id: "title" }]
+    })
+
+    const title = findNode(tree, "title")!
+    expect(mapChildLists(title, () => [])).toBe(title)
+    expect(mapChildLists(row, (nodes) => nodes)).toBe(row)
+  })
+
+  it("is how a copy gets fresh ids, the layers an instance fills its slots with included", () => {
+    const taken = nodeIds(tree)
+    const copy = withFreshIds(tree, taken)
+    const fresh = [...nodeIds(copy)]
+    expect(fresh).toHaveLength(7)
+    expect(fresh.filter((id) => nodeIds(tree).has(id))).toEqual([])
   })
 })
 
