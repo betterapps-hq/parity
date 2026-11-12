@@ -22,7 +22,7 @@ import { isSecretName } from "@parity-app/telemetry"
 import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import { type ComponentProps, createContext, type ReactNode, useContext, useId, useState } from "react"
-import { Changed } from "../inspector/controls/field-parts.tsx"
+import { Changed, useChanged } from "../inspector/controls/field-parts.tsx"
 import { NumberProp, type PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
 import { NameInput } from "./Name.tsx"
@@ -84,8 +84,9 @@ function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-
  * mark (PAR-1020). The label names the inputs inside that aren't given a name of their own (see `useFieldName`);
  * controls with their own name, such as a button with text, keep it.
  */
-export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
+export function Field({ label, hint, changed = false, mixed = false, onReset, children }: FieldProps) {
   const firstState = useContext(FirstStateName)
+  const outerChange = useChanged()
   const labelId = useId()
 
   return (
@@ -120,7 +121,10 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
       </div>
       <div className="min-w-0">
         <FieldLabelContext value={labelId}>
-          <MixedContext value={mixed}>{changed ? <Changed>{children}</Changed> : children}</MixedContext>
+          {/* Always wrapped, so a control isn't remade, losing its focus, as its value comes to be changed. */}
+          <MixedContext value={mixed}>
+            <Changed when={changed || outerChange}>{children}</Changed>
+          </MixedContext>
         </FieldLabelContext>
       </div>
     </div>

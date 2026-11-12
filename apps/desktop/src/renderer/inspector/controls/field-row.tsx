@@ -143,6 +143,7 @@ export function Field({
   // A locked row's value can't be dragged, so its name doesn't scrub.
   const locked = lock !== undefined && !lock.open
   const dragsBy = locked ? undefined : scrub
+  const outerChange = useChanged()
   let state: string | undefined
   let resetTo: string | undefined
 
@@ -225,8 +226,13 @@ export function Field({
         </span>
       </div>
       <RowScrub value={register}>
-        {/* A changed or overridden value marks its control (PAR-1020); an outer mark stays where this row has none. */}
-        <div className="min-w-0">{resetTo === undefined ? children : <Changed>{children}</Changed>}</div>
+        {/*
+          A changed or overridden value marks its control (PAR-1020), and a mark from outside stays where this row has
+          none. Always wrapped, so a control isn't remade, losing its focus, as its value comes to be changed.
+        */}
+        <div className="min-w-0">
+          <Changed when={resetTo !== undefined || outerChange}>{children}</Changed>
+        </div>
       </RowScrub>
     </fieldset>
   )
