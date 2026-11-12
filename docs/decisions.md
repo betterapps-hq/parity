@@ -2043,6 +2043,19 @@ recommended answer to each of its questions.
   the CLI's and MCP's output schema and keeps a box apart from the node it belongs to. The renderer still measures flat
   boxes; `layoutNode` in `packages/agent/src/frames.ts` reshapes them for Measure, and screenshots keep theirs, which
   don't leave the agent.
+- **The snippet API reference is generated from the code** (PAR-958). execute.md wrote each function's signature and
+  result by hand, and they drifted: PAR-915 found Measure's box shape, `Get`'s visit `parent` and instance overrides
+  described wrongly. `SnippetApi` in `packages/agent/src/snippet-api.ts` now declares every snippet function with a doc
+  comment and a named result type, and `Workspace.api()` is typed with it, so the compiler holds the two together.
+  `packages/cli/skills/reference.md` is generated from it with TypeScript 7's checker (`typescript/unstable/sync`, the
+  compiler the repository already type-checks with, so no new dependency). It prints every function, then every type
+  their arguments and results name. An interface prints as written, with its doc comments. A type inferred from a schema
+  prints as the fields it comes to, calling each named type by name. The document format's types are named and left to
+  document.md. `reference.test.ts` checks the file against a fresh run with `toMatchFileSnapshot`, so a stale reference
+  fails the tests and `-u` writes the new one. execute.md and SKILL.md point to it for exact arguments and results, and
+  keep the prose about how the functions fit together. API Extractor was the other choice. It documents everything a
+  package exports, writes one file per item, and prints `z.infer<…>` as written. The checker's API is marked unstable,
+  so an upgrade can change it; the version is pinned and the test fails loudly if it does.
 
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
