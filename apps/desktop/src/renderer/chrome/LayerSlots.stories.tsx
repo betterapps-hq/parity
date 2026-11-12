@@ -2,16 +2,17 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { filledInstance, inspectorStage, pick, renderInspector, slotted } from "./layer-stories.tsx"
+import { filledInstance, inspectorStage, pick, renderInspector, renderPart, slotted } from "./layer-stories.tsx"
 
 /**
  * A layout of a component design selected (PAR-83): Make slot beside Make component, the other thing a layer can
- * become, and once it's a slot, its name, which opens it in the component's Props.
+ * become, and once it's a slot, its name, which opens it in the component's Props. Each shows the part of the panel
+ * it's about: the header Make slot is in, an instance's slots, or a slot's own panel (PAR-1022).
  */
 const meta = {
   title: "Parity/Inspector/Layer/Slots",
   component: DesignTab,
-  render: renderInspector,
+  render: renderPart("header"),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
@@ -65,7 +66,7 @@ export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Featu
  * it, `features` its one layer and `pricing` Empty, with a picture of what shows there on hover. Clicking one selects
  * it; × clears a filled one.
  */
-export const InstanceSlots: Story = { loaders: [filledInstance()] }
+export const InstanceSlots: Story = { loaders: [filledInstance()], render: renderPart("instance") }
 
 /**
  * One of Starter plan's slots selected: its name, the instance it's in, a picture of what shows there, Clear, and that
@@ -73,6 +74,8 @@ export const InstanceSlots: Story = { loaders: [filledInstance()] }
  */
 export const SlotSelected: Story = {
   loaders: [filledInstance("slot")],
+  // A selected slot has a panel of its own, which is the whole of what it shows.
+  render: renderInspector,
   play: async ({ canvasElement }) => {
     await expect(
       await within(canvasElement).findByText("Click a component in Components to add it here.", undefined, slowly)

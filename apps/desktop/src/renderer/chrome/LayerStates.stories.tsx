@@ -5,13 +5,16 @@ import { expect, userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, slowly } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
+import { inspectorStage, pick, renderPart } from "./layer-stories.tsx"
 
-/** A layer picked in one of its component's states: where edits go, and what that state changes. */
+/**
+ * A layer picked in one of its component's states: where edits go, shown by the panel's header and its editing bar, and
+ * what that state changes (PAR-1022).
+ */
 const meta = {
   title: "Parity/Inspector/Layer/States",
   component: DesignTab,
-  render: renderInspector,
+  render: renderPart("header"),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
@@ -34,6 +37,7 @@ export const LayerOfAScreen: Story = { loaders: [pick("Sign in", "Password input
  * back, so the switch is on again.
  */
 export const TurningAPropOffInAState: Story = {
+  render: renderPart("props"),
   loaders: [
     inspecting("design", () => {
       const key = design("Button")
