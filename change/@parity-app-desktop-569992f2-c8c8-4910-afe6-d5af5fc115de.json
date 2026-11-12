@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "One field row across the Design tab: an image's or video's Content and an instance's slots name their fields above them, as every other section does",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

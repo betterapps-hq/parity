@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 23:04:50 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 23:26:30 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.77.0
+
+Thu, 12 Nov 2026 23:26:30 GMT
+
+### Minor changes
+
+- One field row across the Design tab: an image's or video's Content and an instance's slots name their fields above
+  them, as every other section does (ajcraswell@gmail.com)
 
 ## 0.76.0
 

@@ -10,7 +10,6 @@ import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx
 import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { useSelection } from "../selection.ts"
-import { openSource } from "./code-editor.ts"
 import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
@@ -20,7 +19,7 @@ import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { ReferencePanel } from "./ReferencePanel.tsx"
-import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -117,12 +116,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                   event.currentTarget.blur()
                 }
               }}
-            />
-          }
-          action={
-            <HeaderActions
-              actions={["open-in-editor"]}
-              onAction={() => void openSource(session.info, { path: entry.path, line: 1, column: 1 })}
             />
           }
         />

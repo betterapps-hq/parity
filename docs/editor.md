@@ -881,7 +881,7 @@ Right-clicking an element a project file wrote ends the canvas menu with **Open 
 and opens it in the person's editor at that line. Agents get the same places.
 
 The inspector's Code tab, which listed a component layer's elements with their lines and picked one on the canvas with
-Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code panel`
+Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code/Code panel`
 stories, beside the window, reading the example's files from Storybook's copy.
 
 - **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
@@ -3558,12 +3558,14 @@ component's design names it.
 The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye
 (`layerActions`):
 
-- **Open in editor** on a design, at the file it's saved in, and on a code component where the project has its code.
 - **Open in Storybook** on a code component that has stories. A component design has no stories of its own yet, so it
   offers none.
 - **Go to component** on an instance of one of the project's component designs, which selects the design and shows it.
 
-An icon and a layer that isn't a component have only the eye.
+An icon and a layer that isn't a component have only the eye. A design's header has no actions. Open in editor, which
+opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
+(PAR-1027); its design is kept in `explorations/code-panel/OpenInEditor.stories.tsx` (Explorations › Code › Open in
+editor).
 
 A text layer's color is green, its own (PAR-792), where other layers are the layer blue: its T in Layers, this heading,
 the Accessibility panel, states, search and the canvas menu, and its outline, chip and text-editing outline on the
