@@ -22,6 +22,7 @@ import {
   changeNote,
   changeReference,
   type Checkpoint,
+  changedBesides,
   checkpoint as historyCheckpoint,
   type DesignHistory,
   type DesignRef,
@@ -265,6 +266,14 @@ export class DesignStore {
    */
   revert(checkpoint: Checkpoint): void {
     this.take(revertTo(this.state, checkpoint))
+  }
+
+  /**
+   * Whether something besides the checkpoint's gesture has changed its design since, as an agent editing the same
+   * file, which `revert` would take back too.
+   */
+  changedBesides(checkpoint: Checkpoint): boolean {
+    return changedBesides(this.state, checkpoint)
   }
 
   /** Undoes the last step, recorded as `edit.undone` with what it changed (PAR-640). */

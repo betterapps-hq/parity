@@ -172,7 +172,7 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
                 value={readPropValue(param.default)}
                 kind={valueKind(readPropValue(param.default), param.type)}
                 title={`${name} default`}
-                onCommit={(value) =>
+                onCommit={(value, gesture) =>
                   updateAndRecord(
                     session.store,
                     entry.key,
@@ -181,7 +181,7 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
                       ...container,
                       params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
                     }),
-                    { field: `params.${name}`, read: (container) => paramValue(container, name) }
+                    { field: `params.${name}`, read: (container) => paramValue(container, name), gesture }
                   )
                 }
               />

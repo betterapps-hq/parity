@@ -2,7 +2,7 @@
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { drag, type Reading, readUnitNumber, ValueField } from "./field-parts.tsx"
+import { drag, useLiveEdits, type Reading, readUnitNumber, ValueField } from "./field-parts.tsx"
 import { type Angle, angleDegrees, angleOf, angleUnits, splitUnit } from "./motion-data.ts"
 
 /** Snaps to 15° with Shift, and to whole degrees otherwise, as the knob does; the glyph's scrub snaps with Shift. */
@@ -207,6 +207,7 @@ export function AngleKnob({
   set?: boolean
   onChange: (degrees: number) => void
 }) {
+  const live = useLiveEdits()
   const [turning, setTurning] = useState(false)
   const radians = ((degrees - 90) * Math.PI) / 180
 
@@ -225,6 +226,7 @@ export function AngleKnob({
     let moved = false
     setTurning(true)
     drag(event, {
+      runs: live,
       move: (point) => {
         const now = around(box, point)
 

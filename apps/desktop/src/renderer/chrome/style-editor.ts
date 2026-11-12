@@ -28,22 +28,35 @@ import {
 } from "./inspector-events.ts"
 import { measureNode, placeNode } from "./LayerPanel.tsx"
 
+/** One row's edit of every selected layer, with what Undo calls it. `undefined` in an edit clears a property. */
+export interface StyleChange<R extends StyleRow = StyleRow> {
+  row: R
+  edit: StyleEdit<RowKey<R>>
+  label: string
+}
+
 /** Edits the selected layers' style through the style rows, in the state and variant being edited. */
 export interface StyleEditor {
   /** What the layers share, what differs and what the state changes, as `@parity-app/editor` works it out. */
   selection: StyleSelection
   /**
-   * A row's edit of every layer, as one undoable change, or as part of a gesture's one step (a field's run of Up and
-   * Down presses). `undefined` clears a property.
+   * Makes changes as one undoable step, named by the first, or as part of a gesture's one step (a field's run of Up
+   * and Down presses). Sections make theirs through their edit session (`useEditSession`), not this.
    */
-  set: <R extends StyleRow>(row: R, edit: StyleEdit<RowKey<R>>, label?: string, gesture?: string) => void
+  make: (changes: readonly StyleChange[], gesture?: string) => void
   reset: (row: StyleRow) => void
   /**
-   * Shows a row's edit on the canvas at once, without changing the design, while a field is typed in or scrubbed:
-   * `set` then makes it, or `endPreview` takes it back.
+   * Shows changes on the canvas at once, without changing the design, while a field is typed in or scrubbed: `make`
+   * then makes them, or `endPreview` takes them back.
    */
-  preview?: <R extends StyleRow>(row: R, edit: StyleEdit<RowKey<R>>) => void
-  endPreview?: () => void
+  preview: (changes: readonly StyleChange[]) => void
+  endPreview: () => void
+  /**
+   * Where the design is now, for a gesture's changes to go back to: `revert` takes them back as though never made, and
+   * says whether it did. It doesn't once something else has changed the design since, as an agent editing the same
+   * file, which reverting would take back too.
+   */
+  checkpoint: (gesture: string) => { revert: () => boolean } | undefined
   tokens: Token[]
   /** Pixels per spacing step. */
   unit: number
@@ -221,20 +234,45 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     recordInspectorChange(change)
   }
 
+  // Several changes, as one field's change can come to, are one edit of the design.
+  const applying = (changes: readonly StyleChange[]) => (container: ContainerSpec) =>
+    changes.reduce((each, change) => within(selection.edit(change.row, change.edit, measure))(each), container)
+
   return {
     selection,
-    set: (row, edit, label = "Change style", gesture) => {
-      const apply = within(selection.edit(row, edit, measure))
+    make: (changes, gesture) => {
+      const label = changes[0]?.label ?? "Change style"
+      const apply = applying(changes)
       preview.settle(apply)
       store.updateContainer(entry.key, count > 1 ? `${label} on ${count} layers` : label, apply, { gesture })
-      recordRow(row, gesture)
+
+      for (const row of new Set(changes.map((change) => change.row))) {
+        recordRow(row, gesture)
+      }
     },
     reset: (row) => {
       store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
       recordRow(row)
     },
-    preview: (row, edit) => preview.show(within(selection.edit(row, edit, measure))),
+    preview: (changes) => preview.show(applying(changes)),
     endPreview: () => preview.cancel(),
+    checkpoint: (gesture) => {
+      const point = store.checkpoint(entry.key, gesture)
+
+      return (
+        point && {
+          revert: () => {
+            if (store.changedBesides(point)) {
+              return false
+            }
+
+            store.revert(point)
+
+            return true
+          }
+        }
+      )
+    },
     tokens,
     unit,
     measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined),

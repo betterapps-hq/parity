@@ -133,6 +133,8 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
 
   const { selection } = editor
   const { mixed } = selection
+  // The rows whose fields work Mixed+8 out from each layer's own value.
+  const perLayer = mixed.filter((key) => key === "width" || key === "height" || key === "padding" || key === "margin")
   const base = isBaseState(entry.container, selection.state.id)
 
   return (
@@ -157,7 +159,14 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
       </PanelSection>
       {mixed.length > 0 && (
         <p className={`type-description border-b py-2.5 pl-4 text-muted-foreground ${panelEnd}`}>
-          Different across these layers: {mixed.map(styleLabel).join(", ")}. What you set goes to every layer.
+          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value.
+          {perLayer.length > 0 && (
+            <>
+              {" "}
+              In {perLayer.map(styleLabel).join(", ")}, <code className="font-mono">Mixed+8</code> adds 8 to each
+              layer&apos;s own value.
+            </>
+          )}
         </p>
       )}
       <StyleSections editor={editor} container={entry.container} />

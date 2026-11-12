@@ -222,6 +222,8 @@ export interface DesignField<Value> {
   layers?: readonly string[]
   state?: string
   read: (container: ContainerSpec) => Value
+  /** The gesture the change is part of, as a run of Up and Down presses, whose changes are one undo step. */
+  gesture?: string
 }
 
 /**
@@ -234,10 +236,10 @@ export function updateAndRecord<Value>(
   key: string,
   label: string,
   update: (container: ContainerSpec) => ContainerSpec,
-  { field, layers = [], state, read }: DesignField<Value>
+  { field, layers = [], state, read, gesture }: DesignField<Value>
 ): void {
   const before = store.getEntry(key)?.container
-  store.updateContainer(key, label, update)
+  store.updateContainer(key, label, update, { gesture })
   const after = store.getEntry(key)?.container
 
   if (!before || !after || before === after) {

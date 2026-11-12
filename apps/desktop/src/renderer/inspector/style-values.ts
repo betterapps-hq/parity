@@ -119,6 +119,50 @@ export function paddingOf(
     : tidySides(lengths)
 }
 
+/**
+ * A length or size worked out from its own pixels, as `Mixed+8` works on each selected layer, in steps of the spacing
+ * scale, and held at `min` pixels or more, as the field holds what's typed; undefined where it has no pixels to work
+ * from (Fill, Hug, unset, a token that isn't a length, a length written out), so it stays.
+ */
+export function eachLength(
+  length: Size | undefined,
+  update: (px: number) => number,
+  unit: number,
+  tokens: readonly LengthToken[],
+  min = 0
+): Length | undefined {
+  const px = lengthPx(length, unit, tokens)
+
+  return px === undefined ? undefined : { step: exact(Math.max(min, update(px)) / unit) }
+}
+
+/**
+ * Padding or margin with the sides an edit reached each worked out from its own pixels (`eachLength`); unset sides
+ * count as 0. `min` is the least a side takes: 0 for padding, none for margin, which can be negative.
+ */
+export function eachSideOf(
+  own: Padding | undefined,
+  reached: readonly number[],
+  update: (px: number) => number,
+  unit: number,
+  tokens: readonly LengthToken[],
+  min = 0
+): Padding | undefined {
+  const lengths: [Length, Length, Length, Length] = [...(sidesOf(own) ?? [zero, zero, zero, zero])]
+  let changed = false
+
+  for (const index of reached) {
+    const next = eachLength(lengths[index], update, unit, tokens, min)
+
+    if (next !== undefined) {
+      lengths[index] = next
+      changed = true
+    }
+  }
+
+  return changed ? tidySides(lengths) : own
+}
+
 /** A width or height as W and H show it: pixels, Fill or Hug, a percentage, or a token. */
 export function sizeShown(size: Size | undefined, unit: number): ControlSize | undefined {
   if (size === undefined) {
@@ -160,8 +204,8 @@ export function sizeOf(size: ControlSize, unit: number): FieldLength | undefined
   return isTokenSize(size) ? size.token : undefined
 }
 
-/** A length's pixels, for what a limit starts at: its steps', or its token's. */
-export function lengthPx(length: Length | undefined, unit: number, tokens: readonly LengthToken[]): number | undefined {
+/** A length's pixels, for what a limit or an edit starts at: its steps', or its token's. Fill and Hug have none. */
+export function lengthPx(length: Size | undefined, unit: number, tokens: readonly LengthToken[]): number | undefined {
   const steps = lengthSteps(length)
   const token = lengthToken(length)
 

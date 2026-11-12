@@ -6,7 +6,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
 import { ColorEditor } from "./color-picker.tsx"
-import { arbitrary, clamp, formatNumber, isPlainColor } from "./css-values.ts"
+import { arbitrary, clamp, isPlainColor } from "./css-values.ts"
 import { CurveThumb } from "./easing.tsx"
 import { fillTokens } from "./expression.tsx"
 import {
@@ -15,14 +15,12 @@ import {
   type Message,
   MessageLine,
   NotBaseline,
-  type Reading,
-  readNumber,
   SearchList,
   TokenMark,
-  ValueField,
   wrappingText
 } from "./field-parts.tsx"
 import { type Bezier, bezierCss, type EasingPlot, readEasingValue } from "./motion-data.ts"
+import { NumberField } from "./number-field.tsx"
 import { colorTokens, lengthVars } from "./tokens.ts"
 import type { StoredObject, Writes } from "./writes.ts"
 
@@ -616,31 +614,19 @@ function CurveFields({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
   return (
     <div className="grid grid-cols-4 gap-1">
       {handles.map((label, index) => (
-        <ValueField
+        <NumberField
           key={label}
           label={label}
-          shown={formatNumber(curve[index]!)}
+          min={index % 2 === 0 ? 0 : undefined}
+          max={index % 2 === 0 ? 1 : undefined}
+          past="refuse"
+          required
+          step={0.01}
+          scrubs={false}
+          value={curve[index]}
           narrow
           rowClassName={`row-start-1 ${handleColumns[index]}`}
-          read={(text): Reading<number> => {
-            const reading = readNumber(text, curve[index], label)
-
-            if ("clear" in reading) {
-              return { reason: "Enter a number, such as 0.5" }
-            }
-
-            if ("reason" in reading) {
-              return reading
-            }
-
-            if (index % 2 === 0 && (reading.value < 0 || reading.value > 1)) {
-              return { reason: `${label} goes from 0 to 1` }
-            }
-
-            return { value: reading.value }
-          }}
-          onCommit={(number) => set(index, number)}
-          onStep={(up, { shift }) => set(index, curve[index]! + (up ? 1 : -1) * (shift ? 0.1 : 0.01))}
+          onChange={(number) => number !== undefined && set(index, number)}
         />
       ))}
     </div>

@@ -370,7 +370,12 @@ export class GestureRun {
     this.finish("ended")
   }
 
-  private finish(how: "selection" | "ended"): void {
+  /** Ends the run once what it made has been taken back, as Escape does in a field. */
+  cancel(): void {
+    this.finish("ended", false)
+  }
+
+  private finish(how: "selection" | "ended", kept = true): void {
     const open = this.open
 
     if (!open) {
@@ -383,7 +388,7 @@ export class GestureRun {
     recordGesture({
       kind: this.kind,
       how,
-      kept: true,
+      kept,
       durationMs: Math.round(this.now() - open.began),
       presses: open.presses,
       undoStep

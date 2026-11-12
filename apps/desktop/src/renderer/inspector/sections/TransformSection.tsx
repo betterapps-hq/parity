@@ -11,7 +11,7 @@ import type { SectionProps } from "./section-edits.ts"
  * Transform (PAR-933), the approved section, inside Position: + adds it, then Move, Scale with its flips, and the rest,
  * editing the layers' `translate`, `scale` and `transformOrigin`. It moves how the layer is drawn, not where the layout puts it.
  */
-export function TransformSection({ editor }: SectionProps) {
+export function TransformSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection
   const sets = useMemo(() => effectTokenSets(editor.tokens), [editor.tokens])
 
@@ -41,7 +41,7 @@ export function TransformSection({ editor }: SectionProps) {
         mixed={editor.selection.differs("transform")}
         onChange={(value) => {
           setApart(value.scaleLinked === false)
-          editor.set("transform", (layer) => transformOf(value, layer, editor.unit, tokenPx), "Change transform")
+          edit("transform", (layer) => transformOf(value, layer, editor.unit, tokenPx), "Change transform")
         }}
       />
     </ProjectTokens>
