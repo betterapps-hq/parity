@@ -5771,8 +5771,8 @@ start is dropped").
 - **Opening writes nothing.** The Home screen opens as if the main project file held it: there's nothing to undo or
   save, and the folder is left as it was. The file is written with the first change, Home screen included. Closed
   without a change, the project opens on a new Home screen next time.
-- **Only a project with no project file gets one.** A project whose file couldn't be read gets none, so saving never
-  writes over the broken file, and one whose designs were all deleted opens with none.
+- **Only a project with no project file gets one.** One whose designs were all deleted opens with none. A file that
+  can't be read stops the project opening (see below), so there's never a Home screen to write over it.
 - **A blank project from the scaffolder (PAR-284) has no project file either,** so it opens on a Home screen the same
   way.
 
@@ -5781,12 +5781,12 @@ Code: `openingDesigns`, `homeScreen` and `homeComponent` in `packages/editor/src
 / App / Blank project opens on the Home screen. The stories of Layers with nothing in it open `designless`, a project
 whose file holds no designs.
 
-Tests: `packages/editor/src/home.test.ts` (14: a Home screen in the main file of a project with none, a project's own
-files as they are, and none beside a file that couldn't be read; the screen drawing `App` with Mobile Light beside
-Desktop Light, a padded page headed Home with nothing to draw, the phone mode sharing the primary mode's theme, a
-laptop's beside a phone's, and the primary mode alone; and what renders `/`: Next's, a `pages` folder's and a `routes`
-folder's page over `App`, a route group's, a route file's default export, `App` by export or file and the nearest one,
-never a library's, and nothing). Gap: `createSession` calling it has no automated test.
+Tests: `packages/editor/src/home.test.ts` (13: a Home screen in the main file of a project with none, and a project's
+own files as they are; the screen drawing `App` with Mobile Light beside Desktop Light, a padded page headed Home with
+nothing to draw, the phone mode sharing the primary mode's theme, a laptop's beside a phone's, and the primary mode
+alone; and what renders `/`: Next's, a `pages` folder's and a `routes` folder's page over `App`, a route group's, a
+route file's default export, `App` by export or file and the nearest one, never a library's, and nothing). Gap:
+`createSession` calling it has no automated test.
 
 ### Opening in seconds (PAR-179)
 
@@ -6315,6 +6315,29 @@ added, a state added, a layout made a slot, a state's change reset, and a token'
 `chrome/component-events.test.ts` covers an instance detached, a layer that isn't one, a copy's overrides pushed whole
 and from a layer inside it, layers made a component, and a push that throws.
 
+### A design file that can't be read stops the project opening (PAR-1011)
+
+A project whose `.par` isn't JSON, or doesn't match the design file format, doesn't open: its tab shows the page for a
+project that couldn't open, and the reason names the file. Before, it opened without that file's designs and a card at
+the bottom of Layers said why.
+
+- **The reason says which file and what's wrong,** in Details with Copy: "shadcn-vite.par doesn't match the design file
+  format:" with the check's pointer and message under it, such as `/containers/0/states: only a component has states`,
+  or "designs/landing.par isn't valid JSON:" with the parser's message. A `.lib.par` is checked against the library file
+  format.
+- **Close is the page's one button,** at the right as in a dialog's footer, for whatever stopped the project opening.
+  Show in folder stays beside the folder.
+- **A file that changes on disk and no longer reads** while the project is open is skipped, as before, and the log says
+  so.
+
+Code: `readDesigns` in `packages/project/src/open-project.ts`, which the service's open in
+`apps/desktop/src/utility/projects.ts` calls for each project file, and `ProjectFailed` in
+`apps/desktop/src/renderer/ProjectStatus.tsx` on `ErrorPage` (`chrome/ErrorPage.tsx`). In Storybook, Parity / Chrome /
+Opening a project shows Failed On An Invalid Design File and Failed On A Broken Design File.
+
+Tests: `packages/project/src/open-project.test.ts` (the error naming the file and the pointer for a design file and a
+library file, and naming a file that isn't JSON).
+
 ### A part that fails keeps the rest working (PAR-667)
 
 When part of the window throws while it draws, it says so in its own place and the rest of the window carries on. Edits
@@ -6324,8 +6347,8 @@ live in the project's store, not in what draws them, so nothing is lost. Each pl
   laid out, with Report a problem and Copy details under it. The panel's tabs and its edge still work.
 - **The console** keeps its header, edge and close button, with the error's details to copy in the header, and says so
   where "Nothing logged" would be.
-- **A whole tab**, such as a project or Home, is laid out as the page for a project that couldn't open, with the error
-  in full.
+- **A whole tab**, such as a project or Home, is laid out as the page for a project that couldn't open (`ErrorPage`),
+  with the error in full and its buttons at the right, Try again last, as in a dialog's footer.
 - **The whole window**, the last resort, shows Parity's mark and Try again, with a strip to move the window by.
 - **The tab bar and the status bar** say so in a line, **each dialog** says so in a dialog of its own, closing which
   closes the dialog that failed, and **what's drawn over the canvas**, its outlines, toolbar and controls, fails without

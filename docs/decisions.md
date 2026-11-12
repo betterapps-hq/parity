@@ -4253,8 +4253,8 @@ same screen. My calls:
 - **Opening writes nothing.** The Home screen opens as if the project file held it, so opening a folder leaves it as it
   was, and the file is written with the first change. A Home screen made on open but never kept is no loss, since the
   next open makes the same one.
-- **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
-  deleted opens with none, as the person left it.
+- **A file whose designs were all deleted opens with none,** as the person left it. A file that can't be read stops the
+  project opening (PAR-1011), so there's no Home screen to write over it.
 
 ## Agents name states by id, and a name points to its id (PAR-459)
 
@@ -8212,6 +8212,26 @@ asked on 2026-11-11 for 10%, about where a design's details stop showing. My cal
 - **Between 10% and the old line, frames draw their designs.** At 1.5x that's 10% to 17%. More frames are live at those
   zooms, so `pnpm perf`'s zoom run and `canvas.restedFar` (PAR-949) show what it costs and whether the bitmaps arrive.
 
+## A design file that can't be read stops the project opening (PAR-1011)
+
+Since PAR-1002, older project files with states on a screen fail the file's check. The project opened without that
+file's designs, and a card at the bottom of Layers gave the reason. You found that the wrong place, and asked for the
+project not to open at all, with the error saying why. My calls follow your answers:
+
+- **A `.par` that isn't JSON, or doesn't match the design file format, stops the project opening.** The page that says a
+  project couldn't open shows it, with the reason in Details: "shadcn-vite.par doesn't match the design file format:"
+  and the check's pointer and message under it, or "isn't valid JSON:" and the parser's message. A `.lib.par` is checked
+  against the library file format the same way. The format is still the zod schema `parseCanvasDocument` runs.
+- **The page has one button, Close** (your call). Try again and Open another project went, for every reason a project
+  can't open, since it's one page. Show in folder stays beside the folder.
+- **Its buttons sit at the right, the main one last, as in a dialog's footer** (your call), for every error page in a
+  tab, including a project or Home that stopped working. `ErrorPage` lays them out, so each page passes its buttons and
+  nothing else.
+- **No Open in editor.** You asked for the error alone. I considered a dialog over the project and a message on the
+  canvas, with a button to open the file at the bad line; both kept a project open that can't be saved.
+- **A file that changes on disk while the project is open and no longer reads** is left as before: the change is skipped
+  and logged, often a file caught mid-write.
+
 ## Frames in view are drawn first, and swap their bitmaps while zooming in (PAR-955)
 
 Zooming back in from far out, frames that slept kept showing their bitmaps, blurry once enlarged, until the zoom
@@ -8243,6 +8263,32 @@ view to swap for designs while still zooming. My calls:
   other copies of the app running on the machine. No run crosses the line, so the swap itself was timed apart: zooming
   in from 5% to 40% over 1.5 seconds, frames in view started drawing at 14% and none showed a bitmap when the zoom
   stopped, where before every one showed its bitmap until then, and two still did 1.3 seconds after.
+
+## Project files are written whole, and one check says what's inside the project (PAR-973)
+
+Caches were written more safely than designs: a `.par` save wrote over the file in place, so a save cut off partway
+could leave half a file, and four modules each decided what's inside the project, two by a prefix. My calls:
+
+- **One function writes a project file,** `writeProjectFile(root, path, content)` in the project service's
+  `utility/project-files.ts`: under a hidden name beside the file, then renamed over it, tried a few times on Windows
+  while another process holds the file. A save that's cut off leaves the file as it was, and the watcher never reads
+  half of one. `.par` saves and every project edit (token and stylesheet edits, library style imports, images) use it;
+  removing a file is `removeProjectFile`. It stays in the app, because `@parity-app/project` is a reader package that
+  never writes. `parity lib` still writes its `.lib.par` in place until PAR-423 moves it onto project edits. A copy
+  saved through Save a copy isn't a project file and is written as before.
+- **One function says what's inside a project,** `insideProject(root, path)` in `@parity-app/project`, by the relative
+  path: not the root itself, `..`, a sibling folder whose name starts with the root's, or another drive, and on Windows
+  regardless of case. Edits, saves, Code's file reads and removing an image use it, the last with `public/images/` or
+  `public/videos/` as the root. It reads nothing, so it judges a symlink by where it sits.
+- **A write follows symlinks and refuses one that leads out of the project.** The writer checks the real folder it would
+  land in against the root's real folder, so a linked folder or file inside the project is written through, and stays a
+  link, while one that leads elsewhere on disk is refused with "links outside the project". Reads, such as the Code
+  section's, still go by the path alone.
+- **What a write put there is known once it has landed,** not before, so a failed write never leaves Parity believing a
+  file holds what it doesn't. An edit that fails partway puts back only the files that landed, since a file is now
+  written whole or not at all.
+- **Saves wait their turn with the project's edits,** in the same queue, so two saves made at once land in the order
+  they were made and a `.lib.par` save reads the manifest no other write is partway through.
 
 ## Main's lifecycles are modules with tests (PAR-972)
 

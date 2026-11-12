@@ -62,8 +62,6 @@ export class ProjectSession {
   readonly selection: SelectionStore
   /** Components and their props, inferred from source after the tab opens. */
   readonly components: ComponentStore
-  /** Design files that couldn't be read. */
-  readonly errors: { path: string; error: string }[]
   /** Keeps a copy of its unsaved changes outside the project, in case Parity closes before they're saved (PAR-905). */
   readonly recovery: RecoveryKeeper
   /**
@@ -76,14 +74,13 @@ export class ProjectSession {
   private readonly stops: (() => void)[] = []
 
   constructor(
-    fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "errors" | "recovery">,
+    fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "recovery">,
     parts: SessionParts
   ) {
     this.id = fixed.id
     this.store = fixed.store
     this.selection = fixed.selection
     this.components = fixed.components
-    this.errors = fixed.errors
     this.recovery = fixed.recovery
     this.parts = parts
   }
@@ -1261,7 +1258,6 @@ async function createSession(
       store,
       components,
       selection: new SelectionStore(),
-      errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : [])),
       recovery: keepRecovery(store, (copy) =>
         request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
       )
