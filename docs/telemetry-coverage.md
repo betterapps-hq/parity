@@ -73,7 +73,7 @@ while it's off.
 | `development` | `pnpm dev`, agents' drives, the CLI from a checkout         | Everything: errors, crashes, spans, logs, breadcrumbs, every session's replay, attachments, reports |
 | `ci`          | Anything run where `CI` is set                              | Errors and reports, with their breadcrumbs. No spans, logs or replay (PAR-777)                      |
 | `preview`     | A pull request's preview installer, the CLI from pkg.pr.new | Everything                                                                                          |
-| `release`     | The published app and CLI, before promotion                 | Everything                                                                                          |
+| `beta`        | The published app and CLI, before promotion                 | Everything                                                                                          |
 | `production`  | A promoted app, a CLI version that's been npm's `latest`    | Everything. No build has sent it yet                                                                |
 
 - **Sample rates:** replay records every session (`replaysSessionSampleRate: 1`) and keeps every error's buffer
@@ -145,7 +145,7 @@ it did see.
 
 ## Decisions for PAR-619
 
-Each row is one of PAR-619's decisions, for builds that report `release` and `production`. The recommendation keeps
+Each row is one of PAR-619's decisions, for builds that report `beta` and `production`. The recommendation keeps
 `development`, `ci` and `preview` as they are, for testers and agents. Until Parity has users, it collects as much as it
 can rather than miss an issue, as you chose on 2026-11-09, so nothing is sampled.
 

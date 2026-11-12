@@ -324,6 +324,65 @@ export function serviceExit({
   return { exitCode, ranMs: Math.max(0, Math.round(ranMs)), restarted: replaced }
 }
 
+/**
+ * What a process printed, kept to its last `limit` lines as it arrives in chunks, so a crash can be reported with the
+ * output that explains it.
+ */
+export function outputTail(limit = 50) {
+  let kept = ""
+
+  return {
+    add(chunk: string) {
+      kept = (kept + chunk)
+        .split(/\r?\n/)
+        .slice(-(limit + 1))
+        .join("\n")
+    },
+    text: () => kept.trimEnd().split("\n").slice(-limit).join("\n")
+  }
+}
+
+/** A project service that exited unexpectedly, as it's reported to Sentry. */
+export interface ServiceCrash {
+  message: string
+  fingerprint: string[]
+  output: string
+}
+
+/** The first line of `output` that names a thrown error, as Node prints an uncaught one: `TypeError: …`. */
+const errorLine = /^\s*(?:Uncaught )?((?:[A-Z]\w*)?(?:Error|Exception)(?: \[\w+\])?: .+)$/m
+
+/**
+ * The report for a project service that exited with `exitCode` and printed `output`, or nothing when the exit is
+ * expected: the app quitting, a service being replaced, or one ending cleanly (PAR-950). It's named and grouped by the
+ * error it printed, so each cause is its own Sentry issue, and Linear gets a bug that says what went wrong. Without
+ * one, `missing` names the script the service couldn't find, since a utility process prints nothing then (PAR-489).
+ */
+export function serviceCrash({
+  exitCode,
+  output,
+  expected,
+  missing
+}: {
+  exitCode: number
+  output: string
+  expected: boolean
+  missing?: string | undefined
+}): ServiceCrash | undefined {
+  if (expected || exitCode === 0) {
+    return undefined
+  }
+
+  const cause = errorLine.exec(output)?.[1]?.trim() ?? (missing ? `${missing} doesn't exist` : undefined)
+  const exited = `The project service exited with code ${exitCode}`
+
+  return {
+    message: cause ? `${exited}: ${cause}` : exited,
+    fingerprint: ["service-exited", cause ?? `code ${exitCode}`],
+    output
+  }
+}
+
 /** How often each process's memory is recorded, in milliseconds. */
 export const memoryEveryMs = 5 * 60_000
 

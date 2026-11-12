@@ -55,9 +55,9 @@ describe("hangWatch", () => {
 
 describe("openHangsRun", () => {
   it("gives the release and environment a file was kept under", () => {
-    expect(openHangsRun({ release: "parity-desktop@1.2.0", environment: "release", hangs: [] })).toEqual({
+    expect(openHangsRun({ release: "parity-desktop@1.2.0", environment: "beta", hangs: [] })).toEqual({
       release: "parity-desktop@1.2.0",
-      environment: "release"
+      environment: "beta"
     })
   })
 

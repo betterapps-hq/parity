@@ -19,7 +19,7 @@ import {
   serviceRestarts
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
-import { type Span, telemetryFileName } from "@parity-app/telemetry"
+import { outputTail, type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -99,6 +99,7 @@ import {
   personActed,
   recordForwarded,
   scrubber,
+  serviceCrashed,
   serviceExited,
   serviceStarted,
   startEvents,
@@ -297,7 +298,8 @@ function startService(): UtilityProcess {
 
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
-    stdio: "inherit",
+    // Piped, not inherited, so a crash is reported with what it printed. It's still passed on to main's own output.
+    stdio: "pipe",
     env: {
       // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
       ...withoutKeys(process.env),
@@ -379,6 +381,18 @@ function startService(): UtilityProcess {
     around: handleInSpan
   })
 
+  const output = outputTail()
+
+  for (const [stream, out] of [
+    [child.stdout, process.stdout],
+    [child.stderr, process.stderr]
+  ] as const) {
+    stream?.on("data", (chunk: Buffer) => {
+      out.write(chunk)
+      output.add(chunk.toString())
+    })
+  }
+
   channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
   serviceChannels.set(child, channel)
   child.once("spawn", () => appLife.mark("serviceReady"))
@@ -401,6 +415,12 @@ function startService(): UtilityProcess {
     // so the path it was given is named (PAR-489).
     const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
     console.error(`Project service exited with code ${code}${missing}`)
+    serviceCrashed({
+      exitCode: code,
+      output: output.text(),
+      expected: quitting,
+      missing: missing ? serviceEntry : undefined
+    })
 
     // A crashed service is started again through the same path a code change takes, so open windows reconnect without
     // reloading. A service that starts first, such as one a window's load starts, cancels it (PAR-788).
