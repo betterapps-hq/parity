@@ -15,7 +15,7 @@ function card(): ContainerSpec {
       id: "card",
       children: [
         { type: "text", id: "label", text: "Revenue", bind: { text: "label" } },
-        { type: "text", id: "trend", text: "+4%", bind: { visible: "showTrend" } },
+        { type: "text", id: "trend", text: "+4%" },
         {
           type: "component",
           id: "more",
@@ -124,7 +124,6 @@ describe("deleteParam", () => {
     const next = deleteParam(deleteParam(card(), "label"), "showTrend")
 
     expect(findNode(next.root, "label")).toEqual({ type: "text", id: "label", text: "Revenue" })
-    expect(findNode(next.root, "trend")).toEqual({ type: "text", id: "trend", text: "+4%", hidden: true })
     expect(Object.keys(next.params!)).toEqual(["size"])
   })
 
@@ -176,16 +175,20 @@ describe("bindNode", () => {
   it("binds a field and, unbound, keeps what the param showed", () => {
     const bound = bindNode(card(), "trend", { text: "label" })
 
-    expect(findNode(bound.root, "trend")?.bind).toEqual({ visible: "showTrend", text: "label" })
+    expect(findNode(bound.root, "trend")?.bind).toEqual({ text: "label" })
 
-    const unbound = bindNode(bound, "trend", { text: null, visible: null })
+    const unbound = bindNode(bound, "trend", { text: null })
 
-    expect(findNode(unbound.root, "trend")).toEqual({ type: "text", id: "trend", text: "Revenue", hidden: true })
+    expect(findNode(unbound.root, "trend")).toEqual({ type: "text", id: "trend", text: "Revenue" })
   })
 
   it.each([
     { node: "trend", change: { text: "missing" }, message: `"missing", which isn't one of Stat card's params` },
-    { node: "trend", change: { visible: "label" }, message: `takes a boolean or value param, and "label" is a text` },
+    {
+      node: "trend",
+      change: { text: "showTrend" },
+      message: `takes a text or value param, and "showTrend" is a boolean`
+    },
     { node: "card", change: { text: "label" }, message: "only a text layer's text" },
     { node: "label", change: { props: { size: "size" } }, message: "only a code component's props" }
   ])("refuses binding $node to $change", ({ node, change, message }) => {

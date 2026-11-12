@@ -138,17 +138,13 @@ export function fitBindings(node: DesignNode, destination: ContainerSpec): Desig
       return layer
     }
 
-    const { text, visible, props } = layer.bind
+    const { text, props } = layer.bind
     const keptProps = Object.fromEntries(Object.entries(props ?? {}).filter(([, param]) => has(param)))
 
     const bind: NonNullable<DesignNode["bind"]> = {}
 
     if (text !== undefined && has(text)) {
       bind.text = text
-    }
-
-    if (visible !== undefined && has(visible)) {
-      bind.visible = visible
     }
 
     if (Object.keys(keptProps).length > 0) {

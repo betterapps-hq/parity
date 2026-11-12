@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 20:51:03 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 21:49:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.4
+
+Thu, 12 Nov 2026 21:49:43 GMT
+
+### Patches
+
+- Select popups inset their items by 4px, like the app's other menus (ajcraswell@gmail.com)
 
 ## 0.74.3
 
