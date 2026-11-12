@@ -32,6 +32,9 @@ Two rules decide where a story goes:
   ordinary state, so each kind has one. A Sections story shows what the section itself varies, not every state of every
   field inside it. Each smaller piece shows its own variations, once.
 
+Showing each design once means there's one story to review and one to keep right. A copy at another level drifts from it
+the first time only one of them is changed.
+
 ## Which sections a layer shows
 
 [design-panel-sections.md](design-panel-sections.md) already picks the style sections from what a layer can do
