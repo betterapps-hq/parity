@@ -110,7 +110,7 @@ Each step is its own pull request, and the app looks the same after each.
 2. **One Props section.** `PropsSection` (a code component's instance) and `InstanceSection` (a component design's
    instance, and a design's params) become one Sections › Props, with Attributes beside it.
 3. **Sections take the selection.** Each section reads and edits the selection through one hook, so a story draws it
-   alone. The `only` parts that stories pass to `LayerPanel` today go.
+   alone. The `only` parts that stories passed to `LayerPanel` are gone (PAR-1031).
 4. **The table.** `styleParts` becomes `panelParts`, covering every section, with its tests in `@parity-app/editor`.
    `LayerPanel` draws its list.
 5. **Stories move,** one level per pull request, from Parts up, deleting each old folder as its stories land.

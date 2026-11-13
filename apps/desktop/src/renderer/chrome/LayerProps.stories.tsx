@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderPart } from "./layer-stories.tsx"
+import { inspectorStage, pick, renderSection } from "./layer-stories.tsx"
+import { LayerContent } from "./LayerPanel.tsx"
 
 /**
  * A component design's own text layer, whose text can use one of the component's props: the field is the prop's name,
@@ -12,7 +13,7 @@ import { inspectorStage, pick, renderPart } from "./layer-stories.tsx"
 const meta = {
   title: "Parity/Inspector/Layer/Props",
   component: DesignTab,
-  render: renderPart("content"),
+  render: renderSection(LayerContent),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 

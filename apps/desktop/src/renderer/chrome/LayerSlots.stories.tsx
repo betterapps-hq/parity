@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { filledInstance, inspectorStage, pick, renderInspector, renderPart, slotted } from "./layer-stories.tsx"
+import { filledInstance, inspectorStage, pick, renderInspector, renderSection, slotted } from "./layer-stories.tsx"
+import { LayerHeader } from "./LayerPanel.tsx"
 
 /**
  * A layout of a component design selected (PAR-83): Make slot beside Make component, the other thing a layer can
@@ -12,7 +14,7 @@ import { filledInstance, inspectorStage, pick, renderInspector, renderPart, slot
 const meta = {
   title: "Parity/Inspector/Layer/Slots",
   component: DesignTab,
-  render: renderPart("header"),
+  render: renderSection(LayerHeader),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
@@ -66,7 +68,7 @@ export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Featu
  * it, `features` its one layer and `pricing` Empty, with a picture of what shows there on hover. Clicking one selects
  * it; × clears a filled one.
  */
-export const InstanceSlots: Story = { loaders: [filledInstance()], render: renderPart("instance") }
+export const InstanceSlots: Story = { loaders: [filledInstance()], render: renderSection(PropsSection) }
 
 /**
  * One of Starter plan's slots selected: its name, the instance it's in, a picture of what shows there, Clear, and that

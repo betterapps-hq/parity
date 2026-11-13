@@ -2,8 +2,9 @@ import { designStates, editNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
+import { AttributesSection } from "../inspector/sections/PropsSection.tsx"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { inspecting, InspectorStage, PanelColumn, search, SelectedProps, slowly } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, PanelColumn, search, slowly } from "./inspector-stories.tsx"
 
 /**
  * What a component instance passes on to its component's root element (PAR-1026): attributes, aria ones and events,
@@ -11,8 +12,7 @@ import { inspecting, InspectorStage, PanelColumn, search, SelectedProps, slowly 
  */
 const meta = {
   title: "Parity/Inspector/Attributes",
-  component: SelectedProps,
-  args: { only: "attributes" },
+  render: () => <AttributesSection />,
   decorators: [
     (Story) => (
       <InspectorStage>
@@ -22,7 +22,7 @@ const meta = {
       </InspectorStage>
     )
   ]
-} satisfies Meta<typeof SelectedProps>
+} satisfies Meta
 
 export default meta
 

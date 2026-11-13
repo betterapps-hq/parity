@@ -13,6 +13,7 @@ import {
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
+  changesField,
   type ComponentProp,
   type ContainerSpec,
   type DesignNode,
@@ -24,6 +25,7 @@ import {
   nodePropInput,
   overrideCount,
   type ParamSpec,
+  propChange,
   propsPanel,
   removeParam,
   renameParam,
@@ -31,14 +33,15 @@ import {
   swapInstance
 } from "@parity-app/core"
 import { Pencil, Plus, Trash2, X } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { useChangePreview } from "../../canvas/change-preview.ts"
 import { useProject } from "../../canvas/context.ts"
 import { focusOnMount } from "../../canvas/kinds.tsx"
 import { projectLibrary } from "../../canvas/layers.ts"
 import { BaseDesignNote } from "../../chrome/BaseDesignNote.tsx"
 import { detachAndRecord, pushAndRecord } from "../../chrome/component-events.ts"
 import { Hint } from "../../chrome/Hint.tsx"
-import { paramValue, updateAndRecord } from "../../chrome/inspector-events.ts"
+import { paramValue, PreviewedProp, updateAndRecord } from "../../chrome/inspector-events.ts"
 import { InstanceSlotFields } from "../../chrome/instance-slots.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
@@ -52,9 +55,11 @@ import {
   valueKind
 } from "../../chrome/prop-values.ts"
 import { revealSelection } from "../../chrome/reveal.ts"
+import { type SelectedLayer, useSelectedLayer } from "../../chrome/selected-layer.ts"
 import { AddProp as AddParam, NewPropRow, SlotPropRow } from "../../chrome/slot-props.tsx"
 import { useComponents } from "../../components-store.ts"
-import { type ContainerEntry, useContainerEntries } from "../../design-store.ts"
+import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../design-store.ts"
+import { useSelection } from "../../selection.ts"
 import { FieldGrid, nameButton, TitleMenu } from "../controls/field-row.tsx"
 import { InstanceSection, type PropRow, PropRows, type PropValueRow } from "../controls/instance-section.tsx"
 import type { PropPreview } from "../controls/number-field.tsx"
@@ -62,55 +67,75 @@ import type { PropPreview } from "../controls/number-field.tsx"
 /** A code component placed in a design. */
 type CodeNode = Extract<DesignNode, { type: "component" }>
 
-/** Sets one prop: undefined unsets it, so its default shows. A run of Up and Down presses shares `gesture`. */
-type PropEdit = (name: string, value: PropValue | undefined, gesture?: string) => void
+/**
+ * Props (PAR-1030), taking the selection itself (PAR-1031): a selected instance's, set, with no difference between a
+ * component that's a design and one that's code; or, with nothing inside it selected, a component design's own,
+ * defined with their defaults. `layer` is another layer to show, where nothing is selected, as an exploration's root.
+ */
+export function PropsSection({ layer: given }: { layer?: SelectedLayer } = {}) {
+  const { store, selection } = useProject()
+  const selected = useSelection(selection)
+  const entry = useContainerEntry(store, selected.design)
+  const layer = useSelectedLayer() ?? given
 
-/** An instance's props as its layer's panel edits them, in the state being edited. */
-interface InstanceEdits {
-  entry: ContainerEntry
-  /** The instance as it's shown: of a component design, or of a code component. */
-  node: InstanceNode | CodeNode
-  /** A design instance as the design has it, when it's one of the design's own layers rather than a nested one. */
-  own?: InstanceNode
-  changed: (name: string) => boolean
-  /** Props the state being edited takes away, still listed so they can be set or reset there. */
-  taken?: readonly string[]
-  onChange: PropEdit
-  /** Shows a number prop on the canvas while it's typed or scrubbed, before it's made. */
-  onPreview?: (name: string, value: number | undefined) => void
-  /** Takes the preview back. */
-  onCancel?: () => void
-  onReset: (name: string) => void
-  /** Draws the attributes a code component's instance passes on alone, as a story does. */
-  only?: "attributes"
+  if (!selected.node && !given) {
+    return entry?.container.kind === "component" ? <ComponentProps entry={entry} /> : null
+  }
+
+  return layer ? <InstanceProps layer={layer} part="props" /> : null
 }
 
 /**
- * Props (PAR-1030): a component design's, defined with their defaults, given as `component`; or an instance's, set,
- * with no difference between a component that's a design and one that's code. A code component's instance has
- * Attributes after it, for what it passes on to its element.
+ * What a selected code component's instance passes on to its component's root element, in Attributes after its props
+ * (PAR-1026).
  */
-export function PropsSection(props: { component: ContainerEntry } | InstanceEdits) {
-  if ("component" in props) {
-    return <ComponentProps entry={props.component} />
-  }
+export function AttributesSection({ layer: given }: { layer?: SelectedLayer } = {}) {
+  const layer = useSelectedLayer() ?? given
 
-  const { entry, node, own, ...edits } = props
+  return layer ? <InstanceProps layer={layer} part="attributes" /> : null
+}
+
+/** A selected instance's props, or what a code component's passes on, edited in the state being edited. */
+function InstanceProps({ layer, part }: { layer: SelectedLayer; part: "props" | "attributes" }) {
+  const { store } = useProject()
+  // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
+  const propPreview = useChangePreview(store, layer.entry.key)
+  const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
+  const { entry, node, override, change, reset } = layer
+  const changed = (name: string) => changesField(override, { kind: "props", key: name })
+  const onReset = (name: string) => reset({ kind: "props", key: name })
 
   if (node.type === "instance") {
-    return (
+    return part === "props" ? (
       <DesignInstanceProps
         entry={entry}
         node={node}
-        own={own}
-        changed={edits.changed}
-        onChange={(name, value) => edits.onChange(name, value)}
-        onReset={edits.onReset}
+        own={!layer.inner && layer.layer.type === "instance" ? layer.layer : undefined}
+        changed={changed}
+        onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
+        onReset={onReset}
       />
-    )
+    ) : null
   }
 
-  return <CodeInstanceProps node={node} {...edits} />
+  if (node.type !== "component") {
+    return null
+  }
+
+  return (
+    <CodeInstanceProps
+      node={node}
+      part={part}
+      changed={changed}
+      taken={override?.unset?.props}
+      onChange={(name, value, gesture) =>
+        previewedProp.commit(node, change, `Change ${name}`, propChange(name, value), gesture)
+      }
+      onPreview={(name, value) => previewedProp.show(node, change, `Change ${name}`, propChange(name, value))}
+      onCancel={() => previewedProp.cancel()}
+      onReset={onReset}
+    />
+  )
 }
 
 interface CodeInstanceProps {
@@ -125,8 +150,8 @@ interface CodeInstanceProps {
   /** Takes the preview back. */
   onCancel?: () => void
   onReset: (name: string) => void
-  /** Draws the attributes it passes on alone, as a story does; the panel draws both sections. */
-  only?: "attributes"
+  /** Its props, or Attributes, what it passes on to its element. */
+  part: "props" | "attributes"
 }
 
 /** A prop's value as a component layer holds it. */
@@ -153,7 +178,7 @@ function CodeInstanceProps({
   onPreview,
   onCancel,
   onReset,
-  only
+  part
 }: CodeInstanceProps) {
   const session = useProject()
   const info = useComponents(session.components)[node.component]
@@ -244,7 +269,7 @@ function CodeInstanceProps({
 
   // Without its source, nothing can be told apart from a prop, so there's no Attributes section.
   const attributesSection = info && (
-    <AttributesSection
+    <AttributesList
       rows={attributes}
       addable={addable}
       onAdd={(name, value) => onChange(name, value)}
@@ -252,30 +277,27 @@ function CodeInstanceProps({
     />
   )
 
-  if (only === "attributes") {
+  if (part === "attributes") {
     return attributesSection || null
   }
 
   return (
-    <>
-      <InstanceSection
-        component={node.component}
-        description={info ? undefined : "Reading this component's props from its source."}
-        add={info ? undefined : add}
-        props={rows}
-        onChange={change}
-      />
-      {attributesSection}
-    </>
+    <InstanceSection
+      component={node.component}
+      description={info ? undefined : "Reading this component's props from its source."}
+      add={info ? undefined : add}
+      props={rows}
+      onChange={change}
+    />
   )
 }
 
 /**
  * What a component instance passes on to its component's root element, since every component, a design's included, is
  * code underneath: attributes, aria ones and events, added one at a time from a searchable list and removed from their
- * row. Every component instance has it.
+ * row.
  */
-function AttributesSection({
+function AttributesList({
   rows,
   addable,
   onAdd,
