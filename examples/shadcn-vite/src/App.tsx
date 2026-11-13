@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "@buildkitgg/shadcn-baseui-nova"
 
 export function App() {
   return (

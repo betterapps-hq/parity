@@ -1,14 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 
-import { Badge } from "@/components/ui/badge"
 import {
+  Badge,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@buildkitgg/shadcn-baseui-nova"
 import { projects } from "@/data/projects"
 
 export const Route = createFileRoute("/projects/")({ component: Projects })

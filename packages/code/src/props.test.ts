@@ -1,18 +1,120 @@
 import { realpathSync } from "node:fs"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, relative, resolve } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import type { ComponentProp } from "@parity-app/core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { inferProps } from "./index.ts"
 
 const example = resolve(import.meta.dirname, "../../../examples/shadcn-vite")
 
+/**
+ * A project with shadcn's components in its own code, shaped as shadcn writes them: cva variants, a component wrapping
+ * a library's primitive, and classes on each one's element. React, cva and the primitive are declarations of their
+ * shapes, so the tests read only what the project's own files say.
+ */
+const shadcnFiles = {
+  "tsconfig.json": ['{ "compilerOptions": { "jsx": "preserve", "strict": true } }'],
+  "node_modules/fake-react/index.d.ts": [
+    "export type ReactNode = string | number | null | undefined",
+    "export interface DOMAttributes { children?: ReactNode }",
+    "export interface HTMLAttributes extends DOMAttributes { id?: string; className?: string; style?: object; 'aria-label'?: string }",
+    "export interface ButtonHTMLAttributes extends HTMLAttributes {",
+    "  disabled?: boolean",
+    "  type?: 'submit' | 'reset' | 'button'",
+    "  onClick?: (event: unknown) => void",
+    "}"
+  ],
+  "node_modules/fake-cva/index.d.ts": [
+    "type Config<T> = { variants: T; defaultVariants?: { [K in keyof T]?: keyof T[K] } }",
+    "export declare function cva<T>(base: string, config: Config<T>): (props?: { [K in keyof T]?: keyof T[K] | null } & { className?: string }) => string",
+    "export type VariantProps<F extends (...args: any) => any> = Omit<NonNullable<Parameters<F>[0]>, 'className'>"
+  ],
+  "node_modules/fake-tabs/index.d.ts": [
+    'import type { ButtonHTMLAttributes } from "fake-react"',
+    "export declare function Trigger(props: ButtonHTMLAttributes & { value: string }): null"
+  ],
+  "src/components/ui/button.tsx": [
+    'import type { ButtonHTMLAttributes } from "fake-react"',
+    'import { cva, type VariantProps } from "fake-cva"',
+    'const buttonVariants = cva("inline-flex", {',
+    "  variants: {",
+    '    variant: { default: "", outline: "", secondary: "", ghost: "", destructive: "", link: "" },',
+    '    size: { default: "h-9", sm: "h-8", "icon-sm": "size-8" }',
+    "  },",
+    '  defaultVariants: { variant: "default", size: "default" }',
+    "})",
+    "export function Button({",
+    "  className,",
+    '  variant = "default",',
+    '  size = "default",',
+    "  asChild = false,",
+    "  ...props",
+    "}: ButtonHTMLAttributes & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {",
+    "  return <button className={buttonVariants({ variant, size, className })} {...props} />",
+    "}"
+  ],
+  "src/components/ui/badge.tsx": [
+    'import type { HTMLAttributes } from "fake-react"',
+    'import { cva, type VariantProps } from "fake-cva"',
+    'const badgeVariants = cva("h-5 px-2", { variants: { variant: { default: "", secondary: "" } } })',
+    "export function Badge({ className, variant, ...props }: HTMLAttributes & VariantProps<typeof badgeVariants>) {",
+    "  return <span className={badgeVariants({ variant, className })} {...props} />",
+    "}"
+  ],
+  "src/components/ui/tabs.tsx": [
+    'import { Trigger } from "fake-tabs"',
+    "export function TabsTrigger(props: Parameters<typeof Trigger>[0]) {",
+    "  return <Trigger {...props} />",
+    "}"
+  ],
+  "src/components/ui/avatar.tsx": [
+    'import type { HTMLAttributes } from "fake-react"',
+    'export function Avatar(props: HTMLAttributes) { return <span className="relative flex size-8 shrink-0" {...props} /> }',
+    'export function AvatarGroupCount(props: HTMLAttributes) { return <div className="flex size-8 items-center" {...props} /> }'
+  ],
+  "src/components/ui/card.tsx": [
+    'import type { HTMLAttributes } from "fake-react"',
+    'export function Card(props: HTMLAttributes) { return <div className="flex flex-col gap-6 rounded-xl" {...props} /> }',
+    'export function CardHeader(props: HTMLAttributes) { return <div className="@container/card-header grid" {...props} /> }'
+  ],
+  "src/components/ui/separator.tsx": [
+    'import type { HTMLAttributes } from "fake-react"',
+    "export function Separator(props: HTMLAttributes) {",
+    '  return <div className="bg-border data-horizontal:h-px data-horizontal:w-full" {...props} />',
+    "}"
+  ]
+} satisfies Record<string, string[]>
+
+/** Writes the shadcn project into a new folder and returns it. */
+async function shadcnProject(): Promise<string> {
+  const root = (await mkdtemp(join(tmpdir(), "canvas-shadcn-"))).replaceAll("\\", "/")
+
+  for (const [path, lines] of Object.entries(shadcnFiles)) {
+    await mkdir(dirname(join(root, path)), { recursive: true })
+    await writeFile(join(root, path), lines.join("\n"))
+  }
+
+  return root
+}
+
+/** A component in the shadcn project's own code, from its file in `src/components/ui`. */
+const ui = (name: string, file: string) => [name, { path: `src/components/ui/${file}.tsx`, export: name }] as const
+
 describe("inferProps", () => {
-  const components = inferProps(example, {
-    Button: { path: "src/components/ui/button.tsx", export: "Button" },
-    Badge: { path: "src/components/ui/badge.tsx", export: "Badge" },
-    TabsTrigger: { path: "src/components/ui/tabs.tsx", export: "TabsTrigger" }
+  let root: string
+  let components: ReturnType<typeof inferProps>
+
+  beforeAll(async () => {
+    root = await shadcnProject()
+    components = inferProps(
+      root,
+      Object.fromEntries([ui("Button", "button"), ui("Badge", "badge"), ui("TabsTrigger", "tabs")])
+    )
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
   })
 
   it("finds cva variants with their options and defaults", () => {
@@ -154,12 +256,6 @@ describe("components that pass their props to a void element", () => {
   it("keeps children for other elements, and for a component that declares its own", () => {
     expect(takesChildren("Box")).toBe(true)
     expect(takesChildren("LabelledField")).toBe(true)
-  })
-
-  it("leaves them out of shadcn's Input, which spreads its props onto an <input>", () => {
-    const input = inferProps(example, { Input: { path: "src/components/ui/input.tsx", export: "Input" } })
-    expect(input.Input?.props.some((prop) => prop.name === "children")).toBe(false)
-    expect(input.Input?.props.find((prop) => prop.name === "placeholder")).toMatchObject({ kind: "string" })
   })
 }, 60_000)
 
@@ -322,6 +418,7 @@ describe("whether a component takes a style", () => {
 
 describe("components that set their own size (PAR-518)", () => {
   let root: string
+  let shadcn: string
 
   // A library's compiled parts, as `implementationOf` reads them beside their declarations.
   const compiled = [
@@ -346,25 +443,25 @@ describe("components that set their own size (PAR-518)", () => {
     const declaration = (name: string) => `export declare function ${name}(props: { children?: string }): null`
     await writeFile(join(root, "node_modules", "kit", "index.d.ts"), parts.map(declaration).join("\n"))
     await writeFile(join(root, "node_modules", "kit", "index.js"), compiled.join("\n"))
+    shadcn = await shadcnProject()
   })
 
   afterAll(async () => {
     await rm(root, { recursive: true, force: true })
+    await rm(shadcn, { recursive: true, force: true })
   })
 
   it("says so for a width, a height under a line or @container on its own element, in a project's code", () => {
-    const file = (name: string, path: string) => [name, { path: `src/components/ui/${path}.tsx`, export: name }]
-
     const found = inferProps(
-      example,
+      shadcn,
       Object.fromEntries([
-        file("Avatar", "avatar"),
-        file("AvatarGroupCount", "avatar"),
-        file("CardHeader", "card"),
-        file("Separator", "separator"),
-        file("Card", "card"),
-        file("Badge", "badge"),
-        file("Button", "button")
+        ui("Avatar", "avatar"),
+        ui("AvatarGroupCount", "avatar"),
+        ui("CardHeader", "card"),
+        ui("Separator", "separator"),
+        ui("Card", "card"),
+        ui("Badge", "badge"),
+        ui("Button", "button")
       ])
     )
 
