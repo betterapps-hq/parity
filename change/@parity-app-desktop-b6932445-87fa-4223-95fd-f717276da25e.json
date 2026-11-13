@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A component's props are one section, on a component design and on any instance",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
