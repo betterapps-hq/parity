@@ -301,6 +301,10 @@ export async function importEntities(
         entities.screens = [...(entities.screens ?? []), ...imported.screens]
         notes.push(`${imported.screens.length} screens from ${adapter.name}`)
       }
+
+      if (imported.sources) {
+        entities.sources = { ...entities.sources, ...imported.sources }
+      }
     } catch (error) {
       notes.push(`${adapter.name} couldn't be read: ${error instanceof Error ? error.message : String(error)}`)
     }

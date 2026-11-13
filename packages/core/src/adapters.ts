@@ -451,6 +451,11 @@ export interface EntitiesSource {
 /** Parity's entities, as far as a tool's files describe them. */
 export interface ProjectEntities {
   screens?: ImportedScreen[]
+  /**
+   * Code the screens draw that isn't one of the project's components, by the id their component layers name, which
+   * the guest loads from its file as it loads a component: a story's `render` function, given its args as props.
+   */
+  sources?: Record<string, GuestComponentSource>
 }
 
 /** A screen read from a tool's files, with where it came from. */

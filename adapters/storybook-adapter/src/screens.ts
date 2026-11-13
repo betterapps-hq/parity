@@ -1,4 +1,11 @@
-import type { ContainerSpec, DesignNode, EntitiesSource, ImportedScreen } from "@parity-app/core"
+import type {
+  ContainerSpec,
+  DesignNode,
+  EntitiesSource,
+  GuestComponentSource,
+  ImportedScreen,
+  ProjectEntities
+} from "@parity-app/core"
 import { readStoryFile, type Story, type StoryFile } from "./csf.ts"
 
 /** Story files, as Storybook's default `stories` glob finds them. */
@@ -8,12 +15,14 @@ export const storyFilePattern = /\.stories\.(?:[cm]?[jt]sx?)$/
 export const storybookId = "storybook"
 
 /**
- * Each story in the project's story files as a screen, grouped by its file's title: the component its meta names,
- * with the story's args as its props, as Storybook draws a story without a `render` of its own. A story that renders
- * itself, or whose component isn't one of the project's, isn't imported yet.
+ * Each story in the project's story files as a screen, grouped by its file's title. A story without a `render` of its
+ * own draws the component its meta names with its args as props, as Storybook draws one; one with a `render` draws
+ * that function, loaded from the story file, with its args as props. A story drawing a component that isn't one of the
+ * project's isn't imported.
  */
-export async function importStoryScreens(source: EntitiesSource): Promise<ImportedScreen[]> {
+export async function importStoryScreens(source: EntitiesSource): Promise<ProjectEntities> {
   const screens: ImportedScreen[] = []
+  const sources: Record<string, GuestComponentSource> = {}
 
   for (const path of await source.files(storyFilePattern)) {
     const text = await source.read(path)
@@ -24,31 +33,36 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Import
 
     const file = readStoryFile(text, path)
     const component = file.component && (await source.componentFor(path, file.component.specifier, file.component.name))
-
-    if (!component) {
-      continue
-    }
-
     const group = file.title ?? titleFromPath(path, file)
 
     for (const story of file.stories) {
-      if (!story.render) {
-        screens.push({
-          adapter: storybookId,
-          ref: `${path}#${story.exportName}`,
-          group,
-          screen: storyScreen(path, story, component)
-        })
+      const ref = `${path}#${story.exportName}`
+      // A story that renders itself draws its function, as a component of its own, by the story's ref.
+      const drawn = story.render ? `story:${ref}` : component
+
+      if (!drawn) {
+        continue
       }
+
+      if (story.render) {
+        sources[drawn] = { path, export: story.render }
+      }
+
+      screens.push({ adapter: storybookId, ref, group, screen: storyScreen(path, story, drawn) })
     }
   }
 
-  return screens
+  return { screens, sources }
 }
 
-/** A story's screen: its component at its own size, with its args as props, on the page's background. */
+/** A story's screen: what it draws at its own size, with its args as props, on the page's background. */
 export function storyScreen(path: string, story: Story, component: string): ContainerSpec {
   const node: DesignNode = { type: "component", id: "story", component }
+
+  // A story's own render function has no name of its own to show, so its layer takes the story's.
+  if (story.render) {
+    node.name = story.name
+  }
 
   if (Object.keys(story.args).length > 0) {
     node.props = story.args

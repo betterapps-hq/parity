@@ -6601,22 +6601,27 @@ laid out in a row for each story file, left of everything else on the canvas.
 - **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
   args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
   layout draws it. Each is named for its title's last part and its own name, as `Button / Outline`.
+- **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
+  draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
+  `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
+  name.
 - **Read-only, never saved.** The screens are in a design file of their own that's never written, and a layer of one
   shows its values without editing them.
-- **Not yet.** A story with a `render` of its own, as Card's Invite, isn't imported. A story file added while the
-  project is open shows once it's opened again. Edits aren't written back to the story's file.
+- **Not yet.** A story's decorators, loaders and the `context` its `render` is given aren't applied. A story file added
+  while the project is open shows once it's opened again. Edits aren't written back to the story's file.
 
 Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
 two under Stories. Plan card / Popular drew the app's own PlanCard with the Popular badge, and Button / Outline its
-outline button at its own size.
+outline button at its own size. Card / Invite and Plan card / Side By Side drew their own `render` functions: the invite
+card, and two plan cards side by side.
 
 Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and `importStoryScreens` in
 `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`; `storyScreensDocument` in
-`apps/desktop/src/renderer/canvas/story-screens.ts`.
+`apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in `apps/desktop/src/renderer/workspace.ts`.
 
-Tests: `adapters/storybook-adapter/src/storybook.test.ts` (5: a file's meta and stories with args over the meta's,
-stories that render themselves, a file without a default export, a story's name in words, and stories imported as
-screens of their component, grouped by title).
+Tests: `adapters/storybook-adapter/src/storybook.test.ts` (6: a file's meta and stories with args over the meta's, where
+a story's render function is, a file without a default export, a story's name in words, stories imported as screens of
+their component, grouped by title, and a story that renders itself drawing its function from its file).
 
 ### Opening in seconds (PAR-179)
 

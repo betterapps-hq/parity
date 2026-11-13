@@ -807,6 +807,7 @@ export class Workspace {
   /** Draws a tab's session from a guest loaded anew, with tokens of its own, letting go of the last guest's tokens. */
   private drawFrom(tab: Tab, session: ProjectSession, info: ProjectInfo, loaded: LoadedGuest): void {
     const { tokens } = session
+    drawImported(info, loaded)
     this.updateSession(tab, session, { info, loaded, tokens: tokenStore(info, loaded, session.store) })
     tokens.dispose()
   }
@@ -1284,6 +1285,7 @@ async function createSession(
 ): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
+  const drawn = drawImported(info, loaded)
 
   const store = new DesignStore(
     [
@@ -1319,7 +1321,7 @@ async function createSession(
         return request("recovery.keep", kept ? { projectId: info.id, copy: kept } : { projectId: info.id })
       })
     },
-    { info, loaded, tokens: tokenStore(info, loaded, store) }
+    { info, loaded, tokens: tokenStore(info, loaded, store), added: drawn }
   )
 
   sayWhenSavesFail(session)
@@ -1547,6 +1549,22 @@ async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<Pro
 }
 
 /** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
+/**
+ * Gives the guest the code the project's imported screens draw that isn't one of its components, as a story's `render`
+ * function, and gives it back for offscreen renders to add to theirs.
+ */
+function drawImported(info: ProjectInfo, loaded: LoadedGuest): Record<string, GuestComponentSource> | undefined {
+  const sources = info.entities.sources
+
+  if (!sources || Object.keys(sources).length === 0) {
+    return undefined
+  }
+
+  loaded.guest.addComponents?.(sources)
+
+  return sources
+}
+
 function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
   return new TokenStore(
     loaded.tokens,

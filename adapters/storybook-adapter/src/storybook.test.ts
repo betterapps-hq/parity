@@ -39,30 +39,32 @@ describe("readStoryFile", () => {
         {
           exportName: "Default",
           name: "Default",
-          args: { children: "Save changes", disabled: false },
-          render: false
+          args: { children: "Save changes", disabled: false }
         },
         {
           exportName: "Outline",
           name: "Outline",
-          args: { children: "Save changes", disabled: false, variant: "outline" },
-          render: false
+          args: { children: "Save changes", disabled: false, variant: "outline" }
         },
         {
           exportName: "BigAndBold",
           name: "Big and bold",
-          args: { children: "Save changes", disabled: false, size: "lg" },
-          render: false
+          args: { children: "Save changes", disabled: false, size: "lg" }
         }
       ]
     })
   })
 
-  it("marks a story with a render function, or one that's a function, as rendering itself", () => {
+  it("finds the function a story draws with: its own render, itself as a function, or the meta's render", () => {
     expect(readStoryFile(card).stories.map((story) => [story.exportName, story.render])).toEqual([
-      ["Invite", true],
-      ["Plain", true]
+      ["Invite", "Invite.render"],
+      ["Plain", "Plain"]
     ])
+    expect(
+      readStoryFile(
+        "export default { render: (args) => <b {...args} /> }; export const Bold = { args: { title: 'Hi' } }"
+      ).stories.map((story) => story.render)
+    ).toEqual(["default.render"])
   })
 
   it("reads no stories from a file without a default export", () => {
@@ -90,12 +92,14 @@ describe("importStoryScreens", () => {
   }
 
   it("imports each story as a screen of its component with its args, grouped by title", async () => {
-    const screens = await importStoryScreens(source)
+    const { screens = [] } = await importStoryScreens(source)
 
     expect(screens.map(({ ref, group, screen }) => [ref, group, screen.name])).toEqual([
       ["src/stories/button.stories.tsx#Default", "UI/Button", "Default"],
       ["src/stories/button.stories.tsx#Outline", "UI/Button", "Outline"],
-      ["src/stories/button.stories.tsx#BigAndBold", "UI/Button", "Big and bold"]
+      ["src/stories/button.stories.tsx#BigAndBold", "UI/Button", "Big and bold"],
+      ["src/stories/card.stories.tsx#Invite", "Card", "Invite"],
+      ["src/stories/card.stories.tsx#Plain", "Card", "Plain"]
     ])
     expect(screens[1]?.screen).toMatchObject({
       kind: "screen",
@@ -109,6 +113,18 @@ describe("importStoryScreens", () => {
           }
         ]
       }
+    })
+  })
+
+  it("draws a story that renders itself with its function, loaded from the story file as a component", async () => {
+    const { screens = [], sources } = await importStoryScreens(source)
+
+    expect(sources).toEqual({
+      "story:src/stories/card.stories.tsx#Invite": { path: "src/stories/card.stories.tsx", export: "Invite.render" },
+      "story:src/stories/card.stories.tsx#Plain": { path: "src/stories/card.stories.tsx", export: "Plain" }
+    })
+    expect(screens[3]?.screen.root).toMatchObject({
+      children: [{ type: "component", component: "story:src/stories/card.stories.tsx#Invite", name: "Invite" }]
     })
   })
 })

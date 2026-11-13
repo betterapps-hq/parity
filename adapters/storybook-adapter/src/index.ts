@@ -17,5 +17,5 @@ export const storybookAdapter: EntitiesAdapter = {
   id: storybookId,
   name: "Storybook",
   detect,
-  import: async (source) => ({ screens: await importStoryScreens(source) })
+  import: importStoryScreens
 }

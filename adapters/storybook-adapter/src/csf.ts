@@ -31,8 +31,11 @@ export interface Story {
   name: string
   /** The meta's args with its own over them, those that are JSON. */
   args: StoryArgs
-  /** Whether it, or the meta, draws with a `render` function of its own rather than the component with its args. */
-  render: boolean
+  /**
+   * Where the function it draws with is, when it or the meta has one rather than drawing the component with its args:
+   * its export itself for a function (CSF 2), `Primary.render` for its own, or `default.render` for the meta's.
+   */
+  render?: string
 }
 
 /**
@@ -103,7 +106,7 @@ function storyOf(
 
   // A function is a story that draws itself (CSF 2).
   if (ts.isArrowFunction(inner) || ts.isFunctionExpression(inner)) {
-    return [{ exportName: name, name: storyName(name), args: metaArgs, render: true }]
+    return [{ exportName: name, name: storyName(name), args: metaArgs, render: name }]
   }
 
   const story = objectOf(value, constants)
@@ -112,14 +115,19 @@ function storyOf(
     return []
   }
 
-  return [
-    {
-      exportName: name,
-      name: stringOf(property(story, "name")) ?? storyName(name),
-      args: { ...metaArgs, ...argsOf(property(story, "args"), constants) },
-      render: metaRenders || property(story, "render") !== undefined
-    }
-  ]
+  const read: Story = {
+    exportName: name,
+    name: stringOf(property(story, "name")) ?? storyName(name),
+    args: { ...metaArgs, ...argsOf(property(story, "args"), constants) }
+  }
+
+  if (property(story, "render") !== undefined) {
+    read.render = `${name}.render`
+  } else if (metaRenders) {
+    read.render = "default.render"
+  }
+
+  return [read]
 }
 
 /** An export's name in words, as Storybook shows it: `PrimaryLarge` as `Primary Large`. */
