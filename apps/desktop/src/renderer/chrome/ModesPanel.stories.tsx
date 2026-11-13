@@ -6,6 +6,7 @@ import { answerNext } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { inspecting, InspectorStage, openInspector, search, slowly, typing } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
+import { panelLimits, setLayout } from "./layout.ts"
 import { ModesPanel } from "./ModesPanel.tsx"
 
 /**
@@ -50,6 +51,16 @@ const defaults = () =>
 
 /** The example's own modes, saved in its project file: four modes over viewport, theme and locale. */
 export const ExampleModes: Story = { loaders: [modes()] }
+
+/** The example's modes with the panel at its narrowest, where each mode's variable pickers have the least room. */
+export const Narrowest: Story = {
+  loaders: [
+    async () => {
+      await modes()()
+      setLayout({ rightWidth: panelLimits.right[0] })
+    }
+  ]
+}
 
 /** A project using the default modes: it says editing them saves them into its project file. */
 export const DefaultModes: Story = { loaders: [defaults] }

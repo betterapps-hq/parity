@@ -3494,7 +3494,8 @@ Fields stories.
 | Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
 | Parts    | Field row, Chips                                                                             |
 
-Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
+Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. Each style
+section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
 (`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's
 props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
 
