@@ -1,8 +1,20 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 13 Nov 2026 00:22:24 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 01:34:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.60.3
+
+Fri, 13 Nov 2026 01:34:43 GMT
+
+### Patches
+
+- Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers
+  move into the style package (ajcraswell@gmail.com)
+- Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo
+  step with pasteStepName in place of pasteLabel (PAR-985) (ajcraswell@gmail.com)
+- The Design tab picks every section a selection shows from one table (ajcraswell@gmail.com)
 
 ## 0.60.2
 
