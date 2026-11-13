@@ -250,7 +250,8 @@ Storybook or the CLI.
   for a failed test, or as a report does. That sends the buffer as a replay of its own and starts a fresh buffer, so CI
   never goes on to record whole sessions. An error doesn't send it. The buffer holds a minute at most, and starts again
   each time recording resumes after a hold below, so a test's replay starts where its zoom settled: for a drag test, the
-  drag and the reset after it.
+  drag and the reset after it. An end-to-end test that counts the window's DOM nodes holds recording while it counts
+  (`App.holdRecording`, PAR-1047), since the attributes Replay reads are nodes too.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
 - **The window's own canvases are recorded,** such as the selection overlay, as pictures twice a second while they

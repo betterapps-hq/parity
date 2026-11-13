@@ -1,7 +1,7 @@
 import type { LayerFailure } from "@parity-app/core"
 import { designFailures, failureAdvice, layerFailure } from "@parity-app/editor"
-import { useSyncExternalStore } from "react"
 import { type ConsoleMessage, consoleLog } from "./console-store.ts"
+import { type Store, createStore, useStore } from "./store.ts"
 
 /** A frame on the canvas, as its failures are kept: the state and mode it draws, and what fails in it now. */
 interface FrameEntry {
@@ -13,8 +13,7 @@ interface FrameEntry {
 /** Each design's frames' latest failures, and what they come to. */
 interface DesignEntry {
   frames: Map<WeakKey, FrameEntry>
-  failures: LayerFailure[]
-  listeners: Set<() => void>
+  failures: Store<readonly LayerFailure[]>
 }
 
 const none: LayerFailure[] = []
@@ -35,7 +34,7 @@ function entryFor(project: string, design: string): DesignEntry {
   let entry = designs.get(design)
 
   if (!entry) {
-    designs.set(design, (entry = { frames: new Map(), failures: none, listeners: new Set() }))
+    designs.set(design, (entry = { frames: new Map(), failures: createStore<readonly LayerFailure[]>(() => none) }))
   }
 
   return entry
@@ -67,27 +66,14 @@ export function reportFrameFailures(
   }
 
   const next = designFailures([...entry.frames.values()].map((known) => known.failures))
-  entry.failures = next.length === 0 ? none : next
-
-  for (const listener of entry.listeners) {
-    listener()
-  }
+  entry.failures.set(next.length === 0 ? none : next)
 
   consoleLog(project).setFailures(failureMessages(project, Date.now()))
 }
 
 /** The design's failing layers in any of its frames, one per node. */
 export function useDesignFailures(project: string, design: string): readonly LayerFailure[] {
-  const entry = entryFor(project, design)
-
-  return useSyncExternalStore(
-    (listener) => {
-      entry.listeners.add(listener)
-
-      return () => entry.listeners.delete(listener)
-    },
-    () => entry.failures
-  )
+  return useStore(entryFor(project, design).failures)
 }
 
 /** The failure a design's layer shows in Layers, if it fails in any frame. */

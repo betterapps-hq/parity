@@ -41,7 +41,8 @@ import { toast } from "sonner"
 import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
-import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { addImageFiles } from "./drop-files.ts"
@@ -598,24 +599,18 @@ async function clipboardLayers(
     return undefined
   }
 
-  const progress = toast.loading("Adding the image…")
-
-  try {
-    const node = await importMedia(projectId, content.blob, content.name)
-    toast.dismiss(progress)
-
-    return { nodes: [node], content: kind }
-  } catch (error) {
-    reportError(error, {
+  const node = await serviceCall({
+    progress: "Adding the image…",
+    run: () => importMedia(projectId, content.blob, content.name),
+    done: () => "dismiss",
+    failed: {
       operation: "images.import",
       title: "Couldn't paste the image",
-      id: progress,
-      description: errorMessage(error)
-    })
-    pasteFailed(how, kind, "imageFailed", error)
+      track: (error) => pasteFailed(how, kind, "imageFailed", error)
+    }
+  })
 
-    return undefined
-  }
+  return node ? { nodes: [node], content: kind } : undefined
 }
 
 /** An image on the system clipboard, such as a screenshot or an image copied from a browser. */

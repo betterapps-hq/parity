@@ -19,9 +19,10 @@ import {
   Textarea
 } from "@buildkitgg/shadcn-baseui-kit"
 import { TriangleAlert } from "lucide-react"
-import { useId, useState, useSyncExternalStore } from "react"
+import { useId, useState } from "react"
 import type { ProblemReportRequest } from "../../shared/protocol.ts"
 import { reportIds } from "../replay.ts"
+import { useStore, windowStore } from "../store.ts"
 import { useTabs } from "../workspace.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { crashTime, lowerFirst } from "./report-time.ts"
@@ -188,16 +189,7 @@ interface Opened {
   caught?: string
 }
 
-let opened: Opened = {}
-const openedListeners = new Set<() => void>()
-
-function setOpened(next: Opened): void {
-  opened = next
-
-  for (const listener of openedListeners) {
-    listener()
-  }
-}
+const opened = windowStore<Opened>(() => ({}))
 
 /** What the report is about, besides what the person writes. */
 interface ReportSubject {
@@ -240,7 +232,7 @@ export async function openReport({ crash, eventId, label }: ReportSubject = {}):
     }
   }
 
-  setOpened(next)
+  opened.set(next)
   openDialog("report")
 }
 
@@ -262,14 +254,7 @@ export function offerLastCrashReport(): void {
 }
 
 function useOpened() {
-  return useSyncExternalStore(
-    (listener) => {
-      openedListeners.add(listener)
-
-      return () => openedListeners.delete(listener)
-    },
-    () => opened
-  )
+  return useStore(opened)
 }
 
 /** The dialog as the app shows it: sends through main, which attaches the logs, versions and projects. */
@@ -321,7 +306,7 @@ export function ReportProblemDialog() {
         }
 
         closeDialog()
-        setOpened({})
+        opened.set({})
         // The next report starts afresh.
         setState({ phase: "editing" })
         setDescription("")

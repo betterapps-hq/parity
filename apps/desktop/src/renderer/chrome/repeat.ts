@@ -1,3 +1,4 @@
+import { resetWithWindow } from "../store.ts"
 import type { ActionResult } from "./actions.ts"
 
 /** Something Repeat last action can run again, on whatever's selected then. */
@@ -8,6 +9,11 @@ export interface Repeatable {
 }
 
 let last: Repeatable | undefined
+
+// Nothing done yet, as a new window starts, so each story starts from nothing done.
+resetWithWindow(() => {
+  last = undefined
+})
 
 /**
  * Remembers what was just done, from a shortcut, a menu or Search actions, for Repeat last action (PAR-180). Only what
@@ -27,9 +33,4 @@ export function repeatLastAction(): void {
   if (last && last.available?.() !== false) {
     void last.run()
   }
-}
-
-/** Forgets the last action, as a new window starts: stories start from nothing done. */
-export function forgetLastAction(): void {
-  last = undefined
 }

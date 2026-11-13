@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import {
   type AccountPerson,
@@ -9,6 +8,7 @@ import {
   signedOut
 } from "../../shared/account.ts"
 import { errorMessage, reportError, track } from "../report-error.ts"
+import { createStore, useStore } from "../store.ts"
 import { currentOrganization } from "./OrganizationBadge.tsx"
 
 /**
@@ -25,15 +25,19 @@ export interface AccountView {
   untilQuit: boolean
 }
 
-let view: AccountView = { loaded: false, state: signedOut, place: undefined, untilQuit: false }
-const listeners = new Set<() => void>()
+/**
+ * Not a `windowStore`: the window starts waiting for main to say who's signed in, where stories start signed out with its
+ * answer in, which the stories' host puts back with `resetAccountView`.
+ */
+const account = createStore<AccountView>(() => ({
+  loaded: false,
+  state: signedOut,
+  place: undefined,
+  untilQuit: false
+}))
 
 function update(next: Partial<AccountView>): void {
-  view = { ...view, ...next }
-
-  for (const listener of listeners) {
-    listener()
-  }
+  account.update((view) => ({ ...view, ...next }))
 }
 
 /** Signed out, with nothing showing, as stories start. */
@@ -78,7 +82,7 @@ export function receiveAccount(raw: unknown): void {
   }
 
   const state = parsed.data
-  const before = view
+  const before = account.get()
   const was = before.state
   // Someone's signed in where nobody was, or a sign-in that was waiting signed in another account or the same again.
   const signedIn = !!state.account && (!was.account || (was.attempt?.at === "waiting" && !state.attempt))
@@ -155,14 +159,7 @@ export function startAccount(): void {
 }
 
 export function useAccount(): AccountView {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => view
-  )
+  return useStore(account)
 }
 
 const failed = (title: string) => (cause: unknown) => {
@@ -181,7 +178,7 @@ export const accountActions = {
   back: () => void window.canvasHost.account.cancel(),
   /** Closes the dialog, stopping a sign-in that's waiting. */
   close: () => {
-    update({ place: placeFor(view.state, undefined) })
+    update({ place: placeFor(account.get().state, undefined) })
     void window.canvasHost.account.cancel()
   },
   /** Signing in again as an account whose session ended: straight to the browser, the way it signed in before. */
@@ -191,11 +188,11 @@ export const accountActions = {
   },
   /** Signs out of any account, or forgets one whose session ended. Leaving the one you're in moves to another. */
   signOut: (email: string) => {
-    const { state } = view
+    const { state } = account.get()
     const leaving = state.accounts.find((each) => each.email === email)
     const here = state.account?.email === email
     void window.canvasHost.account.signOut(email).then(() => {
-      const now = view.state.account
+      const now = account.get().state.account
 
       if (leaving?.ended) {
         toast(`Removed ${email}`, { id: "signed-out" })
@@ -214,7 +211,7 @@ export const accountActions = {
   /** Switches to another account signed in, at once: each keeps its own session. */
   use: (email: string) =>
     void window.canvasHost.account.use(email).then(() => {
-      const now = view.state.account
+      const now = account.get().state.account
 
       if (now?.email !== email) {
         return

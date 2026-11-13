@@ -454,15 +454,24 @@ A right-click on a design opens Figma's canvas menu, as far as Parity's commands
 shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `formatKeys`), and runs the
 menubar's command. A row in the Layers panel has a menu of its own, built the same way (below).
 
-- **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
-  replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
-  and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
+- **Icons** come from `commandIcons` in `apps/desktop/src/renderer/chrome/command-icons.ts`, one per command and no two
+  alike, so a command looks the same in the menubar, the canvas menu, the Layers row menu and a design title's menu.
+  Paste here takes Paste's.
+- **The menubar offers each command once** (PAR-1039): New screen and New component are Object's, Settings is File's,
+  Developer tools, Performance stats and Clear bitmap cache are in Help › Developer, and Install the Parity CLI… follows
+  Check for updates. Close project (Ctrl+W) closes the tab. A toggle, such as Panels or Performance stats, keeps its
+  icon where every item's goes and shows a tick on the right, before its keys, while it's on. No menu adds a line saying
+  what to select; its greyed items say enough.
+
+- **The items**, in groups with a line between them: Select layer; Copy, Copy as PNG, Paste here, Paste over selection,
+  Paste to replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make
+  component and Go to component; Hide. Labels are the menubar's, except that Go to names the component ("Go to Plan
   card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
   variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
   design selected on its own, reads "Convert to component", or "Convert to screen" on a component. Paste here has no
   keys. Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
-  Go to the main component is there only with an instance selected.
+  Go to component is there only with an instance selected.
 - **Unavailable** items are greyed: the order and Make component with several layers selected, Make component with
   several designs, and, for layers inside an instance, Copy, Duplicate, the order, Wrap in layout and Hide. Paste over
   selection and Paste to replace stay for those, and say why they can't. The menubar's Edit and Object menus grey the
@@ -561,14 +570,17 @@ Tests:
   slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
   layout; a card component's default slot found through the element its layers are drawn in, by a layer in it and by the
   row around them, and its footer slot; and the layout around the card over the title it draws itself.
-- `chrome/AppMenu.stories.tsx` (EditLayerInInstance and ObjectLayerInInstance, under Parity/Chrome/App menu): with the
-  Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the pastes, and Object greys
-  Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end test below checks the same.
-- `chrome/CanvasMenu.stories.tsx` (8 stories, under Parity/Chrome/Canvas menu), on the real canvas with tldraw: Layer,
-  Instance, SeveralLayers, Design, EmptyCanvas, NewScreenHere, SelectLayer and Interacting. Each right-clicks through
-  tldraw's pointer events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the
-  list and the outline, and NewScreenHere where the new screen goes. The first seven played without errors in headless
-  Chrome on 2026-10-29, and EmptyCanvas and NewScreenHere again on 2026-11-05.
+- `chrome/AppMenu.edit.stories.tsx` and `AppMenu.object.stories.tsx` (LayerInInstance, under Parity/Chrome/App menu/Edit
+  and /Object): with the Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the
+  pastes, and Object greys Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end
+  test below checks the same.
+- `chrome/CanvasMenu.items.stories.tsx` (Parity/Chrome/Canvas menu/Items): the menu on its own, open for a selection and
+  the layers under the pointer: OneLayer, Instance, SeveralLayers, Design and AroundTheDesigns, checking the items,
+  what's unavailable and the keys.
+- `chrome/CanvasMenu.right-click.stories.tsx` (Parity/Chrome/Canvas menu/Right-click), on the real canvas with tldraw:
+  SelectsWhatAClickWould, SelectsAnotherInstance, KeepsSeveralLayers, KeepsADesign, NewScreenHere, SelectLayer,
+  Interacting and OpenInEditor. Each right-clicks through tldraw's pointer events and checks what's selected;
+  SelectLayer checks the list and the outline, and NewScreenHere where the new screen goes.
 - `apps/desktop/e2e/menus.e2e.ts` (8), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
   as one undo step; Ctrl+Z pressed at once after Duplicate, with focus still in the closing menu, undoes it (PAR-424,
@@ -921,13 +933,13 @@ named from the root; a workspace package's file outside the root named from the 
 modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
 (Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
-`chrome/CanvasMenu.stories.tsx`, drawn from Storybook's copy of the example project, which the same transform tags, and
-in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
-`packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
-(`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
-own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps:
-reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the Measure and render-result
-tests pass a source through.
+`chrome/CanvasMenu.right-click.stories.tsx`, drawn from Storybook's copy of the example project, which the same
+transform tags, and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at
+`member-row.tsx`). `packages/agent/src/dispatch.test.ts` (the file each project component is written in),
+`packages/agent/src/run.test.ts` (`Measure` gives each node's source, and none for Parity's own layers),
+`packages/cli/src/client.test.ts` (the project's own components listed by file) and
+`apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps: reading the attribute in the offscreen
+page (`renderer/render.ts`) has no test of its own; the Measure and render-result tests pass a source through.
 
 ### The designs' console (PAR-147)
 
@@ -1901,11 +1913,12 @@ Tests:
   before anything's typed; `chrome/canvas-menu.test.ts`: the menu around the designs with its labels and keys, and
   Select all and Zoom to fit unavailable on an empty canvas.
 - Stories, which replace the exploration Parity / Explorations / Starting on the canvas, deleted with this build: Parity
-  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu (File,
-  ObjectWithNothingSelected, SearchActionsForNew), Parity / Chrome / Canvas menu (EmptyCanvas, NewScreenHere), Parity /
-  Chrome / Quick insert (NothingSelected, NowhereToInsertInto), Parity / Left panel / Components
-  (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All but the two Quick insert ones
-  played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the canvas, for Open's story too.
+  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu / File
+  (DesignSelected) and / Object (NothingSelected), Parity / Chrome / Search (New), Parity / Chrome / Canvas menu (Items:
+  AroundTheDesigns; Right-click: NewScreenHere), Parity / Chrome / Quick insert (NothingSelected, NowhereToInsertInto),
+  Parity / Left panel / Components (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All
+  but the two Quick insert ones played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the
+  canvas, for Open's story too.
 - End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
   component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
   screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
@@ -2120,10 +2133,10 @@ actions, the toolbar, Zoom, and the canvas and Layers menus.
 - **A command that can't run is greyed** in the menus, Search actions and the toolbar, and its keys don't run it: a Ctrl
   shortcut is recorded as cancelled, and a plain key does what it would anyway, as Tab moving focus.
 - **Names follow what's selected:** Undo and Redo name the step, Repeat what it repeats, Make component reads Convert to
-  component or Convert to screen for a design on its own, Go to the main component names it, Hide reads Show when every
-  selected layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could
-  act on, Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name
-  too, so "hide" finds Show.
+  component or Convert to screen for a design on its own, Go to component names it, Hide reads Show when every selected
+  layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could act on,
+  Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name too, so
+  "hide" finds Show.
 - **Layer commands need layers of the design's own:** Cut, Copy, Duplicate, Delete, Wrap in layout, Hide and Lock are
   unavailable for only a design's root or layers inside an instance, and their keys do nothing then. The order and Make
   component take one such layer alone. Rename is unavailable for a layer inside an instance.
@@ -2151,10 +2164,10 @@ Tests:
   apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the tab it's given;
   the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once there's
   something to duplicate, recorded both times.
-- Stories, Parity / Chrome / App menu: EditLayerInInstance and ObjectLayerInInstance (greyed items, Cut and Delete among
-  them, and the keymap's names for a layer inside an instance), SearchActionsNamesWhatItDoes (a locked design's Unlock,
-  found by "lock"), and ExportSelectedAsItsShortcutDoes (PAR-976). Parity / Chrome / Zoom controls: NothingToFit, Zoom
-  to fit unavailable in a project with nothing on its canvas.
+- Stories, Parity / Chrome / App menu / Edit and / Object: LayerInInstance (greyed items, Cut and Delete among them, and
+  the keymap's names for a layer inside an instance); / File: ExportSelectedAsItsShortcutDoes (PAR-976); Parity / Chrome
+  / Search: NamesWhatItDoes (a locked design's Unlock, found by "lock"). Parity / Chrome / Zoom controls: NothingToFit,
+  Zoom to fit unavailable in a project with nothing on its canvas.
 - Tried in the app on 2026-11-12 with `scripts/drive.ts`: the menubar, canvas menu and Layers menu with nothing, a
   screen, a component, a layer and every design selected; Hide from Object, then Show in Object and Layers, and Undo
   naming the step; the canvas menu from Shift+F10; and each item's accessible name, its label and its keys.
@@ -2204,9 +2217,9 @@ Tests:
   left for a search; each kind under its heading, best first, a heading with no match left out, a layer found by its
   design, a group capped keeping its best; recent picks first, latest first, not listed again, kept while they match and
   dropped once gone; and at most six picks, the latest first.
-- Stories, Parity / Chrome / App menu: SearchEverything ("card" finds designs, layers, components and tokens),
-  SearchRecent (Zoom to fit and Plan card picked, then listed under Recent), EditAfterWrapping (Repeat wrap in layout
-  with its keys, available), and SearchActionsForNew.
+- Stories, Parity / Chrome / Search: Everything ("card" finds designs, layers, components and tokens), Recent (Zoom to
+  fit and Plan card picked, then listed under Recent) and New; Parity / Chrome / App menu / Edit: AfterWrapping (Repeat
+  wrap in layout with its keys, available).
 
 Gaps: no end-to-end test runs Repeat or picks a layer, component or token from the search.
 
@@ -2355,7 +2368,7 @@ menu items.
 ### Next and previous design (CAN-39)
 
 N selects the design after the selected one and zooms to it, and Shift+N the one before, as Figma's Zoom to next frame
-and Zoom to previous frame do. They're in View, after Zoom to selection.
+and Zoom to previous frame do. They're keys only, listed in Keyboard shortcuts; no menu offers them.
 
 - **The order is the Layers panel's:** components, then screens, each in the order the project lists them. It goes round
   from the last to the first.
@@ -3019,9 +3032,9 @@ a size once, the next size offered, safe names, the short list, a layer's crop a
 reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
 `chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
-`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
-`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
-`chrome/AppMenu.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
+`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; OneLayer and Design
+in `chrome/CanvasMenu.items.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
+`chrome/AppMenu.file.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
 drawing offscreen and writing the files run in the desktop app's service, which no test opens; the e2e suite covers the
 window's export, not this.
 
@@ -6772,11 +6785,11 @@ next.
 
 ### Install the Parity CLI (PAR-906)
 
-Help > Install the Parity CLI puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
-with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
-second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
-and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
-failure says what went wrong.
+Help > Install the Parity CLI, after Check for updates, puts a `parity` command on the person's PATH that runs the CLI
+shipped inside the app, with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and
+a call starts about a second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast
+says it's installed, and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the
+folder to add. A failure says what went wrong.
 
 - **Windows:** `parity.cmd`, for PowerShell and Command Prompt, and a `parity` shell script, for Git Bash, in
   `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH, kept as written so variables in it stay variables.

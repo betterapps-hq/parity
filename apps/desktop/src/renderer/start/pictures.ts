@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react"
 import type { ProjectPicture } from "../../shared/protocol.ts"
 import { request } from "../service.ts"
+import { signal } from "../store.ts"
 
 /** Where the start page gets projects' pictures (PAR-607): the ones the service keeps, or a story's own. */
 export interface PictureSource {
@@ -17,15 +18,11 @@ export interface PictureSource {
  */
 class KeptPictures implements PictureSource {
   private readonly pictures = new Map<string, ProjectPicture | null>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
   /** Projects to ask about together, the ones a page shows at once. */
   private asking: string[] = []
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   get = (root: string) => this.pictures.get(root)
 
@@ -45,7 +42,7 @@ class KeptPictures implements PictureSource {
   set(root: string, picture: ProjectPicture | null): void {
     this.asking = this.asking.filter((candidate) => candidate !== root)
     this.pictures.set(root, picture)
-    this.notify()
+    this.changes.notify()
   }
 
   private async read(): Promise<void> {
@@ -64,13 +61,7 @@ class KeptPictures implements PictureSource {
       }
     }
 
-    this.notify()
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 }
 

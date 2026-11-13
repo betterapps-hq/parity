@@ -74,6 +74,7 @@ import {
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { track } from "./report-error.ts"
+import { signal } from "./store.ts"
 import { keepTrace } from "./tracing.ts"
 
 export interface ContainerEntry {
@@ -128,7 +129,7 @@ export class DesignStore {
   private library: ComponentLibrary = noLibrary
   private notes: readonly NoteEntry[] = []
   private references: readonly ReferenceEntry[] = []
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
   /** Saves waiting to happen, with automatic saving on. */
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly writing = new Set<Promise<unknown>>()
@@ -153,11 +154,7 @@ export class DesignStore {
     this.index()
   }
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   getEntries = () => this.entries
   getEntry = (key: string) => this.byKey.get(key)
@@ -649,9 +646,7 @@ export class DesignStore {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 }
 

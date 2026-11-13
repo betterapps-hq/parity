@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react"
+import { windowStore } from "../store.ts"
 
 export type RestoreChoice = "restore" | "discard"
 
@@ -9,8 +10,7 @@ export interface RestoreQuestion {
 }
 
 /** The questions waiting, first shown first: projects open one after another as the app starts. */
-let questions: RestoreQuestion[] = []
-const listeners = new Set<() => void>()
+const questions = windowStore<RestoreQuestion[]>(() => [])
 
 /**
  * Asks whether to restore a project's unsaved changes, kept when Parity closed before they were saved (PAR-905), and
@@ -21,14 +21,12 @@ export function askToRestore(question: Omit<RestoreQuestion, "answer">): Promise
     const asked: RestoreQuestion = {
       ...question,
       answer: (choice) => {
-        questions = questions.filter((each) => each !== asked)
-        notify()
+        questions.update((now) => now.filter((each) => each !== asked))
         resolve(choice)
       }
     }
 
-    questions = [...questions, asked]
-    notify()
+    questions.update((now) => [...now, asked])
   })
 }
 
@@ -37,23 +35,10 @@ export function askToRestore(question: Omit<RestoreQuestion, "answer">): Promise
  * back unsaved, where Undo or closing without saving drops them, so nothing is lost either way.
  */
 export function restoreAsked(): void {
-  questions[0]?.answer("restore")
+  questions.get()[0]?.answer("restore")
 }
 
 /** The question showing now, if there is one. */
 export function useRestoreQuestion(): RestoreQuestion | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => questions[0]
-  )
-}
-
-function notify(): void {
-  for (const listener of listeners) {
-    listener()
-  }
+  return useSyncExternalStore(questions.subscribe, () => questions.get()[0])
 }

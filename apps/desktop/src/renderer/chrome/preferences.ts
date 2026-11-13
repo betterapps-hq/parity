@@ -1,9 +1,9 @@
 import { jsonText } from "@parity-app/core"
 import { defaultExportSizes, type ExportSize } from "@parity-app/editor"
 import type { CodeEditorChoice } from "@parity-app/processes"
-import { useSyncExternalStore } from "react"
 import { z } from "zod"
 import { recordInterface } from "../interface-events.ts"
+import { useStore, windowStore } from "../store.ts"
 
 const storageKey = "parity.preferences"
 
@@ -48,8 +48,10 @@ export function readPreferences(text: string | null): Preferences {
     .parse(text ?? "{}")
 }
 
-let preferences = load()
-const listeners = new Set<() => void>()
+/** The preferences as they were saved; `resetWindowStores` puts back the defaults, as a first run has them. */
+const preferences = windowStore(() => readPreferences(null))
+
+preferences.set(load())
 
 function load(): Preferences {
   try {
@@ -61,16 +63,18 @@ function load(): Preferences {
 }
 
 export function getPreferences(): Preferences {
-  return preferences
+  return preferences.get()
 }
 
 /** A setting `setting.changed` records as it is; any other, such as the export sizes, goes as JSON. */
 const plainSetting = z.union([z.string(), z.number(), z.boolean()])
 
 export function setPreferences(change: Partial<Preferences>): void {
+  const before = preferences.get()
+
   for (const [setting, value] of Object.entries(change)) {
     // SAFETY: `change` is a Partial<Preferences>, so each of its keys names a preference.
-    if (value === undefined || JSON.stringify(value) === JSON.stringify(preferences[setting as keyof Preferences])) {
+    if (value === undefined || JSON.stringify(value) === JSON.stringify(before[setting as keyof Preferences])) {
       continue
     }
 
@@ -78,25 +82,19 @@ export function setPreferences(change: Partial<Preferences>): void {
     recordInterface("setting.changed", { setting, value: plain.success ? plain.data : JSON.stringify(value) })
   }
 
-  preferences = { ...preferences, ...change }
+  const after = { ...before, ...change }
 
   try {
-    localStorage.setItem(storageKey, JSON.stringify(preferences))
+    localStorage.setItem(storageKey, JSON.stringify(after))
   } catch {
     // Storage can be unavailable; the preference then just isn't remembered.
   }
 
-  for (const listener of listeners) {
-    listener()
-  }
+  preferences.set(after)
 }
 
-export function subscribePreferences(listener: () => void): () => void {
-  listeners.add(listener)
-
-  return () => listeners.delete(listener)
-}
+export const subscribePreferences = preferences.subscribe
 
 export function usePreferences(): Preferences {
-  return useSyncExternalStore(subscribePreferences, () => preferences)
+  return useStore(preferences)
 }

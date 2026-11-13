@@ -1,15 +1,20 @@
 import { findRepeats, type RepeatCandidate } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import type { ContainerEntry } from "../design-store.ts"
+import { resetWithWindow, signal } from "../store.ts"
 
 // The repeated parts found in each screen, so Search actions can find them as the inspector's button does (PAR-180).
 // They're kept by the project's folder and the screen's key, since every open project stays mounted and two copies of a
 // project share their keys, and cleared when the screen's Repeated parts section closes, as its own state was.
 
 const found = new Map<string, RepeatCandidate[]>()
-const listeners = new Set<() => void>()
-const notify = () => listeners.forEach((listener) => listener())
+const { subscribe, notify } = signal()
 const keyOf = (root: string, key: string) => `${root}\n${key}`
+
+resetWithWindow(() => {
+  found.clear()
+  notify()
+})
 
 /** Finds the parts that repeat in a screen of the project at `root`, for its Repeated parts section to list. */
 export function findRepeatedParts(root: string, entry: ContainerEntry): void {
@@ -53,12 +58,5 @@ export function holdRepeatedParts(root: string, key: string): () => void {
 
 /** The repeated parts found in a screen of the project at `root`, or undefined until they're looked for. */
 export function useRepeatedParts(root: string, key: string): RepeatCandidate[] | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => found.get(keyOf(root, key))
-  )
+  return useSyncExternalStore(subscribe, () => found.get(keyOf(root, key)))
 }

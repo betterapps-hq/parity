@@ -1,28 +1,19 @@
 import type { ComponentInfo } from "@parity-app/core"
-import { useSyncExternalStore } from "react"
+import { createStore, useStore } from "./store.ts"
 
 /** The project's components with their inferred props. Empty until the service has read them from source. */
 export class ComponentStore {
-  private components: Readonly<Record<string, ComponentInfo>> = {}
-  private readonly listeners = new Set<() => void>()
+  private readonly components = createStore<Readonly<Record<string, ComponentInfo>>>(() => ({}))
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
+  subscribe = this.components.subscribe
 
-    return () => this.listeners.delete(listener)
-  }
-
-  get = () => this.components
+  get = this.components.get
 
   set(components: Record<string, ComponentInfo>): void {
-    this.components = components
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.components.set(components)
   }
 }
 
 export function useComponents(store: ComponentStore): Readonly<Record<string, ComponentInfo>> {
-  return useSyncExternalStore(store.subscribe, store.get)
+  return useStore(store)
 }

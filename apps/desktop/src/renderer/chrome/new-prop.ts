@@ -1,6 +1,6 @@
 import type { ValuePropType } from "@parity-app/core"
-import { useSyncExternalStore } from "react"
 import { projectPart } from "../project-part.ts"
+import { createStore, useStore } from "../store.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -16,35 +16,8 @@ interface NewProp {
 
 type Session = Pick<ProjectSession, "untilClosed">
 
-/** One open project's prop being added, if any. */
-class NewPropState {
-  private state: NewProp | undefined
-  private readonly listeners = new Set<() => void>()
-
-  get = (): NewProp | undefined => this.state
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
-
-  set(next: NewProp | undefined): void {
-    this.state = next
-
-    for (const listener of this.listeners) {
-      listener()
-    }
-  }
-
-  dispose(): void {
-    this.listeners.clear()
-    this.state = undefined
-  }
-}
-
-/** An open project's prop being added, dropped when its tab closes. */
-export const newPropOf = projectPart((_session: Session) => new NewPropState())
+/** An open project's prop being added, if any, dropped when its tab closes. */
+export const newPropOf = projectPart((_session: Session) => createStore<NewProp | undefined>(() => undefined))
 
 /** Starts adding a prop of `type`, or stops with `undefined`. */
 export function startNewProp(session: Session, design: string, type: ValuePropType | undefined): void {
@@ -63,7 +36,7 @@ export function refuseNewProp(session: Session, error: string): void {
 
 export function useNewProp(session: Session, design: string): NewProp | undefined {
   const adding = newPropOf(session)
-  const current = useSyncExternalStore(adding.subscribe, adding.get)
+  const current = useStore(adding)
 
   return current?.design === design ? current : undefined
 }

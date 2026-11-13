@@ -5,7 +5,7 @@ import { type Browser, chromium, type Locator, type Page } from "playwright-core
 import { expect, inject } from "vite-plus/test"
 import type { consoleLog } from "../src/renderer/console-store.ts"
 import type * as frameModule from "../src/renderer/frame.ts"
-import type { sendReplay } from "../src/renderer/replay.ts"
+import type { holdRecording, sendReplay } from "../src/renderer/replay.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
 import { appEnvironment, pageSize } from "./launch.ts"
 
@@ -58,6 +58,7 @@ declare global {
       frames: typeof frameModule
       consoleLog: typeof consoleLog
       sendReplay: typeof sendReplay
+      holdRecording: typeof holdRecording
     }
   }
 }
@@ -76,7 +77,8 @@ const importModules = `Promise.all([
     workspace: workspace.workspace,
     frames,
     consoleLog: store.consoleLog,
-    sendReplay: replay.sendReplay
+    sendReplay: replay.sendReplay,
+    holdRecording: replay.holdRecording
   }
 })`
 
@@ -230,6 +232,23 @@ export class App {
    * (PAR-1043). In CI that's what the buffer held as the test failed, as a replay of its own; with nothing recorded, or
    * a page that can't answer, it says so instead, since the failure is the test's to report.
    */
+  /**
+   * Pauses Session Replay's recording of the page until the returned function lets go, or `longestMs` passes. Replay
+   * reads each element's attributes as it records, and each of those is a DOM node, so a test that counts the window's
+   * nodes holds it while it counts (PAR-1047): in CI it buffers whenever the tests run.
+   */
+  async holdRecording(longestMs: number): Promise<() => Promise<void>> {
+    const release = await this.page.evaluateHandle(
+      (longestMs) => window.e2eModules!.holdRecording(longestMs),
+      longestMs
+    )
+
+    return async () => {
+      await release.evaluate((letGo) => letGo())
+      await release.dispose()
+    }
+  }
+
   async sendReplay(test: string): Promise<void> {
     const run = appEnvironment().PARITY_TEST_RUN
     const tags = { e2e_test: test, ...(run && { test_run: run }) }

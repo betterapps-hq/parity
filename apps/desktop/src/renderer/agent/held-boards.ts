@@ -1,3 +1,4 @@
+import { signal } from "../store.ts"
 import type { Point } from "./motion.ts"
 
 interface Held {
@@ -16,15 +17,9 @@ const holdLimitMs = 90_000
  */
 class HeldBoards {
   private readonly held = new Map<string, Held>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => {
-      this.listeners.delete(listener)
-    }
-  }
+  subscribe = this.changes.subscribe
 
   /** Where the canvas should draw a board instead of its stored position, while it's held. */
   at(tab: string, design: string): Point | undefined {
@@ -45,7 +40,7 @@ class HeldBoards {
       moves: (current?.moves ?? 0) + 1,
       timer: setTimeout(() => this.release(key), holdLimitMs)
     })
-    this.notify()
+    this.changes.notify()
   }
 
   /** Draws a held board somewhere along its drag. */
@@ -57,7 +52,7 @@ class HeldBoards {
     }
 
     held.at = at
-    this.notify()
+    this.changes.notify()
   }
 
   /** One of a board's moves has played, or been skipped: it lets go after its last. */
@@ -71,7 +66,7 @@ class HeldBoards {
 
     if (--held.moves > 0) {
       held.at = to
-      this.notify()
+      this.changes.notify()
     } else {
       this.release(key)
     }
@@ -86,13 +81,7 @@ class HeldBoards {
 
     clearTimeout(held.timer)
     this.held.delete(key)
-    this.notify()
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 }
 
