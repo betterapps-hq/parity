@@ -2309,6 +2309,38 @@ describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
     expect(next.screenshots).toHaveLength(1)
   })
 
+  it("leaves a stopped snippet's next step out of the tab's next call", async () => {
+    const read = snapshot()
+    const fast = hooks()
+
+    // Each render holds the process, so the call that runs past the deadline settles before the run's timer can fire.
+    const blocking: AgentHooks = {
+      ...fast,
+      render: async (request) => {
+        await Promise.resolve()
+        const end = performance.now() + 400
+
+        while (performance.now() < end) {
+          // Holding the process, as a long synchronous render would.
+        }
+
+        return fast.render(request)
+      }
+    }
+
+    const stopped = await execute({ label: "Loop", code: `while (true) await Screenshot("signup")` }, read, blocking, {
+      total: 1000,
+      stretch: 1000
+    })
+
+    expect(stopped.error).toMatch(/1 second, the most/)
+
+    const next = await execute({ label: "Read", code: `Print("next")` }, read, fast, limits)
+
+    expect(next.output).toEqual(["next"])
+    expect(next.screenshots).toEqual([])
+  })
+
   it("goes on after a call that settled before the snippet awaited it", async () => {
     const result = await execute(
       { label: "Look", code: `const later = Screenshot("signup")\nawait Measure("signup")\nawait later` },

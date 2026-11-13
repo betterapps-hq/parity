@@ -246,11 +246,14 @@ function guard(api: AgentApi, live: Live, SnippetPromise: PromiseConstructor, li
 
       return new SnippetPromise((resolve, reject) => {
         const settle = (done: () => void) => {
-          // A call a stopped run made settles into nothing, so what that run would do next never runs.
-          if (!live.over()) {
+          // A call that settles once the run's time is spent settles into nothing, and `resume` stops the run. Settled,
+          // it would queue what the snippet does next in the context, where the tab's next call would run it, calling
+          // that call's API.
+          if (!live.spent()) {
             done()
-            live.resume()
           }
+
+          live.resume()
         }
 
         void result.then(
