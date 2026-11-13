@@ -10,7 +10,7 @@ import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /** Instances beyond the two in Kinds: a code component's content and style, and a design instance's edge cases. */
 const meta = {
-  title: "Parity/Inspector/Layer/Instances",
+  title: "Parity/Inspector/Layers/Instances",
   component: DesignTab,
   render: renderInspector,
   decorators: [inspectorStage]

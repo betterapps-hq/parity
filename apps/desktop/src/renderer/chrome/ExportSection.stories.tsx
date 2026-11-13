@@ -12,7 +12,7 @@ import { setPreferences } from "./preferences.ts"
  * selection the same way, as Ctrl+Shift+E does.
  */
 const meta = {
-  title: "Parity/Inspector/Export",
+  title: "Parity/Inspector/Sections/Export",
   component: AppWindow,
   decorators: [
     (Story) => (

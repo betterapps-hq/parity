@@ -3475,6 +3475,28 @@ Tests:
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
+### The inspector's stories in seven levels (PAR-1033)
+
+The inspector's stories sit in the levels the panel is built from, each built only from the one below it: Panel (the
+inspector and its tabs), Layers (what each kind of selection shows), Sections, Rows, Lists, Fields and Parts. A case
+lives at the lowest level it's about, so a section's own cases are Sections stories, drawn alone, and a field's are
+Fields stories.
+
+| Folder   | Holds                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------- |
+| Panel    | Inspector, Accessibility tab                                                                 |
+| Layers   | Kinds, Instances, Several layers, Designs                                                    |
+| Sections | Header, State selector, States, Props, Attributes, Slots, Content, Styles, Modes, Export     |
+| Rows     | Box model, Padding, Margin, Size and aspect ratio, and the rest of a section's labelled rows |
+| Lists    | Paint stack, Shadow list, Filter list, Transition list                                       |
+| Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
+| Parts    | Field row, Chips                                                                             |
+
+Still to split: Sections › Styles into one story file per style section, and Layers › Designs' cases for Props,
+Components and Modes into those sections.
+
+Tests: none; the stories are checked in Storybook.
+
 ### One table picks the sections (PAR-1032)
 
 Which sections the Design tab shows, in what order, comes from one table, for a whole design and for a layer alike. The
@@ -3536,7 +3558,7 @@ the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance
 
 Tests:
 
-- `chrome/PropsSection.stories.tsx` (Inspector › Props), `chrome/LayerInstances.stories.tsx` and
+- `chrome/PropsSection.stories.tsx` (Sections › Props › Code component), `chrome/LayerInstances.stories.tsx` and
   `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
 
 ### Each field's label names its control (PAR-892)
@@ -3627,8 +3649,8 @@ one sentence ("Editing Default changes every state") and wraps when it doesn't f
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Editing A State; Fields: Changed In A State;
-Design: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
+Fields › All fields: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -3694,8 +3716,9 @@ libraries and the project's own components; a library matched by its whole id; a
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
 project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
 label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
-layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds,
-Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Kinds, Layers
+› Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
+and dark.
 
 ### Which sections a layer gets (PAR-892)
 
@@ -5852,7 +5875,7 @@ Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-p
 `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`, `moduleClosure`
 and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
-and `previews.make` handlers and their params' schemas in `apps/desktop/src/shared/service-params.ts`,
+and `previews.make` handlers and their checks in `apps/desktop/src/shared/service-checks.ts`,
 `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`; `renderJob`, `previewName`,
 `deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
 `apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
@@ -6504,7 +6527,7 @@ Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htm
 `styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
 `packages/builder-vite/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
 `openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
-`shared/protocol.ts`, `shared/service-params.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
+`shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
 `settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
 `renderer/agent/handlers.ts`.
 
@@ -7251,7 +7274,7 @@ text color. Chromium can't draw a scrollbar over the content for one element alo
 
 Code: `modeDevice` and `isTouchMode` in `packages/core/src/modes.ts`; `apps/desktop/src/renderer/scrollbars.css`;
 `frameTouchSheet` and `prepareFrame` in `apps/desktop/src/renderer/frame.ts`; `ModeView.tsx`; `renderJobMode`,
-`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's schema in `service-params.ts`.
+`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's check in `service-checks.ts`.
 
 Tests: `packages/core/src/modes.test.ts` (1: a viewport's device, or the one its width suggests, with phones and tablets
 as touch). `apps/desktop/src/shared/render-job.test.ts` (1, and a case in 2 others: the default tablet and mobile modes'

@@ -11,7 +11,7 @@ import { inspecting, InspectorStage, PanelColumn, SelectedStyles, slowly } from 
  * absolutely), appearance, stroke and text. Values are steps of the spacing scale or the project's tokens.
  */
 const meta = {
-  title: "Parity/Inspector/Styles",
+  title: "Parity/Inspector/Sections/Styles",
   component: SelectedStyles,
   decorators: [
     (Story, { parameters }) => {
