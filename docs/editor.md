@@ -287,8 +287,8 @@ as the rest of the canvas. Now it rests while nothing moves, and still follows e
 
 Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/desktop/src/renderer/frame.ts`, registered by
 `ModeView.tsx`. When to measure is `packages/editor/src/overlay-measuring.ts` (`overlayDesigns`, `drawsOver`,
-`settleUntil`, `measuresNext`), and what wakes it is the measuring effect in `canvas/CanvasOverlay.tsx`, with its
-`animates`.
+`settleUntil`, `measuresNext`), and what wakes it is `canvas/overlay-scheduler.ts`, which every overlay over the canvas
+shares since PAR-986 (see One scheduler for every overlay).
 
 Tests:
 
@@ -338,8 +338,8 @@ nothing outlined, since the wheel woke it, and the inspector's took as long with
 in the profile. Earlier the same day, with other sessions using the machine, the same zooms ran at 6 to 15 frames a
 second before.
 
-Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
-ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`. `pnpm perf`'s `zoom at 100%`,
+Code: `apps/desktop/src/renderer/canvas/overlay-scheduler.ts` (`followCamera` and its ResizeObserver, shared by every
+overlay since PAR-986), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`. `pnpm perf`'s `zoom at 100%`,
 `zoom hovering a layer` and `zoom with a layer selected` runs (`apps/desktop/scripts/perf.ts`) report `outline off`, and
 `--runs` measures only the runs named.
 
@@ -353,6 +353,56 @@ Tests:
 
 Gaps: the frame rate is measured by `pnpm perf`, not by a test. Wheel zooming over a layer in the real window was
 checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the canvas.
+
+### One scheduler for every overlay (PAR-986)
+
+Five things are drawn over the frames and follow them: the selection's outlines, labels and handles, the text editor,
+the tab order, the element inspector and an agent's measurements. Only the first measured when something could have
+moved them (PAR-522) and in the frame the camera moved (PAR-653); the other four measured in an animation frame of their
+own, every frame, for as long as they showed. Now one scheduler for each canvas area decides when all of them measure.
+
+- **They measure together.** Each overlay says whether it shows anything, which designs' frames it draws over, how to
+  measure and how to draw. A pass measures every overlay, then draws each one whose measure changed, so the page is laid
+  out once a frame however many show. When the camera moves, the pass runs after the frame is laid out and before it's
+  painted, and every overlay is drawn in one React commit.
+- **What wakes one wakes them all,** as the selection's overlay was woken before: the selection, hover, tool and
+  editing, View's settings, a design, tldraw's boards, a frame drawn over changing or resizing, an image or font
+  loading, and the pointer, keys and typing. After each, they measure every animation frame for half a second, and after
+  that while an animation runs in a frame one of them draws over.
+- **The text editor stays on its text in the frame the camera moves.** Measured in its own animation frame, it was drawn
+  from where the text was before the camera moved, a frame behind it while zooming. Typing and the text layer resizing
+  keep it on its text too. Measured in the running app on 2026-11-12 on the example project, React's development build,
+  editing the dashboard's greeting: typing, resizing the text layer 20 times and zooming from 48% to 244% with Ctrl and
+  the wheel ran at the same frame rates as on `main` (61, 60, about 20 and about 18 frames a second), with the editor
+  and the outline 0 px from the text in every frame of typing and resizing. Zooming, both were 7 px off over the first 3
+  frames, against 5 frames on `main`, and on it in every frame after. Hovering a layer with the tab order shown, they
+  stayed on their elements in all 160 frames of the same zoom.
+- **Marks are built from boxes.** The selection's overlay reads what's selected and the boxes it outlines from the page
+  (`readScene`), and builds its outlines, labels, handles, spacing, redlines, slots and the layout grid from those boxes
+  (`overlayMarks`), so the second half is tested from plain data.
+
+Code: `apps/desktop/src/renderer/canvas/overlay-scheduler.ts` (`scheduleOverlay`, `MeasuredOverlay`), used by
+`canvas/CanvasOverlay.tsx`, `canvas/TextEditor.tsx`, `canvas/TabOrderOverlay.tsx`,
+`explorations/code-panel/InspectOverlay.tsx` and `agent/AgentPresence.tsx`'s `MeasureLabel`. `readScene` is in
+`canvas/CanvasOverlay.tsx`, and `overlayMarks` and `redlines` in `canvas/overlay-marks.ts`. When to measure is still
+`packages/editor/src/overlay-measuring.ts`.
+
+Tests:
+
+- `canvas/overlay-marks.test.ts` (19): a selected layer outlined thick where it was picked and dashed elsewhere, named
+  with its size in the design's pixels, with handles, and without them while locked, inside an instance, dragged or with
+  another tool; several layers' box, count and shared handles; a design's frame handles and frame size; a hovered
+  layer's outline and Alt's redlines from the selection, from another frame and to its parent; snapping's distances in
+  place of Alt's; padding and gap handles; slots; and the layout grid's columns.
+- `canvas/CanvasOverlay.test.ts`, "following the camera" (2), in Chrome: the selected layer's outline, and now the text
+  editor, where they're drawn as each of three frames the camera moves in is about to be painted, which for the editor
+  is where it settles once the camera rests. The editor's fails against the editor as it was.
+- `packages/editor/src/overlay-measuring.test.ts`: when to measure, as before.
+
+Gaps: the scheduler's waking is covered by the overlays' tests and checked in the app, not tested on its own. The
+inspector's overlay lives only in the Code panel exploration, and an agent's measurement labels need an agent at work;
+neither was tried in the app. A zoom starting puts the editor and the outline a few pixels off for a few frames, as on
+`main`.
 
 ### One reading of a frame for every gesture (PAR-967)
 
@@ -436,7 +486,7 @@ grey, or "off scale" in amber when it isn't a whole or half step.
   so the line stays the only red.
 
 Code: `RedlineView` and `redlineLabel`, which places the label, in `apps/desktop/src/renderer/canvas/Redline.tsx`.
-`canvas/CanvasOverlay.tsx` measures the lines (`redlines`) and draws them.
+`canvas/overlay-marks.ts` measures the lines (`redlines`), which `canvas/CanvasOverlay.tsx` draws.
 
 Tests:
 
@@ -4245,7 +4295,8 @@ picker.
   holding that character, or the space or punctuation there when it isn't a word, on any line. Enter, the text tool and
   the insert picker select the whole text, so typing replaces it. A double-click that lands off the characters (between
   lines, in padding) selects the whole text too.
-- **It stays on the text.** The editor is measured against the text every frame while it's open, so it moves and scales
+- **It stays on the text.** The editor is measured against the text with the canvas's other overlays (PAR-986): in the
+  frame the camera moves, and after typing, a change to the design or a frame, or a font loading. So it moves and scales
   with the camera as the canvas pans and zooms, and with the layout when something around the text moves. The text it
   covers is hidden meanwhile, and shows again when the editor closes.
 - **It wraps where the text wraps.** Text that wraps (auto height, fixed, or a component's text that wraps) is edited in
@@ -4296,11 +4347,11 @@ Code: what the editor edits, what it selects, the modes and switching between th
 in one state, `wordAt`, `openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a
 switch writes and a reset clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The
 editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the
-text's own ranges, measures the text each frame, its content box and its own scale through `frameGeometry`
-(`canvas/frame-geometry.ts`, PAR-967), and handles the keys. The double-click passes its point through
-`SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. A switch's edit is `textSizingEdit` in
-`packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The agent's skill says how text
-sizes in `packages/cli/skills/document.md`.
+text's own ranges, measures the text when the canvas's overlays do (`canvas/overlay-scheduler.ts`), its content box and
+its own scale through `frameGeometry` (`canvas/frame-geometry.ts`, PAR-967), and handles the keys. The double-click
+passes its point through `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. A switch's edit
+is `textSizingEdit` in `packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The
+agent's skill says how text sizes in `packages/cli/skills/document.md`.
 
 Tests:
 
@@ -5547,7 +5598,7 @@ Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerF
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
 For edits: `stampChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`, wired in its `start`; the
-`codeChanged` reply in `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
+`codeChanged` method in `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
 `renderer/workspace.ts`; `frameKeys` and `drawnComponents` in `shared/render-job.ts`; `stale` in `useFrameBitmap` and
@@ -7656,6 +7707,27 @@ desktop.
 `packages/cli/src/execute.test.ts` exercises both actual entry points against local RPC: discovery, stdin and file
 input, explicit labels/tabs, defaults, retry patches, invalid requests, success output and images, failed execution and
 desktop errors. It also checks that caller identity travels separately from operation parameters.
+
+### How long a snippet can run (PAR-1037)
+
+A snippet can compute for 5 seconds between `await`s and run for 2 minutes in all, renders and screenshots included
+(`agentLimits` in `packages/agent/src/run.ts`). Past either, it stops and fails like any other failed call, with
+`execution_failed`, an `editId` and nothing changed, and the message says which limit it reached. The tab's next call
+still runs, with the values earlier calls left in its context. The app's own snippets, which export or report a list of
+designs, have no limit on the whole run, only on computing between `await`s (`appLimits`).
+
+Each tab's context runs its own promise jobs (`microtaskMode: "afterEvaluate"`), and only while something is evaluated
+in it, under that evaluation's timeout. So code after an `await` runs under a timeout too: when an API call settles,
+`run` evaluates an empty script in the context, which runs what the snippet does next. The call's result reaches the
+snippet as a promise of the context, so its next step is already queued there. Once the run's time is spent, its API
+calls throw, so a loop of awaited calls stops. A call that settles then leaves the snippet's promise unsettled, since
+settling it would queue the snippet's next step for the tab's next call to run. A worker, which could also stop a loop,
+would make every call asynchronous and lose the tab's values when stopped.
+
+`packages/agent/src/run.test.ts` (6 of its 135, "time limits"): a value kept for the tab's next call; a loop after an
+`await` and a loop of awaited screenshots each stopped, changing nothing, with the next call keeping the tab's values; a
+call that settles once the run's time is spent kept out of the tab's next call; a call awaited after it settled; and
+renders slower than the computing limit finishing within the run's time.
 
 ### Shared desktop operation contracts (PAR-452)
 

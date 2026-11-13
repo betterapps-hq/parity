@@ -1,17 +1,17 @@
-import { type ChildProcess, spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { isText } from "@parity-app/core/values/evaluate"
-import { killTree } from "../shared/process-tree.ts"
+import { endedByItself, lastLines, type Lifecycle } from "@parity-app/processes"
 import type { ProjectProcess, ServerKind } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
+import { spawnChild } from "./children.ts"
 import { forgetProject, type ProcessEntry, type ProcessHandle, trackProcess } from "./processes.ts"
 
 /**
  * The one place Parity starts, watches and stops the servers a project needs: Storybook now, and dev servers, `wrangler
  * dev` and test runners next. It keeps each server's port and what it printed, so a lens can find a server and show why
  * one failed, and it stops everything it started for a project when the project closes, and everything when the service
- * exits. A server that was already running is listed and its port known, but never stopped. When main ends or replaces
- * the service, it kills the service's whole process tree, servers included, since a killed process runs no exit handler.
+ * exits. A server that was already running is listed and its port known, but never stopped. Each server is started,
+ * timed and stopped through the service's one child lifecycle (`children.ts`), which also ends it with the service.
  */
 
 /** Who a server runs for, and how it's listed. */
@@ -49,7 +49,7 @@ export interface ManagedServer {
   ready: Promise<string>
   /** Settles once its process has ended, stopped or crashed, saying how: `exit code 1`, or `signal SIGTERM`. */
   exited: Promise<string>
-  /** What it printed lately, oldest first. */
+  /** The end of what it printed. */
   log(): string
   /** Stops it and every process it started. Its exit then shows as stopped, not crashed. */
   stop(): void
@@ -59,10 +59,8 @@ interface Managed {
   entry: ServerEntry
   url: string
   port: number
-  child?: ChildProcess
-  output: string[]
-  outputLength: number
-  stopping: boolean
+  /** Its process, for one Parity started. */
+  life?: Lifecycle
   /** Set once it's listed as failed to start, so the exit its stopping causes doesn't replace the reason. */
   failed?: boolean
 }
@@ -71,37 +69,24 @@ const managed = new Map<string, Managed>()
 const defaultStartTimeout = 180_000
 const readyInterval = 750
 
-/** How much of what a server printed is kept, in characters. */
-const logLimit = 16_000
-
 /** Starts a server, lists it, and keeps its output, until it answers at its URL. */
 export function startServer(spec: ServerSpec): ManagedServer {
   stopServer(spec.id)
   const port = portOf(spec.url)
 
-  const child = spawn(spec.command, spec.args, {
-    cwd: spec.cwd,
-    env: spec.env ?? process.env,
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true
-  })
-
-  const item: Managed = { entry: spec, url: spec.url, port, child, output: [], outputLength: 0, stopping: false }
+  const life = spawnChild(spec.command, spec.args, { cwd: spec.cwd, env: spec.env ?? process.env })
+  const item: Managed = { entry: spec, url: spec.url, port, life }
   managed.set(spec.id, item)
-  const keep = (chunk: Buffer) => append(item, chunk.toString())
-  child.stdout?.on("data", keep)
-  child.stderr?.on("data", keep)
-
   const starting: ProcessEntry = { ...listing(spec), status: "starting", url: spec.url }
 
-  if (child.pid) {
-    starting.pid = child.pid
+  if (life.pid) {
+    starting.pid = life.pid
   }
 
   const tracking = trackProcess(starting, { stop: () => stopServer(spec.id), restart: spec.restart })
 
-  const exited = watchExit(spec, item, tracking)
-  const ready = waitUntilReady(spec, item, tracking, exited)
+  const exited = watchExit(spec, item, life, tracking)
+  const ready = waitUntilReady(spec, item, life, tracking)
   // A caller that drops `ready` still sees the failure in the processes list.
   ready.catch(() => undefined)
 
@@ -109,50 +94,37 @@ export function startServer(spec: ServerSpec): ManagedServer {
     id: spec.id,
     url: spec.url,
     port,
-    pid: child.pid,
+    pid: life.pid,
     ready,
     exited,
-    log: () => item.output.join(""),
+    log: () => life.tail(),
     stop: () => stopServer(spec.id)
   }
 }
 
 /** Settles once the server's process has ended, however it ended, and lists it as stopped or crashed. */
-function watchExit(spec: ServerSpec, item: Managed, tracking: ProcessHandle): Promise<string> {
-  const child = item.child!
-
-  return new Promise((resolve) => {
-    const end = (how: string) => {
-      if (managed.get(spec.id) === item) {
-        managed.delete(spec.id)
-      }
-
-      if (item.stopping) {
-        tracking.set("stopped")
-      } else if (!item.failed) {
-        tracking.set("failed", { error: `Stopped by itself, with ${how}` })
-      }
-
-      resolve(how)
+function watchExit(spec: ServerSpec, item: Managed, life: Lifecycle, tracking: ProcessHandle): Promise<string> {
+  return life.exited.then((exit) => {
+    if (managed.get(spec.id) === item) {
+      managed.delete(spec.id)
     }
 
-    child.on("exit", (code, signal) => end(code === null ? `signal ${signal}` : `exit code ${code}`))
-    // A command that can't run at all, as one that isn't installed, never starts, so it never exits.
-    child.on("error", (error) => {
-      if (child.pid === undefined) {
-        end(error.message)
-      }
-    })
+    if (exit.stopped) {
+      tracking.set("stopped")
+    } else if (!item.failed) {
+      tracking.set("failed", { error: `Stopped by itself, with ${exit.how}` })
+    }
+
+    return exit.how
   })
 }
 
 async function waitUntilReady(
   spec: ServerSpec,
   item: Managed,
-  tracking: ProcessHandle,
-  ended: Promise<string>
+  life: Lifecycle,
+  tracking: ProcessHandle
 ): Promise<string> {
-  const { child } = item
   const timeout = spec.startTimeout ?? defaultStartTimeout
   const began = performance.now()
 
@@ -162,19 +134,28 @@ async function waitUntilReady(
     durationMs: Math.round((performance.now() - began) * 10) / 10
   })
 
-  let stoppedFirst = false
+  let timedOut = false
+  let passed: () => void = () => undefined
 
-  const exited = ended.then((how) => {
-    stoppedFirst = true
-    throw new Error(`${spec.name} stopped (${how}):\n${tail(item)}`)
+  // Fails as the deadline passes, without waiting for the process to end.
+  const late = new Promise<never>((_, reject) => {
+    passed = () => {
+      timedOut = true
+      reject(new Error(`${spec.name} didn't start within ${timeout / 1000} seconds:\n${life.tail().trim()}`))
+    }
   })
 
-  exited.catch(() => undefined)
+  late.catch(() => undefined)
+  const cancel = life.deadline(timeout, passed)
+
+  const ended = life.exited.then((exit) => {
+    throw new Error(exit.stopped ? `${spec.name} was stopped before it started` : endedByItself(spec.name, exit))
+  })
+
+  ended.catch(() => undefined)
 
   const answering = (async () => {
-    const deadline = Date.now() + timeout
-
-    while (Date.now() < deadline && child!.exitCode === null && !item.stopping) {
+    while (life.running && !life.stopping) {
       if (await spec.ready(spec.url).catch(() => false)) {
         return spec.url
       }
@@ -182,26 +163,21 @@ async function waitUntilReady(
       await new Promise((resolve) => setTimeout(resolve, readyInterval))
     }
 
-    if (item.stopping) {
-      throw new Error(`${spec.name} was stopped before it started`)
-    }
-
-    throw new Error(`${spec.name} didn't start within ${timeout / 1000} seconds:\n${tail(item)}`)
+    // It ended, or was told to: `ended` or `late` says why.
+    return new Promise<never>(() => undefined)
   })()
 
   try {
-    const url = await Promise.race([answering, exited])
+    const url = await Promise.race([answering, ended, late])
+    cancel()
     tracking.set("running")
     track("server.started", server())
 
     return url
   } catch (error) {
-    if (!item.stopping) {
-      track("server.failed", {
-        ...server(),
-        reason: stoppedFirst ? "exited" : "timeout",
-        output: item.output.join("").trimEnd().split(/\r?\n/).slice(-50).join("\n")
-      })
+    // One stopped from the list or by its project's closing hasn't failed.
+    if (timedOut || !(await life.exited).stopped) {
+      track("server.failed", { ...server(), reason: timedOut ? "timeout" : "exited", output: lastLines(life.tail()) })
       item.failed = true
       tracking.set("failed", { error: error instanceof Error ? error.message : String(error) })
 
@@ -209,9 +185,7 @@ async function waitUntilReady(
         managed.delete(spec.id)
       }
 
-      if (child!.pid && child!.exitCode === null) {
-        killTree(child!.pid)
-      }
+      life.stop()
     }
 
     throw error
@@ -224,14 +198,7 @@ async function waitUntilReady(
  */
 export function adoptServer(entry: ServerEntry & { url: string }): void {
   stopServer(entry.id)
-  managed.set(entry.id, {
-    entry,
-    url: entry.url,
-    port: portOf(entry.url),
-    output: [],
-    outputLength: 0,
-    stopping: false
-  })
+  managed.set(entry.id, { entry, url: entry.url, port: portOf(entry.url) })
   trackProcess({ ...listing(entry), status: "running", url: entry.url, startedBy: "elsewhere" })
 }
 
@@ -244,11 +211,7 @@ export function stopServer(id: string): void {
   }
 
   managed.delete(id)
-  item.stopping = true
-
-  if (item.child?.pid && item.child.exitCode === null) {
-    killTree(item.child.pid)
-  }
+  item.life?.stop()
 }
 
 /** A server the manager knows, started or adopted: where it answers and who started it. */
@@ -264,7 +227,7 @@ export interface KnownServer {
 
 /** The servers the manager knows, for one project or all, as a lens or a reuse check looks for one. */
 export function knownServers(projectId?: string): KnownServer[] {
-  return [...managed.values()].flatMap(({ entry, url, port, child }): KnownServer[] =>
+  return [...managed.values()].flatMap(({ entry, url, port, life }): KnownServer[] =>
     projectId === undefined || entry.projectId === projectId
       ? [
           {
@@ -273,8 +236,8 @@ export function knownServers(projectId?: string): KnownServer[] {
             projectId: entry.projectId,
             url,
             port,
-            pid: child?.pid,
-            startedBy: child ? "parity" : "elsewhere"
+            pid: life?.pid,
+            startedBy: life ? "parity" : "elsewhere"
           }
         ]
       : []
@@ -283,7 +246,7 @@ export function knownServers(projectId?: string): KnownServer[] {
 
 /** What a server Parity started printed lately, or nothing for one it doesn't know or didn't start. */
 export function serverLog(id: string): string {
-  return managed.get(id)?.output.join("") ?? ""
+  return managed.get(id)?.life?.tail() ?? ""
 }
 
 /** Stops everything Parity started for a project and takes the project's processes off the list, when it closes. */
@@ -296,14 +259,6 @@ export function stopProject(projectId: string): void {
 
   forgetProject(projectId)
 }
-
-// A service that exits by itself stops its servers here. One that main kills runs no handler, so main ends its servers
-// with it (PAR-980).
-process.on("exit", () => {
-  for (const id of managed.keys()) {
-    stopServer(id)
-  }
-})
 
 /** The port it asks for when that one's free, else one the system hands out. */
 export async function choosePort(wanted: number): Promise<number> {
@@ -347,22 +302,4 @@ function portOf(url: string): number {
   const parsed = new URL(url)
 
   return Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80))
-}
-
-function append(item: Managed, text: string): void {
-  item.output.push(text)
-  item.outputLength += text.length
-
-  while (item.outputLength > logLimit && item.output.length > 1) {
-    item.outputLength -= item.output.shift()!.length
-  }
-
-  if (item.outputLength > logLimit) {
-    item.output[0] = item.output[0]!.slice(item.outputLength - logLimit)
-    item.outputLength = logLimit
-  }
-}
-
-function tail(item: Managed): string {
-  return item.output.join("").slice(-1500)
 }

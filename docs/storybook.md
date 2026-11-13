@@ -73,8 +73,11 @@ The book buttons in the Components panel and the layer panel, and the Storybook 
   there is one, else the first story. Both open through Storybook's manager (`/?path=/docs/<id>` or
   `/?path=/story/<id>`), never `iframe.html`. With nothing matched, Storybook's home opens.
 - **Where it opens.** The system browser, through Electron's window-open handler.
-- **Stopping it.** When the project's tab closes, or the service exits, Parity stops the Storybook it started: the whole
-  process tree on Windows, and the direct child process elsewhere.
+- **Stopping it.** When the project's tab closes, or the service exits, Parity stops the Storybook it started and every
+  process that Storybook started. When main quits or replaces the service, it ends the service's whole process tree,
+  Storybook included (PAR-980). A service that crashes can't stop anything, and its children can't be found from it once
+  it's gone, so the service tells main the ids of the processes it's running as each starts and ends, and main ends
+  their trees when the service exits by itself (PAR-1019).
 - **Performance stats leave it out,** because it runs outside the app.
 
 ### What reaches the UI
@@ -124,7 +127,8 @@ components open on their docs page.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
-  follow. See [web-and-backend.md](proposals/web-and-backend.md).
+  follow. It starts, times and stops each server through the same child lifecycle as builders, installs and the type
+  checker's worker (PAR-987). See [web-and-backend.md](proposals/web-and-backend.md).
 - **Mock data in stories.** MSW handlers built from the OpenAPI document are served to Storybook as well as to rendered
   routes. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Stories as tests, later.** Running stories through Storybook's Vitest add-on, once the core works. See

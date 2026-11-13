@@ -780,6 +780,9 @@ importers:
 
   packages/processes:
     dependencies:
+      '@parity-app/channel':
+        specifier: workspace:*
+        version: link:../channel
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core

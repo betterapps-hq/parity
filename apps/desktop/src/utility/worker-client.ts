@@ -1,5 +1,7 @@
 import type { Worker } from "node:worker_threads"
 import { type Channel, createChannel, type Method, type MethodMap, nodePort } from "@parity-app/channel"
+import type { Lifecycle } from "@parity-app/processes"
+import { workerChild } from "./children.ts"
 
 /** Asks a worker thread for results, starting it when asked and stopping it once it has sat idle. */
 export interface WorkerClient<Remote extends MethodMap<Remote>> {
@@ -23,15 +25,17 @@ export interface WorkerClientOptions {
 }
 
 interface Running<Remote extends MethodMap<Remote>> {
-  worker: Worker
+  life: Lifecycle
   channel: Channel<Record<never, Method>, Remote>
-  idle?: ReturnType<typeof setTimeout>
+  /** Calls off the idle stop. */
+  busy?: () => void
 }
 
 /**
  * A client for a worker thread that keeps memory between requests, such as the type checker's programs. The worker
  * stops `idleMs` after its last answer, never while a request waits, and the next request starts a new one. A request
- * made while the old one is stopping goes to the new one.
+ * made while the old one is stopping goes to the new one. The worker is started, timed and stopped through the
+ * service's one child lifecycle (`children.ts`).
  */
 export function workerClient<Remote extends MethodMap<Remote>>({
   start,
@@ -43,19 +47,12 @@ export function workerClient<Remote extends MethodMap<Remote>>({
 
   const launch = (): Running<Remote> => {
     const worker = start()
-    const running: Running<Remote> = { worker, channel: createChannel() }
-    running.channel.connect(
-      nodePort(worker, {
-        closedBy: {
-          error: (cause) => failed(cause instanceof Error ? cause : new Error(String(cause))),
-          exit: (code) => new Error(`The worker stopped with exit code ${String(code)}`)
-        }
-      })
+    const running: Running<Remote> = { life: workerChild(worker), channel: createChannel() }
+    running.channel.connect(nodePort(worker))
+    // Once it has failed or exited, the next request starts another, and what it hadn't answered fails with why.
+    void running.life.exited.then(({ code, error }) =>
+      end(running, error ? failed(error) : new Error(`The worker stopped with exit code ${String(code)}`))
     )
-    // Once it has failed or exited, the next request starts another.
-    const forget = () => end(running)
-    worker.on("error", forget)
-    worker.on("exit", forget)
     worker.unref()
 
     return running
@@ -63,7 +60,7 @@ export function workerClient<Remote extends MethodMap<Remote>>({
 
   /** Forgets the worker, so the next request starts another, failing what it hasn't answered with `reason`. */
   const end = (running: Running<Remote>, reason?: Error) => {
-    clearTimeout(running.idle)
+    running.busy?.()
 
     if (reason) {
       running.channel.close(reason)
@@ -74,24 +71,19 @@ export function workerClient<Remote extends MethodMap<Remote>>({
     }
   }
 
+  // Each request calls the idle stop off, so it can only pass with nothing waiting.
   const idleLater = (running: Running<Remote>) => {
-    clearTimeout(running.idle)
-    running.idle = setTimeout(() => {
-      if (current !== running || running.channel.waiting > 0) {
-        return
-      }
-
+    running.busy?.()
+    running.busy = running.life.deadline(idleMs, () => {
       current = undefined
-      void running.worker.terminate()
       stopped?.()
-    }, idleMs)
-    running.idle.unref()
+    })
   }
 
   return {
     request(method, params) {
       const running = (current ??= launch())
-      clearTimeout(running.idle)
+      running.busy?.()
 
       const answered = () => {
         if (running.channel.waiting === 0 && current === running) {
@@ -115,7 +107,7 @@ export function workerClient<Remote extends MethodMap<Remote>>({
       }
 
       end(running, reason)
-      void running.worker.terminate()
+      running.life.stop()
     }
   }
 }

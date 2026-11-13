@@ -2,13 +2,16 @@ import { createScrubber, type Scrubber } from "@parity-app/telemetry"
 
 /**
  * A process's scrubber for what Sentry sends and for its telemetry's attributes, which takes the open projects' `.env`
- * values as they change (PAR-672). The service reads them as projects open and close, and main passes them on.
+ * values as they change (PAR-672). The service reads them as projects open and close and sends them to main, which
+ * keeps them: windows scrub without them, and main scrubs them from what windows send (PAR-983).
  */
 export interface SecretScrubbing {
   /** A copy of the value with secrets replaced, as `Scrubber.value`. */
   value<T>(input: T): T
   /** The text with secrets replaced, as `Scrubber.text`. */
   text(input: string): string
+  /** The values given to `use`, last. */
+  secrets(): readonly string[]
   /** Scrubs these values from now on, in place of those given before, here and in the telemetry given to `follow`. */
   use(secrets: readonly string[]): void
   /** Gives this process's telemetry the values now and whenever they change. */
@@ -23,6 +26,7 @@ export function secretScrubbing(): SecretScrubbing {
   return {
     value: (input) => scrubber.value(input),
     text: (input) => scrubber.text(input),
+    secrets: () => secrets,
     use(next) {
       secrets = [...next]
       scrubber = createScrubber({ secrets })

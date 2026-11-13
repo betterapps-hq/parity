@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Name what keeps the console's badges when the end-to-end reset fails",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

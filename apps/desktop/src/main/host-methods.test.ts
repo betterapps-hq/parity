@@ -137,7 +137,7 @@ describe("Parity's own page", () => {
 describe("who may ask", () => {
   it("leaves only what the render windows send open to every sender", () => {
     // Opening a method to every sender is a choice: it's made in `hostMethods` with `from: "any"`, and then here.
-    expect(hostMethodNames.filter((method) => hostMethod(method)?.open)).toEqual(["record", "telemetrySecrets"])
+    expect(hostMethodNames.filter((method) => hostMethod(method)?.open)).toEqual(["record"])
   })
 
   it("refuses every other method from anything but the Parity window's own page", async () => {
@@ -173,12 +173,12 @@ describe("who may ask", () => {
     expect(handled).toEqual([{ method: "pickFolder", params: "Export to", from: parityWindow }])
   })
 
-  it("gives an open method's handler the sender, whoever it is", async () => {
-    const { ask, tell, handled } = main()
-    expect(await ask(render, "telemetrySecrets")).toBe("telemetrySecrets answered")
+  it("gives an open method's handler the sender, whoever it is", () => {
+    const { tell, handled } = main()
+    tell(render, "record", { name: "frame.rendered" })
     tell(guest, "record", { name: "app.started" })
     expect(handled).toEqual([
-      { method: "telemetrySecrets", params: undefined, from: render },
+      { method: "record", params: { name: "frame.rendered" }, from: render },
       { method: "record", params: { name: "app.started" }, from: guest }
     ])
   })

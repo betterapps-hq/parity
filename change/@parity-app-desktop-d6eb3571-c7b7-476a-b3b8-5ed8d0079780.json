@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Build the window's stores on one primitive and its slow calls on one helper",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

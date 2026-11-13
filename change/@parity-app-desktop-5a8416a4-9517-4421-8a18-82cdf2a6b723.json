@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "A control's stories show it alone, and a Demo story shows what it writes",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

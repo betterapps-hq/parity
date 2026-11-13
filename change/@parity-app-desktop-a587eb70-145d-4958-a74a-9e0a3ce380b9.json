@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Hold Session Replay while sleeping.e2e.ts counts DOM nodes",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

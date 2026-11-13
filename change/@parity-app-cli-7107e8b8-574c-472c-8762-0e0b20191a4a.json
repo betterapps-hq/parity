@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Agent snippets are stopped once they run for 2 minutes or compute for 5 seconds between awaits, including after their first await, and fail without changing anything",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

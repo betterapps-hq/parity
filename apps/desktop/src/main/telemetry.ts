@@ -52,6 +52,7 @@ import { type FailedFramePicture, failedFrameFor } from "./frame-telemetry.ts"
 import type { HangWatchMessage, HangWatchReport, HangWatchStart } from "./hang-watch.ts"
 import { createLogFileSink, createLogFiles, readLogEvents } from "./log-files.ts"
 import { createReportOnlyGate } from "./report-only.ts"
+import { scrubRecorded, scrubReplays } from "./window-scrubbing.ts"
 
 /**
  * Parity's errors, crashes and hangs go to Sentry's `parity-desktop` project, on by default (PAR-620). Windows and the
@@ -113,7 +114,8 @@ export interface TelemetryStart {
 
 /**
  * Secrets are scrubbed from everything Sentry sends, the windows' and the service's events included (PAR-621), with the
- * open projects' `.env` values the service reads (PAR-672).
+ * open projects' `.env` values the service reads (PAR-672). Only main has those values: a project's code runs in every
+ * window's page, so windows scrub without them and main scrubs them from what windows send (PAR-983).
  */
 export const scrubber = secretScrubbing()
 
@@ -252,6 +254,9 @@ export function startTelemetry(
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })
     ]
   })
+  // Windows' replays go to the transport without `beforeSend`, so the `.env` values windows don't have are scrubbed
+  // from them here (PAR-983).
+  Sentry.getClient()?.on("beforeEnvelope", (envelope) => scrubReplays(envelope, scrubber))
   // The test pass tags everything from main's scope, which windows' and the service's events join (PAR-630).
   Sentry.setTags(runTags(runVariables))
   // Started enabled, so its integrations are set up, then turned to the level; every send checks it again.
@@ -367,8 +372,9 @@ export function recordForwarded(sent: unknown, process?: Envelope["process"]): E
     return undefined
   }
 
-  // A window's events are named by the window that sent them, not by what the page says.
-  const envelope = process ? { ...read.data, process } : read.data
+  // A window's events are named by the window that sent them, not by what the page says, and lose the `.env` values
+  // the page never has (PAR-983).
+  const envelope = scrubRecorded(process ? { ...read.data, process } : read.data, scrubber)
 
   if (!forward) {
     return envelope
