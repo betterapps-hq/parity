@@ -31,18 +31,22 @@ CSS and attributes, accessibility findings and live changes. Writing back to the
 
 ## The sources it needs
 
-Five sources, each answering something no other one can. Four exist today; the router is new.
+Each source answers something no other one can. Settled on 2026-11-13:
 
-| Source             | Gives                                                                | Without it                                                                                                 |
-| ------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| TypeScript checker | Which components exist, their props and the props' types             | Only components something already draws show up, with no props panel and nothing to make sample props from |
-| Source tags        | The file, line and column that wrote each element                    | No link from a layer to its code, so nothing to open, and nowhere to write back to later                   |
-| React's tree       | Component instances, where each starts and ends, their props' values | Layers are bare elements: no component boundaries, and nothing for a library component's parts             |
-| The DOM            | Computed CSS, attributes, the accessibility tree and axe findings    | No Design panel values and no accessibility checks                                                         |
-| The router         | The routes, so pages can be grouped and drawn                        | Components only, no pages                                                                                  |
+| Source             | Gives                                                                                   | Without it                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Router adapter     | The routes: each URL pattern, how routes nest, and their params                         | Components only, no pages                                                                                  |
+| TypeScript checker | Which components exist, their props and the props' types                                | Only components something already draws show up, with no props panel and nothing to make sample props from |
+| Vite plugin        | Draws the frames, says which files changed, adds the source tags, installs React's hook | Nothing draws                                                                                              |
+| React's tree       | The elements and instances each component owns, and the DOM nodes each one draws        | Layers are bare elements, with no component boundaries                                                     |
+| The DOM            | Computed CSS, attributes, the accessibility tree and axe findings                       | No Design panel values and no accessibility checks                                                         |
+| Theme reader       | Tailwind classes and theme tokens, to name the DOM's values                             | The panel shows `16px` and hex values instead of `p-4` and `primary`                                       |
 
-Vite isn't a source but the host for three of them: it draws the frames, runs the transform that adds the source tags,
-and says which files changed.
+The source tags are the file, line and column that wrote each element, so a layer can open its code, and writing back
+knows where to go. Source maps could take their place: in development React 19 keeps a stack trace for each element it
+creates (`_debugStack`), and Vite's source maps turn that into the original file and line, for component instances and
+packages too, which the tags don't reach. A spike decides between them: how long resolving a page's elements takes, and
+whether React keeps a stack for every element.
 
 Why the overlap doesn't make any of them optional:
 
@@ -54,13 +58,17 @@ Why the overlap doesn't make any of them optional:
   reliable than a tag.
 - **The DOM doesn't replace React's tree.** It has the elements and their CSS, but not the components around them.
 
-### React's tree: the root walk or DevTools' hook
+### React's tree, through DevTools' hook
 
-The hook isn't another source: it's a better way into React's tree than the root walk Parity does today.
+The hook isn't another source: it's a better way into React's tree than the root walk Parity does today. Code read
+before it runs can't say which instance drew a DOM node: how many cards a list draws, which branch of a condition drew,
+or where `children` ended up all settle only when the component runs.
 
-React looks for `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` when it loads. Parity controls the frame's script order, so it
-can install its own hook before the project's React. React then calls `inject` with its renderer and `onCommitFiberRoot`
-after every commit. Compared with walking from the root, as `drawn-nodes.ts` does today, the hook:
+React looks for `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` when it loads. The Vite plugin installs Parity's own hook in a
+module the frame imports before the project's React. The guest never loads the project's `index.html`, so Fast Refresh
+is off there and nothing else claims the hook; in a page drawn from the app's own entry, Parity's hook goes first and
+Fast Refresh attaches to it. React then calls `inject` with its renderer and `onCommitFiberRoot` after every commit.
+Compared with walking from the root, as `drawn-nodes.ts` does today, the hook:
 
 - **finds every root**, including ones a library creates;
 - **reports every commit**, so a state change, a timer or a fetch that redraws the canvas is seen, not only a saved
@@ -76,6 +84,17 @@ it:
    inspects props for DevTools' UI. More complete, but a large dependency built for a different interface.
 
 Recommendation: Parity's own hook, growing from `drawn-nodes.ts`.
+
+### Stopping at the instance
+
+The viewer opens up one component at a time. In development React 19 gives each element an owner, the component whose
+code created it, so one rule covers every view: show what the component owns.
+
+- **A component:** its own elements are layers, and each component instance it renders is a leaf.
+- **A page:** the same, with the route's component as the owner. Its instances are leaves, and nothing inside them is
+  opened.
+
+So the viewer never walks inside a package's components, and needs neither their source nor their props' values.
 
 ### React Compiler: not needed
 
@@ -101,6 +120,7 @@ Every HTML element maps to a layer kind, and the kind decides the panel. A first
 | Table     | `table` and its parts                                                                                       |
 | Embed     | `iframe`, `object`                                                                                          |
 | Component | A component's instance, from React's tree                                                                   |
+| Route     | A route the page draws, from the router adapter and React's tree                                            |
 
 The full table, every element in the HTML standard, is part of the work. The panel shows each layer's tag, and a tag
 that can't change shows greyed out.
@@ -121,9 +141,36 @@ gets a layout's panel, with its props above.
 
 ## Routes and pages
 
-The router adapter reads the routes and groups the canvas by page. TanStack Router comes first, as
-[app-lenses.md](app-lenses.md) decided: its route tree comes from the generated `routeTree.gen.ts`, and the router draws
-any route in a frame from memory history. The example project needs a router to build this against.
+Vite knows the entry points, but a React app usually has one: `index.html` loads `main.tsx`, and every URL goes through
+it. Which component draws `/pricing` is decided inside the router's config, along with how routes nest, their params,
+their data and their guards.
+
+- **The app draws its own pages.** A page's frame loads the app's own entry at the page's URL, so its router draws the
+  page as the browser would, inside the app's real providers.
+- **The adapter only lists the routes:** each URL pattern, how routes nest and their params. TanStack Router comes
+  first, as [app-lenses.md](app-lenses.md) decided, read from the generated `routeTree.gen.ts`.
+- **Following links** is the fallback for routers without an adapter: draw `/`, follow every `<a href>` on it, and
+  repeat. It misses pages nothing links to and can't fill in a param like `$id` alone.
+
+The example project needs a router to build this against.
+
+### Route layers
+
+A page's layers start with its routes. `/settings/billing` draws the root route, then the settings route, then the
+billing route, each inside the one before at its outlet, so Layers shows a Route layer for each, nested as they draw:
+
+```text
+Route /                    root layout
+  header, nav …
+  Route /settings          settings layout
+    aside …
+    Route /settings/billing
+      h1, Plan card instance …
+```
+
+Each Route layer is opened, since together they are the page, and the owner rule applies inside each: its own elements
+are layers and its instances are leaves. A Route layer's panel shows its path, its params, its file and its component,
+and whether it loads data or guards the page.
 
 Pages that fetch data need mock data, through MSW, and pages behind a sign-in need a signed-in user. Mock data is the
 largest piece of work here.
@@ -144,16 +191,28 @@ Parity didn't make, that takes no `className` or `style`, is wrapped in an adapt
 
 ## Order of work
 
-1. The element table and the tag-to-options table, as data in a package, with tests that run without Electron.
-2. The layer tree from React DevTools' hook and the source tags.
-3. Read-only Design panels from computed CSS and attributes.
-4. The canvas from disk: each component a board, drawn with props from its types.
-5. Change detection on commits as well as saves, and accessibility findings for each board.
-6. Routes: TanStack Router, with the example project gaining a router, then pages grouped on the canvas.
-7. Mock data for pages.
-8. Writing back.
+Pages come first, so the viewer starts by drawing the app as people use it. Logic goes in packages, with tests that run
+without Electron, and the app wires it up.
+
+| Step                                                                                         | Sources it adds                                     |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 1. The example project gains TanStack Router and a few pages                                 |                                                     |
+| 2. The router adapter lists the routes                                                       | Router adapter                                      |
+| 3. Each route a board: the app's own entry drawn at its URL, with sample params              | Vite plugin: drawing from the app's entry           |
+| 4. What the page owns: a Route layer for each route, their elements, and instances as leaves | Vite plugin installs the hook; React's tree         |
+| 5. The element table: each tag's layer kind                                                  |                                                     |
+| 6. Layers, read-only                                                                         |                                                     |
+| 7. The Design panel, read-only, from the selected element's computed CSS and attributes      | The DOM; theme reader (exists)                      |
+| 8. Every component on disk, each a board drawn with sample props from its types              | TypeScript checker (exists)                         |
+| 9. A layer's View code                                                                       | Source tags (exist) or source maps, after the spike |
+| 10. Accessibility findings for each board                                                    | The DOM: axe (exists, for agents today)             |
+| 11. Mock data for pages that fetch                                                           | MSW                                                 |
+| 12. Writing back                                                                             |                                                     |
 
 ## Decisions needed
 
 1. **The hook:** Parity's own, or React DevTools' backend as a dependency. Recommendation: Parity's own.
-2. **The example project:** add TanStack Router, so routes have something to be built against.
+2. **The example project:** add TanStack Router as a dependency, so routes have something to be built against.
+3. **Children passed into an instance on a page:** in `<Card><p>Hi</p></Card>` the page owns the `p`, drawn inside the
+   Card. It shows either as a layer inside the Card's instance, like a slot's content, or stays hidden until the Card is
+   opened.
