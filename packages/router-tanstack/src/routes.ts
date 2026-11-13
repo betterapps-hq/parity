@@ -62,6 +62,7 @@ export function readRoutes(read: (path: string) => string | undefined): ProjectR
   }
 
   const found: ProjectRoute[] = []
+  const children = Map.groupBy(routes, (route) => route.parent)
 
   const add = (route: Omit<ProjectRoute, "file" | "params" | "component" | "loads" | "guards">, module: string) => {
     const { file, text } = resolveModule(module, read)
@@ -76,14 +77,14 @@ export function readRoutes(read: (path: string) => string | undefined): ProjectR
 
     add({ id, path, parent: parent.id, index: route.path.endsWith("/") }, route.module)
 
-    for (const child of routes.filter((each) => each.parent === route.variable)) {
+    for (const child of children.get(route.variable) ?? []) {
       visit(child, { id, path })
     }
   }
 
   add({ id: rootId, path: "/", index: false }, root)
 
-  for (const route of routes.filter((each) => each.parent === undefined)) {
+  for (const route of children.get(undefined) ?? []) {
     visit(route, { id: rootId, path: "/" })
   }
 
