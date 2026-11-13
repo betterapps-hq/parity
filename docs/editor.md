@@ -5457,7 +5457,10 @@ keeps showing its bitmap until it wakes, then draws its design again at the size
   window's height or the height kept with an earlier bitmap. It falls asleep on its bitmap when it comes, at the height
   kept with it, so it never draws on the way. The block is still, since a pulse on every frame would repaint the canvas
   the whole time. A frame on the selected board, zoomed in or while interacting draws at once, and so does one whose
-  capture failed or whose design doesn't render, so it shows why.
+  capture failed or whose design doesn't render, so it shows why. So does a frame that hugs its content and hasn't been
+  measured, as a component's board or a story, drawn from the code each time the project opens: it's fitted to what it
+  draws, then falls asleep on a bitmap taken at that width, rather than standing in as wide as its window until someone
+  comes close.
 - **Sizes hold through sleep and waking.** The frame's element keeps the height it had when it fell asleep until it's
   drawn again, and its host skips drawing while it sleeps, as a board out of view does, so the browser keeps the size it
   last had when drawn rather than an empty frame's.

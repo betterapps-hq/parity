@@ -1111,13 +1111,17 @@ const FrameTile = memo(function FrameTile({
     return firstFrame.offer(shownBitmap.current, "bitmap")
   }, [showing, firstFrame])
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
+  // A frame that hugs its content and hasn't been measured yet, as a component's board or a story drawn from the code
+  // each time, is drawn once whatever the zoom, so it's fitted to what it draws (`useFitToContent`) rather than shown,
+  // and captured, as wide as its window until someone comes close.
+  const unmeasured = hugsContent(container) && container.size?.width === undefined
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
   // and its new bitmap is taken, so it doesn't sleep on it.
-  const awake = useAwake(shown && !kept.stale && !interactive, rest, key, view)
+  const awake = useAwake(shown && !kept.stale && !interactive && !unmeasured, rest, key, view)
   // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
   // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
   // frame's own height or, for one that grows with its content, its window's (PAR-525).
-  const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive })
+  const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive: interactive || unmeasured })
   const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake && !waiting)
   useEffect(() => {
     holding.current = waiting
