@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 01:07:43 GMT",
+      "version": "0.79.0",
+      "tag": "@parity-app/desktop_v0.79.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fa022038151904b37af69337d498cc1681de0a74",
+            "comment": "A component instance's attributes have their own Attributes section, after its props"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 00:49:27 GMT",
       "version": "0.78.1",
       "tag": "@parity-app/desktop_v0.78.1",

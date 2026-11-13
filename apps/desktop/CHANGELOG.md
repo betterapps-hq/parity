@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 00:49:27 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 01:07:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.79.0
+
+Fri, 13 Nov 2026 01:07:43 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
 
 ## 0.78.1
 
