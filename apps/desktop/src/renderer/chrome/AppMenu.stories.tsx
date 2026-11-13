@@ -24,13 +24,14 @@ import { setLayout } from "./layout.ts"
 import { setPreferences } from "./preferences.ts"
 
 /**
- * The File, Edit, View, Object, Arrange and Help menus in the title bar, and the dialogs they open, over the whole
- * window. Each menu reads the active tab when it opens, so what it offers depends on what's selected.
+ * The File, Edit, View, Object, Arrange and Help menus in the title bar, on their own, and the dialogs they open, over
+ * the whole window. Each menu reads the active tab when it opens, so what it offers depends on what's selected. With no
+ * canvas beside them, zooming is unavailable.
  */
 const meta = {
   title: "Parity/Chrome/App menu",
   component: AppMenu,
-  render: () => <AppWindow />,
+  render: () => <TitleBar />,
   decorators: [Window],
   loaders: [clearNotifications]
 } satisfies Meta<typeof AppMenu>
@@ -38,6 +39,20 @@ const meta = {
 export default meta
 
 type Story = StoryObj<typeof meta>
+
+/** The menus alone, in a strip like the title bar's, with room below for a menu to open. */
+function TitleBar() {
+  return (
+    <div className="h-full bg-background text-foreground">
+      <div className="flex h-10 items-end border-b px-2">
+        <AppMenu />
+      </div>
+    </div>
+  )
+}
+
+/** For a story about what a menu item opens, or a shortcut, which the whole window has. */
+const inWindow = { render: () => <AppWindow /> }
 
 const body = () => within(document.body)
 
@@ -65,15 +80,16 @@ const pricingSelected = async () => {
 }
 
 /**
- * File with a design selected: New screen and New component first, with their keys (PAR-546), then opening projects,
- * saving, exporting it or every design, closing the tab and exiting.
+ * File with a design selected: a new tab, opening projects, saving, exporting it or every design, Settings, closing the
+ * tab and exiting. New screen and New component are Object's.
  */
 export const File: Story = {
   loaders: [pricingSelected],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("File")
-    await expectNewItemsFirst()
+    const [first] = within(body().getByRole("menu")).getAllByRole("menuitem")
+    await expect(first).toHaveTextContent(`New tab${formatKeys("Ctrl T")}`)
+    await expect(unavailable(["New screen", "Settings"])).toEqual({ "New screen": undefined, Settings: false })
   }
 }
 
@@ -110,7 +126,6 @@ export const OpenRecent: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
     await openMenu("File")
     await openSubmenu("Open recent")
   }
@@ -134,7 +149,6 @@ export const OpenRecentWhenNothingOpenedYet: Story = {
 export const FileWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("File")
   }
 }
@@ -144,6 +158,7 @@ export const FileWithNothingSelected: Story = {
  * sizes, so both ask for the folder that export asks for.
  */
 export const ExportSelectedAsItsShortcutDoes: Story = {
+  ...inWindow,
   loaders: [pricingSelected],
   play: async () => {
     const asked: (string | undefined)[] = []
@@ -185,7 +200,6 @@ export const Edit: Story = {
 export const EditWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("Edit")
   }
 }
@@ -218,15 +232,11 @@ export const View: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("View")
   }
 }
 
-/**
- * View with the panels hidden, snapping off, and the layout grid and performance stats on, which the canvas and status
- * bar behind show.
- */
+/** View with the panels hidden, snapping off, and the layout grid on. */
 export const ViewWithPanelsHidden: Story = {
   loaders: [
     async () => {
@@ -237,7 +247,6 @@ export const ViewWithPanelsHidden: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("View")
   }
 }
@@ -249,7 +258,6 @@ export const ViewWithPanelsHidden: Story = {
 export const ObjectWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("Object")
     await expectNewItemsFirst()
     await expect(unavailable(["Insert…", "Wrap in layout"])).toEqual({
@@ -263,7 +271,6 @@ export const ObjectWithNothingSelected: Story = {
 export const ObjectDesign: Story = {
   loaders: [pricingSelected],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("Object")
   }
 }
@@ -277,7 +284,6 @@ export const ObjectOneLayer: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("Object")
   }
 }
@@ -315,7 +321,6 @@ function unavailable(labels: readonly string[]): Record<string, boolean | undefi
 export const EditLayerInInstance: Story = {
   loaders: [valueInUsersCard],
   play: async () => {
-    await frameDesigns("Dashboard")
     await openMenu("Edit")
     await expect(
       unavailable(["Cut", "Copy", "Duplicate", "Delete", "Paste over selection", "Paste to replace"])
@@ -334,7 +339,6 @@ export const EditLayerInInstance: Story = {
 export const ObjectLayerInInstance: Story = {
   loaders: [valueInUsersCard],
   play: async () => {
-    await frameDesigns("Dashboard")
     await openMenu("Object")
 
     const items = [
@@ -355,7 +359,6 @@ export const ObjectLayerInInstance: Story = {
 export const ArrangeWithNothingSelected: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("Arrange")
   }
 }
@@ -376,7 +379,6 @@ export const ArrangeSeveralLayers: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("Arrange")
   }
 }
@@ -390,7 +392,6 @@ export const ArrangeThreeDesigns: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing", "Sign in", "Settings")
     await openMenu("Arrange")
   }
 }
@@ -399,7 +400,6 @@ export const ArrangeThreeDesigns: Story = {
 export const Help: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
     await openMenu("Help")
   }
 }
@@ -408,7 +408,6 @@ export const Help: Story = {
 export const DeveloperMenu: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
     await openMenu("Help")
     await openSubmenu("Developer")
     await body().findByRole("menuitemcheckbox", { name: "Performance stats" })
@@ -417,6 +416,7 @@ export const DeveloperMenu: Story = {
 
 /** Help > Developer > Install the Parity CLI on Windows, where the folder just joined PATH: a new terminal finds it (PAR-906). */
 export const InstalledParityCommand: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -431,6 +431,7 @@ export const InstalledParityCommand: Story = {
 
 /** File > Settings as they start: the dark theme, saving only when asked, snapping on, and exporting at 2x. */
 export const Settings: Story = {
+  ...inWindow,
   loaders: [
     async () => {
       await openProjects("example")
@@ -446,6 +447,7 @@ export const Settings: Story = {
 
 /** Settings changed: the theme following the system, saving automatically, the layout grid on and 3x exports. */
 export const SettingsChanged: Story = {
+  ...inWindow,
   loaders: [
     async () => {
       await openProjects("example")
@@ -462,6 +464,7 @@ export const SettingsChanged: Story = {
 
 /** Help > Keyboard shortcuts: every shortcut by group, with the keys held while dragging or clicking. */
 export const KeyboardShortcuts: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -472,6 +475,7 @@ export const KeyboardShortcuts: Story = {
 
 /** The keyboard shortcuts searched for "layer": the selection keys and the ones that act on a layer. */
 export const KeyboardShortcutsSearched: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -484,6 +488,7 @@ export const KeyboardShortcutsSearched: Story = {
 
 /** Help > Search actions, searched for "zoom", with nothing selected, so zooming to the selection is unavailable. */
 export const SearchActions: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -497,6 +502,7 @@ export const SearchActions: Story = {
  * by the keymap's name (PAR-971).
  */
 export const SearchActionsNamesWhatItDoes: Story = {
+  ...inWindow,
   loaders: [
     async () => {
       await openProjects("example")
@@ -524,6 +530,7 @@ export const SearchActionsNamesWhatItDoes: Story = {
  * File. It matches the start of words, so nothing with n, e and w scattered through its name comes up (PAR-546).
  */
 export const SearchActionsForNew: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -560,6 +567,7 @@ const searchRows = (dialog: HTMLElement) =>
  * searched for it.
  */
 export const SearchEverything: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -578,6 +586,7 @@ export const SearchEverything: Story = {
  * Search actions opens with those two under Recent, and doesn't list them again below.
  */
 export const SearchRecent: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
@@ -624,7 +633,6 @@ export const EditAfterWrapping: Story = {
     }
   ],
   play: async () => {
-    await frameDesigns("Pricing")
     await openMenu("Edit")
     await expect(body().getByRole("menuitem", { name: /^Repeat wrap in layout/ })).toBeEnabled()
   }
@@ -632,6 +640,7 @@ export const EditAfterWrapping: Story = {
 
 /** Help > About Parity: its version, the Electron and Chromium it runs on, and how it gets updates. */
 export const About: Story = {
+  ...inWindow,
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
