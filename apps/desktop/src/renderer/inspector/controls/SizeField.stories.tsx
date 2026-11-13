@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
 import { LayerPreview, type Measured, SizeSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
 import type { TokensShown } from "./field-parts.tsx"
@@ -82,27 +81,11 @@ function SizingOption({ name, shown }: { name: string; shown: TokensShown }) {
 /** W hugs its content: a Hug chip, with what that comes to after it. */
 export const Hug: Story = { render: () => <Size start={{ width: "hug" }} /> }
 
-/** W fills its parent, `w-full`. */
-export const Fill: Story = { render: () => <Size start={{ width: "fill" }} /> }
-
 /** Half the parent, typed `50%`, written as Tailwind's fraction (`w-1/2`, call 10). */
 export const Percent: Story = { render: () => <Size start={{ width: { percent: 50 } }} /> }
-
-/** Min content, from Sizing: as narrow as its longest word. */
-export const MinContent: Story = { render: () => <Size start={{ width: "min" }} /> }
 
 /** Locked at 16:9: H is Auto, set by Aspect ratio, as its hint and Sizing say, and the ratio is its own row. */
 export const AspectLocked: Story = { render: () => <Size start={{ width: 480, aspect: "16 / 9" }} /> }
 
 /** Fill, kept between 320 and 640 pixels by a min and a max, each its own row with − to take it off. */
 export const MinAndMax: Story = { render: () => <Size start={{ width: "fill", minWidth: 320, maxWidth: 640 }} /> }
-
-/** `wide` typed into W and Enter pressed: it isn't a size, so it stays, outlined, with the reason under it. */
-export const InvalidAsTyped: Story = {
-  render: () => <Size start={{ width: 520 }} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Width" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "wide{Enter}")
-  }
-}

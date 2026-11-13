@@ -82,12 +82,6 @@ export const Step: Story = { render: () => <Appearance opacity={{ percent: 50 }}
 /** Step, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
 export const Demo: Story = { ...Step, parameters: { demo: true } }
 
-/** 47.5%, on a quarter of a percent, still a step: `opacity-47.5`, unmarked. */
-export const OnAQuarterStep: Story = { render: () => <Appearance opacity={{ percent: 47.5 }} /> }
-
-/** 47.3%, finer than the steps: `opacity-[.473]`, with no mark: Tokens offers disabled, the nearest, first. */
-export const ValueOfItsOwn: Story = { render: () => <Appearance opacity={{ percent: 47.3 }} /> }
-
 /** An opacity token, `disabled`, as a chip with 50% in its hint. Up steps to `muted`; the chevron lists them. */
 export const Token: Story = { render: () => <Appearance opacity={{ token: "disabled" }} /> }
 
@@ -107,15 +101,5 @@ export const KeptInRange: Story = {
     const field = within(canvasElement).getByRole("textbox", { name: "Opacity" })
     await userEvent.clear(field)
     await userEvent.type(field, "150{Enter}")
-  }
-}
-
-/** `half` typed and Enter pressed: it isn't a percentage, so it stays, outlined, with the reason under it. */
-export const InvalidAsTyped: Story = {
-  render: () => <Appearance opacity={{ percent: 80 }} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Opacity" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "half{Enter}")
   }
 }

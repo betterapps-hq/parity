@@ -1,10 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import { Changed as MarkChanged, DoesNothing } from "./field-parts.tsx"
+import { DoesNothing } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import {
   alignChoices,
-  caseChoices,
   ClipContentField,
   clipChoices,
   cursorChoices as cursorChoicesOf,
@@ -231,19 +230,6 @@ export const AlignDoesNothing: Story = {
   )
 }
 
-/** Case: Uppercase pressed. Small caps writes `font-variant-caps`, which has no utility of its own. */
-export const Case: Story = {
-  render: () => (
-    <Toggles
-      label="Case"
-      property="text-transform"
-      choices={caseChoices}
-      inherited="none"
-      start={{ option: "uppercase" }}
-    />
-  )
-}
-
 /** Wrap set to Balance, `text-balance`, from a menu, with Wrap faint while unset. */
 export const Wrap: Story = {
   render: () => (
@@ -336,22 +322,6 @@ const strokePreview = (style: Record<string, string>) => (
   </PreviewStage>
 )
 
-/** Stroke's Style: Dashed, each option drawn as a line in it. */
-export const StrokeStyle: Story = {
-  render: () => (
-    <Menu
-      label="Style"
-      property="border-style"
-      choices={strokeStyleChoices}
-      start={{ option: "dashed" }}
-      placeholder="Solid"
-      moreLabel="More styles"
-      draw={drawStrokeStyle}
-      preview={strokePreview}
-    />
-  )
-}
-
 /** Groove, from More styles, which has no utility: `[border-style:groove]`. */
 export const StrokeStyleFromMore: Story = {
   render: () => (
@@ -396,39 +366,3 @@ export const ClipContentUnset: Story = { render: () => <Clip /> }
 
 /** Clip: `overflow-clip`, which doesn't make a scroll container, so a sticky layer inside still sticks. */
 export const ClipContent: Story = { render: () => <Clip start={{ option: "clip" }} /> }
-
-/** Scroll when needed: `overflow-auto`. */
-export const ClipScrollWhenNeeded: Story = { render: () => <Clip start={{ option: "auto" }} /> }
-
-/** Toggles changed from what they come from (PAR-1020): the dot on the corner of the row of options. */
-export const AlignChanged: Story = {
-  render: () => (
-    <MarkChanged>
-      <Toggles
-        label="Align"
-        property="text-align"
-        choices={alignChoices}
-        inherited="start"
-        start={{ option: "center" }}
-      />
-    </MarkChanged>
-  )
-}
-
-/** A menu changed from what it comes from (PAR-1020): the dot on the corner of its box. */
-export const CursorChanged: Story = {
-  render: () => (
-    <MarkChanged>
-      <Menu
-        label="Cursor"
-        property="cursor"
-        choices={cursorChoices}
-        start={{ option: "pointer" }}
-        placeholder="Auto"
-        inherits
-        draw={drawCursor}
-        preview={cursorPreview}
-      />
-    </MarkChanged>
-  )
-}

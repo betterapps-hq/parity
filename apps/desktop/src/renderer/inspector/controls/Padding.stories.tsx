@@ -80,29 +80,9 @@ export const VerticalAndHorizontal: Story = { render: () => <Padding start={[px(
 /** 16 with 24 at the bottom: Each side opens, four fields in CSS's order, writing `p-4 pb-6`, the fewest classes. */
 export const FourSides: Story = { render: () => <Padding start={[px(16), px(16), px(24), px(16)]} /> }
 
-/** 13 down, a quarter of the way between whole steps: `py-3.25`, still a step, so unmarked. */
-export const QuarterStep: Story = { render: () => <Padding start={[px(13), px(16), px(13), px(16)]} /> }
-
 /** The project's gutter token across: a chip, with what it comes to in its hint, writing `px-gutter`. */
 export const Token: Story = {
   render: () => <Padding start={[px(16), { token: "spacing-gutter" }, px(16), { token: "spacing-gutter" }]} />
-}
-
-/** 13.5 down, off the steps: no mark, and Tokens offers the nearest token first, then Create token. */
-export const OffTheSteps: Story = { render: () => <Padding start={[px(13.5), px(16), px(13.5), px(16)]} /> }
-
-/** 13.5 allowed here, with its reason under Allowed here in Tokens. */
-export const AllowedHere: Story = {
-  render: () => (
-    <Padding
-      start={[
-        { number: 13.5, allow: "Lines the text up with the photo" },
-        px(16),
-        { number: 13.5, allow: "Lines the text up with the photo" },
-        px(16)
-      ]}
-    />
-  )
 }
 
 /**
@@ -176,16 +156,6 @@ export const ShorthandTyped: Story = {
     const field = within(canvasElement).getByRole("textbox", { name: "Vertical padding" })
     await userEvent.clear(field)
     await userEvent.type(field, "8 16 4{Enter}")
-  }
-}
-
-/** `wide` typed and Enter pressed: it isn't a length, so it stays, outlined, with the reason under the row. */
-export const InvalidAsTyped: Story = {
-  render: () => <Padding start={all(px(16))} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Horizontal padding" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "wide{Enter}")
   }
 }
 

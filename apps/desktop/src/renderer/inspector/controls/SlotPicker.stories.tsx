@@ -39,9 +39,6 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** Empty: the slot's placeholder shows, and the box is empty. */
-export const Empty: Story = {}
-
 /** Filled: its layer as a chip. Clicking it selects the layer; the × clears the slot. */
 export const Filled: Story = {
   args: { layer: { id: "list", name: "Feature list", icon: <Rows3 className="size-3 shrink-0" /> } },

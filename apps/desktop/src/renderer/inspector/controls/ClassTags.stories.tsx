@@ -45,6 +45,3 @@ export const Classes: Story = { render: () => <ClassNames start={["w-full", "sm:
 
 /** Classes, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
 export const Demo: Story = { ...Classes, parameters: { demo: true } }
-
-/** None yet: the empty box says Add classes. */
-export const Empty: Story = { render: () => <ClassNames start={[]} /> }

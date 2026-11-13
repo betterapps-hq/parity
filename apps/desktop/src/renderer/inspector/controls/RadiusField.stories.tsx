@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AppearanceSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { CardPreview } from "./preview-card.tsx"
 import { inState, mixedWrites, radiusWrites } from "./writes.ts"
@@ -76,11 +75,6 @@ export const PlainValue: Story = { render: () => <Radius start={{ radius: { px: 
  */
 export const Percentage: Story = { render: () => <Radius start={{ radius: { percent: 50 } }} /> }
 
-/** 12px allowed here, with its reason in Tokens, which can stop allowing it. */
-export const AllowedHere: Story = {
-  render: () => <Radius start={{ radius: { px: 12, allow: "Matches the photo frame" } }} />
-}
-
 /**
  * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
  * radius takes any length. Typing searches the radius tokens, with the nearest to a length typed first, and 12px,
@@ -116,13 +110,4 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "-4{Enter}")
   }
-}
-
-/** Changed from what it comes from (PAR-1020): the dot on the box's corner. */
-export const Changed: Story = {
-  render: () => (
-    <MarkChanged>
-      <Radius start={{ radius: { px: 12 } }} />
-    </MarkChanged>
-  )
 }

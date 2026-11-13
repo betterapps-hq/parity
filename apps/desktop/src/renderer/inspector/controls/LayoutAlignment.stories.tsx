@@ -59,11 +59,6 @@ export const Wrapping: Story = {
   render: () => <Layout start={{ direction: "row", wrap: true, rowGap: { number: 24 }, lines: "center" }} />
 }
 
-/** A gap from a spacing token, shown as a chip: `gap-gutter`. */
-export const TokenGap: Story = {
-  render: () => <Layout start={{ direction: "row", gap: { token: "spacing-gutter" }, align: "center" }} />
-}
-
 /** Spread out by an Auto gap, a chip in Gap: space between them, the first and last at the edges, as Figma's does. */
 export const SpreadOut: Story = {
   render: () => <Layout start={{ direction: "row", gap: "auto", align: "center" }} />
@@ -79,9 +74,6 @@ export const Overlapping: Story = {
  * (`items-baseline`). The box draws them standing on one line, as text of different sizes does.
  */
 export const Baseline: Story = { render: () => <Layout start={{ direction: "row", align: "baseline" }} /> }
-
-/** Lined up by the last line, from More: their last lines line up (`items-baseline-last`). */
-export const LastBaseline: Story = { render: () => <Layout start={{ direction: "row", align: "last baseline" }} /> }
 
 /**
  * Reversed: the Reverse direction toggle beside Type is on, and its hint says the reading order no longer matches

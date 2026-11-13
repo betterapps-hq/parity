@@ -124,14 +124,3 @@ export const EditingASide: Story = {
     await userEvent.click(within(canvasElement).getByRole("button", { name: /^Top padding/ }))
   }
 }
-
-/** `-8` typed into the top padding: padding can't be negative, so it's refused, with the reason under its field. */
-export const InvalidAsTyped: Story = {
-  render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} />,
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Top padding/ }))
-    const field = within(document.body).getByRole("textbox", { name: "Top padding" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "-8{Enter}")
-  }
-}

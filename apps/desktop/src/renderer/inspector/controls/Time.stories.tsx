@@ -4,7 +4,6 @@ import { useState } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { HoverCard } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { defaultCurve, defaultDuration, type Spring, springSettle, type Time, timeMs } from "./motion-data.ts"
 import { easingWrites, timeWrites } from "./motion-writes.ts"
@@ -134,17 +133,6 @@ export const ReadFromCode: Story = { render: () => <Timing start={{ value: "0.2s
 /** A duration token, `duration-fast`, as a pill named fast, with 150ms in its hint. Up steps to normal. */
 export const Token: Story = { render: () => <Timing start={{ token: "duration-fast" }} withTokens /> }
 
-/**
- * 200ms in a project with duration tokens: no mark, and Tokens offers the nearest first (fast, 150ms, as near as
- * normal), then Create token.
- */
-export const OffTheSystem: Story = { render: () => <Timing start={{ step: 200 }} withTokens /> }
-
-/** 200ms allowed here, with its reason in Tokens, which can stop allowing it. */
-export const AllowedHere: Story = {
-  render: () => <Timing start={{ step: 200, allow: "Matches the video's fade" }} withTokens />
-}
-
 /** Delay, 75ms: `delay-75`. Unset, it's 0. A delay can be negative, starting partway through. */
 export const Delay: Story = { render: () => <Timing which="delay" start={{ step: 75 }} /> }
 
@@ -165,13 +153,4 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "soon{Enter}")
   }
-}
-
-/** Changed from what it comes from (PAR-1020): the dot on the box's corner. */
-export const Changed: Story = {
-  render: () => (
-    <MarkChanged>
-      <Timing start={{ value: "0.2s" }} />
-    </MarkChanged>
-  )
 }

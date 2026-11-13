@@ -91,28 +91,6 @@ export const BackgroundAdjustments: Story = {
   )
 }
 
-/** A drop shadow that follows the shape, `drop-shadow-md`, last in the filter. Its editor has no spread. */
-export const DropShadow: Story = {
-  render: () => (
-    <Filters
-      start={[
-        {
-          id: "shadow",
-          kind: "dropShadow",
-          shadow: {
-            id: "drop",
-            kind: "drop",
-            follow: true,
-            token: "drop-shadow-md",
-            layer: { x: 0, y: 4, blur: 6, spread: 0, color: "black", alpha: 15 }
-          }
-        }
-      ]}
-      openId="shadow"
-    />
-  )
-}
-
 /** Blur, adjustments and a drop shadow together, written in Tailwind's order whatever order they were added in. */
 export const InTailwindsOrder: Story = {
   render: () => (

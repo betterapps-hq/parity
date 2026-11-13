@@ -101,18 +101,6 @@ export const Solid: Story = { render: () => <Paints start={[solid("fill", "card"
 /** Solid, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
 export const Demo: Story = { ...Solid, parameters: { demo: true } }
 
-/** A solid of its own, #2f6fed at 80%, with no mark: Tokens offers the nearest first, then Create token. */
-export const SolidOffTheSystem: Story = { render: () => <Paints start={[solid("fill", "#2f6fed", 80)]} /> }
-
-/**
- * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
- * fill takes any color. The solid's picker is only the tokens, typing searches them, and the blue already there is
- * refused with the nearest token under it.
- */
-export const LockedToTokens: Story = {
-  render: () => <Paints start={[solid("fill", "#2f6fed")]} tokensOnly />
-}
-
 /**
  * A linear gradient over the card color, its editor open: `bg-card bg-linear-to-r from-blue-500 to-teal-600`. Click the
  * bar to add a stop, drag one off to remove it, and type an angle such as 45, `0.25turn` or `to bottom`.
@@ -273,16 +261,6 @@ export const Hidden: Story = {
 
 /** Layers with different fills: "Several fills", until + replaces them all with one. */
 export const Mixed: Story = { render: () => <Paints start={[]} mixed /> }
-
-/** `sideways` typed as the angle and Enter pressed: it isn't an angle, so it stays, outlined, with the reason under it. */
-export const InvalidAsTyped: Story = {
-  render: () => <Paints start={[gradient("top", blueToTeal)]} openId="top" />,
-  play: async ({ canvasElement }) => {
-    const field = await within(canvasElement.ownerDocument.body).findByRole("textbox", { name: "Angle" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "sideways{Enter}")
-  }
-}
 
 /**
  * The bar of stops from the keyboard: Enter on the bar adds a stop in the widest gap, at 50%, rather than where a

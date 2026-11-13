@@ -96,11 +96,6 @@ export const Absolute: Story = {
   render: () => <Placement start={{ placement: "absolute", insets: [px(24), undefined, undefined, px(24)] }} />
 }
 
-/** Pinned right and bottom, 16 from each: `absolute right-4 bottom-4`. */
-export const RightAndBottom: Story = {
-  render: () => <Placement start={{ placement: "absolute", insets: [undefined, px(16), px(16), undefined] }} />
-}
-
 /** Left and right, so it stretches with Pricing's width: `absolute inset-x-6 top-6`. */
 export const LeftAndRight: Story = {
   render: () => <Placement start={{ placement: "absolute", insets: [px(24), px(24), undefined, px(24)] }} />
@@ -145,16 +140,6 @@ export const FillParent: Story = {
   render: () => <Placement start={{ placement: "absolute", insets: [px(0), px(0), px(0), px(0)] }} />
 }
 
-/** Half way down: `top-1/2`, a step; its field's hint says it's 50% of the parent's height. */
-export const PercentageDown: Story = {
-  render: () => <Placement start={{ placement: "absolute", insets: [{ percent: 50 }, undefined, undefined, px(24)] }} />
-}
-
-/** Fixed to the window's top right, so it stays put as the page scrolls: `fixed top-4 right-4`. */
-export const Fixed: Story = {
-  render: () => <Placement start={{ placement: "fixed", insets: [px(16), px(16), undefined, undefined] }} />
-}
-
 /** Sticky at the top: `sticky top-0`, in layout until scrolling would take it past the line. */
 export const Sticky: Story = {
   render: () => <Placement start={{ placement: "sticky", insets: [px(0), undefined, undefined, undefined] }} />
@@ -173,13 +158,6 @@ export const Relative: Story = {
   render: () => <Placement start={{ placement: "relative", insets: [undefined, undefined, undefined, px(8)] }} />
 }
 
-/** Absolute with a layer order of 10, so Plans is drawn in front of Hero: `z-10`. */
-export const WithLayerOrder: Story = {
-  render: () => (
-    <Placement start={{ placement: "absolute", insets: [px(40), undefined, undefined, px(100)] }} layerOrder={px(10)} />
-  )
-}
-
 /**
  * Top at a spacing token, `top-inset`: the box shows what it comes to, 16px, shaded as a token is. Pressed, its field
  * opens in a popover, with the token's chip whole.
@@ -190,16 +168,5 @@ export const TokenInset: Story = {
   ),
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: /^Top inset/ }))
-  }
-}
-
-/** `wide` typed into Top's field and Enter pressed: it isn't a length, so it stays, outlined, with the reason under. */
-export const InvalidAsTyped: Story = {
-  render: () => <Placement start={{ placement: "absolute", insets: [px(24), undefined, undefined, px(24)] }} />,
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Top inset/ }))
-    const field = within(document.body).getByRole("textbox", { name: "Top inset" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "wide{Enter}")
   }
 }

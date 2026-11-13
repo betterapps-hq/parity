@@ -158,16 +158,6 @@ export const PercentBecomesAMultiple: Story = {
   }
 }
 
-/** `tall` typed and Enter pressed: it isn't a line height, so it stays, outlined, with the reason under it. */
-export const InvalidAsTyped: Story = {
-  render: () => <TextSpacing size="sm" line={{ px: 24 }} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Line height" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "tall{Enter}")
-  }
-}
-
 /** A tracking token, `tight`, as a chip, with −2.5% of the font size in its hint: `tracking-tight`. */
 export const LetterSpacingToken: Story = { render: () => <TextSpacing size="sm" letter={{ token: "tight" }} /> }
 
