@@ -41,6 +41,11 @@ export function childEntries(node: DesignNode): { slot?: string; nodes: DesignNo
     return [{ nodes: node.children }]
   }
 
+  // A component's board shows what it draws inside, after the layers passed into it.
+  if (node.type === "component" && node.internals) {
+    return [...Object.entries(node.slots ?? {}).map(([slot, nodes]) => ({ slot, nodes })), { nodes: node.internals }]
+  }
+
   if (node.type === "component" || node.type === "instance") {
     return Object.entries(node.slots ?? {}).map(([slot, nodes]) => ({ slot, nodes }))
   }

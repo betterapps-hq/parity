@@ -70,6 +70,7 @@ import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
+import { useBoardInternals } from "./board-internals.ts"
 import { boardFile, componentBoardsFile } from "./component-boards.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
@@ -126,6 +127,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
   const state = designStates(container)[0]!
   useFitToContent(board, entry)
+  useBoardInternals(board, entry)
 
   const titleBar = (
     // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
@@ -1120,7 +1122,7 @@ const FrameTile = memo(function FrameTile({
         data-asleep={awake && !waiting ? undefined : ""}
       >
         {page ? (
-          <PageFrame url={page} frame={frame} mode={mode} scale={scale} />
+          <PageFrame url={page} frame={frame} mode={mode} scale={scale} interactive={interactive} />
         ) : (
           <ModeView
             project={session.id}
@@ -1156,12 +1158,15 @@ function PageFrame({
   url,
   frame,
   mode,
-  scale
+  scale,
+  interactive
 }: {
   url: string
   frame: FrameGeometry
   mode: ResolvedMode
   scale: number
+  /** With the Interact tool, the page takes the pointer and keys, as a design does; otherwise the canvas has them. */
+  interactive: boolean
 }) {
   const height = frame.height ?? frame.viewport.height
   // The app's own page reads its mode from the frame's name, so a frame in another mode is another page.
@@ -1174,7 +1179,7 @@ function PageFrame({
         name={name}
         title={url}
         src={url}
-        className="pointer-events-none block origin-top-left border-0 bg-white"
+        className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
         style={{ width: frame.width, height, transform: `scale(${scale})` }}
       />
     </div>

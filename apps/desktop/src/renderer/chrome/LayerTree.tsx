@@ -19,6 +19,7 @@ import {
   toggleHidden
 } from "@parity-app/core"
 import {
+  boardComponentNode,
   activeState,
   branchIds,
   closedTree,
@@ -98,6 +99,11 @@ type DropPosition = "before" | "after" | "inside"
 export const layersMime = "application/x-parity-layers"
 const designMime = "application/x-parity-design"
 
+/** A component's board opens straight to what the component draws, since the board is the component. */
+function boardOpensTo(entry: ContainerEntry): DesignNode | undefined {
+  return entry.path === componentBoardsFile ? boardComponentNode(entry.container) : undefined
+}
+
 interface Group {
   id: string
   title: string
@@ -175,8 +181,8 @@ export function LayerTree() {
     }
   }
 
-  // The app's routes come first, then the screens designed for it, then frames. Components are listed in the Components
-  // panel (PAR-1076).
+  // The app's routes come first, then the screens designed for it, then the project's own components on their boards, then
+  // frames (PAR-1076).
   const groups = useMemo((): Group[] => {
     const routes = entries.filter((entry) => entry.path === routePagesFile)
 
@@ -184,7 +190,7 @@ export function LayerTree() {
       (entry) => entry.path !== routePagesFile && (!entry.container.kind || entry.container.kind === "screen")
     )
 
-    // The project's components are listed in the Components panel, so their boards aren't layers here.
+    const components = entries.filter((entry) => entry.path === componentBoardsFile)
     const frames = entries.filter((entry) => entry.container.kind === "frame" && entry.path !== componentBoardsFile)
     const listed: Group[] = []
 
@@ -201,6 +207,11 @@ export function LayerTree() {
       none: "No screens yet.",
       entries: screens
     })
+
+    // The project's components are listed once it has some, drawn from its code, so there's nothing to add.
+    if (components.length > 0) {
+      listed.push({ id: "components", title: "Components", kind: "component", none: "", entries: components })
+    }
 
     // Frames are listed once there are some; the frame tool draws them on the canvas.
     if (frames.length > 0) {
@@ -221,8 +232,8 @@ export function LayerTree() {
 
     for (const group of groups) {
       const found = search
-        ? searchRows(group.entries, search, label, library)
-        : treeRows(group.entries, expanded, library)
+        ? searchRows(group.entries, search, label, library, boardOpensTo)
+        : treeRows(group.entries, expanded, library, boardOpensTo)
 
       if (search && found.length === 0) {
         continue
@@ -843,7 +854,9 @@ const LayerRow = memo(function LayerRow({
   const state = activeState(container)
   // Inside an instance a layer is its component's, and drawn in the component's color, as the instance is.
   const inside = row.within.length > 0
-  let color = designColor(container.kind)
+  // A component's board shows as the component it draws.
+  const board = row.design.path === componentBoardsFile
+  let color = designColor(board ? "component" : container.kind)
 
   if (row.node) {
     color = inside ? kindColors.component : nodeColor(row.node)
@@ -959,7 +972,7 @@ const LayerRow = memo(function LayerRow({
               <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />
             ) : (
               <DesignIcon
-                kind={container.kind}
+                kind={board ? "component" : container.kind}
                 route={row.design.path === routePagesFile}
                 className="size-3.5 shrink-0"
                 style={{ color }}

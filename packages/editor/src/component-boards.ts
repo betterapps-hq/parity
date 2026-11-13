@@ -2,13 +2,14 @@ import {
   type ComponentInfo,
   type ComponentSource,
   type ContainerSpec,
+  type DesignNode,
+  type NodeStyle,
   componentNode,
   componentRole,
   groupComponents
 } from "@parity-app/core"
 import { hiddenReason } from "./insert-search.ts"
 import { componentLabel } from "./insert.ts"
-import { landedStyle } from "./new-screen.ts"
 
 /** A board of one of the project's own components (step 8 of the read-only viewer), and what it draws. */
 export interface ComponentBoard {
@@ -19,8 +20,12 @@ export interface ComponentBoard {
   file: string
 }
 
-/** Boards are at least this many spacing steps wide (320px at 4px a step), so their titles have room for a name and a file. */
-const boardSteps = 80
+/** A board's own style: hugging the component, 2px around it, with no fill of its own. */
+const boardStyle = {
+  width: { size: "hug" },
+  padding: { step: 0.5 },
+  color: { token: "foreground" }
+} as const satisfies NodeStyle
 
 /** Where the boards go and how far apart. */
 export interface BoardLayout {
@@ -33,13 +38,16 @@ export interface BoardLayout {
 }
 
 /**
- * The project's own components, not its libraries' or its pages, which its routes draw: each that draws something and
- * isn't a part the Components panel hides, in its groups there, the UI kit's by file and the rest by folder.
+ * The project's own components, from its own files: not its libraries' or its dependencies', which stay in the
+ * Components panel, and not its pages, which its routes draw. Each that draws something and isn't a part the Components
+ * panel hides, in its groups there, the UI kit's by file and the rest by folder.
  */
 export function boardGroups(sources: Readonly<Record<string, ComponentSource>>): { name: string; ids: string[] }[] {
   const shown = Object.entries(sources).filter(
     ([key, source]) =>
       source.visual !== false &&
+      !source.library &&
+      !/(?:^|\/)node_modules\//.test(source.path) &&
       hiddenReason(key, { internal: source.internal }) === undefined &&
       componentRole(source) !== undefined &&
       componentRole(source) !== "page"
@@ -59,7 +67,7 @@ export function componentBoardId(component: string): string {
 /**
  * A board for each of the project's own components (see `boardGroups`), a row for each group, with its top left at the
  * layout's. Each holds the component as inserting it would place it, with a sample for each required prop and its name
- * as the children it takes, once `components` says what it takes. It hugs the component, at least `boardSteps` wide.
+ * as the children it takes, once `components` says what it takes. The board hugs the component, 2px around it, and is clear.
  */
 export function componentBoards(
   sources: Readonly<Record<string, ComponentSource>>,
@@ -79,12 +87,9 @@ export function componentBoards(
           name: componentLabel(component),
           kind: "frame",
           position: { x: layout.x + column * layout.column, y: layout.y + row * layout.row },
-          root: {
-            type: "layout",
-            id: "root",
-            style: { ...landedStyle, minWidth: { step: boardSteps } },
-            children: [node]
-          }
+          // The component alone, 2px in from the board's edges so nothing it draws at its edges is cut off, on nothing
+          // but the canvas.
+          root: { type: "layout", id: "root", style: boardStyle, children: [node] }
         }
       }
     })
@@ -94,4 +99,34 @@ export function componentBoards(
 /** How tall the boards' rows are together. */
 export function boardsHeight(sources: Readonly<Record<string, ComponentSource>>, layout: BoardLayout): number {
   return boardGroups(sources).length * layout.row
+}
+
+/**
+ * A board with what its component draws inside as its component's layers (see `elementLayers`), or the board as it is
+ * when they're the same, so reading them again changes nothing.
+ */
+export function boardWithInternals(board: ContainerSpec, internals: DesignNode[]): ContainerSpec {
+  const root = board.root
+  const component = boardComponentNode(board)
+
+  if (root.type !== "layout" || !component || JSON.stringify(component.internals ?? []) === JSON.stringify(internals)) {
+    return board
+  }
+
+  return { ...board, root: { ...root, children: [{ ...component, internals }, ...root.children.slice(1)] } }
+}
+
+/**
+ * The component a board draws, inside its padding: the layer whose elements are read, and whose layers Layers shows
+ * under the board, since the board is the component.
+ */
+export function boardComponentNode(board: ContainerSpec): Extract<DesignNode, { type: "component" }> | undefined {
+  const [component] = board.root.type === "layout" ? board.root.children : []
+
+  return component?.type === "component" ? component : undefined
+}
+
+/** The component layer on a board, whose id finds what it draws. */
+export function boardComponentLayer(board: ContainerSpec): string | undefined {
+  return boardComponentNode(board)?.id
 }

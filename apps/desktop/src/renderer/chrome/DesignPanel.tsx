@@ -3,10 +3,10 @@ import type { ResolvedMode } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
-import { boardComponent } from "../canvas/component-boards.ts"
+import { boardComponent, componentBoardsFile } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { routePageRoute } from "../canvas/route-pages.ts"
+import { routePageRoute, routePagesFile } from "../canvas/route-pages.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -93,7 +93,16 @@ function SelectedPanel() {
   }
 
   if (selected.node) {
-    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+    const panel = <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+
+    // A layer of a page or a component's board is read from the project's code: its values show, and nothing edits them.
+    return entry.path === componentBoardsFile || entry.path === routePagesFile ? (
+      <fieldset disabled className="contents">
+        {panel}
+      </fieldset>
+    ) : (
+      panel
+    )
   }
 
   return <DesignPanel entry={entry} />

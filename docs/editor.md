@@ -6481,8 +6481,9 @@ for the component its route draws, else its path.
 - **A sample for each param.** A param's value is its name for now, so `/projects/$projectId` opens on
   `/projects/projectId`, and the example's page says it's not found.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
-  that's never written. They can be selected and moved, but a move isn't kept. Their layers are an empty page, since
-  what they show is the app rather than a design. A frame takes no pointer, so the canvas pans and selects over it.
+  that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
+  pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
+  and clicking Pricing in App's frame takes it to `/pricing`.
 - **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
   and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
   attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
@@ -6518,29 +6519,46 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
 - **Drawn from the code.** The guest draws each component as inserting it would place it. A required prop gets its
   default or its first option, and a component that takes children gets its own name as text. It starts without samples
   and takes them once the props have been read from the component's types, a moment after the project opens. The board
-  is at least 320px wide and hugs the component. Its title shows the component's icon, its name, and its file
-  underneath.
-- **Listed in the Components panel, not Layers.** Pressing one of the project's components in the Components panel
-  selects and shows its board. Dragging it still inserts it, and pressing a library's component still adds it where the
-  selection is.
+  hugs the component with 2px around it, so nothing at its edges is cut off, and has no fill, so the component sits on
+  the canvas. Its title shows the component's icon, its name, and its file underneath. At 100% a component is its own
+  size: the example's Button is 65.7 × 32, as in a browser.
+- **Only the project's own.** A component from a library, or from a dependency in `node_modules`, gets no board; it's
+  still listed in the Components panel.
+- **Listed in Layers and the Components panel.** Layers lists the boards under Components, after Routes and Screens.
+  Pressing one of the project's components in the Components panel selects and shows its board. Dragging it still
+  inserts it, and pressing a library's component still adds it where the selection is.
+- **Every layer inside.** A board is the component, so its row in Layers opens straight to what the component draws,
+  with no layer for the board's padding or for the component around it: Card opens to `card` and its Text. Each element
+  it draws is a layer, read from the page each time the board is drawn live. `img`, `svg` and `canvas` are images,
+  `video` a video, and a text element (`p`, `span`, headings, `strong`, `em`, `label`, `a` and the like) with only text
+  in it is text. Any other element, a `div` or a `button` with its text in it, is a layout with its text as a layer
+  inside. A layer is named for its `data-slot`, as shadcn names its parts, else its role, else its tag. Its styles are
+  what it's drawn with: its size, a layout's direction, gap, padding and alignment, its fill, border, corners and
+  opacity, and a text's type. Selecting one outlines its element on the canvas.
 - **Read-only panel.** A selected board's panel shows its file and the export it's drawn from. Under Props, it lists the
   props the component declares and its variants, each with its options or type and its default. The attributes and
-  handlers it passes through to its element aren't listed.
+  handlers it passes through to its element aren't listed. A layer inside it, or a layer of a page, shows the Design
+  tab's sections with its values, and none of them edits it.
 - **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
-  written. Neither a move nor the width a board is drawn at marks the project unsaved. Pages and boards are left out of
-  what Parity keeps to restore after a crash.
-- **Not yet.** A part that needs its parent, as AvatarImage needs Avatar or TabsTrigger needs Tabs, draws its error.
+  written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and
+  boards are left out of what Parity keeps to restore after a crash.
+- **Not yet.** A part that needs its parent, as AvatarImage needs Avatar or TabsTrigger needs Tabs, draws its error. A
+  page's layers don't show what its components draw inside, since the page is the app's own document on another origin.
 
 Tried in a development build on the example project. Its own UI kit showed 36 boards in 10 rows under the page tree.
 Pressing CardTitle in the Components panel selected its board, with `src/components/ui/card.tsx` and its export in the
-panel. Button's panel listed its variant and size options and `asChild` = false. Reopening left nothing unsaved.
+panel. Button's panel listed its variant and size options and `asChild` = false. Reopening left nothing unsaved. Card's
+row opened to `card` and Text; selecting `card` outlined it and showed its size, padding and fill, greyed.
 
-Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`;
-`apps/desktop/src/renderer/canvas/component-boards.ts`; `sampleBoards` and `ownWork` in `workspace.ts`;
-`ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
+Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`; `elementLayers` in
+`packages/editor/src/element-layers.ts`; `opensTo` in `layers-tree.ts`;
+`apps/desktop/src/renderer/canvas/component-boards.ts`; `board-internals.ts`; `setInnerNodes` in `frame.ts`;
+`sampleBoards` and `ownWork` in `workspace.ts`; `ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
 
-Tests: `packages/editor/src/component-boards.test.ts` (3: the panel's groups without pages, libraries or providers; a
-row for each group from the layout's top left; a sample for each required prop and the name as children).
+Tests: `packages/editor/src/component-boards.test.ts` (3: the panel's groups without pages, libraries, dependencies or
+providers; a row for each group from the layout's top left; the component 2px in on no fill, with a sample for each
+required prop and its name as children); `packages/editor/src/element-layers.test.ts` (15: the layer each element is,
+its name, a card's elements as layers, and computed styles as a valid layer style).
 
 ### Opening in seconds (PAR-179)
 

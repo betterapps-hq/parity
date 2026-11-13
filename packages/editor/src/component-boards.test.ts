@@ -9,13 +9,14 @@ const sources = {
   ThemeProvider: { path: "src/components/theme-provider.tsx", export: "ThemeProvider", visual: false },
   Pricing: { path: "src/routes/pricing.tsx", export: "Pricing", lazy: true },
   Header: { path: "src/features/shell/header.tsx", export: "Header", lazy: true },
-  "nova/Badge": { path: "@kit/nova", export: "Badge", library: "nova" }
+  "nova/Badge": { path: "@kit/nova", export: "Badge", library: "nova" },
+  Toaster: { path: "node_modules/sonner/dist/index.mjs", export: "Toaster" }
 } satisfies Record<string, ComponentSource>
 
 const layout = { x: 0, y: -1000, column: 400, row: 300 }
 
 describe("boardGroups", () => {
-  it("groups the project's own components as the Components panel does, leaving out pages, libraries and providers", () => {
+  it("groups the project's own components as the Components panel does, leaving out pages, libraries, dependencies and providers", () => {
     expect(boardGroups(sources)).toEqual([
       { name: "button", ids: ["Button"] },
       { name: "card", ids: ["Card", "CardTitle"] },
@@ -37,7 +38,7 @@ describe("componentBoards", () => {
     expect(boardsHeight(sources, layout)).toBe(900)
   })
 
-  it("holds the component with a sample for each required prop, and its name as the children it takes", () => {
+  it("holds the component 2px in, on no fill, with a sample for each required prop, and its name as the children it takes", () => {
     const button: ComponentInfo = {
       name: "Button",
       path: "src/components/ui/button.tsx",
@@ -52,6 +53,11 @@ describe("componentBoards", () => {
     expect(first?.file).toBe("src/components/ui/button.tsx")
     expect(first?.board.root).toMatchObject({
       type: "layout",
+      style: { padding: { step: 0.5 } },
+      children: [{ type: "component", component: "Button" }]
+    })
+    expect(first?.board.root.style?.fills).toBeUndefined()
+    expect(first?.board.root).toMatchObject({
       children: [{ type: "component", component: "Button", props: { size: "sm", children: "Button" } }]
     })
   })

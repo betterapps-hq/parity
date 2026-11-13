@@ -300,6 +300,14 @@ const componentNode = nodeBase.extend({
   /** Child nodes by slot. `children` is the default slot; other names become node-valued props. */
   get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
     return z.record(z.string(), z.array(designNode)).optional()
+  },
+  /**
+   * What the component draws inside, read from its elements as they're drawn, each as the layer its element is: only on
+   * a component's own board, which is drawn from the project's code and never saved. They're shown, not drawn: the
+   * component draws itself.
+   */
+  get internals(): z.ZodOptional<z.ZodArray<typeof designNode>> {
+    return z.array(designNode).optional()
   }
 })
 

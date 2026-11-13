@@ -479,5 +479,18 @@ export {
   boardsHeight,
   type ComponentBoard,
   componentBoardId,
+  boardComponentLayer,
+  boardComponentNode,
+  boardWithInternals,
   componentBoards
 } from "./component-boards.ts"
+
+export {
+  type ElementLayerType,
+  elementLayers,
+  elementLayerType,
+  type ElementSnapshot,
+  layerName,
+  readStyles,
+  styleOfElement
+} from "./element-layers.ts"

@@ -437,8 +437,33 @@ function drawnNodes(host: Element): DrawnNodes | undefined {
   return drawnBy.get(host)?.()
 }
 
+/** Each frame's layers read from what a component draws inside (see `setInnerNodes`), by layer id. */
+const innerBy = new WeakMap<Element, ReadonlyMap<string, Element | Text>>()
+
+/**
+ * Says which element or text each layer read from inside a component draws, in the frame `host` (read-only viewer, step
+ * 8), so the canvas finds, outlines and measures them as it does a design's layers.
+ */
+export function setInnerNodes(host: Element, nodes: ReadonlyMap<string, Element | Text>): void {
+  innerBy.set(host, nodes)
+}
+
+/** What a layer read from inside a component draws, when it's one. */
+function innerNode(host: Element, nodeId: string): Element | Text | undefined {
+  return innerBy.get(host)?.get(nodeId)
+}
+
 /** The elements a node draws at its top level, in order: several for a fragment, none when it draws nothing. */
 export function findNodeElements(host: Element, nodeId: string): HTMLElement[] {
+  const inner = innerNode(host, nodeId)
+
+  if (inner) {
+    const element = inner instanceof Text ? inner.parentElement : inner
+
+    // SAFETY: read as an HTML element, as the guest's are below; an SVG element has the style and layout callers read.
+    return element ? [element as HTMLElement] : []
+  }
+
   const drawn = drawnNodes(host)
 
   if (drawn) {
@@ -463,6 +488,12 @@ export function findNodeElement(host: Element, nodeId: string): HTMLElement | un
  * nothing else is drawn.
  */
 export function nodeBox(host: Element, nodeId: string): DOMRect | undefined {
+  const inner = innerNode(host, nodeId)
+
+  if (inner) {
+    return inner instanceof Text ? textBox(inner) : elementBox(inner)
+  }
+
   const drawn = drawnNodes(host)
 
   return drawn ? boxAround(drawnBoxes(drawn, nodeId)) : boxAround(findNodeElements(host, nodeId).map(elementBox))
