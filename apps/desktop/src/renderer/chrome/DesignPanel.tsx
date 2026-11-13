@@ -2,6 +2,7 @@ import { Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { ResolvedMode } from "@parity-app/core"
 import { kindTitle, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
+import type { ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
@@ -15,7 +16,7 @@ import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
-import { LayerPanel, type LayerPart } from "./LayerPanel.tsx"
+import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -30,21 +31,31 @@ import { ModeViewportIcon } from "./viewports.tsx"
  * The Design tab: whatever is selected, a design, one of its layers or modes, or text on the canvas. Its number fields
  * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
  */
-export function DesignTab({ only }: { only?: LayerPart }) {
+export function DesignTab() {
+  return (
+    <DesignTabFields>
+      <SelectedPanel />
+    </DesignTabFields>
+  )
+}
+
+/**
+ * What every section in the Design tab reads beside the selection: which selection its fields edit, and the first
+ * state's name. A story drawing one section alone puts it in this.
+ */
+export function DesignTabFields({ children }: { children: ReactNode }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
 
   return (
     <FieldTarget value={selectionKey(selected)}>
-      <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>
-        <SelectedPanel only={only} />
-      </FirstStateName>
+      <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>{children}</FirstStateName>
     </FieldTarget>
   )
 }
 
-function SelectedPanel({ only }: { only?: LayerPart }) {
+function SelectedPanel() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
@@ -78,7 +89,7 @@ function SelectedPanel({ only }: { only?: LayerPart }) {
   }
 
   if (selected.node) {
-    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} only={only} />
+    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
   }
 
   return <DesignPanel entry={entry} />
@@ -160,7 +171,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
   return (
     <>
       {container.kind === "component" && <StatesSection entry={entry} />}
-      {container.kind === "component" ? <PropsSection component={entry} /> : <ComponentsSection entry={entry} />}
+      {container.kind === "component" ? <PropsSection /> : <ComponentsSection entry={entry} />}
 
       <ModesSection entry={entry} />
     </>

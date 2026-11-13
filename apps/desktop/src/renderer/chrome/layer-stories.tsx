@@ -1,12 +1,12 @@
 import { insertNode, setSlot } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Decorator } from "@storybook/react-vite"
+import type { ComponentType } from "react"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
-import { DesignTab } from "./DesignPanel.tsx"
+import { DesignTabFields } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, PanelColumn } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
-import type { LayerPart } from "./LayerPanel.tsx"
 
 /*
  * What the Parity/Inspector/Layer stories share: the Design tab with one layer selected, drawn as the inspector draws
@@ -16,14 +16,16 @@ import type { LayerPart } from "./LayerPanel.tsx"
 export const renderInspector = () => <Inspector />
 
 /**
- * One part of the selected layer's panel alone, as the Design tab draws it, at the inspector's width (PAR-1022): what a
- * story demos, without the sections it isn't about.
+ * One section of the selected layer's panel alone, at the inspector's width: what a story demos, without the sections
+ * it isn't about. Each section takes the selection itself (PAR-1031).
  */
-export const renderPart = (part: LayerPart) =>
+export const renderSection = (Section: ComponentType) =>
   function Part() {
     return (
       <PanelColumn>
-        <DesignTab only={part} />
+        <DesignTabFields>
+          <Section />
+        </DesignTabFields>
       </PanelColumn>
     )
   }

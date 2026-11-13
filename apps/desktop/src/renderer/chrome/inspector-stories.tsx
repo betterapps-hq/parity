@@ -1,23 +1,10 @@
-import {
-  boardTarget,
-  editNode,
-  locateNode,
-  type NodeChange,
-  type PatchField,
-  propChange,
-  resetOverride,
-  targetPatches
-} from "@parity-app/core"
-import { boardReader, type Selection, editingState } from "@parity-app/editor"
+import { type Selection } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { useProject } from "../canvas/context.ts"
-import { useComponents } from "../components-store.ts"
-import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
-import { PropsSection } from "../inspector/sections/PropsSection.tsx"
-import { useSelection } from "../selection.ts"
+import { type ContainerEntry } from "../design-store.ts"
 import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
+import { useSelectedLayer } from "./selected-layer.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
@@ -65,62 +52,6 @@ export function inspecting(rightTab: string, prepare?: () => Selection | void): 
       example().selection.set(selection)
     }
   }
-}
-
-/** The selected layer in the state being edited, with the edits the layer panel makes to it. */
-function useSelectedLayer() {
-  const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
-  const components = useComponents(session.components)
-  const nodeId = selected.node
-  const location = entry && nodeId ? locateNode(entry.container.root, nodeId) : undefined
-
-  if (!entry || !nodeId || !location) {
-    return undefined
-  }
-
-  const { container, key } = entry
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const override = targetPatches(container, target)?.[nodeId]
-
-  const change = (label: string, value: NodeChange, gesture?: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
-      gesture
-    })
-
-  const reset = (field: PatchField) =>
-    store.updateContainer(key, "Reset change", (current) =>
-      resetOverride(current, boardTarget(current, state.id), nodeId, field)
-    )
-
-  const node = boardReader(container, { state })(location.node)
-
-  return { entry, nodeId, node, components, override, change, reset }
-}
-
-/** The selected component layer's props section and Attributes, as the layer panel shows them, or `only` Attributes. */
-export function SelectedProps({ only }: { only?: "attributes" }) {
-  const layer = useSelectedLayer()
-
-  if (layer?.node.type !== "component") {
-    return null
-  }
-
-  const { node, override, change, reset } = layer
-
-  return (
-    <PropsSection
-      entry={layer.entry}
-      node={node}
-      changed={(name) => override?.props?.[name] !== undefined}
-      onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
-      onReset={(name) => reset({ kind: "props", key: name })}
-      only={only}
-    />
-  )
 }
 
 /** The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown. */

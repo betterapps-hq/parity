@@ -12,16 +12,10 @@ import {
 import {
   boardTarget,
   designStates,
-  editNode,
   editsDesign,
   findRepeats,
-  type NodeChange,
-  nodeOnBoard,
-  type PatchField,
   type RepeatCandidate,
-  resetOverride,
-  type StateSpec,
-  targetPatches
+  type StateSpec
 } from "@parity-app/core"
 import { editingState, type Selection, selectionKey } from "@parity-app/editor"
 import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-react"
@@ -35,13 +29,14 @@ import { DesignTab } from "../../chrome/DesignPanel.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { revealSelection } from "../../chrome/reveal.ts"
+import { useLayer } from "../../chrome/selected-layer.ts"
 import { StatesSection } from "../../chrome/StatesSection.tsx"
 import { useStyleEditor } from "../../chrome/style-editor.ts"
 import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { FieldTarget } from "../../inspector/controls/field-row.tsx"
-import { PropsSection } from "../../inspector/sections/PropsSection.tsx"
+import { AttributesSection, PropsSection } from "../../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../../selection.ts"
 
 /*
@@ -111,7 +106,7 @@ export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
     <>
       <ContainerHeader entry={entry} />
       <RootSections entry={entry} />
-      {component && <PropsSection component={entry} />}
+      {component && <PropsSection />}
       {component && <StatesSection entry={entry} />}
       <ModesSection entry={entry} />
       {!component && <RepeatedPartsSection entry={entry} />}
@@ -249,38 +244,14 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
  * that applies. A root has no parent, so there's no Position or Align self, and nothing to hide it in.
  */
 function RootSections({ entry }: { entry: ContainerEntry }) {
-  const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
-  const { container, key } = entry
-  const rootId = container.root.id
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const node = nodeOnBoard(container, container.root, state)
+  const rootId = entry.container.root.id
   const editor = useStyleEditor(entry, [rootId])
-  const override = targetPatches(container, target)?.[rootId]
-
-  const change = (label: string, value: NodeChange, gesture?: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), rootId, value), {
-      gesture
-    })
-
-  const reset = (field?: PatchField) =>
-    store.updateContainer(key, "Reset change", (current) =>
-      resetOverride(current, boardTarget(current, state.id), rootId, field)
-    )
+  const root = useLayer(entry, rootId)
 
   return (
     <>
-      {node.type === "component" && (
-        <PropsSection
-          entry={entry}
-          node={node}
-          changed={(name) => override?.props?.[name] !== undefined}
-          onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
-          onReset={(name) => reset({ kind: "props", key: name })}
-        />
-      )}
+      <PropsSection layer={root} />
+      <AttributesSection layer={root} />
       {editor && <StyleSections editor={editor} container={entry.container} />}
     </>
   )

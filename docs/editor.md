@@ -3452,6 +3452,24 @@ Tests:
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
+### Each section takes the selection (PAR-1031)
+
+Each section of a layer's panel reads the selected layer and edits it itself, so the panel is a list of sections and a
+story draws one alone. The layer is one of the design's own or one inside an instance, as it's shown in the state being
+edited, with `change` and `reset` that save to that state, that variant or that copy. The panel looks the same.
+
+Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/selected-layer.ts`; `LayerPanel`,
+`LayerHeader`, `LayerStateSelector` and `LayerContent` in `chrome/LayerPanel.tsx`; `PropsSection` and
+`AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
+story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
+
+Tests:
+
+- `chrome/LayerSlots.stories.tsx`, `chrome/LayerStates.stories.tsx` and `chrome/LayerProps.stories.tsx` draw
+  `LayerHeader`, `PropsSection`, `LayerStateSelector` and `LayerContent` alone, with their plays.
+- `chrome/PropsSection.stories.tsx` and `chrome/AttributesSection.stories.tsx` draw `PropsSection` and
+  `AttributesSection` alone.
+
 ### One Props section (PAR-1030)
 
 A component's props are one section, whatever the component is. On a component design, Props defines them: each with its
