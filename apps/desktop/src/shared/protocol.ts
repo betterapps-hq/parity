@@ -11,6 +11,7 @@ import type { CopyReport } from "@parity-app/agent/routing"
 import type { FrameChange } from "@parity-app/change-detection"
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
+  ActionResult,
   CanvasDocument,
   ChangeConflict,
   CodeChange,
@@ -126,10 +127,10 @@ export interface ServiceMethods {
    */
   "project.undoEdit": { params: ServiceParams["project.undoEdit"]; result: ProjectEditResult }
   /**
-   * Opens a component's docs or first story in the project's Storybook, starting it if needed. Returns the address
-   * to open; without a component, Storybook's home.
+   * Does one of an adapter's actions for the project, or for one of its components, as opening a component's stories in
+   * Storybook, which starts it first if needed. Returns an address to open in the browser when it gives one.
    */
-  "storybook.open": { params: ServiceParams["storybook.open"]; result: { url: string } }
+  "adapter.run": { params: ServiceParams["adapter.run"]; result: ActionResult }
   /** Writes a copy of the project's designs to a `.par` file anywhere, chosen by the person. */
   "document.saveCopy": { params: ServiceParams["document.saveCopy"]; result: undefined }
   /**
@@ -246,8 +247,8 @@ export interface ServiceMethods {
  */
 export type ProcessStatus = "starting" | "running" | "stopping" | "stopped" | "failed" | "passed" | "canceled"
 
-/** What a server is: a project's build server, which the canvas renders through, or its Storybook. */
-export type ServerKind = "builder" | "storybook"
+/** What a server is: a project's build server, which the canvas renders through, or a tool's, as its Storybook. */
+export type ServerKind = "builder" | "tool"
 
 /**
  * What a task does: installs packages, checks types, runs unit tests or Playwright, formats, lints, verifies the whole

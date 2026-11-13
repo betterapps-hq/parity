@@ -1,6 +1,7 @@
 import type { EntitiesAdapter } from "@parity-app/core"
 import { detectStorybook, storybookConfigFiles } from "./detect.ts"
 import { storybookLogo } from "./logo.ts"
+import { openStorybook } from "./open.ts"
 import { exportStoryScreen, importStoryScreens, storybookId } from "./screens.ts"
 
 export { type ArgValue, readStoryFile, type Story, type StoryArgs, type StoryFile, storyName } from "./csf.ts"
@@ -30,6 +31,23 @@ export const storybookAdapter: EntitiesAdapter = {
   },
   import: importStoryScreens,
   export: exportStoryScreen,
+  actions: [
+    {
+      id: "open",
+      name: "Open in Storybook",
+      forComponent: true,
+      progress: "Opening Storybook…",
+      failed: "Couldn't open Storybook",
+      note: "If it isn't running yet, it starts first; that can take a minute."
+    }
+  ],
+  run: async (action, context) => {
+    if (action !== "open") {
+      throw new Error(`Storybook has no action ${action}`)
+    }
+
+    return openStorybook(context)
+  },
   status: ({ version, entities }) => {
     const stories = entities?.screens?.length ?? 0
 
@@ -39,7 +57,7 @@ export const storybookAdapter: EntitiesAdapter = {
         words: stories === 1 ? " story" : " stories",
         hint: version ? `Storybook ${version}` : "Storybook",
         detail: "Click to open it",
-        opens: { tool: "storybook" }
+        opens: { action: "open" }
       }
     ]
   }

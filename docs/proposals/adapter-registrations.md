@@ -1,11 +1,11 @@
 # Proposal: what adapters register in the editor (PAR-1071)
 
 Status: draft for discussion. Built on 2026-11-13: each adapter's `status` hook adds its own items to the status bar,
-and steps 1 and 2 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind,
+and steps 1 to 3 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind,
 TanStack Router and Storybook bring their logos, `packages/adapters` is the one list, Tailwind has a status item, and
-every adapter detects its own tool through one context and gives its own version facts. Plugins, and how they're
-packaged and trusted, are in [extensions.md](extensions.md); this page is only about where an adapter's content appears
-in the editor.
+every adapter detects its own tool through one context and gives its own version facts, and adapters offer actions the
+app runs, as Open in Storybook. Plugins, and how they're packaged and trusted, are in [extensions.md](extensions.md);
+this page is only about where an adapter's content appears in the editor.
 
 ## In one line
 
@@ -190,7 +190,10 @@ since packages will be published to a registry. The workspace lists `adapters/*`
    and the fixed list in `detect.ts` is gone. The context has no `files(match)` yet, since no detector needs to search;
    it's added when one does. `findStorybook` still reads Storybook's script, port and stories for `info.storybook`,
    until component facts replace it in step 5. A styles adapter is still chosen per stylesheet, by `handles(source)`.
-3. **Actions.** Storybook registers Open in Storybook; `storybook.open` and the `{ tool }` click go.
+3. **Actions.** Built: an adapter lists its `actions` and does them in `run`, given an `ActionContext` whose `servers`
+   find or start its tool's server. Storybook's Open in Storybook is one; `storybook.open`, `utility/storybook.ts` and
+   the `{ tool }` click are gone, and a tool's server is listed as kind `tool`. The book buttons still ask
+   `info.storybook` which components have stories, until component facts in step 5.
 4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
    registers.
 5. **Component facts, panel tabs, inspector rows and servers,** each when an adapter first needs it.

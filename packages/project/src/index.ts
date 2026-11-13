@@ -406,6 +406,16 @@ export async function exportEntities(
   return { writes, entities: { ...imported, screens } }
 }
 
+/**
+ * How an adapter reads the project at `root`, as an entities adapter imports from it or an action runs: its files,
+ * leaving out dependencies and builds, and which of its components an import names.
+ */
+export function projectSource(root: string, components: Record<string, ComponentSource>): EntitiesSource {
+  const tsconfig = readTsconfig(root)
+
+  return entitiesSource(root, components, (specifier) => resolveAlias(root, tsconfig, specifier))
+}
+
 /** How an entities adapter reads the project at `root`: its files, leaving out dependencies and builds, and its components. */
 function entitiesSource(
   root: string,

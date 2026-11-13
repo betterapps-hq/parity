@@ -22,12 +22,16 @@ export {
   packageManifest,
   type PackageManifest,
   parseManifest,
+  type ProjectAction,
   type ProjectRoute,
   type RendererAdapter,
   type RouterAdapter,
   type EntitiesAdapter,
   type FileWrite,
+  type ActionContext,
+  type ActionResult,
   type Adapter,
+  type AdapterAction,
   type AdapterDetection,
   type AdapterIcon,
   type Adapters,
@@ -40,7 +44,10 @@ export {
   scriptConfigExtensions,
   type StylesAdapter,
   type ThemeVariable,
+  type ServedTool,
   type TokenWrite,
+  type ToolServer,
+  type ToolServers,
   type ToolVersions
 } from "./adapters.ts"
 

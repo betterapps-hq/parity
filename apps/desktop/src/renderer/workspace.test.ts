@@ -87,6 +87,7 @@ const info: ProjectInfo = {
   componentCount: 0,
   notes: [],
   status: [],
+  actions: [],
   detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "" }, tools: [] },
   documents: [],
   mainDocument: "app.par",

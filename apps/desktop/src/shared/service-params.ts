@@ -157,7 +157,7 @@ export const serviceParams = {
   "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),
   "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
-  "storybook.open": project.extend({ component: z.string().optional() }),
+  "adapter.run": project.extend({ adapter: z.string(), action: z.string(), component: z.string().optional() }),
   "document.saveCopy": z.object({ path: z.string(), document: canvasDocument }),
   "designs.export": project.extend({
     folder: z.string(),

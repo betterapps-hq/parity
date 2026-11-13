@@ -213,7 +213,7 @@ function LayerActions({ node }: { node: DesignNode }) {
       session.selection.set({ design: design.key })
       revealSelection(session)
     } else if (action === "open-in-storybook" && component) {
-      void openInStorybook(session.id, component)
+      void openInStorybook(session.info, component)
     }
   }
 

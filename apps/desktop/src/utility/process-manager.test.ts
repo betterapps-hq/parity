@@ -53,7 +53,7 @@ async function storybook(overrides: Partial<ServerSpec> = {}): Promise<ServerSpe
   return {
     ...project,
     id: "storybook:shop",
-    kind: "storybook",
+    kind: "tool",
     name: "Storybook",
     command: process.execPath,
     args: ["-e", httpServer, String(port)],
@@ -76,7 +76,7 @@ describe("startServer", { timeout: 60_000 }, () => {
     expect(knownServers("D:/projects/shop")).toEqual([
       {
         id: "storybook:shop",
-        kind: "storybook",
+        kind: "tool",
         projectId: "D:/projects/shop",
         url: spec.url,
         port: server.port,
@@ -86,7 +86,7 @@ describe("startServer", { timeout: 60_000 }, () => {
     ])
     expect(serverLog("storybook:shop")).toContain(`listening on ${server.port}`)
     expect(sink.named("server.started").map((event) => event.attributes)).toEqual([
-      { kind: "storybook", name: "Storybook", durationMs: expect.any(Number) }
+      { kind: "tool", name: "Storybook", durationMs: expect.any(Number) }
     ])
   })
 
@@ -141,7 +141,7 @@ ${httpServer}`
     expect(knownServers()).toEqual([])
     expect(sink.named("server.failed").map((event) => event.attributes)).toEqual([
       {
-        kind: "storybook",
+        kind: "tool",
         name: "Storybook",
         durationMs: expect.any(Number),
         reason: "exited",
@@ -168,7 +168,7 @@ describe("adoptServer", () => {
     adoptServer({
       ...project,
       id: "storybook:shop",
-      kind: "storybook",
+      kind: "tool",
       name: "Storybook",
       url: "http://localhost:6006"
     })

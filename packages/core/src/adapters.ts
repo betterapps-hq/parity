@@ -101,8 +101,8 @@ export interface StatusItem {
   hint: string
   /** The tooltip's line, saying what it does or what clicking it does. */
   detail?: string
-  /** What clicking it opens: one of the app's left panel tabs, or a tool the app runs, as `storybook`. */
-  opens?: { tab: string } | { tool: string }
+  /** What clicking it does: open one of the app's left panel tabs, or run one of its adapter's actions by id. */
+  opens?: { tab: string } | { action: string }
 }
 
 /** What an adapter's status items are made from: what Parity found of its tool in the project. */
@@ -121,6 +121,11 @@ export interface StatusFacts {
 export interface AdapterStatusItem extends StatusItem {
   adapter: string
   logo?: AdapterIcon
+}
+
+/** An action an adapter offers, with the adapter that does it. */
+export interface ProjectAction extends AdapterAction {
+  adapter: string
 }
 
 /**
@@ -159,6 +164,76 @@ export interface Adapter {
   versions?: ToolVersions
   /** What it adds to the status bar. */
   status?(facts: StatusFacts): StatusItem[]
+  /** What it can do for the project, such as open its tool, which the app offers and `run` does. */
+  actions?: readonly AdapterAction[]
+  /** Does one of its `actions`, by id. */
+  run?(action: string, context: ActionContext): Promise<ActionResult>
+}
+
+/** Something an adapter does for the project, which the app offers where it says. */
+export interface AdapterAction {
+  /** Its id among its adapter's actions, as `open`. */
+  id: string
+  /** Its name in a menu, as `Open in Storybook`. */
+  name: string
+  /**
+   * Whether it's offered for one of the project's components too, which `ActionContext.component` names, as well as for
+   * the whole project.
+   */
+  forComponent?: boolean
+  /** What the app says while it runs, as `Opening Storybook…`. */
+  progress: string
+  /** What the app says when it fails, as `Couldn't open Storybook`. */
+  failed: string
+  /** A line under that, when it may take a while. */
+  note?: string
+}
+
+/** What an adapter's `run` reads the project through, and how it starts its tool. */
+export interface ActionContext {
+  project: DetectContext
+  /** The project's files and components, as an entities adapter reads them. */
+  source: EntitiesSource
+  /** What the adapter's own `detect` found when the project opened. */
+  detection: AdapterDetection
+  /** The component it's run for, by its key, when it's run for one. */
+  component?: string
+  servers: ToolServers
+}
+
+/** Servers a tool runs for the project, which the app starts, lists with its processes and stops with the project. */
+export interface ToolServers {
+  /**
+   * A server for the project: one already serving it, at an address Portless routes to or on its port, else one
+   * started with the tool's command line from the project's own install. `fresh` stops the one there is first, as
+   * when it stopped answering.
+   */
+  serve(server: ToolServer, options?: { fresh?: boolean }): Promise<ServedTool>
+}
+
+/** A tool's server, as an adapter describes it. */
+export interface ToolServer {
+  /** Its name in the app's processes, as `Storybook`. */
+  name: string
+  /** The installed package whose command line starts it, as `storybook`. */
+  package: string
+  /** The command line's arguments, to serve on `port`. */
+  args(port: number): string[]
+  /** The port it asks for, which it's served on when free. */
+  port: number
+  /** Whether a server at `base` is this project's, and ready. */
+  serves(base: string): Promise<boolean>
+}
+
+/** Where a tool's server is: where Parity reaches it, and where a browser opens it, by its Portless name when it has one. */
+export interface ServedTool {
+  url: string
+  address: string
+}
+
+/** What an action did: an address the app opens in the browser. */
+export interface ActionResult {
+  open?: string
 }
 
 /** What every adapter's `detect` reads the project through, so it can look wherever its tool leaves a trace. */

@@ -7323,6 +7323,34 @@ Gaps: a design that's hovered but not selected shows its menus, and they're in t
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
 
+### Adapters' actions
+
+An adapter can offer actions, such as Storybook's Open in Storybook, which the app runs without knowing the tool.
+Before, the service had a `storybook.open` call and the status bar matched Storybook's item by name.
+
+- **An adapter lists its actions** (`actions`): an id, a name, whether it's offered for a component too, and what the
+  app says while it runs and when it fails. The windows get them with the project (`info.actions`), by adapter.
+- **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
+  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, the
+  component, and `servers`, which find a server already serving the project (one Portless routes to, else one on its
+  port) or start the tool's command line from the project's install, list it with the project's processes as a tool's
+  server and stop it with the project. An address the action gives opens in the browser.
+- **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project;
+  the book buttons in the Components and layer panels run it for a component. Which components have stories still comes
+  from `info.storybook`, until adapters give facts about components.
+- **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
+  running, and the processes list it as Storybook, a tool's server.
+
+Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
+`packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
+`runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
+`adapter.run` in `shared/protocol.ts`; and `runAction` and `projectAction` in `renderer/chrome/adapter-actions.ts`.
+
+Tests: `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else Storybook's
+home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed action reaches
+the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed). Gaps:
+`tool-servers.ts` has no unit test, and the story play functions weren't run.
+
 ### Each adapter detects its own tool
 
 When a project opens, every adapter is asked whether the project uses its tool, and only those that find it are used.
@@ -7365,7 +7393,7 @@ Shadcn Nova".
 
 - **An adapter says what its item is.** Any adapter (renderer, builder, styles, router or entities) can have `status`,
   which returns `StatusItem`s: an icon, a bold value, the words after it, the tooltip's title and line, and what a click
-  opens, which is a left panel tab or a tool the app runs (only `storybook` so far).
+  does, which is open a left panel tab or run one of its adapter's actions, as Storybook's runs Open in Storybook.
 - **An item shows its tool's logo unless it names an icon.** An adapter's `icon` is its tool's logo as path data (an
   `AdapterIcon`: a `viewBox`, one path, and `evenodd` where one part is cut out of another), which the window fills with
   the text's colour, so it reads like the Lucide icons beside it in either theme. Path data draws nothing but the shape,

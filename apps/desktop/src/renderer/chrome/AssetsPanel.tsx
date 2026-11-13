@@ -531,7 +531,11 @@ function SourceSection({
   const statuses = useRenderStatus(session.loaded)
 
   const storybookRunning = useProcesses(false).some(
-    (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
+    (process) =>
+      process.kind === "tool" &&
+      process.id === `storybook:${session.id}` &&
+      process.projectId === session.id &&
+      process.status === "running"
   )
 
   const [expanded, setExpanded] = useState<boolean>()
@@ -719,7 +723,7 @@ function AssetEntry({
     <ComponentMenu
       storybook={
         component && session.info.storybook
-          ? { stories, running: storybookRunning, open: () => void openInStorybook(session.id, component) }
+          ? { stories, running: storybookRunning, open: () => void openInStorybook(session.info, component) }
           : undefined
       }
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
@@ -780,7 +784,7 @@ function AssetEntry({
           <button
             type="button"
             aria-label={`Open ${entry.label} in Storybook`}
-            onClick={() => void openInStorybook(session.id, entry.key)}
+            onClick={() => void openInStorybook(session.info, entry.key)}
             className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
           >
             <BookOpen className="size-3.5" />
@@ -840,7 +844,7 @@ export function useComponentCard(
   }
 
   if (stories > 0) {
-    about.onOpenStorybook = () => void openInStorybook(session.id, component)
+    about.onOpenStorybook = () => void openInStorybook(session.info, component)
   }
 
   return { pictured: previewStatus(preview, missing), about }

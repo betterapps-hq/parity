@@ -77,7 +77,7 @@ export const Everything: Story = {
         {
           ...base,
           id: `storybook:${roots.example}`,
-          kind: "storybook",
+          kind: "tool",
           lifetime: "server",
           name: "Storybook",
           status: "starting",
@@ -285,7 +285,7 @@ export const OpeningStorybook: Story = {
     async () => {
       await openProjects("example")
       preferring({ performanceStats: false })
-      answering({ "storybook.open": () => never() })
+      answering({ "adapter.run": () => never() })
     }
   ],
   play: async () => {
@@ -316,7 +316,7 @@ export const StorybookFailed: Story = {
       await openProjects("example")
       preferring({ performanceStats: false })
       answering({
-        "storybook.open": () => {
+        "adapter.run": () => {
           throw new Error("storybook dev exited with code 1: Port 6006 is in use by another program")
         }
       })

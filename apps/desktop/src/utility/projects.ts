@@ -13,6 +13,7 @@ import {
   typeCheckSummary
 } from "@parity-app/code"
 import {
+  type ActionResult,
   type Adapter,
   type BuilderAdapter,
   type BuilderDetection,
@@ -25,6 +26,7 @@ import {
   type EntitiesAdapter,
   libraryManifestExtension,
   parseCanvasDocument,
+  type PackageManifest,
   type ProjectRoute,
   type RendererAdapter,
   type RouterAdapter,
@@ -60,6 +62,7 @@ import {
   type OpenedProjectInfo,
   openedProjectInfo,
   pickMainDocument,
+  projectSource,
   type ProjectDetection,
   projectFileChange,
   readChangedFiles,
@@ -91,6 +94,7 @@ import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
 import { writeProjectFile } from "./project-files.ts"
 import type { TypeChecker } from "./props.ts"
+import { toolServers } from "./tool-servers.ts"
 
 const require = createRequire(import.meta.url)
 
@@ -183,6 +187,10 @@ export interface OpenProject {
 }
 
 interface Project extends OpenProject {
+  /** Its package.json, as it was when it opened. */
+  pkg: PackageManifest
+  /** The adapters it's opened with, those that found their tool, with what each found. */
+  used: AdapterFound[]
   /**
    * The component list, the exports the type checker left out and the person's corrections, as `nextComponentList`
    * made them: the one place they're kept. The builder serves the guest from it, and the windows hear when it changes.
@@ -314,6 +322,8 @@ export interface OpenProjects {
   previewProject: (projectId: string) => PreviewProject | undefined
   /** The project files the modules of `files` load, by its builder's account (PAR-994); none when it can't say. */
   loadedFiles: (projectId: string, files: string[]) => Promise<string[] | undefined>
+  /** Does one of an adapter's actions, as opening a component's stories in Storybook. */
+  runAction: (params: ServiceMethods["adapter.run"]["params"]) => Promise<ActionResult>
 }
 
 /**
@@ -421,11 +431,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       throw cause
     })
 
-    const detection = await detectProject(root, pkg, [
+    const used: AdapterFound[] = [
       rendererFound,
       ...(found.builder ? [{ adapter: found.builder, detection: found.detection }] : []),
       ...others
-    ])
+    ]
+
+    const detection = await detectProject(root, pkg, used)
 
     opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
@@ -497,6 +509,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       entities,
       usedRouters,
       usedEntities,
+      used,
       pkg,
       saved
     }
@@ -578,6 +591,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       entities,
       usedRouters,
       usedEntities,
+      used,
+      pkg,
       saved
     } = await inSpan("project.detected", { root }, () => detect(root, opening))
 
@@ -624,6 +639,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       guestUrl: session.guestUrl,
       routes,
       entities,
+      actions: used.flatMap(({ adapter }) =>
+        (adapter.actions ?? []).map((action) => ({ ...action, adapter: adapter.id }))
+      ),
       status: adapterStatus(
         [
           { adapter: renderer },
@@ -644,6 +662,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const project: Project = {
       info,
+      pkg,
+      used,
       list: opened.list,
       session,
       builder,
@@ -1629,7 +1649,27 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
     },
 
-    loadedFiles: (projectId, files) => projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined)
+    loadedFiles: (projectId, files) =>
+      projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined),
+
+    async runAction({ projectId, adapter: id, action, component }) {
+      const project = getProject(projectId)
+      const found = project.used.find(({ adapter }) => adapter.id === id)
+
+      if (!found?.adapter.run || !found.adapter.actions?.some((each) => each.id === action)) {
+        throw new Error(`${project.info.name} has no ${id} action ${action}`)
+      }
+
+      const { info } = project
+
+      return found.adapter.run(action, {
+        project: detectContext(info.root, project.pkg),
+        source: projectSource(info.root, project.list.sources),
+        detection: found.detection,
+        component,
+        servers: toolServers({ id: info.id, name: info.name, root: info.root }, id)
+      })
+    }
   }
 }
 

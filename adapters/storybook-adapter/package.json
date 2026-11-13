@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "zod": "catalog:"
   }
 }

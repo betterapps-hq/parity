@@ -26,7 +26,7 @@ const project = { projectId: "D:/projects/shop", project: "shop" } as const
 const storybook = {
   ...project,
   id: "storybook:shop",
-  kind: "storybook",
+  kind: "tool",
   lifetime: "server",
   name: "Storybook",
   url: "http://localhost:6006"

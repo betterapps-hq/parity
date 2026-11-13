@@ -43,7 +43,6 @@ import { renderOffscreen } from "./render.ts"
 import { startReopening } from "./reopening.ts"
 import { checkStartFolders } from "./start-folders.ts"
 import { telemetry } from "./start-telemetry.ts"
-import { openStorybook } from "./storybook.ts"
 import { useProjectSecrets } from "./telemetry.ts"
 import { losslessWebp } from "./webp.ts"
 import { windowChannel, windowClosed } from "./window-channel.ts"
@@ -152,7 +151,7 @@ const handlers: Handlers<ServiceMethods> = {
   "images.saveFrom": ({ projectId, url, name }) => saveImageFrom(projects.get(projectId), { url, name }, fetch),
   "images.remove": ({ projectId, path }) => removeImage(projects.get(projectId), path),
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
-  "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
+  "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
   "layers.picture": (params) => layersPicture(editorWindow(), params),

@@ -764,8 +764,8 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       return { path, edit }
     }
 
-    case "storybook.open":
-      return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
+    case "adapter.run":
+      return { open: "http://localhost:6006/?path=/docs/components-button--docs" }
     case "layers.export":
       return {
         files: request.params.files.map((file) => `D:/exports/${file.name}`),

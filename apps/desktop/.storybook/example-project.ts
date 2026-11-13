@@ -228,6 +228,9 @@ async function discover(): Promise<{
     routes: [],
     entities: {},
     status: adapterStatus(tools, detection, entities),
+    actions: tools.flatMap(({ adapter }) =>
+      (adapter.actions ?? []).map((action) => ({ ...action, adapter: adapter.id }))
+    ),
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,

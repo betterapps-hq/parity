@@ -1,4 +1,4 @@
-import type { AdapterStatusItem, StatusItem } from "@parity-app/core"
+import type { AdapterStatusItem } from "@parity-app/core"
 import { Blocks, CircleX, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
 import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 import type { ReactNode } from "react"
@@ -8,12 +8,12 @@ import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
+import { projectAction, runAction } from "./adapter-actions.ts"
 import { Hint } from "./Hint.tsx"
 import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
 import { usePreferences } from "./preferences.ts"
 import { Processes } from "./Processes.tsx"
-import { openInStorybook } from "./storybook.ts"
 
 /**
  * How the project was understood, with nothing configured by hand: an item for each of the project's tools, as its
@@ -27,12 +27,15 @@ export function StatusBar() {
   const { performanceStats } = usePreferences()
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
 
-  // What an adapter's item opens: a left panel tab, or a tool the app runs.
-  const open = (opens: StatusItem["opens"]) => {
-    if (opens && "tab" in opens) {
-      openTab(opens.tab)
-    } else if (opens?.tool === "storybook") {
-      void openInStorybook(session.id)
+  // What an adapter's item does: open a left panel tab, or run one of its adapter's actions.
+  const open = (item: AdapterStatusItem) => {
+    const action =
+      item.opens && "action" in item.opens ? projectAction(info, item.adapter, item.opens.action) : undefined
+
+    if (item.opens && "tab" in item.opens) {
+      openTab(item.opens.tab)
+    } else if (action) {
+      void runAction(session.id, action)
     }
   }
 
@@ -46,7 +49,7 @@ export function StatusBar() {
           icon={<ItemIcon item={item} />}
           hint={item.hint}
           detail={item.detail}
-          onClick={item.opens && (() => open(item.opens))}
+          onClick={item.opens && (() => open(item))}
         >
           <strong className="font-medium text-foreground">{item.value}</strong>
           {item.words && <Words>{item.words}</Words>}
