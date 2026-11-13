@@ -21,10 +21,11 @@ import {
 } from "@parity-app/core"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
-import { nameButton } from "../inspector/controls/field-row.tsx"
-import { InstanceSection, type PropRow, type PropValueRow } from "../inspector/controls/instance-section.tsx"
+import { FieldGrid, nameButton } from "../inspector/controls/field-row.tsx"
+import { InstanceSection, type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
 import type { PropPreview } from "../inspector/controls/number-field.tsx"
 import { Hint } from "./Hint.tsx"
+import { PanelSection } from "./PanelSection.tsx"
 import {
   booleanValue,
   numberValue,
@@ -50,6 +51,8 @@ interface PropsSectionProps {
   /** Takes the preview back. */
   onCancel?: () => void
   onReset: (name: string) => void
+  /** Draws the attributes it passes on alone, as a story does; the panel draws both sections. */
+  only?: "attributes"
 }
 
 /** A prop's value as a component layer holds it. */
@@ -76,7 +79,8 @@ export function PropsSection({
   onChange,
   onPreview,
   onCancel,
-  onReset
+  onReset,
+  only
 }: PropsSectionProps) {
   const values = node.props ?? {}
   const known = new Map((info?.props ?? []).map((prop) => [prop.name, prop]))
@@ -98,43 +102,151 @@ export function PropsSection({
     onReset: () => onReset(name)
   })
 
+  // What the component passes on to its element, rather than declares: an attribute, an aria one or an event, or a
+  // name it doesn't declare. Without its source, nothing can be told apart, so everything stays a prop.
+  const passedOn = (name: string) => {
+    const prop = known.get(name)
+
+    return prop ? prop.group !== "own" && prop.group !== "variant" : info !== undefined
+  }
+
+  const extraRow = (name: string): PropRow => {
+    const prop = known.get(name)
+
+    return {
+      ...row(name, prop),
+      hint: prop ? groupTitles.get(prop.group) : undefined,
+      action: !changed(name) && !inSlot.has(name) && (
+        <Hint label={`Remove ${name}`}>
+          <button
+            type="button"
+            onClick={() => onChange(name, undefined)}
+            className={nameButton}
+            aria-label={`Remove ${name}`}
+          >
+            <X className="size-3" />
+          </button>
+        </Hint>
+      )
+    }
+  }
+
   const rows = [
     ...main.map((prop) => ({ ...row(prop.name, prop), hint: prop.description ?? prop.type })),
-    ...extra.map((name) => {
-      const prop = known.get(name)
-
-      return {
-        ...row(name, prop),
-        hint: prop ? groupTitles.get(prop.group) : "Not a prop this component declares",
-        action: !changed(name) && !inSlot.has(name) && (
-          <Hint label={`Remove ${name}`}>
-            <button
-              type="button"
-              onClick={() => onChange(name, undefined)}
-              className={nameButton}
-              aria-label={`Remove ${name}`}
-            >
-              <X className="size-3" />
-            </button>
-          </Hint>
-        )
-      }
-    })
+    ...extra
+      .values()
+      .filter((name) => !passedOn(name))
+      .map(extraRow)
   ]
 
-  return (
-    <InstanceSection
-      component={node.component}
-      description={info ? undefined : "Reading this component's props from its source."}
-      add={<AddProp props={addable} free={!info} onAdd={(name, value) => onChange(name, value)} />}
-      props={rows}
-      onChange={(name, value, gesture) => {
-        const prop = known.get(name)
+  const attributes = extra
+    .values()
+    .filter(passedOn)
+    .map((name) =>
+      attributeRow(name, known.get(name), values[name], {
+        changed: changed(name),
+        onReset: () => onReset(name),
+        onRemove: () => onChange(name, undefined),
+        preview: preview(name)
+      })
+    )
+    .toArray()
 
-        onChange(name, prop ? propValueOf(prop, value) : value, gesture)
-      }}
+  const change = (name: string, value: PropValue | undefined, gesture?: string) => {
+    const prop = known.get(name)
+
+    onChange(name, prop ? propValueOf(prop, value) : value, gesture)
+  }
+
+  const add = (
+    <AddProp
+      props={addable}
+      free={!info}
+      attributes={info !== undefined}
+      onAdd={(name, value) => onChange(name, value)}
     />
   )
+
+  // Without its source, nothing can be told apart from a prop, so there's no Attributes section.
+  const attributesSection = info && (
+    <AttributesSection
+      rows={attributes}
+      addable={addable}
+      onAdd={(name, value) => onChange(name, value)}
+      onChange={change}
+    />
+  )
+
+  if (only === "attributes") {
+    return attributesSection || null
+  }
+
+  return (
+    <>
+      <InstanceSection
+        component={node.component}
+        description={info ? undefined : "Reading this component's props from its source."}
+        add={info ? undefined : add}
+        props={rows}
+        onChange={change}
+      />
+      {attributesSection}
+    </>
+  )
+}
+
+/**
+ * What a component instance passes on to its component's root element, since every component, a design's included, is
+ * code underneath: attributes, aria ones and events, added one at a time from a searchable list and removed from their
+ * row. Every component instance has it.
+ */
+export function AttributesSection({
+  rows,
+  addable,
+  onAdd,
+  onChange
+}: {
+  rows: readonly PropRow[]
+  /** The attributes the root element takes that aren't set. */
+  addable: ComponentProp[]
+  onAdd: (name: string, value: PropValue | undefined) => void
+  onChange: (name: string, value: PropValue | undefined, gesture?: string) => void
+}) {
+  return (
+    <PanelSection title="Attributes" action={<AddProp props={addable} free={false} attributes onAdd={onAdd} />}>
+      {rows.length > 0 && (
+        <FieldGrid>
+          <PropRows rows={rows} onChange={onChange} />
+        </FieldGrid>
+      )}
+    </PanelSection>
+  )
+}
+
+/**
+ * One attribute's row in Attributes, for its kind of value when the element declares it. Accessibility and Events say
+ * what kind of attribute it is; a plain one says nothing its section doesn't. Removed by × until a state changes it.
+ */
+export function attributeRow(
+  name: string,
+  prop: ComponentProp | undefined,
+  held: HeldValue,
+  edit: { changed: boolean; onReset: () => void; onRemove: () => void; preview?: PropPreview }
+): PropRow {
+  return {
+    ...(prop ? propRow(prop, held, false, edit.preview) : { type: "value", value: readPropValue(held), loose: true }),
+    name,
+    changed: edit.changed,
+    onReset: edit.onReset,
+    hint: prop && prop.group !== "html" ? groupTitles.get(prop.group) : undefined,
+    action: !edit.changed && (
+      <Hint label={`Remove ${name}`}>
+        <button type="button" onClick={edit.onRemove} className={nameButton} aria-label={`Remove ${name}`}>
+          <X className="size-3" />
+        </button>
+      </Hint>
+    )
+  }
 }
 
 /**
@@ -220,12 +332,16 @@ function propValueOf(prop: ComponentProp, value: PropValue | undefined): PropVal
 function AddProp({
   props,
   free,
+  attributes,
   onAdd
 }: {
   props: ComponentProp[]
   free: boolean
+  /** In the Attributes section, where what's added is passed on to the component's element. */
+  attributes: boolean
   onAdd: (name: string, value: PropValue | undefined) => void
 }) {
+  const noun = attributes ? "attribute" : "prop"
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const groups = Map.groupBy(props, (prop) => prop.group)
@@ -240,14 +356,19 @@ function AddProp({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <Button variant="ghost" size="icon-xs" aria-label="Add a prop">
+          <Button variant="ghost" size="icon-xs" aria-label={attributes ? "Add an attribute" : "Add a prop"}>
             <Plus />
           </Button>
         }
       />
       <PopoverContent className="w-72 p-0" align="end">
         <Command>
-          <CommandInput placeholder="Search props" value={search} onValueChange={setSearch} className="h-8 text-xs" />
+          <CommandInput
+            placeholder={`Search ${noun}s`}
+            value={search}
+            onValueChange={setSearch}
+            className="h-8 text-xs"
+          />
           <CommandList className="max-h-80">
             <CommandEmpty>
               {free && search ? (
@@ -255,7 +376,7 @@ function AddProp({
                   Add <code>{search}</code>
                 </button>
               ) : (
-                "No prop matches."
+                `No ${noun} matches.`
               )}
             </CommandEmpty>
             {(["own", "variant", "html", "aria"] as const).map((group) => {
