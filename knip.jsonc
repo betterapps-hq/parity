@@ -27,9 +27,10 @@
         "src/**/*.stories.tsx",
         "src/**/*.test.ts",
         ".storybook/*.test.ts",
-        // The end-to-end tests `pnpm test:app` runs, with the config and setup that start the app for them.
+        // The end-to-end tests `pnpm test:app` runs, with the config and setup that start the app for them, and the
+        // setup file that sends a failed test's replay.
         "e2e/*.e2e.ts",
-        "e2e/{vite.config,global-setup}.ts"
+        "e2e/{vite.config,global-setup,failed-replay}.ts"
       ],
       // CSS too, so its imports of tailwindcss, the kit's stylesheet and Geist count as uses.
       "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.ts", ".storybook/*.ts", "e2e/**/*.ts", "*.ts"],
