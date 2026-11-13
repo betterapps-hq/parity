@@ -6452,39 +6452,45 @@ alone; and what renders `/`: Next's, a `pages` folder's and a `routes` folder's 
 route file's default export, `App` by export or file and the nearest one, never a library's, and nothing). Gap:
 `createSession` calling it has no automated test.
 
-### Each page of the app as a screen (PAR-1076)
+### Each page of the app as a screen, in its tree (PAR-1076)
 
 An app whose router Parity reads (TanStack Router, see support.md) opens with each of its pages as a screen above the
-designs, one row for each layout route: the root's pages, then a row for each layout such as `/settings`. A page is a
-route nothing else draws inside, so a layout's index stands for the layout. Each screen is named for the component its
-route draws, else its path, and an index comes first in its row.
+designs, laid out as the router's tree, top down. A page is a route the router draws on its own. A layout's index stands
+for the layout, so the layout's other pages hang from it: the example's App, at `/`, holds Pricing, Projects,
+ProjectDetail and `/settings`, which holds Billing and Profile. A layout with no index adds no page, and its pages hang
+from the page above. Each page is centered over the pages under it, and pages side by side go by path. A screen is named
+for the component its route draws, else its path.
 
+- **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page
+  under it, turning halfway, with a dot where it meets each board. Its dashes flow slowly down the tree. The lines are
+  drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
 - **A sample for each param.** A param's value is its name for now, so `/projects/$projectId` opens on
   `/projects/projectId`, and the example's page says it's not found.
-- **Read-only.** Page screens are locked, never saved, and laid out from the routes each time the project opens. Their
-  layers are an empty page, since what they show is the app rather than a design. A frame takes no pointer, so the
-  canvas pans and selects over it.
+- **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
+  that's never written. They can be selected and moved, but a move isn't kept. Their layers are an empty page, since
+  what they show is the app rather than a design. A frame takes no pointer, so the canvas pans and selects over it.
 - **As tall as the screen.** Each viewport's frame is as tall as its screen: Desktop 800, Tablet 1024, Mobile 844.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
 
-Tried in a development build on the example project, opened cold: seven page screens in two rows, App, Projects, Pricing
-and ProjectDetail, then `/settings`, Billing and Profile, each showing its page, `/settings` redirected to Profile, with
-no errors.
+Tried in a development build on the example project, opened cold: seven page screens in three levels with six lines
+between them, each showing its page, `/settings` redirected to Profile, with no errors; the lines' dashes moved from
+each page toward the pages under it.
 
-Code: `routeRows` and `routeScreens` in `packages/editor/src/route-boards.ts`; `projectRoutes` in
-`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageFrame` in
-`ContainerView.tsx`; `appPage` in `packages/builder-vite/src/index.ts`.
+Code: `pageTree`, `placePages` and `routeScreens` in `packages/editor/src/route-boards.ts`; `projectRoutes` in
+`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`;
+`PageFrame` in `ContainerView.tsx`; `appPage` in `packages/builder-vite/src/index.ts`.
 
-Tests: `packages/editor/src/route-boards.test.ts` (7: a row for each layout with its pages' URLs, indexes first; pages
-side by side and rows one under another; a pathless layout's row named by its id; no rows without routes; a param's
-sample and an empty splat; a locked screen for each page, named for its component, its rows ending above the designs;
-each viewport's frame as tall as its screen). Gaps: reading routes when the project opens, the page frames and the
-bundling have no test of their own; all were tried in the app.
+Tests: `packages/editor/src/route-boards.test.ts` (8: each layout's pages hung from its index, the root's index at the
+top, and an index of a deeper path as a page; a layout without an index hanging its pages from the page above; a forest
+without a root index, and nothing without routes; each page centered over the pages under it, a level below; each page's
+URL with its params' samples; a splat's empty sample; a screen for each page, named for its component, with the screen
+it hangs from, ending above the designs; each viewport's frame as tall as its screen). Gaps: reading routes when the
+project opens, the page frames, the lines and the bundling have no test of their own; all were tried in the app.
 
 ### Opening in seconds (PAR-179)
 

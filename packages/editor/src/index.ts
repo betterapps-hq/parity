@@ -457,12 +457,14 @@ export {
 export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"
 
 export {
-  type RouteBoard,
-  type RouteLayout,
-  type RouteRow,
-  routeRows,
+  type PageLayout,
+  type PageNode,
+  pageTree,
+  type PlacedPage,
+  placePages,
   type RouteScreen,
   routeScreenId,
   routeScreens,
-  samplePath
+  samplePath,
+  treeDepth
 } from "./route-boards.ts"

@@ -6,75 +6,118 @@ import {
   screenHeightForWidth
 } from "@parity-app/core"
 
-/** A page of the app on the canvas (PAR-1076): a route its router can draw on its own, at a URL it answers. */
-export interface RouteBoard {
+/**
+ * A page of the app in its tree (PAR-1076): a route its router draws on its own, with the pages under it. A layout's
+ * index stands for the layout, so the layout's other pages hang from it: `/` holds `/pricing` and `/settings`, and
+ * `/settings` holds `/settings/billing`. A layout without an index adds no page, and its pages hang from the page above.
+ */
+export interface PageNode {
   route: ProjectRoute
-  /** The URL the app draws it at, from the app's own origin, with a sample for each param. */
+  children: PageNode[]
+}
+
+/** A page placed in the tree, with the URL the app draws it at and the route of the page it hangs from. */
+export interface PlacedPage {
+  route: ProjectRoute
   url: string
   x: number
   y: number
-  width: number
-  height: number
+  parent?: string
 }
 
-/** The pages drawn inside one layout route, as a row: the root's own pages, or a layout's such as `/settings`. */
-export interface RouteRow {
-  /** The layout route's id. */
-  layout: string
-  /** What the row is called: `/` for the root, else the layout's id. */
-  label: string
-  x: number
-  y: number
-  boards: RouteBoard[]
-}
-
-/** Where the rows go and how big each page is. */
-export interface RouteLayout {
+/** Where the tree goes and how big each page is. */
+export interface PageLayout {
   /** The app's origin, as `http://127.0.0.1:5173`. */
   origin: string
-  /** The top left of the first row. */
+  /** The top left of the tree. */
   x: number
   y: number
   width: number
   height: number
-  /** Between pages in a row, and between rows. */
+  /** Between pages side by side, and between a page and the pages under it. */
   gap: number
-  rowGap: number
+  levelGap: number
+}
+
+/** The app's pages as a tree, or several when the root has no index; empty without routes. */
+export function pageTree(routes: readonly ProjectRoute[]): PageNode[] {
+  const children = Map.groupBy(
+    routes.filter((route) => route.parent !== undefined),
+    (route) => route.parent ?? ""
+  )
+
+  // A route with routes inside it is drawn by its index, holding its other pages; one without is a page of its own.
+  const standIn = (route: ProjectRoute): PageNode[] => {
+    const inside = children.get(route.id)
+
+    if (!inside) {
+      return [{ route, children: [] }]
+    }
+
+    // Its own index is drawn at its own URL; an index of a deeper path, as `/projects/` under the root, is a page.
+    const index = inside.find((child) => child.index && child.path === route.path)
+
+    const pages = inside
+      .filter((child) => child !== index)
+      .toSorted((a, b) => a.path.localeCompare(b.path))
+      .flatMap(standIn)
+
+    return index ? [{ route: index, children: pages }] : pages
+  }
+
+  const root = routes.find((route) => route.parent === undefined)
+
+  return root ? standIn(root).filter((node) => node.route !== root) : []
 }
 
 /**
- * The app's pages as boards, one row for each layout route they're drawn in, in the order the router lists them. A page
- * is a route no other route draws inside: a layout such as `/settings` draws its index at its own URL, so it isn't a
- * page of its own. Within a row, an index comes first, then pages by path.
+ * The tree laid out top down: each page centered over the pages under it, which sit side by side a level below, and
+ * the trees of a forest side by side.
  */
-export function routeRows(routes: readonly ProjectRoute[], layout: RouteLayout): RouteRow[] {
-  const parents = new Set(routes.flatMap((route) => (route.parent ? [route.parent] : [])))
-  const pages = routes.filter((route) => !parents.has(route.id) && route.parent !== undefined)
-  const grouped = Map.groupBy(pages, (route) => route.parent ?? "")
-  const rows: RouteRow[] = []
+export function placePages(tree: readonly PageNode[], layout: PageLayout): PlacedPage[] {
+  const placed: PlacedPage[] = []
 
-  for (const route of routes) {
-    const inside = grouped.get(route.id)
+  const row = (nodes: readonly PageNode[]): number =>
+    nodes.reduce((total, node, index) => total + span(node) + (index > 0 ? layout.gap : 0), 0)
 
-    if (!inside) {
-      continue
+  const span = (node: PageNode): number => Math.max(layout.width, row(node.children))
+
+  const place = (node: PageNode, left: number, depth: number, parent?: string) => {
+    const width = span(node)
+
+    const page: PlacedPage = {
+      route: node.route,
+      url: new URL(samplePath(node.route), layout.origin).href,
+      x: left + (width - layout.width) / 2,
+      y: layout.y + depth * (layout.height + layout.levelGap)
     }
 
-    const y = layout.y + rows.length * (layout.height + layout.rowGap)
+    if (parent !== undefined) {
+      page.parent = parent
+    }
 
-    const boards = inside.toSorted(byIndexThenPath).map((page, column) => ({
-      route: page,
-      url: new URL(samplePath(page), layout.origin).href,
-      x: layout.x + column * (layout.width + layout.gap),
-      y,
-      width: layout.width,
-      height: layout.height
-    }))
+    placed.push(page)
+    let next = left + (width - row(node.children)) / 2
 
-    rows.push({ layout: route.id, label: rowLabel(route), x: layout.x, y, boards })
+    for (const child of node.children) {
+      place(child, next, depth + 1, node.route.id)
+      next += span(child) + layout.gap
+    }
   }
 
-  return rows
+  let left = layout.x
+
+  for (const node of tree) {
+    place(node, left, 0)
+    left += span(node) + layout.gap
+  }
+
+  return placed
+}
+
+/** How many levels a tree has. */
+export function treeDepth(tree: readonly PageNode[]): number {
+  return Math.max(0, ...tree.map((node) => 1 + treeDepth(node.children)))
 }
 
 /** A route's URL with a sample for each param: its name for now, and nothing for a splat. */
@@ -91,19 +134,11 @@ function sampleSegment(segment: string): string {
   return segment.startsWith("$") ? segment.slice(1) : segment
 }
 
-/** The root by its path, `/`; a layout by its id, which names a pathless one too, as `/_auth`. */
-function rowLabel(route: ProjectRoute): string {
-  return route.parent === undefined ? route.path : route.id
-}
-
-function byIndexThenPath(a: ProjectRoute, b: ProjectRoute): number {
-  return Number(b.index) - Number(a.index) || a.path.localeCompare(b.path)
-}
-
-/** A page as a screen on the canvas (PAR-1076), and the URL its frames draw. */
+/** A page as a screen on the canvas (PAR-1076), the URL its frames draw, and the screen it hangs from. */
 export interface RouteScreen {
   screen: ContainerSpec
   url: string
+  parent?: string
 }
 
 /** The id of the screen a route is drawn in, which says it's a page rather than a design. */
@@ -112,33 +147,40 @@ export function routeScreenId(route: Pick<ProjectRoute, "id">): string {
 }
 
 /**
- * The app's pages as screens (PAR-1076), laid out as `routeRows` does, with the rows' bottom at `bottom`. Each is
- * locked, since it's drawn from code rather than designed, and named for the component it draws, else its path. Its
- * layers are an empty page: what its frames show is the app itself at `url`, as tall as each viewport's screen.
+ * The app's pages as screens (PAR-1076), laid out as a tree (see `pageTree`) whose bottom is at `bottom`, each named
+ * for the component it draws, else its path. Its layers are an empty page: what its frames show is the app itself at
+ * `url`, as tall as each viewport's screen.
  */
 export function routeScreens(
   routes: readonly ProjectRoute[],
   modes: ModeSettings,
-  layout: Omit<RouteLayout, "y"> & { bottom: number }
+  layout: Omit<PageLayout, "y"> & { bottom: number }
 ): RouteScreen[] {
-  const rows = routeRows(routes, { ...layout, y: 0 })
-  const top = layout.bottom - rows.length * (layout.height + layout.rowGap)
+  const tree = pageTree(routes)
+  const tall = treeDepth(tree) * (layout.height + layout.levelGap)
   const frames = pageFrames(modes)
 
-  return rows.flatMap((row) =>
-    row.boards.map((board) => ({
-      url: board.url,
+  return placePages(tree, { ...layout, y: layout.bottom - tall }).map((page) => {
+    const id = routeScreenId(page.route)
+
+    const placed: RouteScreen = {
+      url: page.url,
       screen: {
-        id: routeScreenId(board.route),
-        name: board.route.component ?? board.route.path,
+        id,
+        name: page.route.component ?? page.route.path,
         kind: "screen",
-        locked: true,
-        position: { x: board.x, y: board.y + top },
+        position: { x: Math.round(page.x), y: Math.round(page.y) },
         frames,
-        root: { type: "layout", id: `${routeScreenId(board.route)}:page`, name: "Page", children: [] }
+        root: { type: "layout", id: `${id}:page`, name: "Page", children: [] }
       }
-    }))
-  )
+    }
+
+    if (page.parent !== undefined) {
+      placed.parent = routeScreenId({ id: page.parent })
+    }
+
+    return placed
+  })
 }
 
 /** Each viewport's frame as tall as its screen, so a page's frame is a window onto it rather than its whole length. */

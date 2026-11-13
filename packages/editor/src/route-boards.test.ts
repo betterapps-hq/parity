@@ -1,6 +1,6 @@
 import { defaultModeSettings, type ProjectRoute } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { routeRows, routeScreens, samplePath } from "./route-boards.ts"
+import { type PageNode, pageTree, placePages, routeScreens, samplePath } from "./route-boards.ts"
 
 function route(id: string, path: string, parent: string | undefined, index = false): ProjectRoute {
   return { id, path, parent, file: `src/routes/${id}.tsx`, params: [], index, loads: false, guards: false }
@@ -19,56 +19,58 @@ const example = [
   route("/projects/$projectId", "/projects/$projectId", "__root__")
 ]
 
-const layout = { origin: "http://127.0.0.1:5173", x: 0, y: 0, width: 1280, height: 800, gap: 100, rowGap: 300 }
+/** A tree as each page's route id, with the pages under it. */
+function pageIds(tree: readonly PageNode[]): unknown[] {
+  return tree.map((node) => (node.children.length === 0 ? node.route.id : [node.route.id, pageIds(node.children)]))
+}
 
-describe("routeRows", () => {
-  it("makes a row for each layout, with its pages, indexes first", () => {
-    const rows = routeRows(example, layout)
+const layout = { origin: "http://127.0.0.1:5173", x: 0, y: 0, width: 1000, height: 800, gap: 100, levelGap: 300 }
 
-    expect(rows.map((row) => [row.label, row.boards.map((board) => board.url)])).toEqual([
+describe("pageTree", () => {
+  it("hangs each layout's pages from its index, with the root's index at the top", () => {
+    expect(pageIds(pageTree(example))).toEqual([
       [
         "/",
-        [
-          "http://127.0.0.1:5173/",
-          "http://127.0.0.1:5173/projects",
-          "http://127.0.0.1:5173/pricing",
-          "http://127.0.0.1:5173/projects/projectId"
-        ]
-      ],
-      [
-        "/settings",
-        [
-          "http://127.0.0.1:5173/settings",
-          "http://127.0.0.1:5173/settings/billing",
-          "http://127.0.0.1:5173/settings/profile"
-        ]
+        ["/pricing", "/projects/", "/projects/$projectId", ["/settings/", ["/settings/billing", "/settings/profile"]]]
       ]
     ])
   })
 
-  it("places pages side by side and rows one under another", () => {
-    const [first, second] = routeRows(example, layout)
+  it("hangs a layout's pages from the page above when it has no index", () => {
+    const routes = [
+      route("__root__", "/", undefined),
+      route("/", "/", "__root__", true),
+      route("/_auth", "/", "__root__"),
+      route("/_auth/team", "/team", "/_auth")
+    ]
 
-    expect(first?.boards.map(({ x, y }) => [x, y])).toEqual([
-      [0, 0],
-      [1380, 0],
-      [2760, 0],
-      [4140, 0]
+    expect(pageIds(pageTree(routes))).toEqual([["/", ["/_auth/team"]]])
+  })
+
+  it("is a forest when the root has no index, and empty without routes", () => {
+    expect(pageIds(pageTree([route("__root__", "/", undefined), route("/a", "/a", "__root__")]))).toEqual(["/a"])
+    expect(pageTree([])).toEqual([])
+  })
+})
+
+describe("placePages", () => {
+  it("centers each page over the pages under it, a level below", () => {
+    const placed = placePages(pageTree(example.slice(0, 7)), layout)
+
+    expect(placed.map(({ route, x, y, parent }) => [route.id, x, y, parent])).toEqual([
+      ["/", 1100, 0, undefined],
+      ["/pricing", 0, 1100, "/"],
+      ["/settings/", 1650, 1100, "/"],
+      ["/settings/billing", 1100, 2200, "/settings/"],
+      ["/settings/profile", 2200, 2200, "/settings/"]
     ])
-    expect(second?.y).toBe(1100)
   })
 
-  it("names a pathless layout's row by its id", () => {
-    const rows = routeRows(
-      [route("__root__", "/", undefined), route("/_auth", "/", "__root__"), route("/_auth/team", "/team", "/_auth")],
-      layout
-    )
+  it("gives each page its URL with a sample for each param", () => {
+    const urls = placePages(pageTree(example), layout).map((page) => page.url)
 
-    expect(rows.map((row) => row.label)).toEqual(["/_auth"])
-  })
-
-  it("has no rows for an app with no routes", () => {
-    expect(routeRows([], layout)).toEqual([])
+    expect(urls).toContain("http://127.0.0.1:5173/projects/projectId")
+    expect(urls).toContain("http://127.0.0.1:5173/settings")
   })
 })
 
@@ -80,15 +82,20 @@ describe("samplePath", () => {
 
 describe("routeScreens", () => {
   const screens = routeScreens(
-    [route("__root__", "/", undefined), { ...route("/pricing", "/pricing", "__root__"), component: "Pricing" }],
+    [
+      route("__root__", "/", undefined),
+      { ...route("/", "/", "__root__", true), component: "App" },
+      { ...route("/pricing", "/pricing", "__root__"), component: "Pricing" }
+    ],
     defaultModeSettings,
     { ...layout, bottom: -400 }
   )
 
-  it("makes a locked screen for each page, named for its component, with its rows ending above the designs", () => {
-    expect(
-      screens.map(({ screen, url }) => [screen.id, screen.name, screen.kind, screen.locked, screen.position, url])
-    ).toEqual([["route:/pricing", "Pricing", "screen", true, { x: 0, y: -1500 }, "http://127.0.0.1:5173/pricing"]])
+  it("makes a screen for each page, named for its component, with the screen it hangs from, ending above the designs", () => {
+    expect(screens.map(({ screen, url, parent }) => [screen.id, screen.name, screen.position, url, parent])).toEqual([
+      ["route:/", "App", { x: 0, y: -2600 }, "http://127.0.0.1:5173/", undefined],
+      ["route:/pricing", "Pricing", { x: 0, y: -1500 }, "http://127.0.0.1:5173/pricing", "route:/"]
+    ])
   })
 
   it("makes each viewport's frame as tall as its screen", () => {
