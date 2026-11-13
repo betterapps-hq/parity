@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo step with pasteStepName in place of pasteLabel (PAR-985)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
