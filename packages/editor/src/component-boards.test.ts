@@ -5,7 +5,8 @@ import {
   boardGroups,
   boardsHeight,
   boardWithInternals,
-  componentBoards
+  componentBoards,
+  redrawnBoards
 } from "./component-boards.ts"
 
 const sources = {
@@ -99,5 +100,41 @@ describe("componentBoards", () => {
 
     expect(boardComponentNode(read)?.internals).toEqual([{ type: "text", id: "in-0", text: "CardTitle" }])
     expect(read.root).toMatchObject({ children: [{ component: "Card" }] })
+  })
+})
+
+describe("drawing the boards again", () => {
+  it("gives each board's layers the same ids each time, and others inside other parents", () => {
+    const alone = componentBoards(sources, {}, layout)
+    const again = componentBoards(sources, {}, layout)
+    const inside = componentBoards(sources, {}, layout, { CardTitle: ["Card"] })
+
+    expect(again).toEqual(alone)
+    const title = (boards: typeof alone) =>
+      boardComponentNode(boards.find((each) => each.component === "CardTitle")!.board)?.id
+
+    expect(title(inside)).not.toBe(title(alone))
+  })
+
+  it("keeps a board drawn as before as it is now, and gives one drawn differently the size it had", () => {
+    const before = componentBoards(sources, {}, layout).map(({ board }) => board)
+    const drawn = componentBoards(sources, {}, layout, { CardTitle: ["Card"] }).map(({ board }) => board)
+    const fitted = before.map((board) => ({ ...board, size: { width: 120 } }))
+    const button = fitted.find((board) => board.id === "component:Button")!
+    const read = boardWithInternals(button, [{ type: "text", id: "in-0", text: "Button" }])
+    const current = new Map(fitted.map((board) => [board.id, board.id === read.id ? read : board]))
+
+    const boards = redrawnBoards(drawn, new Map(before.map((board) => [board.id, board])), current)
+
+    expect(boards.find((board) => board.id === "component:Button")).toBe(read)
+    const title = boards.find((board) => board.id === "component:CardTitle")!
+
+    expect(title).toEqual({ ...drawn.find((board) => board.id === "component:CardTitle"), size: { width: 120 } })
+  })
+
+  it("adds a board the canvas doesn't have yet as it's drawn", () => {
+    const drawn = componentBoards(sources, {}, layout).map(({ board }) => board)
+
+    expect(redrawnBoards(drawn, new Map(), new Map())).toEqual(drawn)
   })
 })
