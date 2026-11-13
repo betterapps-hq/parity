@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 04:24:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 04:51:57 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.4
+
+Fri, 13 Nov 2026 04:51:57 GMT
+
+### Patches
+
+- End a crashed project service's Storybook and other servers, which it can no longer stop itself (ajcraswell@gmail.com)
 
 ## 0.80.3
 
