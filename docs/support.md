@@ -217,6 +217,13 @@ snapshot only.
 | Storybook 8 and earlier | ❌     | Dropped: Storybook 8 came out in March 2024. Untested, but not blocked. |
 | Ladle, Histoire         | ❌     | Not planned.                                                            |
 
+**Stories are read as screens (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a tool's own
+files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. `adapters/` holds one
+package per tool, each named for it: `storybook-adapter`, `tanstack-router-adapter`, `tailwind-adapter`, `vite-adapter`
+and `react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler: each story whose meta names a component
+and has no `render` of its own is a screen of that component with the story's args as its props. A story that renders
+itself isn't imported yet, and edits aren't written back to its file yet.
+
 ### Language
 
 | Language   | Status | Notes                                                                                                        |

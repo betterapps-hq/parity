@@ -74,6 +74,7 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { routePagesFile } from "../canvas/route-pages.ts"
+import { storyScreensFile } from "../canvas/story-screens.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
@@ -186,8 +187,13 @@ export function LayerTree() {
   const groups = useMemo((): Group[] => {
     const routes = entries.filter((entry) => entry.path === routePagesFile)
 
+    const stories = entries.filter((entry) => entry.path === storyScreensFile)
+
     const screens = entries.filter(
-      (entry) => entry.path !== routePagesFile && (!entry.container.kind || entry.container.kind === "screen")
+      (entry) =>
+        entry.path !== routePagesFile &&
+        entry.path !== storyScreensFile &&
+        (!entry.container.kind || entry.container.kind === "screen")
     )
 
     const components = entries.filter((entry) => entry.path === componentBoardsFile)
@@ -207,6 +213,11 @@ export function LayerTree() {
       none: "No screens yet.",
       entries: screens
     })
+
+    // The project's stories are listed once it has some, read from its Storybook, so there's nothing to add.
+    if (stories.length > 0) {
+      listed.push({ id: "stories", title: "Stories", kind: "screen", none: "", entries: stories })
+    }
 
     // The project's components are listed once it has some, drawn from its code, so there's nothing to add.
     if (components.length > 0) {

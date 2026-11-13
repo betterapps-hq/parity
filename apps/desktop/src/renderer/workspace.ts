@@ -28,6 +28,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from 
 import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import { routePages, routePagesFile } from "./canvas/route-pages.ts"
+import { storyScreensDocument, storyScreensFile } from "./canvas/story-screens.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askToRestore } from "./chrome/restore.ts"
@@ -1288,16 +1289,15 @@ async function createSession(
     [
       ...openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
       ...routePages(info),
-      ...componentBoardsDocument(info)
+      ...componentBoardsDocument(info),
+      ...storyScreensDocument(info)
     ],
     info.modes.settings,
     info.mainDocument,
     {
-      // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076).
+      // The app's pages, components and stories are drawn from its code each time, so they're never saved (PAR-1076).
       saveDocument: (path, document) =>
-        path === routePagesFile || path === componentBoardsFile
-          ? Promise.resolve()
-          : saveDocument(info.id, path, document),
+        generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document),
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
@@ -1389,11 +1389,14 @@ function followCorrections(session: ProjectSession): void {
 }
 
 /**
- * What of a recovery copy is the person's own work: the pages and component boards are drawn from the project's code
- * each time it opens, so moving one leaves nothing to restore. Undefined when nothing's left.
+ * What of a recovery copy is the person's own work: the pages, component boards and stories are drawn from the
+ * project's code each time it opens, so moving one leaves nothing to restore. Undefined when nothing's left.
  */
+/** The design files drawn from the project's code each time it opens, which are never saved. */
+const generatedFiles = new Set([routePagesFile, componentBoardsFile, storyScreensFile])
+
 function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
-  const documents = copy.documents.filter(({ path }) => path !== routePagesFile && path !== componentBoardsFile)
+  const documents = copy.documents.filter(({ path }) => !generatedFiles.has(path))
 
   return documents.length > 0 || copy.modes || copy.tokens.length > 0 ? { ...copy, documents } : undefined
 }

@@ -6590,6 +6590,34 @@ each element is, its name, a card's elements as layers with their elements, and 
 describes as); `packages/layer-types/src/panel-data.test.ts` (6: a link's, a checkbox's, a switch's and a video's
 sections from their attributes, and sections with nothing set left out).
 
+### Each story as a screen (read-only viewer)
+
+The project opens with a screen for each of its Storybook stories, listed in Layers under Stories, after Screens, and
+laid out in a row for each story file, left of everything else on the canvas.
+
+- **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
+  meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
+  the project depends on when it opens, and the screens come in the project's info.
+- **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
+  args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
+  layout draws it. Each is named for its title's last part and its own name, as `Button / Outline`.
+- **Read-only, never saved.** The screens are in a design file of their own that's never written, and a layer of one
+  shows its values without editing them.
+- **Not yet.** A story with a `render` of its own, as Card's Invite, isn't imported. A story file added while the
+  project is open shows once it's opened again. Edits aren't written back to the story's file.
+
+Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
+two under Stories. Plan card / Popular drew the app's own PlanCard with the Popular badge, and Button / Outline its
+outline button at its own size.
+
+Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and `importStoryScreens` in
+`adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`; `storyScreensDocument` in
+`apps/desktop/src/renderer/canvas/story-screens.ts`.
+
+Tests: `adapters/storybook-adapter/src/storybook.test.ts` (5: a file's meta and stories with args over the meta's,
+stories that render themselves, a file without a default export, a story's name in words, and stories imported as
+screens of their component, grouped by title).
+
 ### Opening in seconds (PAR-179)
 
 Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2

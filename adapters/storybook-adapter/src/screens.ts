@@ -46,7 +46,7 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Import
   return screens
 }
 
-/** A story's screen: its component, with its args as props, on the page's background. */
+/** A story's screen: its component at its own size, with its args as props, on the page's background. */
 export function storyScreen(path: string, story: Story, component: string): ContainerSpec {
   const node: DesignNode = { type: "component", id: "story", component }
 
@@ -63,8 +63,10 @@ export function storyScreen(path: string, story: Story, component: string): Cont
       type: "layout",
       id: "root",
       name: "Story",
+      // Padded and at its own size, as Storybook's default layout draws a story.
       style: {
         padding: { step: 4 },
+        alignItems: "start",
         fills: [{ type: "solid", color: { token: "background" } }],
         color: { token: "foreground" }
       },
