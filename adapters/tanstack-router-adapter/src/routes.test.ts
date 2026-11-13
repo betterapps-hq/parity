@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import type { PackageManifest } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { tanstackRouter } from "./index.ts"
 import { readRoutes } from "./routes.ts"
@@ -183,11 +184,12 @@ describe("readRoutes", () => {
 })
 
 describe("tanstackRouter.detect", () => {
-  it("finds TanStack Router for React in either kind of dependency, and nothing else", () => {
-    expect(tanstackRouter.detect({ dependencies: { "@tanstack/react-router": "^1.170.46" } })).toBe(true)
-    expect(tanstackRouter.detect({ devDependencies: { "@tanstack/react-router": "^1.170.46" } })).toBe(true)
-    expect(
-      tanstackRouter.detect({ dependencies: { "react-router": "^7.0.0", "@tanstack/react-query": "^5.0.0" } })
-    ).toBe(false)
+  const found = async (pkg: PackageManifest) =>
+    (await tanstackRouter.detect({ root: "", pkg, read: () => Promise.resolve(undefined) })).found
+
+  it("finds TanStack Router for React in either kind of dependency, and nothing else", async () => {
+    expect(await found({ dependencies: { "@tanstack/react-router": "^1.170.46" } })).toBe(true)
+    expect(await found({ devDependencies: { "@tanstack/react-router": "^1.170.46" } })).toBe(true)
+    expect(await found({ dependencies: { "react-router": "^7.0.0", "@tanstack/react-query": "^5.0.0" } })).toBe(false)
   })
 })

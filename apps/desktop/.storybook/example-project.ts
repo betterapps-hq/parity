@@ -3,8 +3,16 @@ import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { adapters } from "@parity-app/adapters"
 import { hasElementSources, inferProps } from "@parity-app/code"
-import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
-import { adapterStatus, detectProject, discoverProject, importEntities, readPackage } from "@parity-app/project"
+import { type Adapter, type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
+import {
+  adapterStatus,
+  detectAdapters,
+  detectContext,
+  detectProject,
+  discoverProject,
+  importEntities,
+  readPackage
+} from "@parity-app/project"
 import { guestModuleSource, taggedModule } from "@parity-app/vite-adapter"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
@@ -160,21 +168,47 @@ async function discover(): Promise<{
   }
 
   // The adapters the app's service would choose: the example is React, built with Vite and styled with Tailwind.
-  const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg)) ?? adapters.renderers[0]!
+  const project = detectContext(root, pkg)
+
+  const found = async <A extends Adapter>(list: A[]) =>
+    (await detectAdapters(project, list)).filter(({ detection }) => detection.found)
+
+  const [rendererFound] = await found(adapters.renderers)
+
+  if (!rendererFound) {
+    throw new Error(`No renderer supports ${root}`)
+  }
+
+  const renderer = rendererFound.adapter
+  // The builder isn't started, so it isn't asked either: stories use the example's Vite as installed.
   const builder = adapters.builders[0]!
+  const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
+
+  const [styleFound, routers, entitiesFound] = await Promise.all([
+    found(adapters.styles),
+    found(adapters.routers),
+    found(adapters.entities)
+  ])
+
   const config = await discoverProject(root, renderer, pkg)
   const stylesheet = config.styles[0]
   const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
-  const styles = stylesheet ? adapters.styles.find((adapter) => adapter.detect(source)) : undefined
+  const styles = stylesheet ? adapters.styles.find((adapter) => adapter.handles(source)) : undefined
   const theme = styles && stylesheet ? await styles.loadTheme(root, stylesheet).catch(() => []) : []
   const mainDocument = config.documents.find((path) => !path.includes("/")) ?? "shadcn-vite.par"
   // The example's main designs file is the only one stories open, read from Storybook's own copy.
   const documents = [await readDocument(mainDocument)]
   const main = documents[0]?.document
 
-  const detection = await detectProject(root, pkg)
-  const used = adapters.entities.filter((adapter) => adapter.detect(pkg))
-  const entities = await importEntities(root, pkg, config.components, used)
+  const detection = await detectProject(root, pkg, [
+    rendererFound,
+    builderFound,
+    ...styleFound,
+    ...routers,
+    ...entitiesFound
+  ])
+  const used = entitiesFound.map(({ adapter }) => adapter)
+  const entities = await importEntities(root, config.components, used)
 
   const tools = [
     { adapter: renderer },

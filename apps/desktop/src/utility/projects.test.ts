@@ -64,7 +64,7 @@ function fakeBuilder() {
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
-    configFiles: ["fake.config.ts"],
+    watches: ["fake.config.ts"],
     detect: () =>
       failures.detection
         ? Promise.reject(failures.detection)

@@ -1,4 +1,5 @@
-import type { EntitiesAdapter, PackageManifest } from "@parity-app/core"
+import type { EntitiesAdapter } from "@parity-app/core"
+import { detectStorybook, storybookConfigFiles } from "./detect.ts"
 import { storybookLogo } from "./logo.ts"
 import { exportStoryScreen, importStoryScreens, storybookId } from "./screens.ts"
 
@@ -8,19 +9,25 @@ export { exportStoryScreen, importStoryScreens, storyFilePattern, storyScreen, t
 
 export { writeStoryArgs } from "./write.ts"
 
-/** Whether a project depends on Storybook. */
-function detect(pkg: PackageManifest): boolean {
-  return Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some(
-    (name) => name === "storybook" || name.startsWith("@storybook/")
-  )
-}
-
 /** Storybook: its stories, read from their CSF files as screens, and their args written back. */
 export const storybookAdapter: EntitiesAdapter = {
   id: storybookId,
   name: "Storybook",
   icon: storybookLogo,
-  detect,
+  detect: detectStorybook,
+  watches: storybookConfigFiles,
+  // Storybook 7 and later are versioned by `storybook`; before that, by its framework packages.
+  versions: {
+    packages: ["storybook", "@storybook/react", "@storybook/react-vite", "@storybook/core"],
+    scope: "@storybook/",
+    majors: [
+      [6, "2020-08-11"],
+      [7, "2023-03-31"],
+      [8, "2024-03-11"],
+      [9, "2025-05-28"],
+      [10, "2025-10-28"]
+    ]
+  },
   import: importStoryScreens,
   export: exportStoryScreen,
   status: ({ version, entities }) => {

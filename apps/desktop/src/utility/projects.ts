@@ -13,6 +13,7 @@ import {
   typeCheckSummary
 } from "@parity-app/code"
 import {
+  type Adapter,
   type BuilderAdapter,
   type BuilderDetection,
   type BuilderStartOptions,
@@ -20,10 +21,10 @@ import {
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
+  type DetectContext,
   type EntitiesAdapter,
   libraryManifestExtension,
   parseCanvasDocument,
-  type PackageManifest,
   type ProjectRoute,
   type RendererAdapter,
   type RouterAdapter,
@@ -39,9 +40,12 @@ import {
   lastLines
 } from "@parity-app/processes"
 import {
+  type AdapterFound,
   appFiles,
   changesLockfiles,
   codeSnapshot,
+  detectAdapters,
+  detectContext,
   detectionInputs,
   detectProject,
   discoverProject,
@@ -328,8 +332,17 @@ const bitmapFormat = 2
 export function openProjects(adapters: ProjectAdapters): OpenProjects {
   const { checker, detections, listeners, ports } = adapters
   const watch: WatchFolder = adapters.watch ?? watchFolder
-  // The config files every builder looks for, which detection follows (PAR-826).
-  const builderConfigs = [...new Set(adapters.builders.flatMap((builder) => builder.configFiles))]
+
+  // The files whose coming or going means a project is detected again, as each adapter watches them (PAR-826).
+  const everyAdapter: Adapter[] = [
+    ...adapters.renderers,
+    ...adapters.builders,
+    ...adapters.styles,
+    ...(adapters.routers ?? []),
+    ...(adapters.entities ?? [])
+  ]
+
+  const watched = [...new Set(everyAdapter.flatMap((adapter) => adapter.watches ?? []))]
   const env = adapters.environment ?? environment()
   const allowedOrigins = env.PARITY_ALLOWED_ORIGINS ?? []
   const startedWith = env.PARITY_PROJECT
@@ -374,32 +387,45 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detect(root: string, opening: Opening) {
     // Read first, so a change made while the project opens is a change from what it opened with.
-    const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
+    const inputs = await detectionInputs(root, watched).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
       throw unsupported("no_package", `There's no package.json in ${root}`)
     }
 
-    const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg))
+    // Every adapter is asked whether the project uses its tool, through the same context, and only those that find it
+    // are used: the first renderer and builder, and every other.
+    const project = detectContext(root, pkg)
+    const rendererFound = (await detectAdapters(project, adapters.renderers)).find(({ detection }) => detection.found)
 
-    if (!renderer) {
+    if (!rendererFound) {
       throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
     }
 
+    const renderer = rendererFound.adapter
     opening.framework = renderer.id
+    const usedBy = <A extends Adapter>(found: AdapterFound<A>[]) => found.filter(({ detection }) => detection.found)
 
-    const found = await findBuilder(adapters.builders, root).catch(async (cause: unknown) => {
+    const [styles, routers, entitiesFound] = await Promise.all([
+      detectAdapters(project, adapters.styles).then(usedBy),
+      detectAdapters(project, adapters.routers ?? []).then(usedBy),
+      detectAdapters(project, adapters.entities ?? []).then(usedBy)
+    ])
+
+    const others = [...styles, ...routers, ...entitiesFound]
+
+    const found = await findBuilder(adapters.builders, project).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-      opening.versions = await toolVersions(root, await detectProject(root, pkg))
+      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
       throw cause
     })
 
-    const detection = await detectProject(
-      root,
-      pkg,
-      found.builder && { id: found.builder.id, detection: found.detection }
-    )
+    const detection = await detectProject(root, pkg, [
+      rendererFound,
+      ...(found.builder ? [{ adapter: found.builder, detection: found.detection }] : []),
+      ...others
+    ])
 
     opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
@@ -414,7 +440,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     opening.builder = builder.id
     opening.name = name
     const config = await discoverProject(root, renderer, pkg)
-    const routes = projectRoutes(adapters.routers ?? [], pkg, root)
+    const usedRouters = routers.map(({ adapter }) => adapter)
+    const usedEntities = entitiesFound.map(({ adapter }) => adapter)
+    const routes = projectRoutes(usedRouters, root)
     // A project file that can't be read stops the project opening, with an error naming it (PAR-1011).
     const known = new Map<string, string>()
 
@@ -445,7 +473,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     opening.cached = !!saved
     // The entities the project's tools describe, as its stories as screens, naming the components as the list does.
-    const entities = await importEntities(root, pkg, opened.list.sources, adapters.entities ?? [], config.notes)
+    const entities = await importEntities(root, opened.list.sources, usedEntities, config.notes)
 
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
@@ -467,6 +495,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       routes,
       entities,
+      usedRouters,
+      usedEntities,
       pkg,
       saved
     }
@@ -546,7 +576,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       routes,
       entities,
-      pkg,
+      usedRouters,
+      usedEntities,
       saved
     } = await inSpan("project.detected", { root }, () => detect(root, opening))
 
@@ -598,8 +629,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           { adapter: renderer },
           { adapter: builder, version: session.toolVersion },
           ...adapters.styles.filter((adapter) => adapter.id === styles.info?.id).map((adapter) => ({ adapter })),
-          ...(adapters.routers ?? []).filter((adapter) => adapter.detect(pkg)).map((adapter) => ({ adapter })),
-          ...(adapters.entities ?? []).filter((adapter) => adapter.detect(pkg)).map((adapter) => ({ adapter }))
+          ...usedRouters.map((adapter) => ({ adapter })),
+          ...usedEntities.map((adapter) => ({ adapter }))
         ],
         detection,
         entities,
@@ -902,7 +933,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   ): Promise<{ info?: ProjectInfo["styles"]; theme: ThemeVariable[] }> {
     for (const stylesheet of stylesheets) {
       const source = await readFile(join(root, stylesheet), "utf8").catch(() => "")
-      const adapter = adapters.styles.find((candidate) => candidate.detect(source))
+      const adapter = adapters.styles.find((candidate) => candidate.handles(source))
 
       if (!adapter) {
         continue
@@ -1110,7 +1141,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
-    const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
+    const inputs = await detectionInputs(root, watched).catch(() => undefined)
 
     if (!inputs || projects.get(root) !== project) {
       return false
@@ -1642,12 +1673,12 @@ export async function saveDocumentCopy({
 /** The first builder that recognises the project, with what it found; otherwise what each one looked for. */
 async function findBuilder(
   builders: BuilderAdapter[],
-  root: string
+  project: DetectContext
 ): Promise<{ builder: BuilderAdapter; detection: BuilderDetection } | { builder?: undefined; misses: string[] }> {
   const misses: string[] = []
 
   for (const builder of builders) {
-    const detection = await builder.detect(root)
+    const detection = await builder.detect(project)
 
     if (detection.found) {
       return { builder, detection }
@@ -1664,11 +1695,11 @@ export function message(cause: unknown): string {
 }
 
 /**
- * The app's routes, from the first router that says the project uses it (PAR-1076), or none. A route file that can't
- * be read counts as missing, as the router's own tooling may not have written it yet.
+ * The app's routes, from the first router the project uses (PAR-1076), or none. A route file that can't be read counts
+ * as missing, as the router's own tooling may not have written it yet.
  */
-function projectRoutes(routers: readonly RouterAdapter[], pkg: PackageManifest, root: string): ProjectRoute[] {
-  const router = routers.find((adapter) => adapter.detect(pkg))
+function projectRoutes(routers: readonly RouterAdapter[], root: string): ProjectRoute[] {
+  const [router] = routers
 
   return (
     router?.readRoutes((path) => {

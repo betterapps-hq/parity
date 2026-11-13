@@ -1,18 +1,21 @@
-import type { PackageManifest, RouterAdapter } from "@parity-app/core"
+import { declares, type RouterAdapter } from "@parity-app/core"
 import { tanstackLogo } from "./logo.ts"
 import { readRoutes } from "./routes.ts"
-
-/** Whether a project depends on TanStack Router for React. */
-function detect(pkg: PackageManifest): boolean {
-  return Boolean(pkg.dependencies?.["@tanstack/react-router"] ?? pkg.devDependencies?.["@tanstack/react-router"])
-}
 
 /** TanStack Router (PAR-1073): its routes, read from the route tree its tooling generates and each route's file. */
 export const tanstackRouter: RouterAdapter = {
   id: "tanstack-router",
   name: "TanStack Router",
   icon: tanstackLogo,
-  detect,
+  async detect({ pkg }) {
+    const found = declares(pkg, ["@tanstack/react-router"]) !== undefined
+
+    return {
+      found,
+      summary: found ? "@tanstack/react-router in package.json" : "No @tanstack/react-router in package.json"
+    }
+  },
+  versions: { packages: ["@tanstack/react-router"], majors: [[1, "2023-12-23"]] },
   readRoutes,
   // The root route only holds the others, so it isn't counted.
   status: ({ version, routes = [] }) => {

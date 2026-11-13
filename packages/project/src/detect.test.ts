@@ -1,10 +1,11 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { type Adapter, type AdapterDetection, declares, type PackageManifest } from "@parity-app/core"
 import type { JsonValue } from "@parity-app/core/schema"
 import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+import { type AdapterFound, addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
 import { findLockfiles } from "./lockfile.ts"
 
 let root: string
@@ -21,6 +22,80 @@ async function fixture(files: Record<string, JsonValue>) {
 const installed = (name: string, version: string) => ({ [`node_modules/${name}/package.json`]: { name, version } })
 
 const today = new Date("2026-10-28T12:00:00Z")
+
+type Tool = Pick<Adapter, "id" | "name" | "versions">
+
+/** Tools as their adapters give them, with the majors released by `today`. */
+const tools: Tool[] = [
+  {
+    id: "react",
+    name: "React",
+    versions: {
+      packages: ["react"],
+      majors: [
+        [18, "2022-03-29"],
+        [19, "2024-12-05"]
+      ]
+    }
+  },
+  {
+    id: "vite",
+    name: "Vite",
+    versions: {
+      packages: ["vite"],
+      distributions: { "@voidzero-dev/vite-plus-core": "Vite+" },
+      majors: [
+        [5, "2023-11-16"],
+        [6, "2024-11-26"],
+        [7, "2025-06-24"],
+        [8, "2026-03-12"]
+      ]
+    }
+  },
+  {
+    id: "tailwind",
+    name: "Tailwind CSS",
+    versions: {
+      packages: ["tailwindcss"],
+      prefix: "v",
+      majors: [
+        [3, "2021-12-09"],
+        [4, "2025-01-21"]
+      ]
+    }
+  },
+  {
+    id: "storybook",
+    name: "Storybook",
+    versions: {
+      packages: ["storybook", "@storybook/react"],
+      scope: "@storybook/",
+      majors: [
+        [6, "2020-08-11"],
+        [7, "2023-03-31"],
+        [8, "2024-03-11"],
+        [9, "2025-05-28"],
+        [10, "2025-10-28"]
+      ]
+    }
+  }
+]
+
+/**
+ * What each tool's adapter found, as their `detect` does: a tool the package.json declares, and the builder, with what
+ * it found of its build tool.
+ */
+function found(pkg: PackageManifest, builder?: { id: string; detection: AdapterDetection }): AdapterFound<Tool>[] {
+  return tools.flatMap((tool) => {
+    if (builder?.id === tool.id) {
+      return [{ adapter: tool, detection: builder.detection }]
+    }
+
+    const declared = declares(pkg, tool.versions!.packages, tool.versions!.scope)
+
+    return declared ? [{ adapter: tool, detection: { found: true, summary: `${declared} in package.json` } }] : []
+  })
+}
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "parity-detect-"))
@@ -161,12 +236,8 @@ describe("detectProject", () => {
       ...installed("tailwindcss", "4.3.3")
     })
 
-    const detection = await detectProject(
-      root,
-      pkg,
-      { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.cts", summary: "" } },
-      today
-    )
+    const builder = { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.cts", summary: "" } }
+    const detection = await detectProject(root, pkg, found(pkg, builder), today)
 
     expect(detection.packageManager.agent).toBe("pnpm")
     expect(detection.tools.map((tool) => tool.summary)).toEqual([
@@ -191,7 +262,7 @@ describe("detectProject", () => {
       ...installed("tailwindcss", "3.4.17"),
       ...installed("storybook", "8.6.14")
     })
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools.map((tool) => [tool.id, tool.status])).toEqual([
       ["react", "dropped"],
       ["vite", "dropped"],
@@ -212,7 +283,7 @@ describe("detectProject", () => {
   it("says until when a tested version stays tested", async () => {
     const pkg = { devDependencies: { vite: "^6.0.0", storybook: "^9.0.0" } }
     await fixture({ "package.json": pkg, ...installed("vite", "6.4.1"), ...installed("storybook", "9.1.2") })
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools).toMatchObject([
       {
         id: "vite",
@@ -224,39 +295,24 @@ describe("detectProject", () => {
     ])
   })
 
-  it("finds Storybook's main config, in the folder its script names", async () => {
-    const pkg = { devDependencies: { storybook: "^10.0.0" } }
-    await fixture({ "package.json": pkg, ...installed("storybook", "10.6.5"), ".storybook/main.mts": "" })
-    expect((await detectProject(root, pkg, undefined, today)).tools[0]).toMatchObject({
-      config: ".storybook/main.mts",
-      summary: "Storybook 10.6.5 from node_modules/storybook, config .storybook/main.mts"
-    })
-
-    const scripted = { ...pkg, scripts: { storybook: "storybook dev -p 6006 -c config/sb" } }
-    await fixture({ "config/sb/main.cjs": "" })
-    expect((await detectProject(root, scripted, undefined, today)).tools[0]).toMatchObject({
-      config: "config/sb/main.cjs"
-    })
-  })
-
   it("reads Storybook 6 from its framework package", async () => {
     const pkg = { devDependencies: { "@storybook/react": "^6.5.0" } }
     await fixture({ "package.json": pkg, ...installed("@storybook/react", "6.5.16") })
-    const [storybook] = (await detectProject(root, pkg, undefined, today)).tools
+    const [storybook] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(storybook).toMatchObject({ id: "storybook", version: "6.5.16", status: "dropped" })
   })
 
   it("finds packages hoisted to a workspace root", async () => {
     const pkg = { dependencies: { react: "^19.0.0" } }
     await fixture({ "packages/app/package.json": pkg, ...installed("react", "19.2.0") })
-    const [react] = (await detectProject(join(root, "packages/app"), pkg, undefined, today)).tools
+    const [react] = (await detectProject(join(root, "packages/app"), pkg, found(pkg), today)).tools
     expect(react).toMatchObject({ version: "19.2.0", from: "../../node_modules/react" })
   })
 
   it("reports declared packages that aren't installed, and leaves out tools the project doesn't use", async () => {
     const pkg = { dependencies: { react: "^19.1.0" } }
     await fixture({ "package.json": pkg })
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools).toEqual([
       {
         id: "react",
@@ -279,7 +335,7 @@ describe("detectProject", () => {
       }
     })
 
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools).toEqual([
       {
         id: "vite",
@@ -309,7 +365,7 @@ describe("detectProject", () => {
     })
     await symlink(join(root, store), join(root, "node_modules/vite"), "junction")
 
-    const [vite] = (await detectProject(root, pkg, undefined, today)).tools
+    const [vite] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(vite).toMatchObject({
       version: "8.3.5",
       status: "supported",
@@ -324,7 +380,7 @@ describe("detectProject", () => {
       "node_modules/vite/package.json": { name: "some-vite-fork", version: "2.0.0", bundledVersions: { vite: "8.3.5" } }
     })
 
-    const [vite] = (await detectProject(root, pkg, undefined, today)).tools
+    const [vite] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(vite).toMatchObject({
       version: "8.3.5",
       summary: "Vite 8.3.5 from node_modules/vite, shipped by some-vite-fork 2.0.0"
@@ -339,12 +395,12 @@ describe("detectProject", () => {
     })
 
     const builder = { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.ts", summary: "" } }
-    expect((await detectProject(root, pkg, builder, today)).tools[0]).toMatchObject({
+    expect((await detectProject(root, pkg, found(pkg, builder), today)).tools[0]).toMatchObject({
       version: "8.3.5",
       status: "supported"
     })
 
-    const [vite] = (await detectProject(root, pkg, undefined, today)).tools
+    const [vite] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(vite).toEqual({
       id: "vite",
       name: "Vite",
@@ -357,7 +413,7 @@ describe("detectProject", () => {
   it("marks a major newer than any Parity knows", async () => {
     const pkg = { dependencies: { react: "^20.0.0" } }
     await fixture({ "package.json": pkg, ...installed("react", "20.0.0") })
-    const [react] = (await detectProject(root, pkg, undefined, today)).tools
+    const [react] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(react).toMatchObject({ status: "newer" })
   })
 })

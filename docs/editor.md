@@ -6919,21 +6919,21 @@ adding one to an open project changed nothing until Parity restarted.
 - **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
   (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
   told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
-- **Each builder adapter names the config files it looks for** (`BuilderAdapter.configFiles`, PAR-826), and the service
-  passes every registered builder's into `detectionInputs`, so a new builder needs no change to detection or the
-  service. Vite's are `vite.config` with each of `scriptConfigExtensions` (`.ts`, `.mts`, `.cts`, `.js`, `.mjs`,
-  `.cjs`), the list its detection summary names too. A change to a config's contents isn't compared: the project's own
-  Vite restarts its server when its config changes.
+- **Each adapter names the files it watches** (`Adapter.watches`, PAR-826), and the service passes every registered
+  adapter's into `detectionInputs`, so a new adapter needs no change to detection or the service. Vite's are
+  `vite.config` with each of `scriptConfigExtensions` (`.ts`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`), the list its
+  detection summary names too, and Storybook's are `.storybook/main` with each of them. A change to a config's contents
+  isn't compared: the project's own Vite restarts its server when its config changes.
 - **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
   again first when it did, so the answer describes the project as detected now.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
-`styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
-`adapters/vite-adapter/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
-`openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
-`shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
-`settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
-`renderer/agent/handlers.ts`.
+`styles.ts`; `watches` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
+`adapters/vite-adapter/src/index.ts` and `storybookConfigFiles` in `adapters/storybook-adapter/src/detect.ts`;
+`watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
+`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
 
 Tests: `packages/project/src/detection-inputs.test.ts` (6: `components.json` naming a stylesheet changes the key; a
 conventional stylesheet or a builder's config appearing changes it, and the entry `index.html` names is followed; the
@@ -7313,6 +7313,39 @@ before it went on to the next design's title. Every end-to-end test also fails i
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
+
+### Each adapter detects its own tool
+
+When a project opens, every adapter is asked whether the project uses its tool, and only those that find it are used.
+Before, the service asked renderers, routers and Storybook about package.json, builders about the root folder and
+Tailwind about a stylesheet's text, and `packages/project/src/detect.ts` kept its own list of tools for their versions,
+so Storybook was detected in two places and TanStack Router not at all.
+
+- **One context for every detector.** `detect` gets a `DetectContext`: the root, its package.json and `read(path)`, a
+  file's text. It returns an `AdapterDetection`: whether it found its tool, what it found in a sentence, its config
+  file, and its version when the tool says it, as Vite's own `vite` does. Storybook finds its `main` config in the
+  folder its `storybook dev` script names with `-c`, else `.storybook`.
+- **The first renderer and builder that find their tool are used, and every other adapter that finds its own.** The
+  styles adapter for a stylesheet is still chosen by its text (`handles`), since a project's stylesheets are found after
+  its renderer.
+- **Each adapter gives its tool's version facts** (`versions`): the packages that carry its version, a scope such as
+  `@storybook/`, other packages that ship it, such as Vite+, and each major's release date. Detection reads the
+  installed version of each tool an adapter found and checks it against that adapter's cutoff, so `detect.ts` has no
+  list of tools.
+- **What the example shows:** the service's log lists React 19.3.1, Vite 8.3.5 with `vite.config.ts`, Tailwind CSS
+  4.3.3, TanStack Router 1.170.46, which wasn't listed before, and Storybook 10.6.5 with `.storybook/main.ts`.
+
+Tried on 2026-11-13 in the running app on the example: the log above, and the status bar's items as before.
+
+Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions` and `declares` in
+`packages/core/src/adapters.ts`; each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
+`adapters/storybook-adapter/src/detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
+`packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
+
+Tests: `packages/project/src/detect.test.ts` (versions, cutoff and summaries from the tools adapters give),
+`adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
+`adapters/tanstack-router-adapter/src/routes.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit test
+runs the service's open path with several adapters of one kind.
 
 ### Each tool's status bar item comes from its adapter
 

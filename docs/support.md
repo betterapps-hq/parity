@@ -77,6 +77,12 @@ Every adapter Parity opens projects with is listed once, in `packages/adapters`,
 builder's process, Storybook's example project and the validation projects all read. Supporting a new tool means writing
 its adapter and adding it to that list. Each adapter can bring its tool's logo, which its status bar item shows.
 
+When a project opens, every adapter's `detect` is asked, all through the same context (the root, its package.json and
+its files), whether the project uses its tool; it says what it found and its config file, and a builder asks its build
+tool for its version. The first renderer and builder that find their tool are used, and every other adapter that finds
+its own. Files an adapter `watches`, such as Vite's or Storybook's config, detect the project again when they come or
+go.
+
 ### UI framework (renderer adapter)
 
 | Tool                 | Status | Notes                                                                                                                                                                           |
@@ -353,8 +359,10 @@ The `fluent` validation project below checks all of it.
 **Anything released more than two years ago is dropped.** Each major version counts from its own first stable release
 (x.0). Dropped means not tested: no fixes and no validation project. It doesn't mean blocked. In your words: "By drop
 support, I didn't mean prevent others from using those versions, just that we don't actively test and support them." A
-project on a dropped version opens and works as far as it can. Parity reads the installed versions of React, Vite,
-Tailwind CSS and Storybook, and notes an untested one quietly, in the status bar's tooltips and the agent API.
+project on a dropped version opens and works as far as it can. Parity reads the installed version of each tool an
+adapter finds (React, Vite, Tailwind CSS, TanStack Router and Storybook) and notes an untested one quietly, in the
+status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each major
+(`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { BuilderRenderer } from "@parity-app/core"
+import type { BuilderRenderer, DetectContext } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { freePort, viteBuilder } from "./index.ts"
 
@@ -41,6 +41,9 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
+/** What Vite's `detect` reads the project through: only its root. */
+const at = (folder: string): DetectContext => ({ root: folder, pkg: {}, read: () => Promise.resolve(undefined) })
+
 describe("viteBuilder.detect", () => {
   it.each([
     ["vite.config.ts", 'import { defineConfig } from "vite"\nexport default defineConfig({})\n'],
@@ -50,9 +53,9 @@ describe("viteBuilder.detect", () => {
   ])(
     "finds %s through the project's own Vite, and names it among the files detection follows",
     async (name, source) => {
-      expect(viteBuilder.configFiles).toContain(name)
+      expect(viteBuilder.watches).toContain(name)
       await fixture({ [name]: source })
-      expect(await viteBuilder.detect(root)).toEqual({
+      expect(await viteBuilder.detect(at(root))).toEqual({
         found: true,
         version: viteVersion,
         config: name,
@@ -71,22 +74,22 @@ describe("viteBuilder.detect", () => {
       "build/dev.config.ts": "export default {}\n",
       "vite.config.ts": "export default {}\n"
     })
-    expect(await viteBuilder.detect(root)).toMatchObject({ found: true, config: "build/dev.config.ts" })
+    expect(await viteBuilder.detect(at(root))).toMatchObject({ found: true, config: "build/dev.config.ts" })
 
     await writeFile(join(root, "package.json"), pkg({ build: "vite build -c build/prod.config.ts", test: "vitest" }))
-    expect(await viteBuilder.detect(root)).toMatchObject({ found: true, config: "vite.config.ts" })
+    expect(await viteBuilder.detect(at(root))).toMatchObject({ found: true, config: "vite.config.ts" })
   })
 
   it("says what it looked for when there's no config", async () => {
     await fixture({})
-    const detection = await viteBuilder.detect(root)
+    const detection = await viteBuilder.detect(at(root))
     expect(detection).toMatchObject({ found: false, version: viteVersion })
     expect(detection.summary).toContain("vite.config (.ts, .mts, .cts, .js, .mjs, .cjs)")
   })
 
   it("says when there's a config but Vite isn't installed", async () => {
     await fixture({ "vite.config.cts": "export default {}\n" }, { vite: false })
-    expect(await viteBuilder.detect(root)).toEqual({
+    expect(await viteBuilder.detect(at(root))).toEqual({
       found: false,
       summary: "vite.config.cts is here, but Vite isn't installed: install the project's packages first"
     })
@@ -94,7 +97,7 @@ describe("viteBuilder.detect", () => {
 
   it("reports a config that fails to load", async () => {
     await fixture({ "vite.config.mjs": 'throw new Error("broken config")\n' })
-    await expect(viteBuilder.detect(root)).rejects.toThrow(/couldn't load the project's config: .*broken config/)
+    await expect(viteBuilder.detect(at(root))).rejects.toThrow(/couldn't load the project's config: .*broken config/)
   })
 })
 

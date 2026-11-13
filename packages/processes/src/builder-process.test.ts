@@ -13,7 +13,7 @@ import { type ChildEnd, lifecycle } from "./lifecycle.ts"
 const renderer: RendererAdapter = {
   id: "react",
   name: "React",
-  detect: () => true,
+  detect: () => Promise.resolve({ found: true, summary: "" }),
   guestModule: "@parity-app/react-adapter/guest",
   runtimePackages: ["react"],
   runtimeImports: [],
@@ -43,7 +43,7 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
   const builder: BuilderAdapter = {
     id: "vite",
     name: "Vite",
-    configFiles: ["vite.config.ts"],
+    watches: ["vite.config.ts"],
     detect: () => Promise.resolve({ found: true, summary: "" }),
     async start(options) {
       started.push(options)

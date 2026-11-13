@@ -1,4 +1,4 @@
-import type { StylesAdapter, ThemeVariable } from "@parity-app/core"
+import { declares, type StylesAdapter, type ThemeVariable } from "@parity-app/core"
 import { loadDesignSystem } from "./design-system.ts"
 import { tailwindLogo } from "./logo.ts"
 import { tailwindPrinter } from "./printer.ts"
@@ -21,7 +21,22 @@ export const tailwindStyles: StylesAdapter = {
       opens: { tab: "tokens" }
     }
   ],
-  detect: (source) => /@import\s+["']tailwindcss["']|@tailwind\s+(?:base|utilities)/.test(source),
+  async detect({ pkg }) {
+    const found = declares(pkg, ["tailwindcss"]) !== undefined
+
+    return { found, summary: found ? "tailwindcss in package.json" : "No tailwindcss in package.json" }
+  },
+  versions: {
+    packages: ["tailwindcss"],
+    prefix: "v",
+    majors: [
+      [1, "2019-05-13"],
+      [2, "2020-11-18"],
+      [3, "2021-12-09"],
+      [4, "2025-01-21"]
+    ]
+  },
+  handles: (source) => /@import\s+["']tailwindcss["']|@tailwind\s+(?:base|utilities)/.test(source),
   async loadTheme(root, stylesheet) {
     const system = await loadDesignSystem(root, stylesheet)
     const variables: ThemeVariable[] = []

@@ -73,6 +73,19 @@ export function parseManifest(text: string, file: string): PackageManifest {
 }
 
 /**
+ * The first of `packages` a package.json declares as a dependency or dev dependency, else the first in `scope` (as
+ * `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
+ */
+export function declares(pkg: PackageManifest, packages: readonly string[], scope?: string): string | undefined {
+  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+
+  return (
+    packages.find((name) => declared.includes(name)) ??
+    (scope ? declared.find((name) => name.startsWith(scope)) : undefined)
+  )
+}
+
+/**
  * What an adapter adds to the status bar about its tool, which the app draws as it's given: an icon, a value in bold,
  * and words after it, with a tooltip. A project's tools each tell their own, so a new adapter adds its items without
  * the app changing.
@@ -123,14 +136,66 @@ export interface AdapterIcon {
   fillRule?: "nonzero" | "evenodd"
 }
 
-/** What every adapter has, whatever it integrates: who it is, its logo, and what it adds to the status bar. */
+/**
+ * What every adapter has, whatever it integrates: who it is, its logo, whether the project uses its tool, which version
+ * Parity tests, and what it adds to the status bar.
+ */
 export interface Adapter {
   id: string
   name: string
   /** Its tool's logo. */
   icon?: AdapterIcon
+  /**
+   * Whether the project uses its tool, and what was found: its version, when the tool can say, and its config file.
+   * Every adapter is asked when a project opens, and only those that find their tool are used.
+   */
+  detect(project: DetectContext): Promise<AdapterDetection>
+  /**
+   * Files, relative to the project root, whose coming or going means the project is detected again, as a builder's
+   * config files (PAR-826). A tool follows a change to one's contents itself.
+   */
+  watches?: readonly string[]
+  /** Where its tool's version is installed, and when each major came out, for the version cutoff. */
+  versions?: ToolVersions
   /** What it adds to the status bar. */
   status?(facts: StatusFacts): StatusItem[]
+}
+
+/** What every adapter's `detect` reads the project through, so it can look wherever its tool leaves a trace. */
+export interface DetectContext {
+  /** The project's root folder. */
+  root: string
+  pkg: PackageManifest
+  /** A file's text by its path from the root, with forward slashes, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+}
+
+/** What an adapter's `detect` found: its tool's version and config file, or what it looked for when it found nothing. */
+export interface AdapterDetection {
+  found: boolean
+  /** The tool's version, when the tool says it, as a builder asks its build tool. Otherwise the installed package's. */
+  version?: string
+  /** Its config file, relative to the project root. */
+  config?: string
+  /** What was found, or what was looked for, in a sentence. */
+  summary: string
+}
+
+/**
+ * Where a tool's version is installed, and when each of its majors came out: the version cutoff tests a major for two
+ * years from its own x.0.0, and always the newest.
+ */
+export interface ToolVersions {
+  /** Packages that carry its version, the main one first. */
+  packages: string[]
+  /** Each major's first stable release (x.0.0), from the npm registry, oldest first. Add one when it comes out. */
+  majors: [major: number, released: string][]
+  /** A scope every package of which is one of the tool's, as `@storybook/`, beside `packages`. */
+  scope?: string
+  /** How majors are written, such as Tailwind's `v4`. */
+  prefix?: string
+  /** Packages that ship the tool and may be installed in its place, with their names for people. */
+  distributions?: Record<string, string>
 }
 
 /** The adapters Parity opens projects with, by what they integrate. */
@@ -150,7 +215,6 @@ export interface Adapters {
  * framework rather than the canvas app's.
  */
 export interface RendererAdapter extends Adapter {
-  detect(pkg: PackageManifest): boolean
   /** Module specifier, resolvable from the host, whose module exports `createGuest(init: GuestInit): Guest`. */
   guestModule: string
   /** Packages that must resolve to exactly one copy, taken from the customer's project. */
@@ -211,26 +275,13 @@ export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] a
  * canvas as a guest module.
  */
 export interface BuilderAdapter extends Adapter {
-  /**
-   * The config files, relative to the project root, that say whether this builder serves the project (PAR-826).
-   * Detection follows them, so adding or taking one away detects an open project again; the build tool follows a
-   * change to one's contents itself.
-   */
-  configFiles: readonly string[]
-  /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
-  detect(root: string): Promise<BuilderDetection>
+  /** Its config files, relative to the project root, which say whether it serves the project (PAR-826). */
+  watches: readonly string[]
   start(options: BuilderStartOptions): Promise<BuilderSession>
 }
 
-/** What a builder found: the tool's version and config file, or what it looked for when it found nothing. */
-export interface BuilderDetection {
-  found: boolean
-  version?: string
-  /** The config file, relative to the project root. */
-  config?: string
-  /** What was found, or what was looked for, in a sentence. */
-  summary: string
-}
+/** What a builder found: its build tool's version, asked of the tool itself, and its config file. */
+export type BuilderDetection = AdapterDetection
 
 export interface BuilderSession {
   /** URL of an ES module whose default export is a {@link Guest}. */
@@ -455,8 +506,8 @@ export interface DrawnNodes {
  * only carries the variables the project's code already uses; the theme has every value a design may pick.
  */
 export interface StylesAdapter extends Adapter {
-  /** Whether a stylesheet of the project uses this framework. */
-  detect(source: string): boolean
+  /** Whether one of the project's stylesheets uses this framework, from its text. */
+  handles(source: string): boolean
   /** Every theme variable, resolved by the project's own copy of the framework. */
   loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
   /**
@@ -494,8 +545,6 @@ export interface ThemeVariable {
  * outside it knows the tool's format. A project can have several: each fills in the entities its tool describes.
  */
 export interface EntitiesAdapter extends Adapter {
-  /** Whether the project uses the tool, from its package.json. */
-  detect(pkg: PackageManifest): boolean
   /** The entities the tool's files describe. */
   import(source: EntitiesSource): Promise<ProjectEntities>
   /**
@@ -549,8 +598,6 @@ export interface ImportedScreen {
  * (PAR-1073). The app's own entry draws a page at its URL; the adapter only says which routes there are.
  */
 export interface RouterAdapter extends Adapter {
-  /** Whether the project uses this router, from its package.json. */
-  detect(pkg: PackageManifest): boolean
   /**
    * The project's routes, each parent before its children, read through `read`: a file's text by its path from the
    * project root, with forward slashes, or undefined when there's no such file. Empty when the router's files aren't

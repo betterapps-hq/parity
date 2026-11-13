@@ -6,7 +6,7 @@ import { detectionInputs } from "./detection-inputs.ts"
 
 let root: string
 
-/** The config files of the builders registered, as `BuilderAdapter.configFiles` gives them. */
+/** The files the registered adapters watch, as `Adapter.watches` gives them. */
 const builderConfigs = ["vite.config.ts", "vite.config.mjs"]
 
 async function write(path: string, content: string) {

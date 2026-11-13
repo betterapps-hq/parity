@@ -1,10 +1,11 @@
 # Proposal: what adapters register in the editor (PAR-1071)
 
 Status: draft for discussion. Built on 2026-11-13: each adapter's `status` hook adds its own items to the status bar,
-and step 1 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind, TanStack
-Router and Storybook bring their logos, `packages/adapters` is the one list, and Tailwind has a status item. Plugins,
-and how they're packaged and trusted, are in [extensions.md](extensions.md); this page is only about where an adapter's
-content appears in the editor.
+and steps 1 and 2 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind,
+TanStack Router and Storybook bring their logos, `packages/adapters` is the one list, Tailwind has a status item, and
+every adapter detects its own tool through one context and gives its own version facts. Plugins, and how they're
+packaged and trusted, are in [extensions.md](extensions.md); this page is only about where an adapter's content appears
+in the editor.
 
 ## In one line
 
@@ -184,9 +185,11 @@ since packages will be published to a registry. The workspace lists `adapters/*`
    and the fixtures share, and a Tailwind status item. Left: moving React and Vite into `frameworks` and `builders` with
    every folder dropping `-adapter`. The move waits until no dev app or Storybook is running from this checkout, since
    they hold the adapters' folders open.
-2. **One detector each, and version facts.** Every `detect` takes a `DetectContext` and returns an `AdapterDetection`,
-   detection reads each adapter's `versions`, `watches` takes over from a builder's `configFiles`, and the fixed list in
-   `detect.ts` goes.
+2. **One detector each, and version facts.** Built: every `detect` takes a `DetectContext` and returns an
+   `AdapterDetection`, detection reads each adapter's `versions`, `watches` took over from a builder's `configFiles`,
+   and the fixed list in `detect.ts` is gone. The context has no `files(match)` yet, since no detector needs to search;
+   it's added when one does. `findStorybook` still reads Storybook's script, port and stories for `info.storybook`,
+   until component facts replace it in step 5. A styles adapter is still chosen per stylesheet, by `handles(source)`.
 3. **Actions.** Storybook registers Open in Storybook; `storybook.open` and the `{ tool }` click go.
 4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
    registers.

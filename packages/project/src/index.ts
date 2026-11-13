@@ -40,7 +40,15 @@ export {
   readChangedFiles
 } from "@parity-app/code"
 
-export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+export {
+  type AdapterFound,
+  addCommand,
+  cutoff,
+  detectAdapters,
+  detectContext,
+  detectPackageManager,
+  detectProject
+} from "./detect.ts"
 
 export { type Detection, type PackageManagerDetection, type ProjectDetection } from "./detection.ts"
 
@@ -286,12 +294,11 @@ function resolveAlias(root: string, tsconfig: ProjectTsconfig, alias: string): s
 }
 
 /**
- * The entities each adapter that says the project uses its tool reads from the tool's files, together: Storybook's
- * stories as screens, for one. An adapter that fails is left out, with why in `notes`.
+ * The entities each of `adapters`, those whose `detect` found their tool, reads from the tool's files, together:
+ * Storybook's stories as screens, for one. An adapter that fails is left out, with why in `notes`.
  */
 export async function importEntities(
   root: string,
-  pkg: PackageManifest,
   components: Record<string, ComponentSource>,
   adapters: readonly EntitiesAdapter[],
   notes: string[] = []
@@ -300,7 +307,7 @@ export async function importEntities(
   const source = entitiesSource(root, components, (specifier) => resolveAlias(root, tsconfig, specifier))
   const entities: ProjectEntities = {}
 
-  for (const adapter of adapters.filter((each) => each.detect(pkg))) {
+  for (const adapter of adapters) {
     try {
       const imported = await adapter.import(source)
 

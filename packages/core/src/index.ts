@@ -1,6 +1,8 @@
 export {
   type BuilderAdapter,
   type BuilderDetection,
+  declares,
+  type DetectContext,
   type BuilderRenderer,
   type BuilderSession,
   type BuilderStartOptions,
@@ -26,6 +28,7 @@ export {
   type EntitiesAdapter,
   type FileWrite,
   type Adapter,
+  type AdapterDetection,
   type AdapterIcon,
   type Adapters,
   type AdapterStatusItem,
@@ -37,7 +40,8 @@ export {
   scriptConfigExtensions,
   type StylesAdapter,
   type ThemeVariable,
-  type TokenWrite
+  type TokenWrite,
+  type ToolVersions
 } from "./adapters.ts"
 
 export { boardLayoutAt, boardSize, companionScale, gutterScale, shrinkBelow } from "./board.ts"

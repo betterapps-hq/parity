@@ -44,8 +44,21 @@ export const viteBuilder: BuilderAdapter = {
   id: "vite",
   name: "Vite",
   icon: viteLogo,
-  configFiles: viteConfigFiles,
-  detect: detectVite,
+  watches: viteConfigFiles,
+  detect: ({ root }) => detectVite(root),
+  versions: {
+    packages: ["vite"],
+    distributions: { "@voidzero-dev/vite-plus-core": "Vite+" },
+    majors: [
+      [2, "2021-02-16"],
+      [3, "2022-07-13"],
+      [4, "2022-12-09"],
+      [5, "2023-11-16"],
+      [6, "2024-11-26"],
+      [7, "2025-06-24"],
+      [8, "2026-03-12"]
+    ]
+  },
   status: ({ version, packageManager }) => [
     {
       value: "Vite",
