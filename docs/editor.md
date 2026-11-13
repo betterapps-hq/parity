@@ -6624,7 +6624,9 @@ laid out in a row for each story file, left of everything else on the canvas.
   the project depends on when it opens, and the screens come in the project's info.
 - **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
   args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
-  layout draws it. Each is named for its title's last part and its own name, as `Button / Outline`.
+  layout draws it: a frame that hugs the story, rather than a screen as wide as a viewport, whose width the canvas
+  measures and doesn't save. Layers and the Design panel show it as a story, with its bookmark, and it has no frame size
+  of its own to set. Each is named for its title's last part and its own name, as `Button / Outline`.
 - **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's

@@ -8,6 +8,7 @@ import {
 import { describeElement, elementFamilies } from "@parity-app/layer-types"
 import {
   AppWindow,
+  Bookmark,
   Columns3,
   Component,
   Diamond,
@@ -146,15 +147,23 @@ export function designNamer(
   return (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
 }
 
-/** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
+/**
+ * Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. A page of
+ * the app shows its route, and a story Storybook's teal bookmark.
+ */
 export function DesignIcon({
   kind,
   route = false,
+  story = false,
   ...props
-}: LucideProps & { kind: ContainerKind | undefined; route?: boolean }) {
+}: LucideProps & { kind: ContainerKind | undefined; route?: boolean; story?: boolean }) {
   // A page of the app shows the route it's drawn at (PAR-1076).
   if (route) {
     return <Route {...props} />
+  }
+
+  if (story) {
+    return <Bookmark {...props} style={{ ...props.style, color: "var(--canvas-story)" }} />
   }
 
   if (kind === "frame") {

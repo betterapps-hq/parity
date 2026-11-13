@@ -49,7 +49,6 @@ import {
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
-  Bookmark,
   ChevronRight,
   Folder,
   ChevronsDownUp,
@@ -229,7 +228,12 @@ export function LayerTree() {
     )
 
     const components = entries.filter((entry) => entry.path === componentBoardsFile)
-    const frames = entries.filter((entry) => entry.container.kind === "frame" && entry.path !== componentBoardsFile)
+
+    const frames = entries.filter(
+      (entry) =>
+        entry.container.kind === "frame" && entry.path !== componentBoardsFile && entry.path !== storyScreensFile
+    )
+
     const listed: Group[] = []
 
     // Routes are listed once the app has some, as its router says.
@@ -1188,11 +1192,11 @@ const LayerRow = memo(function LayerRow({
               <ChevronRight className={`size-3.5 transition-transform ${row.expanded ? "rotate-90" : ""}`} />
             </button>
             {row.node && <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />}
-            {story && <Bookmark className="size-3.5 shrink-0" style={{ color: "var(--canvas-story)" }} />}
-            {!row.node && !story && (
+            {!row.node && (
               <DesignIcon
                 kind={board ? "component" : container.kind}
                 route={row.design.path === routePagesFile}
+                story={story}
                 className="size-3.5 shrink-0"
                 style={{ color }}
               />

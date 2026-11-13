@@ -7,6 +7,7 @@ import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageRoute } from "../canvas/route-pages.ts"
+import { storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -179,6 +180,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
   const page = routePageRoute(session.id, container.id) !== undefined
   const board = boardComponent(session.id, container.id) !== undefined
+  const story = entry.path === storyScreensFile
   let kind = kindTitle(container.kind)
   let detail = `${kind}, saved in ${entry.path}`
 
@@ -188,13 +190,23 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   } else if (board) {
     kind = "Component"
     detail = "Component, drawn from the project's code"
+  } else if (story) {
+    kind = "Story"
+    detail = "Story, read from its Storybook file"
   }
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={<DesignIcon kind={board ? "component" : container.kind} route={page} className={headingIcon} />}
+          icon={
+            <DesignIcon
+              kind={board ? "component" : container.kind}
+              route={page}
+              story={story}
+              className={headingIcon}
+            />
+          }
           color={designColor(board ? "component" : container.kind)}
           kind={kind}
           detail={detail}
@@ -219,7 +231,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
             />
           }
         />
-        {container.kind === "frame" && !board && (
+        {container.kind === "frame" && !board && !story && (
           <div className="mt-2 flex flex-col gap-2 pl-1.5">
             <Hint label="Frames are drawn in the project's primary mode" wait>
               <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">

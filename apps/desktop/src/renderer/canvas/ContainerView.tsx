@@ -86,6 +86,7 @@ import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 import { routePagePath, routePageUrl } from "./route-pages.ts"
+import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
@@ -226,10 +227,11 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
           return
         }
 
-        // A component's board is drawn from the project's code each time, so the width it's drawn at isn't to be saved.
+        // A component's board and a story are drawn from the project's code each time, so the width they're drawn at
+        // isn't to be saved.
         store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, {
           history: false,
-          persist: !key.startsWith(`${componentBoardsFile}#`)
+          persist: !key.startsWith(`${componentBoardsFile}#`) && !key.startsWith(`${storyScreensFile}#`)
         })
       }
 
@@ -668,6 +670,7 @@ function TitleButton({
     <DesignIcon
       kind={kind}
       route={path !== undefined}
+      story={entry.path === storyScreensFile}
       className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
       style={{ color: color ?? (quiet && file === undefined ? undefined : designColor(kind)) }}
     />

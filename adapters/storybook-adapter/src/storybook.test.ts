@@ -116,9 +116,11 @@ describe("importStoryScreens", () => {
       ["src/stories/card.stories.tsx#Plain", "Card", "Plain"]
     ])
     expect(screens[1]?.screen).toMatchObject({
-      kind: "screen",
+      // A frame hugging the story, as Storybook draws one at its own size.
+      kind: "frame",
       root: {
         type: "layout",
+        style: { width: { size: "hug" } },
         children: [
           {
             type: "component",
