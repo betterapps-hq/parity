@@ -2463,8 +2463,10 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **A binding goes only where its param is** (PAR-464). A copied layer bound to a param keeps the binding when it's
   pasted into a design with a param of that name, and follows it there; anywhere else the binding is dropped and the
   layer keeps the value it showed. That holds all the way down, in an instance's filled slots too (PAR-966). A new
-  screen has no params, so it keeps none. Pastes, Paste over, Paste to replace, Paste here and dragging to another
-  design all do this.
+  screen has no params, so it keeps none. Pastes, Paste over, Paste to replace, Paste here, dragging to another design
+  and an agent's `Copy` all do this.
+- **An agent's `Copy` is a paste** (PAR-1048). It copies the layer as the base shows it, with the default variant
+  options and the values bound params show, and puts it in through the same operation as Ctrl+V.
 - **The copy is an envelope** (`{"parity":"clipboard","version":1,"project":…,"payload":…}`) holding layers, designs or
   notes, and the project they came from. Text that starts like a Parity copy but isn't a complete envelope of a known
   kind, such as cut-off JSON or an unknown version, pastes nothing and shows a message. So does an envelope whose
@@ -2500,8 +2502,10 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 
 Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`), and what each paste does with each
 kind of content is `decidePaste` in `packages/editor/src/paste-decision.ts`, with `pasteStepName` for the undo step.
-Copying as shown and fitting bindings go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which
-knows each place a node holds nodes: a layout's children, a code component's slots and an instance's filled slots.
+`copyLayersInto` copies layers into a design for Ctrl+V and an agent's `Copy` (`packages/agent/src/workspace.ts`), and
+`copiesFor` gives every paste and a drag to another design their fresh ids and fitted bindings. Copying as shown and
+fitting bindings go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which knows each place a
+node holds nodes: a layout's children, a code component's slots and an instance's filled slots.
 `apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, asks `decidePaste`, saves images,
 places designs by their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
 
@@ -2527,7 +2531,8 @@ away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a pro
 state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a state
 taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to its
 default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in
-one state and refusing an unknown key.
+one state and refusing an unknown key. `workspace.test.ts` also has an agent's `Copy` (PAR-1048): the copy shows the
+param's default, keeps the binding within its design, and loses it in a design without the param.
 
 `packages/editor/src/paste-decision.test.ts` (105) is the table: each paste, where it would paste, each kind of content,
 and what it does, with the rows that differ on purpose saying why, and a check that every combination is in exactly one

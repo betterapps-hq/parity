@@ -167,7 +167,7 @@ export interface SnippetApi {
   Move: (path: string, parent: string, options?: PlaceOptions) => void
 
   /**
-   * Copies a node, with everything inside it, and returns the copy's id.
+   * Copies a node, with everything inside it, as a paste does, and returns the copy's id.
    * @category Nodes
    */
   Copy: (path: string, parent: string, options?: CopyOptions) => string

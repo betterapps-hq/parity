@@ -78,12 +78,13 @@ import {
   type StateSpec,
   uniqueId,
   unknownReference,
-  walkNodes,
-  withFreshIds
+  walkNodes
 } from "@parity-app/core"
 import {
+  asShown,
   type Bounds,
   componentComposition,
+  copyLayersInto,
   type DroppedParts,
   newDesign,
   type ReferenceAdded,
@@ -1205,20 +1206,23 @@ export class AgentWorkspace {
     const source = this.findNode(path)
     const target = this.tryDesign(parent)
     const to = target ? { ...target, node: target.container.root } : this.findNode(parent)
-    const copy = withFreshIds(structuredClone(source.node), nodeIds(to.container.root))
+    const shown = asShown(source.container, source.node, undefined)
+    const node = options.name ? { ...shown, name: options.name } : shown
 
-    if (options.name) {
-      copy.name = options.name
+    const { container, copies } = copyLayersInto(
+      to.container,
+      { parent: to.node.id, index: options.index, slot: options.slot },
+      [node]
+    )
+
+    const id = copies[0]!
+    this.setContainer(to.path, container, id)
+
+    if (node.name) {
+      this.created[node.name] = id
     }
 
-    const root = insertNode(to.container.root, to.node.id, copy, options)
-    this.setContainer(to.path, { ...to.container, root }, copy.id)
-
-    if (copy.name) {
-      this.created[copy.name] = copy.id
-    }
-
-    return copy.id
+    return id
   }
 
   private delete(path: string): void {

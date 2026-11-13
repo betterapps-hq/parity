@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "An agent's Copy now copies layers as Ctrl+V pastes them: as the base shows them, keeping only the bindings the destination has params for.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

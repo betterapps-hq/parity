@@ -207,12 +207,24 @@ export interface Pasted {
 }
 
 /**
- * Pastes copies of `nodes`, with fresh ids and the bindings the design has params for (see `fitBindings`), at
- * `target`, in order. Returns the design and the copies' ids.
+ * Copies of layers, as a board showed them (see `asShown`), ready to go into `destination`: each with ids that aren't
+ * among `taken`, which takes them too, and only the bindings `destination` has params for (see `fitBindings`).
  */
-export function pasteLayers(container: ContainerSpec, target: PasteTarget, nodes: readonly DesignNode[]): Pasted {
-  const taken = nodeIds(container.root)
-  const copies = nodes.map((node) => withFreshIds(fitBindings(node, container), taken))
+export function copiesFor(
+  destination: ContainerSpec,
+  nodes: readonly DesignNode[],
+  taken: Set<string> = nodeIds(destination.root)
+): DesignNode[] {
+  return nodes.map((node) => withFreshIds(fitBindings(node, destination), taken))
+}
+
+/**
+ * Copies layers into a design, as paste and an agent's `Copy` both do: copies of `nodes`, as a board showed them (see
+ * `asShown`), with fresh ids and the bindings the design has params for (see `copiesFor`), go at `target`, in order.
+ * Returns the design and the copies' ids.
+ */
+export function copyLayersInto(container: ContainerSpec, target: PasteTarget, nodes: readonly DesignNode[]): Pasted {
+  const copies = copiesFor(container, nodes)
   let root = container.root
 
   for (const [offset, copy] of copies.entries()) {

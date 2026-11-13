@@ -7,10 +7,9 @@ import {
   nodeIds,
   type NodeStyle,
   type StateSpec,
-  topmostNodes,
-  withFreshIds
+  topmostNodes
 } from "@parity-app/core"
-import { copyDesigns, fitBindings, type Pasted } from "./clipboard.ts"
+import { copiesFor, copyDesigns, type Pasted } from "./clipboard.ts"
 import { type Selection, selectedNodes, selectionKey } from "./selection.ts"
 import { boardReader } from "./shown.ts"
 
@@ -39,9 +38,7 @@ function copiesAt(
       ? Object.fromEntries(insets.flatMap((key) => (style[key] === undefined ? [] : [[key, style[key]]])))
       : undefined
 
-  return nodes.map((node) => {
-    const copy = withFreshIds(fitBindings(node, container), taken)
-
+  return copiesFor(container, nodes, taken).map((copy) => {
     if (!place) {
       return copy
     }

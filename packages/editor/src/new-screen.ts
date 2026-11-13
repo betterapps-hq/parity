@@ -5,10 +5,9 @@ import {
   type NodeStyle,
   generateId,
   nodeLabel,
-  uniqueId,
-  withFreshIds
+  uniqueId
 } from "@parity-app/core"
-import { fitBindings } from "./clipboard.ts"
+import { copiesFor } from "./clipboard.ts"
 import type { NewFrame } from "./frames.ts"
 import { componentLabel, type InsertContext, insertIntoDesign, type InsertItem } from "./insert.ts"
 
@@ -87,7 +86,7 @@ export function designOfLayers(
     root: { type: "layout", id: rootId, style: { ...landedStyle }, children: [] }
   }
 
-  const children = nodes.map((node) => withFreshIds(fitBindings(node, design), ids))
+  const children = copiesFor(design, nodes, ids)
 
   return { ...design, root: { type: "layout", id: rootId, style: { ...landedStyle }, children } }
 }

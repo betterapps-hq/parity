@@ -6,12 +6,12 @@ import {
   type ClipboardPayload,
   copyDesigns,
   copyLayers,
+  copyLayersInto,
   copyNotes,
   fitBindings,
   isParityCopy,
   isSvgMarkup,
   missingComponents,
-  pasteLayers,
   pasteTarget,
   readEnvelope,
   styleOf,
@@ -281,12 +281,12 @@ describe("pasting a bound layer", () => {
 
   it("keeps the binding in a design with a param of that name", () => {
     const destination: ContainerSpec = { ...form(), params: { title: { type: "text", default: "Welcome" } } }
-    const { container, copies } = pasteLayers(destination, { parent: "root" }, title())
+    const { container, copies } = copyLayersInto(destination, { parent: "root" }, title())
     expect(findNode(container.root, copies[0]!)).toMatchObject({ text: "Card title", bind: { text: "title" } })
   })
 
   it("keeps the value shown, unbound, in a design without that param", () => {
-    const { container, copies } = pasteLayers(form(), { parent: "root" }, title())
+    const { container, copies } = copyLayersInto(form(), { parent: "root" }, title())
     const pasted = findNode(container.root, copies[0]!)
     expect(pasted).toMatchObject({ text: "Card title" })
     expect(pasted).not.toHaveProperty("bind")
@@ -330,7 +330,7 @@ describe("pasting a bound layer", () => {
   it("pastes an instance's fill showing what it showed, unbound in a design without the param (PAR-966)", () => {
     const payload = copyLayers(welcome(), ["panel"], welcome().states![0])
     const nodes = payload?.kind === "layers" ? payload.nodes : []
-    const { container, copies } = pasteLayers(form(), { parent: "root" }, nodes)
+    const { container, copies } = copyLayersInto(form(), { parent: "root" }, nodes)
     const heading = fillHeading(findNode(container.root, copies[0]!))
     expect(heading).toMatchObject({ type: "text", text: "Welcome back" })
     expect(heading).not.toHaveProperty("bind")
@@ -369,7 +369,7 @@ describe("pasting layers", () => {
   it("puts copies with fresh ids at the target, in order", () => {
     const original = form()
     const nodes = [text("heading"), { ...text("email"), id: "fields" }]
-    const { container, copies } = pasteLayers(original, { parent: "root", index: 1 }, nodes)
+    const { container, copies } = copyLayersInto(original, { parent: "root", index: 1 }, nodes)
     expect(copies).toHaveLength(2)
     expect(childIds(container, "root")).toEqual(["heading", ...copies, "fields", "card"])
 
@@ -382,7 +382,7 @@ describe("pasting layers", () => {
 
   it("puts them last when the target has no index, and gives what's inside them fresh ids", () => {
     const fields = findNode(form().root, "fields")!
-    const { container, copies } = pasteLayers(form(), { parent: "fields" }, [fields])
+    const { container, copies } = copyLayersInto(form(), { parent: "fields" }, [fields])
     expect(childIds(container, "fields")).toEqual(["email", "password", copies[0]])
     const inner = childIds(container, copies[0]!)!
     expect(inner).toHaveLength(2)
@@ -390,7 +390,7 @@ describe("pasting layers", () => {
   })
 
   it("puts them in a slot", () => {
-    const { container, copies } = pasteLayers(form(), { parent: "card", index: 0, slot: "children" }, [text("x")])
+    const { container, copies } = copyLayersInto(form(), { parent: "card", index: 0, slot: "children" }, [text("x")])
     const card = findNode(container.root, "card")
     expect(card?.type === "component" && card.slots?.children?.map((child) => child.id)).toEqual([
       copies[0],
