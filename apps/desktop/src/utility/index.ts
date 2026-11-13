@@ -191,8 +191,10 @@ const handlers: Handlers<ServiceMethods> = {
 
     const changedIn = (projectId: string) => {
       const root = projects.previewProject(projectId)?.root
+
       const known =
         changed.get(projectId) ?? (root ? detectors.changedFiles(projectId, root) : Promise.resolve(undefined))
+
       changed.set(projectId, known)
 
       return known
