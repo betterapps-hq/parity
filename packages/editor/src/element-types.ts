@@ -1,0 +1,175 @@
+/**
+ * What kind of layer an element shows as (read-only viewer): the layer is the element itself, as the page has it, and
+ * its type decides only how it's shown, its icon and color in Layers and the header and sections of its panel. The type
+ * comes from the element's tag alone, never from what's inside it, so a `span` is always Text; a `role`, or `popover`,
+ * says what the element is in place of its tag.
+ */
+export const elementTypes = [
+  "layout",
+  "region",
+  "text",
+  "link",
+  "input",
+  "image",
+  "vector",
+  "video",
+  "audio",
+  "embed",
+  "table",
+  "list",
+  "divider",
+  "overlay"
+] as const
+
+export type ElementType = (typeof elementTypes)[number]
+
+/**
+ * The families types are in, each with a color of its own on the canvas: Structure holds and arranges, Text reads as
+ * words, Media shows a picture, a recording or another document, and Input is what a person uses.
+ */
+export const elementFamilies = ["structure", "text", "media", "input"] as const
+
+export type ElementFamily = (typeof elementFamilies)[number]
+
+/** Each family's name. */
+export const elementFamilyNames: Record<ElementFamily, string> = {
+  structure: "Structure",
+  text: "Text",
+  media: "Media",
+  input: "Input"
+}
+
+/** The family each type is in. */
+export const elementTypeFamilies: Record<ElementType, ElementFamily> = {
+  layout: "structure",
+  region: "structure",
+  table: "structure",
+  list: "structure",
+  divider: "structure",
+  overlay: "structure",
+  text: "text",
+  link: "text",
+  image: "media",
+  vector: "media",
+  video: "media",
+  audio: "media",
+  embed: "media",
+  input: "input"
+}
+
+/** Each type's name, as its panel's header and Layers say it. */
+export const elementTypeNames: Record<ElementType, string> = {
+  layout: "Layout",
+  region: "Region",
+  text: "Text",
+  link: "Link",
+  input: "Input",
+  image: "Image",
+  vector: "Vector",
+  video: "Video",
+  audio: "Audio",
+  embed: "Embed",
+  table: "Table",
+  list: "List",
+  divider: "Divider",
+  overlay: "Overlay"
+}
+
+/** The tags each type is, each tag in one type. A tag in none is a Layout. */
+export const elementTypeTags: Record<ElementType, readonly string[]> = {
+  layout: ["div", "figure", "figcaption", "details", "summary", "fieldset", "legend"],
+  region: ["header", "nav", "main", "aside", "footer", "section", "article", "form", "search"],
+  text: [
+    "span",
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "label",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "small",
+    "mark",
+    "code",
+    "pre",
+    "blockquote",
+    "abbr",
+    "time",
+    "kbd",
+    "sub",
+    "sup"
+  ],
+  link: ["a"],
+  input: ["input", "button", "textarea", "select", "option", "optgroup", "output", "progress", "meter"],
+  image: ["img", "picture"],
+  vector: ["svg"],
+  video: ["video"],
+  audio: ["audio"],
+  embed: ["iframe", "canvas", "object", "embed"],
+  table: ["table", "caption", "thead", "tbody", "tfoot", "tr", "th", "td"],
+  list: ["ul", "ol", "li", "dl", "dt", "dd", "menu"],
+  divider: ["hr"],
+  overlay: ["dialog"]
+}
+
+/** The roles each type is, which say what an element is in place of its tag, each role in one type. */
+export const elementTypeRoles: Record<ElementType, readonly string[]> = {
+  layout: ["group", "presentation", "none"],
+  region: ["banner", "navigation", "main", "complementary", "contentinfo", "region", "search", "form"],
+  text: ["heading", "paragraph", "status", "alert"],
+  link: ["link"],
+  input: [
+    "button",
+    "checkbox",
+    "radio",
+    "switch",
+    "textbox",
+    "searchbox",
+    "combobox",
+    "slider",
+    "spinbutton",
+    "listbox",
+    "option",
+    "menuitem",
+    "menuitemcheckbox",
+    "menuitemradio",
+    "tab"
+  ],
+  image: ["img"],
+  vector: [],
+  video: [],
+  audio: [],
+  embed: [],
+  table: ["table", "grid", "row", "rowgroup", "cell", "gridcell", "columnheader", "rowheader"],
+  list: ["list", "listitem", "menu", "menubar", "tablist", "tree", "treeitem"],
+  divider: ["separator"],
+  overlay: ["dialog", "alertdialog", "tooltip"]
+}
+
+const byTag = new Map(elementTypes.flatMap((type) => elementTypeTags[type].map((tag) => [tag, type] as const)))
+const byRole = new Map(elementTypes.flatMap((type) => elementTypeRoles[type].map((role) => [role, type] as const)))
+
+/**
+ * The type an element shows as: its `role`'s, when it has one a type lists (the first, as a role can name several),
+ * else Overlay with `popover`, else its tag's, else Layout, as a custom element or `address` is.
+ */
+export function elementType(tag: string, attributes: Readonly<Record<string, string>> = {}): ElementType {
+  for (const role of (attributes.role ?? "").split(/\s+/)) {
+    const type = byRole.get(role)
+
+    if (type) {
+      return type
+    }
+  }
+
+  if (attributes.popover !== undefined) {
+    return "overlay"
+  }
+
+  return byTag.get(tag.toLowerCase()) ?? "layout"
+}

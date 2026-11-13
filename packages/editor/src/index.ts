@@ -494,3 +494,16 @@ export {
   readStyles,
   styleOfElement
 } from "./element-layers.ts"
+
+export {
+  elementFamilies,
+  type ElementFamily,
+  elementFamilyNames,
+  type ElementType,
+  elementType,
+  elementTypeFamilies,
+  elementTypeNames,
+  elementTypeRoles,
+  elementTypes,
+  elementTypeTags
+} from "./element-types.ts"

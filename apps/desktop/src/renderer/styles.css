@@ -361,6 +361,12 @@ body,
    */
   --canvas-text: oklch(0.64 0.17 142);
   --canvas-agent: oklch(0.78 0.16 70);
+  /*
+   * The element families' own colors (read-only viewer), beside layers' blue for Structure and text's green for Text:
+   * Media a cyan, between layers' blue and modes' teal, and Input an orange, between failure's red and agents' amber.
+   */
+  --canvas-media: oklch(0.66 0.13 215);
+  --canvas-input: oklch(0.7 0.17 45);
 
   /*
    * Margin's pink, as the Design panel's box model draws it (PAR-186). Padding and gaps take modes' green; which color
@@ -398,6 +404,8 @@ body,
   --canvas-component-text: light-dark(var(--canvas-component-chip), var(--canvas-component));
   --canvas-layer-text: light-dark(var(--canvas-layer-chip), var(--canvas-layer));
   --canvas-text-text: light-dark(var(--canvas-text-chip), var(--canvas-text));
+  --canvas-media-text: light-dark(oklch(0.52 0.12 215), var(--canvas-media));
+  --canvas-input-text: light-dark(oklch(0.55 0.17 45), var(--canvas-input));
 }
 
 /*
