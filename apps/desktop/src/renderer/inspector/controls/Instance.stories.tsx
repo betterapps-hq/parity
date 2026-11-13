@@ -9,7 +9,7 @@ import { Playground } from "./playground.tsx"
  * row and Swap, Reset overrides, Push to main and Detach in the menu beside it.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Component instance",
+  title: "Parity/Inspector/Sections/Props/Component instance",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

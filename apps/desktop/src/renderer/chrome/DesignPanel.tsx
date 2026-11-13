@@ -1,11 +1,12 @@
 import { Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { ResolvedMode } from "@parity-app/core"
-import { kindTitle, selectionKey } from "@parity-app/editor"
+import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
-import type { ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
+import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { moved } from "../inspector/controls/list-parts.tsx"
@@ -95,7 +96,42 @@ function SelectedPanel() {
   return <DesignPanel entry={entry} />
 }
 
+/** A whole design's sections, as `panelParts` picks them from what it can do (PAR-1032). */
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
+  const session = useProject()
+  const components = useComponents(session.components)
+  const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
+
+  return panelParts(can).map((section) => {
+    const Section = designSections[section]
+
+    return Section && <Section key={section} entry={entry} />
+  })
+}
+
+/** What draws each of a design's sections; a layer's own, as Content and Attributes, aren't a design's. */
+const designSections: Partial<Record<InspectorSection, ComponentType<{ entry: ContainerEntry }>>> = {
+  header: DesignHeader,
+  states: StatesSection,
+  props: () => <PropsSection />,
+  components: ComponentsSection,
+  styles: FrameStyles,
+  modes: ModesSection,
+  export: DesignExport
+}
+
+/** Export, for a whole design. */
+function DesignExport({ entry }: { entry: ContainerEntry }) {
+  return (
+    <ExportSection
+      targets={[{ design: entry.key, name: entry.container.name }]}
+      label={`Export ${entry.container.name}`}
+    />
+  )
+}
+
+/** A design's name and kind, and for a frame, the mode it's drawn in and that it isn't written to code. */
+function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { store } = session
   const settings = useModeSettings(store)
@@ -146,10 +182,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           </div>
         )}
       </div>
-
-      {container.kind === "frame" ? <FrameStyles entry={entry} /> : <ScreenOrComponentSections entry={entry} />}
-
-      <ExportSection targets={[{ design: key, name: container.name }]} label={`Export ${container.name}`} />
     </>
   )
 }
@@ -164,25 +196,11 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
   return editor ? <StyleSections editor={editor} container={entry.container} /> : null
 }
 
-/** A screen's or component's states, params or components, and the modes it shows. */
-function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
-  const { container } = entry
-
-  return (
-    <>
-      {container.kind === "component" && <StatesSection entry={entry} />}
-      {container.kind === "component" ? <PropsSection /> : <ComponentsSection entry={entry} />}
-
-      <ModesSection entry={entry} />
-    </>
-  )
-}
-
 /**
  * A screen's or component's modes in its own order, each put in place by its handle. The first is the one it shows
  * first, so it always shows; each other's switch shows it beside the first.
  */
-function ModesSection({ entry }: { entry: ContainerEntry }) {
+export function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { store, selection } = useProject()
   const settings = useModeSettings(store)
   const selected = useSelection(selection)

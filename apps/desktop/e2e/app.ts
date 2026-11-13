@@ -5,8 +5,9 @@ import { type Browser, chromium, type Locator, type Page } from "playwright-core
 import { expect, inject } from "vite-plus/test"
 import type { consoleLog } from "../src/renderer/console-store.ts"
 import type * as frameModule from "../src/renderer/frame.ts"
+import type { sendReplay } from "../src/renderer/replay.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
-import { pageSize } from "./launch.ts"
+import { appEnvironment, pageSize } from "./launch.ts"
 
 /** A box on screen, in the window's CSS pixels. */
 export interface Box {
@@ -52,7 +53,12 @@ interface PageHelpers {
 declare global {
   interface Window {
     e2e?: PageHelpers
-    e2eModules?: { workspace: Workspace; frames: typeof frameModule; consoleLog: typeof consoleLog }
+    e2eModules?: {
+      workspace: Workspace
+      frames: typeof frameModule
+      consoleLog: typeof consoleLog
+      sendReplay: typeof sendReplay
+    }
   }
 }
 
@@ -60,11 +66,19 @@ declare global {
  * The app's own modules, as Vite serves them to the page. It's a string, since the test runner rewrites `import()` in
  * functions, and functions given to `page.evaluate` run in the page as they're written.
  */
-const importModules = `Promise.all([import("/workspace.ts"), import("/frame.ts"), import("/console-store.ts")]).then(
-  ([workspace, frames, store]) => {
-    window.e2eModules = { workspace: workspace.workspace, frames, consoleLog: store.consoleLog }
+const importModules = `Promise.all([
+  import("/workspace.ts"),
+  import("/frame.ts"),
+  import("/console-store.ts"),
+  import("/replay.ts")
+]).then(([workspace, frames, store, replay]) => {
+  window.e2eModules = {
+    workspace: workspace.workspace,
+    frames,
+    consoleLog: store.consoleLog,
+    sendReplay: replay.sendReplay
   }
-)`
+})`
 
 export const center = (box: Box): Point => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
 
@@ -82,6 +96,9 @@ export const about = (box: Box) => ({
  * happen, apart from putting a design in view and putting everything back between tests.
  */
 export class App {
+  /** The file's connection while it's open, which `failed-replay.ts` sends a failed test's replay through. */
+  static current: App | undefined
+
   readonly page: Page
   private readonly browser: Browser
 
@@ -160,6 +177,7 @@ export class App {
       report("putting the app back as it opened")
       await withTimeout(app.reset(), 30_000)
       report("ready")
+      App.current = app
 
       return app
     } catch (error) {
@@ -199,8 +217,40 @@ export class App {
   }
 
   async close(): Promise<void> {
+    if (App.current === this) {
+      App.current = undefined
+    }
+
     // Only the connection closes; the app keeps running for the next file.
     await this.browser.close()
+  }
+
+  /**
+   * Sends the editor window's replay, tagged with the test that failed and the run, and writes where to watch it
+   * (PAR-1043). In CI that's what the buffer held as the test failed, as a replay of its own; with nothing recorded, or
+   * a page that can't answer, it says so instead, since the failure is the test's to report.
+   */
+  async sendReplay(test: string): Promise<void> {
+    const run = appEnvironment().PARITY_TEST_RUN
+    const tags = { e2e_test: test, ...(run && { test_run: run }) }
+
+    let said: string
+
+    try {
+      const id = await withTimeout(
+        this.page.evaluate((tags) => window.e2eModules!.sendReplay(tags), tags),
+        30_000
+      )
+
+      said = id
+        ? `Replay of "${test}": https://better-apps.sentry.io/explore/replays/${id}/`
+        : `No replay of "${test}": the window isn't recording one`
+    } catch (error) {
+      const reason = error instanceof Error ? (error.message.split("\n")[0] ?? "") : String(error)
+      said = `No replay of "${test}": ${reason}`
+    }
+
+    process.stderr.write(`${said}\n`)
   }
 
   /**

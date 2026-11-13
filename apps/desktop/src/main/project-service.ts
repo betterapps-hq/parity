@@ -1,5 +1,5 @@
 import { type Channel, createChannel, type Handlers, type NodeEmitter, nodePort } from "@parity-app/channel"
-import { type ServiceRestarts, serviceRestarts } from "@parity-app/core"
+import { type ServiceRestarts, serviceRestarts } from "@parity-app/processes"
 import { outputTail, type serviceCrash, type serviceExit } from "@parity-app/telemetry"
 import { codedErrors } from "../shared/coded-errors.ts"
 import type { MainMethods, ServiceProcessMethods } from "../shared/service.ts"

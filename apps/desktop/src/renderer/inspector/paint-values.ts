@@ -1,12 +1,11 @@
 import type { Color, Paint } from "@parity-app/core"
+import { isReadFailure, readGradient } from "@parity-app/style-schema"
 import { listColor, storedColors } from "./color-values.ts"
 import {
   type GradientPaint as ControlGradient,
-  gradientDirections,
   type ListColor,
   type Paint as ControlPaint,
-  type PaintEntry,
-  type Stop
+  type PaintEntry
 } from "./controls/lists-data.ts"
 import type { GradientToken } from "./controls/tokens.ts"
 
@@ -129,128 +128,36 @@ export function entriesFromFill(
   })
 }
 
-/** Splits CSS at its top-level separators, leaving what's inside brackets whole. */
-function topLevel(css: string, separator: "," | " "): string[] {
-  const parts: string[] = []
-  let depth = 0
-  let part = ""
-
-  for (const character of css) {
-    if (character === "(") {
-      depth += 1
-    } else if (character === ")") {
-      depth -= 1
-    }
-
-    if (depth === 0 && (separator === " " ? /\s/.test(character) : character === separator)) {
-      parts.push(part.trim())
-      part = ""
-    } else {
-      part += character
-    }
-  }
-
-  return [...parts, part.trim()].filter(Boolean)
-}
-
-const percent = (value: string | undefined): number | undefined =>
-  value?.endsWith("%") ? Number.parseFloat(value) : undefined
-
-const fromKinds = new Map<string, ControlGradient["kind"]>([
-  ["linear", "linear"],
-  ["radial", "radial"],
-  ["conic", "angular"]
-])
-
 const kindDetails = { linear: "Linear", radial: "Radial", angular: "Angular" } as const
-
-const isDirection = (head: string): head is keyof typeof gradientDirections => head in gradientDirections
-
-/** A stop's color as the control holds it: a custom property as its token's name, anything else as written. */
-const stopColor = (color: string): string => /^var\(--([\w-]+)\)$/.exec(color)?.[1] ?? color
-
-/** The gradient's head, before its stops: the angle, where its center is, and the color space it blends in. */
-function readHead(
-  kind: ControlGradient["kind"],
-  head: string | undefined
-): Pick<ControlGradient, "angle" | "center" | "interpolation"> {
-  const words = topLevel(head ?? "", " ")
-  const degrees = words.find((word) => word.endsWith("deg"))
-  let angle = kind === "linear" ? 180 : 0
-
-  if (degrees) {
-    angle = Number.parseFloat(degrees)
-  } else if (head && isDirection(head)) {
-    angle = gradientDirections[head]
-  }
-
-  const read: Pick<ControlGradient, "angle" | "center" | "interpolation"> = { angle }
-  const at = words.indexOf("at")
-
-  if (at !== -1) {
-    read.center = [percent(words[at + 1]) ?? 50, percent(words[at + 2]) ?? 50]
-  }
-
-  const blend = words.includes("in") ? words[words.indexOf("in") + 1] : undefined
-
-  if (blend === "oklch" || blend === "srgb") {
-    read.interpolation = blend
-  }
-
-  return read
-}
 
 /**
  * A project's gradient token as the Paint stack control offers it, its value read as the paint the gradient editor
  * starts from; nothing for a value that isn't a gradient of plain stops.
  */
 export function gradientTokenOf(name: string, value: string): GradientToken | undefined {
-  const match = /^(repeating-)?(linear|radial|conic)-gradient\((.*)\)$/s.exec(value.trim())
+  const read = readGradient(value)
 
-  if (!match) {
+  if (isReadFailure(read)) {
     return undefined
   }
 
-  const kind = fromKinds.get(match[2]!)
+  const kind = controlKinds[read.type]
 
-  if (!kind) {
-    return undefined
+  const paint: ControlGradient = {
+    kind,
+    angle: read.angle ?? (kind === "linear" ? 180 : 0),
+    stops: read.stops.map(({ color, ...stop }, index) => ({ id: `${name}-${index}`, ...listColor(color), ...stop }))
   }
 
-  const parts = topLevel(match[3]!, ",")
-  const first = parts[0] ?? ""
-  const headed = /^(to |at |from |in |-?[\d.]+(deg|turn|rad))/.test(first) || /^[a-z-]+ at /.test(first)
-  const stops: Stop[] = []
-
-  for (const part of headed ? parts.slice(1) : parts) {
-    const words = topLevel(part, " ")
-    const hint = words.length === 1 ? percent(words[0]) : undefined
-    const previous = stops.at(-1)
-
-    if (hint !== undefined && previous) {
-      previous.hint = hint
-      continue
-    }
-
-    const color = words.filter((word) => percent(word) === undefined).join(" ")
-    const position = words.map(percent).find((each) => each !== undefined)
-    stops.push({ id: `${name}-${stops.length}`, color: stopColor(color), position: position ?? Number.NaN })
+  if (read.center) {
+    paint.center = read.center
   }
 
-  if (stops.length < 2) {
-    return undefined
+  if (read.interpolation) {
+    paint.interpolation = read.interpolation
   }
 
-  // Stops without a place are spread evenly, as CSS spreads them.
-  stops.forEach((stop, index) => {
-    if (Number.isNaN(stop.position)) {
-      stop.position = Math.round((index / (stops.length - 1)) * 100)
-    }
-  })
-
-  const paint: ControlGradient = { kind, stops, ...readHead(kind, headed ? first : undefined) }
-
-  if (match[1]) {
+  if (read.repeat) {
     paint.repeat = true
   }
 

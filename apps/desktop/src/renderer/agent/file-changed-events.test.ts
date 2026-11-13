@@ -20,7 +20,7 @@ vi.mock("../workspace.ts", () => ({
 
 vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key }))
 
-vi.mock("../telemetry.ts", () => ({ reportIds: () => ({}) }))
+vi.mock("../replay.ts", () => ({ reportIds: () => ({}) }))
 
 vi.mock("./presence.ts", () => ({ presence: { push: () => undefined } }))
 

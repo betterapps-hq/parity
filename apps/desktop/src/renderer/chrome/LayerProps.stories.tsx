@@ -11,7 +11,7 @@ import { LayerContent } from "./LayerPanel.tsx"
  * text's Content alone (PAR-1022).
  */
 const meta = {
-  title: "Parity/Inspector/Layer/Props",
+  title: "Parity/Inspector/Sections/Content/Text props",
   component: DesignTab,
   render: renderSection(LayerContent),
   decorators: [inspectorStage]

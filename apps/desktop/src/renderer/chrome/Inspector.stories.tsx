@@ -7,7 +7,7 @@ import { panelLimits, setLayout } from "./layout.ts"
 
 /** The right panel on its own, at the window's right edge: what's selected, the project's modes, and accessibility. */
 const meta = {
-  title: "Parity/Inspector/Panel",
+  title: "Parity/Inspector/Panel/Inspector",
   component: Inspector,
   decorators: [
     (Story) => (

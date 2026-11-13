@@ -1,12 +1,6 @@
-import {
-  frameViewport,
-  nextPreview,
-  previewMode,
-  previewSettleMs,
-  type RenderNode,
-  resolveModes
-} from "@parity-app/core"
+import { frameViewport, previewMode, type RenderNode, resolveModes } from "@parity-app/core"
 import { componentPreviewTree, type PreviewContext, previewFrameWidth } from "@parity-app/editor"
+import { nextPreview, previewSettleMs } from "@parity-app/processes"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"

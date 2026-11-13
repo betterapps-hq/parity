@@ -21,7 +21,7 @@ import {
 import { TriangleAlert } from "lucide-react"
 import { useId, useState, useSyncExternalStore } from "react"
 import type { ProblemReportRequest } from "../../shared/protocol.ts"
-import { reportIds } from "../telemetry.ts"
+import { reportIds } from "../replay.ts"
 import { useTabs } from "../workspace.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { crashTime, lowerFirst } from "./report-time.ts"

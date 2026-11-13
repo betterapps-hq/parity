@@ -74,3 +74,25 @@ export function spacing(value: Form): string {
 export function namedCss(value: TokenForm | ValueForm | KeywordForm | ExprForm): string {
   return formCss(value, String)
 }
+
+/** Pixels in a whole spacing step, at Tailwind's default `--spacing` of 0.25rem. */
+export const spacingPx = 4
+
+/** Pixels in a rem, at the browser's default font size. */
+export const remPx = 16
+
+/** A number as a field or a value writes it: at most `places` decimals (three unless said), with no trailing zeros. */
+export function formatNumber(value: number, places = 3): string {
+  const factor = 10 ** places
+
+  return String(Math.round(value * factor) / factor)
+}
+
+/**
+ * A length in pixels in its stored form: a spacing step wherever it's a whole pixel (any multiple of a quarter step, as
+ * 13px is 3.25 steps), and a value otherwise (`13.3px`). Every writer of a length uses this, so 13px is a step in
+ * padding, a size and a move alike.
+ */
+export function lengthForm(px: number): StepForm | ValueForm {
+  return Number.isInteger(px) ? { step: px / spacingPx } : { value: `${formatNumber(px)}px` }
+}

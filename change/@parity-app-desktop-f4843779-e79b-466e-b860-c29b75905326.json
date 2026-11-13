@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Send a replay of the editor window when an end-to-end test fails in CI",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

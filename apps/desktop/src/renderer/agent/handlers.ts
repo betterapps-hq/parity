@@ -11,8 +11,8 @@ import type {
   WindowMethods
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
+import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
-import { reportIds } from "../telemetry.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 

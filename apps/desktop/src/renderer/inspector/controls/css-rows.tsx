@@ -1,5 +1,5 @@
 import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { validate } from "@parity-app/style-schema"
+import { type Bezier, bezierCss, type EasingPlot, validate } from "@parity-app/style-schema"
 import { Minus, Plus } from "lucide-react"
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -19,7 +19,7 @@ import {
   TokenMark,
   wrappingText
 } from "./field-parts.tsx"
-import { type Bezier, bezierCss, type EasingPlot, readEasingValue } from "./motion-data.ts"
+import { easingValuePlot } from "./motion-data.ts"
 import { NumberField } from "./number-field.tsx"
 import { colorTokens, lengthVars } from "./stand-in-tokens.ts"
 import type { StoredObject, Writes } from "./writes.ts"
@@ -592,7 +592,7 @@ function easingOf(value: string): EasingPlot | undefined {
     return { kind: "bezier", curve: keyword }
   }
 
-  return readEasingValue(value)
+  return easingValuePlot(value)
 }
 
 const handles = ["Start handle x", "Start handle y", "End handle x", "End handle y"] as const

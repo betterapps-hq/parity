@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { jsonText, type UpdateState } from "@parity-app/core"
+import { jsonText } from "@parity-app/core"
+import type { UpdateState } from "@parity-app/processes"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 import { z } from "zod"

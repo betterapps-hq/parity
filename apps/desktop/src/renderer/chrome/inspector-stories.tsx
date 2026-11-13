@@ -1,4 +1,4 @@
-import { type Selection } from "@parity-app/editor"
+import { type Selection, type StyleSection } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { type ContainerEntry } from "../design-store.ts"
@@ -54,21 +54,24 @@ export function inspecting(rightTab: string, prepare?: () => Selection | void): 
   }
 }
 
-/** The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown. */
-export function SelectedStyles() {
+/**
+ * The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown: every one,
+ * or `only` that one alone.
+ */
+export function SelectedStyles({ only }: { only?: StyleSection }) {
   const layer = useSelectedLayer()
 
   if (!layer) {
     return null
   }
 
-  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} />
+  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} only={only} />
 }
 
-function LayerStyles({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+function LayerStyles({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: StyleSection }) {
   const editor = useStyleEditor(entry, [nodeId])
 
-  return editor ? <StyleSections editor={editor} container={entry.container} /> : null
+  return editor ? <StyleSections editor={editor} container={entry.container} only={only} /> : null
 }
 
 /** Types as a person would, a key at a time. */

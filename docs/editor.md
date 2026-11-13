@@ -856,16 +856,16 @@ says so.
   another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
 
 Code: `codeEditors`, `editorsFor`, `commandPaths`, `batchCommandLine` and `exportLine` in
-`packages/core/src/code-editors.ts`; `openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `hostMethods`'
-`openInEditor`, whose request `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile`
-and `viewCode` in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by
-`chrome/AssetsPanel.tsx`; the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+`packages/processes/src/code-editors.ts`; `openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind
+`hostMethods`' `openInEditor`, whose request `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592);
+`componentFile` and `viewCode` in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used
+by `chrome/AssetsPanel.tsx`; the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
 
-Tests: `packages/core/src/code-editors.test.ts` (12: the editors each choice tries; VS Code's and Zed's arguments; the
-paths on PATH on Windows and elsewhere; the batch file's command line, escaped for `cmd.exe`, and on Windows a path with
-`&`, `%PATH%`, `!`, `^` and brackets passed through `cmd.exe` and a batch file as it's spelled; and the export's line
-for a function, constant or class, one an export list names, a list over several lines, a longer name that isn't it, a
-default export, a declared one, a missing one, and Windows line endings).
+Tests: `packages/processes/src/code-editors.test.ts` (12: the editors each choice tries; VS Code's and Zed's arguments;
+the paths on PATH on Windows and elsewhere; the batch file's command line, escaped for `cmd.exe`, and on Windows a path
+with `&`, `%PATH%`, `!`, `^` and brackets passed through `cmd.exe` and a batch file as it's spelled; and the export's
+line for a function, constant or class, one an export list names, a list over several lines, a longer name that isn't
+it, a default export, a declared one, a missing one, and Windows line endings).
 `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file from a Windows or POSIX
 root, and a library component's declarations, or none). `apps/desktop/src/shared/ipc-checks.test.ts` (2: a request is a
 file's absolute path and an editor Settings lists, and nothing more; every listed editor is taken) and
@@ -2399,20 +2399,31 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **Pasted designs keep their ids unless taken,** when they get one from their name. Into the project they came from,
   they go to the right of the originals (see Duplicating a design); elsewhere, in the middle of the view.
 - **Pasted notes get fresh ids** and sit a little below and right of where they were copied, as they sat together.
-- **Text pastes as a text layer** where layers would go, or as a note in the middle of the view. **SVG markup pastes as
-  a picture,** not as its source.
+- **Text pastes as a text layer** where layers would go, or, with no design to go into, as a frame that hugs it in the
+  middle of the view, as the text tool makes one. **SVG markup pastes as a picture,** not as its source.
 - **Copy style copies the look the frame shows,** with its variant options and viewport, and **Paste style gives each
   selected layer the copied style in place of the one shown,** in the state being edited. In a state other than the
   base, the state takes away what the copy doesn't set (PAR-426), so it shows only the copied style there, as the base
   would: pasting a padding of 4 onto a row with a gap of 3 and a padding of 1 leaves a column with a padding of 4. The
   inspector marks each value taken away as changed in that state, with Reset.
-- **Layers naming components the project doesn't have** still paste, with a warning naming them.
+- **Layers naming components the project doesn't have** still paste, with a warning naming them, wherever they land, a
+  new screen included.
+- **The four pastes decide alike** (PAR-985). Paste, Paste over selection, Paste to replace and Paste here each take
+  what's on the clipboard and where they'd paste, and one table says what they do. Paste over, Paste to replace and
+  Paste here say "There's nothing on the clipboard to paste" when it's empty; Paste (Ctrl+V and Edit > Paste) stays
+  quiet, as it does in other apps. Every paste shows the same error for a copy that can't be read. A paste's undo step
+  is named for what landed: "Paste text", "Paste image", "Paste 2 layers here".
+- **They differ only where they go,** on purpose. Paste over puts layers over layers and designs over designs, and Paste
+  to replace takes only layers; both need something selected to paste on, and do nothing without it, as their menu items
+  show. Paste here puts designs and notes at the pointer wherever it is, and over a design with no layout under the
+  pointer pastes nothing, before an image is saved. Paste puts designs and notes beside where they were copied.
 
-Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`). Copying as shown and fitting bindings
-go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which knows each place a node holds nodes:
-a layout's children, a code component's slots and an instance's filled slots.
-`apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, saves images, places designs by
-their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
+Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`), and what each paste does with each
+kind of content is `decidePaste` in `packages/editor/src/paste-decision.ts`, with `pasteStepName` for the undo step.
+Copying as shown and fitting bindings go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which
+knows each place a node holds nodes: a layout's children, a code component's slots and an instance's filled slots.
+`apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, asks `decidePaste`, saves images,
+places designs by their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
 
 Tests: `packages/editor/src/clipboard.test.ts`: writing and reading the envelope, and text, a cut-off envelope, another
 version, a project that isn't text, an unknown kind, a payload without its list or with an empty one, and invalid
@@ -2438,8 +2449,16 @@ taking style and props away over the design and the viewport's patch, layered pa
 default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in
 one state and refusing an unknown key.
 
-Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
-a value a state takes away has no automated DOM test.
+`packages/editor/src/paste-decision.test.ts` (105) is the table: each paste, where it would paste, each kind of content,
+and what it does, with the rows that differ on purpose saying why, and a check that every combination is in exactly one
+row. It also checks that an empty clipboard gets the same answer from every paste that's available but Paste, and an
+unreadable copy from all of them, and names undo steps for layers, text, images, SVG, videos, images and videos
+together, and Paste here. `apps/desktop/src/renderer/canvas/clipboard.test.ts`, on the real stores, from an empty
+clipboard: Paste over layers, Paste over designs and Paste to replace each say there's nothing to paste, record it, and
+leave no undo step; Paste records it and says nothing.
+
+Gaps: reading and writing the system clipboard, images and the other messages have no automated test. The inspector's
+mark on a value a state takes away has no automated DOM test.
 
 ### Paste over selection and paste to replace (CAN-39)
 
@@ -2479,7 +2498,8 @@ nothing.
 
 Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt`, `replaceLayers` and `selectionToPasteOn`) and, in
 `apps/desktop/src/renderer/canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard
-(`readClipboard`) and saving an image (`importMedia`) shared with Paste.
+(`readClipboard`) and saving an image (`importMedia`) shared with Paste. Which content each pastes, and the messages for
+the rest, are `decidePaste`'s (Copy, paste and paste style, above).
 
 Tests: `packages/editor/src/paste-over.test.ts`. Paste over selection: after the selected layer with nothing removed,
 once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, at the
@@ -2838,9 +2858,10 @@ hash of its content, so the same file twice reuses one.
 - **Agents** list videos with `get_images`, beside the images, and remove one with `remove_image`.
 
 Code: the types, limits and words in `packages/editor/src/drop-files.ts` (`mediumOfType`, `limitOf`, `sortDrop`,
-`dropHint`, `dropLabel`, `pasteLabel`); `videosFolder`, `mediaFolderOf` and `mediumOf` in `project-images.ts`; saving,
-listing and removing in `apps/desktop/src/utility/images.ts`; `importMedia` in `canvas/import-media.ts`, which measures
-a video before it's saved; `addImageFiles` and drops in `canvas/drop-files.ts`; pasting in `canvas/clipboard.ts` with
+`dropHint`, `dropLabel`), with a paste's undo step named by `pasteStepName` in `paste-decision.ts`; `videosFolder`,
+`mediaFolderOf` and `mediumOf` in `project-images.ts`; saving, listing and removing in
+`apps/desktop/src/utility/images.ts`; `importMedia` in `canvas/import-media.ts`, which measures a video before it's
+saved; `addImageFiles` and drops in `canvas/drop-files.ts`; pasting in `canvas/clipboard.ts` with
 `apps/desktop/src/main/clipboard-files.ts`; the tiles, card and filter in `media/`; `add-stock.ts` and `LargerView.tsx`.
 
 Tests:
@@ -3122,7 +3143,9 @@ placed layer's insets. A grid's Cols and Rows are whole numbers. A component's n
   `"abc" isn't a valid number`, `"em" isn't a unit Width takes`, `Opacity takes a percentage, not px`,
   `Something's missing after "+"`, `A bracket isn't closed`, `Put an operator between 16 and 4`, `Can't divide by zero`.
   Nothing is made and the canvas goes back to the value. It stays when the field loses focus, until it's typed in again
-  or Escape.
+  or Escape. A field in units of its own (Angle, Time, a text Size) ends every reason with what it takes:
+  `Can't divide by zero. Enter an angle, such as 45 or 0.25turn` (`typing.test.ts`). Each reader gives a code with its
+  reason, from `@parity-app/style-schema`'s `ReadFailure`, so nothing decides what went wrong from the words.
 - **A value changing underneath** (an agent's edit, an undo, a resize on the canvas) doesn't touch what's being typed:
   it shows over the value until it's made or reverted. With nothing typed, the field follows the value. Selecting
   another layer, or another set of layers, starts the fields afresh.
@@ -3202,9 +3225,9 @@ Tests:
   taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
   settling for the change, which the frame takes away as it draws it, and nothing shown for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
-- `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
-  inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
-  whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
+- `inspector/sections/SizeSection.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the
+  narrowest inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show
+  the value whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
 - `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
@@ -3386,9 +3409,10 @@ Tests:
 - `inspector/controls/stand-in-tokens.test.ts` (1): nothing `StyleSections` draws imports the stand-in tokens.
 - `packages/editor/src/design-colors.test.ts` (4): the colors a design writes out, most used first and each once however
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
-- `chrome/StyleSections.stories.tsx`: every section on Pricing's and Sign in's layers, with PickingAColor,
-  PickingASpacing, PickingAWeight and PickingASizing opening their pickers by name. The Layer stories
-  (`chrome/LayerPanel.stories.tsx`, Parity/Inspector/Layer) show the sections each kind of layer gets.
+- `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
+  each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
+  PickingASizing opening their pickers by name. Layers › Kinds (`chrome/LayerPanel.stories.tsx`) shows the sections each
+  kind of layer gets.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -3427,8 +3451,8 @@ Tests:
 
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
   names, and the name following a token picked in the picker. Both fail without the change.
-- `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
-  open their pickers by name: "Fill 1 picker" for the first.
+- `inspector/sections/FillSection.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and
+  NoTokenMatches open their pickers by name: "Fill 1 picker" for the first.
 
 ### One field row (PAR-1029)
 
@@ -3451,6 +3475,60 @@ Tests:
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+
+### The inspector's stories in seven levels (PAR-1033)
+
+The inspector's stories sit in the levels the panel is built from, each built only from the one below it: Panel (the
+inspector and its tabs), Layers (what each kind of selection shows), Sections, Rows, Lists, Fields and Parts. A case
+lives at the lowest level it's about, so a section's own cases are Sections stories, drawn alone, and a field's are
+Fields stories.
+
+| Folder   | Holds                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------- |
+| Panel    | Inspector, Accessibility tab, Modes tab                                                      |
+| Layers   | Kinds, Instances, Several layers, Designs                                                    |
+| Sections | Header, State selector, States, Props, Attributes, Slots, Content, Components, Modes, Export |
+|          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Text                              |
+| Rows     | Box model, Padding, Margin, Size and aspect ratio, and the rest of a section's labelled rows |
+| Lists    | Paint stack, Shadow list, Filter list, Transition list                                       |
+| Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
+| Parts    | Field row, Chips                                                                             |
+
+Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
+(`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's
+props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
+
+Tests: none; the stories are checked in Storybook.
+
+### One table picks the sections (PAR-1032)
+
+Which sections the Design tab shows, in what order, comes from one table, for a whole design and for a layer alike. The
+selection's capabilities say what it is: a whole design, in a component design, an instance, a copy inside an instance,
+text, an image or video, whether it takes style, and whether it passes attributes on. Each section says what it needs:
+
+| Section    | Shown for                                                               |
+| ---------- | ----------------------------------------------------------------------- |
+| Header     | Everything                                                              |
+| States     | A component design                                                      |
+| Props      | A component design, which defines them, or an instance, which sets them |
+| Attributes | A code component's instance                                             |
+| Components | A screen                                                                |
+| Content    | Text                                                                    |
+| Media      | An image or a video, but not inside an instance                         |
+| No style   | A code component that takes no `style`                                  |
+| Styles     | A layer, or a frame, as `styleTable` picks them                         |
+| Modes      | A screen or a component design                                          |
+| Export     | Everything                                                              |
+
+The panels look the same.
+
+Code: `panelTable`, `panelParts`, `designCapabilities` and the `design`, `component`, `instance`, `attrs` and `copy`
+capabilities in `packages/editor/src/layer-capabilities.ts`; `LayerPanel` in `chrome/LayerPanel.tsx` and `DesignPanel`
+in `chrome/DesignPanel.tsx` draw the list.
+
+Tests: `packages/editor/src/layer-capabilities.test.ts`, the sections each selection gets (9): a screen, a component
+design and a frame, a layout, text, an image, a design's instance, a code component's, one that takes no style, and an
+image inside an instance.
 
 ### Each section takes the selection (PAR-1031)
 
@@ -3483,8 +3561,8 @@ the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance
 
 Tests:
 
-- `chrome/PropsSection.stories.tsx` (Inspector › Props), `chrome/LayerInstances.stories.tsx` and
-  `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
+- `chrome/PropsSection.stories.tsx` (Sections › Props › Code component), `chrome/LayerInstances.stories.tsx` and
+  `chrome/ComponentProps.stories.tsx`, the sections they draw, unchanged by the move.
 
 ### Each field's label names its control (PAR-892)
 
@@ -3574,8 +3652,8 @@ one sentence ("Editing Default changes every state") and wraps when it doesn't f
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Editing A State; Fields: Changed In A State;
-Design: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
+Fields › All fields: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -3641,8 +3719,9 @@ libraries and the project's own components; a library matched by its whole id; a
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
 project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
 label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
-layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds,
-Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Kinds, Layers
+› Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
+and dark.
 
 ### Which sections a layer gets (PAR-892)
 
@@ -3922,10 +4001,10 @@ Tests:
   the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
   slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
 - `apps/desktop/src/renderer/project-part.test.ts`: the slot to focus forgotten when the tab closes.
-- Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and Layout
-  Inside A Slot), Parity/Inspector/Design (Component With Slots, Component With Several Slots, Adding A Slot, which adds
-  one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers › Slots, and
-  Parity/Canvas/Selection › Component Slots.
+- Stories: Parity/Inspector/Sections/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and
+  Layout Inside A Slot), Parity/Inspector/Sections/Props/Component design (With A Slot, With Several Slots, Adding A
+  Slot, which adds one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers ›
+  Slots, and Parity/Canvas/Selection › Component Slots.
 
 Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
 2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
@@ -3988,8 +4067,9 @@ Tests:
   prop's or a slot's, and a free one numbered; the text props; using one and going back to its text; a prop that isn't
   text, and a layer that isn't text; and a prop made from a layer's text.
 - `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
-- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop and Making
-  A Prop From Text, which makes `period` from Plan card's period).
+- Stories: Parity/Inspector/Sections/Props/Component design › Adding A Text Prop, and
+  Parity/Inspector/Sections/Content/Text props (Text Using A Prop and Making A Prop From Text, which makes `period` from
+  Plan card's period).
 
 Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
 use one from its field.
@@ -4072,7 +4152,7 @@ Tests:
   fill as a state and a mode draw it, and left out past the depth asked for, an empty layout reading as empty and an
   empty fill as `"…"`.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
-- Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+- Stories: Parity/Inspector/Sections/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
 
 Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
 drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old
@@ -4668,9 +4748,9 @@ Tests:
 - `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
   shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
   nothing, and modes the order doesn't name after it.
-- Stories: Parity/Inspector/Design › Another Mode First, which checks the first mode's switch is on and disabled, then
-  moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode Shown and Mode
-  Selected.
+- Stories: Parity/Inspector/Sections/Modes › Another Mode First, which checks the first mode's switch is on and
+  disabled, then moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode
+  Shown and Mode Selected.
 
 ### Unsaved changes survive a crash (PAR-905)
 
@@ -5420,7 +5500,7 @@ Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerF
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
 For edits: `stampChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`, wired in its `start`; the
-`codeChanged` reply in `packages/core/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
+`codeChanged` reply in `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
 `renderer/workspace.ts`; `frameKeys` and `drawnComponents` in `shared/render-job.ts`; `stale` in `useFrameBitmap` and
@@ -5435,7 +5515,7 @@ and no sheet over it, its layer reported, then the same file at a new version dr
 and the fix, kept through Clear, and gone frame by frame as the layer draws).
 `packages/builder-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
 among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
-`packages/core/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
+`packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
 changed files stamped, none without a change). `packages/renderer-react/src/guest.test.ts` (the revision moving once per
 new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
@@ -5483,17 +5563,17 @@ on each stylesheet change, which costs a whole builder start.
 Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
 `packages/core/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
 `packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
-`packages/core/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and `restyledGuest`
-in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in `openProjects`,
-`apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project discovery tells
-stylesheets by the same list (`stylesheetImports` and `readStylesheet` in `packages/project/src/styles.ts`,
-`importedFiles` in `preview-key.ts`).
+`packages/processes/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and
+`restyledGuest` in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
+`openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project
+discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
+`packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
 
 Tests: `packages/core/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
 `packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
-change the guest's stylesheets, a component's CSS module not). `packages/core/src/builder-process.test.ts` (the change
-passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
+change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the
+change passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
 closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
 guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
 without a restyled address started again on a new port). `packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite
@@ -5577,8 +5657,8 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   cache**, also in the actions search, removes them all; bitmaps on the canvas now are taken again when their frames
   next change.
 
-Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
-`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `createRenderPool` in
+Code: `cacheRemovals` in `packages/processes/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
+`packages/processes/src/preview-order.ts`, and `turns` in `packages/processes/src/turns.ts`; `createRenderPool` in
 `apps/desktop/src/main/render-pool.ts`, which opens the offscreen windows, closes them a minute after the last job and
 opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
@@ -5587,21 +5667,22 @@ opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot
 carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
-`webpText` and `webpSize` in `packages/core/src/webp-text.ts`; `losslessWebp` in `apps/desktop/src/utility/webp.ts`, and
-the build shipping sharp beside the service (`apps/desktop/scripts/build.ts`, `electron-builder.yml`); the
-`frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored`
-in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
-menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
+`webpText` and `webpSize` in `packages/processes/src/webp-text.ts`; `losslessWebp` in
+`apps/desktop/src/utility/webp.ts`, and the build shipping sharp beside the service (`apps/desktop/scripts/build.ts`,
+`electron-builder.yml`); the `frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`;
+`useFrameBitmap` and `stored` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in
+`renderer/chrome/commands.ts`, in the View menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`);
+`PARITY_BITMAP_DIR`, which main gives the service.
 
-Tests: `packages/core/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a failed
-task frees its turn and fails for whoever gave it); `renderQueue`'s windows are covered under Component previews.
-`packages/core/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes whole
-and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept, the age
-limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
-`packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
-edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
-`apps/desktop/src/utility/bitmap-store.test.ts` (8: a bitmap kept from one address is found from another with its
-frame's height while its trace holds, stale once a file it read changed, stale when kept without a trace, none for a
+Tests: `packages/processes/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a
+failed task frees its turn and fails for whoever gave it); `renderQueue`'s windows are covered under Component previews.
+`packages/processes/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes
+whole and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept,
+the age limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its
+project). `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt,
+new for an edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs
+added). `apps/desktop/src/utility/bitmap-store.test.ts` (8: a bitmap kept from one address is found from another with
+its frame's height while its trace holds, stale once a file it read changed, stale when kept without a trace, none for a
 file without a height, none for a frame never kept, no partial file left behind, an old project and an old partial file
 swept, and nothing once cleared). `apps/desktop/src/utility/frame-traces.test.ts` (5: a trace lists the files the
 components import, the stylesheets and theirs, and the shared config; adds what the builder says they load; holds after
@@ -5610,27 +5691,27 @@ stylesheet's import; nor for another renderer). `packages/project/src/frame-trac
 same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
 and a digest that ignores order but not a hash, a file or the salt). `packages/builder-vite/src/loaded-files.test.ts`
 (4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
-a file Vite hasn't built). `packages/core/src/builder-process.test.ts` asks the builder's process what files modules
-load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
+a file Vite hasn't built). `packages/processes/src/builder-process.test.ts` asks the builder's process what files
+modules load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
 `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same whether
 served or given; for `bitmapName`, among the names' 9: the same from another address, for a field the job or its mode
 gains and for a check, new with the tree, the mode, the size, the window, the scale and the tokens previewed, the same
 for a guest given a component and one served it but new for one served it from another file, and the same as the name
 before PAR-575 for a job the service has checked; 3 for the scale: the window in whole device pixels, at least one, a
-crop covering its box, and boxes and heights measured back in CSS pixels). `packages/core/src/webp-text.test.ts` (5:
-text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
-images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
-the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/main/render-pool.test.ts` (9: a window opened for the first job is kept for the next, a renderer that
-crashes fails its job and its window opens again for the next, a crashed frame isn't pictured, the windows close a
-minute after the last job and open again for the next, they stay open while a job draws, closing them all forgets the
-close that waited, what a window writes is tagged with the design it draws, a capture gives the frame's picture, and a
-preview of one color drew nothing). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in
-for its key, with its height, so no capture is asked for, the frame's latest from other code comes as stale and the
-frame is still captured (PAR-993), frames with the same key share a read, frames asking together share one request and
-each gets its own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the
-read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
-of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+crop covering its box, and boxes and heights measured back in CSS pixels). `packages/processes/src/webp-text.test.ts`
+(5: text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and
+lossy images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone;
+and the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels
+exactly). `apps/desktop/src/main/render-pool.test.ts` (9: a window opened for the first job is kept for the next, a
+renderer that crashes fails its job and its window opens again for the next, a crashed frame isn't pictured, the windows
+close a minute after the last job and open again for the next, they stay open while a job draws, closing them all
+forgets the close that waited, what a window writes is tagged with the design it draws, a capture gives the frame's
+picture, and a preview of one color drew nothing). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept
+bitmap stands in for its key, with its height, so no capture is asked for, the frame's latest from other code comes as
+stale and the frame is still captured (PAR-993), frames with the same key share a read, frames asking together share one
+request and each gets its own bitmap, none when the service couldn't say, none when none was kept, and a capture taken
+during the read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address,
+have no test of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
 `examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
@@ -5794,12 +5875,12 @@ shadcn's tooltip reads, set in `styles.css`.
 
 Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
 `librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
-`drawsNothing` in `packages/core/src/preview-order.ts`; the offscreen page, `apps/desktop/src/renderer/render.ts`, whose
-`canvasRender` calls `inlinePortals` in `renderer/inline-portals.ts` for a job with `inlinePortals`;
+`drawsNothing` in `packages/processes/src/preview-order.ts`; the offscreen page, `apps/desktop/src/renderer/render.ts`,
+whose `canvasRender` calls `inlinePortals` in `renderer/inline-portals.ts` for a job with `inlinePortals`;
 `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`, `moduleClosure`
 and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
-and `previews.make` handlers and their params' schemas in `apps/desktop/src/shared/service-params.ts`,
+and `previews.make` handlers and their checks in `apps/desktop/src/shared/service-checks.ts`,
 `apps/desktop/src/utility/previews.ts` and the preview half of `utility/bitmap-store.ts`; `renderJob`, `previewName`,
 `deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
 `apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
@@ -5810,20 +5891,21 @@ and `previews.make` handlers and their params' schemas in `apps/desktop/src/shar
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
 `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
-Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
-and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
-one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job still
-run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in
-order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`; 2 for `drawsNothing`: a
-picture with every pixel alike, and one with a pixel a channel apart). `packages/project/src/preview-key.test.ts` (9 for
-`resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for `sharedPreviewFiles`, and 6 for `previewKey` on
-files on disk: the same for the same code and tree, new for a component importing the changed file and not for one that
-doesn't, new for every component when a stylesheet or one it imports changes or when the dependencies do, new with
-what's drawn, and 40 hex characters). `packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by
-path). `packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts`
-(4: what inserting places inside the sized element, a part inside its parents, the same tree every time, and a dialog's
-part inside its dialog given `defaultOpen`; and 6 for `drawnOpen`: the first menu and the first submenu in it opened but
-not the menu beside it, one given `open` left and the next opened, an accordion's item its sample doesn't choose chosen
+Tests: `packages/processes/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on
+screen and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest
+free, one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job
+still run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the
+rest in order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`; 2 for
+`drawsNothing`: a picture with every pixel alike, and one with a pixel a channel apart).
+`packages/project/src/preview-key.test.ts` (9 for `resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for
+`sharedPreviewFiles`, and 6 for `previewKey` on files on disk: the same for the same code and tree, new for a component
+importing the changed file and not for one that doesn't, new for every component when a stylesheet or one it imports
+changes or when the dependencies do, new with what's drawn, and 40 hex characters).
+`packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by path).
+`packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts` (4: what
+inserting places inside the sized element, a part inside its parents, the same tree every time, and a dialog's part
+inside its dialog given `defaultOpen`; and 6 for `drawnOpen`: the first menu and the first submenu in it opened but not
+the menu beside it, one given `open` left and the next opened, an accordion's item its sample doesn't choose chosen
 beside the ones it does, an item with no value given `previewValue`, a sample that chooses one of its items or is given
 its value left as it is, and components that don't say what's open left alone).
 `packages/core/src/library-insert.test.ts` (1 for `librarySource`: the `openProps` a library component declares).
@@ -6451,7 +6533,7 @@ Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htm
 `styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
 `packages/builder-vite/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
 `openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
-`shared/protocol.ts`, `shared/service-params.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
+`shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
 `settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
 `renderer/agent/handlers.ts`.
 
@@ -6616,13 +6698,13 @@ themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stori
 the beta setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered
 toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
-Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
-operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close acknowledgement, for the
-windows `main/index.ts` gives it, and `main/host-handlers.ts` answers the window's update methods, through
-`preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
-`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+Code: `packages/processes/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts`
+serializes operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close
+acknowledgement, for the windows `main/index.ts` gives it, and `main/host-handlers.ts` answers the window's update
+methods, through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`,
+`AboutDialog.tsx` and `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
-Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
+Tests: `packages/processes/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
 failure resetting the close decision, disabled development builds and the Mac fallback. `main/close-flow.test.ts` covers
 each way a close starts (closing, quitting, restarting for an update) against each answer the page gives, in one table,
@@ -6694,7 +6776,7 @@ failure says what went wrong.
   checkout's CLI source, and starting isn't rewriting it.
 
 The build ships the CLI npm publishes in `cli/` beside the service, its packages with the service's, and fails unless it
-runs in Parity's Electron (`scripts/build.ts`). `@parity-app/core`'s `cli-command.test.ts` covers the folders, the
+runs in Parity's Electron (`scripts/build.ts`). `@parity-app/processes`'s `cli-command.test.ts` covers the folders, the
 launchers' text and quoting, and adding the folder to PATH. Writing the files and PATH (`main/cli-command.ts`) was tried
 by hand on Windows; macOS and Linux weren't tried.
 
@@ -7198,7 +7280,7 @@ text color. Chromium can't draw a scrollbar over the content for one element alo
 
 Code: `modeDevice` and `isTouchMode` in `packages/core/src/modes.ts`; `apps/desktop/src/renderer/scrollbars.css`;
 `frameTouchSheet` and `prepareFrame` in `apps/desktop/src/renderer/frame.ts`; `ModeView.tsx`; `renderJobMode`,
-`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's schema in `service-params.ts`.
+`frameKeys` and `drawnMode` in `apps/desktop/src/shared/render-job.ts`; the job's check in `service-checks.ts`.
 
 Tests: `packages/core/src/modes.test.ts` (1: a viewport's device, or the one its width suggests, with phones and tablets
 as touch). `apps/desktop/src/shared/render-job.test.ts` (1, and a case in 2 others: the default tablet and mobile modes'

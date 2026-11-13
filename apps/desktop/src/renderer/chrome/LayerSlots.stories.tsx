@@ -12,7 +12,7 @@ import { LayerHeader } from "./LayerPanel.tsx"
  * it's about: the header Make slot is in, an instance's slots, or a slot's own panel (PAR-1022).
  */
 const meta = {
-  title: "Parity/Inspector/Layer/Slots",
+  title: "Parity/Inspector/Sections/Slots",
   component: DesignTab,
   render: renderSection(LayerHeader),
   decorators: [inspectorStage]

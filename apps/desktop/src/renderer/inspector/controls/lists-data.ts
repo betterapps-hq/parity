@@ -2,7 +2,7 @@
  * The list fields' models: Fill's paint stack, Effects' shadow list and the filter list, as PAR-652's
  * design-options-values.md specifies them, with the project's images. Their tokens are the project's, as `ProjectData` gives them.
  */
-import { formatNumber } from "./css-values.ts"
+import { formatNumber } from "@parity-app/style-schema"
 import type { Length } from "./data.ts"
 import { type ColorToken, drawnColor, type ShadowToken } from "./tokens.ts"
 
@@ -36,18 +36,6 @@ export interface Stop extends ListColor {
 export type GradientKind = "linear" | "radial" | "angular"
 
 export type Interpolation = "oklab" | "oklch" | "srgb"
-
-/** The eight named directions a linear gradient's angle is also typed as: `to right` is 90°. */
-export const gradientDirections = {
-  "to top": 0,
-  "to top right": 45,
-  "to right": 90,
-  "to bottom right": 135,
-  "to bottom": 180,
-  "to bottom left": 225,
-  "to left": 270,
-  "to top left": 315
-} satisfies Readonly<Record<string, number>>
 
 export interface GradientPaint {
   kind: GradientKind

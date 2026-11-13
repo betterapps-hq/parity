@@ -526,7 +526,7 @@ export function lagCheck({ every, threshold, start }: { every: number; threshold
   }
 }
 
-/** The update state each update event is read from: `UpdateState` in `@parity-app/core`. */
+/** The update state each update event is read from: `UpdateState` in `@parity-app/processes`. */
 export type UpdatePhase =
   | { phase: "disabled" | "idle" | "checking" | "current" }
   | { phase: "downloading" | "ready" | "manual" | "installing"; version: string }

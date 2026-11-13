@@ -13,6 +13,7 @@ import {
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { scrubSteps } from "@parity-app/core"
+import { formatNumber } from "@parity-app/style-schema"
 import type { PreviewKind } from "@parity-app/tokens"
 import {
   Check,
@@ -42,7 +43,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
-import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
+import { clamp, stepSpacing } from "./css-values.ts"
 import { type FieldSessionEvent, relativeUpdate } from "./edit-session.ts"
 import { useRowScrub } from "./field-row.tsx"
 import type { ImageSource } from "./image-fill.tsx"

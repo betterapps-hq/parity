@@ -12,7 +12,7 @@ import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
  * The other Layer folders hold the cases beyond these: its name and header, states, instances and slots.
  */
 const meta = {
-  title: "Parity/Inspector/Layer/Kinds",
+  title: "Parity/Inspector/Layers/Kinds",
   component: DesignTab,
   render: renderInspector,
   decorators: [inspectorStage]

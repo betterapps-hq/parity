@@ -75,9 +75,12 @@ Node, React or Electron, and its tests run on their own.
 ```text
 packages/style-schema/src/
 ├── model.ts        # the stored style schema (zod): keys, lengths, sizes, tracks, shadows, filters, the CSS map
-├── value.ts        # the forms a stored value takes (token, value, step, keyword, expr), and each as CSS
-├── paint.ts        # colors and a fill's paints, and their CSS
-├── motion.ts       # transitions, and their CSS
+├── value.ts        # the forms a stored value takes (token, value, step, keyword, expr), each as CSS, and a length's form
+├── read.ts         # what a reader gives back when it can't read a value: a code and a reason
+├── paint.ts        # colors and a fill's paints, their CSS, and a gradient read back from CSS
+├── motion.ts       # transitions, their CSS, Tailwind's easing curves, and an easing function read back from CSS
+├── expression.ts   # calc(), min(), max(), clamp() and var() worked out in pixels, and an expression's simplest form
+├── tracks.ts       # a grid track's size, and its CSS both ways
 ├── effects.ts      # the CSS of shadows, filters and the transform
 ├── stored.ts       # what the schemas share: finite numbers, and objects without unset keys
 ├── declare.ts      # style → declarations
@@ -231,6 +234,25 @@ PAR-925, PAR-931, PAR-933 and PAR-934 are adding keys to core's `nodeStyle` now.
 package in step 1 unchanged. The renames in step 3 then take every key at once, PAR-931's widened `background` becoming
 the `fills` list [design-options-code.md](design-options-code.md) names, so the `.par` format changes once rather than
 with each issue.
+
+PAR-984 is moving the Design panel's CSS readers and printers out of `apps/desktop/src/renderer/inspector` into this
+package, in steps. The first step has landed:
+
+- **A failed read is a `ReadFailure`** (`read.ts`): a code (`unreadable`, `incomplete`, `unknown-token`,
+  `unknown-function`, `arguments`, `units`, `divide-by-zero`, `out-of-range`) and the reason a field shows. The panel's
+  field readers (`typing.ts`, `number-rules.ts`, `sides-writes.ts`'s `readSide`) give one, and no caller reads the
+  reason to decide anything.
+- **The readers that were the panel's only copy** are here with tests: `calc()` and the rest worked out in pixels
+  (`evaluateLength`, `expressionForm`), easing functions (`readEasingFunction`, `plotCss`, `bezierCss`), grid tracks
+  (`readTrackSize`, `trackSizeCss`) and gradients (`readGradient`, the inverse of `gradientCss`).
+- **Duplicates folded into the package's copy:** Tailwind's easing curves (`easingBeziers`, which `easingCurves` is
+  written from), a linear gradient's named directions, and a length's stored form (`lengthForm`, `formatNumber`,
+  `spacingPx`, `remPx`).
+
+Still in the panel: the stand-in writers (`writes.ts` and the `*-writes.ts` files), `css-values.ts`'s colors, shadows
+and gradients over the controls' own drafts, and the units of angles and times (`motion-data.ts`'s `splitUnit`). They
+write Tailwind classes beside the CSS, which belongs to `@parity-app/styles-tailwind` rather than here, so the next
+steps split each writer's CSS from its Tailwind.
 
 ## Order of work
 

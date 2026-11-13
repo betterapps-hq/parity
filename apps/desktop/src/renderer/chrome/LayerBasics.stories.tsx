@@ -5,13 +5,14 @@ import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, slowly, typing } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
+import { inspectorStage, pick, renderInspector, renderSection } from "./layer-stories.tsx"
+import { LayerHeader } from "./LayerPanel.tsx"
 
 /** What every layer's panel has at its head: its name, Make component, and whether it shows, or that it's gone. */
 const meta = {
-  title: "Parity/Inspector/Layer/Basics",
+  title: "Parity/Inspector/Sections/Header",
   component: DesignTab,
-  render: renderInspector,
+  render: renderSection(LayerHeader),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
@@ -63,5 +64,6 @@ export const NamingAComponent: Story = {
 
 /** The selected layer was deleted, by an agent or another window: the panel says it no longer exists. */
 export const LayerGone: Story = {
-  loaders: [inspecting("design", () => layersSelection(design("Pricing"), ["deleted-layer"]))]
+  loaders: [inspecting("design", () => layersSelection(design("Pricing"), ["deleted-layer"]))],
+  render: renderInspector
 }

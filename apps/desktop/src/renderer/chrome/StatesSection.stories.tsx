@@ -14,7 +14,7 @@ import { StatesSection } from "./StatesSection.tsx"
  * states, so a screen's Design tab has no States section (PAR-1002).
  */
 const meta = {
-  title: "Parity/Inspector/States",
+  title: "Parity/Inspector/Sections/States",
   component: SelectedStates,
   decorators: [
     (Story) => (

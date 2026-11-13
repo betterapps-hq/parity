@@ -11,7 +11,7 @@ import { inspecting, InspectorStage, PanelColumn, search, slowly } from "./inspe
  * added from a searchable list and removed from their row.
  */
 const meta = {
-  title: "Parity/Inspector/Attributes",
+  title: "Parity/Inspector/Sections/Attributes",
   render: () => <AttributesSection />,
   decorators: [
     (Story) => (

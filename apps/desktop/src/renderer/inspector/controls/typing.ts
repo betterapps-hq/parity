@@ -4,14 +4,14 @@
  * takes one reads `50%` as such, and one that doesn't says to type `*0.5` for a share of the value there.
  */
 import { applyFieldInput, type FieldRules, readFieldInput } from "@parity-app/core"
+import { type ReadFailure, readFailure, spacingPx } from "@parity-app/style-schema"
 import { numberValue } from "../../chrome/prop-values.ts"
-import { spacingPx } from "./css-values.ts"
 
 /** Lengths read in pixels, to a quarter pixel, so nothing typed snaps to the spacing scale (call 1). */
 const rulesFor = (label: string): FieldRules => ({ kind: "length", unit: 0.25, label })
 
 /** What a length field makes of what's typed. */
-export type LengthReading = { clear: true } | { px: number } | { percent: number } | { reason: string }
+export type LengthReading = { clear: true } | { px: number } | { percent: number } | ReadFailure
 
 export function readLength(
   text: string,
@@ -30,7 +30,7 @@ export function readLength(
 
     return Number.isInteger(px)
       ? { px }
-      : { reason: `spacing-${step} isn't a spacing step. Use quarter steps, such as spacing-3.25` }
+      : readFailure("out-of-range", `spacing-${step} isn't a spacing step. Use quarter steps, such as spacing-3.25`)
   }
 
   if (trimmed.includes("%")) {
@@ -40,11 +40,9 @@ export function readLength(
       return { percent: Number(percent) }
     }
 
-    return {
-      reason: takesPercent
-        ? "Enter a percentage on its own, such as 50%"
-        : `${label} doesn't accept percentages. To halve it, enter *0.5`
-    }
+    return takesPercent
+      ? readFailure("unreadable", "Enter a percentage on its own, such as 50%")
+      : readFailure("units", `${label} doesn't accept percentages. To halve it, enter *0.5`)
   }
 
   const rules = rulesFor(label)
@@ -56,7 +54,7 @@ export function readLength(
   )
 
   if (!outcome.ok) {
-    return { reason: outcome.reason }
+    return readFailure("unreadable", outcome.reason)
   }
 
   // In quarter pixels, the unit `rulesFor` reads in; anything but a number clears the field.
@@ -77,12 +75,12 @@ export function readNumber(
   text: string,
   current: number | undefined,
   label: string
-): { value: number } | { clear: true } | { reason: string } {
+): { value: number } | { clear: true } | ReadFailure {
   const rules = { kind: "number" as const, label }
   const outcome = applyFieldInput(readFieldInput(text, rules), current, rules)
 
   if (!outcome.ok) {
-    return { reason: outcome.reason }
+    return readFailure("unreadable", outcome.reason)
   }
 
   const number = numberValue.safeParse(outcome.value).data
@@ -97,8 +95,8 @@ export function readNumber(
 /**
  * A number typed in a field's own units, with the app's maths as `readNumber` reads it: `45`, `0.25turn`, `+15`, `*2`,
  * `(90 - 30) / 2`. A unit at the end converts from that unit, `units` giving what one of each comes to in the field's
- * own; a bare number is in the field's own unit, and a leading `-` is a negative number, not a step down. Text it
- * can't read gets `takes`, which says what the field takes.
+ * own; a bare number is in the field's own unit, and a leading `-` is a negative number, not a step down. Every
+ * reason it gives ends with `takes`, which says what the field takes.
  */
 export function readUnitNumber(
   text: string,
@@ -108,9 +106,9 @@ export function readUnitNumber(
     label,
     takes
   }: { units: Readonly<Record<string, number>>; current: number; label: string; takes: string }
-): { value: number } | { reason: string } {
+): { value: number } | ReadFailure {
   const trimmed = text.trim()
-  const cannot = { reason: `Can't read "${trimmed}". ${takes}` }
+  const cannot = readFailure("units", `Can't read "${trimmed}". ${takes}`)
 
   // A percentage is a share of a length, which a field in its own units doesn't take.
   if (trimmed.includes("%")) {
@@ -128,11 +126,11 @@ export function readUnitNumber(
   const reading = readNumber(withUnit?.[1] ?? trimmed, current / factor, label)
 
   if ("clear" in reading) {
-    return cannot
+    return readFailure("incomplete", cannot.reason)
   }
 
   if ("reason" in reading) {
-    return reading
+    return readFailure(reading.code, `${reading.reason}. ${takes}`)
   }
 
   return { value: Math.round(reading.value * factor * 10_000) / 10_000 }

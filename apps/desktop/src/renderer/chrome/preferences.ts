@@ -1,5 +1,6 @@
-import { type CodeEditorChoice, jsonText } from "@parity-app/core"
+import { jsonText } from "@parity-app/core"
 import { defaultExportSizes, type ExportSize } from "@parity-app/editor"
+import type { CodeEditorChoice } from "@parity-app/processes"
 import { useSyncExternalStore } from "react"
 import { z } from "zod"
 import { recordInterface } from "../interface-events.ts"

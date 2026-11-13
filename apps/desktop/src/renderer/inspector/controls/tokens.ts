@@ -4,11 +4,12 @@
  * (`TokenSets`). The project's own come from `projectTokenSets` (inspector/token-sets.ts); the stories' stand-ins are in
  * stand-in-tokens.ts, which nothing in the live panel imports.
  */
+import { type Bezier, bezierCss, formatNumber } from "@parity-app/style-schema"
 import type { PreviewKind } from "@parity-app/tokens"
-import { formatNumber, gradientCss, isPlainColor, mixColor, shadowCss } from "./css-values.ts"
+import { gradientCss, isPlainColor, mixColor, shadowCss } from "./css-values.ts"
 import { isLengthToken, type Length } from "./data.ts"
 import type { GradientPaint, ShadowLayer } from "./lists-data.ts"
-import { type Bezier, bezierCss, type Spring, springLinear } from "./motion-data.ts"
+import { type Spring, springLinear } from "./motion-data.ts"
 
 /** A token as a field offers it: drawn by its kind's preview from its value, with what it comes to in words. */
 export interface FieldToken {

@@ -135,38 +135,3 @@ function report(cause: unknown, info: CaughtInfo, caught: boolean): void {
     caughtEvents.set(cause, eventId)
   }
 }
-
-/** The replay and trace a report is tied to, each when there is one. */
-interface ReportIds {
-  replayId?: string
-  traceId?: string
-}
-
-/**
- * The replay and trace a report is tied to (PAR-635). The replay's buffer is sent first, so the feedback can name it.
- * Neither is there when the window records no replay.
- */
-export async function reportIds(): Promise<ReportIds> {
-  const replay = Sentry.getReplay()
-
-  try {
-    await replay?.flush()
-  } catch {
-    // The report goes without its replay.
-  }
-
-  const replayId = replay?.getReplayId()
-  const traceId = Sentry.getCurrentScope().getPropagationContext().traceId
-
-  const ids: ReportIds = {}
-
-  if (replayId) {
-    ids.replayId = replayId
-  }
-
-  if (traceId) {
-    ids.traceId = traceId
-  }
-
-  return ids
-}
