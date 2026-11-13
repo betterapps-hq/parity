@@ -47,9 +47,12 @@ export const Open: Story = {
   play: async ({ canvasElement }) => {
     await open(canvasElement, "Pricing")
     const list = await within(document.body).findByRole("listbox", undefined, slowly)
-    await expect(within(list).getByText("On this screen")).toBeVisible()
-    await expect(within(list).queryByText("Plan card")).toBeNull()
-    await expect(within(list).queryByText("Plans area")).toBeNull()
+    // The list fades in, so it's checked for what it holds rather than for being seen yet.
+    await expect(await within(list).findByRole("option", { name: "Stat card" }, slowly)).toBeInTheDocument()
+    await expect(within(list).getByRole("option", { name: "Pro plan" })).toBeInTheDocument()
+    await expect(within(list).queryByRole("option", { name: "Plan card" })).toBeNull()
+    await expect(within(list).queryByRole("option", { name: "Plans area" })).toBeNull()
+    await expect(within(list).queryByRole("option", { name: "Starter plan" })).toBeNull()
   }
 }
 
