@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Read a project's TanStack Router routes",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

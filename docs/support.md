@@ -234,15 +234,15 @@ snapshot only.
 
 ### Routes, data, API and the rest
 
-Nothing here is built. **The priority is yours: databases, the API, routes and mock data, then telemetry.** The rest
-follow, and tests, coverage, the gaps report and performance come after the core, by your decision. Detail is in
-`proposals/web-and-backend.md`, `proposals/app-lenses.md` and `proposals/extensions.md`.
+Only reading routes is built so far. **The priority is yours: databases, the API, routes and mock data, then
+telemetry.** The rest follow, and tests, coverage, the gaps report and performance come after the core, by your
+decision. Detail is in `proposals/web-and-backend.md`, `proposals/app-lenses.md` and `proposals/extensions.md`.
 
 | Layer           | Standard (first)                                 | Adapters (after)                           | Status |
 | --------------- | ------------------------------------------------ | ------------------------------------------ | ------ |
 | Data            | SQL: the database catalog and migration files    | Drizzle, then Prisma                       | 🔜     |
 | API             | OpenAPI 3.1 and 3.2, JSON Schema                 | Hono, oRPC, server functions               | 🔜     |
-| Routes          | Parity's route model, paths as URL patterns      | TanStack Router, React Router, Next.js     | 🔜     |
+| Routes          | Parity's route model, paths as URL patterns      | TanStack Router, React Router, Next.js     | ◐      |
 | Mocks and seeds | OpenAPI and JSON Schema through MSW; SQL inserts | drizzle-seed                               | 🔜     |
 | Telemetry       | OpenTelemetry over OTLP: traces, errors, timings | Each monitoring service's query API        | 🔜     |
 | Links           | Drawn by hand on the canvas                      | The TypeScript compiler, following calls   | 🔜     |
@@ -251,6 +251,12 @@ follow, and tests, coverage, the gaps report and performance come after the core
 | Sign-in, roles  | OpenID Connect, OAuth 2.0                        | Better Auth access control, Clerk, WorkOS  | ⏳     |
 | Languages       | ICU messages                                     |                                            | ⏳     |
 | Deploy          | Better Apps' capability manifest                 | Cloudflare first, through Better Apps      | ⏳     |
+
+**Routes are read, not drawn yet (PAR-1073).** `RouterAdapter` in `@parity-app/core` is the route model: each route's
+id, URL pattern, parent, file, params, whether it's an index, the component it draws, and whether it loads data or
+guards the page. `packages/router-tanstack` reads TanStack Router's file-based routes from the route tree its tooling
+generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's file. Routes written in code
+without the generated tree aren't read. Drawing each page is the next step of the read-only viewer (PAR-1071).
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
