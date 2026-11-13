@@ -4,6 +4,7 @@ import {
   elementFamilies,
   elementType,
   elementTypeFamilies,
+  elementTypeInputTypes,
   elementTypeRoles,
   elementTypes,
   elementTypeTags
@@ -15,8 +16,11 @@ describe("elementType", () => {
     ["div", "layout"],
     ["nav", "region"],
     ["a", "link"],
-    ["button", "input"],
-    ["select", "input"],
+    ["button", "button"],
+    ["textarea", "textField"],
+    ["select", "select"],
+    ["progress", "progress"],
+    ["output", "text"],
     ["img", "image"],
     ["svg", "vector"],
     ["video", "video"],
@@ -37,11 +41,27 @@ describe("elementType", () => {
   })
 
   it("takes a role in place of the tag, the first a type lists", () => {
-    expect(elementType("div", { role: "button" })).toBe("input")
-    expect(elementType("div", { role: "switch" })).toBe("input")
+    expect(elementType("div", { role: "button" })).toBe("button")
+    expect(elementType("div", { role: "switch" })).toBe("switch")
+    expect(elementType("button", { role: "checkbox" })).toBe("checkbox")
     expect(elementType("div", { role: "navigation" })).toBe("region")
     expect(elementType("div", { role: "made-up separator" })).toBe("divider")
     expect(elementType("span", { role: "made-up" })).toBe("text")
+  })
+
+  it.each([
+    [undefined, "textField"],
+    ["email", "textField"],
+    ["checkbox", "checkbox"],
+    ["radio", "radio"],
+    ["range", "slider"],
+    ["date", "datePicker"],
+    ["color", "colorPicker"],
+    ["file", "filePicker"],
+    ["submit", "button"],
+    ["made-up", "textField"]
+  ] as const)("shows an input whose type is %s as %s", (type, layer) => {
+    expect(elementType("input", type === undefined ? {} : { type })).toBe(layer)
   })
 
   it("shows an element with popover as an Overlay", () => {
@@ -53,9 +73,11 @@ describe("the mapping", () => {
   it("puts each tag and each role in one type", () => {
     const tags = elementTypes.flatMap((type) => elementTypeTags[type])
     const roles = elementTypes.flatMap((type) => elementTypeRoles[type])
+    const inputs = elementTypes.flatMap((type) => elementTypeInputTypes[type])
 
     expect(new Set(tags).size).toBe(tags.length)
     expect(new Set(roles).size).toBe(roles.length)
+    expect(new Set(inputs).size).toBe(inputs.length)
   })
 
   it("puts every family to use, Video and Audio in one", () => {
@@ -81,7 +103,8 @@ describe("describeElement", () => {
     expect(describeElement({ tag: "input" }).detail).toBe("text")
     expect(describeElement({ tag: "button" }).detail).toBe("button")
     expect(describeElement({ tag: "div", attributes: { role: "switch" } })).toMatchObject({
-      type: "input",
+      type: "switch",
+      family: "input",
       detail: "switch"
     })
   })

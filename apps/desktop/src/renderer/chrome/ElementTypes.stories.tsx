@@ -4,6 +4,7 @@ import {
   type ElementType,
   elementTypeFamilies,
   elementTypeIcons,
+  elementTypeInputTypes,
   elementTypeNames,
   elementTypeRoles,
   elementTypes,
@@ -16,7 +17,7 @@ import { elementFamilyColors, elementFamilyTextColors, LayerIcon } from "../canv
 /**
  * How each element a component or page draws shows as a layer (read-only viewer), drawn from `@parity-app/layer-types`
  * alone, so a change to the mapping changes this picture: each family with its color, and each type in it with its
- * icon, the tags and roles that make an element that type, and the sections its panel shows. Layers/Demo tries one.
+ * icon, the tags, `<input>` types and roles that make an element that type, and the sections its panel shows. Layers/Demo tries one.
  */
 const meta = {
   title: "Parity/Layers/Element types",
@@ -61,7 +62,12 @@ function ElementTypes() {
                       <TypeName type={type} />
                     </td>
                     <td className="py-2">
-                      <Codes values={elementTypeTags[type]} />
+                      <Codes
+                        values={[
+                          ...elementTypeTags[type],
+                          ...elementTypeInputTypes[type].map((input) => `input[type=${input}]`)
+                        ]}
+                      />
                     </td>
                     <td className="py-2">
                       <Codes values={elementTypeRoles[type]} />

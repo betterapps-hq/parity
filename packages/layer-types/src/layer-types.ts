@@ -1,16 +1,26 @@
 /**
  * What kind of layer an element shows as (read-only viewer): the layer is the element itself, as the page or its code
  * has it, and its type decides only how it's shown, its icon and color in Layers and the header and sections of its
- * panel. The type
- * comes from the element's tag alone, never from what's inside it, so a `span` is always Text; a `role`, or `popover`,
- * says what the element is in place of its tag.
+ * panel. The type comes from the element's tag alone, never from what's inside it, so a `span` is always Text, and an
+ * `<input>`'s from its `type` too, so a checkbox is a Checkbox; a `role`, or `popover`, says what the element is in
+ * place of its tag.
  */
 export const elementTypes = [
   "layout",
   "region",
   "text",
   "link",
-  "input",
+  "button",
+  "textField",
+  "checkbox",
+  "radio",
+  "switch",
+  "select",
+  "slider",
+  "datePicker",
+  "colorPicker",
+  "filePicker",
+  "progress",
   "image",
   "vector",
   "video",
@@ -50,12 +60,22 @@ export const elementTypeFamilies: Record<ElementType, ElementFamily> = {
   overlay: "structure",
   text: "text",
   link: "text",
+  button: "input",
+  textField: "input",
+  checkbox: "input",
+  radio: "input",
+  switch: "input",
+  select: "input",
+  slider: "input",
+  datePicker: "input",
+  colorPicker: "input",
+  filePicker: "input",
+  progress: "input",
   image: "media",
   vector: "media",
   video: "media",
   audio: "media",
-  embed: "media",
-  input: "input"
+  embed: "media"
 }
 
 /** Each type's name, as its panel's header and Layers say it. */
@@ -64,7 +84,17 @@ export const elementTypeNames: Record<ElementType, string> = {
   region: "Region",
   text: "Text",
   link: "Link",
-  input: "Input",
+  button: "Button",
+  textField: "Text field",
+  checkbox: "Checkbox",
+  radio: "Radio",
+  switch: "Switch",
+  select: "Select",
+  slider: "Slider",
+  datePicker: "Date picker",
+  colorPicker: "Color picker",
+  filePicker: "File picker",
+  progress: "Progress",
   image: "Image",
   vector: "Vector",
   video: "Video",
@@ -103,10 +133,21 @@ export const elementTypeTags: Record<ElementType, readonly string[]> = {
     "time",
     "kbd",
     "sub",
-    "sup"
+    "sup",
+    "output"
   ],
   link: ["a"],
-  input: ["input", "button", "textarea", "select", "option", "optgroup", "output", "progress", "meter"],
+  button: ["button"],
+  textField: ["textarea"],
+  checkbox: [],
+  radio: [],
+  switch: [],
+  select: ["select", "option", "optgroup", "datalist"],
+  slider: [],
+  datePicker: [],
+  colorPicker: [],
+  filePicker: [],
+  progress: ["progress", "meter"],
   image: ["img", "picture"],
   vector: ["svg"],
   video: ["video"],
@@ -118,29 +159,54 @@ export const elementTypeTags: Record<ElementType, readonly string[]> = {
   overlay: ["dialog"]
 }
 
+/**
+ * The `type`s of `<input>` each type is, each in one type: an `<input>` is a Text field unless its `type` says otherwise,
+ * as `text`, `email` and a `type` a browser doesn't know are.
+ */
+export const elementTypeInputTypes: Record<ElementType, readonly string[]> = {
+  layout: [],
+  region: [],
+  text: [],
+  link: [],
+  button: ["button", "submit", "reset", "image"],
+  textField: ["text", "email", "password", "search", "tel", "url", "number", "hidden"],
+  checkbox: ["checkbox"],
+  radio: ["radio"],
+  switch: [],
+  select: [],
+  slider: ["range"],
+  datePicker: ["date", "time", "datetime-local", "month", "week"],
+  colorPicker: ["color"],
+  filePicker: ["file"],
+  progress: [],
+  image: [],
+  vector: [],
+  video: [],
+  audio: [],
+  embed: [],
+  table: [],
+  list: [],
+  divider: [],
+  overlay: []
+}
+
 /** The roles each type is, which say what an element is in place of its tag, each role in one type. */
 export const elementTypeRoles: Record<ElementType, readonly string[]> = {
   layout: ["group", "presentation", "none"],
   region: ["banner", "navigation", "main", "complementary", "contentinfo", "region", "search", "form"],
   text: ["heading", "paragraph", "status", "alert"],
   link: ["link"],
-  input: [
-    "button",
-    "checkbox",
-    "radio",
-    "switch",
-    "textbox",
-    "searchbox",
-    "combobox",
-    "slider",
-    "spinbutton",
-    "listbox",
-    "option",
-    "menuitem",
-    "menuitemcheckbox",
-    "menuitemradio",
-    "tab"
-  ],
+  button: ["button", "menuitem", "tab"],
+  textField: ["textbox", "searchbox", "spinbutton"],
+  checkbox: ["checkbox", "menuitemcheckbox"],
+  radio: ["radio", "menuitemradio"],
+  switch: ["switch"],
+  select: ["combobox", "listbox", "option"],
+  slider: ["slider"],
+  datePicker: [],
+  colorPicker: [],
+  filePicker: [],
+  progress: ["progressbar", "meter"],
   image: ["img"],
   vector: [],
   video: [],
@@ -160,7 +226,17 @@ export const elementTypeIcons = {
   region: "panels-top-left",
   text: "type",
   link: "link",
-  input: "text-cursor-input",
+  button: "square-mouse-pointer",
+  textField: "text-cursor-input",
+  checkbox: "square-check",
+  radio: "circle-dot",
+  switch: "toggle-right",
+  select: "chevrons-up-down",
+  slider: "sliders-horizontal",
+  datePicker: "calendar",
+  colorPicker: "pipette",
+  filePicker: "file-up",
+  progress: "gauge",
   image: "image",
   vector: "pen-tool",
   video: "film",
@@ -192,6 +268,15 @@ export const panelSections = [
 
 export type PanelSection = (typeof panelSections)[number]
 
+const fieldSections = [
+  "input",
+  "typography",
+  "size",
+  "fill",
+  "stroke",
+  "appearance"
+] as const satisfies readonly PanelSection[]
+
 const boxSections = ["layout", "size", "fill", "stroke", "appearance"] as const satisfies readonly PanelSection[]
 
 /** The sections each type's panel shows, in order: what's its own first, then what every box has. */
@@ -204,7 +289,17 @@ export const elementTypeSections: Record<ElementType, readonly PanelSection[]> =
   divider: ["size", "stroke", "appearance"],
   text: ["typography", "size", "fill", "appearance"],
   link: ["link", "typography", "size", "fill", "appearance"],
-  input: ["input", "typography", "size", "fill", "stroke", "appearance"],
+  button: fieldSections,
+  textField: fieldSections,
+  select: fieldSections,
+  datePicker: fieldSections,
+  colorPicker: fieldSections,
+  filePicker: fieldSections,
+  checkbox: ["input", "size", "fill", "stroke", "appearance"],
+  radio: ["input", "size", "fill", "stroke", "appearance"],
+  switch: ["input", "size", "fill", "stroke", "appearance"],
+  slider: ["input", "size", "fill", "appearance"],
+  progress: ["input", "size", "fill", "appearance"],
   image: ["source", "size", "stroke", "appearance"],
   vector: ["source", "size", "appearance"],
   video: ["source", "playback", "size", "stroke", "appearance"],
@@ -213,11 +308,17 @@ export const elementTypeSections: Record<ElementType, readonly PanelSection[]> =
 }
 
 const byTag = new Map(elementTypes.flatMap((type) => elementTypeTags[type].map((tag) => [tag, type] as const)))
+
+const byInputType = new Map(
+  elementTypes.flatMap((type) => elementTypeInputTypes[type].map((input) => [input, type] as const))
+)
+
 const byRole = new Map(elementTypes.flatMap((type) => elementTypeRoles[type].map((role) => [role, type] as const)))
 
 /**
  * The type an element shows as: its `role`'s, when it has one a type lists (the first, as a role can name several),
- * else Overlay with `popover`, else its tag's, else Layout, as a custom element or `address` is.
+ * else Overlay with `popover`, else an `<input>`'s `type`'s, else its tag's, else Layout, as a custom element or
+ * `address` is.
  */
 export function elementType(tag: string, attributes: Readonly<Record<string, string>> = {}): ElementType {
   return typeAndRole(tag, attributes).type
@@ -281,5 +382,11 @@ function typeAndRole(tag: string, attributes: Readonly<Record<string, string>>):
     return { type: "overlay" }
   }
 
-  return { type: byTag.get(tag.toLowerCase()) ?? "layout" }
+  const lower = tag.toLowerCase()
+
+  if (lower === "input") {
+    return { type: byInputType.get((attributes.type ?? "text").toLowerCase()) ?? "textField" }
+  }
+
+  return { type: byTag.get(lower) ?? "layout" }
 }

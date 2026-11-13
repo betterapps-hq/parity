@@ -85,13 +85,13 @@ function Field({
   )
 }
 
-/** A `div` whose role is `button` is an Input; without the role it's a Layout, and a `span` is Text. */
+/** A `div` whose role is `button` is a Button; without the role it's a Layout, and a `span` is Text. */
 export const Demo: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     const shows = canvas.getByLabelText("Shows as")
-    await expect(shows).toHaveTextContent("Input")
-    await expect(canvas.getByLabelText("Panel shows")).toHaveTextContent("Input · button")
+    await expect(shows).toHaveTextContent("Button")
+    await expect(canvas.getByLabelText("Panel shows")).toHaveTextContent("Button · button")
 
     // A role says what an element is; without one, its tag does.
     await userEvent.clear(canvas.getByLabelText("Role"))

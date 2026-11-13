@@ -8,6 +8,7 @@ export {
   elementType,
   elementTypeFamilies,
   elementTypeIcons,
+  elementTypeInputTypes,
   elementTypeNames,
   elementTypeRoles,
   elementTypes,
