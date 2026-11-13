@@ -44,7 +44,7 @@ const columns = [
 
 function KindColumns() {
   return (
-    <div className="flex w-max items-start divide-x">
+    <div className="flex w-max items-start gap-1.5 divide-x">
       {columns.map((column) => {
         const id = "id" in column ? column.id : node(column.design, column.layer)
 
