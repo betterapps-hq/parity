@@ -71,6 +71,7 @@ import {
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
+import { routePagesFile } from "../canvas/route-pages.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
@@ -97,9 +98,11 @@ export const layersMime = "application/x-parity-layers"
 const designMime = "application/x-parity-design"
 
 interface Group {
+  id: string
   title: string
   kind: "component" | "screen" | "frame"
-  command: "newComponent" | "newScreen" | "frame"
+  /** What its + makes; the app's routes have none, since they're read from its code. */
+  command?: "newComponent" | "newScreen" | "frame"
   none: string
   entries: ContainerEntry[]
 }
@@ -171,25 +174,38 @@ export function LayerTree() {
     }
   }
 
+  // The app's routes come first, then the screens designed for it, then frames. Components are listed in the Components
+  // panel (PAR-1076).
   const groups = useMemo((): Group[] => {
-    const components = entries.filter((entry) => entry.container.kind === "component")
-    const screens = entries.filter((entry) => !entry.container.kind || entry.container.kind === "screen")
-    const frames = entries.filter((entry) => entry.container.kind === "frame")
+    const routes = entries.filter((entry) => entry.path === routePagesFile)
 
-    return [
-      {
-        title: "Components",
-        kind: "component",
-        command: "newComponent",
-        none: "No components yet.",
-        entries: components
-      },
-      { title: "Screens", kind: "screen", command: "newScreen", none: "No screens yet.", entries: screens },
-      // Frames are listed once there are some; the frame tool draws them on the canvas.
-      ...(frames.length > 0
-        ? [{ title: "Frames", kind: "frame" as const, command: "frame" as const, none: "", entries: frames }]
-        : [])
-    ]
+    const screens = entries.filter(
+      (entry) => entry.path !== routePagesFile && (!entry.container.kind || entry.container.kind === "screen")
+    )
+
+    const frames = entries.filter((entry) => entry.container.kind === "frame")
+    const listed: Group[] = []
+
+    // Routes are listed once the app has some, as its router says.
+    if (routes.length > 0) {
+      listed.push({ id: "routes", title: "Routes", kind: "screen", none: "", entries: routes })
+    }
+
+    listed.push({
+      id: "screens",
+      title: "Screens",
+      kind: "screen",
+      command: "newScreen",
+      none: "No screens yet.",
+      entries: screens
+    })
+
+    // Frames are listed once there are some; the frame tool draws them on the canvas.
+    if (frames.length > 0) {
+      listed.push({ id: "frames", title: "Frames", kind: "frame", command: "frame", none: "", entries: frames })
+    }
+
+    return listed
   }, [entries])
 
   const { rows, lines } = useMemo(() => {
@@ -210,17 +226,17 @@ export function LayerTree() {
         continue
       }
 
-      list.push({ type: "heading", key: `heading:${group.kind}`, group })
+      list.push({ type: "heading", key: `heading:${group.id}`, group })
 
       if (group.entries.length === 0) {
-        list.push({ type: "empty", key: `empty:${group.kind}`, group })
+        list.push({ type: "empty", key: `empty:${group.id}`, group })
       }
 
       for (const row of found) {
         list.push({ type: "row", key: row.id, row })
       }
 
-      list.push({ type: "gap", key: `gap:${group.kind}` })
+      list.push({ type: "gap", key: `gap:${group.id}` })
       all.push(...found)
     }
 
@@ -716,14 +732,16 @@ function GroupHeading({ group }: { group: Group }) {
     // Positioned, so nothing in it is ever placed against the window, which made the page taller (PAR-424).
     <div className="relative flex h-7 items-center gap-1 pr-1.5 pl-3 text-xs text-muted-foreground">
       <GroupLabel className="flex-1">{group.title}</GroupLabel>
-      <IconButton
-        label={keymap[group.command].label}
-        shortcut={group.command}
-        onClick={() => addDesign(session, group.kind)}
-        className="size-6"
-      >
-        <Plus />
-      </IconButton>
+      {group.command && (
+        <IconButton
+          label={keymap[group.command].label}
+          shortcut={group.command}
+          onClick={() => addDesign(session, group.kind)}
+          className="size-6"
+        >
+          <Plus />
+        </IconButton>
+      )}
     </div>
   )
 }
@@ -731,6 +749,10 @@ function GroupHeading({ group }: { group: Group }) {
 /** An empty group's row, a button that makes its first design. */
 function EmptyGroup({ group }: { group: Group }) {
   const session = useProject()
+
+  if (!group.command) {
+    return null
+  }
 
   return (
     <button
@@ -934,7 +956,12 @@ const LayerRow = memo(function LayerRow({
             {row.node ? (
               <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />
             ) : (
-              <DesignIcon kind={container.kind} className="size-3.5 shrink-0" style={{ color }} />
+              <DesignIcon
+                kind={container.kind}
+                route={row.design.path === routePagesFile}
+                className="size-3.5 shrink-0"
+                style={{ color }}
+              />
             )}
             {renaming ? (
               <NameInput

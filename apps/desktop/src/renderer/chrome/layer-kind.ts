@@ -52,6 +52,13 @@ export function layerKind(
     }
   }
 
+  if (node.type === "route") {
+    return {
+      label: "Route",
+      description: node.route === "__root__" ? "The app's root route" : `The ${node.route} route`
+    }
+  }
+
   let layout = node.style?.flexDirection === "row" ? "Horizontal layout" : "Vertical layout"
 
   if (node.style?.display === "grid") {

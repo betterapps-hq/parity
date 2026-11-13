@@ -37,7 +37,7 @@ export interface NodeLocation {
  * layers it fills its component's slots with.
  */
 export function childEntries(node: DesignNode): { slot?: string; nodes: DesignNode[] }[] {
-  if (node.type === "layout") {
+  if (node.type === "layout" || node.type === "route") {
     return [{ nodes: node.children }]
   }
 

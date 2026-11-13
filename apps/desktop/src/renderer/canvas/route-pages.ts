@@ -8,8 +8,14 @@ import type { ProjectInfo } from "@parity-app/project"
  */
 export const routePagesFile = "(pages)"
 
-/** Each open project's page screens, by design id, with the URL their frames draw. */
-const pageUrls = new Map<string, ReadonlyMap<string, string>>()
+/** A page screen's URL, which its frames draw, and its route's path, which its title shows under its name. */
+interface PagePlace {
+  url: string
+  path: string
+}
+
+/** Each open project's page screens, by design id. */
+const pagePlaces = new Map<string, ReadonlyMap<string, PagePlace>>()
 
 /** A line from a page to a page under it in the app's tree, by their designs' keys. */
 export interface PageLink {
@@ -40,7 +46,7 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
     levelGap: 1100
   })
 
-  pageUrls.set(info.id, new Map(screens.map(({ screen, url }) => [screen.id, url])))
+  pagePlaces.set(info.id, new Map(screens.map(({ screen, url, path }) => [screen.id, { url, path }])))
   pageLinks.set(
     info.id,
     screens.flatMap(({ screen, parent }) =>
@@ -63,7 +69,12 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
 
 /** The URL a page screen's frames draw, or undefined for a design. */
 export function routePageUrl(project: string, design: string): string | undefined {
-  return pageUrls.get(project)?.get(design)
+  return pagePlaces.get(project)?.get(design)?.url
+}
+
+/** The path of a page screen's route, as its router writes it, or undefined for a design. */
+export function routePagePath(project: string, design: string): string | undefined {
+  return pagePlaces.get(project)?.get(design)?.path
 }
 
 /** The lines between a project's pages, parent to child. */

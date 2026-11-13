@@ -1,5 +1,6 @@
 import {
   type ContainerSpec,
+  type DesignNode,
   type FrameSize,
   type ModeSettings,
   type ProjectRoute,
@@ -134,11 +135,56 @@ function sampleSegment(segment: string): string {
   return segment.startsWith("$") ? segment.slice(1) : segment
 }
 
-/** A page as a screen on the canvas (PAR-1076), the URL its frames draw, and the screen it hangs from. */
+/** A page as a screen on the canvas (PAR-1076), the URL its frames draw, its path, and the screen it hangs from. */
 export interface RouteScreen {
   screen: ContainerSpec
   url: string
+  path: string
   parent?: string
+}
+
+/**
+ * What a page is called: its component in words, as `ProjectDetail` is "Project detail", else its path's last part,
+ * as `/settings` is "Settings", else Home.
+ */
+export function pageName(route: Pick<ProjectRoute, "component" | "path">): string {
+  const words = route.component ?? route.path.split("/").findLast((part) => part !== "" && !part.startsWith("$"))
+
+  if (!words) {
+    return "Home"
+  }
+
+  const spaced = words
+    .replaceAll(/[-_]+/g, " ")
+    .replaceAll(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * A page's layers (PAR-1076): a Route layer for each route that draws it, from the root's in, each inside the one
+ * before as it draws at that route's outlet. Each is named for its component, else its path.
+ */
+export function routeLayers(routes: readonly ProjectRoute[], page: ProjectRoute): DesignNode {
+  const byId = new Map(routes.map((route) => [route.id, route]))
+
+  const layer = (route: ProjectRoute, children: DesignNode[]): DesignNode => ({
+    type: "route",
+    // A layer's id has no slash, which a layer's path inside an instance uses.
+    id: `route:${encodeURIComponent(route.id)}`,
+    name: route.component ?? route.path,
+    route: route.id,
+    children
+  })
+
+  let layers = layer(page, [])
+
+  for (let route = byId.get(page.parent ?? ""); route; route = byId.get(route.parent ?? "")) {
+    layers = layer(route, [layers])
+  }
+
+  return layers
 }
 
 /** The id of the screen a route is drawn in, which says it's a page rather than a design. */
@@ -148,7 +194,7 @@ export function routeScreenId(route: Pick<ProjectRoute, "id">): string {
 
 /**
  * The app's pages as screens (PAR-1076), laid out as a tree (see `pageTree`) whose bottom is at `bottom`, each named
- * for the component it draws, else its path. Its layers are an empty page: what its frames show is the app itself at
+ * as `pageName` says. Its layers are the routes that draw it (see `routeLayers`); its frames show the app itself at
  * `url`, as tall as each viewport's screen.
  */
 export function routeScreens(
@@ -165,13 +211,14 @@ export function routeScreens(
 
     const placed: RouteScreen = {
       url: page.url,
+      path: page.route.path,
       screen: {
         id,
-        name: page.route.component ?? page.route.path,
+        name: pageName(page.route),
         kind: "screen",
         position: { x: Math.round(page.x), y: Math.round(page.y) },
         frames,
-        root: { type: "layout", id: `${id}:page`, name: "Page", children: [] }
+        root: routeLayers(routes, page.route)
       }
     }
 

@@ -1,6 +1,6 @@
 import { defaultModeSettings, type ProjectRoute } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { type PageNode, pageTree, placePages, routeScreens, samplePath } from "./route-boards.ts"
+import { pageName, type PageNode, pageTree, placePages, routeLayers, routeScreens, samplePath } from "./route-boards.ts"
 
 function route(id: string, path: string, parent: string | undefined, index = false): ProjectRoute {
   return { id, path, parent, file: `src/routes/${id}.tsx`, params: [], index, loads: false, guards: false }
@@ -104,5 +104,54 @@ describe("routeScreens", () => {
       tablet: { height: 1024 },
       mobile: { height: 844 }
     })
+  })
+})
+
+describe("pageName", () => {
+  it("writes a page's component in words, else its path's last part, else Home", () => {
+    expect(pageName({ component: "ProjectDetail", path: "/projects/$projectId" })).toBe("Project detail")
+    expect(pageName({ path: "/settings" })).toBe("Settings")
+    expect(pageName({ path: "/team/$teamId" })).toBe("Team")
+    expect(pageName({ path: "/" })).toBe("Home")
+  })
+})
+
+describe("routeLayers", () => {
+  it("nests a Route layer for each route that draws the page, the root's outermost", () => {
+    const routes = [
+      { ...route("__root__", "/", undefined), component: "RootLayout" },
+      { ...route("/settings", "/settings", "__root__"), component: "SettingsLayout" },
+      { ...route("/settings/billing", "/settings/billing", "/settings"), component: "Billing" }
+    ]
+
+    expect(routeLayers(routes, routes[2]!)).toEqual({
+      type: "route",
+      id: "route:__root__",
+      name: "RootLayout",
+      route: "__root__",
+      children: [
+        {
+          type: "route",
+          id: "route:%2Fsettings",
+          name: "SettingsLayout",
+          route: "/settings",
+          children: [
+            {
+              type: "route",
+              id: "route:%2Fsettings%2Fbilling",
+              name: "Billing",
+              route: "/settings/billing",
+              children: []
+            }
+          ]
+        }
+      ]
+    })
+  })
+
+  it("names a route without a component by its path", () => {
+    const routes = [route("__root__", "/", undefined), route("/settings/", "/settings", "__root__", true)]
+
+    expect(routeLayers(routes, routes[1]!).name).toBe("/")
   })
 })

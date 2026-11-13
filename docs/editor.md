@@ -704,9 +704,9 @@ the tree longer and every later change slower.
 - **Collapse all,** beside the search, closes every row. There's no Expand all, which on a large project would open
   thousands of rows. Instead, Alt+click on a row's arrow opens or closes it with everything inside it, as in Finder, and
   `*` on a row opens it and every row beside it in its group, as in any tree.
-- **Headings and states say what they count, or nothing.** The Components, Screens and Frames headings have no count,
-  which nobody needed. A design with more than one state says how many in words ("11 states"); one with a single state
-  says nothing.
+- **Headings and states say what they count, or nothing.** The Routes, Screens and Frames headings have no count, which
+  nobody needed. A design with more than one state says how many in words ("11 states"); one with a single state says
+  nothing.
 - **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
   selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
   out. It's named Hide or Show, without the state, as the row menu's Hide is. The page can't be hidden, so it has none.
@@ -1924,10 +1924,10 @@ empty space on the canvas makes a frame there (PAR-545; see Frames, below).
   the canvas was right-clicked and select it, leaving the view where it is. With no screen, component or note on the
   canvas, Select all and Zoom to fit are unavailable. Over a design the menu is as it was. It's as wide as its longest
   item, so New component and its keys stay on one line.
-- **Layers' + always shows** beside Components and Screens, with its name and keys in the tooltip. Since PAR-187 the
-  headings have no count. An empty group's row is a button that makes the first one: "No screens yet. New screen", the
-  action in the kind's color. Enter or Space on either makes one, rather than renaming the selected row as Enter in the
-  tree does.
+- **Layers' + always shows** beside Screens and Frames, with its name and keys in the tooltip; Routes has none, as
+  they're read from the app's code. Since PAR-187 the headings have no count. An empty group's row is a button that
+  makes the first one: "No screens yet. New screen", the action in the kind's color. Enter or Space on either makes one,
+  rather than renaming the selected row as Enter in the tree does.
 - **The inspector with nothing selected** asks for "a screen, component or frame on the canvas or in Layers", whatever
   is on the canvas.
 - **What lands on empty space on the canvas makes a frame there,** by one rule. Its top left is where it landed, it
@@ -2032,7 +2032,7 @@ mode, with one state, and isn't written to code.
   what goes (states after the first, previews beside the main one, params, and each design's instances, which become
   plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
   instances in the same step.
-- **Layers lists Frames** after Components and Screens once there are any; its + picks the frame tool.
+- **Layers lists Frames** after Routes and Screens once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
 `framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
@@ -6461,6 +6461,14 @@ ProjectDetail and `/settings`, which holds Billing and Profile. A layout with no
 from the page above. Each page is centered over the pages under it, and pages side by side go by path. A screen is named
 for the component its route draws, else its path.
 
+- **Layers.** Layers lists the app's pages under Routes, before Screens and Frames; component designs are listed in the
+  Components panel. A page shows the route icon, in Layers and on its title, and its title shows its route's path under
+  its name. Its layers are a Route layer for each route that draws it, the root's outermost, each inside the one before
+  as it draws at that route's outlet: Billing's are RootLayout, SettingsLayout, Billing. A Route layer is named for its
+  component, else its path, and its Design panel shows the route's path, params, file and component, and whether it
+  loads data or can redirect, read-only. What each route's component draws comes with React's tree (step 4).
+- **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
+  part, as the `/settings` index is "Settings", else Home.
 - **Lines.** A dashed line curves from the middle of each page's bottom edge to the middle of the top edge of each page
   under it, leaving and arriving straight down, with a small dot where it meets each board. Its dashes flow slowly down
   the tree. The lines are drawn from where the boards are now, so they follow a page that's moved, and they sit behind

@@ -682,6 +682,9 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
     const style = shown.style ?? {}
 
     switch (shown.type) {
+      // A route draws nothing of its own here: its component draws in the app's own page (PAR-1076).
+      case "route":
+        return shown.children.flatMap((child) => resolve(child, parent))
       case "layout": {
         const direction = style.flexDirection ?? "column"
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)

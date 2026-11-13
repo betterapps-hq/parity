@@ -49,6 +49,7 @@ import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
 import { revealSelection } from "./reveal.ts"
+import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
@@ -105,6 +106,7 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
 /** The kinds of layer with a Design panel of their own (PAR-1056); the others are drawn from `panelParts`. */
 const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
   layout: LayoutPanel,
+  route: RoutePanel,
   text: TextPanel
 }
 
@@ -222,17 +224,20 @@ export function LayerHeader() {
         />
       )}
       <ComponentStateSelector entry={entry} state={state} target={target} />
-      {/* A component or an instance is already one, so it has no Make component. */}
-      {layer.depth > 0 && layer.layer.type !== "instance" && layer.layer.type !== "component" && (
-        <MakeComponent
-          entry={entry}
-          nodeId={nodeId}
-          beside={
-            layer.layer.type === "layout" &&
-            container.kind === "component" && <MakeSlot entry={entry} node={layer.layer} />
-          }
-        />
-      )}
+      {/* A component or an instance is already one, and a route is the app's code, so they have no Make component. */}
+      {layer.depth > 0 &&
+        layer.layer.type !== "instance" &&
+        layer.layer.type !== "component" &&
+        layer.layer.type !== "route" && (
+          <MakeComponent
+            entry={entry}
+            nodeId={nodeId}
+            beside={
+              layer.layer.type === "layout" &&
+              container.kind === "component" && <MakeSlot entry={entry} node={layer.layer} />
+            }
+          />
+        )}
       {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
       {layer.depth === 0 && layer.layer.type === "layout" && container.kind === "component" && (
         <div className="mt-2 flex">

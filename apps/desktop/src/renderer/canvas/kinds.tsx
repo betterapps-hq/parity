@@ -15,6 +15,7 @@ import {
   Grid3x3,
   Image as ImageIcon,
   type LucideProps,
+  Route,
   Rows3,
   Smile,
   SquareDashed,
@@ -126,7 +127,16 @@ export function designNamer(
 }
 
 /** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
-export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKind | undefined }) {
+export function DesignIcon({
+  kind,
+  route = false,
+  ...props
+}: LucideProps & { kind: ContainerKind | undefined; route?: boolean }) {
+  // A page of the app shows the route it's drawn at (PAR-1076).
+  if (route) {
+    return <Route {...props} />
+  }
+
   if (kind === "frame") {
     return <Frame {...props} />
   }
@@ -165,6 +175,10 @@ export function NodeIcon({
 
   if (node.type === "instance") {
     return <Diamond {...props} />
+  }
+
+  if (node.type === "route") {
+    return <Route {...props} />
   }
 
   // A slot is a hole each instance fills.

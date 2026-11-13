@@ -82,7 +82,7 @@ import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
-import { routePageUrl } from "./route-pages.ts"
+import { routePagePath, routePageUrl } from "./route-pages.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
@@ -589,6 +589,8 @@ function TitleButton({
   const used = useUsed()
   const [renaming, setRenaming] = useState(false)
   const { container } = entry
+  // A page of the app shows its route under its name (PAR-1076).
+  const path = routePagePath(session.id, container.id)
 
   // Edit > Rename, or F2, with the design selected.
   const renameRequest = useRenameRequest(session.selection)
@@ -605,6 +607,7 @@ function TitleButton({
   const icon = (
     <DesignIcon
       kind={container.kind}
+      route={path !== undefined}
       className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
       style={{ color: color ?? (quiet ? undefined : designColor(container.kind)) }}
     />
@@ -659,7 +662,14 @@ function TitleButton({
       style={color ? { color } : undefined}
     >
       {icon}
-      <Name>{container.name}</Name>
+      {path === undefined ? (
+        <Name>{container.name}</Name>
+      ) : (
+        <span className="flex min-w-0 flex-col items-start leading-tight">
+          <Name>{container.name}</Name>
+          <span className="max-w-full truncate text-xs font-normal text-muted-foreground">{path}</span>
+        </span>
+      )}
     </button>
   )
 

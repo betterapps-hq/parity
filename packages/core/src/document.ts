@@ -273,6 +273,22 @@ const layoutNode = nodeBase.extend({
 /** A flex container. Layout is design-native, so every mode resolves it exactly, without media queries. */
 export type LayoutNode = z.infer<typeof layoutNode>
 
+const routeNode = nodeBase.extend({
+  type: z.literal("route"),
+  /** The route's id, as its router has it: `/settings/billing`, or `__root__` for the root. */
+  route: z.string(),
+  get children(): z.ZodArray<typeof designNode> {
+    return z.array(designNode)
+  }
+})
+
+/**
+ * One of the app's routes on a page (PAR-1076): what its component draws, with the next route inside it at its outlet.
+ * A page's layers start with the routes that draw it, the root's outermost. It's read from the project's router, so
+ * it's never designed: the route's path, params, file and component are the project's, by `route`.
+ */
+export type RouteNode = z.infer<typeof routeNode>
+
 const componentNode = nodeBase.extend({
   type: z.literal("component"),
   component: z.string(),
@@ -381,6 +397,7 @@ export type VideoNode = z.infer<typeof videoNode>
 
 const designNode = z.discriminatedUnion("type", [
   layoutNode,
+  routeNode,
   componentNode,
   textNode,
   instanceNode,
