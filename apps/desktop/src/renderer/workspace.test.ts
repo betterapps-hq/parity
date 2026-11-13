@@ -82,6 +82,7 @@ const info: ProjectInfo = {
   guestUrl: "http://127.0.0.1:5000/guest",
   builder: { id: "vite", name: "Vite", toolVersion: "8" },
   theme: [],
+  routes: [],
   componentCount: 0,
   notes: [],
   detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "" }, tools: [] },

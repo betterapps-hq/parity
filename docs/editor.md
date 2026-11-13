@@ -6452,6 +6452,40 @@ alone; and what renders `/`: Next's, a `pages` folder's and a `routes` folder's 
 route file's default export, `App` by export or file and the nearest one, never a library's, and nothing). Gap:
 `createSession` calling it has no automated test.
 
+### Each page of the app as a screen (PAR-1076)
+
+An app whose router Parity reads (TanStack Router, see support.md) opens with each of its pages as a screen above the
+designs, one row for each layout route: the root's pages, then a row for each layout such as `/settings`. A page is a
+route nothing else draws inside, so a layout's index stands for the layout. Each screen is named for the component its
+route draws, else its path, and an index comes first in its row.
+
+- **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
+  a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
+  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
+- **A sample for each param.** A param's value is its name for now, so `/projects/$projectId` opens on
+  `/projects/projectId`, and the example's page says it's not found.
+- **Read-only.** Page screens are locked, never saved, and laid out from the routes each time the project opens. Their
+  layers are an empty page, since what they show is the app rather than a design. A frame takes no pointer, so the
+  canvas pans and selects over it.
+- **As tall as the screen.** Each viewport's frame is as tall as its screen: Desktop 800, Tablet 1024, Mobile 844.
+- **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
+  imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
+  the pages, which then had two copies of React.
+
+Tried in a development build on the example project, opened cold: seven page screens in two rows, App, Projects, Pricing
+and ProjectDetail, then `/settings`, Billing and Profile, each showing its page, `/settings` redirected to Profile, with
+no errors.
+
+Code: `routeRows` and `routeScreens` in `packages/editor/src/route-boards.ts`; `projectRoutes` in
+`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageFrame` in
+`ContainerView.tsx`; `appPage` in `packages/builder-vite/src/index.ts`.
+
+Tests: `packages/editor/src/route-boards.test.ts` (7: a row for each layout with its pages' URLs, indexes first; pages
+side by side and rows one under another; a pathless layout's row named by its id; no rows without routes; a param's
+sample and an empty splat; a locked screen for each page, named for its component, its rows ending above the designs;
+each viewport's frame as tall as its screen). Gaps: reading routes when the project opens, the page frames and the
+bundling have no test of their own; all were tried in the app.
+
 ### Opening in seconds (PAR-179)
 
 Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2

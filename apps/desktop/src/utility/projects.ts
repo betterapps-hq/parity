@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { existsSync, realpathSync, watch as watchFolder } from "node:fs"
+import { existsSync, readFileSync, realpathSync, watch as watchFolder } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
@@ -22,7 +22,10 @@ import {
   type ComponentSource,
   libraryManifestExtension,
   parseCanvasDocument,
+  type PackageManifest,
+  type ProjectRoute,
   type RendererAdapter,
+  type RouterAdapter,
   type StylesAdapter,
   type ThemeVariable,
   withLibraryCanvas,
@@ -130,6 +133,8 @@ export interface ProjectAdapters {
   renderers: RendererAdapter[]
   builders: BuilderAdapter[]
   styles: StylesAdapter[]
+  /** The routers whose routes Parity reads, so the canvas draws each page (PAR-1076). None unless given. */
+  routers?: RouterAdapter[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
     options: BuilderProcessOptions,
@@ -402,6 +407,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     opening.builder = builder.id
     opening.name = name
     const config = await discoverProject(root, renderer, pkg)
+    const routes = projectRoutes(adapters.routers ?? [], pkg, root)
     // A project file that can't be read stops the project opening, with an error naming it (PAR-1011).
     const known = new Map<string, string>()
 
@@ -450,6 +456,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       name,
       opened,
       renderer,
+      routes,
       saved
     }
   }
@@ -526,6 +533,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       name,
       opened,
       renderer,
+      routes,
       saved
     } = await inSpan("project.detected", { root }, () => detect(root, opening))
 
@@ -570,6 +578,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       builder: { id: builder.id, name: builder.name, toolVersion: session.toolVersion },
       styles,
       guestUrl: session.guestUrl,
+      routes,
       config,
       detection,
       documents,
@@ -1602,4 +1611,22 @@ async function findBuilder(
 
 export function message(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
+}
+
+/**
+ * The app's routes, from the first router that says the project uses it (PAR-1076), or none. A route file that can't
+ * be read counts as missing, as the router's own tooling may not have written it yet.
+ */
+function projectRoutes(routers: readonly RouterAdapter[], pkg: PackageManifest, root: string): ProjectRoute[] {
+  const router = routers.find((adapter) => adapter.detect(pkg))
+
+  return (
+    router?.readRoutes((path) => {
+      try {
+        return readFileSync(join(root, path), "utf8")
+      } catch {
+        return undefined
+      }
+    }) ?? []
+  )
 }

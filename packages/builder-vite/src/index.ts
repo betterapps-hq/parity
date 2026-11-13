@@ -55,6 +55,13 @@ export const viteBuilder: BuilderAdapter = {
     const configFile = await scriptedConfig(options.root)
     const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
 
+    // The app's own page, which draws each route on the canvas (PAR-1076): scanned with the components, so what only the
+    // app's entry imports, such as its router, is bundled before a page asks for it rather than re-bundled under it.
+    const appPage = await stat(join(options.root, "index.html")).then(
+      () => ["index.html"],
+      () => []
+    )
+
     const server = await vite.createServer({
       root: options.root,
       // Left undefined, Vite looks for the config file itself, as it does when the key is absent.
@@ -86,9 +93,12 @@ export const viteBuilder: BuilderAdapter = {
             )
           )
         ],
-        entries: Object.values(options.config.components)
-          .filter((component) => !component.library)
-          .map((component) => component.path),
+        entries: [
+          ...appPage,
+          ...Object.values(options.config.components)
+            .filter((component) => !component.library)
+            .map((component) => component.path)
+        ],
         ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
       },
       plugins: [

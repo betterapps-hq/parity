@@ -175,6 +175,7 @@ async function discover(): Promise<{
     renderer: { id: reactRenderer.id, name: reactRenderer.name },
     builder: { id: "vite", name: "Vite", toolVersion: "8" },
     theme,
+    routes: [],
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,

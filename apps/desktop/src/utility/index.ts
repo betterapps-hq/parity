@@ -3,6 +3,7 @@ import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/renderer-react"
+import { tanstackRouter } from "@parity-app/router-tanstack"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
@@ -59,6 +60,7 @@ const projects = openProjects({
   renderers: [reactRenderer],
   builders: [viteBuilder],
   styles: [tailwindStyles],
+  routers: [tanstackRouter],
   startBuilder,
   checker,
   detections: { saved: savedDetection, save: saveDetection },

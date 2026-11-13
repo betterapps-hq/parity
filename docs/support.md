@@ -252,11 +252,12 @@ decision. Detail is in `proposals/web-and-backend.md`, `proposals/app-lenses.md`
 | Languages       | ICU messages                                     |                                            | ⏳     |
 | Deploy          | Better Apps' capability manifest                 | Cloudflare first, through Better Apps      | ⏳     |
 
-**Routes are read, not drawn yet (PAR-1073).** `RouterAdapter` in `@parity-app/core` is the route model: each route's
-id, URL pattern, parent, file, params, whether it's an index, the component it draws, and whether it loads data or
-guards the page. `packages/router-tanstack` reads TanStack Router's file-based routes from the route tree its tooling
-generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's file. Routes written in code
-without the generated tree aren't read. Drawing each page is the next step of the read-only viewer (PAR-1071).
+**Routes are read (PAR-1073), and each page is drawn as a screen (PAR-1076).** `RouterAdapter` in `@parity-app/core` is
+the route model: each route's id, URL pattern, parent, file, params, whether it's an index, the component it draws, and
+whether it loads data or guards the page. `packages/router-tanstack` reads TanStack Router's file-based routes from the
+route tree its tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's file.
+Routes written in code without the generated tree aren't read. Each page is a locked screen whose frames load the app
+itself at the page's URL (see editor.md).
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.

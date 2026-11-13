@@ -455,3 +455,14 @@ export {
 } from "./token-edits.ts"
 
 export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"
+
+export {
+  type RouteBoard,
+  type RouteLayout,
+  type RouteRow,
+  routeRows,
+  type RouteScreen,
+  routeScreenId,
+  routeScreens,
+  samplePath
+} from "./route-boards.ts"

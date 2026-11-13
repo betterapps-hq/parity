@@ -16,6 +16,7 @@ import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
+import { routePages, routePagesFile } from "./canvas/route-pages.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askToRestore } from "./chrome/restore.ts"
@@ -1272,11 +1273,13 @@ async function createSession(
   const loaded = await loadGuest(info.guestUrl, info.theme)
 
   const store = new DesignStore(
-    openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
+    [...openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings), ...routePages(info)],
     info.modes.settings,
     info.mainDocument,
     {
-      saveDocument: (path, document) => saveDocument(info.id, path, document),
+      // The app's pages are drawn from its routes each time, so they're never saved (PAR-1076).
+      saveDocument: (path, document) =>
+        path === routePagesFile ? Promise.resolve() : saveDocument(info.id, path, document),
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])

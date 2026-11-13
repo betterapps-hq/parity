@@ -11,6 +11,7 @@ import {
   type ModeSettings,
   parseCanvasDocument,
   parseLibraryManifest,
+  type ProjectRoute,
   type StorybookInfo,
   type ThemeVariable
 } from "@parity-app/core"
@@ -31,6 +32,8 @@ export interface ProjectInfo {
   /** The styling framework's full theme, which compiled CSS trims to what the project's code uses. */
   theme: ThemeVariable[]
   guestUrl: string
+  /** The app's routes, as its router declares them, each parent before its children; empty without a router (PAR-1076). */
+  routes: ProjectRoute[]
   componentCount: number
   /** Where each component comes from: the project's own files, or a library. */
   sources: Record<string, ComponentSource>
@@ -73,6 +76,7 @@ export interface OpenedProject {
   builder: { id: string; name: string; toolVersion: string }
   styles: { info?: ProjectInfo["styles"]; theme: ThemeVariable[] }
   guestUrl: string
+  routes: ProjectRoute[]
   config: DiscoveredProject
   detection: ProjectDetection
   documents: DocumentEntry[]
@@ -93,6 +97,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     styles: opened.styles.info,
     theme: opened.styles.theme,
     guestUrl: opened.guestUrl,
+    routes: opened.routes,
     libraries: config.libraries,
     storybook: config.storybook,
     describedTokens: config.describedTokens,

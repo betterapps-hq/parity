@@ -21,6 +21,7 @@ import {
   type ComponentLibrary,
   type ContainerKind,
   designStates,
+  type FrameGeometry,
   frameGeometry,
   frameSize,
   type ParamSpec,
@@ -81,6 +82,7 @@ import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
+import { routePageUrl } from "./route-pages.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
@@ -1046,6 +1048,8 @@ const FrameTile = memo(function FrameTile({
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
+  // A page of the app draws the app itself at its URL, rather than a design (PAR-1076).
+  const page = routePageUrl(session.id, entry.container.id)
   const tileStyle: CSSProperties = {}
 
   if (selected) {
@@ -1095,26 +1099,50 @@ const FrameTile = memo(function FrameTile({
         data-measured={height === undefined ? undefined : ""}
         data-asleep={awake && !waiting ? undefined : ""}
       >
-        <ModeView
-          project={session.id}
-          loaded={loaded}
-          tree={tree}
-          mode={mode}
-          frame={frame}
-          scale={scale}
-          design={entry.key}
-          state={state.id}
-          primary={primary}
-          interactions={interactions}
-          interactive={interactive}
-          asleep={!awake || waiting}
-          shows={shows.drawn}
-          {...(firstFrame ? { onDrawn: drawnLive } : {})}
-        />
-        {skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
-        {placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
-        {showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
+        {page ? (
+          <PageFrame url={page} frame={frame} scale={scale} />
+        ) : (
+          <ModeView
+            project={session.id}
+            loaded={loaded}
+            tree={tree}
+            mode={mode}
+            frame={frame}
+            scale={scale}
+            design={entry.key}
+            state={state.id}
+            primary={primary}
+            interactions={interactions}
+            interactive={interactive}
+            asleep={!awake || waiting}
+            shows={shows.drawn}
+            {...(firstFrame ? { onDrawn: drawnLive } : {})}
+          />
+        )}
+        {!page && skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
+        {!page && placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
+        {!page && showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
       </div>
     </figure>
   )
 })
+
+/**
+ * A page of the app in a screen's frame (PAR-1076): the app's own entry at the page's URL, in a document of its own, so
+ * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
+ * selects over it, and it's as tall as the frame's window.
+ */
+function PageFrame({ url, frame, scale }: { url: string; frame: FrameGeometry; scale: number }) {
+  const height = frame.height ?? frame.viewport.height
+
+  return (
+    <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
+      <iframe
+        title={url}
+        src={url}
+        className="pointer-events-none block origin-top-left border-0 bg-white"
+        style={{ width: frame.width, height, transform: `scale(${scale})` }}
+      />
+    </div>
+  )
+}

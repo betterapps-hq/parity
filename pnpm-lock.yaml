@@ -367,6 +367,9 @@ importers:
       '@parity-app/renderer-react':
         specifier: workspace:*
         version: link:../../packages/renderer-react
+      '@parity-app/router-tanstack':
+        specifier: workspace:*
+        version: link:../../packages/router-tanstack
       '@parity-app/service':
         specifier: workspace:*
         version: link:../../packages/service
