@@ -95,14 +95,12 @@ const linkSpecs = z.array(linkSpec).superRefine((links, context) => {
   }
 })
 
+/** The adapter or standard each lens reads, by its id, where the person chose it. */
 const lensSources = fileObject({
   data: z.string().optional(),
   api: z.string().optional(),
   routes: z.string().optional()
 })
-
-/** The adapter or standard each lens reads, by its id, where the person chose it. */
-export type LensSources = z.infer<typeof lensSources>
 
 const componentRef = fileObject({ path: z.string(), export: z.string() })
 
