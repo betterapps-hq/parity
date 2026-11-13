@@ -11,8 +11,8 @@ import { type OfferedLayer, type PickerLayer, SlotAutocomplete } from "./slot-au
 
 /**
  * The slot picker as an autocomplete (PAR-1046), the field alone. A slot holds one layer at most, shown as a chip.
- * Focusing the field or pressing its chevron lists what can go in, under Components and On this screen, nested as
- * Layers nests them. Typing searches both, and picking one fills the slot in place of what was there. A layer dragged
+ * Focusing the field or pressing its chevron lists what can go in, under On this screen, nested as Layers nests
+ * them, then Components. Typing searches both, and picking one fills the slot in place of what was there. A layer dragged
  * from Layers onto the box fills it too. The list leaves out the screen, the instance's ancestors and the instance
  * itself, so none of those are in it.
  */
@@ -117,7 +117,7 @@ export const Empty: Story = {}
 /** Filled: its one layer as a chip. The × clears the slot. */
 export const Filled: Story = { args: { layer: featureList } }
 
-/** Opened from the chevron: Components, then On this screen, nested as Layers nests them. */
+/** Opened from the chevron: On this screen, nested as Layers nests them, then Components. */
 export const Open: Story = {
   play: async ({ canvasElement }) => {
     const list = await open(canvasElement)
@@ -126,7 +126,7 @@ export const Open: Story = {
   }
 }
 
-/** “button” typed: the Button component, then each button on the screen after the layer it's in. */
+/** “button” typed: each button on the screen after the layer it's in, then the Button component. */
 export const Searching: Story = {
   play: async ({ canvasElement }) => {
     const list = await open(canvasElement)

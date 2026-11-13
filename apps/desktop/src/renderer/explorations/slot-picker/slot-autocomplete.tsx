@@ -8,7 +8,7 @@ import { AppChip, AppChips, type AppChipsGroup, AppChipsInput } from "../../chro
 /*
  * The slot picker as an autocomplete: the one layer filling a slot as a chip, as the shipped picker shows it, with an
  * input after it and a chevron at the end. Focusing the input or pressing the chevron lists what can go in, under
- * Components and On this screen; typing searches both, and picking one fills the slot, in place of what filled it. A
+ * On this screen, then Components; typing searches both, and picking one fills the slot, in place of what filled it. A
  * layer dragged from Layers onto the box fills it too.
  */
 
@@ -76,14 +76,6 @@ export function SlotAutocomplete({
 
   const options: AppChipsGroup[] = [
     {
-      label: "Components",
-      options: components.map((component) => ({
-        value: `${componentPrefix}${component.id}`,
-        label: component.name,
-        icon: <Diamond className="size-3 shrink-0" style={{ color: kindColors.component }} />
-      }))
-    },
-    {
       label: "On this screen",
       options: layers.map((offered) => ({
         value: offered.id,
@@ -102,6 +94,14 @@ export function SlotAutocomplete({
               {offered.icon}
             </span>
           )
+      }))
+    },
+    {
+      label: "Components",
+      options: components.map((component) => ({
+        value: `${componentPrefix}${component.id}`,
+        label: component.name,
+        icon: <Diamond className="size-3 shrink-0" style={{ color: kindColors.component }} />
       }))
     }
   ]
