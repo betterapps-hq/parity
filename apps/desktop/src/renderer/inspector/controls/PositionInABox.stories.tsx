@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import type { BoxPoint } from "./css-values.ts"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { positionWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
@@ -15,7 +16,7 @@ import { TransformPreview } from "./transform.tsx"
  * Tab and Enter choose a spot from the keyboard.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Position in a box",
+  title: "Parity/Fields/Position in a box",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -81,4 +82,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "middle{Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...OriginSpot,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

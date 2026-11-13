@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { PixelField } from "./controls.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { NumberField } from "./number-field.tsx"
 import { Playground } from "./playground.tsx"
@@ -19,7 +20,7 @@ import { lengthWrites, type Writes } from "./writes.ts"
  * reason under it, whether Enter is pressed or the field is left; Escape puts the value back.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Number field",
+  title: "Parity/Fields/Number field",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -223,4 +224,66 @@ export const InvalidAsTyped: Story = {
     await expect(field).toHaveValue("wide")
     await expect(field).toHaveAttribute("aria-invalid", "true")
   }
+}
+
+/** Maths in a count: 50-10 gives 40, and Enter makes it and leaves the field. */
+export const TypingMaths: Story = {
+  render: Count.render,
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Columns" })
+    await userEvent.tripleClick(field)
+    await userEvent.keyboard("50-10{Enter}")
+    await expect(field).toHaveValue("40")
+    await expect(field).not.toHaveFocus()
+  }
+}
+
+/** A length on the spacing scale, Row gap at 16: Up steps a whole spacing step, to 20, and Shift+Up ten, to 60. */
+export const SpacingLength: Story = {
+  render: () => (
+    <StoryField label="Row gap" start={16} pixels spacing writes={(px) => lengthWrites("row-gap", "gap-y", px)} />
+  ),
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Row gap" })
+    await userEvent.click(field)
+    await userEvent.keyboard("{ArrowUp}")
+    await expect(field).toHaveValue("20")
+    await userEvent.keyboard("{Shift>}{ArrowUp}{/Shift}")
+    await expect(field).toHaveValue("60")
+  }
+}
+
+/** 281 typed in a spacing length: off the scale, it stays as typed, 281px. */
+export const KeepsAnyLength: Story = {
+  render: SpacingLength.render,
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Row gap" })
+    await userEvent.tripleClick(field)
+    await userEvent.keyboard("281{Enter}")
+    await expect(field).toHaveValue("281")
+  }
+}
+
+/** A count steps by 1: Columns at 3, Down makes it 2. */
+export const SteppingACount: Story = {
+  render: Count.render,
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Columns" })
+    await userEvent.click(field)
+    await userEvent.keyboard("{ArrowDown}")
+    await expect(field).toHaveValue("2")
+  }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Plain,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

@@ -3,7 +3,7 @@ import { expect, userEvent, within } from "storybook/test"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { filledInstance, inspectorStage, pick, renderInspector, renderSection, slotted } from "./layer-stories.tsx"
+import { filledInstance, sectionStage, pick, renderInspector, renderSection, slotted } from "./layer-stories.tsx"
 import { LayerHeader } from "./LayerPanel.tsx"
 
 /**
@@ -15,7 +15,7 @@ const meta = {
   title: "Parity/Inspector/Sections/Slots",
   component: DesignTab,
   render: renderSection(LayerHeader),
-  decorators: [inspectorStage]
+  decorators: [sectionStage]
 } satisfies Meta<typeof DesignTab>
 
 export default meta

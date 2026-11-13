@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { ClassTagsField } from "./class-tags.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
 
@@ -10,7 +11,7 @@ import { Playground } from "./playground.tsx"
  * or Tab to add one; paste several at once; Backspace in the empty input takes the last back to edit.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Class names",
+  title: "Parity/Fields/Class names",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -45,3 +46,16 @@ export const Classes: Story = { render: () => <ClassNames start={["w-full", "sm:
 
 /** Classes, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
 export const Demo: Story = { ...Classes, parameters: { demo: true } }
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Classes,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
+}

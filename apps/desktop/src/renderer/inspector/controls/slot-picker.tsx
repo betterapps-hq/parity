@@ -110,8 +110,8 @@ export function SlotPickerField({
       aria-label={label}
       {...box}
       {...drop}
-      look="select"
-      className={className}
+      // A select's corners and its fill on hover, as it picks from a list as a select does.
+      className={`rounded-[min(var(--radius-md),10px)] dark:hover:bg-input/50 ${className}`}
       // Lit as a layout in Layers is while a layer would drop inside it.
       style={
         dragOver

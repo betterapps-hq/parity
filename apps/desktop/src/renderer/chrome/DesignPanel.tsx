@@ -23,7 +23,6 @@ import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { ReferencePanel } from "./ReferencePanel.tsx"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
-import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
@@ -112,7 +111,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
 /** What draws each of a design's sections; a layer's own, as Content and Attributes, aren't a design's. */
 const designSections: Partial<Record<InspectorSection, ComponentType<{ entry: ContainerEntry }>>> = {
   header: DesignHeader,
-  states: StatesSection,
   props: () => <PropsSection />,
   components: ComponentsSection,
   styles: FrameStyles,

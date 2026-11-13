@@ -4,7 +4,7 @@ import { expect, userEvent, within } from "storybook/test"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { inspecting, slowly, typing } from "./inspector-stories.tsx"
-import { inspectorStage, renderSection } from "./layer-stories.tsx"
+import { sectionStage, renderSection } from "./layer-stories.tsx"
 
 /**
  * A component design's props, as its Design tab shows them: its params with their defaults, then its slots, each a
@@ -13,7 +13,7 @@ import { inspectorStage, renderSection } from "./layer-stories.tsx"
 const meta = {
   title: "Parity/Inspector/Sections/Props/Component design",
   render: renderSection(() => <PropsSection />),
-  decorators: [inspectorStage]
+  decorators: [sectionStage]
 } satisfies Meta
 
 export default meta

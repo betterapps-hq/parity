@@ -19,6 +19,20 @@ export function InspectorStage({ children }: { children: ReactNode }) {
   return <ProjectStage className="flex h-screen justify-end bg-background text-foreground">{children}</ProjectStage>
 }
 
+/**
+ * The active project's providers around one section, drawn alone at the inspector's width, without the panel around
+ * it: what a Sections story shows.
+ */
+export function SectionStage({ children, width = 320 }: { children: ReactNode; width?: number }) {
+  return (
+    <ProjectStage className="bg-background p-4 text-foreground">
+      <div className="flex flex-col" style={{ width }}>
+        {children}
+      </div>
+    </ProjectStage>
+  )
+}
+
 /** One section of the panel on its own, as wide and scrolling as the inspector's content. */
 export function PanelColumn({ children, width = 320 }: { children: ReactNode; width?: number }) {
   return (

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderSection } from "./layer-stories.tsx"
+import { sectionStage, pick, renderSection } from "./layer-stories.tsx"
 import { LayerContent } from "./LayerPanel.tsx"
 
 /**
@@ -14,7 +14,7 @@ const meta = {
   title: "Parity/Inspector/Sections/Content/Text props",
   component: DesignTab,
   render: renderSection(LayerContent),
-  decorators: [inspectorStage]
+  decorators: [sectionStage]
 } satisfies Meta<typeof DesignTab>
 
 export default meta

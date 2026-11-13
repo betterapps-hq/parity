@@ -50,9 +50,9 @@ export function Playground({
   const project = useStandInProject(tokens)
   const demo = use(ShowWrites)
 
-  // The inspector's width, so the control lays out as it will there.
+  // The control alone, without a frame, at the inspector's width, so it lays out as it will there.
   const control = (
-    <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
+    <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1">
       {children}
     </section>
   )

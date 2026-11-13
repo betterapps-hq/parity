@@ -8,7 +8,7 @@ import { useSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
 import { DesignTabFields } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, PanelColumn } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, SectionStage } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /*
@@ -19,17 +19,15 @@ import { Inspector } from "./Inspector.tsx"
 export const renderInspector = () => <Inspector />
 
 /**
- * One section of the selected layer's panel alone, at the inspector's width: what a story demos, without the sections
- * it isn't about. Each section takes the selection itself (PAR-1031).
+ * One section of the selected layer's panel alone, for `sectionStage`: what a story demos, without the sections it
+ * isn't about. Each section takes the selection itself (PAR-1031).
  */
 export const renderSection = (Section: ComponentType) =>
   function Part() {
     return (
-      <PanelColumn>
-        <DesignTabFields>
-          <Section />
-        </DesignTabFields>
-      </PanelColumn>
+      <DesignTabFields>
+        <Section />
+      </DesignTabFields>
     )
   }
 
@@ -46,6 +44,13 @@ export const inspectorStage: Decorator = (Story) => (
   <InspectorStage>
     <Story />
   </InspectorStage>
+)
+
+/** A Sections story's stage: the section alone, at the inspector's width, without the panel around it. */
+export const sectionStage: Decorator = (Story) => (
+  <SectionStage>
+    <Story />
+  </SectionStage>
 )
 
 /** Selects one layer of an example design, by its name or its component, as the canvas or Layers would. */

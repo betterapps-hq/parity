@@ -673,20 +673,9 @@ const cornersAsLaidOut = [0, 1, 3, 2] as const
 type CornerRadii = [Radius?, Radius?, Radius?, Radius?]
 
 /**
- * Appearance: Opacity beside Blend mode, then Radius, then Clip content. Radius is as the simpler fields lay it out
- * (PAR-186): one field under its name, and each corner, laid out where it is, once Each corner at the end of the name's
- * row is pressed. It opens pressed when the corners differ.
- * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
- * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
+ * Appearance: Opacity beside Blend mode, then Radius (`RadiusRow`), then Clip content.
  */
 export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
-  const radii: CornerRadii = Array.isArray(draft.radius)
-    ? draft.radius
-    : [draft.radius, draft.radius, draft.radius, draft.radius]
-
-  const alike = radii.every((radius) => sameValue(radius, radii[0]))
-  const [each, setEach] = useState(!alike)
-
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-2.5">
@@ -699,68 +688,87 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
             onPreviewBlend={() => undefined}
           />
         </Field>
-        <Field
-          label="Radius"
-          changed={changed !== undefined}
-          onReset={changed?.onReset}
-          action={
-            <>
-              <Unstored part="cornerShape">
-                <CornerStyle value={draft.cornerStyle} onChange={(cornerStyle) => set({ cornerStyle })} />
-              </Unstored>
-              <Unstored part="eachCorner">
-                <EachToggle
-                  label="Each corner"
-                  parts="corners"
-                  pressed={each}
-                  onClick={() => {
-                    // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
-                    if (each && alike && Array.isArray(draft.radius)) {
-                      set({ radius: radii[0] })
-                    }
-
-                    setEach(!each)
-                  }}
-                />
-              </Unstored>
-            </>
-          }
-        >
-          {each ? (
-            <div className="grid min-w-0 grid-cols-2 gap-x-2 gap-y-1">
-              {/* Laid out where each corner is: the top two, then bottom left and bottom right. */}
-              {cornersAsLaidOut.map((index) => (
-                <RadiusChoice
-                  key={index}
-                  label={`${corners[index]} radius`}
-                  corner={index}
-                  value={radii[index]}
-                  tokensOnly={tokensOnly}
-                  mixed={mixed}
-                  onChange={(value) => {
-                    const next: CornerRadii = [...radii]
-                    next[index] = value
-                    set({ radius: next })
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <RadiusChoice
-              label="Radius"
-              value={alike ? radii[0] : undefined}
-              tokensOnly={tokensOnly}
-              mixed={mixed || !alike}
-              mixedNote={alike ? undefined : "Mixed: the corners differ. Each corner shows them"}
-              onChange={(radius) => set({ radius })}
-            />
-          )}
-        </Field>
+        <RadiusRow draft={draft} set={set} tokensOnly={tokensOnly} mixed={mixed} changed={changed} />
         <Field label="Clip content">
           <ClipContentField value={draft.clip} onChange={(clip) => set({ clip })} />
         </Field>
       </div>
     </PanelSection>
+  )
+}
+
+/**
+ * Radius, as the simpler fields lay it out (PAR-186): one field (`RadiusChoice`) under its name, and each corner, laid
+ * out where it is, once Each corner at the end of the name's row is pressed. It opens pressed when the corners differ.
+ * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
+ * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
+ */
+export function RadiusRow({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
+  const radii: CornerRadii = Array.isArray(draft.radius)
+    ? draft.radius
+    : [draft.radius, draft.radius, draft.radius, draft.radius]
+
+  const alike = radii.every((radius) => sameValue(radius, radii[0]))
+  const [each, setEach] = useState(!alike)
+
+  return (
+    <Field
+      label="Radius"
+      changed={changed !== undefined}
+      onReset={changed?.onReset}
+      action={
+        <>
+          <Unstored part="cornerShape">
+            <CornerStyle value={draft.cornerStyle} onChange={(cornerStyle) => set({ cornerStyle })} />
+          </Unstored>
+          <Unstored part="eachCorner">
+            <EachToggle
+              label="Each corner"
+              parts="corners"
+              pressed={each}
+              onClick={() => {
+                // Corners that match become one radius again; corners that don't stay, and the field says Mixed.
+                if (each && alike && Array.isArray(draft.radius)) {
+                  set({ radius: radii[0] })
+                }
+
+                setEach(!each)
+              }}
+            />
+          </Unstored>
+        </>
+      }
+    >
+      {each ? (
+        <div className="grid min-w-0 grid-cols-2 gap-x-2 gap-y-1">
+          {/* Laid out where each corner is: the top two, then bottom left and bottom right. */}
+          {cornersAsLaidOut.map((index) => (
+            <RadiusChoice
+              key={index}
+              label={`${corners[index]} radius`}
+              corner={index}
+              value={radii[index]}
+              tokensOnly={tokensOnly}
+              mixed={mixed}
+              onChange={(value) => {
+                const next: CornerRadii = [...radii]
+                next[index] = value
+                set({ radius: next })
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <RadiusChoice
+          label="Radius"
+          value={alike ? radii[0] : undefined}
+          tokensOnly={tokensOnly}
+          mixed={mixed || !alike}
+          mixedNote={alike ? undefined : "Mixed: the corners differ. Each corner shows them"}
+          onChange={(radius) => set({ radius })}
+        />
+      )}
+    </Field>
   )
 }
 

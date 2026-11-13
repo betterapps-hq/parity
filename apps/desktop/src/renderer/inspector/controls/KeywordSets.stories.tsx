@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import { DoesNothing } from "./field-parts.tsx"
+import { Changed as MarkChanged, DoesNothing } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import {
   alignChoices,
@@ -31,7 +31,7 @@ import { type KeywordValue, keywordWrites } from "./text-writes.ts"
  * `CSS.supports`. The ⋯ menu has Inherit where the property inherits, Custom value, and Unset.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Keyword sets",
+  title: "Parity/Fields/Keyword sets",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -375,8 +375,21 @@ function Clip({ start }: { start?: KeywordValue }) {
   )
 }
 
-/** Clip content unset: the toggle off, Visible muted, and the orange child shows outside the layer. */
+/** Clip content unset: Visible, muted, and the orange child shows outside the layer. */
 export const ClipContentUnset: Story = { render: () => <Clip /> }
 
 /** Clip: `overflow-clip`, which doesn't make a scroll container, so a sticky layer inside still sticks. */
 export const ClipContent: Story = { render: () => <Clip start={{ option: "clip" }} /> }
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...AlignSet,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
+}

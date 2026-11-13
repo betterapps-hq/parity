@@ -1,7 +1,6 @@
 import {
   type ContainerSpec,
   type DesignNode,
-  designStates,
   findNode,
   mapNode,
   type NodeChange,
@@ -348,11 +347,6 @@ export function paramValue(container: ContainerSpec, name: string): ParamShown |
   }
 
   return { ...param, options: param.options.map(({ id, name: option }) => ({ id, name: option })) }
-}
-
-/** A design's states as `inspector.changed` sends them: each one's id and name, not what it changes. */
-export function statesValue(container: ContainerSpec): Named[] {
-  return designStates(container).map(({ id, name }) => ({ id, name }))
 }
 
 /**

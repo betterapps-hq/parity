@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { LayerOrderField, PositionPreview } from "./pin-box.tsx"
 import { Playground } from "./playground.tsx"
 import { layerOrderWrites, type Position } from "./position-writes.ts"
@@ -15,7 +15,7 @@ import { mixedWrites } from "./writes.ts"
  * layout in a Block layout, it adds `relative`. A count never needs brackets: `z-37`, `-z-5`.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Layer order",
+  title: "Parity/Fields/Layer order",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -43,17 +43,15 @@ function LayerOrder({ start, mixed, inBlock = false }: { start: Side; mixed?: bo
         />
       }
     >
-      <PanelSection title="Position">
-        <LayerOrderField
-          value={value}
-          mixed={mixedNow}
-          context={inBlock ? "Main, the page's root" : "Pricing, a stacking context because it isolates"}
-          onChange={(next) => {
-            setMixed(false)
-            setValue(next)
-          }}
-        />
-      </PanelSection>
+      <LayerOrderField
+        value={value}
+        mixed={mixedNow}
+        context={inBlock ? "Main, the page's root" : "Pricing, a stacking context because it isolates"}
+        onChange={(next) => {
+          setMixed(false)
+          setValue(next)
+        }}
+      />
     </Playground>
   )
 }
@@ -87,4 +85,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "1.5{Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...InFront,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

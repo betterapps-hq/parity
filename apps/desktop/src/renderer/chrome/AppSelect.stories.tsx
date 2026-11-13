@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
+import { Changed as MarkChanged } from "../inspector/controls/field-parts.tsx"
 import { Field } from "../inspector/controls/field-row.tsx"
 import { AppSelect } from "./AppSelect.tsx"
-import { PanelColumn, slowly } from "./inspector-stories.tsx"
+import { slowly } from "./inspector-stories.tsx"
 
 const overflows = [
   { value: "hidden", label: "Hidden" },
@@ -22,20 +23,18 @@ function PanelSelect() {
   const [overflow, setOverflow] = useState<string | null>(null)
 
   return (
-    <PanelColumn>
-      <div className="p-3">
-        <Field label="Overflow">
-          <AppSelect
-            variant="panel"
-            className="w-full"
-            none="Visible"
-            items={overflows}
-            value={overflow}
-            onValueChange={setOverflow}
-          />
-        </Field>
-      </div>
-    </PanelColumn>
+    <div className="w-80 p-4">
+      <Field label="Overflow">
+        <AppSelect
+          variant="panel"
+          className="w-full"
+          none="Visible"
+          items={overflows}
+          value={overflow}
+          onValueChange={setOverflow}
+        />
+      </Field>
+    </div>
   )
 }
 
@@ -60,7 +59,7 @@ function DialogSelect() {
 
 /** The app's select, open: its items sit in a group that insets them 4px from the popup's edge. */
 const meta = {
-  title: "Parity/Inspector/Fields/Select",
+  title: "Parity/Fields/Select",
   component: AppSelect
 } satisfies Meta<typeof AppSelect>
 
@@ -89,4 +88,17 @@ export const InADialog: Story = {
   args: { variant: "dialog", items: editors },
   render: () => <DialogSelect />,
   play: async ({ canvasElement }) => opensInset(canvasElement, "Editor", "13px")
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...InAPanel,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

@@ -345,7 +345,9 @@ describe("picking what fills an instance's slot (PAR-1046)", () => {
     id: "screen",
     name: "Screen",
     position: { x: 0, y: 0 },
-    states: [{ id: "base", name: "Base", overrides: { note: { style: { opacity: 0.5 } }, old: { text: "Older" } } }],
+    states: [
+      { id: "base", name: "Base", overrides: { note: { style: { opacity: { step: 50 } } }, old: { text: "Older" } } }
+    ],
     root: {
       type: "layout",
       id: "screen",
@@ -385,7 +387,7 @@ describe("picking what fills an instance's slot (PAR-1046)", () => {
     expect(fill(filled, "content")).toEqual(["note"])
     expect(findNode(filled.root, "old")).toBeUndefined()
     expect(locateNode(filled.root, "note")?.ancestors.map((node) => node.id)).toEqual(["screen", "row", "copy"])
-    expect(filled.states?.[0]?.overrides).toEqual({ note: { style: { opacity: 0.5 } } })
+    expect(filled.states?.[0]?.overrides).toEqual({ note: { style: { opacity: { step: 50 } } } })
   })
 
   it("refuses a layer that can't go in: an ancestor, the instance, or what's in it", () => {

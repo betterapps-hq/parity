@@ -3,7 +3,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test"
 import { design, example } from "../stories/fixtures.tsx"
 import { ModesSection } from "./DesignPanel.tsx"
 import { inspecting } from "./inspector-stories.tsx"
-import { inspectorStage, renderDesignSection } from "./layer-stories.tsx"
+import { sectionStage, renderDesignSection } from "./layer-stories.tsx"
 
 /**
  * The modes a screen or component is shown in, in its own order, each put in place by its handle. The first always
@@ -12,7 +12,7 @@ import { inspectorStage, renderDesignSection } from "./layer-stories.tsx"
 const meta = {
   title: "Parity/Inspector/Sections/Modes",
   render: renderDesignSection(ModesSection),
-  decorators: [inspectorStage]
+  decorators: [sectionStage]
 } satisfies Meta
 
 export default meta

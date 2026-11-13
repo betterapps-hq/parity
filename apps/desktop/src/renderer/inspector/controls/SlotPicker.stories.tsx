@@ -5,6 +5,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { slowly } from "../../chrome/inspector-stories.tsx"
 import { layersMime } from "../../chrome/LayerTree.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import { TypeTile } from "./instance-section.tsx"
 import { type OfferedLayer, SlotPickerField, type SlotLayer } from "./slot-picker.tsx"
@@ -51,7 +52,7 @@ const featureList: SlotLayer = { id: "list", name: "Feature list", icon: stack }
  * box fills it too. Clicking the chip selects its layer; its × clears the slot, so its placeholder shows.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Slot picker",
+  title: "Parity/Fields/Slot picker",
   args: {
     label: "Features",
     layer: undefined,
@@ -218,4 +219,17 @@ export const Dropped: Story = {
     await expect(await within(canvasElement).findByText("Badge", undefined, slowly)).toBeVisible()
     await expect(canvasElement.querySelector("[data-drop-target]")).toBeNull()
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Filled,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

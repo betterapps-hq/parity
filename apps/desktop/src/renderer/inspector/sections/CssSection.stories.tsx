@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { type CssModel, cssModel, CssSection, cssWrites } from "./css-rows.tsx"
-import { fillTokens } from "./expression.tsx"
-import { Playground } from "./playground.tsx"
+import { type CssModel, cssModel, CssSection, cssWrites } from "../controls/css-rows.tsx"
+import { fillTokens } from "../controls/expression.tsx"
+import { Playground } from "../controls/playground.tsx"
 
 /**
- * Raw CSS value (PAR-186, design-options-values.md's Raw CSS value and design-options-panel.md's CSS), the CSS section on
- * its own: a row per declaration, `property: value` in the code font, with completion of property names (marked † where
- * other browsers lack them) and of values (the property's keywords, then tokens as `var()`). Each is checked with
+ * The CSS section (PAR-186, design-options-values.md's Raw CSS value and design-options-panel.md's CSS), on its own:
+ * a row per declaration, `property: value` in the code font, with completion of property names (marked † where other
+ * browsers lack them) and of values (the property's keywords, then tokens as `var()`). Each is checked with
  * `CSS.supports` after filling in tokens; a checkbox turns a row off without deleting it; a value has its inline
  * preview, a swatch, curve or shadow card, which opens that type's editor. Classes, at the top, shows the layer's classes
  * as Copy as Tailwind writes them: typing classes, or pasting classes or declarations into a row, gives each to the
@@ -17,7 +17,7 @@ import { Playground } from "./playground.tsx"
  * Classes grows with its classes, with a handle to drag it taller.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Raw CSS value",
+  title: "Parity/Inspector/Sections/CSS",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

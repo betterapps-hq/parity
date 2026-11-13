@@ -28,19 +28,13 @@ export interface AppChipsGroup {
   options: readonly AppChipsOption[]
 }
 
-/** How the box is drawn, over the kit's chips box, whose classes these replace where they clash. */
-const looks = {
-  /** As the panel's text fields: filled, without a border, ringed on hover and while typing. */
-  field:
-    "rounded-md border-0 bg-muted/50 px-1 py-1 ring-inset focus-within:ring-1 focus-within:ring-ring hover:not-focus-within:ring-1 hover:not-focus-within:ring-border dark:bg-input/40",
-  /**
-   * As the panel's select draws its button (`AppSelect`, small): its border, fill, hover, corners and padding. A click
-   * opens the list and leaves the box as it was, as a click on a select does; only focus reached by keyboard, with the
-   * list closed, rings it, outside the border, as the select's keyboard focus does.
-   */
-  select:
-    "rounded-[min(var(--radius-md),10px)] py-0.5 ps-1.5 pe-2 has-data-[slot=combobox-chip]:ps-1.5 has-data-[slot=combobox-chip]:pe-2 dark:hover:bg-input/50 focus-within:border-input focus-within:ring-0 has-[input:focus-visible:not([aria-expanded=true])]:border-ring has-[input:focus-visible:not([aria-expanded=true])]:ring-3"
-}
+/**
+ * The box over the kit's chips box, whose classes these replace where they clash: drawn as the panel's text input is
+ * (`TextInput`), with its border, fill and corners, at the panel's height and padding. The ring shows while typing in
+ * it, as the input's does, but not while its list is open, as a select's button keeps its look while its list is.
+ */
+const boxClasses =
+  "relative min-h-7 w-full min-w-0 gap-1 rounded-lg py-0.5 ps-1.5 pe-2 text-xs has-data-[slot=combobox-chip]:ps-1.5 has-data-[slot=combobox-chip]:pe-2 focus-within:border-input focus-within:ring-0 has-[input:focus-visible:not([aria-expanded=true])]:border-ring has-[input:focus-visible:not([aria-expanded=true])]:ring-3"
 
 /**
  * The app's chips: the kit's Combobox chips composed once, as a panel field draws them, so a field of tags (class
@@ -48,7 +42,7 @@ const looks = {
  * and `AppChipsInput` the typing after them. Given `options`, typing in the input filters them in a popup under the box,
  * grouped, and picking one adds it. The kit's chip parts are banned elsewhere (`vite.config.ts`). Base UI keeps the
  * keys: arrows move between chips and through the popup, Enter picks, Escape closes, and Backspace in the empty input
- * removes the last chip. `look` draws the box as a panel field (class names) or as a select's button (a slot's layer).
+ * removes the last chip.
  */
 export function AppChips({
   value,
@@ -57,7 +51,6 @@ export function AppChips({
   onInputValueChange,
   options,
   empty = "No matches",
-  look = "field",
   className = "",
   children,
   ...box
@@ -72,8 +65,6 @@ export function AppChips({
   options?: readonly AppChipsGroup[]
   /** What the popup says when nothing matches what's typed. */
   empty?: string
-  /** A panel field's box, or a select's button for a field that picks one thing from a list (PAR-1046). */
-  look?: keyof typeof looks
   className?: string
   children: ReactNode
 } & Omit<HTMLAttributes<HTMLDivElement>, "children" | "className" | "onChange">) {
@@ -93,11 +84,7 @@ export function AppChips({
       inputValue={inputValue}
       onInputValueChange={onInputValueChange && ((next: string) => onInputValueChange(next))}
     >
-      <ComboboxChips
-        {...box}
-        ref={setAnchor}
-        className={`relative min-h-7 w-full min-w-0 gap-1 text-xs ${looks[look]} ${className}`}
-      >
+      <ComboboxChips {...box} ref={setAnchor} className={`${boxClasses} ${className}`}>
         {children}
         {/* Changed in the state being edited, or set over what it comes from (PAR-1020). */}
         {changed && <ChangeMark />}
