@@ -1,5 +1,5 @@
 import type { Found, SearchAnswer } from "@parity-app/connectors"
-import type { UpdateState } from "@parity-app/core"
+import type { UpdateState } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { signedOut } from "../shared/account.ts"
 import type { ThemeSource } from "../shared/ipc-checks.ts"

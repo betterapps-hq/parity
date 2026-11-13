@@ -1,4 +1,4 @@
-import type { UpdateState } from "@parity-app/core"
+import type { UpdateState } from "@parity-app/processes"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import { type UpdateNotice, UpdateToast } from "./UpdateToast.tsx"

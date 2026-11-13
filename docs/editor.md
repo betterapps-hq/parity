@@ -856,16 +856,16 @@ says so.
   another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
 
 Code: `codeEditors`, `editorsFor`, `commandPaths`, `batchCommandLine` and `exportLine` in
-`packages/core/src/code-editors.ts`; `openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `hostMethods`'
-`openInEditor`, whose request `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile`
-and `viewCode` in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by
-`chrome/AssetsPanel.tsx`; the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+`packages/processes/src/code-editors.ts`; `openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind
+`hostMethods`' `openInEditor`, whose request `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592);
+`componentFile` and `viewCode` in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used
+by `chrome/AssetsPanel.tsx`; the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
 
-Tests: `packages/core/src/code-editors.test.ts` (12: the editors each choice tries; VS Code's and Zed's arguments; the
-paths on PATH on Windows and elsewhere; the batch file's command line, escaped for `cmd.exe`, and on Windows a path with
-`&`, `%PATH%`, `!`, `^` and brackets passed through `cmd.exe` and a batch file as it's spelled; and the export's line
-for a function, constant or class, one an export list names, a list over several lines, a longer name that isn't it, a
-default export, a declared one, a missing one, and Windows line endings).
+Tests: `packages/processes/src/code-editors.test.ts` (12: the editors each choice tries; VS Code's and Zed's arguments;
+the paths on PATH on Windows and elsewhere; the batch file's command line, escaped for `cmd.exe`, and on Windows a path
+with `&`, `%PATH%`, `!`, `^` and brackets passed through `cmd.exe` and a batch file as it's spelled; and the export's
+line for a function, constant or class, one an export list names, a list over several lines, a longer name that isn't
+it, a default export, a declared one, a missing one, and Windows line endings).
 `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file from a Windows or POSIX
 root, and a library component's declarations, or none). `apps/desktop/src/shared/ipc-checks.test.ts` (2: a request is a
 file's absolute path and an editor Settings lists, and nothing more; every listed editor is taken) and
@@ -5500,7 +5500,7 @@ Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerF
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
 For edits: `stampChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`, wired in its `start`; the
-`codeChanged` reply in `packages/core/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
+`codeChanged` reply in `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
 `renderer/workspace.ts`; `frameKeys` and `drawnComponents` in `shared/render-job.ts`; `stale` in `useFrameBitmap` and
@@ -5515,7 +5515,7 @@ and no sheet over it, its layer reported, then the same file at a new version dr
 and the fix, kept through Clear, and gone frame by frame as the layer draws).
 `packages/builder-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
 among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
-`packages/core/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
+`packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
 changed files stamped, none without a change). `packages/renderer-react/src/guest.test.ts` (the revision moving once per
 new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
@@ -5563,17 +5563,17 @@ on each stylesheet change, which costs a whole builder start.
 Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
 `packages/core/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
 `packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
-`packages/core/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and `restyledGuest`
-in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in `openProjects`,
-`apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project discovery tells
-stylesheets by the same list (`stylesheetImports` and `readStylesheet` in `packages/project/src/styles.ts`,
-`importedFiles` in `preview-key.ts`).
+`packages/processes/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and
+`restyledGuest` in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
+`openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project
+discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
+`packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
 
 Tests: `packages/core/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
 `packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
-change the guest's stylesheets, a component's CSS module not). `packages/core/src/builder-process.test.ts` (the change
-passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
+change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the
+change passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
 closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
 guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
 without a restyled address started again on a new port). `packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite
@@ -5657,8 +5657,8 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   cache**, also in the actions search, removes them all; bitmaps on the canvas now are taken again when their frames
   next change.
 
-Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
-`packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `createRenderPool` in
+Code: `cacheRemovals` in `packages/processes/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
+`packages/processes/src/preview-order.ts`, and `turns` in `packages/processes/src/turns.ts`; `createRenderPool` in
 `apps/desktop/src/main/render-pool.ts`, which opens the offscreen windows, closes them a minute after the last job and
 opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
@@ -5667,21 +5667,22 @@ opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot
 carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
-`webpText` and `webpSize` in `packages/core/src/webp-text.ts`; `losslessWebp` in `apps/desktop/src/utility/webp.ts`, and
-the build shipping sharp beside the service (`apps/desktop/scripts/build.ts`, `electron-builder.yml`); the
-`frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`; `useFrameBitmap` and `stored`
-in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in `renderer/chrome/commands.ts`, in the View
-menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`); `PARITY_BITMAP_DIR`, which main gives the service.
+`webpText` and `webpSize` in `packages/processes/src/webp-text.ts`; `losslessWebp` in
+`apps/desktop/src/utility/webp.ts`, and the build shipping sharp beside the service (`apps/desktop/scripts/build.ts`,
+`electron-builder.yml`); the `frames.capture`, `frames.stored` and `frames.clearStored` handlers in `utility/index.ts`;
+`useFrameBitmap` and `stored` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `clearBitmapCache` in
+`renderer/chrome/commands.ts`, in the View menu (`AppMenu.tsx`) and the actions search (`ActionsSearch.tsx`);
+`PARITY_BITMAP_DIR`, which main gives the service.
 
-Tests: `packages/core/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a failed
-task frees its turn and fails for whoever gave it); `renderQueue`'s windows are covered under Component previews.
-`packages/core/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes whole
-and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept, the age
-limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
-`packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
-edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
-`apps/desktop/src/utility/bitmap-store.test.ts` (8: a bitmap kept from one address is found from another with its
-frame's height while its trace holds, stale once a file it read changed, stale when kept without a trace, none for a
+Tests: `packages/processes/src/turns.test.ts` (2: no more than the limit run at once, the earliest waiting next, and a
+failed task frees its turn and fails for whoever gave it); `renderQueue`'s windows are covered under Component previews.
+`packages/processes/src/bitmap-cache.test.ts` (6: nothing goes while under the cap, a project unused for 30 days goes
+whole and one with a recent bitmap keeps its older ones, the least recently used go past the cap down to what's kept,
+the age limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its
+project). `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt,
+new for an edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs
+added). `apps/desktop/src/utility/bitmap-store.test.ts` (8: a bitmap kept from one address is found from another with
+its frame's height while its trace holds, stale once a file it read changed, stale when kept without a trace, none for a
 file without a height, none for a frame never kept, no partial file left behind, an old project and an old partial file
 swept, and nothing once cleared). `apps/desktop/src/utility/frame-traces.test.ts` (5: a trace lists the files the
 components import, the stylesheets and theirs, and the shared config; adds what the builder says they load; holds after
@@ -5690,27 +5691,27 @@ stylesheet's import; nor for another renderer). `packages/project/src/frame-trac
 same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
 and a digest that ignores order but not a hash, a file or the salt). `packages/builder-vite/src/loaded-files.test.ts`
 (4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
-a file Vite hasn't built). `packages/core/src/builder-process.test.ts` asks the builder's process what files modules
-load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
+a file Vite hasn't built). `packages/processes/src/builder-process.test.ts` asks the builder's process what files
+modules load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
 `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same whether
 served or given; for `bitmapName`, among the names' 9: the same from another address, for a field the job or its mode
 gains and for a check, new with the tree, the mode, the size, the window, the scale and the tokens previewed, the same
 for a guest given a component and one served it but new for one served it from another file, and the same as the name
 before PAR-575 for a job the service has checked; 3 for the scale: the window in whole device pixels, at least one, a
-crop covering its box, and boxes and heights measured back in CSS pixels). `packages/core/src/webp-text.test.ts` (5:
-text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
-images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
-the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/main/render-pool.test.ts` (9: a window opened for the first job is kept for the next, a renderer that
-crashes fails its job and its window opens again for the next, a crashed frame isn't pictured, the windows close a
-minute after the last job and open again for the next, they stay open while a job draws, closing them all forgets the
-close that waited, what a window writes is tagged with the design it draws, a capture gives the frame's picture, and a
-preview of one color drew nothing). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in
-for its key, with its height, so no capture is asked for, the frame's latest from other code comes as stale and the
-frame is still captured (PAR-993), frames with the same key share a read, frames asking together share one request and
-each gets its own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the
-read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
-of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+crop covering its box, and boxes and heights measured back in CSS pixels). `packages/processes/src/webp-text.test.ts`
+(5: text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and
+lossy images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone;
+and the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels
+exactly). `apps/desktop/src/main/render-pool.test.ts` (9: a window opened for the first job is kept for the next, a
+renderer that crashes fails its job and its window opens again for the next, a crashed frame isn't pictured, the windows
+close a minute after the last job and open again for the next, they stay open while a job draws, closing them all
+forgets the close that waited, what a window writes is tagged with the design it draws, a capture gives the frame's
+picture, and a preview of one color drew nothing). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept
+bitmap stands in for its key, with its height, so no capture is asked for, the frame's latest from other code comes as
+stale and the frame is still captured (PAR-993), frames with the same key share a read, frames asking together share one
+request and each gets its own bitmap, none when the service couldn't say, none when none was kept, and a capture taken
+during the read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address,
+have no test of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
 `examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
@@ -5874,8 +5875,8 @@ shadcn's tooltip reads, set in `styles.css`.
 
 Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
 `librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
-`drawsNothing` in `packages/core/src/preview-order.ts`; the offscreen page, `apps/desktop/src/renderer/render.ts`, whose
-`canvasRender` calls `inlinePortals` in `renderer/inline-portals.ts` for a job with `inlinePortals`;
+`drawsNothing` in `packages/processes/src/preview-order.ts`; the offscreen page, `apps/desktop/src/renderer/render.ts`,
+whose `canvasRender` calls `inlinePortals` in `renderer/inline-portals.ts` for a job with `inlinePortals`;
 `renderedComponents` in `packages/core/src/render.ts`; `previewKey`, `resolveModule`, `importedFiles`, `moduleClosure`
 and `sharedPreviewFiles` in `packages/project/src/preview-key.ts`; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `importSpecifiers` in `packages/code/src/listing.ts`; the `previews.lookup`
@@ -5890,20 +5891,21 @@ and `previews.make` handlers and their checks in `apps/desktop/src/shared/servic
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
 `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
-Tests: `packages/core/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on screen
-and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest free,
-one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job still
-run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the rest in
-order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`; 2 for `drawsNothing`: a
-picture with every pixel alike, and one with a pixel a channel apart). `packages/project/src/preview-key.test.ts` (9 for
-`resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for `sharedPreviewFiles`, and 6 for `previewKey` on
-files on disk: the same for the same code and tree, new for a component importing the changed file and not for one that
-doesn't, new for every component when a stylesheet or one it imports changes or when the dependencies do, new with
-what's drawn, and 40 hex characters). `packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by
-path). `packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts`
-(4: what inserting places inside the sized element, a part inside its parents, the same tree every time, and a dialog's
-part inside its dialog given `defaultOpen`; and 6 for `drawnOpen`: the first menu and the first submenu in it opened but
-not the menu beside it, one given `open` left and the next opened, an accordion's item its sample doesn't choose chosen
+Tests: `packages/processes/src/preview-order.test.ts` (5 for `renderQueue`: canvas and agent jobs before previews on
+screen and those before the idle pass, one job at a time with one window, one job in each window at once in the lowest
+free, one preview at a time with the other windows left to bitmaps, and a failure going to its caller with the next job
+still run; 5 for `nextPreview`: nothing until the canvas settles, the first on screen even while the person works, the
+rest in order once idle, waiting out the rest of the idle time, and nothing left; 4 for `fitInside`; 2 for
+`drawsNothing`: a picture with every pixel alike, and one with a pixel a channel apart).
+`packages/project/src/preview-key.test.ts` (9 for `resolveModule`, 2 for `importedFiles`, 2 for `moduleClosure`, 1 for
+`sharedPreviewFiles`, and 6 for `previewKey` on files on disk: the same for the same code and tree, new for a component
+importing the changed file and not for one that doesn't, new for every component when a stylesheet or one it imports
+changes or when the dependencies do, new with what's drawn, and 40 hex characters).
+`packages/project/src/code-fingerprint.test.ts` (1: each file's size and time by path).
+`packages/code/src/listing.test.ts` (2 for `importSpecifiers`). `packages/editor/src/component-preview.test.ts` (4: what
+inserting places inside the sized element, a part inside its parents, the same tree every time, and a dialog's part
+inside its dialog given `defaultOpen`; and 6 for `drawnOpen`: the first menu and the first submenu in it opened but not
+the menu beside it, one given `open` left and the next opened, an accordion's item its sample doesn't choose chosen
 beside the ones it does, an item with no value given `previewValue`, a sample that chooses one of its items or is given
 its value left as it is, and components that don't say what's open left alone).
 `packages/core/src/library-insert.test.ts` (1 for `librarySource`: the `openProps` a library component declares).
@@ -6696,13 +6698,13 @@ themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stori
 the beta setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered
 toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
-Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
-operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close acknowledgement, for the
-windows `main/index.ts` gives it, and `main/host-handlers.ts` answers the window's update methods, through
-`preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
-`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+Code: `packages/processes/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts`
+serializes operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close
+acknowledgement, for the windows `main/index.ts` gives it, and `main/host-handlers.ts` answers the window's update
+methods, through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`,
+`AboutDialog.tsx` and `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
-Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
+Tests: `packages/processes/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
 progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
 failure resetting the close decision, disabled development builds and the Mac fallback. `main/close-flow.test.ts` covers
 each way a close starts (closing, quitting, restarting for an update) against each answer the page gives, in one table,
@@ -6774,7 +6776,7 @@ failure says what went wrong.
   checkout's CLI source, and starting isn't rewriting it.
 
 The build ships the CLI npm publishes in `cli/` beside the service, its packages with the service's, and fails unless it
-runs in Parity's Electron (`scripts/build.ts`). `@parity-app/core`'s `cli-command.test.ts` covers the folders, the
+runs in Parity's Electron (`scripts/build.ts`). `@parity-app/processes`'s `cli-command.test.ts` covers the folders, the
 launchers' text and quoting, and adding the folder to PATH. Writing the files and PATH (`main/cli-command.ts`) was tried
 by hand on Windows; macOS and Linux weren't tried.
 

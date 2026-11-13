@@ -355,6 +355,9 @@ importers:
       '@parity-app/media-player':
         specifier: workspace:*
         version: link:../../packages/media-player
+      '@parity-app/processes':
+        specifier: workspace:*
+        version: link:../../packages/processes
       '@parity-app/project':
         specifier: workspace:*
         version: link:../../packages/project
@@ -774,6 +777,12 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/processes:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/project:
     dependencies:

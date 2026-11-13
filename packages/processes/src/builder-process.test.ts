@@ -1,5 +1,5 @@
+import type { BuilderAdapter, BuilderStartOptions, CodeChange, RendererAdapter } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
-import type { BuilderAdapter, BuilderStartOptions, CodeChange, RendererAdapter } from "./adapters.ts"
 import {
   type BuilderProcessClientOptions,
   type BuilderProcessReply,

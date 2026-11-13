@@ -2,16 +2,8 @@ import { createHash } from "node:crypto"
 import { mkdir, open, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { type FrameTrace, frameTrace } from "@parity-app/change-detection"
-import {
-  type CachedFile,
-  type ComponentSource,
-  cacheRemovals,
-  jsonText,
-  plainObject,
-  webpSize,
-  webpText,
-  withWebpText
-} from "@parity-app/core"
+import { type ComponentSource, jsonText, plainObject } from "@parity-app/core"
+import { type CachedFile, cacheRemovals, webpSize, webpText, withWebpText } from "@parity-app/processes"
 import type { CodeSnapshot } from "@parity-app/project"
 import { z } from "zod"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"

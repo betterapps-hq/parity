@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process"
 import { access, readFile } from "node:fs/promises"
-import { batchCommandLine, codeEditors, commandPaths, editorsFor, exportLine } from "@parity-app/core"
+import { batchCommandLine, codeEditors, commandPaths, editorsFor, exportLine } from "@parity-app/processes"
 import { shell } from "electron"
 import type { OpenInEditorRequest } from "../shared/protocol.ts"
 
