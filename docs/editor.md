@@ -3238,10 +3238,12 @@ Tests:
   rule, never inline, a state that sets its own width left alone, a later preview putting back what it doesn't change,
   taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
   settling for the change, which the frame takes away as it draws it, and nothing shown for no change.
-- `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
+- `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, KeepsAnyLength and Stepping.
+- `inspector/controls/NumberField.stories.tsx` InvalidAsTyped: what can't be read stays, marked invalid.
 - `inspector/sections/SizeSection.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the
   narrowest inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show
-  the value whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
+  the value whole. OffScaleSize: a 281px width shown as it is; Fields › All fields' KeepsAnyLength checks 281 typed is
+  kept.
 - `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
@@ -3488,7 +3490,7 @@ Tests:
 - `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
-  the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+  the slot with its ×, without selecting the layer, which leaves it empty.
 
 ### The inspector's stories in seven levels (PAR-1033)
 
@@ -3508,10 +3510,13 @@ Fields stories.
 | Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
 | Parts    | Field row, Chips                                                                             |
 
-Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. Each style
-section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
-(`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's
-props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
+Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. A control's
+stories in Fields, Rows and Lists show the control alone; each file's Demo story also shows what it stores and writes as
+CSS and Tailwind, with a preview and other tools' screenshots where it has them (`ShowWrites` in `playground.tsx`,
+PAR-1045). Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the
+one it holds (`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a
+component's props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components
+and Modes.
 
 Tests: none; the stories are checked in Storybook.
 
@@ -3597,7 +3602,7 @@ Tests:
 
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `chrome/fields.stories.tsx` EveryKind: each kind of field found by its row's label, and the token pickers by their own
-  names. ChoiceOpen and Typing find their controls by name.
+  names. Typing finds its control by name.
 - `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
@@ -3616,9 +3621,9 @@ Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/ins
 `Field` and `SwitchRow` in `inspector/controls/field-row.tsx` mark their control; `changedSides` on `FourSidesField` in
 `inspector/controls/sides.tsx`.
 
-Tests: none; it's checked in each control's Changed story in `inspector/controls`: Number field, Color field, Token
-length, Angle, Time, Keyword sets (Align Changed, Cursor Changed), Switch, Icon segments, Component instance, and
-Padding's One Side Changed.
+Tests: none; it's checked in Parts › Field row's Changed In A State, which every control's box shares, and in the marks
+that differ: Switch's Switch Changed, Chips' Changed, Component instance's Changed (each kind of prop) and Padding's One
+Side Changed.
 
 ### Selects (PAR-1023)
 
@@ -3637,7 +3642,7 @@ Tests:
 
 - `chrome/AppSelect.stories.tsx` InAPanel and InADialog: each opens its select and checks its items sit in a group
   padded 4px, at 12px and 13px.
-- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
+- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/AppSelect.stories.tsx` InAPanel open a panel's select.
 
 ### Chips (PAR-1035)
 
@@ -3668,7 +3673,7 @@ Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the r
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
 Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
-Fields › All fields: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
+Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 

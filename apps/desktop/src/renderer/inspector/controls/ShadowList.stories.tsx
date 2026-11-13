@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useState } from "react"
-import { userEvent, within } from "storybook/test"
 import { useTokenSets } from "./field-parts.tsx"
 import type { ShadowEntry, ShadowLayer } from "./lists-data.ts"
 import { shadowWrites } from "./lists-writes.ts"
@@ -120,6 +119,9 @@ export const Empty: Story = { render: () => <Shadows start={[]} /> }
 /** A shadow token, `shadow-md`, as a chip; its numbers are in its hint and its editor. */
 export const Token: Story = { render: () => <Shadows start={[drop("md", "shadow-md")]} /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /**
  * A composite token with a part overridden: `shadow-lg`'s color set to primary at 20% on this layer. The color's field
  * has the change dot and its reset arrow, and the chip has a dot: `shadow-lg shadow-primary/20`.
@@ -203,40 +205,5 @@ export const OnTextWithAFill: Story = {
   render: () => <Shadows start={[drop("text", "text-shadow-sm")]} text={{ hasFill: true }} openId="text" />
 }
 
-/** A shadow colored #2f6fed at 40%, a value of its own: its color field's Tokens offers the nearest first. */
-export const ColorOffTheSystem: Story = {
-  render: () => (
-    <Shadows
-      start={[{ id: "own", kind: "drop", layer: { x: 0, y: 8, blur: 24, spread: -4, color: "#2f6fed", alpha: 40 } }]}
-      openId="own"
-    />
-  )
-}
-
-/**
- * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
- * shadow's color can be any. Its color picker is only the tokens, and the blue already there is refused with the nearest
- * token under it.
- */
-export const LockedToTokens: Story = {
-  render: () => (
-    <Shadows
-      start={[{ id: "own", kind: "drop", layer: { x: 0, y: 8, blur: 24, spread: -4, color: "#2f6fed", alpha: 40 } }]}
-      tokensOnly
-      openId="own"
-    />
-  )
-}
-
 /** Layers with different shadows: "Several shadows", until + replaces them all with one. */
 export const Mixed: Story = { render: () => <Shadows start={[]} mixed /> }
-
-/** `soft` typed as X and Enter pressed: it isn't a length, so it stays, outlined, with the reason under the row. */
-export const InvalidAsTyped: Story = {
-  render: () => <Shadows start={[{ id: "own", kind: "drop", layer: custom }]} openId="own" />,
-  play: async ({ canvasElement }) => {
-    const field = await within(canvasElement.ownerDocument.body).findByRole("textbox", { name: "X offset" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "soft{Enter}")
-  }
-}

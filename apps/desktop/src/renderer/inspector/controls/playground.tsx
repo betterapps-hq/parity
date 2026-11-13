@@ -1,5 +1,5 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react"
+import { createContext, type ReactNode, use, useMemo, useState, useSyncExternalStore } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { type Comparison, Comparisons, type Point } from "./comparisons.tsx"
 import { type Draft, usedColors } from "./data.ts"
@@ -12,11 +12,15 @@ import type { TokenSetName, TokenSets } from "./tokens.ts"
 import type { Writes } from "./writes.ts"
 
 /*
- * Where each control is tried on its own: the control at the inspector's width, and beside it what it stores and what
- * it writes as CSS and as Tailwind, updated as it's used. A preview draws the result where it helps. Each story gives
+ * Where each control is tried on its own: the control at the inspector's width. A file's Demo story also shows beside
+ * it what it stores and what it writes as CSS and as Tailwind, updated as it's used, with a preview of the result where
+ * it helps and other tools' screenshots for review. Each story gives
  * its fields the stand-ins through `ProjectData`, as the Design tab gives the project's own, and holds its own tokens,
  * so a token made with Create token is there for the story's fields and preview only.
  */
+
+/** Whether the story shows what the control writes beside it, as a Demo story does (`parameters: { demo: true }`). */
+export const ShowWrites = createContext(false)
 
 /** A style that changes as the control is used, for a story's state. */
 export function useDraft(start: Draft) {
@@ -44,6 +48,7 @@ export function Playground({
   children: ReactNode
 }) {
   const project = useStandInProject(tokens)
+  const demo = use(ShowWrites)
 
   // The inspector's width, so the control lays out as it will there.
   const control = (
@@ -59,8 +64,8 @@ export function Playground({
           {/* It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't. */}
           <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
             {control}
-            <Readout writes={writes} />
-            {preview && (
+            {demo && <Readout writes={writes} />}
+            {demo && preview && (
               <section
                 aria-label="Preview"
                 className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
@@ -68,7 +73,7 @@ export function Playground({
                 {preview}
               </section>
             )}
-            {comparisons && <Comparisons items={comparisons} points={points} />}
+            {demo && comparisons && <Comparisons items={comparisons} points={points} />}
           </div>
         </HighlightProvider>
       </ProjectData>

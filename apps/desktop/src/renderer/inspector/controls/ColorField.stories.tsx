@@ -3,7 +3,6 @@ import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { ColorInput } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { CardPreview } from "./preview-card.tsx"
@@ -92,6 +91,9 @@ function ColorField({ value, alpha, allowed, tokensOnly, mixed, theme, hover = f
 /** A token, `primary`, as a chip. Click beside it and press Backspace, or use its ×, to remove it, then type `2f6fed`. */
 export const Token: Story = { render: () => <ColorField value="primary" /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /** A token with its opacity after it, `bg-card/70`: the % field is the token's alpha, written after its name. */
 export const TokenWithOpacity: Story = { render: () => <ColorField value="card" alpha={70} /> }
 
@@ -100,11 +102,6 @@ export const TokenWithOpacity: Story = { render: () => <ColorField value="card" 
  * token. Its opacity is part of the color (`#2f6fed80`).
  */
 export const PlainValue: Story = { render: () => <ColorField value="#2f6fed" /> }
-
-/** The same blue allowed here, with a reason: its reason shows in Tokens, which can stop allowing it, stored with the value. */
-export const AllowedHere: Story = {
-  render: () => <ColorField value="#2f6fed" allowed="Partner brand blue" />
-}
 
 /**
  * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
@@ -134,6 +131,7 @@ export const SetForATheme: Story = {
  * nothing, since it's on no scale.
  */
 export const SteppedThroughShades: Story = {
+  parameters: { demo: true },
   render: () => <ColorField value="blue-500" alpha={80} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
@@ -163,13 +161,4 @@ export const InvalidAsTyped: Story = {
     await userEvent.click(field)
     await userEvent.type(field, "blurple{Enter}")
   }
-}
-
-/** Changed from what it comes from (PAR-1020): the dot on the box's corner, beside the token's pill. */
-export const Changed: Story = {
-  render: () => (
-    <MarkChanged>
-      <ColorField value="primary" />
-    </MarkChanged>
-  )
 }

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { expectWhole, opens, renderStyleSection, styled, styleStage } from "../../chrome/style-stories.tsx"
 
 /**
@@ -71,16 +71,5 @@ export const OffScaleSize: Story = {
   loaders: [styled("Pricing", "Brand mark", { width: { step: 70.25 }, height: { step: 12 } })],
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole("textbox", { name: "Width" })).toHaveValue("281")
-  }
-}
-
-/** 281 typed into Width stays 281px rather than landing on a step. */
-export const TypingOffScale: Story = {
-  loaders: [styled("Pricing", "Brand mark")],
-  play: async ({ canvasElement }) => {
-    const width = within(canvasElement).getByRole("textbox", { name: "Width" })
-    await userEvent.clear(width)
-    await userEvent.type(width, "281{Enter}")
-    await expect(width).toHaveValue("281")
   }
 }

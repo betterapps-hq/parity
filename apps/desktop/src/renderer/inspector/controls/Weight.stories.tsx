@@ -115,6 +115,9 @@ function Weight({
 /** Semibold in Geist, `font-semibold`, as its chip. Up and Down step to Medium and Bold. */
 export const Named: Story = { render: () => <Weight font={{ token: "sans" }} start={{ token: "semibold" }} /> }
 
+/** Named, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Named, parameters: { demo: true } }
+
 /** Unset: Regular, muted, inherited. Nothing is written. */
 export const Unset: Story = { render: () => <Weight font={{ token: "sans" }} /> }
 

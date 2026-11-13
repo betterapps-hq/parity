@@ -75,6 +75,9 @@ export const Empty: Story = { render: () => <Transitions start={[]} /> }
 /** Colors at Tailwind's defaults, shown faintly: `transition-colors`, and nothing else written. */
 export const DefaultTiming: Story = { render: () => <Transitions start={[{ property: "colors" }]} /> }
 
+/** DefaultTiming, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...DefaultTiming, parameters: { demo: true } }
+
 /** One entry: Colors over 200ms, easing out, after 75ms: `transition-colors duration-200 ease-out delay-75`. */
 export const OneEntry: Story = {
   render: () => (

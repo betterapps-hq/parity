@@ -48,15 +48,8 @@ function Stroke({ start, tokensOnly }: { start: Draft; tokensOnly?: boolean }) {
 /** The project's usual stroke on every side: `border border-border`, in layout. */
 export const AllSides: Story = { render: () => <Stroke start={{ border: "border", borderWidth: every(1) }} /> }
 
-/** The bottom side only: Each side opens to show it, writing `border-b`. */
-export const BottomOnly: Story = {
-  render: () => <Stroke start={{ border: "border", borderWidth: [undefined, undefined, px(1), undefined] }} />
-}
-
-/** Custom sides: 2px top and bottom, none at the sides, each side's width its own field. */
-export const CustomSides: Story = {
-  render: () => <Stroke start={{ border: "primary", borderWidth: [px(2), undefined, px(2), undefined] }} />
-}
+/** AllSides, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...AllSides, parameters: { demo: true } }
 
 /** Out of layout, outside the edge: an outline at offset 0, so the layer's size doesn't change. */
 export const Outside: Story = {
@@ -74,27 +67,6 @@ export const Center: Story = {
 
 /** No stroke yet: Stroke is a title with +. */
 export const Empty: Story = { render: () => <Stroke start={{}} /> }
-
-/** The project's thick border-width token on every side, as its pill: `border-(length:--border-width-thick)`. */
-export const WidthToken: Story = {
-  render: () => {
-    const thick = { token: "border-width-thick" }
-
-    return <Stroke start={{ border: "primary", borderWidth: [thick, thick, thick, thick] }} />
-  }
-}
-
-/** A color of its own, #2f6fed, with no mark: Tokens offers blue-600, the nearest, first. */
-export const PlainColor: Story = { render: () => <Stroke start={{ border: "#2f6fed", borderWidth: every(1) }} /> }
-
-/**
- * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
- * stroke takes any color. Its picker is only the tokens, typing searches them, and the blue already there is refused
- * with the nearest token under it.
- */
-export const LockedToTokens: Story = {
-  render: () => <Stroke start={{ border: "#2f6fed", borderWidth: every(1) }} tokensOnly />
-}
 
 /**
  * Out of layout with sides that differ, as a layer can come with: an outline has one width, so it's written at the

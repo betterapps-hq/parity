@@ -62,25 +62,10 @@ function Spacing({ padding: startPadding, margin: startMargin = none }: { paddin
   )
 }
 
-/** Padding alone: margin's fields are unset, 0 and muted. */
-export const PaddingOnly: Story = { render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} /> }
-
 /** A margin of 8 above and below, under the padding: two fields each. */
 export const WithMargin: Story = {
   render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} margin={[px(8), undefined, px(8), undefined]} />
 }
 
-/** Padding of 16 with 24 at the bottom: its Each side opens, four fields in CSS's order, and margin keeps two. */
-export const EachSide: Story = {
-  render: () => <Spacing padding={[px(16), px(16), px(24), px(16)]} margin={[px(8), undefined, px(8), undefined]} />
-}
-
-/** Auto across: margin's horizontal field holds Auto as a chip, with what it comes to in its hint, as it's narrow. */
-export const AutoMargin: Story = {
-  render: () => <Spacing padding={[px(12), px(12), px(12), px(12)]} margin={[undefined, "auto", undefined, "auto"]} />
-}
-
-/** A token across: the project's gutter, a chip with what it comes to in its hint. */
-export const Token: Story = {
-  render: () => <Spacing padding={[px(16), { token: "spacing-gutter" }, px(16), { token: "spacing-gutter" }]} />
-}
+/** WithMargin, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...WithMargin, parameters: { demo: true } }

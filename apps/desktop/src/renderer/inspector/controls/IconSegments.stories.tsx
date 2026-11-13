@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { Changed } from "./field-parts.tsx"
 import { Field, FieldGrid, IconSegments } from "./field-row.tsx"
 import { layoutTypes } from "./layout-controls.tsx"
 
@@ -39,13 +38,3 @@ export const Chosen: Story = { render: () => <LayoutType start="column" /> }
 
 /** Unset, as for layers that differ: none pressed. */
 export const Unset: Story = { render: () => <LayoutType /> }
-
-/** Changed from what it comes from (PAR-1020): the purple dot on the corner of the row of icons. */
-export const IconsChanged: Story = {
-  name: "Changed",
-  render: () => (
-    <Changed>
-      <LayoutType start="row" />
-    </Changed>
-  )
-}

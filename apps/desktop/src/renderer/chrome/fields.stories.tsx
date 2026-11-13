@@ -244,24 +244,6 @@ export const EveryKind: Story = {
 /** Nothing set: each control shows its placeholder or default, None for tokens. */
 export const NothingSet: Story = { args: { look: "unset" } }
 
-/** Every value changed in the state being edited: each control with the change dot, each row with a reset button. */
-export const ChangedInAState: Story = { args: { look: "changed" } }
-
-/** Several layers selected with different values: each control reads Mixed until one value is set for all. */
-export const Mixed: Story = { args: { look: "mixed" } }
-
-/** Labels too long for their column truncate; the full label shows on hover. */
-export const LongLabels: Story = {
-  args: {
-    labels: {
-      label: "aria-describedby",
-      description: "Accessible description",
-      id: "data-testid-for-the-checkout-flow",
-      opacity: "Background opacity"
-    }
-  }
-}
-
 /** One value of each kind the any value input holds. */
 const anyValues: PropValue[] = [true, 42, "Billed yearly", ["monthly", "yearly"], { seats: 3 }, null]
 
@@ -294,14 +276,6 @@ export const Swatches: Story = {
       </div>
     </PanelSection>
   )
-}
-
-/** A choice open: the default first, muted, then each option. */
-export const ChoiceOpen: Story = {
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("combobox", { name: "Choice" }))
-    await within(document.body).findByRole("listbox", undefined, slowly)
-  }
 }
 
 /** A token picker open and searched: matching colors with swatches, grouped by where they come from. */
@@ -347,18 +321,6 @@ export const KeepsAnyLength: Story = {
     await userEvent.tripleClick(input)
     await userEvent.keyboard("281{Enter}")
     await expect(input).toHaveValue("281")
-  }
-}
-
-/** Input a field can't read stays as typed, marked, with the reason under it. */
-export const CantRead: Story = {
-  play: async ({ canvasElement }) => {
-    const input = within(canvasElement).getByRole("textbox", { name: "Length" })
-    await userEvent.tripleClick(input)
-    await userEvent.keyboard("16em{Enter}")
-    await expect(input).toHaveValue("16em")
-    await expect(input).toHaveAttribute("aria-invalid", "true")
-    await within(canvasElement).findByText(/"em" isn't a unit/)
   }
 }
 

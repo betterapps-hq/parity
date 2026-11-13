@@ -108,6 +108,9 @@ function TextSpacing({
 /** Unset beside `text-sm`: 1.429 shows faintly, labeled From size, since the size pairs a 20px line height. */
 export const FromSize: Story = { render: () => <TextSpacing size="sm" /> }
 
+/** FromSize, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...FromSize, parameters: { demo: true } }
+
 /** 24px, a spacing step, beside `text-sm`: written `text-sm/6`. Up makes it 25px. */
 export const Step: Story = { render: () => <TextSpacing size="sm" line={{ px: 24 }} /> }
 
@@ -152,16 +155,6 @@ export const PercentBecomesAMultiple: Story = {
   play: async ({ canvasElement }) => {
     const field = within(canvasElement).getByRole("textbox", { name: "Line height" })
     await userEvent.type(field, "150%{Enter}")
-  }
-}
-
-/** `tall` typed and Enter pressed: it isn't a line height, so it stays, outlined, with the reason under it. */
-export const InvalidAsTyped: Story = {
-  render: () => <TextSpacing size="sm" line={{ px: 24 }} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Line height" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "tall{Enter}")
   }
 }
 

@@ -67,14 +67,11 @@ export const OriginUnset: Story = { render: () => <Position which="origin" /> }
 /** Its top left spot: `origin-top-left`. The preview's card is scaled to 80% about it. */
 export const OriginSpot: Story = { render: () => <Position which="origin" start={{ x: 0, y: 0 }} /> }
 
+/** OriginSpot, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...OriginSpot, parameters: { demo: true } }
+
 /** Off the spots, 30% by 70%: no spot lights, a dot shows where it is, and it's written `origin-[30%_70%]`. */
 export const OriginOffTheSpots: Story = { render: () => <Position which="origin" start={{ x: 30, y: 70 }} /> }
-
-/** An image's position on a spot, its bottom: `object-bottom`. */
-export const ImageSpot: Story = { render: () => <Position which="object" start={{ x: 50, y: 100 }} /> }
-
-/** An image's position off the spots, 25% by 75%: `object-[25%_75%]`. Drag in the box to move it. */
-export const ImageOffTheSpots: Story = { render: () => <Position which="object" start={{ x: 25, y: 75 }} /> }
 
 /** `middle` typed into X and Enter pressed: X takes left, center or right, so it stays, with the reason under it. */
 export const InvalidAsTyped: Story = {
