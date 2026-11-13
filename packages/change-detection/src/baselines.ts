@@ -1,5 +1,5 @@
 import type { RenderNode } from "@parity-app/core"
-import { type FrameChange, frameChange } from "./status.ts"
+import { committedChange, type FrameChange, frameChange } from "./status.ts"
 import type { FrameTrace } from "./trace.ts"
 
 /**
@@ -14,14 +14,28 @@ export interface FrameId {
 }
 
 /**
- * Each frame's baseline, which statuses are counted from (PAR-997): the first trace taken of it, so a frame changed
- * once a file it read differs from when it was first looked at, and is unchanged again once the file is back as it was.
+ * Each frame's baseline, which statuses are counted from. In a git repository it's the last commit (PAR-1074), so a
+ * frame changed once a file it reads differs from what's committed. Elsewhere it's the first trace taken of the frame
+ * (PAR-997), so a frame changed once a file it read differs from when it was first looked at. Either way it's
+ * unchanged again once the file is back as it was.
  */
 export class ChangeBaselines {
   readonly #traces = new Map<string, { project: string; trace: FrameTrace }>()
 
-  /** The frame's change since its baseline, `current` becoming its baseline when it has none yet. */
-  compare(id: FrameId, tree: readonly RenderNode[], current: FrameTrace | undefined): FrameChange {
+  /**
+   * The frame's change since its baseline: the last commit when `committed` lists the project's files that differ from
+   * it, else the first trace, `current` becoming it when the frame has none yet.
+   */
+  compare(
+    id: FrameId,
+    tree: readonly RenderNode[],
+    current: FrameTrace | undefined,
+    committed?: ReadonlySet<string>
+  ): FrameChange {
+    if (committed) {
+      return committedChange(tree, current, committed)
+    }
+
     const key = frameKey(id)
     let baseline = this.#traces.get(key)?.trace
 

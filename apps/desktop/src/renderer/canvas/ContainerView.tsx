@@ -143,6 +143,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
       data-design={key}
       data-changed={change.state === "changed" ? "" : undefined}
     >
+      {change.state === "changed" && <ChangedEdge />}
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -348,6 +349,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
       data-changed={change.state === "changed" ? "" : undefined}
     >
       <BoardEdge />
+      {change.state === "changed" && <ChangedEdge />}
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -418,6 +420,24 @@ function BoardEdge() {
       ref={ref}
       aria-hidden
       className="pointer-events-none absolute top-0 left-0 origin-top-left border border-solid"
+    />
+  )
+}
+
+/**
+ * For now (PAR-1074), a yellow edge around a board whose frames changed since the baseline, the last commit in a git
+ * repository, so the change shows until change detection has a design of its own. Two screen pixels wide at any zoom,
+ * as the board's own edge is one.
+ */
+function ChangedEdge() {
+  const ref = useRef<HTMLDivElement>(null)
+  useGutterStyle(ref, "edge")
+
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className="pointer-events-none absolute top-0 left-0 origin-top-left border-2 border-solid border-yellow-400"
     />
   )
 }

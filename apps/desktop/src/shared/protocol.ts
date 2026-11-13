@@ -347,6 +347,11 @@ export interface WindowMethods {
   "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
   /** What detection reads of the project changed since it opened, so its tab opens it again (PAR-820). */
   "project.detectionChanged": { params: { projectId: string }; result: undefined }
+  /**
+   * The project's git repository moved its last commit or changed what's staged, as a commit or a checkout does, so the
+   * canvas asks again what changed since the commit (PAR-1074).
+   */
+  "project.committed": { params: { projectId: string }; result: undefined }
 }
 
 /**
@@ -382,7 +387,8 @@ export const windowMethods = Object.keys({
   "project.componentsChanged": true,
   "project.guestMoved": true,
   "project.codeChanged": true,
-  "project.detectionChanged": true
+  "project.detectionChanged": true,
+  "project.committed": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }

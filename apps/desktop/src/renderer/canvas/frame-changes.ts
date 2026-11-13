@@ -56,6 +56,16 @@ export function recordChange(id: FrameId, change: FrameChange | undefined): void
   design.changes.notify()
 }
 
+/** How many times each project's baseline has moved, so its frames ask again each time (PAR-1074). */
+const baselineMoves = new Map<string, number>()
+const baselineMoved = signal()
+
+/** Has every frame of a project ask again what changed, as when a commit moves the baseline its answers came from. */
+export function askChangesAgain(project: string): void {
+  baselineMoves.set(project, (baselineMoves.get(project) ?? 0) + 1)
+  baselineMoved.notify()
+}
+
 /** Frames asked about in this task, waiting to be sent together once it's done. */
 let asking: { id: FrameId; job: RenderJob; answer: (change: FrameChange) => void }[] = []
 
@@ -81,13 +91,14 @@ export function askChange(id: FrameId, job: RenderJob): Promise<FrameChange> {
 }
 
 /**
- * A frame's change and its nodes', asked for again whenever what it's drawn with changes, as its `key` says. Unknown
- * until the service answers.
+ * A frame's change and its nodes', asked for again whenever what it's drawn with changes, as its `key` says, and
+ * whenever its project's baseline moves. Unknown until the service answers.
  */
 export function useFrameChange(id: FrameId, job: RenderJob, key: string): FrameChange | undefined {
   const { project, design, state, mode } = id
   const frame = frameKey(id)
   const latest = useRef(job)
+  const moves = useSyncExternalStore(baselineMoved.subscribe, () => baselineMoves.get(project) ?? 0)
 
   useEffect(() => {
     latest.current = job
@@ -102,7 +113,7 @@ export function useFrameChange(id: FrameId, job: RenderJob, key: string): FrameC
     return () => {
       current = false
     }
-  }, [project, design, state, mode, key])
+  }, [project, design, state, mode, key, moves])
 
   // A frame taken off the canvas no longer counts toward its board.
   useEffect(() => () => recordChange({ project, design, state, mode }, undefined), [project, design, state, mode])

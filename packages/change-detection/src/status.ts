@@ -68,6 +68,28 @@ export function combineChanges(statuses: Iterable<ChangeStatus>): ChangeStatus {
 }
 
 /**
+ * A frame's change since the project's last commit (PAR-1074), and its nodes': changed with the files it reads that
+ * `committed` lists, those that differ from the commit, staged or not, or that git doesn't track; else unchanged.
+ * `committed` holds every such file of the project, by its path from the project's root, as a trace writes them.
+ */
+export function committedChange(
+  tree: readonly RenderNode[],
+  current: FrameTrace | undefined,
+  committed: ReadonlySet<string>
+): FrameChange {
+  if (!current) {
+    return { status: unknown }
+  }
+
+  const files = Object.keys(current.files)
+    .filter((path) => committed.has(path))
+    .sort((a, b) => a.localeCompare(b, "en"))
+
+  // The commit is the baseline, so the trace stands for both sides and only the files' standing tells them apart.
+  return files.length === 0 ? { status: unchanged } : frameChange(tree, current, current, { state: "changed", files })
+}
+
+/**
  * A frame's change since its baseline, and its nodes'. A node changed when a file its component reads did, or one every
  * node reads, or a node inside it changed, since it draws what's inside it. Without the files each component reads, as
  * in a trace kept before PAR-997, every node is as the frame is.
@@ -75,10 +97,9 @@ export function combineChanges(statuses: Iterable<ChangeStatus>): ChangeStatus {
 export function frameChange(
   tree: readonly RenderNode[],
   baseline: FrameTrace | undefined,
-  current: FrameTrace | undefined
+  current: FrameTrace | undefined,
+  status = compareTraces(baseline, current)
 ): FrameChange {
-  const status = compareTraces(baseline, current)
-
   if (status.state !== "changed" || !baseline?.components || !current?.components) {
     return { status }
   }
