@@ -74,7 +74,6 @@ const sentry = vi.hoisted(() => {
 vi.mock("@sentry/electron/renderer", () => sentry)
 
 const { replayPrivacy, pageHolds, zoomHold, followTelemetry } = await import("./replay.ts")
-const { scrubber } = await import("./telemetry.ts")
 
 const key = "sk-proj-4fT9xQ2mLw8ZpR7vK3nB6yH1"
 
@@ -138,14 +137,6 @@ describe("Session Replay's secrets (PAR-679)", () => {
       "Saved OPENAI_API_KEY [redacted] for Button.tsx"
     )
     expect(replayPrivacy.maskFn("primary-foreground")).toBe("primary-foreground")
-  })
-
-  it("scrubs the open project's .env values once main passes them on", () => {
-    const value = "staging-db-7781.internal"
-    expect(replayPrivacy.maskFn(`Connecting to ${value}`)).toBe(`Connecting to ${value}`)
-    scrubber.use([value])
-    expect(replayPrivacy.maskFn(`Connecting to ${value}`)).toBe("Connecting to [redacted]")
-    scrubber.use([])
   })
 
   it("scrubs what Replay adds beside the page, such as a click's breadcrumb", () => {

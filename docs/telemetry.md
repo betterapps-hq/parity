@@ -304,14 +304,25 @@ CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `befo
 - values it's given, such as a project's `.env` values read with `envSecrets()`
 
 The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
-`envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
-and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
-`setSecrets()`. The CLI's sender (`packages/cli/src/send.ts`) reads its own: the `.env` values of the projects the app
-has open, from `open-projects.json` in the app's data folder, and of the project each command ran in, from the folder it
-ran in up to the nearest `package.json`. Values it has read stay scrubbed for the rest of its run.
+`envSecrets()` whenever a project opens or closes and sends them to main, and its own telemetry gets them through
+`setSecrets()`. No window gets them, since a project's code runs in the editor window's and the render windows' pages
+and could read another project's values there (PAR-983). Windows scrub everything else themselves, and main scrubs the
+values from what they send as it passes through:
+
+- **Errors and transactions** reach Sentry through main, since Sentry Electron's renderer SDK sends them over its
+  `sentry-ipc://` protocol and main captures them again, so main's `beforeSend` and `beforeSendTransaction` scrub them.
+- **Events and spans a window records** go to main through `record`, which scrubs their attributes before the local copy
+  and Sentry's logs and spans get them (`scrubRecorded` in `apps/desktop/src/main/window-scrubbing.ts`).
+- **Replays** go from main straight to Sentry's transport without `beforeSend`, so main scrubs them in the client's
+  `beforeEnvelope` hook (`scrubReplays`). The replay's event is always scrubbed. Its recording, compressed or not, is
+  read only when it holds one of the values, and one main can't read is left out.
+
+The CLI's sender (`packages/cli/src/send.ts`) reads its own: the `.env` values of the projects the app has open, from
+`open-projects.json` in the app's data folder, and of the project each command ran in, from the folder it ran in up to
+the nearest `package.json`. Values it has read stay scrubbed for the rest of its run.
 
 Replays are scrubbed in the editor window as they're recorded, by the window's own scrubber, so they lose the same
-secrets, `.env` values included (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):
+secrets, apart from the `.env` values main scrubs (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):
 
 - **Text on screen** passes through the scrubber, node by node, as the recorder reads it and each time it changes.
   Styles and scripts don't.

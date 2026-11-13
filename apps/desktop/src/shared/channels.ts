@@ -20,7 +20,5 @@ export const ipc = {
   /** Main tells windows the account changed. */
   accountChanged: "canvas:account-changed",
   /** Main asks a window whether it may close. */
-  closing: "canvas:closing",
-  /** Main tells windows the open projects' `.env` values to scrub from telemetry changed. */
-  telemetrySecretsChanged: "canvas:telemetry-secrets-changed"
+  closing: "canvas:closing"
 } as const

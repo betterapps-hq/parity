@@ -45,8 +45,6 @@ export interface HostNeeds<Event, Window> {
     setLevel(level: TelemetryLevel): TelemetryState
     /** Starts or stops sending, as the setting now says. */
     apply(state: TelemetryState): void
-    /** The open projects' `.env` values the service last sent. */
-    secrets(): string[]
     /** Keeps an event or span a page recorded, named by the window that sent it. */
     // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: an envelope as a page sent it, which main's telemetry parses
     record(sent: unknown, event: Event): void
@@ -110,7 +108,6 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
       return state
     },
     record: (sent, event) => telemetry.record(sent, event),
-    telemetrySecrets: () => telemetry.secrets(),
 
     reportPrepare: (_nothing, window) => reports.prepare(window),
     reportSend: (report, window) => reports.send(window, report),

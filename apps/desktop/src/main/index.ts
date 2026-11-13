@@ -346,14 +346,11 @@ const projectService = createProjectService({
       return { taken }
     },
     record: (envelope) => void recordForwarded(envelope),
-    // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
+    // The open projects' `.env` values, scrubbed here from every process's events (PAR-672). No window gets them, since a
+    // project's code runs in its page (PAR-983).
     secrets: (secrets) => {
       projectSecrets = secrets.filter(isText)
       scrubber.use([...projectSecrets, ...connectorSecrets])
-
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(ipc.telemetrySecretsChanged, projectSecrets)
-      }
 
       return undefined
     },
@@ -707,7 +704,7 @@ const connectorHub = createConnectorHub({
 /** Connectors' keys, scrubbed from what main sends to Sentry. Windows never have them, so they aren't sent there. */
 let connectorSecrets: string[] = []
 
-/** The open projects' `.env` values the service last sent, which a window asks for as its telemetry starts (PAR-672). */
+/** The open projects' `.env` values the service last sent, scrubbed only here, never sent to a window (PAR-983). */
 let projectSecrets: string[] = []
 
 // Help > Report a problem, and the last run's crash (PAR-635).
@@ -874,7 +871,6 @@ answerWindows<HostEvent, BrowserWindow>({
       get: () => telemetrySetting.get(),
       setLevel: (level) => telemetrySetting.setLevel(level),
       apply: applyTelemetry,
-      secrets: () => projectSecrets,
       // Windows and render windows send the events they record, named by the window that sent them (PAR-627).
       record: (sent, event) => {
         const window = BrowserWindow.fromWebContents(event.sender)

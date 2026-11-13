@@ -74,8 +74,6 @@ export const hostMethods = {
    * it's sent as data.
    */
   record: { params: z.unknown(), oneWay: true, from: "any" },
-  /** The open projects' `.env` values to scrub from telemetry, which render windows scrub with too (PAR-672). */
-  telemetrySecrets: { result: answers<string[]>(), from: "any" },
 
   /** Help > Report a problem: the window's screenshot, as a PNG data URL, then the report, for its feedback ID (PAR-635). */
   reportPrepare: { result: answers<{ screenshot?: string }>() },

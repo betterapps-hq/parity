@@ -1,20 +1,19 @@
 import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
-import { createSentrySink, sentryScrubbing } from "@parity-app/telemetry"
+import { createScrubber, createSentrySink, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { Component, ErrorInfo } from "react"
 import { z } from "zod"
 import { recordInvalidData } from "../shared/invalid-data.ts"
-import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
 import { consoleCallStack, loggedByProject } from "./console-breadcrumbs.ts"
 
 /**
- * Scrubs secrets from what this window sends before it leaves, and main scrubs them again (PAR-621), the open projects'
- * `.env` values included, which main passes on from the service (PAR-672). The editor window's replays use it too
- * (`replay.ts`, PAR-679).
+ * Scrubs keys, tokens and passwords from what this window sends before it leaves (PAR-621). The open projects' `.env`
+ * values aren't given to the window, since a project's code runs in its page: main scrubs them from everything the window
+ * sends as it passes through (PAR-672, PAR-983). The editor window's replays use it too (`replay.ts`, PAR-679).
  */
-export const scrubber = secretScrubbing()
+export const scrubber = createScrubber()
 
 /**
  * Sends this window's uncaught errors to Sentry through main, which decides whether anything leaves the computer
@@ -25,7 +24,6 @@ export const scrubber = secretScrubbing()
 export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}): Telemetry<typeof registeredEvents> {
   // Named on each event, since this window's scope is copied into main's: the editor window, or an offscreen renderer.
   const kind = location.pathname.endsWith("/render.html") ? "render" : "renderer"
-  window.parityTelemetry?.onSecrets((secrets) => scrubber.use(secrets))
   const scrubbing = sentryScrubbing(scrubber, Sentry)
   Sentry.init({
     ...options,
@@ -71,8 +69,6 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
       onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
     })
   )
-
-  scrubber.follow(telemetry)
 
   return telemetry
 }

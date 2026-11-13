@@ -44,7 +44,6 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
       get: () => telemetryOn,
       setLevel: () => telemetryOn,
       apply: () => undefined,
-      secrets: () => [],
       record: () => undefined
     },
     reports: {
@@ -159,14 +158,13 @@ describe("telemetry", () => {
     expect(apply).toHaveBeenCalledExactlyOnceWith(off)
   })
 
-  it("passes on what a page recorded with who sent it, and gives any page the secrets to scrub", async () => {
+  it("passes on what a page recorded with who sent it", async () => {
     const record = vi.fn<HostNeeds<Sender, TestWindow>["telemetry"]["record"]>()
-    const handlers = hostHandlers(app({ telemetry: { ...app().telemetry, record, secrets: () => ["hunter2"] } }))
+    const handlers = hostHandlers(app({ telemetry: { ...app().telemetry, record } }))
     const render: Sender = { page: "render" }
     const envelope = { name: "frame.rendered" }
     await handlers.record(envelope, render)
     expect(record).toHaveBeenCalledExactlyOnceWith(envelope, render)
-    expect(await handlers.telemetrySecrets(undefined, render)).toEqual(["hunter2"])
   })
 })
 
