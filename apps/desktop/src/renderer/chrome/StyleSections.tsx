@@ -85,11 +85,8 @@ export function StyleSections({
   only?: StyleSection
 }) {
   const can = selectionCapabilities(container ?? noRoot, editor.selection.layers, takesStyle)
-  const parts = styleParts(can)
-  const { controls } = parts
-  const sections = only
-    ? parts.sections.filter((section) => section === only || section === groups[only]?.holds)
-    : parts.sections
+  const { sections: all, controls } = styleParts(can)
+  const sections = only ? all.filter((section) => section === only || section === groups[only]?.holds) : all
   const { edit, live } = useEditSession(editor)
   const tokens = useMemo(() => projectTokenSets(editor.tokens), [editor.tokens])
   const root = container?.root
