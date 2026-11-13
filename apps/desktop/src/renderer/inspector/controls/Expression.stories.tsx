@@ -18,7 +18,7 @@ import { TextSample } from "./text-preview.tsx"
  * focus back on the field.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Expression",
+  title: "Parity/Inspector/Fields/Expression",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

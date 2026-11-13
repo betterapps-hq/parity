@@ -20,7 +20,7 @@ import type { StoredObject, Writes } from "./writes.ts"
  * Weight offers.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Unique/Weight and style",
+  title: "Parity/Inspector/Fields/Weight and style",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -20,7 +20,7 @@ import { lengthWrites, type Writes } from "./writes.ts"
  * reason under it, whether Enter is pressed or the field is left; Escape puts the value back.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Number field",
+  title: "Parity/Inspector/Fields/Number field",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

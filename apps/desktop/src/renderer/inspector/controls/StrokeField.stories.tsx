@@ -18,7 +18,7 @@ import { strokeWrites } from "./writes.ts"
  * put it back in layout.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Stroke",
+  title: "Parity/Inspector/Rows/Stroke",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

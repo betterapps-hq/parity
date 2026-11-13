@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Selection headers no longer offer Open in editor; its design is kept as an exploration",
+  "comment": "A component's props are one section, on a component design and on any instance",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

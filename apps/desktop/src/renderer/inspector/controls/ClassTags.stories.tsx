@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { ClassTagsField } from "./class-tags.tsx"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
 
@@ -11,7 +10,7 @@ import { Playground } from "./playground.tsx"
  * or Tab to add one; paste several at once; Backspace in the empty input takes the last back to edit.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Class names",
+  title: "Parity/Inspector/Fields/Class names",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -44,21 +43,5 @@ function ClassNames({ start }: { start: string[] }) {
 /** Button's two classes: `w-full`, and `sm:w-auto` with its variant faint. */
 export const Classes: Story = { render: () => <ClassNames start={["w-full", "sm:w-auto"]} /> }
 
-/** Enough classes to wrap onto a second line. */
-export const Wrapping: Story = {
-  render: () => (
-    <ClassNames start={["inline-flex", "items-center", "gap-2", "rounded-md", "px-4", "py-2", "hover:bg-primary/90"]} />
-  )
-}
-
 /** None yet: the empty box says Add classes. */
 export const Empty: Story = { render: () => <ClassNames start={[]} /> }
-
-/** Changed in the state being edited (PAR-1020): the change mark on the box's corner. */
-export const Changed: Story = {
-  render: () => (
-    <MarkChanged>
-      <ClassNames start={["w-full", "sm:w-auto"]} />
-    </MarkChanged>
-  )
-}

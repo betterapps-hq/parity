@@ -17,7 +17,7 @@ import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
  * Beside it, what it stores and what it writes as CSS and as Tailwind.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Color field",
+  title: "Parity/Inspector/Fields/Color field",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

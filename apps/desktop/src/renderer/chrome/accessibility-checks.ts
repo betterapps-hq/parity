@@ -35,6 +35,9 @@ type CheckedSession = Pick<ProjectSession, "id" | "store" | "untilClosed">
 /** One open project's accessibility checks, by design, while its tab is open. */
 class Checks {
   private readonly checks = new Map<string, Check>()
+  /** Each design's newest check, which is the only one whose reply is shown. */
+  private readonly newest = new Map<string, number>()
+  private asked = 0
   private readonly listeners = new Set<() => void>()
   private disposed = false
 
@@ -50,12 +53,17 @@ class Checks {
     return () => this.listeners.delete(listener)
   }
 
-  /** Renders the design offscreen in every state and shown mode, and checks each frame with axe-core. */
+  /**
+   * Renders the design offscreen in every state and shown mode, and checks each frame with axe-core. Checking a design
+   * again while it's being checked shows only the newest check's reply, whichever lands first (PAR-979).
+   */
   async run(entry: ContainerEntry): Promise<void> {
     if (this.disposed) {
       return
     }
 
+    const asked = ++this.asked
+    this.newest.set(entry.key, asked)
     const checked = { container: entry.container, modes: this.session.store.getModes() }
     const checking: Check = { ...checked, status: "checking" }
     const previous = findingsOf(this.checks.get(entry.key))
@@ -66,11 +74,17 @@ class Checks {
 
     this.set(entry.key, checking)
 
+    const answer = (check: Check) => {
+      if (this.newest.get(entry.key) === asked) {
+        this.set(entry.key, check)
+      }
+    }
+
     try {
       const result = await request("accessibility.check", { projectId: this.session.id, design: entry.key })
-      this.set(entry.key, { ...checked, status: "done", ...result })
+      answer({ ...checked, status: "done", ...result })
     } catch (error) {
-      this.set(entry.key, {
+      answer({
         ...checked,
         status: "failed",
         error: error instanceof Error ? error.message : String(error)
@@ -82,6 +96,7 @@ class Checks {
   dispose(): void {
     this.disposed = true
     this.checks.clear()
+    this.newest.clear()
     this.listeners.clear()
   }
 

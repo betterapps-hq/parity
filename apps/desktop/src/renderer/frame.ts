@@ -279,7 +279,7 @@ let rewritingRules = false
  * Viewport units and `rem` in rules the project's code adds to a stylesheet while it runs, as CSS-in-JS does in
  * production, measure the frame's window and root font too, as its stylesheets' do. They're rewritten as they're added,
  * wherever that is. That changes nothing outside a frame, where the custom properties aren't set, so the units still
- * measure Parity's window and root.
+ * measure Parity's window and root. It's done once for the page's whole life, so it's never undone.
  */
 function rewriteAddedRules(): void {
   if (rewritingRules) {

@@ -17,7 +17,7 @@ import { Playground } from "./playground.tsx"
  * Classes grows with its classes, with a handle to drag it taller.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Raw CSS value",
+  title: "Parity/Inspector/Fields/Raw CSS value",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
