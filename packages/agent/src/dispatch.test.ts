@@ -635,7 +635,7 @@ describe("report", () => {
 
   it("sends nothing when a frame fails partway through drawing", async () => {
     const { host, asked } = severalFramesHost()
-    const render = host.render
+    const render = host.render.bind(host)
 
     host.render = (snapshot, request) =>
       request.mode.id === "mobile-light" ? Promise.reject(new Error("The window closed")) : render(snapshot, request)
@@ -802,7 +802,7 @@ describe("exportPictures", () => {
 
   it("leaves out a frame that fails to draw, with a warning, and still exports the rest", async () => {
     const { host, tab } = severalFramesHost()
-    const render = host.render
+    const render = host.render.bind(host)
 
     host.render = async (snapshot, request) =>
       request.state === "error"
