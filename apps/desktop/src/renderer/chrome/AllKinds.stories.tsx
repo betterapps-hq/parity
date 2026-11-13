@@ -18,8 +18,9 @@ const meta = {
   title: "Parity/Inspector/Layers/All kinds",
   render: () => <KindColumns />,
   decorators: [
+    // The app's page doesn't scroll, so the stage does, both ways, as the columns run past the window.
     (Story) => (
-      <ProjectStage className="min-h-screen bg-background text-foreground">
+      <ProjectStage className="h-screen overflow-auto bg-background text-foreground">
         <Story />
       </ProjectStage>
     )
@@ -43,7 +44,7 @@ const columns = [
 
 function KindColumns() {
   return (
-    <div className="flex items-start divide-x overflow-x-auto">
+    <div className="flex w-max items-start divide-x">
       {columns.map((column) => {
         const id = "id" in column ? column.id : node(column.design, column.layer)
 
