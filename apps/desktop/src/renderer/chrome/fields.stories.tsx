@@ -19,7 +19,7 @@ import { booleanValue, numberValue, type PropValue, textValue } from "./prop-val
  * say under the row what they couldn't read.
  */
 const meta = {
-  title: "Parity/Inspector/Fields",
+  title: "Parity/Inspector/Fields/All fields",
   component: EveryField,
   args: { look: "set" },
   // A new look starts from that look's values.

@@ -2,6 +2,33 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 23:58:16 GMT",
+      "version": "0.77.1",
+      "tag": "@parity-app/desktop_v0.77.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a9b2d5e33f29cca8eca89efc9cd877fec787bd8d",
+            "comment": "Selection headers no longer offer Open in editor; its design is kept as an exploration"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ccc41852b9bb12e0f64e568cb38ddcba508d7df7",
+            "comment": "Show the newest accessibility check's result when a design is checked again before the last check answers (PAR-979)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a4c5e1d5797ce71ee7c78a115472957faf546b99",
+            "comment": "Class names and a slot's layer share one chips field built on the kit's Combobox chips"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 23:26:30 GMT",
       "version": "0.77.0",
       "tag": "@parity-app/desktop_v0.77.0",

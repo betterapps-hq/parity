@@ -19,7 +19,7 @@ import { TextSample } from "./text-preview.tsx"
  * name says it changes with the viewport. Rows a preset doesn't set stay ordinary rows.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Typography preset",
+  title: "Parity/Inspector/Rows/Typography preset",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -14,7 +14,7 @@ import { colorWrites } from "./writes.ts"
  * read, with the reason under them.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Color picker",
+  title: "Parity/Inspector/Fields/Color picker",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

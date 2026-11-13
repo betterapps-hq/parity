@@ -18,7 +18,7 @@ import { inState, mixedWrites, radiusWrites } from "./writes.ts"
  * corner opens Corner shape, marked † as Chromium only. Up and Down step a token through the scale.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Token length",
+  title: "Parity/Inspector/Fields/Token length",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -21,7 +21,7 @@ import { mixedWrites } from "./writes.ts"
  * a turn, where only the direction matters, as a gradient's Angle does.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Angle",
+  title: "Parity/Inspector/Fields/Angle",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

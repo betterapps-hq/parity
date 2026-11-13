@@ -848,30 +848,34 @@ says so.
   file when none is. A named editor that isn't installed says so in a toast, with where to choose another.
 - **Finding one:** each editor's command on PATH (`code`, `cursor`, `windsurf`, `zed`), on Windows with PATHEXT's
   extensions, as `code` is `code.cmd`. On macOS and Linux the usual folders are searched too, since an app the Dock
-  starts has only the system's PATH. It's started apart from Parity, so it stays open when Parity quits.
+  starts has only the system's PATH. It's started apart from Parity, so it stays open when Parity quits. On Windows the
+  command is a batch file that runs through `cmd.exe`, so the path is escaped for it: a folder named `R&D` or
+  `100%PATH%` opens as it's spelled, without `cmd.exe` acting on `&` or expanding `%PATH%` (PAR-982).
 - **The line:** the export's declaration, read from the file when it's opened: `export function Button`, or the
   `function Badge` that shadcn's `export { Badge }` names. When neither is in the file, as for one re-exported from
   another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
 
-Code: `codeEditors`, `editorsFor`, `commandPaths` and `exportLine` in `packages/core/src/code-editors.ts`;
-`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `hostMethods`' `openInEditor`, whose request
-`openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile` and `viewCode` in
-`renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`; the
-setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+Code: `codeEditors`, `editorsFor`, `commandPaths`, `batchCommandLine` and `exportLine` in
+`packages/core/src/code-editors.ts`; `openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `hostMethods`'
+`openInEditor`, whose request `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile`
+and `viewCode` in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by
+`chrome/AssetsPanel.tsx`; the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
 
-Tests: `packages/core/src/code-editors.test.ts` (10: the editors each choice tries; VS Code's and Zed's arguments; the
-paths on PATH on Windows and elsewhere; and the export's line for a function, constant or class, one an export list
-names, a list over several lines, a longer name that isn't it, a default export, a declared one, a missing one, and
-Windows line endings). `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file
-from a Windows or POSIX root, and a library component's declarations, or none).
-`apps/desktop/src/shared/ipc-checks.test.ts` (2: a request is a file's absolute path and an editor Settings lists, and
-nothing more; every listed editor is taken) and `apps/desktop/src/main/host-methods.test.ts` (a good request reaches its
-handler; a path that isn't absolute, an editor Settings doesn't list, an unknown field or a request that isn't an object
-is refused before it, with the field at fault). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode,
-StorybookNotRunning, WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and
-FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in
-`main/code-editor.ts` have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at
-`button.tsx:43`, its `function Button`, and Badge's menu said "Starts Storybook" with none running.
+Tests: `packages/core/src/code-editors.test.ts` (12: the editors each choice tries; VS Code's and Zed's arguments; the
+paths on PATH on Windows and elsewhere; the batch file's command line, escaped for `cmd.exe`, and on Windows a path with
+`&`, `%PATH%`, `!`, `^` and brackets passed through `cmd.exe` and a batch file as it's spelled; and the export's line
+for a function, constant or class, one an export list names, a list over several lines, a longer name that isn't it, a
+default export, a declared one, a missing one, and Windows line endings).
+`apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file from a Windows or POSIX
+root, and a library component's declarations, or none). `apps/desktop/src/shared/ipc-checks.test.ts` (2: a request is a
+file's absolute path and an editor Settings lists, and nothing more; every listed editor is taken) and
+`apps/desktop/src/main/host-methods.test.ts` (a good request reaches its handler; a path that isn't absolute, an editor
+Settings doesn't list, an unknown field or a request that isn't an object is refused before it, with the field at
+fault). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode, StorybookNotRunning, WithoutStories,
+NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and FailingToDraw in
+`chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in `main/code-editor.ts`
+have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
+`function Button`, and Badge's menu said "Starts Storybook" with none running.
 
 ## Reading the code
 
@@ -3445,8 +3449,8 @@ Tests:
   Preset, Overriding A Preset and Changes With The Viewport, for review.
 - `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
-- `inspector/controls/SlotPicker.stories.tsx` (Controls › Fields › Slot picker): Filled selects the layer from its chip
-  and clears the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+- `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
+  the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
 ### One Props section (PAR-1030)
 
@@ -3523,6 +3527,23 @@ Tests:
 - `chrome/AppSelect.stories.tsx` InAPanel and InADialog: each opens its select and checks its items sit in a group
   padded 4px, at 12px and 13px.
 - `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
+
+### Chips (PAR-1035)
+
+A field of tags, such as class names or the layer in a slot, is one component, `AppChips`, built from the kit's Combobox
+chips. A chip reads at the panel's 10px with an × that removes it, and the box grows onto more lines as chips are added.
+A chip too long for the box truncates. Backspace in the empty input removes the last chip. Given options, typing in the
+input lists the matches under the box in groups, and picking one adds it as a chip. When nothing matches, the list says
+No matches. Keyboard use, focus and names are Base UI's.
+
+Code: `AppChips`, `AppChip` and `AppChipsInput` in `apps/desktop/src/renderer/chrome/AppChips.tsx`, used by
+`ClassTagsField` in `inspector/controls/class-tags.tsx` and `SlotPickerField` in `inspector/controls/slot-picker.tsx`;
+the `no-restricted-imports` entry for `apps/**` in `vite.config.ts` stops other files importing the kit's chip parts.
+
+Tests:
+
+- `chrome/AppChips.stories.tsx` Removing, BackspaceRemovesTheLast, Searching and NothingMatches: removing a chip by its
+  × and by Backspace, picking a match, and the empty list.
 
 ### One right edge in the inspector (PAR-552)
 
@@ -4989,6 +5010,8 @@ the style to set.
   rather than emptying the panel.
 - **Each tab's checks.** A tab keeps its designs' checks until it closes, when they go, and a check still running then
   is let go (PAR-1005).
+- **The newest check wins.** Checking a design again before the last check answers shows only the newest check's result,
+  whichever reply lands first; an older one's result or failure is dropped (PAR-979).
 
 Code: `contrastFix` and `contrastRatio` in `packages/tokens/src/contrast.ts`, `colorDistance` in
 `packages/tokens/src/color.ts`; the frame's readings (`contrastReadings`, `follows`, `tokenColors`) in
@@ -5001,10 +5024,11 @@ frames, preferred tokens and the fallback, large text, no token); `packages/agen
 failures the token that passes in every frame", "gives no contrast fix when coloring the layer wouldn't reach its
 text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set");
 `apps/desktop/src/renderer/project-part.test.ts` (the checks forgotten when the tab closes, and one running then let
-go); and `chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken,
-OutOfDate, CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the
-frame's readings in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so
-a state that sets its own `color` keeps it.
+go); `chrome/accessibility-checks.test.ts` (two checks answered out of order show the second's result, an older reply
+landing first leaves it checking, and an older failure is dropped); and `chrome/AccessibilityPanel.stories.tsx`:
+ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate, CheckingAgain, ManyFindings (the tally) and
+LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings in `render.ts` need the offscreen window, so
+they have no automated test; a fix sets the base style, so a state that sets its own `color` keeps it.
 
 ### Naming a layout or text layer (PAR-913)
 
@@ -7490,6 +7514,10 @@ labels. `packages/agent/src/dispatch.test.ts` checks that a sheet call saves one
 `apps/desktop/src/utility/webp.test.ts` that frames are scaled into their boxes over the overlay, and
 `packages/cli/src/operations.test.ts` that both transports send `sheet` and MCP returns the sheet as an image while
 `--json` leaves its data out. A sheet of three states by two modes was drawn with real fonts and checked by eye.
+
+Screenshots and sheets are kept as PNGs in `~/.parity/screenshots`, named by their design, state and mode through
+`fileName` in `packages/agent/src/dispatch.ts`, as exports are, so an id holding `..\` or `:` can't put a file anywhere
+else (PAR-982). `packages/agent/src/dispatch.test.ts` checks a screenshot's and a sheet's names for one.
 
 ### What a component goes inside (PAR-454)
 
