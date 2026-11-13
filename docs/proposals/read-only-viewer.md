@@ -9,9 +9,9 @@ CSS and attributes, accessibility findings and live changes. Writing back to the
 
 ## What's assumed
 
-- **One stack, behind adapters.** React 19, TypeScript 7 and Vite 8 or later, one adapter each, keeping the boundaries
+- **One stack, behind adapters.** React 19, TypeScript and Vite 8 or later, one adapter each, keeping the boundaries
   [support.md](../support.md) sets out so other tools can follow. React 18 and earlier, Vite 7 and earlier, and other
-  frameworks aren't built for.
+  frameworks aren't built for. No particular TypeScript version is required.
 - **No Storybook for now.** Sample props come from each component's types. Stories can supply them later.
 - **Read-only first.** Nothing on the canvas writes to the project until the read-only view, accessibility checks and
   change detection all work.
@@ -29,18 +29,34 @@ CSS and attributes, accessibility findings and live changes. Writing back to the
   layer draws.
 - **Accessibility checks:** axe runs on frames for agents.
 
-## How the app finds what's drawn
+## The sources it needs
 
-Each source answers a different question, so the viewer uses all four:
+Five sources, each answering something no other one can. Four exist today; the router is new.
 
-| Source                                    | Answers                                                                                  |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------- |
-| TypeScript checker                        | Which components exist, their props and types, and the route files                       |
-| Parity's compile-time pass (Vite plugin)  | Where each element is written: `data-parity-source` today, more facts as they're needed  |
-| React DevTools' global hook, in the frame | What's drawn: component instances, their props, the elements each one owns, every commit |
-| The DOM                                   | Computed CSS, attributes, the accessibility tree and axe findings                        |
+| Source             | Gives                                                                | Without it                                                                                                 |
+| ------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| TypeScript checker | Which components exist, their props and the props' types             | Only components something already draws show up, with no props panel and nothing to make sample props from |
+| Source tags        | The file, line and column that wrote each element                    | No link from a layer to its code, so nothing to open, and nowhere to write back to later                   |
+| React's tree       | Component instances, where each starts and ends, their props' values | Layers are bare elements: no component boundaries, and nothing for a library component's parts             |
+| The DOM            | Computed CSS, attributes, the accessibility tree and axe findings    | No Design panel values and no accessibility checks                                                         |
+| The router         | The routes, so pages can be grouped and drawn                        | Components only, no pages                                                                                  |
 
-### React DevTools' global hook
+Vite isn't a source but the host for three of them: it draws the frames, runs the transform that adds the source tags,
+and says which files changed.
+
+Why the overlap doesn't make any of them optional:
+
+- **Source tags don't replace React's tree.** They're only on elements the project's own files write, so the parts of a
+  component from `node_modules` have none, and they say where an element is written, not which instance drew it or with
+  what props.
+- **React's tree doesn't replace the source tags.** React 19 dropped `_debugSource`, so a fiber no longer says where it
+  was written. Its `_debugStack` does, as a stack trace that needs source maps to read, which is slower and less
+  reliable than a tag.
+- **The DOM doesn't replace React's tree.** It has the elements and their CSS, but not the components around them.
+
+### React's tree: the root walk or DevTools' hook
+
+The hook isn't another source: it's a better way into React's tree than the root walk Parity does today.
 
 React looks for `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` when it loads. Parity controls the frame's script order, so it
 can install its own hook before the project's React. React then calls `inject` with its renderer and `onCommitFiberRoot`
@@ -61,7 +77,7 @@ it:
 
 Recommendation: Parity's own hook, growing from `drawn-nodes.ts`.
 
-### React Compiler
+### React Compiler: not needed
 
 React Compiler is an optimizer: a Babel plugin that adds memoization to components that follow the Rules of React, and
 skips the ones that don't. It doesn't describe components, and its internal representation isn't a public API, so the
@@ -140,4 +156,4 @@ Parity didn't make, that takes no `className` or `style`, is wrapped in an adapt
 ## Decisions needed
 
 1. **The hook:** Parity's own, or React DevTools' backend as a dependency. Recommendation: Parity's own.
-2. **The example project:** move it to TypeScript 7 and add TanStack Router.
+2. **The example project:** add TanStack Router, so routes have something to be built against.
