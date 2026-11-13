@@ -11,7 +11,15 @@ import { describe, expect, it } from "vite-plus/test"
 import type { z } from "zod"
 import type { requests } from "./contracts.ts"
 import { type AgentMethod, replies } from "./contracts.ts"
-import { type AgentHost, type Answer, answerRequest, type Caller, dispatch, exportPictures } from "./dispatch.ts"
+import {
+  type AgentHost,
+  type Answer,
+  answerRequest,
+  type Caller,
+  dispatch,
+  exportPictures,
+  framePictures
+} from "./dispatch.ts"
 import type {
   AgentChangeSet,
   AgentReport,
@@ -614,6 +622,29 @@ describe("report", () => {
     expect(answer).toMatchObject({ feedbackId: "f1", tags: {} })
   })
 
+  it("sends a frame for each mode the design shows, in the state named", async () => {
+    const { host, asked } = severalFramesHost()
+    await dispatch("report", { message: "Wrong error text", design: "signup", state: "error" }, host)
+    const [sent] = asked.reports
+    expect(sent?.tags).toEqual({ tab: "App", design: "signup", state: "error" })
+    expect(sent?.frames.map((frame) => frame.name)).toEqual([
+      "signup error desktop-light.png",
+      "signup error mobile-light.png"
+    ])
+  })
+
+  it("sends nothing when a frame fails partway through drawing", async () => {
+    const { host, asked } = severalFramesHost()
+    const render = host.render
+
+    host.render = (snapshot, request) =>
+      request.mode.id === "mobile-light" ? Promise.reject(new Error("The window closed")) : render(snapshot, request)
+
+    const refused = dispatch("report", { message: "Off", design: "signup" }, host)
+    await expect(refused).rejects.toThrow("The window closed")
+    expect(asked.reports).toEqual([])
+  })
+
   it("fails as a screenshot would for a design that isn't there, and sends nothing", async () => {
     const { host, asked } = fixtureHost()
     const refused = dispatch("report", { message: "Off", design: "Checkout" }, host)
@@ -733,11 +764,74 @@ describe("answerRequest", () => {
   })
 })
 
+/** The fixture host, its sign-up design in two states, Default and Error, and showing Mobile Light beside Desktop Light. */
+function severalFramesHost() {
+  const fixture = fixtureHost()
+  const signup = fixture.tab.documents[0]!.document.containers[0]!
+  signup.states = [
+    { id: "default", name: "Default" },
+    { id: "error", name: "Error" }
+  ]
+  signup.view = { modes: ["mobile-light"] }
+
+  return fixture
+}
+
 describe("exportPictures", () => {
   it("names each picture by its design, with the scale when it isn't 1", async () => {
     const { host, tab } = fixtureHost()
     const { files } = await exportPictures(host, tab, ["signup"], 2)
     expect(files).toEqual([{ name: "Sign up@2x.png", png: "iVBOR" }])
+  })
+
+  it("draws every state in each mode shown, naming each picture by its state and mode", async () => {
+    const { host, tab, asked } = severalFramesHost()
+    const { files, warnings } = await exportPictures(host, tab, ["signup"], 1)
+
+    expect(files.map((file) => file.name)).toEqual([
+      "Sign up Default Desktop Light.png",
+      "Sign up Default Mobile Light.png",
+      "Sign up Error Desktop Light.png",
+      "Sign up Error Mobile Light.png"
+    ])
+
+    expect(warnings).toEqual([])
+    expect(asked.frames.map((frame) => frame.scale)).toEqual([1, 1, 1, 1])
+    expect(asked.presence).toEqual([])
+  })
+
+  it("leaves out a frame that fails to draw, with a warning, and still exports the rest", async () => {
+    const { host, tab } = severalFramesHost()
+    const render = host.render
+
+    host.render = async (snapshot, request) =>
+      request.state === "error"
+        ? { ...(await render(snapshot, request)), png: undefined, error: "Boom" }
+        : render(snapshot, request)
+
+    const { files, warnings } = await exportPictures(host, tab, ["signup"], 1)
+    // Only one state drew, so the names leave the state out, as for a design with one.
+    expect(files.map((file) => file.name)).toEqual(["Sign up Desktop Light.png", "Sign up Mobile Light.png"])
+    expect(warnings).toEqual([expect.stringContaining("Boom")])
+  })
+
+  it("fails with the design's coded error when one partway through the list isn't there", async () => {
+    const { host, tab, asked } = fixtureHost()
+    const refused = exportPictures(host, tab, ["signup", "checkout"], 1)
+    await expect(refused).rejects.toMatchObject({ details: { code: "unknown_design" } })
+    expect(asked.frames.map((frame) => frame.design)).toEqual(["app.par#signup"])
+  })
+})
+
+describe("framePictures", () => {
+  it("draws each design once at each scale, in the state it shows and its main mode", async () => {
+    const { host, tab } = severalFramesHost()
+    const { frames } = await framePictures(host, tab, ["signup"], [1, 2])
+
+    expect(frames.map(({ design, state, mode, scale }) => ({ design, state, mode, scale }))).toEqual([
+      { design: "signup", state: "default", mode: "desktop-light", scale: 1 },
+      { design: "signup", state: "default", mode: "desktop-light", scale: 2 }
+    ])
   })
 })
 

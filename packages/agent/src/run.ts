@@ -30,12 +30,6 @@ export interface SnippetLimits {
 export const agentLimits: SnippetLimits = { total: 120_000, stretch: 5000 }
 
 /**
- * The app's own snippets, which export or report designs by screenshotting each in a list they're given, take as long
- * as those renders do, however many there are.
- */
-export const appLimits: SnippetLimits = { total: Number.POSITIVE_INFINITY, stretch: 5000 }
-
-/**
  * Each tab keeps one context, so values assigned without `const` or `let` carry over to the next call, with its own
  * `Promise`, which `run` hands the snippet API calls' results as.
  */
@@ -53,9 +47,9 @@ const nothing = new Script("undefined")
 const failed = new Map<string, string>()
 
 /**
- * Runs an agent's snippet against a working copy of a tab. It either succeeds and returns every change, applied as one
- * step through `hooks.apply` when given, or fails and changes nothing, returning an `editId` to retry with. A call
- * whose changes conflict with what changed in the editor since the snapshot fails the same way, naming the designs.
+ * Runs an agent's snippet against a working copy of a tab, as `perform` runs any call. It either succeeds and returns
+ * every change, applied as one step through `hooks.apply` when given, or fails and changes nothing, returning an
+ * `editId` to retry with.
  */
 export async function execute(
   request: ExecRequest,
@@ -72,11 +66,51 @@ export async function execute(
     })
   }
 
-  const workspace = new AgentWorkspace(snapshot, hooks, request.label)
+  const done = await perform(snapshot, hooks, request.label, (api) => run(snapshot.tab, code, api, limits))
+
+  if (done.ok) {
+    if (request.editId) {
+      failed.delete(request.editId)
+    }
+
+    return execResult(done)
+  }
+
+  const editId = request.editId ?? randomUUID().slice(0, 8)
+  failed.set(editId, code)
+
+  return { ...execResult(done), editId }
+}
+
+/** What a call's working copy gives when it's done: what changed, what it drew, printed and found worth fixing. */
+type WorkspaceResult = ReturnType<AgentWorkspace["result"]>
+
+/**
+ * What a call came to: what `calls` returned, with the working copy's result, or what they threw, with what they
+ * printed before it.
+ */
+type Performed<T> = ({ ok: true; value: T } & WorkspaceResult) | { ok: false; error: unknown; output: string[] }
+
+/**
+ * Runs one call against a working copy of a tab: `calls` gets the agent API, as functions that take data, and the
+ * caller's cursor shows it start and end. What changed is applied as one step through `hooks.apply` when given. When
+ * `calls` throws, or its changes conflict with what changed in the editor since the snapshot, nothing is applied.
+ *
+ * This is the one place a call's workspace is built (PAR-1053). An agent's snippet comes through `execute`, whose
+ * `calls` runs it in the tab's vm under its time limits. The app's own calls, such as Export's and Report's screenshots
+ * of states × modes, call the API directly, so no snippet's time limit cuts them off, however many frames they draw.
+ */
+export async function perform<T>(
+  snapshot: AgentSnapshot,
+  hooks: AgentHooks,
+  label: string,
+  calls: (api: AgentApi) => Promise<T>
+): Promise<Performed<T>> {
+  const workspace = new AgentWorkspace(snapshot, hooks, label)
   workspace.emit({ kind: "start" })
 
   try {
-    await run(snapshot.tab, code, workspace.api(), limits)
+    const value = await calls(workspace.api())
     await workspace.checkTokenKinds()
     const result = workspace.result()
     const { designs, modes, tokens, references = [] } = result.changes
@@ -89,33 +123,36 @@ export async function execute(
       }
     }
 
-    if (request.editId) {
-      failed.delete(request.editId)
-    }
-
     workspace.emit({ kind: "end" })
     workspace.flush()
 
-    return { ok: true, ...result }
+    return { ok: true, value, ...result }
   } catch (error) {
-    const editId = request.editId ?? randomUUID().slice(0, 8)
-    failed.set(editId, code)
-    const message = describeError(error)
-    workspace.emit({ kind: "end", error: message })
+    workspace.emit({ kind: "end", error: describeError(error) })
     workspace.flush()
 
-    return {
-      ok: false,
-      error: message,
-      details: errorDetails(error) ?? { code: "execution_failed", retryable: false },
-      editId,
-      output: workspace.output,
-      warnings: [],
-      warningGroups: [],
-      screenshots: [],
-      created: {},
-      changes: { designs: [], tokens: [] }
-    }
+    return { ok: false, error, output: workspace.output }
+  }
+}
+
+/** A call's outcome as a snippet's result: a failure says why, with its code, and changes nothing. */
+export function execResult(done: Performed<unknown>): ExecResult {
+  if (done.ok) {
+    const { value: _value, ...result } = done
+
+    return result
+  }
+
+  return {
+    ok: false,
+    error: describeError(done.error),
+    details: errorDetails(done.error) ?? { code: "execution_failed", retryable: false },
+    output: done.output,
+    warnings: [],
+    warningGroups: [],
+    screenshots: [],
+    created: {},
+    changes: { designs: [], tokens: [] }
   }
 }
 

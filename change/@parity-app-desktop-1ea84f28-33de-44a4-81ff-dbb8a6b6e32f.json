@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Export and Report draw their frames through the agent API as functions, not as snippets in the vm, so no snippet time limit applies to them",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
