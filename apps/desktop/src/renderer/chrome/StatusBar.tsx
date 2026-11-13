@@ -2,6 +2,7 @@ import type { StatusItem } from "@parity-app/core"
 import { Blocks, CircleX, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
 import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 import type { ReactNode } from "react"
+import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
@@ -53,12 +54,12 @@ export function StatusBar() {
       ))}
       <Item
         icon={<Blocks className="size-3.5" />}
-        hint={`${plural(info.componentCount, "component")} in code`}
-        detail="Click to show them"
+        hint={plural(info.componentCount, "component")}
+        detail={`${componentOrigins(info)}. Click to show them`}
         onClick={() => openTab("components")}
       >
         <strong className="font-medium text-foreground">{info.componentCount}</strong>
-        <Words> {info.componentCount === 1 ? "component" : "components"} in code</Words>
+        <Words> {noun(info.componentCount, "component")}</Words>
       </Item>
       <Item
         icon={<Palette className="size-3.5" />}
@@ -88,6 +89,23 @@ export function StatusBar() {
 /** An adapter's icon by its Lucide name, or a plain one for a name Lucide doesn't have. */
 function iconName(name: string): IconName {
   return iconNames.find((each) => each === name) ?? "circle"
+}
+
+/** Where the components come from: how many are the app's own, then how many each library gives, as "120 from the app". */
+function componentOrigins(info: ProjectInfo): string {
+  const counts = new Map<string | undefined, number>()
+
+  for (const source of Object.values(info.sources)) {
+    counts.set(source.library, (counts.get(source.library) ?? 0) + 1)
+  }
+
+  const libraries = info.libraries.flatMap((library) => {
+    const count = counts.get(library.id)
+
+    return count ? [`${count.toLocaleString()} from ${library.name}`] : []
+  })
+
+  return [`${(counts.get(undefined) ?? 0).toLocaleString()} from the app`, ...libraries].join(", ")
 }
 
 function plural(count: number, word: string): string {

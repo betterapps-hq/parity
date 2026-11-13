@@ -7016,9 +7016,9 @@ The editor's labels, menus, hints, toasts and undo labels use one glossary (PAR-
 - **Undoing a view change has no step, but its label says what changed** ("Show Dark", "Show every state"), for anything
   that lists it later.
 - **A screen's icon is lucide's AppWindow,** a window with its title bar, and a component's is still Component. The
-  status bar says how many components are in code ("587 components in code"), the screen inspector's section that finds
-  repeated parts is Repeated parts, and the Components panel lists the project's own as Local components and a library's
-  ready-made ones as Ready-made components.
+  status bar says how many components there are ("587 components", its tooltip saying how many are the app's and how
+  many each library's), the screen inspector's section that finds repeated parts is Repeated parts, and the Components
+  panel lists the project's own as Local components and a library's ready-made ones as Ready-made components.
 
 Code: `kindName`, `kindTitle` and `kindsName` in `packages/editor/src/kind-names.ts` name screens and components for a
 label; `DesignStore.designsLabel` names selected ones by key, and `modeNames` in
@@ -7288,7 +7288,9 @@ keeps the page still, but such an element would sit outside its panel.
 ### Each tool's status bar item comes from its adapter
 
 The status bar starts with an item for each of the project's tools, which that tool's adapter writes, then the
-components and tokens Parity found. A new adapter adds its items without the app changing.
+components and tokens Parity found. A new adapter adds its items without the app changing. The components item says just
+the count ("376 components"); its tooltip splits it into the app's own and each library's, as "5 from the app, 371 from
+Shadcn Nova".
 
 - **An adapter says what its item is.** Any adapter (renderer, builder, styles, router or entities) can have `status`,
   which returns `StatusItem`s: a Lucide icon by name, a bold value, the words after it, the tooltip's title and line,
