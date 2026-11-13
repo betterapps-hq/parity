@@ -5919,18 +5919,17 @@ means "this picture isn't for this key", and stayed yellow after an edit was und
   key changes, all the canvas's frames in one request, and whenever its project's baseline moves: the git detector
   watches the repository's git folder, and a change to `HEAD` or the index, as a commit, a checkout or staging makes,
   sends the window `project.committed`. `useFrameChange` and `useDesignChange` read the answers.
-- **For now, a changed board has a yellow edge,** two screen pixels wide at any zoom, until change detection has a
-  design of its own. It also has `data-changed`, for tools and tests to read.
+- **Nothing on the canvas shows it yet.** A changed board has `data-changed`, for tools and tests to read.
 
-Tried in a development build on the example project, a folder in this repository: just opened, no board had a yellow
-edge; after adding a comment to `badge.tsx`, the 32 boards whose frames draw a badge had; after committing it, none had,
-and after undoing the commit and the edit, none had. With the comment added before the window loaded, the 32 boards had
-it on first look.
+Tried in a development build on the example project, a folder in this repository: just opened, no board had
+`data-changed`; after adding a comment to `badge.tsx`, the 32 boards whose frames draw a badge had it; after committing
+it, none had, and after undoing the commit and the edit, none had. With the comment added before the window loaded, the
+32 boards had it on first look.
 
 Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `detector.ts`, `trace.ts`); `componentReads` and
 the `components` list in `apps/desktop/src/utility/frame-traces.ts`; `apps/desktop/src/utility/git-detector.ts` and
 `change-detectors.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
-`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `ChangedEdge` and `data-changed` in `ContainerView.tsx`.
+`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
 
 Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
 digest and the files that differ, came or went otherwise; a board changed with every frame's files, unknown when one
@@ -5949,8 +5948,8 @@ first detector that can count a project, none when none can; watching once, tell
 stopping when the project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component
 reads. `apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and
 each gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go).
-Gaps: `frames.changes` itself, that a frame asks again when its key changes or its baseline moves, and the yellow edge
-have no test of their own; all were tried in the app.
+Gaps: `frames.changes` itself, and that a frame asks again when its key changes or its baseline moves, have no test of
+their own; both were tried in the app.
 
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
