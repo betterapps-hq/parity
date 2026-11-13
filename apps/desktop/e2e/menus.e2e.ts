@@ -38,6 +38,7 @@ describe("right-click menus", () => {
     expect(await items()).toEqual([
       "Select layer",
       "Copy Ctrl+C",
+      "Copy as PNG Ctrl+Shift+C",
       "Paste here",
       "Paste over selection Ctrl+Shift+V",
       "Paste to replace Ctrl+Shift+R",

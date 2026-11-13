@@ -129,6 +129,7 @@ describe("the canvas menu", () => {
       "Select layer >",
       "---",
       "copy",
+      "copyAsPng",
       "pasteHere",
       "pasteOver",
       "pasteReplace",
@@ -172,7 +173,7 @@ describe("the canvas menu", () => {
 
   it("adds Go to the main component, named after it, for an instance", () => {
     const opened = menu(overUsers, layersSelection(design, ["users"]), entries)
-    expect(outline(opened).slice(13, 16)).toEqual(["wrap", "makeComponent", "goToMain"])
+    expect(outline(opened).slice(14, 17)).toEqual(["wrap", "makeComponent", "goToMain"])
     expect(labelOf(opened, "goToMain")).toBe("Go to Stat card")
   })
 
@@ -182,6 +183,7 @@ describe("the canvas menu", () => {
       "Select layer >",
       "---",
       "copy",
+      "copyAsPng",
       "pasteHere",
       "pasteOver",
       "pasteReplace",
@@ -241,6 +243,7 @@ describe("the canvas menu", () => {
       "Select layer >",
       "---",
       "copy",
+      "copyAsPng",
       "pasteHere",
       "pasteOver",
       "duplicate",
@@ -262,6 +265,7 @@ describe("the canvas menu", () => {
     const opened = menu(overTitle, designsSelection([component, design]), entries)
     expect(outline(opened).slice(2)).toEqual([
       "copy",
+      "copyAsPng",
       "pasteHere",
       "pasteOver",
       "duplicate",
@@ -280,6 +284,7 @@ describe("the canvas menu", () => {
     const opened = menu(overUsers, layersSelection(design, ["users/value"]), entries)
     expect(outline(opened).slice(2)).toEqual([
       "copy (unavailable)",
+      "copyAsPng",
       "pasteHere",
       "pasteOver",
       "pasteReplace",

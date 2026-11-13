@@ -395,7 +395,7 @@ export const ArrangeThreeDesigns: Story = {
   }
 }
 
-/** Help: searching actions, the keyboard shortcuts, developer tools, installing the Parity CLI and About. */
+/** Help: searching actions, the keyboard shortcuts, reporting a problem, the Developer submenu, updates and About. */
 export const Help: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
@@ -404,12 +404,24 @@ export const Help: Story = {
   }
 }
 
-/** Help > Install the Parity CLI on Windows, where the folder just joined PATH: a new terminal finds it (PAR-906). */
+/** Help > Developer: developer tools, performance stats, the bitmap cache and the Parity CLI. */
+export const DeveloperMenu: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    await openMenu("Help")
+    await openSubmenu("Developer")
+    await body().findByRole("menuitemcheckbox", { name: "Performance stats" })
+  }
+}
+
+/** Help > Developer > Install the Parity CLI on Windows, where the folder just joined PATH: a new terminal finds it (PAR-906). */
 export const InstalledParityCommand: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
     await openMenu("Help")
+    await openSubmenu("Developer")
     await userEvent.click(body().getByRole("menuitem", { name: "Install the Parity CLI…" }))
     await body().findByText("Installed the Parity CLI")
     // The toast slides in, so its description shows once it has.
@@ -417,7 +429,7 @@ export const InstalledParityCommand: Story = {
   }
 }
 
-/** Edit > Settings as they start: the dark theme, saving only when asked, snapping on, and exporting at 2x. */
+/** File > Settings as they start: the dark theme, saving only when asked, snapping on, and exporting at 2x. */
 export const Settings: Story = {
   loaders: [
     async () => {

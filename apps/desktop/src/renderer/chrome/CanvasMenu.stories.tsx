@@ -89,23 +89,29 @@ function items(menu: HTMLElement): string[] {
       return "---"
     }
 
-    const name = [...item.childNodes]
-      // A shortcut or icon inside an item isn't part of its name.
-      .flatMap((child) =>
-        child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg") ? [] : [child.textContent]
-      )
-      .join("")
-      .trim()
+    const name = nameOf(item)
 
     return item.hasAttribute("data-disabled") ? `${name} (unavailable)` : name
   })
 }
 
+/** An item's name: its text, without its shortcut or icon. */
+function nameOf(item: Element): string {
+  return [...item.childNodes]
+    .flatMap((child) =>
+      child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg") ? [] : [child.textContent]
+    )
+    .join("")
+    .trim()
+}
+
 /** The keys an item of a menu shows. */
 function keysOf(menu: HTMLElement, name: string): string | undefined {
-  const item = within(menu).getByRole("menuitem", { name: new RegExp(`^${name}`) })
+  const item = within(menu)
+    .getAllByRole("menuitem")
+    .find((candidate) => nameOf(candidate) === name)
 
-  return item.querySelector("[data-slot=context-menu-shortcut]")?.textContent ?? undefined
+  return item?.querySelector("[data-slot=context-menu-shortcut]")?.textContent ?? undefined
 }
 
 /**
@@ -119,6 +125,7 @@ export const Layer: Story = onCanvas(["Pricing"], undefined, async () => {
     "Select layer",
     "---",
     "Copy",
+    "Copy as PNG",
     "Paste here",
     "Paste over selection",
     "Paste to replace",
@@ -185,6 +192,7 @@ export const Design: Story = onCanvas(
       "Select layer",
       "---",
       "Copy",
+      "Copy as PNG",
       "Paste here",
       "Paste over selection",
       "Duplicate",

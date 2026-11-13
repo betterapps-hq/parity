@@ -35,7 +35,7 @@ function fpsTone(fps: number): string {
 }
 
 /**
- * Frame rate, memory and CPU in the status bar, turned on from View > Performance stats. Clicking it shows the last
+ * Frame rate, memory and CPU in the status bar, turned on from Help > Developer > Performance stats. Clicking it shows the last
  * minute's frame rate and each process.
  */
 export function PerformanceStats() {

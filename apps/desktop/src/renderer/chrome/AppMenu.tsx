@@ -14,71 +14,29 @@ import {
   MenubarTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  AlignCenterHorizontal,
-  AlignCenterVertical,
-  AlignEndHorizontal,
-  AlignEndVertical,
-  AlignHorizontalSpaceAround,
-  AlignStartHorizontal,
-  AlignStartVertical,
-  AlignVerticalSpaceAround,
-  AppWindow,
-  BringToFront,
-  ClipboardPaste,
-  Code,
-  Component,
-  Copy,
-  Diamond,
-  EyeOff,
-  FileInput,
-  FolderOpen,
+  Bug,
+  FolderDown,
   Gauge,
-  ImageOff,
   Grid3x3,
-  House,
-  Group,
   History,
-  Images,
+  ImageOff,
   Info,
-  Keyboard,
-  Lock,
+  ListX,
   LogOut,
   Magnet,
-  Maximize,
-  Paintbrush,
+  MessageSquareWarning,
   PanelsLeftRight,
-  SquareTerminal,
-  PenLine,
-  Telescope,
-  Terminal,
-  Plus,
-  Redo2,
-  Repeat2,
   RefreshCw,
-  Save,
-  SaveAll,
-  Scan,
-  Scissors,
-  Search,
-  SendToBack,
-  Settings,
   SquareDashed,
-  SquarePlus,
-  TextSelect,
-  Trash2,
-  Undo2,
-  Ungroup,
-  Unlink,
-  X,
-  ZoomIn,
-  ZoomOut,
-  MessageSquareWarning
+  SquareTerminal,
+  Terminal
 } from "lucide-react"
 import { createContext, type ReactNode, useContext } from "react"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { installCliCommand } from "./cli-command.ts"
+import { iconFor } from "./command-icons.ts"
 import type { CommandStates } from "./command-state.ts"
 import { activeSession, clearBitmapCache, exit, exportAllImages } from "./commands.ts"
 import { type Command, keymap } from "./keymap.ts"
@@ -93,7 +51,8 @@ const mac = isMac()
 /**
  * File, Edit, View, Object, Arrange and Help, in the title bar, like a desktop app's menus, named and ordered as
  * Figma's are. Each menu reads the active tab when it opens, so what it offers matches what's selected. Every item's
- * keys come from the keymap, and whether it applies and what it's called from `commandsFor`, as the shortcuts read them.
+ * keys come from the keymap, its icon from `commandIcons`, and whether it applies and what it's called from
+ * `commandsFor`, as the shortcuts read them. Each command is in one menu only.
  */
 export function AppMenu() {
   // Re-renders the bar when the active tab changes; the menus read the rest when they open.
@@ -147,45 +106,28 @@ function useStates(): CommandStates {
 }
 
 /**
- * A command's menu item: its action, its keys, and its name and whether it applies from `commandsFor`. `children` is
- * for a menu's own fixed wording, as Save a copy… says it asks where, only for a command whose name never changes.
+ * A command's menu item: its icon from `iconFor`, its action, its keys, and its name and whether it applies from
+ * `commandsFor`. `children` is for a menu's own fixed wording, as Save a copy… says it asks where, only for a command
+ * whose name never changes.
  */
-function Item({
-  command,
-  icon: Icon,
-  variant,
-  children
-}: {
-  command: Command
-  icon?: typeof Save
-  variant?: "destructive"
-  children?: ReactNode
-}) {
+function Item({ command, variant, children }: { command: Command; variant?: "destructive"; children?: ReactNode }) {
   const state = useStates()[command]
+  const icon = iconFor(command)
 
   return (
     <MenubarItem
       variant={variant}
-      inset={Icon ? undefined : true}
+      inset={icon ? undefined : true}
       disabled={!state.enabled}
       onClick={() => void actions[command].run("menu")}
     >
-      {Icon && <Icon />} {children ?? state.label}
+      {icon} {children ?? state.label}
       <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>
     </MenubarItem>
   )
 }
 
-/** New screen and New component, which lead File and Object, each made right of everything. */
-function NewItems() {
-  return (
-    <>
-      <Item command="newScreen" icon={AppWindow} />
-      <Item command="newComponent" icon={Component} />
-    </>
-  )
-}
-
+/** Tabs and projects: open, save, export, Settings, then close. New screen and New component are Object's. */
 function FileItems() {
   const session = activeSession()
   const recent = useRecentProjects()
@@ -193,16 +135,10 @@ function FileItems() {
 
   return (
     <>
-      <Item command="newTab" icon={Plus} />
+      <Item command="newTab" />
       <MenubarSeparator />
-      <NewItems />
-      <MenubarSeparator />
-      <Item command="openFolder" icon={FolderOpen}>
-        Open project folder…
-      </Item>
-      <Item command="openFile" icon={FileInput}>
-        Open project file…
-      </Item>
+      <Item command="openFolder">Open project folder…</Item>
+      <Item command="openFile">Open project file…</Item>
       <MenubarSub>
         <MenubarSubTrigger>
           <History /> Open recent
@@ -222,25 +158,25 @@ function FileItems() {
           {recent.length > 0 && (
             <>
               <MenubarSeparator />
-              <MenubarItem onClick={() => workspace.forgetRecent()}>Clear recent projects</MenubarItem>
+              <MenubarItem onClick={() => workspace.forgetRecent()}>
+                <ListX /> Clear recent projects
+              </MenubarItem>
             </>
           )}
         </MenubarSubContent>
       </MenubarSub>
       <MenubarSeparator />
-      <Item command="save" icon={Save} />
-      <Item command="saveCopy" icon={SaveAll}>
-        Save a copy…
-      </Item>
+      <Item command="save" />
+      <Item command="saveCopy">Save a copy…</Item>
       <MenubarSeparator />
-      <Item command="exportSelection" icon={Images}>
-        Export selected…
-      </Item>
+      <Item command="exportSelection">Export selected…</Item>
       <MenubarItem disabled={designs === 0} onClick={() => void exportAllImages()}>
-        <Images /> Export all…
+        <FolderDown /> Export all…
       </MenubarItem>
       <MenubarSeparator />
-      <Item command="closeTab" icon={X} />
+      <Item command="settings">Settings{mac ? "…" : ""}</Item>
+      <MenubarSeparator />
+      <Item command="closeTab" />
       {/* On a Mac, Quit is in the Parity menu, as every app's is. */}
       {!mac && (
         <MenubarItem onClick={exit}>
@@ -251,49 +187,50 @@ function FileItems() {
   )
 }
 
+/** History, the clipboard, copying pictures and styles, then what changes or selects what's selected. */
 function EditItems() {
   return (
     <>
-      <Item command="undo" icon={Undo2} />
-      <Item command="redo" icon={Redo2} />
-      <Item command="repeat" icon={Repeat2} />
+      <Item command="undo" />
+      <Item command="redo" />
+      <Item command="repeat" />
       <MenubarSeparator />
-      <Item command="cut" icon={Scissors} />
-      <Item command="copy" icon={Copy} />
-      <Item command="paste" icon={ClipboardPaste} />
+      <Item command="cut" />
+      <Item command="copy" />
+      <Item command="paste" />
       <Item command="pasteOver" />
       <Item command="pasteReplace" />
-      <Item command="duplicate" icon={Copy} />
-      <Item command="delete" icon={Trash2} variant="destructive" />
       <MenubarSeparator />
-      <Item command="copyStyle" icon={Paintbrush} />
-      <Item command="pasteStyle" icon={Paintbrush} />
+      <Item command="copyAsPng" />
+      <Item command="copyStyle" />
+      <Item command="pasteStyle" />
       <MenubarSeparator />
-      <Item command="selectAll" icon={TextSelect} />
+      <Item command="duplicate" />
+      <Item command="rename" />
+      <Item command="delete" variant="destructive" />
+      <MenubarSeparator />
+      <Item command="selectAll" />
       <Item command="selectMatching" />
       <Item command="selectInverse" />
-      <Item command="rename" icon={PenLine} />
-      <MenubarSeparator />
-      <Item command="settings" icon={Settings}>
-        Settings{mac ? "…" : ""}
-      </Item>
     </>
   )
 }
 
+/** Home, zoom, moving between designs, and what the window shows. */
 function ViewItems() {
   const layout = useLayout()
   const preferences = usePreferences()
 
   return (
     <>
-      <Item command="home" icon={House} />
+      <Item command="home" />
       <MenubarSeparator />
-      <Item command="zoomIn" icon={ZoomIn} />
-      <Item command="zoomOut" icon={ZoomOut} />
+      <Item command="zoomIn" />
+      <Item command="zoomOut" />
       <Item command="zoomTo100" />
-      <Item command="zoomToFit" icon={Maximize} />
-      <Item command="zoomToSelection" icon={Scan} />
+      <Item command="zoomToFit" />
+      <Item command="zoomToSelection" />
+      <MenubarSeparator />
       <Item command="previousDesign" />
       <Item command="nextDesign" />
       <MenubarSeparator />
@@ -315,15 +252,6 @@ function ViewItems() {
       <MenubarCheckboxItem checked={preferences.snapping} onCheckedChange={(snapping) => setPreferences({ snapping })}>
         <Magnet /> Snap to screens and components
       </MenubarCheckboxItem>
-      <MenubarCheckboxItem
-        checked={preferences.performanceStats}
-        onCheckedChange={(performanceStats) => setPreferences({ performanceStats })}
-      >
-        <Gauge /> Performance stats
-      </MenubarCheckboxItem>
-      <MenubarItem onClick={() => void clearBitmapCache()}>
-        <ImageOff /> Clear bitmap cache
-      </MenubarItem>
     </>
   )
 }
@@ -333,28 +261,25 @@ function ObjectItems() {
 
   return (
     <>
-      <NewItems />
-      <Item command="insert" icon={SquarePlus}>
-        Insert…
-      </Item>
-      <Item command="findReferences" icon={Telescope}>
-        Find references…
-      </Item>
+      <Item command="newScreen" />
+      <Item command="newComponent" />
+      <Item command="insert">Insert…</Item>
+      <Item command="findReferences">Find references…</Item>
       <MenubarSeparator />
-      <Item command="wrap" icon={Group} />
-      <Item command="unwrap" icon={Ungroup} />
+      <Item command="wrap" />
+      <Item command="unwrap" />
       <MenubarSeparator />
-      <Item command="makeComponent" icon={Diamond} />
-      <Item command="goToMain" icon={Diamond} />
-      <Item command="detach" icon={Unlink} />
+      <Item command="makeComponent" />
+      <Item command="goToMain" />
+      <Item command="detach" />
       <MenubarSeparator />
+      <Item command="bringToFront" />
       <Item command="bringForward" />
       <Item command="sendBackward" />
-      <Item command="bringToFront" icon={BringToFront} />
-      <Item command="sendToBack" icon={SendToBack} />
+      <Item command="sendToBack" />
       <MenubarSeparator />
-      <Item command="hide" icon={EyeOff} />
-      <Item command="lock" icon={Lock} />
+      <Item command="hide" />
+      <Item command="lock" />
       {!current.design && !current.note && (
         <SelectionHint>Select layers, a screen or a component to act on them</SelectionHint>
       )}
@@ -362,49 +287,57 @@ function ObjectItems() {
   )
 }
 
-const alignCommands: { command: Command; icon: typeof AlignStartVertical }[] = [
-  { command: "alignLeft", icon: AlignStartVertical },
-  { command: "alignCenter", icon: AlignCenterVertical },
-  { command: "alignRight", icon: AlignEndVertical },
-  { command: "alignTop", icon: AlignStartHorizontal },
-  { command: "alignMiddle", icon: AlignCenterHorizontal },
-  { command: "alignBottom", icon: AlignEndHorizontal }
-]
+const alignCommands: Command[] = ["alignLeft", "alignCenter", "alignRight", "alignTop", "alignMiddle", "alignBottom"]
 
 function ArrangeItems() {
   const unavailable = !useStates().alignLeft.enabled
 
   return (
     <>
-      {alignCommands.map(({ command, icon }) => (
-        <Item key={command} command={command} icon={icon} />
+      {alignCommands.map((command) => (
+        <Item key={command} command={command} />
       ))}
       <MenubarSeparator />
-      <Item command="distributeHorizontal" icon={AlignHorizontalSpaceAround} />
-      <Item command="distributeVertical" icon={AlignVerticalSpaceAround} />
+      <Item command="distributeHorizontal" />
+      <Item command="distributeVertical" />
       {unavailable && <SelectionHint>Select layers, screens or components to arrange them</SelectionHint>}
     </>
   )
 }
 
+/** Finding things, reporting a problem, upkeep under Developer, then updates and About. */
 function HelpItems() {
+  const preferences = usePreferences()
+
   return (
     <>
-      <Item command="actions" icon={Search}>
-        Search actions…
-      </Item>
-      <Item command="shortcuts" icon={Keyboard}>
-        Keyboard shortcuts
-      </Item>
-      <MenubarSeparator />
-      <Item command="developerTools" icon={Code} />
-      <MenubarItem onClick={() => void installCliCommand()}>
-        <Terminal /> Install the Parity CLI…
-      </MenubarItem>
+      <Item command="actions">Search actions…</Item>
+      <Item command="shortcuts" />
       <MenubarSeparator />
       <MenubarItem onClick={() => void openReport()}>
         <MessageSquareWarning /> Report a problem…
       </MenubarItem>
+      <MenubarSub>
+        <MenubarSubTrigger>
+          <Bug /> Developer
+        </MenubarSubTrigger>
+        <MenubarSubContent className="w-auto">
+          <Item command="developerTools" />
+          <MenubarCheckboxItem
+            checked={preferences.performanceStats}
+            onCheckedChange={(performanceStats) => setPreferences({ performanceStats })}
+          >
+            <Gauge /> Performance stats
+          </MenubarCheckboxItem>
+          <MenubarItem onClick={() => void clearBitmapCache()}>
+            <ImageOff /> Clear bitmap cache
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onClick={() => void installCliCommand()}>
+            <Terminal /> Install the Parity CLI…
+          </MenubarItem>
+        </MenubarSubContent>
+      </MenubarSub>
       <MenubarSeparator />
       <MenubarItem onClick={checkForUpdates}>
         <RefreshCw /> Check for updates

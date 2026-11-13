@@ -3,6 +3,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -54,8 +55,11 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import { stopEventPropagation } from "tldraw"
+import { commandIcons } from "../chrome/command-icons.ts"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { Hint } from "../chrome/Hint.tsx"
+import { keymap } from "../chrome/keymap.ts"
+import { formatKeys } from "../chrome/keys.ts"
 import { Name, NameInput } from "../chrome/Name.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
@@ -619,6 +623,7 @@ function TitleButton({
     />
   )
 
+  const { rename: RenameIcon, duplicate: DuplicateIcon, delete: DeleteIcon } = commandIcons
   const others = convertKinds.filter((kind) => kind !== (container.kind ?? "screen"))
 
   if (renaming) {
@@ -685,8 +690,12 @@ function TitleButton({
         }
       />
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
-        <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
-        <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
+        <ContextMenuItem onClick={() => setRenaming(true)}>
+          <RenameIcon /> Rename <ContextMenuShortcut>{formatKeys(keymap.rename.keys[0])}</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>
+          <DuplicateIcon /> Duplicate <ContextMenuShortcut>{formatKeys(keymap.duplicate.keys[0])}</ContextMenuShortcut>
+        </ContextMenuItem>
         <ContextMenuSeparator />
         {others.map((kind) => (
           <ContextMenuItem key={kind} onClick={() => setDesignKind(session, entry, kind)}>
@@ -696,7 +705,7 @@ function TitleButton({
         ))}
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>
-          Delete
+          <DeleteIcon /> Delete <ContextMenuShortcut>{formatKeys(keymap.delete.keys[0])}</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

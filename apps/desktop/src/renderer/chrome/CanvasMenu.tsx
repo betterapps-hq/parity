@@ -11,7 +11,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ElementSource, isInnerPath } from "@parity-app/core"
 import { selectedDesigns, type Selection } from "@parity-app/editor"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon, FileCode, Layers } from "lucide-react"
 import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react"
 import { pasteAtPointer } from "../canvas/clipboard.ts"
 import { useProject } from "../canvas/context.ts"
@@ -27,6 +27,7 @@ import type { ProjectSession } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
+import { iconFor } from "./command-icons.ts"
 import { createDesign } from "./create.ts"
 import { formatKeys } from "./keys.ts"
 
@@ -223,6 +224,7 @@ function MenuItems({ opened }: { opened: Opened }) {
       if (entry.kind === "open-source") {
         return (
           <ContextMenuItem key="open-source" onClick={() => void openSource(session.info, entry.source)}>
+            <FileCode />
             {entry.label}
             <ContextMenuShortcut className="font-mono">{shortSource(entry.source)}</ContextMenuShortcut>
           </ContextMenuItem>
@@ -235,12 +237,15 @@ function MenuItems({ opened }: { opened: Opened }) {
         ) : null
       }
 
+      const icon = iconFor(entry.action)
+
       return (
         <ContextMenuItem
           key={entry.action}
           disabled={!entry.enabled}
           onClick={() => run(session, entry.action, opened.point)}
         >
+          {icon}
           {entry.label}
           {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
         </ContextMenuItem>
@@ -262,7 +267,9 @@ function SelectLayer({ label, choices, target }: { label: string; choices: Layer
 
   return (
     <ContextMenuSub>
-      <ContextMenuSubTrigger>{label}</ContextMenuSubTrigger>
+      <ContextMenuSubTrigger>
+        <Layers /> {label}
+      </ContextMenuSubTrigger>
       <ContextMenuSubContent className="max-h-96 w-56 overflow-y-auto" aria-label={label}>
         {choices.map((choice) => (
           <ContextMenuItem
