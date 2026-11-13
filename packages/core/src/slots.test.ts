@@ -16,10 +16,14 @@ import {
   clearSlot,
   designSlots,
   enclosingSlot,
+  fillSlotWithComponent,
+  fillSlotWithLayer,
   freeSlotName,
   instanceSlots,
   setSlot,
   slotAtPath,
+  slotCandidates,
+  slotComponents,
   slotProblem
 } from "./slots.ts"
 
@@ -332,6 +336,78 @@ describe("filling an instance's slots", () => {
     )
 
     expect(() => parseCanvasDocument(file(doubled))).toThrow('duplicate node id "page"')
+  })
+})
+
+describe("picking what fills an instance's slot (PAR-1046)", () => {
+  // A screen whose instance sits in a row beside a note, under a header with a logo, its content slot already filled.
+  const screen: ContainerSpec = {
+    id: "screen",
+    name: "Screen",
+    position: { x: 0, y: 0 },
+    states: [{ id: "base", name: "Base", overrides: { note: { style: { opacity: 0.5 } }, old: { text: "Older" } } }],
+    root: {
+      type: "layout",
+      id: "screen",
+      children: [
+        { type: "layout", id: "header", name: "Header", children: [{ type: "text", id: "logo", text: "Logo" }] },
+        {
+          type: "layout",
+          id: "row",
+          name: "Row",
+          children: [
+            {
+              type: "instance",
+              id: "copy",
+              design: "card",
+              slots: { content: [{ type: "text", id: "old", text: "Old" }] }
+            },
+            { type: "text", id: "note", text: "Note" }
+          ]
+        }
+      ]
+    }
+  }
+
+  const fill = (container: ContainerSpec, slot: string) =>
+    instance(findNode(container.root, "copy")).slots?.[slot]?.map((node) => node.id)
+
+  it("offers every layer but the root, the instance's ancestors and the instance with what fills it", () => {
+    expect(slotCandidates(screen.root, "copy").map(({ node, depth, parent }) => [node.id, depth, parent?.id])).toEqual([
+      ["header", 0, undefined],
+      ["logo", 1, "header"],
+      ["note", 0, "row"]
+    ])
+  })
+
+  it("moves a layer in with its id and changes, deleting what filled the slot and its changes", () => {
+    const filled = fillSlotWithLayer(screen, "copy", "content", "note")
+    expect(fill(filled, "content")).toEqual(["note"])
+    expect(findNode(filled.root, "old")).toBeUndefined()
+    expect(locateNode(filled.root, "note")?.ancestors.map((node) => node.id)).toEqual(["screen", "row", "copy"])
+    expect(filled.states?.[0]?.overrides).toEqual({ note: { style: { opacity: 0.5 } } })
+  })
+
+  it("refuses a layer that can't go in: an ancestor, the instance, or what's in it", () => {
+    for (const id of ["row", "copy", "old", "screen"]) {
+      expect(() => fillSlotWithLayer(screen, "copy", "content", id)).toThrow("can't go in")
+    }
+  })
+
+  it("adds a new instance of a component in place of what filled the slot, and fills an empty one", () => {
+    const { container, id } = fillSlotWithComponent(screen, "copy", "content", "badge")
+    expect(fill(container, "content")).toEqual([id])
+    expect(findNode(container.root, id)).toEqual({ type: "instance", id, design: "badge" })
+    expect(findNode(container.root, "old")).toBeUndefined()
+    expect(fill(fillSlotWithComponent(screen, "copy", "actions", "badge").container, "content")).toEqual(["old"])
+  })
+
+  it("offers the project's components by name, but the instance's own and the design it's in", () => {
+    const component = (id: string, name: string): ContainerSpec => ({ ...card, id, name })
+    const containers = [component("card", "Card"), component("toast", "Toast"), component("badge", "Badge"), screen]
+    const copy = instance(findNode(screen.root, "copy"))
+    expect(slotComponents(containers, screen, copy).map((each) => each.id)).toEqual(["badge", "toast"])
+    expect(slotComponents(containers, component("toast", "Toast"), copy).map((each) => each.id)).toEqual(["badge"])
   })
 })
 

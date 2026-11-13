@@ -92,8 +92,8 @@ type Row = TreeRow<ContainerEntry>
 /** Where dragged layers or designs would land relative to a row: just above it, just below it, or inside it. */
 type DropPosition = "before" | "after" | "inside"
 
-/** The drag data types for layers and designs dragged in the Layers panel. */
-const layersMime = "application/x-parity-layers"
+/** The drag data types for layers and designs dragged in the Layers panel. An instance's slot takes layers too. */
+export const layersMime = "application/x-parity-layers"
 const designMime = "application/x-parity-design"
 
 interface Group {
@@ -363,12 +363,10 @@ export function LayerTree() {
       return
     }
 
+    // The selection stays put while a row is dragged, so the inspector keeps what it shows, as an instance's slot to
+    // drop it on (PAR-1046); a drop in Layers selects what moved.
     const inSelection = selected.design === row.design.key && selectedNodes(selected).includes(row.node.id)
     const ids = inSelection ? selectedNodes(selected) : [row.node.id]
-
-    if (!inSelection) {
-      selection.set({ design: row.design.key, node: row.node.id })
-    }
 
     event.dataTransfer.effectAllowed = "move"
     event.dataTransfer.setData(layersMime, JSON.stringify({ design: row.design.key, ids }))

@@ -364,11 +364,16 @@ export {
   clearSlot,
   type DesignSlot,
   designSlots,
+  fillSlotWithComponent,
+  fillSlotWithLayer,
   freeSlotName,
   type InstanceSlot,
   instanceSlots,
   setSlot,
   slotAtPath,
+  type SlotCandidate,
+  slotCandidates,
+  slotComponents,
   slotPlaceProblem,
   slotProblem
 } from "./slots.ts"

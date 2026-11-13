@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Pick what fills an instance's slot from the design's layers and the project's components, or drop a layer on it from Layers",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -652,6 +652,8 @@ the tree longer and every later change slower.
 - **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
   file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
   is one undo step ("Reorder screen").
+- **Dragging a layer's row leaves the selection as it is,** so the inspector keeps showing what it showed, such as an
+  instance whose slot the layer can be dropped on (PAR-1046). A drop in Layers selects what moved.
 - **Hovering a design's row outlines its board** on the canvas, as hovering the board does.
 - **The keyboard,** as before: Tab moves from the search to Collapse all to the tree, Up and Down move through the rows,
   scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
@@ -3473,8 +3475,10 @@ Tests:
   Preset, Overriding A Preset and Changes With The Viewport, for review.
 - `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
-- `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
-  the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+- `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker, PAR-1046): Filled selects the layer from its chip
+  and clears the slot with its ×, without selecting the layer; Open lists On this screen before Components; Searching
+  finds each Button after the layer it's in; Picked, Replaced and Picked Component fill the slot, one layer at a time;
+  Dragging lights the box for a layer from Layers, and Dropped fills it; Empty for review.
 
 ### The inspector's stories in seven levels (PAR-1033)
 
@@ -4115,10 +4119,23 @@ A slot it leaves empty shows the placeholder.
 
 - **The instance's panel** lists each slot after its params, as a prop: the Slot tile and its name with a capital first
   letter, over its Slot picker: the layer that fills it as a chip, with its kind's icon and the name Layers gives it, or
-  an empty box. Clicking the chip selects the layer, so it can be renamed, and its × clears the slot, deleting the
-  layer. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
-  itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
-  dashed edge. Clicking the box selects the slot.
+  an empty box that says Add a layer. Clicking the chip selects the layer, so it can be renamed, and its × clears the
+  slot, deleting the layer. Resting on one, or the left arrow key in its empty input, opens a card beside it with a
+  picture of what shows there, drawn by itself so a large component's slot is as easy to see as a small one's; an empty
+  one's placeholder is faded inside a dashed edge.
+- **The Slot picker is drawn as the panel's select is** (PAR-1046): its border, fill, hover and corners, a chevron at
+  its end, and its list as close below it. A click leaves the box as it was; only focus reached by keyboard rings it.
+  Focusing it or pressing the chevron lists what can go in: On this screen, the design's layers nested as Layers nests
+  them, then Components, the project's components by name. The list leaves out the design's root, the layers the
+  instance is inside, and the instance with everything in it, and Components leaves out the instance's own component and
+  the design it sits in, none of which can go in. Typing searches both groups; while searching, each layer shows after
+  the layer it's in, so two Buttons can be told apart. A slot holds one layer here: picking a layer moves it in, with
+  its id and its changes, and picking a component fills the slot with a new instance of it, each in place of what filled
+  it, which is deleted as Clear deletes it. Each is one undo step ("Fill features").
+- **A layer dragged from Layers onto the picker fills the slot** the same way, and the box lights up while it's over it.
+  Of several dragged layers, the first that can go in does. A layer from another design, the instance itself, or a layer
+  it's inside can't, and a toast says why ("Only layers in this design can go in Features", "Pricing can't go in
+  Features, which is inside it").
 - **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
@@ -4132,12 +4149,14 @@ A slot it leaves empty shows the placeholder.
   it out as `"…"` past the level asked for, as it does a layout's children (PAR-966).
 
 The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
-`@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
-`render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
-picture's tree `slotPreviewTree`.
+`@parity-app/core`: `instanceSlots`, `slotAtPath`, `clearSlot`, and for the picker `slotCandidates`, `slotComponents`,
+`fillSlotWithLayer` and `fillSlotWithComponent` in `slots.ts`, the fill drawn by `resolveDesign` in `render.ts`, and
+Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the picture's tree
+`slotPreviewTree`.
 
 Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
-`inspector/controls/slot-picker.tsx`, `DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in
+`inspector/controls/slot-picker.tsx` (drawn by `AppChips` with `look="select"`), `layersMime` and the drag in
+`chrome/LayerTree.tsx`, `DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in
 `chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
 `canvas/insert.ts`.
 
@@ -4146,13 +4165,18 @@ Tests:
 - `packages/core/src/slots.test.ts`, filling an instance's slots (7): a fill kept in its slot and listed, a fill drawn
   with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, Detach twice of a
   component whose own instance fills a slot (PAR-966), and the file refusing a fill that reuses an id.
+- `packages/core/src/slots.test.ts`, "picking what fills an instance's slot (PAR-1046)" (5): the layers offered, nested,
+  without the root, the instance's ancestors or what's in it; a layer moved in with its changes, deleting the old fill
+  and its changes; the layers refused; a component's new instance replacing a fill or filling an empty slot; and the
+  components offered.
 - `packages/core/src/decompose.test.ts`, "findRepeats among instances filling a slot" (2, PAR-966): instances told apart
   by their fills with the values that differ found, and a shorter fill beside a longer one.
 - `packages/agent/src/workspace.test.ts`, "Get reading the layers an instance fills its slots with" (2, PAR-966): the
   fill as a state and a mode draw it, and left out past the depth asked for, an empty layout reading as empty and an
   empty fill as `"…"`.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
-- Stories: Parity/Inspector/Sections/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+- Stories: Parity/Inspector/Fields/Slot picker (above), Parity/Inspector/Sections/Slots (Instance Slots and Slot
+  Selected) and Parity/Canvas/Selection › Filled Slot.
 
 Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
 drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old

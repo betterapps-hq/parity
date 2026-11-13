@@ -1,5 +1,15 @@
 import type { ContainerSpec, DesignNode, InstanceNode, LayoutNode } from "./document.ts"
-import { childNodes, findNode, locateNode, mapNode } from "./edit.ts"
+import {
+  childNodes,
+  deleteNode,
+  findNode,
+  generateId,
+  insertNode,
+  locateNode,
+  mapNode,
+  moveNodes,
+  nodeIds
+} from "./edit.ts"
 import type { ComponentLibrary } from "./render.ts"
 import { slotName, slotNameProblem } from "./slot-names.ts"
 
@@ -91,6 +101,94 @@ export function clearSlot(root: DesignNode, instanceId: string, slot: string): D
 
     return Object.keys(rest).length > 0 ? { ...instance, slots: rest } : instance
   })
+}
+
+/** A layer of a design that can fill one of its instance's slots, as the slot's picker lists it (PAR-1046). */
+export interface SlotCandidate {
+  node: DesignNode
+  /** How many listed layers it's inside, to nest it as Layers does. */
+  depth: number
+  /** The layer it's in, to tell apart two candidates with one name; none straight inside the root. */
+  parent?: DesignNode
+}
+
+/**
+ * The layers of a design that can fill one of its instance's slots, in Layers' order: all but the root, the instance's
+ * ancestors, and the instance with everything in it, none of which can go into the slot. An ancestor left out doesn't
+ * nest what it holds, so nothing reads as inside the layer listed before it.
+ */
+export function slotCandidates(root: DesignNode, instanceId: string): SlotCandidate[] {
+  const ancestors = new Set(locateNode(root, instanceId)?.ancestors.map((node) => node.id))
+  const candidates: SlotCandidate[] = []
+
+  const visit = (node: DesignNode, depth: number, parent: DesignNode | undefined): void => {
+    if (node.id === instanceId) {
+      return
+    }
+
+    const listed = !ancestors.has(node.id)
+
+    if (listed) {
+      candidates.push(parent ? { node, depth, parent } : { node, depth })
+    }
+
+    childNodes(node).forEach((child) => visit(child, listed ? depth + 1 : depth, node))
+  }
+
+  childNodes(root).forEach((child) => visit(child, 0, undefined))
+
+  return candidates
+}
+
+/**
+ * The project's components that can fill an instance's slots, by name: any but the instance's own component and the
+ * design it sits in, neither of which can hold itself.
+ */
+export function slotComponents(
+  containers: readonly ContainerSpec[],
+  design: ContainerSpec,
+  instance: InstanceNode
+): ContainerSpec[] {
+  return containers
+    .filter((each) => each.kind === "component" && each.id !== instance.design && each.id !== design.id)
+    .toSorted((a, b) => a.name.localeCompare(b.name))
+}
+
+/** Deletes what fills one of an instance's slots, with its layers' changes in every state, before it's filled again. */
+function emptied(container: ContainerSpec, instanceId: string, slot: string): ContainerSpec {
+  const instance = findNode(container.root, instanceId)
+  const fill = instance?.type === "instance" ? (instance.slots?.[slot] ?? []) : []
+
+  return fill.reduce((current, node) => deleteNode(current, node.id), container)
+}
+
+/**
+ * Fills one of an instance's slots with a layer of its design, moved in with its id and its changes, in place of what
+ * filled it, which is deleted, as Clear deletes it: a slot holds one layer here. Refuses a layer that can't go in (see
+ * `slotCandidates`).
+ */
+export function fillSlotWithLayer(
+  container: ContainerSpec,
+  instanceId: string,
+  slot: string,
+  layerId: string
+): ContainerSpec {
+  if (!slotCandidates(container.root, instanceId).some((candidate) => candidate.node.id === layerId)) {
+    throw new Error(`"${layerId}" can't go in a slot of "${instanceId}"`)
+  }
+
+  const cleared = emptied(container, instanceId, slot)
+
+  return { ...cleared, root: moveNodes(cleared.root, [layerId], instanceId, { slot }) }
+}
+
+/** Fills one of an instance's slots with a new instance of a component, in place of what filled it. Its id comes back. */
+export function fillSlotWithComponent(container: ContainerSpec, instanceId: string, slot: string, component: string) {
+  const cleared = emptied(container, instanceId, slot)
+  const id = generateId(nodeIds(cleared.root))
+  const root = insertNode(cleared.root, instanceId, { type: "instance", id, design: component }, { slot })
+
+  return { container: { ...cleared, root }, id }
 }
 
 /** How many layers a layer holds below itself. */
