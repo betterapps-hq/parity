@@ -112,5 +112,5 @@ Each step is its own pull request, and the app looks the same after each.
 3. **Sections take the selection.** Each section reads and edits the selection through one hook, so a story draws it
    alone. The `only` parts that stories passed to `LayerPanel` are gone (PAR-1031).
 4. **The table.** `styleParts` becomes `panelParts`, covering every section, with its tests in `@parity-app/editor`.
-   `LayerPanel` draws its list.
+   `LayerPanel` draws its list, and `DesignPanel` a design's (PAR-1032).
 5. **Stories move,** one level per pull request, from Parts up, deleting each old folder as its stories land.

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The Design tab picks every section a selection shows from one table",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

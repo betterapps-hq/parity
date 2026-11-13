@@ -2,9 +2,10 @@ import { type ContainerSpec, type DesignNode, isInnerPath } from "@parity-app/co
 import type { SelectedLayer } from "./style-editing.ts"
 
 /**
- * Which of the Design tab's style sections and controls the selected layers get. The panel doesn't ask what type each
- * node is: it works out once what the layers can do (their capabilities), and one table says what each section and
- * each conditional control needs, in the order the panel shows them. The agreed table is in
+ * Which of the Design tab's sections and controls the selection gets. The panel doesn't ask what type each node is: it
+ * works out once what the selection can do (its capabilities), and two tables say what each section needs, in the
+ * order the panel shows them: `panelTable` for every section, and `styleTable` for the style sections and their
+ * conditional controls. The agreed tables are in docs/proposals/inspector-structure.md and
  * docs/proposals/design-panel-sections.md.
  */
 
@@ -27,7 +28,20 @@ export const capabilityNames = [
   /** Its parent is a grid. */
   "inGrid",
   /** It takes style: every layer except a code component whose props take no `className`. */
-  "styled"
+  "styled",
+  /** It's a whole design rather than one of its layers. */
+  "design",
+  /** It's a component design, or a layer inside one. */
+  "component",
+  /** It's a component instance: of a component design, or of a code component. */
+  "instance",
+  /**
+   * It passes attributes on to an element, in Attributes: a code component's instance. Layouts and text join it when
+   * Attributes takes over Accessibility, and a design's instance once the file can hold them.
+   */
+  "attrs",
+  /** It's a layer inside an instance, which edits only that copy. */
+  "copy"
 ] as const
 
 export type Capability = (typeof capabilityNames)[number]
@@ -67,7 +81,23 @@ export function layerCapabilities(
     media: node.type === "image" || node.type === "video",
     inFlex: parent !== undefined && !parent.grid,
     inGrid: parent?.grid === true,
-    styled: node.type !== "component" || takesStyle(node.component) !== false
+    styled: node.type !== "component" || takesStyle(node.component) !== false,
+    design: false,
+    component: design.kind === "component",
+    instance: node.type === "instance" || node.type === "component",
+    attrs: node.type === "component",
+    copy: isInnerPath(layer.id)
+  }
+}
+
+/** What a whole design can do, selected by itself: its root's capabilities, as the design rather than a layer. */
+export function designCapabilities(
+  design: Pick<ContainerSpec, "kind" | "root">,
+  takesStyle: TakesStyle = notKnown
+): Capabilities {
+  return {
+    ...layerCapabilities(design, { id: design.root.id, node: design.root, parent: undefined }, takesStyle),
+    design: true
   }
 }
 
@@ -92,8 +122,61 @@ export function selectionCapabilities(
     media: all("media"),
     inFlex: all("inFlex"),
     inGrid: all("inGrid"),
-    styled: all("styled")
+    styled: all("styled"),
+    design: all("design"),
+    component: all("component"),
+    instance: all("instance"),
+    attrs: all("attrs"),
+    copy: all("copy")
   }
+}
+
+/** The Design tab's sections for one selected layer or design, in the order they show. */
+export type InspectorSection =
+  | "header"
+  | "states"
+  | "props"
+  | "attributes"
+  | "components"
+  | "content"
+  | "media"
+  | "noStyle"
+  | "styles"
+  | "modes"
+  | "export"
+
+/** A section, and what the selection needs for it to show. */
+export interface PanelPart {
+  section: InspectorSection
+  needs: (can: Capabilities) => boolean
+}
+
+/**
+ * Each section of the Design tab, with what it needs, in the panel's order (PAR-1032). The header holds the state
+ * selector, and Props holds the slots: a component design's to define, and an instance's to fill. The style sections
+ * are one entry here, picked in turn by `styleTable`.
+ */
+export const panelTable: readonly PanelPart[] = [
+  { section: "header", needs: () => true },
+  { section: "states", needs: (can) => can.design && can.component },
+  // A component design defines its props; an instance sets them.
+  { section: "props", needs: (can) => (can.design ? can.component : can.instance) },
+  { section: "attributes", needs: (can) => !can.design && can.attrs },
+  // A screen's: the repeated parts to make components of.
+  { section: "components", needs: (can) => can.design && !can.component && !can.frame },
+  { section: "content", needs: (can) => !can.design && can.text },
+  // Inside an instance, an image's file belongs to its component.
+  { section: "media", needs: (can) => !can.design && can.media && !can.copy },
+  { section: "noStyle", needs: (can) => !can.design && !can.styled },
+  // A screen or a component design is sized and styled through its layers; a frame through its own.
+  { section: "styles", needs: (can) => !can.design || can.frame },
+  { section: "modes", needs: (can) => can.design && !can.frame },
+  { section: "export", needs: () => true }
+]
+
+/** Which sections a selection with these capabilities gets, in order. */
+export function panelParts(can: Capabilities): InspectorSection[] {
+  return panelTable.flatMap((part) => (part.needs(can) ? [part.section] : []))
 }
 
 /** The Design tab's style sections, in the order they show. */
