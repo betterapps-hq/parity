@@ -7,7 +7,6 @@ import {
   copyLayersInPlace,
   type DesignBox,
   distributeBoxes,
-  removeDesigns,
   removeLayers,
   reorderLayer,
   repositionDesigns,
@@ -126,26 +125,6 @@ describe("duplicating layers", () => {
   it("leaves the design as it was when nothing can be copied", () => {
     const original = form()
     expect(copyLayersInPlace(original, ["root", "missing"])).toEqual({ container: original, copies: [] })
-  })
-})
-
-describe("deleting designs", () => {
-  it("takes each out of its own document and leaves the rest", () => {
-    const other: ContainerSpec = { ...form(), id: "other", name: "Other" }
-
-    const documents = new Map<string, CanvasDocument>([
-      ["main.par", { version: 4, containers: [form(), other] }],
-      ["more.par", { version: 4, containers: [{ ...form(), id: "more" }] }]
-    ])
-
-    const next = removeDesigns(documents, [
-      { path: "main.par", id: "form" },
-      { path: "missing.par", id: "form" }
-    ])
-
-    expect(next.get("main.par")!.containers.map((container) => container.id)).toEqual(["other"])
-    expect(next.get("more.par")).toBe(documents.get("more.par"))
-    expect(next.has("missing.par")).toBe(false)
   })
 })
 

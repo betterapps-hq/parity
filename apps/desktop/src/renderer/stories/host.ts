@@ -13,6 +13,7 @@ import {
   defaultModeSettings,
   type DesignNode,
   designStates,
+  emptyDocument,
   parseData
 } from "@parity-app/core"
 import {
@@ -451,7 +452,7 @@ export function projectInfo(root: string): ProjectInfo {
       id: root,
       root,
       name,
-      documents: empty ? [] : [{ path: file, document: { version: 4, containers: [] } }],
+      documents: empty ? [] : [{ path: file, document: emptyDocument() }],
       mainDocument: file,
       modes: { settings: defaultModeSettings, custom: false },
       notes: [

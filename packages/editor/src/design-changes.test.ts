@@ -65,11 +65,22 @@ describe("changing designs", () => {
     expect(moveDesign(container, { x: 0.2, y: -0.3 })).toBe(container)
   })
 
-  it("adds a design to a file, creating it, and deletes one", () => {
-    const added = addDesign(start, "new.par", design("pricing"))
-    expect(added.documents.get("new.par")).toEqual({ version: 4, containers: [design("pricing")] })
+  it("adds designs to a file, creating it, and deletes one", () => {
+    const added = addDesign(start, "new.par", design("pricing"), design("faq"))
+    expect(added.documents.get("new.par")).toEqual({ version: 4, containers: [design("pricing"), design("faq")] })
+    expect(names(addDesign(start, "app.par", design("pricing")))).toEqual(["home", "about", "pricing"])
     expect(names(deleteDesign(start, home))).toEqual(["about"])
     expect(deleteDesign(start, { path: "other.par", id: "home" })).toBe(start)
+  })
+
+  it("deletes designs from their own files and leaves the rest", () => {
+    const more: CanvasDocument = { version: 4, containers: [design("more")] }
+    const two = { ...start, documents: new Map(start.documents).set("more.par", more) }
+    const next = deleteDesign(two, home, { path: "missing.par", id: "home" })
+
+    expect(names(next)).toEqual(["about"])
+    expect(next.documents.get("more.par")).toBe(more)
+    expect(next.documents.has("missing.par")).toBe(false)
   })
 
   it("moves a design before or after another in its file, and leaves the order alone when nothing would move", () => {

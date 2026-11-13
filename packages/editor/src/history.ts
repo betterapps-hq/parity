@@ -1,4 +1,11 @@
-import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
+import {
+  addDesigns,
+  type CanvasDocument,
+  type ContainerSpec,
+  defaultModeSettings,
+  emptyDocument,
+  type ModeSettings
+} from "@parity-app/core"
 import { sameDocument, sameValue } from "./document-equality.ts"
 import { noTokenEdits, sameTokenValues, type TokenEdits, type TokenWrite, tokenWrites } from "./token-edits.ts"
 
@@ -480,7 +487,10 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
   const detection = main?.detection
   const sources = main?.sources
 
-  const merged: CanvasDocument = { version: 4, containers: all.flatMap((document) => document.containers) }
+  const merged = addDesigns(
+    undefined,
+    all.flatMap((document) => document.containers)
+  )
 
   if (notes.length > 0) {
     merged.notes = notes
@@ -660,7 +670,7 @@ function fileContent(
     return undefined
   }
 
-  const base = document ?? { version: 4, containers: [] }
+  const base = document ?? emptyDocument()
 
   return custom ? { ...base, modes } : base
 }

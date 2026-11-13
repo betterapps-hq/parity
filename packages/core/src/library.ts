@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { type CanvasDocument, type ContainerSpec, canvasDocument } from "./document.ts"
+import { emptyDocument } from "./designs.ts"
+import { type CanvasDocument, type ContainerSpec, canvasDocument, formatVersion } from "./document.ts"
 import { mapNodes } from "./edit.ts"
 import { fileObject, finiteNumber, parseData, parserFor, plainObject } from "./schema.ts"
 import { isComposite, isText } from "./values/evaluate.ts"
@@ -284,7 +285,7 @@ export type LibraryEdits = Omit<z.infer<typeof libraryEdits>, "$schema">
 export const libraryManifest = fileObject({
   $schema: z.string().optional(),
   /** The current manifest format; obsolete formats are rejected rather than migrated. */
-  version: z.literal(4),
+  version: z.literal(formatVersion),
   /** Short name its components are namespaced by, as in `nova/Button`. Defaults to the package name. */
   id: z.string().optional(),
   name: z.string(),
@@ -433,7 +434,7 @@ export function libraryDesigns(manifest: Pick<LibraryManifest, "canvas">, id: st
 
 /** The designs in a `.lib.par`, or an empty canvas when it has none yet. */
 export function libraryCanvas(manifest: LibraryManifest): CanvasDocument {
-  return manifest.canvas ?? { version: 4, containers: [] }
+  return manifest.canvas ?? emptyDocument()
 }
 
 /**

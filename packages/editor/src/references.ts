@@ -1,4 +1,4 @@
-import type { CanvasDocument, ReferenceSpec } from "@parity-app/core"
+import { type CanvasDocument, emptyDocument, type ReferenceSpec } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
 import type { Point } from "./drop-slot.ts"
 import type { DesignSnapshot } from "./history.ts"
@@ -242,7 +242,7 @@ export function addReferences(
     return snapshot
   }
 
-  const document = snapshot.documents.get(path) ?? { version: 4, containers: [] }
+  const document = snapshot.documents.get(path) ?? emptyDocument()
   const next = { ...document, references: [...(document.references ?? []), ...references] }
 
   return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }

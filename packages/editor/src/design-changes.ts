@@ -1,11 +1,14 @@
-import type {
-  CanvasDocument,
-  ChangeConflict,
-  ContainerSpec,
-  DesignChange,
-  ModesChange,
-  NoteSpec,
-  ReferenceSpec
+import {
+  addDesigns,
+  type CanvasDocument,
+  type ChangeConflict,
+  type ContainerSpec,
+  type DesignChange,
+  emptyDocument,
+  type ModesChange,
+  type NoteSpec,
+  type ReferenceSpec,
+  removeDesigns
 } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
 import { sameDesign, sameValue } from "./document-equality.ts"
@@ -86,12 +89,12 @@ export function moveDesign(container: ContainerSpec, position: { x: number; y: n
   return container.position.x === x && container.position.y === y ? container : { ...container, position: { x, y } }
 }
 
-/** A design added to a file, which is created when it doesn't exist yet. */
-export function addDesign(snapshot: DesignSnapshot, path: string, container: ContainerSpec): DesignSnapshot {
-  const document = snapshot.documents.get(path) ?? { version: 4, containers: [] }
-  const next = { ...document, containers: [...document.containers, container] }
+/** Designs added to a file, after the ones it has, which is created when it doesn't exist yet. */
+export function addDesign(snapshot: DesignSnapshot, path: string, ...designs: ContainerSpec[]): DesignSnapshot {
+  const document = snapshot.documents.get(path)
+  const next = addDesigns(document, designs)
 
-  return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
+  return next === document ? snapshot : { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
 }
 
 /**
@@ -132,22 +135,28 @@ export function reorderDesign(
   return { ...snapshot, documents: new Map(snapshot.documents).set(design.path, { ...document, containers }) }
 }
 
-/** A design taken out of its file. */
-export function deleteDesign(snapshot: DesignSnapshot, design: DesignRef): DesignSnapshot {
-  const document = snapshot.documents.get(design.path)
+/** Designs taken out of their files. Ones that aren't there change nothing. */
+export function deleteDesign(snapshot: DesignSnapshot, ...designs: DesignRef[]): DesignSnapshot {
+  const documents = new Map(snapshot.documents)
 
-  if (!document) {
-    return snapshot
+  for (const path of new Set(designs.map((design) => design.path))) {
+    const document = documents.get(path)
+    const ids = designs.filter((design) => design.path === path).map((design) => design.id)
+    const next = document && removeDesigns(document, ids)
+
+    if (next && next !== document) {
+      documents.set(path, next)
+    }
   }
 
-  const containers = document.containers.filter((container) => container.id !== design.id)
+  const changed = [...documents].some(([path, document]) => snapshot.documents.get(path) !== document)
 
-  return { ...snapshot, documents: new Map(snapshot.documents).set(design.path, { ...document, containers }) }
+  return changed ? { ...snapshot, documents } : snapshot
 }
 
 /** A text note added to a file, which is created when it doesn't exist yet. */
 export function addNote(snapshot: DesignSnapshot, path: string, note: NoteSpec): DesignSnapshot {
-  const document = snapshot.documents.get(path) ?? { version: 4, containers: [] }
+  const document = snapshot.documents.get(path) ?? emptyDocument()
   const next = { ...document, notes: [...(document.notes ?? []), note] }
 
   return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }

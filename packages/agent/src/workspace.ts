@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util"
 import {
+  addDesigns,
   addParam,
   type ArgChange,
   addState,
@@ -68,6 +69,7 @@ import {
   type PropValues,
   projectComponentLibrary,
   radiusKeywords,
+  removeDesigns,
   removeState,
   renameState,
   resetInner,
@@ -891,8 +893,7 @@ export class AgentWorkspace {
     const room = kind === "frame" ? estimateSize(built, this.modes) : { width: 1400, height: 1000 }
     const place = spec.x === undefined || spec.y === undefined ? this.findEmptySpace(room) : undefined
     const container = place ? { ...built, position: { x: spec.x ?? place.x, y: spec.y ?? place.y } } : built
-    const document = this.documents.get(path) ?? { version: 4, containers: [] }
-    this.documents.set(path, { ...document, containers: [...document.containers, container] })
+    this.documents.set(path, addDesigns(this.documents.get(path), [container]))
     this.changed.add(path)
     this.created[spec.name] = id
     this.emit({ kind: "write", design: key(path, id) })
@@ -993,11 +994,7 @@ export class AgentWorkspace {
 
   private deleteDesign(reference: string): void {
     const { path, container } = this.findDesign(reference)
-    const document = this.documents.get(path)!
-    this.documents.set(path, {
-      ...document,
-      containers: document.containers.filter((item) => item.id !== container.id)
-    })
+    this.documents.set(path, removeDesigns(this.documents.get(path)!, [container.id]))
     this.changed.add(path)
     this.emit({ kind: "write", design: key(path, container.id) })
   }
@@ -1991,8 +1988,7 @@ export class AgentWorkspace {
 
     this.setContainer(path, design)
     const file = options.file ?? this.snapshot.mainDocument
-    const target = this.documents.get(file) ?? { version: 4, containers: [] }
-    this.documents.set(file, { ...target, containers: [...target.containers, component] })
+    this.documents.set(file, addDesigns(this.documents.get(file), [component]))
     this.changed.add(file)
     this.created[options.name] = id
     this.emit({ kind: "write", design: key(file, id) })
