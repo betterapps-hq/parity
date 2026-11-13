@@ -232,8 +232,8 @@ function parentRouteName(object: ts.ObjectLiteralExpression): string | undefined
   return ts.isIdentifier(body) ? body.text : undefined
 }
 
-/** A property's value in an object literal, by its name. */
-function propertyValue(object: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
+/** A property's value in an object literal, by its name, or the method itself when it's written as one. */
+function propertyValue(object: ts.ObjectLiteralExpression, name: string): ts.Node | undefined {
   for (const property of object.properties) {
     if (ts.isPropertyAssignment(property) && propertyName(property.name) === name) {
       return property.initializer
@@ -244,7 +244,7 @@ function propertyValue(object: ts.ObjectLiteralExpression, name: string): ts.Exp
     }
 
     if (ts.isMethodDeclaration(property) && propertyName(property.name) === name) {
-      return property.name
+      return property
     }
   }
 
