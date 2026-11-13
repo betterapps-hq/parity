@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
+import { formatNumber, remPx, trackSizeCss } from "@parity-app/style-schema"
 import { ChevronDown, LayoutTemplate, Link2, Monitor, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
@@ -16,7 +17,7 @@ import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { formatNumber, remPx, sameValue, stepCount, stepSpacing } from "./css-values.ts"
+import { sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   type Columns,
   contentSizeWords,
@@ -31,7 +32,6 @@ import {
   type Size,
   sizeCss,
   type SizeMode,
-  trackCss,
   typedContentSizes
 } from "./data.ts"
 import {
@@ -1735,7 +1735,7 @@ function columnsCss(columns: Columns | undefined): string | undefined {
   }
 
   if (Array.isArray(columns)) {
-    return columns.map(trackCss).join(" ")
+    return columns.map(trackSizeCss).join(" ")
   }
 
   return `repeat(auto-fit, minmax(${columns.fit}px, 1fr))`
@@ -1787,8 +1787,8 @@ export function LayerPreview({
     justifyItems: grid ? draft.itemsX : undefined,
     alignContent: !grid && draft.wrap && draft.lines ? linesValues[draft.lines] : undefined,
     gridTemplateColumns: columnsCss(draft.columns),
-    gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
-    gridAutoRows: grid && !draft.rows?.length && draft.autoRows ? trackCss(draft.autoRows) : undefined,
+    gridTemplateRows: draft.rows?.length ? draft.rows.map(trackSizeCss).join(" ") : undefined,
+    gridAutoRows: grid && !draft.rows?.length && draft.autoRows ? trackSizeCss(draft.autoRows) : undefined,
     gridAutoFlow: grid && draft.dense ? "dense" : undefined,
     columnGap: Math.max(0, gap),
     rowGap: rowGap ?? Math.max(0, gap),

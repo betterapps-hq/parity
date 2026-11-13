@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { type ReadFailure, readFailure } from "./read.ts"
 import { finiteNumber, stored } from "./stored.ts"
 import { exprForm, keywordForm, off, token, tokenForm } from "./value.ts"
 
@@ -231,6 +232,145 @@ export function gradientCss(layer: GradientPaint): string {
   })
 
   return `${layer.repeat ? "repeating-" : ""}${gradientFunction[layer.type]}(${head}, ${parts.join(", ")})`
+}
+
+/** The eight named directions a linear gradient's angle is also written as: `to right` is 90°. */
+export const gradientDirections = {
+  "to top": 0,
+  "to top right": 45,
+  "to right": 90,
+  "to bottom right": 135,
+  "to bottom": 180,
+  "to bottom left": 225,
+  "to left": 270,
+  "to top left": 315
+} satisfies Readonly<Record<string, number>>
+
+/** Splits CSS at its top-level separators, leaving what's inside brackets whole. */
+function topLevel(css: string, separator: "," | " "): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let part = ""
+
+  for (const character of css) {
+    if (character === "(") {
+      depth += 1
+    } else if (character === ")") {
+      depth -= 1
+    }
+
+    if (depth === 0 && (separator === " " ? /\s/.test(character) : character === separator)) {
+      parts.push(part.trim())
+      part = ""
+    } else {
+      part += character
+    }
+  }
+
+  return [...parts, part.trim()].filter(Boolean)
+}
+
+const percentOf = (value: string | undefined): number | undefined =>
+  value?.endsWith("%") ? Number.parseFloat(value) : undefined
+
+const isDirection = (head: string): head is keyof typeof gradientDirections => head in gradientDirections
+
+/** A stop's color as stored: a custom property as its token, anything else as written. */
+function stopColor(css: string): Color {
+  const named = /^var\(--([\w-]+)\)$/.exec(css)?.[1]
+
+  return named === undefined ? { value: css } : { token: named }
+}
+
+/** The gradient's head, before its stops: the angle, where its center is, and the color space it blends in. */
+function readHead(head: string): Pick<GradientPaint, "angle" | "center" | "interpolation"> {
+  const words = topLevel(head, " ")
+  const degrees = words.find((word) => word.endsWith("deg"))
+  const read: Pick<GradientPaint, "angle" | "center" | "interpolation"> = {}
+
+  if (degrees) {
+    read.angle = Number.parseFloat(degrees)
+  } else if (isDirection(head)) {
+    read.angle = gradientDirections[head]
+  }
+
+  const at = words.indexOf("at")
+
+  if (at !== -1) {
+    read.center = [percentOf(words[at + 1]) ?? 50, percentOf(words[at + 2]) ?? 50]
+  }
+
+  const blend = words.includes("in") ? words[words.indexOf("in") + 1] : undefined
+
+  if (blend === "oklch" || blend === "srgb") {
+    read.interpolation = blend
+  }
+
+  return read
+}
+
+/**
+ * A gradient written as CSS, read as a gradient of its own stops: what `gradientCss` writes, and the spellings a
+ * project's gradient token uses (`to right`, stops without places, which are spread evenly as CSS spreads them). Its
+ * angle is left unset where it isn't written. Anything but a gradient of two stops or more can't be read.
+ */
+export function readGradient(css: string): GradientPaint | ReadFailure {
+  const match = /^(repeating-)?(linear|radial|conic)-gradient\((.*)\)$/s.exec(css.trim())
+
+  if (!match) {
+    return readFailure("unreadable", "Enter a linear, radial or conic gradient")
+  }
+
+  const parts = topLevel(match[3]!, ",")
+  const first = parts[0] ?? ""
+  const headed = /^(to |at |from |in |-?[\d.]+(deg|turn|rad))/.test(first) || /^[a-z-]+ at /.test(first)
+  const stops: PaintStop[] = []
+  const placed: boolean[] = []
+
+  for (const part of headed ? parts.slice(1) : parts) {
+    const words = topLevel(part, " ")
+    const hint = words.length === 1 ? percentOf(words[0]) : undefined
+    const previous = stops.at(-1)
+
+    if (hint !== undefined && previous) {
+      previous.hint = hint
+      continue
+    }
+
+    const color = words.filter((word) => percentOf(word) === undefined).join(" ")
+    const position = words.map(percentOf).find((each) => each !== undefined)
+    stops.push({ color: stopColor(color), position: position ?? 0 })
+    placed.push(position !== undefined)
+  }
+
+  if (stops.length < 2) {
+    return readFailure("arguments", "A gradient takes at least two stops")
+  }
+
+  // Stops without a place are spread evenly, as CSS spreads them.
+  stops.forEach((stop, index) => {
+    if (!placed[index]) {
+      stop.position = Math.round((index / (stops.length - 1)) * 100)
+    }
+  })
+
+  const type = gradientKinds.find((kind) => kind === match[2])
+
+  if (type === undefined) {
+    return readFailure("unreadable", "Enter a linear, radial or conic gradient")
+  }
+
+  const paint: GradientPaint = { type, stops }
+
+  if (headed) {
+    Object.assign(paint, readHead(first))
+  }
+
+  if (match[1]) {
+    paint.repeat = true
+  }
+
+  return paint
 }
 
 /** A paint as a `background-image` layer: a solid that isn't the bottom one is `linear-gradient(c, c)`. */

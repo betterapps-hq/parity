@@ -1,7 +1,7 @@
 import { DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuSeparator } from "@buildkitgg/shadcn-baseui-kit"
+import { formatNumber } from "@parity-app/style-schema"
 import { Contrast } from "lucide-react"
 import { Fragment } from "react"
-import { formatNumber } from "./css-values.ts"
 import { ownValue, Unstored, useTokens } from "./field-parts.tsx"
 import { KeywordItem, KeywordTrigger, PreviewMenu } from "./keyword-sets.tsx"
 import { PercentField } from "./number-field.tsx"

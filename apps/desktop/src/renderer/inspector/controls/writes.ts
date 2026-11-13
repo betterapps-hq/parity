@@ -3,7 +3,8 @@
  * PAR-652's value forms (`{ token }`, `{ step }`, `{ value }`, `{ keyword }`, `{ mode }`), the CSS, and the Tailwind
  * classes. The stored value is kept apart from the Tailwind (call 7), so another framework's output can sit beside it.
  */
-import { arbitrary, colorCss, fraction, isPlainColor, lengthClass, lengthCss, lengthForm } from "./css-values.ts"
+import { lengthForm, type TrackSize, trackSizeCss } from "@parity-app/style-schema"
+import { arbitrary, colorCss, fraction, isPlainColor, lengthClass, lengthCss } from "./css-values.ts"
 import {
   type Draft,
   isFixedSize,
@@ -12,9 +13,7 @@ import {
   isTokenSize,
   type Length,
   type Radius,
-  type Size,
-  type Track,
-  trackCss
+  type Size
 } from "./data.ts"
 import { sideClass, sideCss, sideNumber, type Sides, sideStored, sidesWrites, type SideValue } from "./sides-writes.ts"
 import type { LengthToken } from "./tokens.ts"
@@ -309,10 +308,10 @@ export function sizeRowWrites(draft: Draft): Writes {
 }
 
 /** Grid tracks in Tailwind's arbitrary value: `200px_minmax(0,1fr)`. */
-const tracksClass = (tracks: Track[]) => arbitrary(tracks.map(trackCss).join(" "))
+const tracksClass = (tracks: TrackSize[]) => arbitrary(tracks.map(trackSizeCss).join(" "))
 
 /** The rows made as children need them, at a size: Tailwind's own class where it has one (`auto-rows-fr`). */
-function autoRowsClass(track: Track): string {
+function autoRowsClass(track: TrackSize): string {
   const named = { auto: "auto", min: "min", max: "max" } as const
 
   if (track.kind === "fr" && track.value === 1) {
@@ -340,7 +339,7 @@ export function layoutWrites(draft: Draft): Writes {
     if (Array.isArray(draft.columns)) {
       const equal = draft.columns.every((track) => track.kind === "fr" && track.value === 1)
       stored.columns = draft.columns
-      css.push(`grid-template-columns: ${draft.columns.map(trackCss).join(" ")}`)
+      css.push(`grid-template-columns: ${draft.columns.map(trackSizeCss).join(" ")}`)
       tailwind.push(equal ? `grid-cols-${draft.columns.length}` : `grid-cols-[${tracksClass(draft.columns)}]`)
     } else {
       stored.columns = { repeat: "auto-fit", min: lengthForm(draft.columns.fit) }
@@ -351,11 +350,11 @@ export function layoutWrites(draft: Draft): Writes {
     if (draft.rows?.length) {
       const equal = draft.rows.every((track) => track.kind === "fr" && track.value === 1)
       stored.rows = draft.rows
-      css.push(`grid-template-rows: ${draft.rows.map(trackCss).join(" ")}`)
+      css.push(`grid-template-rows: ${draft.rows.map(trackSizeCss).join(" ")}`)
       tailwind.push(equal ? `grid-rows-${draft.rows.length}` : `grid-rows-[${tracksClass(draft.rows)}]`)
     } else if (draft.autoRows) {
       stored.autoRows = draft.autoRows
-      css.push(`grid-auto-rows: ${trackCss(draft.autoRows)}`)
+      css.push(`grid-auto-rows: ${trackSizeCss(draft.autoRows)}`)
       tailwind.push(autoRowsClass(draft.autoRows))
     }
 

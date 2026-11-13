@@ -5,18 +5,9 @@
  * `p-4 pb-6`), in css-values.ts's forms. The tokens a side can hold are the project's, which the field passes in, so a
  * token made with Create token reads and steps as any other.
  */
+import { formatNumber, lengthForm, type ReadFailure, readFailure } from "@parity-app/style-schema"
 import type { PreviewKind } from "@parity-app/tokens"
-import {
-  arbitrary,
-  formatNumber,
-  fraction,
-  lengthClass,
-  lengthCss,
-  lengthForm,
-  sameValue,
-  stepCount,
-  stepSpacing
-} from "./css-values.ts"
+import { arbitrary, fraction, lengthClass, lengthCss, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import { stepToken } from "./token-scale.ts"
 import type { LengthToken } from "./tokens.ts"
 import { readLength, readNumber } from "./typing.ts"
@@ -163,7 +154,7 @@ export function sideNumber(side: Side, tokens: readonly LengthToken[]): number |
   return undefined
 }
 
-export type SideReading = { side: Side } | { shorthand: Sides } | { reason: string }
+export type SideReading = { side: Side } | { shorthand: Sides } | ReadFailure
 
 /**
  * Whether what's typed is CSS's shorthand of two to four values (`8 16`, `16 -8`, `auto 1rem`) rather than one value
@@ -198,7 +189,7 @@ export function readSide(
   }
 
   if (parts.length > 4) {
-    return { reason: `${label} takes one to four values, as CSS's shorthand does` }
+    return readFailure("arguments", `${label} takes one to four values, as CSS's shorthand does`)
   }
 
   const read: Side[] = []
@@ -207,7 +198,7 @@ export function readSide(
     const reading = readOne(part, label, rules, undefined, tokens)
 
     if ("reason" in reading) {
-      return { reason: `Can't read ${part}: ${reading.reason}` }
+      return readFailure(reading.code, `Can't read ${part}: ${reading.reason}`)
     }
 
     if ("side" in reading) {
@@ -228,7 +219,7 @@ function readOne(
   tokens: readonly LengthToken[]
 ): SideReading {
   if (text.toLowerCase() === "auto") {
-    return rules.auto ? { side: "auto" } : { reason: `${capital(rules.noun)} doesn't take auto` }
+    return rules.auto ? { side: "auto" } : readFailure("unreadable", `${capital(rules.noun)} doesn't take auto`)
   }
 
   const token = tokens.find((other) => other.name === text || other.name === rules.namespace + text)
@@ -249,7 +240,7 @@ function readOne(
     }
 
     if (!Number.isInteger(reading.value)) {
-      return { reason: `${capital(rules.noun)} takes a whole number, such as 10` }
+      return readFailure("out-of-range", `${capital(rules.noun)} takes a whole number, such as 10`)
     }
 
     return { side: { number: reading.value } }
@@ -267,14 +258,14 @@ function readOne(
 
   if ("percent" in reading) {
     if (reading.percent < 0 && !rules.negatives) {
-      return { reason: `${capital(rules.noun)} can't be negative` }
+      return readFailure("out-of-range", `${capital(rules.noun)} can't be negative`)
     }
 
     return { side: { percent: reading.percent } }
   }
 
   if (reading.px < 0 && !rules.negatives) {
-    return { reason: `${capital(rules.noun)} can't be negative` }
+    return readFailure("out-of-range", `${capital(rules.noun)} can't be negative`)
   }
 
   return { side: { number: reading.px } }

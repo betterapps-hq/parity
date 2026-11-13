@@ -1,6 +1,7 @@
 import { scrubSteps } from "@parity-app/core"
+import { formatNumber } from "@parity-app/style-schema"
 import { type ReactNode, useState } from "react"
-import { formatNumber, sameValue, stepCount, stepSpacing } from "./css-values.ts"
+import { sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   asToken,
   Changed,

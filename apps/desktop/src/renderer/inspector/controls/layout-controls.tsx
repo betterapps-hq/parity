@@ -6,6 +6,7 @@ import {
   PopoverTrigger,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
+import { formatNumber, isReadFailure, readTrackSize, type TrackSize } from "@parity-app/style-schema"
 import {
   ArrowDown,
   ArrowDownUp,
@@ -32,16 +33,8 @@ import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { PixelField, type SectionProps } from "./controls.tsx"
-import { clamp, formatNumber, remPx, sameValue, stepCount, tint } from "./css-values.ts"
-import {
-  type Columns,
-  contentSizeWords,
-  type Draft,
-  type SelfAlign,
-  type Span,
-  type Track,
-  typedContentSizes
-} from "./data.ts"
+import { clamp, sameValue, stepCount, tint } from "./css-values.ts"
+import { type Columns, contentSizeWords, type Draft, type SelfAlign, type Span, typedContentSizes } from "./data.ts"
 import { arrowMoves, type Reading, StoresContext, Unstored, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field, IconSegments, nameMenuButton, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
@@ -65,7 +58,7 @@ const contentWidth = 480
 /** A Hug, Min or Max track's width, as the strip draws it; the content decides it on the canvas. */
 const contentTrack = 80
 
-const fr = (value: number): Track => ({ kind: "fr", value })
+const fr = (value: number): TrackSize => ({ kind: "fr", value })
 
 const isBaseline = (align: Draft["align"]) => align === "baseline" || align === "last baseline"
 
@@ -126,7 +119,7 @@ export function LayoutSection({
   }
 
   // The grid's tracks while the layout is a flex box, so switching back to Grid doesn't lose them.
-  const [kept, setKept] = useState<{ columns: Columns; rows: Track[] }>()
+  const [kept, setKept] = useState<{ columns: Columns; rows: TrackSize[] }>()
   // The gap before it went Auto, which turning Auto off brings back.
   const [gapBeforeAuto, setGapBeforeAuto] = useState<Side>()
   const fixedGap = undefinedIfAuto(draft.gap)
@@ -849,7 +842,7 @@ export function fitCount(least: number, gap: number) {
 }
 
 /** The tracks a grid's columns come to: its own, or as many Fill tracks as fit. */
-export function columnTracks(draft: Draft, spacing: readonly LengthToken[]): Track[] {
+export function columnTracks(draft: Draft, spacing: readonly LengthToken[]): TrackSize[] {
   const columns = draft.columns
 
   if (columns === undefined) {
@@ -870,7 +863,7 @@ const gapPx = (gap: Side, spacing: readonly LengthToken[]) =>
  * Each track's share of the strip, as the canvas would size it at Plans' width: fixed tracks their pixels, content
  * tracks a stand-in width, and Fill tracks a share of what's left. Fill never drops below a sliver, so it can be seen.
  */
-export function trackWeights(tracks: Track[], room = contentWidth): number[] {
+export function trackWeights(tracks: TrackSize[], room = contentWidth): number[] {
   const fixed = tracks.reduce((sum, track) => {
     if (track.kind === "px") {
       return sum + track.value
@@ -923,10 +916,10 @@ export function trackWeights(tracks: Track[], room = contentWidth): number[] {
   })
 }
 
-const hug: Track = { kind: "auto" }
+const hug: TrackSize = { kind: "auto" }
 
 /** Whether every track is the same size, so they're one count and one size: `grid-cols-3`. */
-const sameTracks = (tracks: readonly Track[]) => tracks.every((track) => sameValue(track, tracks[0]))
+const sameTracks = (tracks: readonly TrackSize[]) => tracks.every((track) => sameValue(track, tracks[0]))
 
 /** How many rows Plans' children fill, as the browser adds them while Rows is Auto. */
 function childRows(draft: Draft, spacing: readonly LengthToken[]) {
@@ -956,7 +949,7 @@ function TracksField({
   const stores = useContext(StoresContext)
   const columns = one === "column"
   const fit = columns && draft.columns !== undefined && !Array.isArray(draft.columns)
-  let tracks: Track[] = draft.rows ?? []
+  let tracks: TrackSize[] = draft.rows ?? []
 
   if (columns) {
     tracks = Array.isArray(draft.columns) ? draft.columns : []
@@ -968,7 +961,7 @@ function TracksField({
   const [each, setEach] = useState(!uniform)
   const listed = each && !fit && !auto
   const title = columns ? "Column" : "Row"
-  const setTracks = (next: Track[]) => set(columns ? { columns: next } : { rows: next, autoRows: undefined })
+  const setTracks = (next: TrackSize[]) => set(columns ? { columns: next } : { rows: next, autoRows: undefined })
   const fitLeast = fit && !Array.isArray(draft.columns) ? draft.columns!.fit : 160
   const made = columns ? fitCount(fitLeast, gapPx(draft.gap, spacing)) : (rowsMade ?? childRows(draft, spacing))
   const widths = trackWeights(tracks, columns ? contentWidth : 240)
@@ -1209,7 +1202,7 @@ export function TrackCount({
 }
 
 /** A track's size in words, where it has them: Fill, its share and least width faintly after, Hug, or content's. */
-function trackWords(track: Track): { name: string; detail?: string; about: string } | undefined {
+function trackWords(track: TrackSize): { name: string; detail?: string; about: string } | undefined {
   if (track.kind === "fr") {
     return {
       name: "Fill",
@@ -1245,25 +1238,30 @@ const trackSizes = [
     key: "fr",
     name: "Fill",
     detail: "A share of the space left",
-    make: (track: Track): Track => fr(track.kind === "range" ? track.max : 1)
+    make: (track: TrackSize): TrackSize => fr(track.kind === "range" ? track.max : 1)
   },
-  { key: "auto", name: "Hug", detail: "As big as its content", make: (): Track => hug },
-  { key: "px", name: "Fixed", detail: "A length that stays", make: (_: Track, width: number): Track => px(width) },
+  { key: "auto", name: "Hug", detail: "As big as its content", make: (): TrackSize => hug },
+  {
+    key: "px",
+    name: "Fixed",
+    detail: "A length that stays",
+    make: (_: TrackSize, width: number): TrackSize => px(width)
+  },
   {
     key: "range",
     name: "Fill, with a minimum",
     detail: "Never smaller than a length",
-    make: (track: Track, width: number): Track => ({
+    make: (track: TrackSize, width: number): TrackSize => ({
       kind: "range",
       min: Math.round(width),
       max: track.kind === "fr" ? track.value : 1
     })
   },
-  { key: "min", ...contentSizeWords.min, make: (): Track => ({ kind: "min" }) },
-  { key: "max", ...contentSizeWords.max, make: (): Track => ({ kind: "max" }) }
+  { key: "min", ...contentSizeWords.min, make: (): TrackSize => ({ kind: "min" }) },
+  { key: "max", ...contentSizeWords.max, make: (): TrackSize => ({ kind: "max" }) }
 ] as const
 
-const px = (value: number): Track => ({ kind: "px", value: Math.round(value) })
+const px = (value: number): TrackSize => ({ kind: "px", value: Math.round(value) })
 
 /**
  * A track's size, on the shared ValueField: a length in px or %, or a word as a chip (Fill, Hug, Min or Max content),
@@ -1281,10 +1279,10 @@ function TrackSizeField({
   label: string
   inner: ReactNode
   /** The track's size, or nothing where the tracks it covers differ. */
-  track: Track | undefined
+  track: TrackSize | undefined
   /** Its width now, in pixels, which Fixed and a minimum start from. */
   width: number
-  onChange: (track: Track) => void
+  onChange: (track: TrackSize) => void
 }) {
   const words = track && trackWords(track)
   let number: number | undefined
@@ -1383,11 +1381,11 @@ function TrackRow({
 }: {
   one: "column" | "row"
   index: number
-  track: Track
+  track: TrackSize
   width: number
   movable: boolean
   removable: boolean
-  onChange: (track: Track) => void
+  onChange: (track: TrackSize) => void
   onMove: (from: number, to: number) => void
   onRemove: () => void
 }) {
@@ -1446,7 +1444,7 @@ function TrackRow({
 }
 
 /** A list of `count` tracks: the ones there are, with copies of the last added (or Fill), or the last taken off. */
-function resize(tracks: Track[], count: number): Track[] {
+function resize(tracks: TrackSize[], count: number): TrackSize[] {
   if (count <= tracks.length) {
     return tracks.slice(0, count)
   }
@@ -1563,17 +1561,16 @@ function GridPicker({
 const number = String.raw`(\d*\.?\d+)`
 
 /**
- * A track typed as CSS writes it, or in the panel's words: `2fr`, Fill or `Fill ×2`, `200`, `200px` or `12.5rem`,
- * `50%`, `auto` or Hug, `min-content` or Min, `max-content` or Max, and a range as `minmax(120px, 1fr)` or `120-1fr`.
+ * A track typed in the panel's words or as CSS writes it: Fill or `Fill ×2`, Hug, Min, Max, and a range as `120-1fr`,
+ * or any of CSS's spellings `readTrackSize` reads (`2fr`, `200px`, `50%`, `auto`, `minmax(120px, 1fr)`).
  */
-function readTrack(text: string): Reading<Track> {
+function readTrack(text: string): Reading<TrackSize> {
   const typed = text.trim().toLowerCase()
 
-  const words = new Map<string, Track>([
+  const words = new Map<string, TrackSize>([
     ["fill", fr(1)],
-    ["auto", { kind: "auto" }],
     ["hug", { kind: "auto" }],
-    ...[...typedContentSizes].map(([word, kind]): [string, Track] => [word, { kind }])
+    ...[...typedContentSizes].map(([word, kind]): [string, TrackSize] => [word, { kind }])
   ])
 
   const word = words.get(typed)
@@ -1583,43 +1580,25 @@ function readTrack(text: string): Reading<Track> {
   }
 
   const match = (pattern: string) => new RegExp(`^${pattern}$`).exec(typed)
-  const share = match(`${number}\\s*fr`) ?? match(`fill\\s*[x×]?\\s*${number}`)
+  const share = match(`fill\\s*[x×]?\\s*${number}`)
 
   if (share) {
     return { value: fr(Math.max(0.25, Number(share[1]))) }
   }
 
-  const percent = match(`${number}\\s*%`)
-
-  if (percent) {
-    return { value: { kind: "percent", value: Number(percent[1]) } }
-  }
-
-  const rem = match(`${number}\\s*rem`)
-
-  if (rem) {
-    return { value: { kind: "px", value: Number(rem[1]) * remPx } }
-  }
-
-  const pixels = match(`${number}\\s*(?:px)?`)
-
-  if (pixels) {
-    return { value: { kind: "px", value: Number(pixels[1]) } }
-  }
-
-  const range =
-    match(`minmax\\(\\s*${number}\\s*(?:px)?\\s*,\\s*${number}\\s*fr\\s*\\)`) ??
-    match(`${number}\\s*[-–]\\s*${number}?\\s*(?:fr|fill)`)
+  const range = match(`${number}\\s*[-–]\\s*${number}?\\s*(?:fr|fill)`)
 
   if (range) {
     return { value: { kind: "range", min: Number(range[1]), max: Number(range[2] ?? 1) } }
   }
 
-  return { reason: "Enter 1fr, 200px, auto or minmax(120px, 1fr)" }
+  const read = readTrackSize(typed)
+
+  return isReadFailure(read) ? read : { value: read }
 }
 
 /** Steps a track's size by its own unit: a share by one, pixels by one or ten, a percentage by one. */
-function stepTrack(track: Track, up: boolean, shift: boolean): Track {
+function stepTrack(track: TrackSize, up: boolean, shift: boolean): TrackSize {
   const by = stepCount(up, shift)
 
   if (track.kind === "fr") {

@@ -1,10 +1,11 @@
 import { isEasingKeyword, radiusKeywords } from "@parity-app/core"
+import { formatNumber } from "@parity-app/style-schema"
 import { defaultValues, type PreviewKind, previewKind, type Token } from "@parity-app/tokens"
 import { px } from "../lengths.ts"
 import { comesTo } from "../token-values.ts"
-import { formatNumber, isPlainColor } from "./controls/css-values.ts"
+import { isPlainColor } from "./controls/css-values.ts"
 import type { ShadowLayer } from "./controls/lists-data.ts"
-import { readEasingValue, splitUnit } from "./controls/motion-data.ts"
+import { easingValuePlot, splitUnit } from "./controls/motion-data.ts"
 import {
   colorToken,
   type ColorToken,
@@ -109,7 +110,7 @@ export function projectTokenSets(
   const easing: EasingToken[] = motion
     .filter((each) => each.kind === "easing")
     .map((each) => {
-      const plot = readEasingValue(lookup(each.token.name)?.trim() ?? "")
+      const plot = easingValuePlot(lookup(each.token.name)?.trim() ?? "")
 
       return easingToken(each.token.name, plot?.kind === "bezier" ? plot.curve : undefined)
     })

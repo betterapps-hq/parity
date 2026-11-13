@@ -2,6 +2,7 @@
  * The stand-in layer for the styling controls exploration: the proposed style fields it has, and the colors the
  * stand-in design already uses. Its tokens are in tokens.ts.
  */
+import type { TrackSize } from "@parity-app/style-schema"
 import { numberValue, textValue } from "../../chrome/prop-values.ts"
 import type { Side, Sides } from "./sides-writes.ts"
 import type { BlendMode } from "./text-data.ts"
@@ -10,47 +11,8 @@ import type { KeywordValue, Opacity } from "./text-writes.ts"
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
 
-/** A grid track: a share of what's left (`fr`), a fixed length in pixels, or sized by its content. */
-export type Track =
-  | { kind: "fr"; value: number }
-  | { kind: "px"; value: number }
-  /** A share of the grid's own size, as Penpot's % tracks are. */
-  | { kind: "percent"; value: number }
-  | { kind: "auto" }
-  | { kind: "min" }
-  | { kind: "max" }
-  /** At least `min` pixels, and at most `max` shares of what's left: CSS's `minmax(12rem, 1fr)`. */
-  | { kind: "range"; min: number; max: number }
-
-const contentTracks = {
-  auto: { label: "Hug", css: "auto" },
-  min: { label: "Min", css: "min-content" },
-  max: { label: "Max", css: "max-content" }
-} as const
-
-/** A Fill track is `minmax(0, 1fr)`, as `grid-cols-N` writes it, so long content can't widen its column. */
-export const trackCss = (track: Track): string => {
-  if (track.kind === "fr") {
-    return `minmax(0, ${track.value}fr)`
-  }
-
-  if (track.kind === "px") {
-    return `${track.value}px`
-  }
-
-  if (track.kind === "percent") {
-    return `${track.value}%`
-  }
-
-  if (track.kind === "range") {
-    return `minmax(${track.min}px, ${track.max}fr)`
-  }
-
-  return contentTracks[track.kind].css
-}
-
 /** A grid's columns: a list of tracks, or as many as fit, each at least `fit` pixels wide (CSS's auto-fit). */
-export type Columns = Track[] | { fit: number }
+export type Columns = TrackSize[] | { fit: number }
 
 /** How many tracks a grid child spans, or all of them (`1 / -1`). */
 export type Span = number | "all"
@@ -201,9 +163,9 @@ export interface Draft {
   minHeight?: number
   maxHeight?: number
   columns?: Columns
-  rows?: Track[]
+  rows?: TrackSize[]
   /** The size of the rows made as children need them (`grid-auto-rows`), while Rows is Auto; unset, they hug. */
-  autoRows?: Track
+  autoRows?: TrackSize
   /** The selected grid child's own size; unset, it fills its cell. */
   childWidth?: Size
   childHeight?: Size

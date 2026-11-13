@@ -3122,7 +3122,9 @@ placed layer's insets. A grid's Cols and Rows are whole numbers. A component's n
   `"abc" isn't a valid number`, `"em" isn't a unit Width takes`, `Opacity takes a percentage, not px`,
   `Something's missing after "+"`, `A bracket isn't closed`, `Put an operator between 16 and 4`, `Can't divide by zero`.
   Nothing is made and the canvas goes back to the value. It stays when the field loses focus, until it's typed in again
-  or Escape.
+  or Escape. A field in units of its own (Angle, Time, a text Size) ends every reason with what it takes:
+  `Can't divide by zero. Enter an angle, such as 45 or 0.25turn` (`typing.test.ts`). Each reader gives a code with its
+  reason, from `@parity-app/style-schema`'s `ReadFailure`, so nothing decides what went wrong from the words.
 - **A value changing underneath** (an agent's edit, an undo, a resize on the canvas) doesn't touch what's being typed:
   it shows over the value until it's made or reverted. With nothing typed, the field follows the value. Selecting
   another layer, or another set of layers, starts the fields afresh.

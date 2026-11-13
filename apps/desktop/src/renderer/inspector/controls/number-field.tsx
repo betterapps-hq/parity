@@ -1,5 +1,5 @@
+import { formatNumber } from "@parity-app/style-schema"
 import { type ReactNode, useId, useRef } from "react"
-import { formatNumber } from "./css-values.ts"
 import { initialSession, reduceSession, type SessionEffect } from "./edit-session.ts"
 import {
   type FieldHint,

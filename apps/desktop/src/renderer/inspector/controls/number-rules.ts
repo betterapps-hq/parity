@@ -4,6 +4,7 @@
  * reasons from these, so every number field reads, steps and says what it takes the same way. The maths is
  * `readNumber`'s: `8`, `+2`, `*2`, `(24 - 4) / 2`.
  */
+import { type ReadFailure, readFailure } from "@parity-app/style-schema"
 import { stepCount } from "./css-values.ts"
 import { readNumber } from "./typing.ts"
 
@@ -38,7 +39,7 @@ export interface NumberRules {
 }
 
 /** What a number field reads from what's typed: a number, unset, or why not. */
-export type NumberReading = { value: number | undefined } | { reason: string }
+export type NumberReading = { value: number | undefined } | ReadFailure
 
 /** What a field with these rules takes, as its reason says: "Weight takes a whole number from 1 to 1000". */
 export function numberTakes(rules: NumberRules): string {
@@ -93,7 +94,7 @@ export function readNumberText(text: string, rules: NumberRules, current: number
   )
 
   if ("clear" in reading) {
-    return rules.required ? { reason: numberTakes(rules) } : { value: undefined }
+    return rules.required ? readFailure("incomplete", numberTakes(rules)) : { value: undefined }
   }
 
   if ("reason" in reading) {
@@ -104,7 +105,7 @@ export function readNumberText(text: string, rules: NumberRules, current: number
 
   // Refused past either end, where the rules say so; otherwise it stops there.
   if (rules.past === "refuse" && settled !== rounded(reading.value, rules)) {
-    return { reason: numberTakes(rules) }
+    return readFailure("out-of-range", numberTakes(rules))
   }
 
   return { value: settled }
