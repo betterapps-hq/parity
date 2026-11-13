@@ -58,8 +58,8 @@ function PageLines({ project }: { project: string }) {
   const editor = useEditor()
   const zoom = useValue("zoom", () => editor.getZoomLevel(), [editor])
 
-  // Each line runs from the middle of the page's bottom edge to the middle of the top edge of the page under it, turning
-  // halfway between them. A page's title sits at its left, clear of the line.
+  // Each line curves from the middle of the page's bottom edge to the middle of the top edge of the page under it,
+  // leaving and arriving straight down, so the tree reads as branches. A page's title sits at its left, clear of it.
   const lines = useValue(
     "page lines",
     () =>
@@ -71,12 +71,12 @@ function PageLines({ project }: { project: string }) {
           return []
         }
 
-        const turn = (above.maxY + below.minY) / 2
+        const bend = (below.minY - above.maxY) / 2
 
         return [
           {
             key: to,
-            path: `M ${above.midX} ${above.maxY} V ${turn} H ${below.midX} V ${below.minY}`,
+            path: `M ${above.midX} ${above.maxY} C ${above.midX} ${above.maxY + bend}, ${below.midX} ${below.minY - bend}, ${below.midX} ${below.minY}`,
             ends: [
               [above.midX, above.maxY],
               [below.midX, below.minY]
@@ -87,7 +87,7 @@ function PageLines({ project }: { project: string }) {
     [editor, project]
   )
 
-  // Two screen pixels wide, in dashes of eight that flow down from each page to the pages under it, at any zoom.
+  // One and a half screen pixels wide, in dashes of six that flow down from each page to the pages under it, at any zoom.
   const px = (value: number) => value / zoom
   const color = designColor("screen")
 
@@ -99,14 +99,15 @@ function PageLines({ project }: { project: string }) {
             d={path}
             fill="none"
             stroke={color}
-            strokeWidth={px(2)}
-            strokeDasharray={`${px(8)} ${px(8)}`}
+            strokeWidth={px(1.5)}
+            strokeDasharray={`${px(6)} ${px(6)}`}
+            strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <animate attributeName="stroke-dashoffset" from={0} to={-px(16)} dur="2s" repeatCount="indefinite" />
+            <animate attributeName="stroke-dashoffset" from={0} to={-px(12)} dur="1.5s" repeatCount="indefinite" />
           </path>
           {ends.map(([x, y]) => (
-            <circle key={`${x},${y}`} cx={x} cy={y} r={px(4)} fill={color} />
+            <circle key={`${x},${y}`} cx={x} cy={y} r={px(2.5)} fill={color} />
           ))}
         </g>
       ))}

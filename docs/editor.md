@@ -6461,9 +6461,10 @@ ProjectDetail and `/settings`, which holds Billing and Profile. A layout with no
 from the page above. Each page is centered over the pages under it, and pages side by side go by path. A screen is named
 for the component its route draws, else its path.
 
-- **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page
-  under it, turning halfway, with a dot where it meets each board. Its dashes flow slowly down the tree. The lines are
-  drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
+- **Lines.** A dashed line curves from the middle of each page's bottom edge to the middle of the top edge of each page
+  under it, leaving and arriving straight down, with a small dot where it meets each board. Its dashes flow slowly down
+  the tree. The lines are drawn from where the boards are now, so they follow a page that's moved, and they sit behind
+  every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
