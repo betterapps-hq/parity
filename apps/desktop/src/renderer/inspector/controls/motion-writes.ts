@@ -3,17 +3,9 @@
  * story, in the forms writes.ts uses: the stored value, the CSS and the Tailwind classes. Lengths, fractions,
  * arbitrary values and the nine spots' keywords are written as css-values.ts writes them for every other control.
  */
+import { formatNumber, lengthForm } from "@parity-app/style-schema"
 import { textValue } from "../../chrome/prop-values.ts"
-import {
-  arbitrary,
-  type BoxPoint,
-  formatNumber,
-  fraction,
-  lengthClass,
-  lengthCss,
-  lengthForm,
-  spotKeywords
-} from "./css-values.ts"
+import { arbitrary, type BoxPoint, fraction, lengthClass, lengthCss, spotKeywords } from "./css-values.ts"
 import {
   type Angle,
   defaultDuration,

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers move into the style package",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

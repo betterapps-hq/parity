@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
+import { gradientDirections } from "@parity-app/style-schema"
 import { ArrowLeftRight, Plus } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
@@ -51,7 +52,6 @@ import {
   drawListColor,
   type GradientKind,
   type GradientPaint,
-  gradientDirections,
   type ImagePaint,
   type Interpolation,
   type ListColor,

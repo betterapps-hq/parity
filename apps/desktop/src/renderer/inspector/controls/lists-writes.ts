@@ -4,7 +4,8 @@
  * doesn't fit them), and the filter list in Tailwind's filter order. Colors, shadows, gradients, arbitrary values and
  * the nine spots' keywords are written by css-values.ts, as every writer's are.
  */
-import { arbitrary, colorCss, formatNumber, gradientCss, isPlainColor, shadowCss, spotKeywords } from "./css-values.ts"
+import { formatNumber } from "@parity-app/style-schema"
+import { arbitrary, colorCss, gradientCss, isPlainColor, shadowCss, spotKeywords } from "./css-values.ts"
 import { isLengthToken, type Length } from "./data.ts"
 import {
   type AdjustmentKey,
