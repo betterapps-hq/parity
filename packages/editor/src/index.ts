@@ -485,6 +485,8 @@ export {
   componentBoards
 } from "./component-boards.ts"
 
+export { type BoardParents, nextBoardParents, noBoardParents } from "./board-parents.ts"
+
 export {
   type ElementLayerType,
   elementLayers,

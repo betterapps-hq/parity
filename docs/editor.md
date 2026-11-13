@@ -6522,6 +6522,15 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   hugs the component with 2px around it, so nothing at its edges is cut off, and has no fill, so the component sits on
   the canvas. Its title shows the component's icon, its name, and its file underneath. At 100% a component is its own
   size: the example's Button is 65.7 × 32, as in a browser.
+- **Inside the parents a part needs.** A part that fails for want of a parent, as AvatarImage needs Avatar and
+  TabsTrigger needs TabsList inside Tabs, is drawn again inside the next parents to try (`nextBoardParents`), until it
+  draws: first the component its error names, then the components of its file whose names begin its own, outermost, then
+  the rest of its file. A parent that gets it further is kept, and one that doesn't, or fails itself, is dropped. A
+  parent that hides it, as an inactive TabsContent hides what's in it, counts as drawing nothing, so the search goes on,
+  and comes back to it when no parent shows it: an AvatarImage with no picture shows nothing anywhere. It stops after 12
+  tries. Layers still opens straight to the part's layers, without its parents.
+- **In the component's color.** A board is selected, outlined and titled in the component purple, with its size under it
+  in the same color, though it's a frame.
 - **Only the project's own.** A component from a library, or from a dependency in `node_modules`, gets no board; it's
   still listed in the Components panel.
 - **Listed in Layers and the Components panel.** Layers lists the boards under Components, after Routes and Screens.
@@ -6550,26 +6559,33 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
 - **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
   written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and
   boards are left out of what Parity keeps to restore after a crash.
-- **Not yet.** A part that needs its parent, as AvatarImage needs Avatar or TabsTrigger needs Tabs, draws its error. A
-  page's layers don't show what its components draw inside, since the page is the app's own document on another origin.
+- **Not yet.** A part that shows only when chosen, as TabsContent does, draws nothing. A page's layers don't show what
+  its components draw inside, since the page is the app's own document on another origin.
 
 Tried in a development build on the example project. Its own UI kit showed 36 boards in 10 rows under the page tree.
 Pressing CardTitle in the Components panel selected its board, with `src/components/ui/card.tsx` and its export in the
 panel. Button's panel listed its variant and size options and `asChild` = false. Reopening left nothing unsaved. Card's
 row opened to `card` and Text; selecting `card` outlined it and showed its size, padding and fill, greyed. Button's row
 opened to `button` with the orange Button icon, and its panel's header said Button, with Typography, Size, Fill, Stroke
-and Appearance; Input's `input` was a Text field.
+and Appearance; Input's `input` was a Text field. With the search, AvatarImage and AvatarFallback drew inside Avatar,
+TabsList and TabsContent inside Tabs, and TabsTrigger inside TabsList inside Tabs, and the canvas showed no errors;
+TabsList's board fit to 71 × 36, all in purple.
 
-Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`; `elementLayers` in
-`packages/editor/src/element-layers.ts`; `describeElement` and `panelData` in `packages/layer-types`; `opensTo` in
-`layers-tree.ts`; `NodeIcon` and `nodeColor` in `canvas/kinds.tsx`; `ElementPanel` in `chrome/LayerPanel.tsx`;
+Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`; `nextBoardParents` in
+`board-parents.ts`; `searchBoardParents` in `apps/desktop/src/renderer/workspace.ts`; `onDesignFailures` in
+`failures-store.ts`; `designColor` in `canvas/kinds.tsx`; `elementLayers` in `packages/editor/src/element-layers.ts`;
+`describeElement` and `panelData` in `packages/layer-types`; `opensTo` in `layers-tree.ts`; `NodeIcon` and `nodeColor`
+in `canvas/kinds.tsx`; `ElementPanel` in `chrome/LayerPanel.tsx`;
 `apps/desktop/src/renderer/canvas/component-boards.ts`; `board-internals.ts`; `setInnerNodes` in `frame.ts`;
 `sampleBoards` and `ownWork` in `workspace.ts`; `ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
 
-Tests: `packages/editor/src/component-boards.test.ts` (3: the panel's groups without pages, libraries, dependencies or
+Tests: `packages/editor/src/component-boards.test.ts` (4: the panel's groups without pages, libraries, dependencies or
 providers; a row for each group from the layout's top left; the component 2px in on no fill, with a sample for each
-required prop and its name as children); `packages/editor/src/element-layers.test.ts` (14: the layer each element is,
-its name, a card's elements as layers with their elements, and computed styles as a valid layer style);
+required prop and its name as children; a part inside its parents, with what it draws read into it);
+`packages/editor/src/board-parents.test.ts` (6: the parent an error names, a parent kept that gets it further and the
+rest of its file tried, a parent that fails itself dropped, no search for another error, the end of the search, and a
+parent that hides the part passed over and come back to); `packages/editor/src/element-layers.test.ts` (14: the layer
+each element is, its name, a card's elements as layers with their elements, and computed styles as a valid layer style);
 `packages/layer-types/src/layer-types.test.ts` (37: each tag, input type and role in one type, and what an element
 describes as); `packages/layer-types/src/panel-data.test.ts` (6: a link's, a checkbox's, a switch's and a video's
 sections from their attributes, and sections with nothing set left out).

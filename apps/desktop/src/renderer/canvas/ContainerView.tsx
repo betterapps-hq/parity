@@ -135,7 +135,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
       <TitleButton
         entry={entry}
         selected={isSelected}
-        color={isSelected ? designColor(container.kind) : undefined}
+        color={isSelected ? designColor(container.kind, entry.key) : undefined}
         quiet
         onPointerDown={onTitlePointerDown}
       />
@@ -185,62 +185,110 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
   const hugs = hugsContent(entry.container)
   const { key } = entry
   useEffect(() => {
-    const host = board.current?.querySelector<HTMLElement>("[data-frame]")
+    const container = board.current
 
-    if (!hugs || !host) {
+    if (!hugs || !container) {
       return undefined
     }
 
-    const rootElement = () => {
-      const current = store.getEntry(key)?.container
+    // A board far from view is a picture, so its frame comes and goes: each time it's drawn live, it's measured.
+    let detach: (() => void) | undefined
+    let attached: HTMLElement | undefined
 
-      return current && findNodeElement(host, current.root.id)
-    }
+    const attach = () => {
+      const host = container.querySelector<HTMLElement>("[data-frame]") ?? undefined
 
-    const fit = () => {
-      const width = contentWidth(rootElement())
-      const current = store.getEntry(key)?.container
-
-      if (!width || !current || !fittedFrame(current, width)) {
+      if (host === attached) {
         return
       }
 
-      // A component's board is drawn from the project's code each time, so the width it's drawn at isn't to be saved.
-      store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, {
-        history: false,
-        persist: !key.startsWith(`${componentBoardsFile}#`)
+      detach?.()
+      detach = undefined
+      attached = host
+
+      if (host) {
+        detach = fitFrame(host)
+      }
+    }
+
+    const fitFrame = (host: HTMLElement) => {
+      const rootElement = () => {
+        const current = store.getEntry(key)?.container
+
+        return current && findNodeElement(host, current.root.id)
+      }
+
+      const fit = () => {
+        const width = contentWidth(rootElement())
+        const current = store.getEntry(key)?.container
+
+        if (!width || !current || !fittedFrame(current, width)) {
+          return
+        }
+
+        // A component's board is drawn from the project's code each time, so the width it's drawn at isn't to be saved.
+        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, {
+          history: false,
+          persist: !key.startsWith(`${componentBoardsFile}#`)
+        })
+      }
+
+      const observer = new ResizeObserver(fit)
+      let watched: Element | undefined
+
+      const watch = () => {
+        const root = rootElement()
+
+        if (root === watched) {
+          return
+        }
+
+        observer.disconnect()
+        watched = root
+
+        if (root) {
+          observer.observe(root)
+        }
+      }
+
+      // The design is drawn into the frame once it's mounted, and its root element can be drawn again as it changes.
+      const stopDrawn = watchFrame(host, () => {
+        watch()
+        fit()
       })
-    }
 
-    const observer = new ResizeObserver(fit)
-    let watched: Element | undefined
-
-    const watch = () => {
-      const root = rootElement()
-
-      if (root === watched) {
-        return
-      }
-
-      observer.disconnect()
-      watched = root
-
-      if (root) {
-        observer.observe(root)
-      }
-    }
-
-    // The design is drawn into the frame once it's mounted, and its root element can be drawn again as it changes.
-    const stopDrawn = watchFrame(host, () => {
       watch()
-      fit()
-    })
 
-    watch()
+      // A design drawn afresh from code, as a board whose part found the parents it needs, starts without its width, though
+      // its root may be drawn as wide as before, so nothing above notices: it's measured once it's drawn.
+      let last = store.getEntry(key)?.container
+
+      const stopChanges = store.subscribe(() => {
+        const current = store.getEntry(key)?.container
+
+        if (current !== last) {
+          last = current
+          requestAnimationFrame(() => {
+            watch()
+            fit()
+          })
+        }
+      })
+
+      return () => {
+        stopDrawn()
+        stopChanges()
+        observer.disconnect()
+      }
+    }
+
+    const frames = new MutationObserver(attach)
+    frames.observe(container, { childList: true, subtree: true })
+    attach()
 
     return () => {
-      stopDrawn()
-      observer.disconnect()
+      frames.disconnect()
+      detach?.()
     }
   }, [board, hugs, key, store])
 }
@@ -296,7 +344,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const states = designStates(container)
   const rows = allStates ? states : [active]
   const columns = [primary, ...companions]
-  const color = designColor(container.kind)
+  const color = designColor(container.kind, entry.key)
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
 

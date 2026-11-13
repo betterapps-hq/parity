@@ -612,7 +612,7 @@ export function CanvasEditor({
         } else if (current.mode) {
           color = kindColors.mode
         } else if (entry) {
-          color = designColor(entry.container.kind)
+          color = designColor(entry.container.kind, entry.key)
         }
 
         setSelectionColor(editor, color)

@@ -59,25 +59,39 @@ export function boardGroups(sources: Readonly<Record<string, ComponentSource>>):
   return [...groupComponents(kit, "file"), ...groupComponents(app, "folder")]
 }
 
+const boardIdPrefix = "component:"
+
 /** The id of a component's board, which says it's a component's rather than a design. */
 export function componentBoardId(component: string): string {
-  return `component:${component}`
+  return `${boardIdPrefix}${component}`
 }
 
 /**
  * A board for each of the project's own components (see `boardGroups`), a row for each group, with its top left at the
  * layout's. Each holds the component as inserting it would place it, with a sample for each required prop and its name
- * as the children it takes, once `components` says what it takes. The board hugs the component, 2px around it, and is clear.
+ * as the children it takes, once `components` says what it takes, inside the `parents` it needs, outermost first, when
+ * it's found it needs some (`nextBoardParents`). The board hugs what it draws, 2px around it, and is clear.
  */
 export function componentBoards(
   sources: Readonly<Record<string, ComponentSource>>,
   components: Readonly<Record<string, ComponentInfo>>,
-  layout: BoardLayout
+  layout: BoardLayout,
+  parents: Readonly<Record<string, readonly string[]>> = {}
 ): ComponentBoard[] {
   return boardGroups(sources).flatMap((group, row) =>
     group.ids.map((component, column) => {
       const id = componentBoardId(component)
-      const node = componentNode(component, components[component], new Set(["root"]))
+      const taken = new Set(["root"])
+
+      // Each parent holds the one inside it as its only child, in place of the sample text it'd hold alone.
+      const node = (parents[component] ?? []).reduceRight<DesignNode>(
+        (inner, parent) => {
+          const outer = componentNode(parent, components[parent], taken)
+
+          return outer.type === "component" ? { ...outer, slots: { children: [inner] } } : inner
+        },
+        componentNode(component, components[component], taken)
+      )
 
       return {
         component,
@@ -108,22 +122,49 @@ export function boardsHeight(sources: Readonly<Record<string, ComponentSource>>,
 export function boardWithInternals(board: ContainerSpec, internals: DesignNode[]): ContainerSpec {
   const root = board.root
   const component = boardComponentNode(board)
+  const [outer, ...rest] = root.type === "layout" ? root.children : []
 
-  if (root.type !== "layout" || !component || JSON.stringify(component.internals ?? []) === JSON.stringify(internals)) {
+  if (
+    root.type !== "layout" ||
+    !outer ||
+    !component ||
+    JSON.stringify(component.internals ?? []) === JSON.stringify(internals)
+  ) {
     return board
   }
 
-  return { ...board, root: { ...root, children: [{ ...component, internals }, ...root.children.slice(1)] } }
+  return {
+    ...board,
+    root: { ...root, children: [withPart(outer, component.id, { ...component, internals }), ...rest] }
+  }
 }
 
-/**
- * The component a board draws, inside its padding: the layer whose elements are read, and whose layers Layers shows
- * under the board, since the board is the component.
- */
-export function boardComponentNode(board: ContainerSpec): Extract<DesignNode, { type: "component" }> | undefined {
-  const [component] = board.root.type === "layout" ? board.root.children : []
+/** A node with the layer `id` in its chain of only children replaced by `part`. */
+function withPart(node: DesignNode, id: string, part: ComponentLayer): DesignNode {
+  if (node.id === id) {
+    return part
+  }
 
-  return component?.type === "component" ? component : undefined
+  const [inner] = node.type === "component" ? (node.slots?.children ?? []) : []
+
+  return node.type === "component" && inner ? { ...node, slots: { children: [withPart(inner, id, part)] } } : node
+}
+
+type ComponentLayer = Extract<DesignNode, { type: "component" }>
+
+/**
+ * The component a board draws, inside its padding and any parents it needs: the layer whose elements are read, and
+ * whose layers Layers shows under the board, since the board is the component.
+ */
+export function boardComponentNode(board: ContainerSpec): ComponentLayer | undefined {
+  const component = board.id.startsWith(boardIdPrefix) ? board.id.slice(boardIdPrefix.length) : undefined
+  let node: DesignNode | undefined = board.root.type === "layout" ? board.root.children[0] : undefined
+
+  while (node?.type === "component" && node.component !== component) {
+    node = node.slots?.children?.[0]
+  }
+
+  return node?.type === "component" ? node : undefined
 }
 
 /** The component layer on a board, whose id finds what it draws. */

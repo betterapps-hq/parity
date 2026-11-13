@@ -1,14 +1,24 @@
 import {
   type CanvasDocument,
   codeChangeVersions,
+  findNode,
   finiteNumber,
   type GuestComponentSource,
   guestChanges,
   jsonText,
+  type LayerFailure,
   parseData,
   versionedSources
 } from "@parity-app/core"
-import { openingDesigns, type RecoveryCopy } from "@parity-app/editor"
+import {
+  boardComponentNode,
+  boardGroups,
+  type BoardParents,
+  nextBoardParents,
+  noBoardParents,
+  openingDesigns,
+  type RecoveryCopy
+} from "@parity-app/editor"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
@@ -24,6 +34,7 @@ import { askToRestore } from "./chrome/restore.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
+import { designFailuresNow, onDesignFailures } from "./failures-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
 import { keepProjectPicture } from "./project-picture.ts"
@@ -1392,8 +1403,11 @@ function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
  * that's neither undone nor saved.
  */
 function sampleBoards(info: ProjectInfo, store: DesignStore, components: ComponentStore): void {
-  components.subscribe(() => {
-    const [boards] = componentBoardsDocument(info, components.get())
+  const parents = new Map<string, BoardParents>()
+
+  const draw = () => {
+    const chains = Object.fromEntries([...parents].map(([component, state]) => [component, state.chain]))
+    const [boards] = componentBoardsDocument(info, components.get(), chains)
 
     if (!boards) {
       return
@@ -1404,7 +1418,78 @@ function sampleBoards(info: ProjectInfo, store: DesignStore, components: Compone
       (snapshot) => ({ ...snapshot, documents: new Map(snapshot.documents).set(boards.path, boards.document) }),
       { history: false, persist: false }
     )
-  })
+  }
+
+  components.subscribe(draw)
+  searchBoardParents(info, store, parents, draw)
+}
+
+/**
+ * Finds what each of the project's own parts needs around it to draw (`nextBoardParents`): each time a board's part
+ * fails for want of a parent, its board is drawn again inside the next parents to try, until it draws or nothing's left.
+ * A report about layers the board no longer has, from before it was drawn again, is left alone.
+ */
+function searchBoardParents(
+  info: ProjectInfo,
+  store: DesignStore,
+  parents: Map<string, BoardParents>,
+  draw: () => void
+): void {
+  const groups = new Map(boardGroups(info.sources).flatMap(({ ids }) => ids.map((id) => [id, ids])))
+  const prefix = `${componentBoardsFile}#`
+
+  const step = (design: string, failures: readonly LayerFailure[]) => {
+    const board = design.startsWith(prefix) ? store.getEntry(design)?.container : undefined
+    const part = board && boardComponentNode(board)
+    const group = part && groups.get(part.component)
+
+    if (!board || !part || !group) {
+      return
+    }
+
+    const state = parents.get(part.component) ?? noBoardParents
+    const [first] = failures
+
+    if (state.done || (first && !findNode(board.root, first.nodeId))) {
+      return
+    }
+
+    // Nothing failing isn't enough: a parent can hide what's in it, as an inactive TabsContent does.
+    const failure = first ? { component: first.component, error: first.error } : drawsPart(part.id) || "nothing"
+    const next = nextBoardParents(part.component, group, state, failure === true ? undefined : failure)
+    parents.set(part.component, next)
+
+    if (next.chain.join() === state.chain.join()) {
+      return
+    }
+
+    draw()
+
+    // The canvas tells only when what fails changes, so a chain that draws as the last one did is looked at once drawn.
+    // A board far from view is a picture, with nothing of it on the page, so it's left until it's drawn live.
+    setTimeout(() => {
+      const outer = store.getEntry(design)?.container.root
+      const drawn = outer?.type === "layout" && outer.children[0] && drawsPart(outer.children[0].id)
+
+      if (parents.get(part.component) === next && drawn) {
+        step(design, designFailuresNow(info.id, design))
+      }
+    }, recheckAfter)
+  }
+
+  onDesignFailures(info.id, step)
+}
+
+/** How long a board's drawn again before what it draws is looked at, if the canvas hasn't said. */
+const recheckAfter = 1500
+
+/** Whether a layer is drawn on the canvas, in any frame. */
+function drawsPart(nodeId: string): boolean {
+  const selector = `[data-canvas-node="${CSS.escape(nodeId)}"]`
+
+  return [...document.querySelectorAll("[data-frame]")].some(
+    (frame) => (frame.shadowRoot ?? frame).querySelector(selector) !== null
+  )
 }
 
 /** Fills in each component's props once the service has inferred them, after the tab opens. */

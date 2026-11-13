@@ -25,6 +25,7 @@ import {
 import { useContext } from "react"
 import { isIconLayer, unnamedIconLabel } from "../chrome/layer-kind.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { componentBoardsFile } from "./component-boards.ts"
 import { ProjectContext } from "./context.ts"
 import { elementFamilyColors, elementFamilyTextColors, LayerIcon } from "./element-kinds.tsx"
 
@@ -89,8 +90,15 @@ export function textFor(color: string): string {
   return (kind && textColors[kind]) ?? (family && elementFamilyTextColors[family]) ?? color
 }
 
-/** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
-export function designColor(kind: ContainerKind | undefined): string {
+/**
+ * A design's color. A frame is a layout on the canvas, so it's selected in the layer color; a board of one of the
+ * project's components, though it's a frame, is the component's, given its design's `key`.
+ */
+export function designColor(kind: ContainerKind | undefined, key?: string): string {
+  if (key?.startsWith(`${componentBoardsFile}#`)) {
+    return kindColors.component
+  }
+
   if (kind === "frame") {
     return kindColors.layer
   }

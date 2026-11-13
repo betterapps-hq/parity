@@ -1,6 +1,12 @@
 import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { boardGroups, boardsHeight, componentBoards } from "./component-boards.ts"
+import {
+  boardComponentNode,
+  boardGroups,
+  boardsHeight,
+  boardWithInternals,
+  componentBoards
+} from "./component-boards.ts"
 
 const sources = {
   Button: { path: "src/components/ui/button.tsx", export: "Button" },
@@ -60,5 +66,21 @@ describe("componentBoards", () => {
     expect(first?.board.root).toMatchObject({
       children: [{ type: "component", component: "Button", props: { size: "sm", children: "Button" } }]
     })
+  })
+
+  it("draws a part inside the parents it needs, and reads what it draws inside it, not them", () => {
+    const board = componentBoards(sources, {}, layout, { CardTitle: ["Card"] }).find(
+      (each) => each.component === "CardTitle"
+    )!.board
+
+    expect(board.root).toMatchObject({
+      children: [{ component: "Card", slots: { children: [{ component: "CardTitle" }] } }]
+    })
+    expect(boardComponentNode(board)?.component).toBe("CardTitle")
+
+    const read = boardWithInternals(board, [{ type: "text", id: "in-0", text: "CardTitle" }])
+
+    expect(boardComponentNode(read)?.internals).toEqual([{ type: "text", id: "in-0", text: "CardTitle" }])
+    expect(read.root).toMatchObject({ children: [{ component: "Card" }] })
   })
 })

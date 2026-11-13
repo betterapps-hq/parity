@@ -28,13 +28,15 @@ export function componentBoardsTop(info: BoardsInfo): number {
 
 /**
  * The project's own components as a design file, each on a board of its own, or none without any. `components` says
- * what each takes, which comes after the project opens, so they first draw without samples.
+ * what each takes, which comes after the project opens, so they first draw without samples. `parents` holds the
+ * parents each part has been found to need (`searchBoardParents`).
  */
 export function componentBoardsDocument(
   info: BoardsInfo,
-  components: Readonly<Record<string, ComponentInfo>> = {}
+  components: Readonly<Record<string, ComponentInfo>> = {},
+  parents: Readonly<Record<string, readonly string[]>> = {}
 ): { path: string; document: CanvasDocument }[] {
-  const boards = componentBoards(info.sources, components, boardLayout(info))
+  const boards = componentBoards(info.sources, components, boardLayout(info), parents)
 
   boardPlaces.set(info.id, new Map(boards.map(({ board, component, file }) => [board.id, { component, file }])))
 
