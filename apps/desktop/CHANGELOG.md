@@ -1,8 +1,21 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 06:01:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 06:22:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.6
+
+Fri, 13 Nov 2026 06:22:21 GMT
+
+### Patches
+
+- Every design added to or deleted from a file, by the editor or an agent, goes through core's addDesigns and
+  removeDesigns, and a new file starts as emptyDocument, so the format's version is written in one place.
+  (ajcraswell@gmail.com)
+- Set a layer's name, tag, picture and other own fields through one function, so Layers, the Content section and an
+  agent's Update agree: an empty name or alt text takes it away, and a field the layer doesn't have is refused
+  (ajcraswell@gmail.com)
 
 ## 0.80.5
 

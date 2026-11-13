@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Set a layer's name, tag, picture and other own fields through one function, so Layers, the Content section and an agent's Update agree: an empty name or alt text takes it away, and a field the layer doesn't have is refused",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

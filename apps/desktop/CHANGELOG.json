@@ -2,6 +2,27 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 06:22:21 GMT",
+      "version": "0.80.6",
+      "tag": "@parity-app/desktop_v0.80.6",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e3bdf7167ffb98d482accd55c94251f8851401b4",
+            "comment": "Every design added to or deleted from a file, by the editor or an agent, goes through core's addDesigns and removeDesigns, and a new file starts as emptyDocument, so the format's version is written in one place."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "005b0550d525797eb611c597e87e12ea2f5afa1f",
+            "comment": "Set a layer's name, tag, picture and other own fields through one function, so Layers, the Content section and an agent's Update agree: an empty name or alt text takes it away, and a field the layer doesn't have is refused"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 06:01:58 GMT",
       "version": "0.80.5",
       "tag": "@parity-app/desktop_v0.80.5",
