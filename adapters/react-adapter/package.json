@@ -1,5 +1,5 @@
 {
-  "name": "@parity-app/renderer-react",
+  "name": "@parity-app/react-adapter",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,

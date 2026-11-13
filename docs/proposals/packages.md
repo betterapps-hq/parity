@@ -8,7 +8,7 @@ models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and
 (PAR-570), and `@parity-app/project` the one reader of installed packages (PAR-573), on 2026-11-05.
 `@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
 (PAR-618), on 2026-11-05. `@parity-app/style-schema` holds the stored style and its CSS declarations (PAR-939), and the
-ledger of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints
+ledger of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/tailwind-adapter` prints
 and reads classes through (PAR-943), on 2026-11-11. `@parity-app/processes` holds what the desktop app's processes
 decide, moved out of core (PAR-989), and the one lifecycle every child process and worker goes through (PAR-987), on
 2026-11-12. Core's last files that weren't the model moved to the packages that use them, and its unused names went
@@ -44,8 +44,8 @@ when it's spread through UI code. Today:
 - **Core and editor name what other packages may use** in `src/index.ts`, one `export { … }` per module, and a name
   nothing outside uses stays inside (PAR-989). Their `package.json` `exports` allow nothing else, apart from core
   modules that load on their own: `errors`, `fixtures`, `icon-names`, `props`, `schema` and `values/evaluate`.
-- **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
-  and `@parity-app/styles-tailwind`.
+- **Framework-specific code sits behind adapter interfaces:** `@parity-app/react-adapter`, `@parity-app/vite-adapter`
+  and `@parity-app/tailwind-adapter`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
   than reimplementing them.
 
@@ -94,8 +94,8 @@ when it's spread through UI code. Today:
   reader that needs a file changed returns a project edit for the service to apply. Readers use no React and depend only
   on pure packages and other readers.
 - **The edge is where Node and React belong:** the CLI, `@parity-app/libgen`, the agent runtime, the adapters
-  (`renderer-react`, `builder-vite` and `styles-tailwind`), `@parity-app/media-player` and the fixtures.
-  `renderer-react` and the media player are the packages with React.
+  (`react-adapter`, `vite-adapter` and `tailwind-adapter`), `@parity-app/media-player` and the fixtures. `react-adapter`
+  and the media player are the packages with React.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
   imports nothing but zod, which checks the data Parity didn't make (PAR-588), and `@parity-app/style-schema`, which a
   document's styles are held in and drawn through (PAR-939). `@parity-app/style-schema` imports nothing but zod and

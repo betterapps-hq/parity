@@ -102,26 +102,26 @@ serves them as MCP tools, and `parity skill` prints the skill that teaches an ag
 
 ## Layout
 
-| Folder                     | What's in it                                                                                   |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| `apps/desktop`             | The Electron app: the window and its views, the project service, and the processes it starts.  |
-| `packages/core`            | The `.par` model and the operations on it: documents, edits, instances, modes, tokens and CSS. |
-| `packages/editor`          | Editor behaviour without the views, starting with arranging and the clipboard.                 |
-| `packages/code`            | Reading a project's code with TypeScript: its components and their props.                      |
-| `packages/project`         | Detecting and reading a project: its tools, configs, libraries and Storybook.                  |
-| `packages/renderer-react`  | The React adapter, which draws components in frames.                                           |
-| `packages/builder-vite`    | The Vite adapter, which runs a project's own Vite.                                             |
-| `packages/styles-tailwind` | The Tailwind CSS adapter.                                                                      |
-| `packages/cli`             | The `parity` command and MCP server, and the skill for agents.                                 |
-| `packages/libgen`          | Writes a `.lib.par` by inspecting a component library, an icon set or an app.                  |
-| `packages/registry`        | Parity's own `.lib.par` files, for libraries that don't ship one.                              |
-| `packages/icons`           | Lists an icon set's icons and searches them by name, alias and tag.                            |
-| `packages/agent`           | The agent runtime that runs snippets against designs.                                          |
-| `packages/fixtures`        | Generates and checks the validation projects.                                                  |
-| `packages/telemetry`       | Parity's own telemetry; [docs/telemetry.md](docs/telemetry.md) lists what it sends.            |
-| `fixtures`                 | The validation projects: real projects on other stacks, each with the detection it expects.    |
-| `examples/shadcn-vite`     | The example project, Acme: React 19, Vite, Tailwind CSS v4 and shadcn, with its designs.       |
-| `docs`                     | What's decided, what's supported, the editor's features, conventions and proposals.            |
+| Folder                      | What's in it                                                                                   |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `apps/desktop`              | The Electron app: the window and its views, the project service, and the processes it starts.  |
+| `packages/core`             | The `.par` model and the operations on it: documents, edits, instances, modes, tokens and CSS. |
+| `packages/editor`           | Editor behaviour without the views, starting with arranging and the clipboard.                 |
+| `packages/code`             | Reading a project's code with TypeScript: its components and their props.                      |
+| `packages/project`          | Detecting and reading a project: its tools, configs, libraries and Storybook.                  |
+| `adapters/react-adapter`    | The React adapter, which draws components in frames.                                           |
+| `adapters/vite-adapter`     | The Vite adapter, which runs a project's own Vite.                                             |
+| `adapters/tailwind-adapter` | The Tailwind CSS adapter.                                                                      |
+| `packages/cli`              | The `parity` command and MCP server, and the skill for agents.                                 |
+| `packages/libgen`           | Writes a `.lib.par` by inspecting a component library, an icon set or an app.                  |
+| `packages/registry`         | Parity's own `.lib.par` files, for libraries that don't ship one.                              |
+| `packages/icons`            | Lists an icon set's icons and searches them by name, alias and tag.                            |
+| `packages/agent`            | The agent runtime that runs snippets against designs.                                          |
+| `packages/fixtures`         | Generates and checks the validation projects.                                                  |
+| `packages/telemetry`        | Parity's own telemetry; [docs/telemetry.md](docs/telemetry.md) lists what it sends.            |
+| `fixtures`                  | The validation projects: real projects on other stacks, each with the detection it expects.    |
+| `examples/shadcn-vite`      | The example project, Acme: React 19, Vite, Tailwind CSS v4 and shadcn, with its designs.       |
+| `docs`                      | What's decided, what's supported, the editor's features, conventions and proposals.            |
 
 Logic goes in packages that take data and return data, with tests that run without Electron; the app keeps the views,
 files, IPC and processes. [docs/proposals/packages.md](docs/proposals/packages.md) sets this out.

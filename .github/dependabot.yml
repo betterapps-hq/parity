@@ -25,7 +25,7 @@ updates:
         update-types: [minor, patch]
     ignore:
       # Vite+ pins its own Vitest and its core, which the catalog names `vite`, so the three move together, by hand.
-      # Every other `vite` is stock Vite on purpose: the example project and builder-vite stand in for and drive a
+      # Every other `vite` is stock Vite on purpose: the example project and vite-adapter stand in for and drive a
       # customer's own, and pnpm-workspace.yaml's overrides hold them there.
       - dependency-name: vite
       - dependency-name: vite-plus

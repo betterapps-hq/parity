@@ -6,7 +6,7 @@ export const reactRenderer: RendererAdapter = {
   id: "react",
   name: "React",
   detect: (pkg) => hasDependency(pkg, "react") && hasDependency(pkg, "react-dom"),
-  guestModule: "@parity-app/renderer-react/guest",
+  guestModule: "@parity-app/react-adapter/guest",
   runtimePackages: ["react", "react-dom"],
   runtimeImports: ["react", "react/jsx-runtime", "react-dom", "react-dom/client"],
   // React's production build exports no `jsxDEV`, which the project's JSX is compiled to call in development, and the

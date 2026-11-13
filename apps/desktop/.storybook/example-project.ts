@@ -1,12 +1,12 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { guestModuleSource, taggedModule } from "@parity-app/builder-vite"
 import { hasElementSources, inferProps } from "@parity-app/code"
 import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
 import { detectProject, discoverProject, readPackage } from "@parity-app/project"
-import { reactRenderer } from "@parity-app/renderer-react"
-import { tailwindStyles } from "@parity-app/styles-tailwind"
+import { reactRenderer } from "@parity-app/react-adapter"
+import { tailwindStyles } from "@parity-app/tailwind-adapter"
+import { guestModuleSource, taggedModule } from "@parity-app/vite-adapter"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 
@@ -67,7 +67,7 @@ export function exampleProject(): Plugin {
 
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
       if (source === rendererId) {
-        return require.resolve("@parity-app/renderer-react/guest")
+        return require.resolve("@parity-app/react-adapter/guest")
       }
 
       if (source.startsWith("/")) {

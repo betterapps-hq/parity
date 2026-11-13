@@ -8,7 +8,7 @@ import { developmentStandIn, productionDependencies, viteBuilder } from "./index
 
 const viteFolder = dirname(createRequire(import.meta.url).resolve("vite/package.json"))
 
-/** What renderer-react serves in place of `react/jsx-dev-runtime`. */
+/** What react-adapter serves in place of `react/jsx-dev-runtime`. */
 const standIns = { "/jsx-dev-runtime": 'export { Fragment, jsx as jsxDEV } from "$base/jsx-runtime"' }
 
 let root: string

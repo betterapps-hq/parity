@@ -1,20 +1,16 @@
 {
-  "name": "@parity-app/builder-vite",
+  "name": "@parity-app/tailwind-adapter",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./dependency-maps": "./src/dependency-maps.ts"
+    ".": "./src/index.ts"
   },
   "dependencies": {
-    "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/project": "workspace:*",
+    "@parity-app/style-schema": "workspace:*",
     "@parity-app/tokens": "workspace:*"
-  },
-  "devDependencies": {
-    "vite": "^8.3.5"
   }
 }

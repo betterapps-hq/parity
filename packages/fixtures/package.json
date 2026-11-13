@@ -9,11 +9,11 @@
     "install-projects": "node src/generate.ts --install"
   },
   "dependencies": {
-    "@parity-app/builder-vite": "workspace:*",
+    "@parity-app/vite-adapter": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/project": "workspace:*",
-    "@parity-app/renderer-react": "workspace:*",
-    "@parity-app/styles-tailwind": "workspace:*",
+    "@parity-app/react-adapter": "workspace:*",
+    "@parity-app/tailwind-adapter": "workspace:*",
     "@parity-app/tokens": "workspace:*"
   }
 }

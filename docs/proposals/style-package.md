@@ -2,7 +2,7 @@
 
 Agreed on 2026-11-11. All six steps are built: the package holds the stored style and `declarations`, which render calls
 (PAR-939), the ledger and `validate` (PAR-940), the stored style's form, with keys named after their CSS properties
-(PAR-941, in [editor.md](../editor.md), The stored style), the adapter contract, which `@parity-app/styles-tailwind`
+(PAR-941, in [editor.md](../editor.md), The stored style), the adapter contract, which `@parity-app/tailwind-adapter`
 implements (PAR-943), the plain CSS printer and reader (PAR-944), and frames draw from rules and compiled classes
 (PAR-942, in [editor.md](../editor.md), Rendering frames). It sets where the rules for what a layer's style means live,
 so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one set.
@@ -17,7 +17,7 @@ Tailwind is one adapter, not the model.
 style (in the .par file)
   → declarations              # @parity-app/style-schema: what the style means, in CSS's own terms
       → canvas rules          # what a frame draws
-      → Tailwind classes      # @parity-app/styles-tailwind
+      → Tailwind classes      # @parity-app/tailwind-adapter
       → plain CSS rules       # projects without Tailwind
   ← declarations              # each adapter reads its code back
 ← style                       # @parity-app/style-schema: back into keys, or into the CSS map
@@ -158,11 +158,11 @@ picks the adapter, and a project with none gets plain CSS.
 
 ## The adapters
 
-| Adapter     | Where                         | Prints                                                                                            | Reads back                             |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Canvas      | `@parity-app/style-schema`    | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
-| Tailwind v4 | `@parity-app/styles-tailwind` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations              |
-| Plain CSS   | `@parity-app/style-schema`    | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
+| Adapter     | Where                          | Prints                                                                                            | Reads back                             |
+| ----------- | ------------------------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Canvas      | `@parity-app/style-schema`     | One rule set per layer, keyed by its node id, with states and viewports as selectors and at-rules | Not needed                             |
+| Tailwind v4 | `@parity-app/tailwind-adapter` | Classes, by the rules in [design-options-code.md](design-options-code.md)                         | Classes into declarations              |
+| Plain CSS   | `@parity-app/style-schema`     | A rule set per selector, for a project without Tailwind                                           | Rules into declarations, with css-tree |
 
 **The Tailwind adapter leans on Tailwind rather than a table of its own.** It already loads the project's design system
 to read the theme. That object, in Tailwind 4.3.3, also has:
@@ -212,7 +212,7 @@ web-features are read only when `spec.json` is generated, so only css-tree ships
 | `@parity-app/style-schema` (new, pure) | The model, the ledger, declarations both ways, validation, the canvas and plain CSS printers       |
 | `@parity-app/core`                     | Documents hold a style from `@parity-app/style-schema`; render calls `declarations` for each layer |
 | `@parity-app/editor`                   | Style editing writes keys through the model, and the panel's rows come from the ledger             |
-| `@parity-app/styles-tailwind`          | The Tailwind printer and reader, at the edge since it loads the project's Tailwind                 |
+| `@parity-app/tailwind-adapter`         | The Tailwind printer and reader, at the edge since it loads the project's Tailwind                 |
 | `@parity-app/code`                     | Writing a component (PAR-265) and reading an edited one back call the project's printer            |
 | `@parity-app/agent`                    | The agent's style tools validate through `@parity-app/style-schema`                                |
 
@@ -251,7 +251,7 @@ package, in steps. The first step has landed:
 
 Still in the panel: the stand-in writers (`writes.ts` and the `*-writes.ts` files), `css-values.ts`'s colors, shadows
 and gradients over the controls' own drafts, and the units of angles and times (`motion-data.ts`'s `splitUnit`). They
-write Tailwind classes beside the CSS, which belongs to `@parity-app/styles-tailwind` rather than here, so the next
+write Tailwind classes beside the CSS, which belongs to `@parity-app/tailwind-adapter` rather than here, so the next
 steps split each writer's CSS from its Tailwind.
 
 ## Order of work

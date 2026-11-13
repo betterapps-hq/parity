@@ -14,7 +14,7 @@ const renderer: RendererAdapter = {
   id: "react",
   name: "React",
   detect: () => true,
-  guestModule: "@parity-app/renderer-react/guest",
+  guestModule: "@parity-app/react-adapter/guest",
   runtimePackages: ["react"],
   runtimeImports: [],
   componentExtensions: [".tsx"],
@@ -95,7 +95,7 @@ describe("builderProcessOptions", () => {
     expect(options.renderer).toEqual({
       id: "react",
       name: "React",
-      guestModule: "@parity-app/renderer-react/guest",
+      guestModule: "@parity-app/react-adapter/guest",
       runtimePackages: ["react"],
       runtimeImports: []
     })

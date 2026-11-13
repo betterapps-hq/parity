@@ -131,7 +131,7 @@ to pass on to its DOM.
   change. A layer of it with no style, and a component that puts its style on its root, are drawn as they are. The guest
   keeps what it found for every frame, until the component comes from another file.
 
-Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
+Code: the walk is `adapters/react-adapter/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
 props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
 inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
 lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
@@ -144,7 +144,7 @@ Whether a component takes `style` is read in `packages/code/src/props.ts` (`take
 
 Tests:
 
-- `packages/renderer-react/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
+- `adapters/react-adapter/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
   ignores its props, a fragment, a field around an input, nested layers, a provider, a component that draws nothing,
   portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one; and text drawn outside an
   element (PAR-201): a component that draws only text, one that draws text beside an element, text inside an element
@@ -953,7 +953,7 @@ The inspector's Code tab, which listed a component layer's elements with their l
 Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code/Code panel`
 stories, beside the window, reading the example's files from Storybook's copy.
 
-- **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
+- **Where the lines come from:** the project's development server. vite-adapter's guest plugin gives each lowercase JSX
   element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
   file from the project root, then the line and column of its `<`. It runs before the framework plugin compiles the
   file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
@@ -969,7 +969,7 @@ stories, beside the window, reading the example's files from Storybook's copy.
 
 Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
 `formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
-plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
+plugin's transform, in `adapters/vite-adapter/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
 `renderer/canvas/element-sources.ts`; the menu's `open-source` entry in `chrome/canvas-menu.ts`, drawn by
 `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in `main/code-editor.ts`'s `openInEditor`
 and its check in `shared/ipc-checks.ts`. For agents: `componentsReport` in `packages/agent/src/dispatch.ts`,
@@ -980,7 +980,7 @@ Tests: `packages/code/src/element-sources.test.ts` (6: each element written for 
 a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
 tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps back to the file; and which files it's
 for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
-in it, and anything else reads as none). `packages/builder-vite/src/index.test.ts` (4: the project's own JSX tagged and
+in it, and anything else reads as none). `adapters/vite-adapter/src/index.test.ts` (4: the project's own JSX tagged and
 named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
 modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
@@ -2906,7 +2906,7 @@ image's is.
   the project first (connectors.md). `Update` takes `src`, `alt` and `credit` on a video, as on an image.
 
 Code: the node in `packages/core/src/document.ts` (`VideoNode`); `videoAttributes` and the `video` case in
-`packages/core/src/render.ts`; `attributesFor` in `packages/renderer-react/src/guest.ts`, which turns its flags into
+`packages/core/src/render.ts`; `attributesFor` in `adapters/react-adapter/src/guest.ts`, which turns its flags into
 React's props; the inspector's `MediaSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`; `NodeIcon` in
 `canvas/kinds.tsx` and `layerKind` in `chrome/layer-kind.ts`; placing in `packages/agent/src/dispatch.ts`
 (`placeTarget`, `savedIfFleeting`).
@@ -2915,7 +2915,7 @@ Tests:
 
 - `packages/core/src/render.test.ts`: a video drawn as a `<video>` that plays by itself without sound, and one with
   controls that waits.
-- `packages/renderer-react/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
+- `adapters/react-adapter/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
@@ -3955,7 +3955,7 @@ Tests: `packages/core/src/paint.test.ts` (10): one color token as a list of one 
 stops, fits and alphas are refused, the CSS each kind writes, and a render draws it.
 `packages/editor/src/style-editing.test.ts` (the Fill row's edit), `packages/editor/src/project-images.test.ts` (an
 image a fill paints is used), `packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it
-back, and hears about a color that isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against
+back, and hears about a color that isn't a token), `adapters/react-adapter/src/guest.test.ts` (a fill's images against
 the project), and `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back,
 ids kept so an open editor stays open, and gradient tokens read from CSS.
 
@@ -4163,7 +4163,7 @@ for a day.
 
 Code: `isDateValue` and `evaluateValue` in `packages/core/src/values/evaluate.ts`, `dateValue` and `sampleValue` in
 `packages/core/src/values/grammar.ts`, and a component node's `props` in `packages/core/src/document.ts`; the guest
-works them out in `madeProps` in `packages/renderer-react/src/guest.ts`.
+works them out in `madeProps` in `adapters/react-adapter/src/guest.ts`.
 
 Tests: `packages/core/src/values/values.test.ts` (3: a date in a sample and a decorator, from text and a number, made as
 `new Date` makes it; each date made once; a date `new Date` can't read refused) and `packages/core/src/render.test.ts`
@@ -5222,12 +5222,12 @@ the same one; nothing between knows the framework.
     `Use a name from GetTokens().`
 
 Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
-`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/styles-tailwind/src/tokens.ts`; `StylesAdapter` in
+`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `adapters/tailwind-adapter/src/tokens.ts`; `StylesAdapter` in
 `packages/core/src/adapters.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
 `packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
 `packages/editor/src/token-edits.ts`.
 
-Tests: `packages/styles-tailwind/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
+Tests: `adapters/tailwind-adapter/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
 new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
 where the root declares it, a value taken back out); `packages/tokens/src/stylesheet.test.ts` (a token the stylesheet
 doesn't declare added to the root, whatever its name, and read back in its category);
@@ -5593,34 +5593,34 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
-to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/renderer-react/src/guest.ts`,
+to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `adapters/react-adapter/src/guest.ts`,
 declared on `Guest` in `packages/core/src/adapters.ts`, keep where each component comes from in the guest's registry
 (`componentRegistry` in `component-registry.ts`, PAR-988), with each component's drawn or failing status in
 `render-statuses.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in
 `renderer/workspace.ts` and `renderer/render.ts` call.
 
-Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
-moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
-added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
-given, and adds one given again). `packages/renderer-react/src/component-registry.test.ts` (6: a file's address on the
-dev server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded
-from there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and
-one only given forgotten; and the revision going up once a change, heard until unsubscribed) and
-`render-statuses.test.ts` (4: drawn once and heard once a task, failing while any boundary shows an error, a component
-still loading not drawn, and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for
-`guestChanges`: one new to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every
-component stays where it was, and nothing when only what else the list says about one changes).
-`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
-`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
-`apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
-components and the rest kept when it does, and a job built with every field passing the service's check whole; for
-`frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
-draws, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens previewed while
-`drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys follow the
-revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts` give and
-take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by reading them.
-A component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
-share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+Tests: `adapters/react-adapter/src/guest.test.ts` (1: the revision goes up when a component comes from a new file, moved
+or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back added
+components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't given,
+and adds one given again). `adapters/react-adapter/src/component-registry.test.ts` (6: a file's address on the dev
+server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded from
+there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and one
+only given forgotten; and the revision going up once a change, heard until unsubscribed) and `render-statuses.test.ts`
+(4: drawn once and heard once a task, failing while any boundary shows an error, a component still loading not drawn,
+and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new
+to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it
+was, and nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2:
+a component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
+and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
+`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
+with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
+its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
+the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
+Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
+That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
+changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
+changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
 
 ### Failing components, in the console, and code edits picked up live (PAR-165)
 
@@ -5663,12 +5663,12 @@ warm, and 1.1 s the first time after the window loaded.
 
 Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerFailure`, `CodeChange` and
 `BuilderSession.codeChanges` in `packages/core/src/adapters.ts`; `frameFailures` and `FrameFailuresContext` in
-`packages/renderer-react/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
+`adapters/react-adapter/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
 `designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
-For edits: `stampChange` in `packages/builder-vite/src/code-changes.ts` and `gatherChanges` in
-`packages/project/src/code-changes.ts`, wired in builder-vite's `start`; the `codeChanged` method in
+For edits: `stampChange` in `adapters/vite-adapter/src/code-changes.ts` and `gatherChanges` in
+`packages/project/src/code-changes.ts`, wired in vite-adapter's `start`; the `codeChanged` method in
 `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
@@ -5682,11 +5682,11 @@ parent quoted in backticks, one failure per node across frames, an instance's fa
 and no sheet over it, its layer reported, then the same file at a new version drawn and the mark cleared).
 `apps/desktop/src/renderer/failures-store.test.ts` (1: one console error per layer across frames, with each frame, why
 and the fix, kept through Clear, and gone frame by frame as the layer draws).
-`packages/builder-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
+`adapters/vite-adapter/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
 among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
-changed files stamped, none without a change). `packages/renderer-react/src/guest.test.ts` (the revision moving once per
+changed files stamped, none without a change). `adapters/react-adapter/src/guest.test.ts` (the revision moving once per
 new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
 with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
 console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
@@ -5732,20 +5732,20 @@ on each stylesheet change, which costs a whole builder start.
 Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
 `packages/project/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
 `packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
-`packages/processes/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and
-`restyledGuest` in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
+`packages/processes/src/builder-process.ts`; `stampChange` in `adapters/vite-adapter/src/code-changes.ts` and
+`restyledGuest` in `adapters/vite-adapter/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
 `openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project
 discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
 `packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
 
 Tests: `packages/project/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
-`packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
+`adapters/vite-adapter/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
 change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the
 change passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
 closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
 guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
-without a restyled address started again on a new port). `packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite
+without a restyled address started again on a new port). `adapters/vite-adapter/src/stylesheets.test.ts` (1, a real Vite
 server: a file the stylesheet `@import`s, edited, is said to change the guest's stylesheets, and the guest at the
 session's restyled address imports the stylesheet with `?t=` and gets the new CSS).
 `packages/project/src/styles.test.ts` (Less imported as a global stylesheet, a Sass CSS module not). Checked in a
@@ -5832,7 +5832,7 @@ Code: `cacheRemovals` in `packages/processes/src/bitmap-cache.ts`; `renderQueue`
 opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
 `frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
-`packages/builder-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
+`adapters/vite-adapter/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
 carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
@@ -5858,7 +5858,7 @@ components import, the stylesheets and theirs, and the shared config; adds what 
 a touch or a change to a file the frame doesn't read; doesn't hold once a file it reads changes, an import or a
 stylesheet's import; nor for another renderer). `packages/project/src/frame-trace.test.ts` (4: the same hash for the
 same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
-and a digest that ignores order but not a hash, a file or the salt). `packages/builder-vite/src/loaded-files.test.ts`
+and a digest that ignores order but not a hash, a file or the salt). `adapters/vite-adapter/src/loaded-files.test.ts`
 (4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
 a file Vite hasn't built). `packages/processes/src/builder-process.test.ts` asks the builder's process what files
 modules load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
@@ -6299,7 +6299,7 @@ Started again after a full run's measuring, both builds took about 4.7 s.
   involved. `pnpm perf` passes the flag too, unless it's run with `--react development`, and records the build in each
   result. Storybook and the end-to-end suite, which don't pass it, run the development build.
 - **Dependencies are prebundled as production:** the UI's Vite config sets `process.env.NODE_ENV` to `production` in the
-  dependency optimizer (Rolldown's `transform.define`), as builder-vite does for frames (PAR-198). The app's own modules
+  dependency optimizer (Rolldown's `transform.define`), as vite-adapter does for frames (PAR-198). The app's own modules
   are still served as in development, so `import.meta.env.DEV` stays true.
 - **The app's JSX calls the production `jsx`:** it's still compiled for development, calling `jsxDEV`, which the
   production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
@@ -6501,7 +6501,7 @@ each page toward the pages under it.
 
 Code: `pageTree`, `placePages` and `routeScreens` in `packages/editor/src/route-boards.ts`; `projectRoutes` in
 `apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`;
-`PageFrame` in `ContainerView.tsx`; `appPage` in `packages/builder-vite/src/index.ts`.
+`PageFrame` in `ContainerView.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`.
 
 Tests: `packages/editor/src/route-boards.test.ts` (8: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout without an index hanging its pages from the page above; a forest
@@ -6856,7 +6856,7 @@ adding one to an open project changed nothing until Parity restarted.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
 `styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
-`packages/builder-vite/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
+`adapters/vite-adapter/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
 `openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
 `shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
 `settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
@@ -6870,7 +6870,7 @@ while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (3: a
 now names its stylesheet tells the windows, a file detection doesn't read doesn't, a moment without package.json isn't a
 change, and opened again it's detected from the new file; a config file the registered builder names tells the windows,
 and one no builder names doesn't; a `components.json` written while the builder starts is told once the project is
-open). `packages/builder-vite/src/detect.test.ts` checks that each config name Vite finds is among
+open). `adapters/vite-adapter/src/detect.test.ts` checks that each config name Vite finds is among
 `viteBuilder.configFiles`. `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its
 project again only when the service says detection changed; a tab told while loading asks again once it's ready). Gaps:
 the handlers wiring `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's
@@ -7448,7 +7448,7 @@ container query, a `group-hover:` rule.
 
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
-  The classes are the Tailwind printer's (`packages/styles-tailwind`), which writes a class only when it compiles back
+  The classes are the Tailwind printer's (`adapters/tailwind-adapter`), which writes a class only when it compiles back
   to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
   a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
   Tailwind's `utilities` layer and in Tailwind's order.
@@ -7484,7 +7484,7 @@ the service for the rest, naming the ones it has, so the stylesheet that comes b
 again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
 (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles adapter's
 `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen
-one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and no style.
+one from the rules. The React guest (`adapters/react-adapter/src/guest.ts`) gives an element its classes and no style.
 
 Tests:
 
@@ -7495,7 +7495,7 @@ Tests:
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
 - `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
   child is placed in is `relative`; an Absolute one stays Absolute.
-- `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
+- `adapters/tailwind-adapter/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
 - `apps/desktop/src/renderer/frame-classes.test.ts`: classes asked for while an ask is unanswered wait for it, so the
@@ -7633,11 +7633,11 @@ project's own modules are still served as in development, and its own dev server
   the one last drawn, so effects and class components' lifecycle methods ask about it.
 - **Layers are still found from React's tree,** which reads only fields both builds keep.
 
-Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packages/builder-vite/src/index.ts`;
-`developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
-`packages/renderer-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
+Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `adapters/vite-adapter/src/index.ts`;
+`developmentStandIns` in `adapters/react-adapter/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
+`adapters/react-adapter/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
 
-Tests: `packages/builder-vite/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
+Tests: `adapters/vite-adapter/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
 serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
 resolved from the folder of the module importing it; a prebundled package compiled for development getting the stand-in,
 with a runtime installed only below it; the stand-ins' matching; the optimizer settings for Vite 8 and before, its
@@ -7855,7 +7855,7 @@ and missed the frame's screenshots, and `problems` said nothing.
   takes what's in the page's.
 - **Popups don't count in a layer's box,** as before, so selecting the trigger doesn't outline the menu with it.
 
-Code: `framePortals` in `packages/renderer-react/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
+Code: `framePortals` in `adapters/react-adapter/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
 taken content out of layer boxes (`portaledIn`); `contentOutside` and `inlinePortals` in
 `apps/desktop/src/renderer/inline-portals.ts`, called by `canvasRender` in `render.ts`; the `outside` field in
 `shared/protocol.ts` and `main/render-results.ts`; `frameProblems` in `packages/agent/src/frames.ts`.
@@ -8384,12 +8384,12 @@ the parent's other slots. Library designs' `$call` factories are loaded even whe
 uses their modules; design-only `$import` props remain literal data.
 
 Code: `remapLibraryImports` and `libraryImports` in `packages/core/src/library.ts`; `findLibraries` in
-`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `packages/builder-vite/src/index.ts`;
+`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `adapters/vite-adapter/src/index.ts`;
 `iconCatalog` in `apps/desktop/src/renderer/chrome/icons.tsx`.
 
 Tests: `packages/project/src/index.test.ts` (aliased entry modules, decorators, nested made values and icon subpaths),
 `packages/core/src/library.test.ts` (one import traversal, ordinary data preserved and current-format-only reads),
 `packages/core/src/library-insert.test.ts` (render-prop insertion preserves other slots), and
-`packages/builder-vite/src/index.test.ts` (resolved icon modules, stable style keys and design-only factories), and
+`adapters/vite-adapter/src/index.test.ts` (resolved icon modules, stable style keys and design-only factories), and
 `apps/desktop/src/renderer/library-runtime.test.ts` (generated guest renders a placed library design with nested
 design-only factories).

@@ -25,7 +25,7 @@ CSS and attributes, accessibility findings and live changes. Writing back to the
 - **Change detection on save:** saving a `.tsx` redraws the canvas in under a second (PAR-165).
 - **Each element linked to its code:** in development, every element the project's JSX writes carries
   `data-parity-source` with its file, line and column (PAR-167, `packages/code/src/element-sources.ts`).
-- **React's tree:** `packages/renderer-react/src/drawn-nodes.ts` walks the fiber tree from the root to find what each
+- **React's tree:** `adapters/react-adapter/src/drawn-nodes.ts` walks the fiber tree from the root to find what each
   layer draws.
 - **Accessibility checks:** axe runs on frames for agents.
 

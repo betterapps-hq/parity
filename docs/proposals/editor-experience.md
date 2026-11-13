@@ -183,7 +183,7 @@ that's a regression or the run's conditions (uncommitted work, another copy on t
 ### What's broken
 
 - **Components that don't pass their props through can't be selected, outlined or sized.** The canvas finds a component
-  by a `data-canvas-node` prop (`packages/renderer-react/src/guest.ts:286`), which a component like
+  by a `data-canvas-node` prop (`adapters/react-adapter/src/guest.ts:286`), which a component like
   `function MemberRow({ member })` never renders.
 - **Drag and drop.** Reordering in a grid lands in the wrong slot. A card can nest into its neighbour, because the
   target is measured after the dragged layer is hidden. The right-edge resize handle set Height to Fill instead of
@@ -259,7 +259,7 @@ its Linear issue.
    layout or text layer (PAR-265's output, in the UI), every token with its value in the mode showing, and Copy as JSX.
    The Components panel shows each component's file. No other tool can do this without a hand-written mapping. Deferred
    on 2026-11-12 with the rest of the code side; the Code tab was set aside as an exploration (PAR-1027).
-10. **Know the source line of every element** (PAR-167; M). A development-only Vite transform in builder-vite tags each
+10. **Know the source line of every element** (PAR-167; M). A development-only Vite transform in vite-adapter tags each
     JSX element with its file, line and column, so anything inside a real component can show and open its source, and
     agents get the same in `parity components` and snapshots. This is Onlook's approach, and it keeps agents from
     searching for where a change belongs.

@@ -29,7 +29,7 @@ describe("dependencySourceMap", () => {
   it("leaves the app's own code, workspace packages, styles and virtual modules their maps", () => {
     for (const id of [
       "D:/app/src/components/ui/button.tsx",
-      "D:/canvas/packages/renderer-react/src/guest.ts",
+      "D:/canvas/adapters/react-adapter/src/guest.ts",
       "D:/node_modules_app/src/main.ts",
       `${cacheDir}/deps/_metadata.json`,
       "D:/app/node_modules/tldraw/tldraw.css",
