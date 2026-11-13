@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 10:50:18 GMT",
+      "version": "0.82.0",
+      "tag": "@parity-app/desktop_v0.82.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7b857143d435d0b9e8792cf73a4ebb5cce6de010",
+            "comment": "Count changes from the last git commit in a git repository, through swappable change detectors"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7d5b8d260b01040bb29a1be2d11012e9d082a246",
+            "comment": "Read a project's TanStack Router routes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 06:50:37 GMT",
       "version": "0.81.0",
       "tag": "@parity-app/desktop_v0.81.0",

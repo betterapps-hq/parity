@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 06:50:37 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 10:50:18 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.0
+
+Fri, 13 Nov 2026 10:50:18 GMT
+
+### Minor changes
+
+- Count changes from the last git commit in a git repository, through swappable change detectors (ajcraswell@gmail.com)
 
 ## 0.81.0
 
