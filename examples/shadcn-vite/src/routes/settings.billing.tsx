@@ -1,14 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 
-import { Button } from "@/components/ui/button"
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+  Separator,
+} from "@buildkitgg/shadcn-baseui-nova"
 
 export const Route = createFileRoute("/settings/billing")({
   component: Billing,
@@ -27,8 +27,13 @@ function Billing() {
           <Separator />
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">5 of 10 seats used</span>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/pricing">Change plan</Link>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link to="/pricing" />}
+            >
+              Change plan
             </Button>
           </div>
         </CardContent>

@@ -396,9 +396,7 @@ async function stopProcess(child: ChildProcess): Promise<void> {
  * when it's clicked, for the console's tests.
  */
 const memberRow = `import type * as React from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, Badge, Input } from "@buildkitgg/shadcn-baseui-nova"
 
 export interface Member {
   name: string

@@ -1,21 +1,13 @@
 # React + TypeScript + Vite + shadcn/ui
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
-
-## Adding components
-
-To add components to your app, run the following command:
-
-```bash
-npx shadcn@latest add button
-```
-
-This will place the ui components in the `src/components` directory.
+An example Vite app with React, TypeScript, and shadcn/ui's Nova style on Base UI, from Buildkit's prepackaged kit.
 
 ## Using components
 
-To use the components in your app, import them as follows:
+Import components from the kit:
 
 ```tsx
-import { Button } from "@/components/ui/button"
+import { Button } from "@buildkitgg/shadcn-baseui-nova"
 ```
+
+`src/index.css` imports the kit's Tailwind stylesheet, so its classes and theme load with the app's own.
