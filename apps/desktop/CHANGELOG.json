@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 01:34:11 GMT",
+      "version": "0.80.0",
+      "tag": "@parity-app/desktop_v0.80.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "655d7490c2a527ee6ccde9a28ed12401e0c60952",
+            "comment": "Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers move into the style package"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "33315a25f3e73e69a98d53c06bf89020e7ee8a90",
+            "comment": "Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo step with pasteStepName in place of pasteLabel (PAR-985)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "829e7598ce5a7601ae6a1c66b87003f40770809f",
+            "comment": "The Design tab picks every section a selection shows from one table"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6267fb2b5a18ebc882ac62172142a294781c147c",
+            "comment": "A component instance's attributes have their own Attributes section, after its props"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 01:07:43 GMT",
       "version": "0.79.0",
       "tag": "@parity-app/desktop_v0.79.0",

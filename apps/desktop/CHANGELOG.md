@@ -1,8 +1,24 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 01:07:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 01:34:11 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.0
+
+Fri, 13 Nov 2026 01:34:11 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+### Patches
+
+- Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers
+  move into the style package (ajcraswell@gmail.com)
+- Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo
+  step with pasteStepName in place of pasteLabel (PAR-985) (ajcraswell@gmail.com)
+- The Design tab picks every section a selection shows from one table (ajcraswell@gmail.com)
 
 ## 0.79.0
 
