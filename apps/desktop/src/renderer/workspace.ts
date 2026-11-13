@@ -31,6 +31,7 @@ import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
+import { signal, type Store, createStore } from "./store.ts"
 import { TokenStore } from "./tokens-store.ts"
 import { currentTraceContext } from "./tracing.ts"
 
@@ -69,8 +70,7 @@ export class ProjectSession {
    * (PAR-711). Gone once one has. Nothing draws from it, so it changes without telling anyone.
    */
   firstFrame?: FirstFrameWatch | undefined
-  private parts: SessionParts
-  private readonly listeners = new Set<() => void>()
+  private readonly parts: Store<SessionParts>
   private readonly stops: (() => void)[] = []
   private closed = false
 
@@ -83,49 +83,41 @@ export class ProjectSession {
     this.selection = fixed.selection
     this.components = fixed.components
     this.recovery = fixed.recovery
-    this.parts = parts
+    this.parts = createStore(() => parts)
   }
 
   get info(): ProjectInfo {
-    return this.parts.info
+    return this.parts.get().info
   }
 
   get loaded(): LoadedGuest {
-    return this.parts.loaded
+    return this.parts.get().loaded
   }
 
   get tokens(): TokenStore {
-    return this.parts.tokens
+    return this.parts.get().tokens
   }
 
   get added(): SessionParts["added"] {
-    return this.parts.added
+    return this.parts.get().added
   }
 
   get versions(): SessionParts["versions"] {
-    return this.parts.versions
+    return this.parts.get().versions
   }
 
   get editor(): Editor | undefined {
-    return this.parts.editor
+    return this.parts.get().editor
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = (listener: () => void): (() => void) => this.parts.subscribe(listener)
 
   /** The parts as they are now, a new object each time one changes. */
-  getParts = (): SessionParts => this.parts
+  getParts = (): SessionParts => this.parts.get()
 
   /** Replaces the parts given, and tells whoever subscribed. */
   update(change: Partial<SessionParts>): void {
-    this.parts = { ...this.parts, ...change }
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.parts.update((now) => ({ ...now, ...change }))
   }
 
   /**
@@ -224,13 +216,9 @@ export class Workspace {
   private readonly latestMoves = new Map<string, string>()
   /** Projects whose detection changed while their tab was loading, to check again once it's ready (PAR-820). */
   private readonly detections = new Set<string>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   getTabs = () => this.tabs
   getActiveId = () => this.activeId
@@ -1158,9 +1146,7 @@ export class Workspace {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 }
 

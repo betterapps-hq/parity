@@ -9,6 +9,7 @@ import {
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { recordInterface } from "./interface-events.ts"
+import { signal } from "./store.ts"
 
 export interface Hover {
   design: string
@@ -59,13 +60,9 @@ export class SelectionStore {
     | { design: string; node: string; mode?: string; state?: string; at?: { x: number; y: number } }
     | undefined
   private rename: RenameRequest | undefined
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   get = () => this.selection
   getHover = () => this.hover
@@ -86,7 +83,7 @@ export class SelectionStore {
       this.editing = undefined
     }
 
-    this.notify()
+    this.changes.notify()
   }
 
   setHover(hover: Hover | undefined): void {
@@ -100,7 +97,7 @@ export class SelectionStore {
     }
 
     this.hover = hover
-    this.notify()
+    this.changes.notify()
   }
 
   /** Picks a tool. Any tool, Move and select again too, puts a review tool down, staying on the tool picked. */
@@ -116,7 +113,7 @@ export class SelectionStore {
     }
 
     this.changeTool(tool)
-    this.notify()
+    this.changes.notify()
   }
 
   /**
@@ -126,7 +123,7 @@ export class SelectionStore {
   startReviewing(tool: ReviewTool): void {
     this.review = pickReview(this.review, tool, this.tool)
     this.changeTool("select")
-    this.notify()
+    this.changes.notify()
   }
 
   /** Puts the review tool down, back on the tool picked before it, as Done and Esc do. */
@@ -139,7 +136,7 @@ export class SelectionStore {
 
     this.review = stopReview(this.review)
     this.changeTool(before ?? "select")
-    this.notify()
+    this.changes.notify()
   }
 
   /** Starts renaming the selected design or layer: the design's title on the canvas, or the layer in the Layers panel. */
@@ -149,12 +146,12 @@ export class SelectionStore {
     }
 
     this.rename = { design: this.selection.design, node: this.selection.node, id: (this.rename?.id ?? 0) + 1 }
-    this.notify()
+    this.changes.notify()
   }
 
   setEditing(editing: SelectionStore["editing"]): void {
     this.editing = editing
-    this.notify()
+    this.changes.notify()
   }
 
   private changeTool(tool: Tool): void {
@@ -171,12 +168,6 @@ export class SelectionStore {
     }
 
     this.tool = tool
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) {
-      listener()
-    }
   }
 }
 

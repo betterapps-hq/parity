@@ -1,7 +1,7 @@
 import { finiteNumber, jsonText } from "@parity-app/core"
-import { useSyncExternalStore } from "react"
 import { z } from "zod"
 import { recordInterface } from "../interface-events.ts"
+import { useStore, windowStore } from "../store.ts"
 import type { Attributes } from "./event-attributes.ts"
 
 const storageKey = "parity.layout"
@@ -36,8 +36,10 @@ export function readLayout(text: string | null): PanelLayout {
     .parse(text ?? "{}")
 }
 
-let layout = load()
-const listeners = new Set<() => void>()
+/** The layout as it was saved; `resetWindowStores` puts back the defaults, as a first run has them. */
+const layout = windowStore(() => readLayout(null))
+
+layout.set(load())
 
 function load(): PanelLayout {
   try {
@@ -49,18 +51,17 @@ function load(): PanelLayout {
 }
 
 export function setLayout(change: Partial<PanelLayout>): void {
-  recordShownPanels(layout, { ...layout, ...change })
-  layout = { ...layout, ...change }
+  const before = layout.get()
+  const after = { ...before, ...change }
+  recordShownPanels(before, after)
 
   try {
-    localStorage.setItem(storageKey, JSON.stringify(layout))
+    localStorage.setItem(storageKey, JSON.stringify(after))
   } catch {
     // Storage can be unavailable; the layout then just isn't remembered.
   }
 
-  for (const listener of listeners) {
-    listener()
-  }
+  layout.set(after)
 }
 
 /** Records each side panel, or the console, that opens or shows another tab (PAR-634). */
@@ -88,22 +89,16 @@ function recordShownPanels(before: PanelLayout, after: PanelLayout): void {
 
 /** Opens the console under the canvas, or closes it. */
 export function toggleConsole(): void {
-  setLayout({ console: !layout.console })
+  setLayout({ console: !layout.get().console })
 }
 
 /** Hides both panels, or shows them again, like Figma's Ctrl+\. */
 export function togglePanels(): void {
-  const open = layout.left || layout.right
+  const { left, right } = layout.get()
+  const open = left || right
   setLayout({ left: !open, right: !open })
 }
 
 export function useLayout(): PanelLayout {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => layout
-  )
+  return useStore(layout)
 }

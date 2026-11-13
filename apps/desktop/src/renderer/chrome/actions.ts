@@ -20,6 +20,7 @@ import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/s
 import { findReferences, referenceLibrary } from "../references/find-references.ts"
 import { errorMessage, reportError } from "../report-error.ts"
 import type { Tool } from "../selection.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import { homeTab, type ProjectDesigns, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
@@ -232,54 +233,50 @@ async function copySelectedAsPng(
     return
   }
 
-  const progress = toast.loading("Copying as PNG…")
+  const copied = await serviceCall({
+    progress: "Copying as PNG…",
+    async run() {
+      const { png, warnings } = await request("layers.picture", {
+        projectId: session.id,
+        layers: targets.map(({ design, node, name }) => {
+          const layer: PicturedLayer = {
+            design,
+            name,
+            at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
+          }
 
-  try {
-    const { png, warnings } = await request("layers.picture", {
-      projectId: session.id,
-      layers: targets.map(({ design, node, name }) => {
-        const layer: PicturedLayer = {
-          design,
-          name,
-          at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
-        }
+          if (node) {
+            layer.node = node
+          }
 
-        if (node) {
-          layer.node = node
-        }
-
-        return layer
-      })
-    })
-
-    if (!png) {
-      reportError(new Error(warnings.join("\n") || "Nothing was drawn"), {
-        operation: "layers.picture",
-        title: "Couldn't copy as PNG",
-        id: progress,
-        description: warnings.join("\n") || undefined,
-        classNames: { description: "whitespace-pre-line" }
+          return layer
+        })
       })
 
-      return
-    }
+      if (png) {
+        const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+      }
 
-    const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-    toast.success("Copied as PNG", { id: progress, duration: 2000 })
+      return { drawn: Boolean(png), warnings }
+    },
+    done: ({ drawn, warnings }) =>
+      drawn
+        ? { success: "Copied as PNG", duration: 2000 }
+        : {
+            failure: new Error(warnings.join("\n") || "Nothing was drawn"),
+            operation: "layers.picture",
+            title: "Couldn't copy as PNG",
+            description: warnings.join("\n") || undefined,
+            classNames: { description: "whitespace-pre-line" }
+          },
+    failed: { operation: "layers.picture", title: "Couldn't copy as PNG" }
+  })
 
-    if (warnings.length > 0) {
-      toast.warning("Some layers couldn't be drawn", {
-        description: warnings.join("\n"),
-        classNames: { description: "whitespace-pre-line" }
-      })
-    }
-  } catch (error) {
-    reportError(error, {
-      operation: "layers.picture",
-      title: "Couldn't copy as PNG",
-      id: progress,
-      description: errorMessage(error)
+  if (copied?.drawn && copied.warnings.length > 0) {
+    toast.warning("Some layers couldn't be drawn", {
+      description: copied.warnings.join("\n"),
+      classNames: { description: "whitespace-pre-line" }
     })
   }
 }

@@ -1,5 +1,5 @@
 import type { ConnectorInfo, Found, Searched } from "@parity-app/connectors"
-import { useSyncExternalStore } from "react"
+import { useStore, windowStore } from "../store.ts"
 
 /*
  * Which library the browser is open on, if any (PAR-839). The browser is one dialog for every library, mounted once in
@@ -28,34 +28,19 @@ export interface BrowserOpening {
   pick: PickAction
 }
 
-let opening: BrowserOpening | undefined
-const listeners = new Set<() => void>()
-
-function set(next: BrowserOpening | undefined): void {
-  opening = next
-
-  for (const listener of listeners) {
-    listener()
-  }
-}
+const opening = windowStore<BrowserOpening | undefined>(() => undefined)
 
 /** Opens the browser on a library. */
 export function openLibraryBrowser(next: BrowserOpening): void {
-  set(next)
+  opening.set(next)
 }
 
 /** Closes the browser, keeping nothing it showed. */
 export function closeLibraryBrowser(): void {
-  set(undefined)
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-
-  return () => listeners.delete(listener)
+  opening.set(undefined)
 }
 
 /** Where the browser is open, following each opening and close. */
 export function useLibraryBrowser(): BrowserOpening | undefined {
-  return useSyncExternalStore(subscribe, () => opening)
+  return useStore(opening)
 }

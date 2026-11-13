@@ -7,6 +7,7 @@ import { renderJob } from "../shared/render-job.ts"
 import { bitmapsWaiting } from "./canvas/frame-bitmaps.ts"
 import { projectPart } from "./project-part.ts"
 import { request } from "./service.ts"
+import { signal } from "./store.ts"
 import { getResolvedTheme, type ResolvedTheme, subscribeResolvedTheme } from "./theme.ts"
 import { type ProjectSession, workspace } from "./workspace.ts"
 
@@ -203,7 +204,7 @@ class ProjectPreviews {
   private readonly onScreen = new Map<string, number>()
   /** Variants a card has asked for, by their id, made on demand and kept while the tab is open. */
   private readonly variants = new Map<string, { component: string; variant: Variant }>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
   /** Ones whose making didn't finish, as when the offscreen window closed under it: tried again after a refresh. */
   private readonly skipped = new Set<string>()
   private readonly stops: (() => void)[] = []
@@ -272,14 +273,10 @@ class ProjectPreviews {
     this.onScreen.clear()
     this.variants.clear()
     this.skipped.clear()
-    this.listeners.clear()
+    this.changes.dispose()
   }
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   get(component: string): PreviewState | undefined {
     return this.entries.get(component)?.preview
@@ -372,10 +369,7 @@ class ProjectPreviews {
 
   private notify(): void {
     this.version += 1
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 
   /**

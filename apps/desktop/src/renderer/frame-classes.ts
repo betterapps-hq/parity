@@ -1,6 +1,7 @@
 import type { CssDeclaration } from "@parity-app/style-schema"
 import type { LoadedGuest } from "./guest.ts"
 import { request } from "./service.ts"
+import { createStore } from "./store.ts"
 
 /**
  * The classes a project's styling framework writes for its frames' layers (PAR-942). In a Tailwind project a frame
@@ -60,11 +61,11 @@ export function askingFrameClasses(
   /** Each declaration's classes, or null for one the framework has no class for. */
   const known = new Map<string, string[] | null>()
   const asking = new Map<string, CssDeclaration>()
-  const listeners = new Set<() => void>()
   const sheet = new CSSStyleSheet()
   // Tailwind's `@property` rules, which a shadow root ignores, so the document takes them.
   const registrations = new CSSStyleSheet()
-  let revision = 0
+  /** Goes up each time classes arrive. */
+  const revision = createStore(() => 0)
   let unsupported = false
   let scheduled = false
   let asked = Promise.resolve()
@@ -99,11 +100,7 @@ export function askingFrameClasses(
         known.set(keyOf(declaration), written.classes[index] ?? null)
       }
 
-      revision++
-
-      for (const listener of listeners) {
-        listener()
-      }
+      revision.update((now) => now + 1)
     } catch {
       // These layers go on drawing from their rules, which draw the same declarations, so there's nothing to tell the
       // person; the request recorded its own failure. Declarations asked for later are tried afresh.
@@ -148,11 +145,7 @@ export function askingFrameClasses(
       return missing ? undefined : [...classes]
     },
     sheet,
-    revision: () => revision,
-    subscribe(listener) {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    }
+    revision: revision.get,
+    subscribe: revision.subscribe
   }
 }

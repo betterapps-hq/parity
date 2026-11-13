@@ -43,6 +43,7 @@ import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { useStore, windowStore } from "../store.ts"
 import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { componentSources, useComponentCard } from "./AssetsPanel.tsx"
 import { activeSession } from "./commands.ts"
@@ -59,15 +60,11 @@ import {
 import { Name } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 
-let open = false
-const listeners = new Set<() => void>()
+/** Whether the insert picker is open. */
+const shown = windowStore(() => false)
 
 function setOpen(next: boolean): void {
-  open = next
-
-  for (const listener of listeners) {
-    listener()
-  }
+  shown.set(next)
 }
 
 /** Closes the insert picker, as when it failed and was closed (PAR-667). */
@@ -203,14 +200,7 @@ function iconSetsOf(
  * the selected design.
  */
 export function QuickInsert() {
-  const isOpen = useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => open
-  )
+  const isOpen = useStore(shown)
 
   const session = isOpen ? activeSession() : undefined
   const info = useSyncExternalStore(workspace.subscribe, () => activeSession()?.info)
