@@ -1,30 +1,31 @@
-import { type ChildProcess, fork } from "node:child_process"
 import { availableParallelism } from "node:os"
 import { fileURLToPath } from "node:url"
 import type { CodeChange } from "@parity-app/core"
 import {
   type BuilderProcessClient,
   type BuilderProcessOptions,
-  type BuilderProcessReply,
   type BuilderProcessSession,
-  connectBuilderProcess
+  type ChildExit,
+  connectBuilderProcess,
+  type Lifecycle
 } from "@parity-app/processes"
-import { killTree } from "../shared/process-tree.ts"
 import type { BuilderReading } from "../shared/service.ts"
 import { inSpan } from "../shared/tracing.ts"
+import { forkChild } from "./children.ts"
 import { reportBuilderCrash } from "./telemetry.ts"
 
 /*
  * Each open project's builder runs in a process of its own, so closing the project gives the system back everything
  * the build tool held. Vite can't let go of a closed server's module graph in the process that ran it. The process
  * ends when the project closes, when the service ends (it notices its link to the service close, even when the
- * service is killed outright), and when it doesn't close in time.
+ * service is killed outright), and when it doesn't close in time. It's started and timed through the service's one
+ * child lifecycle (`children.ts`), and talks to the service over `@parity-app/channel`.
  */
 
 const script = fileURLToPath(new URL("./builder-process.mjs", import.meta.url))
 
 interface Running {
-  child: ChildProcess
+  life: Lifecycle
   /** How the performance stats name it. */
   name: string
   client: BuilderProcessClient
@@ -81,116 +82,59 @@ export function startBuilder(
     onCodeChange?: (change: CodeChange) => void
   }
 ): StartedBuilder {
-  const child = fork(script, [], {
-    // Electron runs as plain Node here.
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-    execArgv: [],
-    stdio: ["ignore", "pipe", "pipe", "ipc"],
-    windowsHide: true
-  })
+  const { life, port } = forkChild(script, { echo: true })
 
-  let log = ""
-  let exit: BuilderExit | undefined
+  const client = connectBuilderProcess({ port, life }, options, {
+    name: builder,
+    // Only a builder that stopped by itself crashes: one the project's closing stopped doesn't.
+    onCrash: (error, ended) => {
+      const exit = builderExit(ended)
 
-  const forward = (to: NodeJS.WriteStream) => (chunk: Buffer) => {
-    to.write(chunk)
-    log = (log + chunk.toString()).slice(-4000)
-  }
-
-  child.stdout?.on("data", forward(process.stdout))
-  child.stderr?.on("data", forward(process.stderr))
-
-  const client = connectBuilderProcess(
-    {
-      send: (request) => {
-        if (child.connected) {
-          child.send(request)
-        }
-      },
-      kill: () => {
-        if (child.pid) {
-          killTree(child.pid)
-        }
+      if (!stoppedFromOutside(exit)) {
+        reportBuilderCrash(builder, error.split("\n")[0] ?? error, exit.output)
       }
-    },
-    options,
-    {
-      // Only a builder that stopped by itself crashes: one the project's closing stopped doesn't.
-      onCrash: (error) => {
-        if (!stoppedFromOutside(exit)) {
-          reportBuilderCrash(builder, error.split("\n")[0] ?? error, log)
-        }
 
-        onCrash(error, exit ?? { output: log })
-      },
-      onCodeChange,
-      cores: availableParallelism()
-    }
-  )
+      onCrash(error, exit)
+    },
+    onCodeChange,
+    cores: availableParallelism()
+  })
 
   // A builder's start is a span in the trace that asked for it, until its session is up (PAR-629).
   void inSpan("builder.started", { builder }, () => client.session).catch(() => {
     // Its crash or exit is reported on its own.
   })
-  const item: Running = { child, name: `${builder} for ${project}`, client }
+  const item: Running = { life, name: `${builder} for ${project}`, client }
   running.add(item)
-  let ended = false
+  void life.exited.then(() => running.delete(item))
 
-  const end = (why: string, code?: number | null, signal?: NodeJS.Signals | null) => {
-    if (ended) {
-      return
-    }
+  return life.pid ? { pid: life.pid, session: client.session } : { session: client.session }
+}
 
-    ended = true
-    const ending: BuilderExit = { output: log }
+/** How a builder's process ended, as the project's crash handling reads it. */
+function builderExit({ code, signal, output }: ChildExit): BuilderExit {
+  const exit: BuilderExit = { output }
 
-    if (code !== null && code !== undefined) {
-      ending.exitCode = code
-    }
-
-    if (signal) {
-      ending.signal = signal
-    }
-
-    exit = ending
-    running.delete(item)
-    const tail = log.trim().slice(-1500)
-    client.exited(tail ? `${why}:\n${tail}` : why)
+  if (code !== undefined) {
+    exit.exitCode = code
   }
 
-  const stopped = (code: number | null, signal: NodeJS.Signals | null) =>
-    `${builder} stopped by itself, ${signal ? `with signal ${signal}` : `with exit code ${code}`}`
+  if (signal !== undefined) {
+    exit.signal = signal
+  }
 
-  child.on("message", (reply: BuilderProcessReply) => client.receive(reply))
-  // `close` comes once its output has been read too; a process it started could keep that open, so `exit` stands in.
-  child.on("close", (code, signal) => end(stopped(code, signal), code, signal))
-  child.on("exit", (code, signal) => setTimeout(() => end(stopped(code, signal), code, signal), 1000).unref())
-  child.on("error", (error) => {
-    // Also raised for a message it couldn't be sent, which its exit explains.
-    if (child.pid === undefined) {
-      end(`${builder} couldn't start: ${error.message}`)
-    }
-  })
-
-  return child.pid ? { pid: child.pid, session: client.session } : { session: client.session }
+  return exit
 }
 
 /** Each builder's CPU and memory, for the performance stats. One that doesn't answer in time is left out. */
 export async function builderReadings(): Promise<BuilderReading[]> {
   const readings = await Promise.all(
-    [...running].map(async ({ child, name, client }) => {
+    [...running].map(async ({ life, name, client }) => {
       const usage = await client.usage()
 
-      return child.pid && usage ? { pid: child.pid, name, ...usage } : undefined
+      return life.pid && usage ? { pid: life.pid, name, ...usage } : undefined
     })
   )
 
   return readings.filter((reading) => reading !== undefined)
 }
-
-// The service ending on its own; killed, it can't, and each builder ends when its link to the service closes.
-process.on("exit", () => {
-  for (const { child } of running) {
-    child.kill()
-  }
-})

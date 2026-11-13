@@ -124,7 +124,8 @@ components open on their docs page.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
-  follow. See [web-and-backend.md](proposals/web-and-backend.md).
+  follow. It starts, times and stops each server through the same child lifecycle as builders, installs and the type
+  checker's worker (PAR-987). See [web-and-backend.md](proposals/web-and-backend.md).
 - **Mock data in stories.** MSW handlers built from the OpenAPI document are served to Storybook as well as to rendered
   routes. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Stories as tests, later.** Running stories through Storybook's Vitest add-on, once the core works. See

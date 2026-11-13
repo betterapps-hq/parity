@@ -1,3 +1,4 @@
+import { createChannel, type Port } from "@parity-app/channel"
 import type {
   BuilderAdapter,
   BuilderRenderer,
@@ -7,42 +8,41 @@ import type {
   ComponentSource,
   ProjectConfig
 } from "@parity-app/core"
+import { type ChildExit, endedByItself, type Lifecycle } from "./lifecycle.ts"
 
 /*
  * Each open project's builder runs in a process of its own, which ends when the project closes, so the system takes
  * back everything its build tool held. A closed Vite server can't be freed in the process that ran it: Rolldown's
- * native handles keep its module graph. The project service and the builder's process talk in the messages below, as
- * data: the builder goes by id, which the builder's process looks up, and the renderer as what a builder needs of it.
+ * native handles keep its module graph. The project service and the builder's process ask each other for things over
+ * `@parity-app/channel`, which matches each answer to its request, in the methods below, as data: the builder goes by
+ * id, which the builder's process looks up, and the renderer as what a builder needs of it. The service starts, times
+ * and ends the process through the one child lifecycle (PAR-987).
  */
 
 /** A builder's start options as they cross to its process, with the builder by id. */
 export type BuilderProcessOptions = BuilderStartOptions & { builder: string }
 
 /** What the project service asks of a builder's process. */
-export type BuilderProcessRequest =
-  | { type: "start"; options: BuilderProcessOptions }
+export interface BuilderProcessMethods {
+  /** Starts the builder, and answers once it serves the guest. */
+  start: { params: BuilderProcessOptions; result: { guestUrl: string; toolVersion: string } }
   /** The components the guest imports, which change as the type checker and edited files find them. */
-  | { type: "components"; components: Record<string, ComponentSource> }
+  components: { params: Record<string, ComponentSource>; result: undefined }
   /** Its CPU time and memory, for the performance stats. */
-  | { type: "usage"; id: number }
-  /** Where it serves the guest with the stylesheets of the change stamped `stamp` (PAR-821). */
-  | { type: "restyledGuestUrl"; id: number; stamp: number }
-  /** The project files the modules of `files` load, as the build tool resolved them (PAR-994). */
-  | { type: "loadedFiles"; id: number; files: string[] }
+  usage: { params: undefined; result: ProcessTimes }
+  /** Where it serves the guest with the stylesheets of the change stamped `stamp` (PAR-821), or none. */
+  restyledGuestUrl: { params: { stamp: number }; result: string | undefined }
+  /** The project files the modules of `files` load, as the build tool resolved them (PAR-994), or none. */
+  loadedFiles: { params: { files: string[] }; result: string[] | undefined }
   /** Closes the builder, then ends the process. */
-  | { type: "close" }
+  close: { params: undefined; result: undefined }
+}
 
-/** What a builder's process answers. */
-export type BuilderProcessReply =
-  | { type: "started"; guestUrl: string; toolVersion: string }
-  | { type: "failed"; error: string }
+/** What a builder's process tells the project service. */
+export interface BuilderServiceMethods {
   /** Project files whose code changed on disk, as the builder found them (PAR-165). */
-  | ({ type: "codeChanged" } & CodeChange)
-  | ({ type: "usage"; id: number } & ProcessTimes)
-  /** The restyled guest's address, or none when the builder doesn't offer one. */
-  | { type: "restyledGuestUrl"; id: number; guestUrl?: string }
-  /** The files `loadedFiles` asked about load, or none when the builder can't say. */
-  | { type: "loadedFiles"; id: number; files?: string[] }
+  codeChanged: { params: CodeChange; result: undefined }
+}
 
 /** A process's CPU time and memory, as it reads them itself. */
 export interface ProcessTimes {
@@ -68,7 +68,8 @@ export function builderProcessOptions(builder: BuilderAdapter, options: BuilderS
 
 /** What the builder's process does for the code that serves it. */
 export interface BuilderProcessSide {
-  send(reply: BuilderProcessReply): void
+  /** Its end of the IPC channel to the project service. */
+  port: Port
   usage(): ProcessTimes
   /** Ends the process, once the builder has closed. */
   exit(): void
@@ -76,91 +77,79 @@ export interface BuilderProcessSide {
 
 /**
  * The builder's process's side: starts the builder it's asked for, keeps the guest's components up to date, and
- * closes it before ending the process. Returns what takes each request.
+ * closes it before ending the process.
  */
-export function serveBuilderProcess(
-  side: BuilderProcessSide,
-  builders: BuilderAdapter[]
-): (request: BuilderProcessRequest) => void {
+export function serveBuilderProcess(side: BuilderProcessSide, builders: BuilderAdapter[]): void {
   let config: ProjectConfig | undefined
   let session: Promise<BuilderSession | undefined> = Promise.resolve(undefined)
   let closing = false
+  const channel = createChannel<BuilderProcessMethods, BuilderServiceMethods>()
 
-  return (request) => {
-    if (request.type === "start") {
+  channel.serve({
+    async start(options) {
       if (config) {
-        return
+        throw new Error("The builder has started already")
       }
 
-      const { builder: id, ...options } = request.options
-      config = options.config
-      session = (async () => {
+      const { builder: id, ...rest } = options
+      config = rest.config
+
+      const starting = (async () => {
         const builder = builders.find((adapter) => adapter.id === id)
 
         if (!builder) {
           throw new Error(`No builder is called ${id}`)
         }
 
-        return builder.start(options)
-      })().then(
-        (started) => {
-          side.send({ type: "started", guestUrl: started.guestUrl, toolVersion: started.toolVersion })
-          started.codeChanges?.((change) => side.send({ type: "codeChanged", ...change }))
+        return builder.start(rest)
+      })()
 
-          return started
-        },
-        (cause: unknown) => {
-          side.send({ type: "failed", error: cause instanceof Error ? cause.message : String(cause) })
+      session = starting.catch(() => undefined)
+      const started = await starting
+      started.codeChanges?.((change) => void channel.request("codeChanged", change).catch(() => undefined))
 
-          return undefined
-        }
-      )
-    } else if (request.type === "components") {
+      return { guestUrl: started.guestUrl, toolVersion: started.toolVersion }
+    },
+    components(components) {
       // In place, since the builder serves the guest from this list.
-      const components = config?.components
+      const served = config?.components
 
-      if (!components) {
+      if (!served) {
         return
       }
 
-      for (const id of Object.keys(components)) {
-        if (!(id in request.components)) {
-          delete components[id]
+      for (const id of Object.keys(served)) {
+        if (!(id in components)) {
+          delete served[id]
         }
       }
 
-      Object.assign(components, request.components)
-    } else if (request.type === "usage") {
-      side.send({ type: "usage", id: request.id, ...side.usage() })
-    } else if (request.type === "restyledGuestUrl") {
-      const { id, stamp } = request
-      void session
-        .then((started) => started?.restyledGuestUrl?.(stamp))
-        .catch(() => undefined)
-        .then((guestUrl) =>
-          side.send(guestUrl ? { type: "restyledGuestUrl", id, guestUrl } : { type: "restyledGuestUrl", id })
-        )
-    } else if (request.type === "loadedFiles") {
-      const { id, files } = request
-      void session
-        .then((started) => started?.loadedFiles?.(files))
-        .catch(() => undefined)
-        .then((loaded) => side.send(loaded ? { type: "loadedFiles", id, files: loaded } : { type: "loadedFiles", id }))
-    } else if (!closing) {
+      Object.assign(served, components)
+    },
+    usage: () => side.usage(),
+    restyledGuestUrl: ({ stamp }) =>
+      session.then((started) => started?.restyledGuestUrl?.(stamp)).catch(() => undefined),
+    loadedFiles: ({ files }) => session.then((started) => started?.loadedFiles?.(files)).catch(() => undefined),
+    close() {
+      if (closing) {
+        return
+      }
+
       closing = true
       void session
         .then((started) => started?.close())
         .catch(() => undefined)
         .then(() => side.exit())
     }
-  }
+  })
+
+  channel.connect(side.port)
 }
 
-/** The project service's handle on a builder's process. */
+/** The project service's link to a builder's process: the channel's port, and the process's lifecycle. */
 export interface BuilderProcessLink {
-  send(request: BuilderProcessRequest): void
-  /** Ends the process at once, as when its builder doesn't close in time. */
-  kill(): void
+  port: Port
+  life: Lifecycle
 }
 
 /** A builder session whose builder runs in a process of its own. */
@@ -188,21 +177,19 @@ export interface BuilderUsage {
   memory: number
 }
 
-/** The project service's side of a builder's process, which the code running the process feeds. */
+/** The project service's side of a builder's process. */
 export interface BuilderProcessClient {
   /** The session once the builder answers, or why it couldn't start, as when its process ended first. */
   session: Promise<BuilderProcessSession>
-  /** Takes a reply from the process. */
-  receive(reply: BuilderProcessReply): void
-  /** Tells it the process ended, with why, as a sentence. */
-  exited(reason: string): void
   /** The process's CPU and memory, while it runs, starting or not. */
   usage(): Promise<BuilderUsage | undefined>
 }
 
 export interface BuilderProcessClientOptions {
-  /** Called when the process ends by itself after its builder started, with why. */
-  onCrash?: (reason: string) => void
+  /** How the builder is named in why its process ended: `Vite stopped by itself, with exit code 1`. */
+  name?: string
+  /** Called when the process ends by itself after its builder started, with why and how it ended. */
+  onCrash?: (reason: string, exit: ChildExit) => void
   /** Called when the builder says project files' code changed, while it runs. */
   onCodeChange?: (change: CodeChange) => void
   /** How long a builder has to close before its process is ended, in milliseconds. */
@@ -221,9 +208,10 @@ export interface BuilderProcessClientOptions {
  * fails the start with why; one that ends by itself later is reported to `onCrash`.
  */
 export function connectBuilderProcess(
-  link: BuilderProcessLink,
+  { port, life }: BuilderProcessLink,
   options: BuilderProcessOptions,
   {
+    name = "The builder",
     onCrash,
     onCodeChange,
     closeTimeout = 5000,
@@ -233,155 +221,119 @@ export function connectBuilderProcess(
   }: BuilderProcessClientOptions = {}
 ): BuilderProcessClient {
   let state: "starting" | "running" | "closing" | "ended" = "starting"
-  let resolveStart: (session: BuilderProcessSession) => void = () => undefined
-  let rejectStart: (error: Error) => void = () => undefined
+  let lastReading: ProcessTimes | undefined
 
-  const session = new Promise<BuilderProcessSession>((resolve, reject) => {
-    resolveStart = resolve
-    rejectStart = reject
+  const channel = createChannel<BuilderServiceMethods, BuilderProcessMethods>({
+    handlers: {
+      codeChanged(change) {
+        if (state === "running") {
+          onCodeChange?.(change)
+        }
+      }
+    }
   })
 
-  let markEnded: () => void = () => undefined
-  const ended = new Promise<void>((resolve) => (markEnded = resolve))
-  let killTimer: ReturnType<typeof setTimeout> | undefined
-  const readings = new Map<number, (reply?: ProcessTimes) => void>()
-  const addresses = new Map<number, (guestUrl?: string) => void>()
-  const loads = new Map<number, (files?: string[]) => void>()
-  let nextReading = 1
-  let lastReading: ProcessTimes | undefined
+  const ended = life.exited.then(() => undefined)
 
   const close = (): Promise<void> => {
     if (state === "starting" || state === "running") {
       state = "closing"
-      link.send({ type: "close" })
-      killTimer = setTimeout(() => link.kill(), closeTimeout)
+      void channel.request("close", undefined).catch(() => undefined)
+      life.deadline(closeTimeout)
     }
 
     return ended
   }
 
-  const usage = (): Promise<BuilderUsage | undefined> => {
+  const usage = async (): Promise<BuilderUsage | undefined> => {
     if (state === "ended") {
-      return Promise.resolve(undefined)
+      return undefined
     }
 
-    const id = nextReading++
+    const reading = await within(channel.request("usage", undefined), usageTimeout)
 
-    return new Promise((resolve) => {
-      const answer = (reading?: ProcessTimes) => {
-        readings.delete(id)
-        clearTimeout(timer)
-
-        if (!reading) {
-          return resolve(undefined)
-        }
-
-        const previous = lastReading && lastReading.uptime < reading.uptime ? lastReading : undefined
-        lastReading = reading
-        const cpu = reading.cpu - (previous?.cpu ?? 0)
-        const elapsed = reading.uptime - (previous?.uptime ?? 0)
-        resolve({ cpu: elapsed > 0 ? Math.max(0, (cpu / 1000 / elapsed / cores) * 100) : 0, memory: reading.memory })
-      }
-
-      const timer = setTimeout(() => answer(), usageTimeout)
-      readings.set(id, answer)
-      link.send({ type: "usage", id })
-    })
-  }
-
-  const restyledGuestUrl = (stamp: number): Promise<string | undefined> => {
-    if (state !== "running") {
-      return Promise.resolve(undefined)
+    if (!reading) {
+      return undefined
     }
 
-    const id = nextReading++
+    const previous = lastReading && lastReading.uptime < reading.uptime ? lastReading : undefined
+    lastReading = reading
+    const cpu = reading.cpu - (previous?.cpu ?? 0)
+    const elapsed = reading.uptime - (previous?.uptime ?? 0)
 
-    return new Promise((resolve) => {
-      addresses.set(id, (guestUrl) => {
-        addresses.delete(id)
-        resolve(guestUrl)
-      })
-      link.send({ type: "restyledGuestUrl", id, stamp })
-    })
+    return { cpu: elapsed > 0 ? Math.max(0, (cpu / 1000 / elapsed / cores) * 100) : 0, memory: reading.memory }
   }
 
-  const loadedFiles = (files: string[]): Promise<string[] | undefined> => {
-    if (state !== "running") {
-      return Promise.resolve(undefined)
+  const restyledGuestUrl = (stamp: number): Promise<string | undefined> =>
+    state === "running"
+      ? channel.request("restyledGuestUrl", { stamp }).catch(() => undefined)
+      : Promise.resolve(undefined)
+
+  const loadedFiles = (files: string[]): Promise<string[] | undefined> =>
+    state === "running"
+      ? within(channel.request("loadedFiles", { files }), loadedFilesTimeout)
+      : Promise.resolve(undefined)
+
+  channel.connect(port)
+
+  const started = channel.request("start", options).then(({ guestUrl, toolVersion }): BuilderProcessSession => {
+    // A start that answers after it was told to close is closing anyway.
+    if (state !== "starting") {
+      throw new Error(`${name} closed before it started`)
     }
 
-    const id = nextReading++
+    state = "running"
 
-    return new Promise((resolve) => {
-      const answer = (loaded?: string[]) => {
-        loads.delete(id)
-        clearTimeout(timer)
-        resolve(loaded)
-      }
-
-      const timer = setTimeout(() => answer(), loadedFilesTimeout)
-      loads.set(id, answer)
-      link.send({ type: "loadedFiles", id, files })
-    })
-  }
-
-  link.send({ type: "start", options })
-
-  return {
-    session,
-    usage,
-    receive(reply) {
-      if (reply.type === "usage") {
-        const { type: _, id, ...reading } = reply
-        readings.get(id)?.(reading)
-      } else if (reply.type === "restyledGuestUrl") {
-        addresses.get(reply.id)?.(reply.guestUrl)
-      } else if (reply.type === "loadedFiles") {
-        loads.get(reply.id)?.(reply.files)
-      } else if (reply.type === "codeChanged") {
+    return {
+      guestUrl,
+      toolVersion,
+      setComponents: (components) => {
         if (state === "running") {
-          const { type: _, ...change } = reply
-          onCodeChange?.(change)
+          void channel.request("components", components).catch(() => undefined)
         }
-      } else if (state !== "starting") {
-        // A start that answers after it was told to close is closing anyway.
-      } else if (reply.type === "started") {
-        state = "running"
-        const { guestUrl, toolVersion } = reply
-        resolveStart({
-          guestUrl,
-          toolVersion,
-          setComponents: (components) => state === "running" && link.send({ type: "components", components }),
-          usage,
-          restyledGuestUrl,
-          loadedFiles,
-          close
-        })
-      } else {
-        rejectStart(new Error(reply.error))
-        void close()
-      }
-    },
-    exited(reason) {
-      if (state === "ended") {
-        return
-      }
-
-      const was = state
-      state = "ended"
-      clearTimeout(killTimer)
-
-      for (const answer of [...readings.values(), ...addresses.values(), ...loads.values()]) {
-        answer()
-      }
-
-      markEnded()
-
-      if (was === "starting") {
-        rejectStart(new Error(reason))
-      } else if (was === "running") {
-        onCrash?.(reason)
-      }
+      },
+      usage,
+      restyledGuestUrl,
+      loadedFiles,
+      close
     }
-  }
+  })
+
+  // A builder that couldn't start has its process ended.
+  started.catch(() => void close())
+
+  // The process ending first fails the start with why, which its channel closing would only say vaguely.
+  const exited = life.exited.then((exit) => {
+    const was = state
+    state = "ended"
+    const reason = endedByItself(name, exit)
+    channel.close(new Error(reason))
+
+    if (was === "running" && !exit.stopped) {
+      onCrash?.(reason, exit)
+    }
+
+    throw new Error(reason)
+  })
+
+  exited.catch(() => undefined)
+
+  return { session: Promise.race([started, exited]), usage }
+}
+
+/** What `asked` answers, or nothing when it fails or takes longer than `ms`. */
+function within<T>(asked: Promise<T>, ms: number): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(undefined), ms)
+    asked.then(
+      (answer) => {
+        clearTimeout(timer)
+        resolve(answer)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(undefined)
+      }
+    )
+  })
 }

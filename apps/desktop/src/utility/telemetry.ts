@@ -1,3 +1,4 @@
+import { lastLines } from "@parity-app/processes"
 import {
   createTelemetry,
   type Envelope,
@@ -15,9 +16,6 @@ import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
 import { mainProcess } from "./main-process.ts"
 import { workerTelemetryKey } from "./worker-telemetry.ts"
-
-/** How much of a builder's output goes with its crash. */
-const builderLines = 50
 
 /**
  * Starts sending the service's errors to Sentry through main, which decides whether anything leaves the computer
@@ -117,7 +115,7 @@ export function reportWorkerError(error: Error): void {
 
 /** Reports a builder that stopped by itself, with how it ended and the last of what it printed. */
 export function reportBuilderCrash(builder: string, why: string, output: string): void {
-  const lines = output.trimEnd().split(/\r?\n/).slice(-builderLines).join("\n")
+  const lines = lastLines(output)
   Sentry.captureMessage(why, {
     level: "error",
     tags: { process: "builder", builder },
