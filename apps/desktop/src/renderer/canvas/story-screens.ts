@@ -49,3 +49,22 @@ export function storyScreensDocument(info: Pick<ProjectInfo, "id" | "entities" |
 function groupLeaf(screen: ImportedScreen): string {
   return screen.group.split("/").at(-1)?.trim() ?? screen.group
 }
+
+/** Where a story is listed in Layers: the folders its adapter puts it in, as `UI` then `Button`, and its name. */
+export interface StoryPlace {
+  folders: string[]
+  name: string
+}
+
+/** Each imported screen's place in Layers, by its design's id, as Storybook's sidebar lists the stories. */
+export function storyPlaces(info: Pick<ProjectInfo, "entities">): ReadonlyMap<string, StoryPlace> {
+  return new Map(
+    (info.entities.screens ?? []).map((each) => [
+      each.screen.id,
+      {
+        folders: each.folders ?? [],
+        name: each.screen.name
+      }
+    ])
+  )
+}

@@ -52,7 +52,13 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Projec
         sources[drawn] = { path, export: story.render }
       }
 
-      screens.push({ adapter: storybookId, ref, group, screen: storyScreen(path, story, drawn) })
+      screens.push({
+        adapter: storybookId,
+        ref,
+        group,
+        folders: titleFolders(group),
+        screen: storyScreen(path, story, drawn)
+      })
     }
   }
 
@@ -133,6 +139,17 @@ function splitRef(ref: string): [string, string | undefined] {
   const at = ref.lastIndexOf("#")
 
   return at === -1 ? [ref, undefined] : [ref.slice(0, at), ref.slice(at + 1)]
+}
+
+/**
+ * The folders Storybook's sidebar lists a title's stories in: one for each part of it, split at `/`, the last the
+ * component's, as `UI` then `Button` for `UI/Button`.
+ */
+export function titleFolders(title: string): string[] {
+  return title
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
 }
 
 /** The title Storybook gives a file without one: its component's name, else the file's name. */

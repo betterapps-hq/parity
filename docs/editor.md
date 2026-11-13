@@ -6611,6 +6611,14 @@ sections from their attributes, and sections with nothing set left out).
 The project opens with a screen for each of its Storybook stories, listed in Layers under Stories, after Screens, and
 laid out in a row for each story file, left of everything else on the canvas.
 
+- **Listed as Storybook lists them.** Under Stories, each part of a story's title is a folder, as Storybook's sidebar
+  nests them: a group is a folder, a component holds its stories under a grid of four squares in blue, and each story is
+  a bookmark named for itself, as `Outline` in UI, Button. Folders start closed; selecting a story on the canvas opens
+  the folders it's in. A click opens or closes a folder. The arrow keys move through folders and stories alike: Right
+  opens a folder or goes into it, Left closes it or goes up to the folder above, and Enter or Space opens or closes it.
+  A search opens every folder with something found in it and leaves out the rest. The adapter says which folders each
+  screen is in (`ImportedScreen.folders`); Layers draws any adapter's that way.
+
 - **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
   meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
   the project depends on when it opens, and the screens come in the project's info.
@@ -6642,13 +6650,18 @@ Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and 
 `apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in `apps/desktop/src/renderer/workspace.ts`;
 `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`; `exportEntities` in
 `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts` writes; `writesProps` in
-`apps/desktop/src/renderer/chrome/read-from-code.ts`.
+`apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in `adapters/storybook-adapter`, `folderTree` in
+`packages/editor/src/layers-folders.ts`, and `storyPlaces` and `FolderLine` in `story-screens.ts` and
+`apps/desktop/src/renderer/chrome/LayerTree.tsx`.
 
-Tests: `adapters/storybook-adapter/src/storybook.test.ts` (10: a file's meta and stories with args over the meta's,
-where a story's render function is, a file without a default export, a story's name in words, stories imported as
-screens of their component, grouped by title, a story that renders itself drawing its function from its file, a story's
-own args written over the meta's with code kept, args added to a story without any and none for the meta's, a story
-that's a function left alone, and a screen's props written back to its file).
+Tests: `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're closed, an open folder's
+folders and a component's designs in order, a design without folders at the top, and a search opening the folders with
+something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and stories with args over the
+meta's, where a story's render function is, a file without a default export, a story's name in words, each story in a
+folder for each part of its title, stories imported as screens of their component, grouped by title, a story that
+renders itself drawing its function from its file, a story's own args written over the meta's with code kept, args added
+to a story without any and none for the meta's, a story that's a function left alone, and a screen's props written back
+to its file).
 
 ### Opening in seconds (PAR-179)
 

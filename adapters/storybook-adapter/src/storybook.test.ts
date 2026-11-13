@@ -1,7 +1,7 @@
 import type { ContainerSpec, DesignNode, EntitiesSource } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { readStoryFile, storyName } from "./csf.ts"
-import { exportStoryScreen, importStoryScreens } from "./screens.ts"
+import { exportStoryScreen, importStoryScreens, titleFolders } from "./screens.ts"
 import { writeStoryArgs } from "./write.ts"
 
 const button = `
@@ -91,6 +91,19 @@ describe("importStoryScreens", () => {
     read: async (path) => files.get(path),
     componentFor: async (_file, specifier, name) => (specifier.endsWith("button") ? `ui/button/${name}` : undefined)
   }
+
+  it("lists each story in a folder for each part of its title, as Storybook's sidebar does", async () => {
+    const { screens = [] } = await importStoryScreens(source)
+
+    expect(screens.map(({ folders }) => folders)).toEqual([
+      ["UI", "Button"],
+      ["UI", "Button"],
+      ["UI", "Button"],
+      ["Card"],
+      ["Card"]
+    ])
+    expect(titleFolders(" App / Plan card /")).toEqual(["App", "Plan card"])
+  })
 
   it("imports each story as a screen of its component with its args, grouped by title", async () => {
     const { screens = [] } = await importStoryScreens(source)

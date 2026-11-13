@@ -4,7 +4,7 @@ import { exportStoryScreen, importStoryScreens, storybookId } from "./screens.ts
 
 export { type ArgValue, readStoryFile, type Story, type StoryArgs, type StoryFile, storyName } from "./csf.ts"
 
-export { exportStoryScreen, importStoryScreens, storyFilePattern, storyScreen } from "./screens.ts"
+export { exportStoryScreen, importStoryScreens, storyFilePattern, storyScreen, titleFolders } from "./screens.ts"
 
 export { writeStoryArgs } from "./write.ts"
 

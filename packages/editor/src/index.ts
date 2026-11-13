@@ -236,6 +236,15 @@ export {
 } from "./layers-tree.ts"
 
 export {
+  type FolderedRow,
+  folderId,
+  folderIds,
+  type FolderRow,
+  folderTree,
+  type FolderTreeRow
+} from "./layers-folders.ts"
+
+export {
   designsLocked,
   isLocked,
   layersLocked,

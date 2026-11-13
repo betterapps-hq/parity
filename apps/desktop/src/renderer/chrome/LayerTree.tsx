@@ -25,6 +25,9 @@ import {
   closedTree,
   designsSelection,
   expandedRows,
+  folderIds,
+  type FolderRow,
+  folderTree,
   kindName,
   layerRowId,
   layersSelection,
@@ -46,10 +49,13 @@ import {
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
+  Bookmark,
   ChevronRight,
+  Folder,
   ChevronsDownUp,
   Eye,
   EyeOff,
+  LayoutGrid,
   Lock,
   LockOpen,
   Plus,
@@ -74,7 +80,7 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { routePagesFile } from "../canvas/route-pages.ts"
-import { storyScreensFile } from "../canvas/story-screens.ts"
+import { storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
@@ -114,6 +120,8 @@ interface Group {
   command?: "newComponent" | "newScreen" | "frame"
   none: string
   entries: ContainerEntry[]
+  /** The folders each design is listed in, as Storybook lists its stories, for a group listed as a tree of them. */
+  folderOf?: (entry: ContainerEntry) => readonly string[]
 }
 
 /**
@@ -122,10 +130,20 @@ interface Group {
  */
 type Line =
   | { type: "heading" | "empty"; key: string; group: Group }
-  | { type: "row"; key: string; row: Row }
+  | { type: "row"; key: string; row: Row; level: number; parent?: string }
+  | { type: "folder"; key: string; folder: FolderRow }
   | { type: "gap" | "none"; key: string }
 
-const lineHeights: Record<Line["type"], number> = { heading: 28, empty: 28, row: 28, gap: 8, none: 28 }
+const lineHeights: Record<Line["type"], number> = { heading: 28, empty: 28, row: 28, folder: 28, gap: 8, none: 28 }
+
+/** The folder a line is in, or undefined at the top. */
+function folderOfLine(line: Line): string | undefined {
+  if (line.type === "folder") {
+    return line.folder.parent
+  }
+
+  return line.type === "row" ? line.parent : undefined
+}
 
 /**
  * Every design in the project as a tree, Figma style: components, then screens, at the top level, their layers
@@ -161,6 +179,12 @@ export function LayerTree() {
     }
   }
 
+  // The project's stories are listed in folders, as Storybook's sidebar lists them: a group's for each part of a
+  // story's title, and its component's last.
+  const places = useMemo(() => storyPlaces(session.info), [session.info])
+  // A folder picked with the keys or a click, which the keys move from until a row is picked instead.
+  const [activeFolder, setActiveFolder] = useState<string>()
+
   // Revealing a new selection: its design and every ancestor of its layers open up. Selected anywhere but here, the
   // rows opened for the last selection close again. Adjusted while rendering, since it follows from the selection
   // rather than from anything outside React.
@@ -171,10 +195,17 @@ export function LayerTree() {
   if (revealed !== selectionKey) {
     setRevealed(selectionKey)
     setPickedHere(undefined)
+    setActiveFolder(undefined)
     const entry = selected.design ? store.getEntry(selected.design) : undefined
 
     if (entry) {
-      const ids = revealIds(entry, selectedNodes(selected), store.getComponentLibrary())
+      const place = entry.path === storyScreensFile ? places.get(entry.container.id) : undefined
+
+      const ids = [
+        ...(place ? folderIds("stories", place.folders) : []),
+        ...revealIds(entry, selectedNodes(selected), store.getComponentLibrary())
+      ]
+
       const next = revealRows(expansion, ids, pickedHere === selectionKey)
 
       if (next !== expansion) {
@@ -217,7 +248,14 @@ export function LayerTree() {
 
     // The project's stories are listed once it has some, read from its Storybook, so there's nothing to add.
     if (stories.length > 0) {
-      listed.push({ id: "stories", title: "Stories", kind: "screen", none: "", entries: stories })
+      listed.push({
+        id: "stories",
+        title: "Stories",
+        kind: "screen",
+        none: "",
+        entries: stories,
+        folderOf: (entry) => places.get(entry.container.id)?.folders ?? []
+      })
     }
 
     // The project's components are listed once it has some, drawn from its code, so there's nothing to add.
@@ -231,7 +269,7 @@ export function LayerTree() {
     }
 
     return listed
-  }, [entries])
+  }, [entries, places])
 
   const { rows, lines } = useMemo(() => {
     const library = store.getComponentLibrary()
@@ -243,11 +281,25 @@ export function LayerTree() {
     const list: Line[] = []
 
     for (const group of groups) {
-      const found = search
-        ? searchRows(group.entries, search, label, library, boardOpensTo)
-        : treeRows(group.entries, expanded, library, boardOpensTo)
+      const rowsOf = (designs: readonly ContainerEntry[]) =>
+        search
+          ? searchRows(designs, search, label, library, boardOpensTo)
+          : treeRows(designs, expanded, library, boardOpensTo)
 
-      if (search && found.length === 0) {
+      const folderOf = group.folderOf
+
+      const shown: Line[] = folderOf
+        ? folderTree(group.entries, { scope: group.id, folderOf, rowsOf, expanded, searching: !!search }).map(
+            (line): Line =>
+              line.type === "folder"
+                ? { type: "folder", key: line.id, folder: line }
+                : { type: "row", key: line.row.id, row: line.row, level: line.level, parent: line.parent }
+          )
+        : rowsOf(group.entries).map((row): Line => ({ type: "row", key: row.id, row, level: 0 }))
+
+      const found = shown.flatMap((line) => (line.type === "row" ? [line.row] : []))
+
+      if (search && shown.length === 0) {
         continue
       }
 
@@ -257,9 +309,7 @@ export function LayerTree() {
         list.push({ type: "empty", key: `empty:${group.id}`, group })
       }
 
-      for (const row of found) {
-        list.push({ type: "row", key: row.id, row })
-      }
+      list.push(...shown)
 
       list.push({ type: "gap", key: `gap:${group.id}` })
       all.push(...found)
@@ -305,6 +355,7 @@ export function LayerTree() {
    * and the last one picked, among the same design's layers or among designs.
    */
   const select = (row: Row, event?: MouseEvent | KeyboardEvent) => {
+    setActiveFolder(undefined)
     pick(row, event)
     // Selected here, the rows opened for the last selection stay open, so none moves under the pointer.
     setPickedHere(`${selection.get().design ?? ""}/${selectedNodes(selection.get()).join(",")}`)
@@ -521,6 +572,41 @@ export function LayerTree() {
   const hoverRow = (row: Row, on: boolean) =>
     selection.setHover(on ? { design: row.design.key, node: row.path } : undefined)
 
+  /** A key on a folder: Right opens it or goes into it, Left closes it or goes up, Enter and Space open or close it. */
+  const folderKeyDown = (
+    event: KeyboardEvent,
+    folder: FolderRow,
+    next: Line | undefined,
+    go: (target: Line | undefined) => void,
+    folderLine: (id: string | undefined) => Line | undefined,
+    previous: Line | undefined
+  ) => {
+    if (event.key === "ArrowDown") {
+      go(next)
+    } else if (event.key === "ArrowUp") {
+      go(previous)
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault()
+
+      if (!folder.expanded && !search) {
+        toggle(folder.id, true)
+      } else if (next && folderOfLine(next) === folder.id) {
+        go(next)
+      }
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault()
+
+      if (folder.expanded && !search) {
+        toggle(folder.id, false)
+      } else {
+        go(folderLine(folder.parent))
+      }
+    } else if ((event.key === "Enter" || event.key === " ") && !search) {
+      event.preventDefault()
+      toggle(folder.id)
+    }
+  }
+
   const onKeyDown = (event: KeyboardEvent) => {
     // A heading's + and an empty group's row keep their keys, so Enter makes a new one rather than renaming.
     const from = event.target
@@ -529,10 +615,40 @@ export function LayerTree() {
       return
     }
 
+    // The keys move through rows and folders alike, from the folder picked, else from the row selected.
+    const items = lines.filter((line) => line.type === "row" || line.type === "folder")
+    const folderLine = (id: string | undefined) => items.find((line) => line.type === "folder" && line.key === id)
+
+    const picked = activeFolder ? folderLine(activeFolder) : undefined
+
+    const itemIndex = picked
+      ? items.indexOf(picked)
+      : items.findIndex((line) => line.type === "row" && line.row.id === selectedRow)
+
+    const item = items[itemIndex]
+
+    const go = (target: Line | undefined) => {
+      if (target?.type === "folder") {
+        event.preventDefault()
+        setActiveFolder(target.key)
+        scrollToRow(target.key)
+      } else if (target?.type === "row") {
+        event.preventDefault()
+        select(target.row)
+        scrollToRow(target.row.id)
+      }
+    }
+
+    if (item?.type === "folder") {
+      folderKeyDown(event, item.folder, items[itemIndex + 1], go, folderLine, items[itemIndex - 1])
+
+      return
+    }
+
     const index = rows.findIndex((row) => row.id === selectedRow)
     const row = rows[index]
 
-    if (!row) {
+    if (!row || item?.type !== "row") {
       return
     }
 
@@ -547,9 +663,9 @@ export function LayerTree() {
     }
 
     if (event.key === "ArrowDown") {
-      move(rows[index + 1])
+      go(items[itemIndex + 1])
     } else if (event.key === "ArrowUp") {
-      move(rows[index - 1])
+      go(items[itemIndex - 1])
     } else if (event.key === "ArrowRight") {
       event.preventDefault()
 
@@ -564,6 +680,9 @@ export function LayerTree() {
 
       if (row.hasChildren && row.expanded && !search) {
         toggle(row.id, false)
+      } else if (row.depth === 0) {
+        // A design in a folder goes up to its folder.
+        go(folderLine(item.parent))
       } else {
         move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
       }
@@ -690,13 +809,29 @@ export function LayerTree() {
                       No layers or designs match &ldquo;{search}&rdquo;
                     </p>
                   )}
+                  {line.type === "folder" && (
+                    <FolderLine
+                      folder={line.folder}
+                      active={activeFolder === line.folder.id}
+                      searching={!!search}
+                      onClick={() => {
+                        setActiveFolder(line.folder.id)
+                        toggle(line.folder.id)
+                        treeRef.current?.focus()
+                      }}
+                    />
+                  )}
                   {line.type === "row" && (
                     <LayerRow
                       row={line.row}
+                      level={line.level}
+                      story={!line.row.node && line.row.design.path === storyScreensFile}
                       label={
                         line.row.node
                           ? layerLabel(line.row.node, entries, library, session.info.libraries)
-                          : line.row.design.container.name
+                          : // In its component's folder, a story goes by its own name, as Outline.
+                            ((line.level > 0 ? places.get(line.row.design.container.id)?.name : undefined) ??
+                            line.row.design.container.name)
                       }
                       searching={!!search}
                       selected={selectedRows.has(line.row.id)}
@@ -771,6 +906,70 @@ function GroupHeading({ group }: { group: Group }) {
   )
 }
 
+/**
+ * A folder's row, as Storybook's sidebar draws one: a folder for a group, and a grid of four squares, in blue, for a
+ * component's, which holds the component's stories. A click opens or closes it.
+ */
+function FolderLine({
+  folder,
+  active,
+  searching,
+  onClick
+}: {
+  folder: FolderRow
+  /** Picked with the keys or a click, which the keys move from. */
+  active: boolean
+  searching: boolean
+  onClick: () => void
+}) {
+  const Icon = folder.kind === "component" ? LayoutGrid : Folder
+
+  return (
+    <div
+      id={`layer-${folder.id}`}
+      role="treeitem"
+      aria-selected={false}
+      aria-expanded={folder.expanded}
+      aria-level={folder.level + 1}
+      aria-posinset={folder.position}
+      aria-setsize={folder.siblings}
+      tabIndex={-1}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          event.stopPropagation()
+          onClick()
+        }
+      }}
+      className={`relative flex h-7 cursor-default items-center gap-1.5 pr-2 hover:bg-accent/40 ${
+        active ? "ring-1 ring-ring ring-inset" : ""
+      }`}
+      style={{ paddingLeft: 8 + folder.level * 14 }}
+    >
+      {Array.from({ length: folder.level }, (_, guide) => (
+        <span
+          key={guide}
+          aria-hidden
+          className="absolute inset-y-0 w-px bg-border/70"
+          style={{ left: 15 + guide * 14 }}
+        />
+      ))}
+      <span
+        aria-hidden
+        className={`grid size-4 shrink-0 place-items-center text-muted-foreground ${searching ? "invisible" : ""}`}
+      >
+        <ChevronRight className={`size-3.5 transition-transform ${folder.expanded ? "rotate-90" : ""}`} />
+      </span>
+      <Icon
+        className="size-3.5 shrink-0"
+        style={{ color: folder.kind === "component" ? kindColors.screen : "var(--muted-foreground)" }}
+      />
+      <Name className="min-w-0 flex-1">{folder.label}</Name>
+    </div>
+  )
+}
+
 /** An empty group's row, a button that makes its first design. */
 function EmptyGroup({ group }: { group: Group }) {
   const session = useProject()
@@ -813,6 +1012,10 @@ interface RowActions {
 
 interface LayerRowProps {
   row: Row
+  /** How many folders it's in, which indent it as far again as its depth. */
+  level: number
+  /** A story's own row, which shows Storybook's story icon. */
+  story: boolean
   /** Its name as Layers shows it. */
   label: string
   /** A search is showing, which opens what it found itself. */
@@ -836,6 +1039,8 @@ function sameRow(before: LayerRowProps, after: LayerRowProps): boolean {
     a.node === b.node &&
     a.design.container === b.design.container &&
     a.depth === b.depth &&
+    before.level === after.level &&
+    before.story === after.story &&
     a.expanded === b.expanded &&
     a.hasChildren === b.hasChildren &&
     a.position === b.position &&
@@ -852,6 +1057,8 @@ function sameRow(before: LayerRowProps, after: LayerRowProps): boolean {
 
 const LayerRow = memo(function LayerRow({
   row,
+  level,
+  story,
   label,
   searching,
   selected,
@@ -921,7 +1128,7 @@ const LayerRow = memo(function LayerRow({
             role="treeitem"
             aria-selected={selected}
             aria-expanded={row.hasChildren ? row.expanded : undefined}
-            aria-level={row.depth + 1}
+            aria-level={level + row.depth + 1}
             aria-posinset={row.position}
             aria-setsize={row.siblings}
             tabIndex={-1}
@@ -939,7 +1146,7 @@ const LayerRow = memo(function LayerRow({
             className={`group relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${
               background
             } ${hidden ? "text-muted-foreground/60" : ""}`}
-            style={{ paddingLeft: 8 + row.depth * 14 }}
+            style={{ paddingLeft: 8 + (level + row.depth) * 14 }}
           >
             {selected && <span className="absolute inset-y-0 left-0 w-0.5" style={{ background: color }} />}
             {dropPosition === "inside" && (
@@ -955,15 +1162,15 @@ const LayerRow = memo(function LayerRow({
                 className={`pointer-events-none absolute right-1 h-0.5 rounded-full ${
                   dropPosition === "before" ? "-top-px" : "-bottom-px"
                 }`}
-                style={{ left: 8 + row.depth * 14, background: row.node ? kindColors.layer : color }}
+                style={{ left: 8 + (level + row.depth) * 14, background: row.node ? kindColors.layer : color }}
               />
             )}
-            {Array.from({ length: row.depth }, (_, level) => (
+            {Array.from({ length: level + row.depth }, (_, guide) => (
               <span
-                key={level}
+                key={guide}
                 aria-hidden
                 className="absolute inset-y-0 w-px bg-border/70"
-                style={{ left: 15 + level * 14 }}
+                style={{ left: 15 + guide * 14 }}
               />
             ))}
             <button
@@ -980,9 +1187,9 @@ const LayerRow = memo(function LayerRow({
             >
               <ChevronRight className={`size-3.5 transition-transform ${row.expanded ? "rotate-90" : ""}`} />
             </button>
-            {row.node ? (
-              <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />
-            ) : (
+            {row.node && <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />}
+            {story && <Bookmark className="size-3.5 shrink-0" style={{ color }} />}
+            {!row.node && !story && (
               <DesignIcon
                 kind={board ? "component" : container.kind}
                 route={row.design.path === routePagesFile}

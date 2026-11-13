@@ -539,6 +539,8 @@ export interface ImportedScreen {
   ref: string
   /** The group it's listed in, as a story's title: `UI/Button`. */
   group: string
+  /** The folders Layers lists it in, outermost first, as `UI` then `Button`; at the top without any. */
+  folders?: string[]
   screen: ContainerSpec
 }
 

@@ -228,7 +228,8 @@ and `react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler:
 and has no `render` of its own is a screen of that component with the story's args as its props. A story that renders
 itself draws its `render` function, loaded from its file, with its args as props. Decorators and the `render` function's
 `context` aren't applied yet. Edits to a story's args are written back to its file, as the args that differ from its
-meta's; nothing else of a story's screen is.
+meta's; nothing else of a story's screen is. Layers lists the stories in folders for each part of their titles, with
+Storybook's kinds of icon for a group, a component and a story.
 
 ### Language
 
