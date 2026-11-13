@@ -78,7 +78,7 @@ export function ContainerLayers() {
         kind: "component" as const,
         entries: entries.filter((entry) => entry.container.kind === "component"),
         action: "New component",
-        keys: "Ctrl Alt Shift N",
+        command: "newComponent" as const,
         none: "No components yet."
       },
       {
@@ -86,7 +86,7 @@ export function ContainerLayers() {
         kind: "screen" as const,
         entries: entries.filter((entry) => entry.container.kind !== "component"),
         action: "New screen",
-        keys: "Ctrl Alt N",
+        command: "newScreen" as const,
         none: "No screens yet."
       }
     ],
@@ -198,7 +198,7 @@ export function ContainerLayers() {
             {group.entries.length > 0 && <span className="tabular-nums">{group.entries.length}</span>}
             <IconButton
               label={group.action}
-              shortcut={group.keys}
+              shortcut={group.command}
               onClick={() => createDesign(session, group.kind)}
               className="size-6"
             >

@@ -40,6 +40,7 @@ import {
 import { toast } from "sonner"
 import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
+import { shortcutOf } from "../chrome/keymap.ts"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
@@ -684,7 +685,7 @@ export function pasteStyle(session: ProjectDesigns): void {
 
   if (!style || !frame || ids.length === 0) {
     if (!style) {
-      toast.info("Copy a layer's style first, with Ctrl+Alt+C")
+      toast.info(`Copy a layer's style first, with ${shortcutOf("copyStyle")}`)
     }
 
     return

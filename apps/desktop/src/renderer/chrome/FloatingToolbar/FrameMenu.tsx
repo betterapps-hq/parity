@@ -15,8 +15,7 @@ import { kindColors, textFor } from "../../canvas/kinds.tsx"
 import { useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { useSelection } from "../../selection.ts"
 import { actions } from "../actions.ts"
-import { keymap } from "../keymap.ts"
-import { formatKeys } from "../keys.ts"
+import { keymap, shortcutOf } from "../keymap.ts"
 import { MenuArrow } from "../toolbar-parts.tsx"
 import { ModeViewportIcon } from "../viewports.tsx"
 
@@ -60,12 +59,12 @@ export function FrameMenu() {
         <DropdownMenuItem onClick={() => void actions.newScreen.run("toolbar")}>
           <AppWindow style={{ color: textFor(kindColors.screen) }} />
           {keymap.newScreen.label}
-          <DropdownMenuShortcut>{formatKeys(keymap.newScreen.keys[0])}</DropdownMenuShortcut>
+          <DropdownMenuShortcut>{shortcutOf("newScreen")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => void actions.newComponent.run("toolbar")}>
           <Component style={{ color: textFor(kindColors.component) }} />
           {keymap.newComponent.label}
-          <DropdownMenuShortcut>{formatKeys(keymap.newComponent.keys[0])}</DropdownMenuShortcut>
+          <DropdownMenuShortcut>{shortcutOf("newComponent")}</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

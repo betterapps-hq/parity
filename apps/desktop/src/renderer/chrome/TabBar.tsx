@@ -7,7 +7,7 @@ import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } 
 import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
 import { Hint } from "./Hint.tsx"
-import { formatKeys } from "./keys.ts"
+import { shortcutOf } from "./keymap.ts"
 import { Name } from "./Name.tsx"
 
 const mac = navigator.userAgent.includes("Mac")
@@ -98,7 +98,7 @@ function HomeTab() {
     <Hint
       label={
         <>
-          Home <Kbd>{formatKeys("Alt Home")}</Kbd>
+          Home <Kbd>{shortcutOf("home")}</Kbd>
         </>
       }
       side="bottom"
@@ -176,7 +176,7 @@ export function TabBar({ account = <AccountMenu /> }: { account?: ReactNode }) {
           }
         />
         <TooltipContent>
-          New tab <Kbd>{formatKeys("Ctrl T")}</Kbd>
+          New tab <Kbd>{shortcutOf("newTab")}</Kbd>
         </TooltipContent>
       </Tooltip>
       {account}

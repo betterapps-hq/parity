@@ -21,37 +21,34 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { actions } from "./actions.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
-import { type Command, keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
+import { type Command, keymap, shortcutOf } from "./keymap.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
-/** Each button, by its command, so it runs as its keys do and Repeat last action can run it again. */
-const alignments: { command: Command; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
-  { command: "alignLeft", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
-  {
-    command: "alignCenter",
-    label: "Align horizontal centers",
-    shortcut: keymap.alignCenter.keys[0],
-    icon: AlignCenterVertical
-  },
-  { command: "alignRight", label: "Align right", shortcut: keymap.alignRight.keys[0], icon: AlignEndVertical },
-  { command: "alignTop", label: "Align top", shortcut: keymap.alignTop.keys[0], icon: AlignStartHorizontal },
-  {
-    command: "alignMiddle",
-    label: "Align vertical centers",
-    shortcut: keymap.alignMiddle.keys[0],
-    icon: AlignCenterHorizontal
-  },
-  { command: "alignBottom", label: "Align bottom", shortcut: keymap.alignBottom.keys[0], icon: AlignEndHorizontal }
+/**
+ * Each button, by its command, so it runs as its keys do and Repeat last action can run it again, and shows the
+ * command's name and keys.
+ */
+const alignments: { command: Command; icon: typeof AlignStartVertical }[] = [
+  { command: "alignLeft", icon: AlignStartVertical },
+  { command: "alignCenter", icon: AlignCenterVertical },
+  { command: "alignRight", icon: AlignEndVertical },
+  { command: "alignTop", icon: AlignStartHorizontal },
+  { command: "alignMiddle", icon: AlignCenterHorizontal },
+  { command: "alignBottom", icon: AlignEndHorizontal }
 ]
 
 function AlignButtons({ distribute }: { distribute?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-0.5">
-      {alignments.map(({ command, label, shortcut, icon: Icon }) => (
-        <IconButton key={command} label={label} shortcut={shortcut} onClick={() => void actions[command].run("panel")}>
+      {alignments.map(({ command, icon: Icon }) => (
+        <IconButton
+          key={command}
+          label={keymap[command].label}
+          shortcut={command}
+          onClick={() => void actions[command].run("panel")}
+        >
           <Icon />
         </IconButton>
       ))}
@@ -60,14 +57,14 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
           <span className="mx-1 h-5 w-px bg-border" />
           <IconButton
             label="Distribute horizontal spacing"
-            shortcut={keymap.distributeHorizontal.keys[0]}
+            shortcut="distributeHorizontal"
             onClick={() => void actions.distributeHorizontal.run("panel")}
           >
             <AlignHorizontalSpaceAround />
           </IconButton>
           <IconButton
             label="Distribute vertical spacing"
-            shortcut={keymap.distributeVertical.keys[0]}
+            shortcut="distributeVertical"
             onClick={() => void actions.distributeVertical.run("panel")}
           >
             <AlignVerticalSpaceAround />
@@ -153,7 +150,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         <div className="flex flex-col gap-2">
           <AlignButtons />
           <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
-            <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
+            <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{shortcutOf("wrap")}</Kbd>
           </Button>
         </div>
       </PanelSection>

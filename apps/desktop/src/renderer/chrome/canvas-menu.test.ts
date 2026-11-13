@@ -11,7 +11,7 @@ import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import { canvasMenu, type MenuEntry, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { commandStates } from "./command-state.ts"
-import { keymap } from "./keymap.ts"
+import { keymap, shortcutOf } from "./keymap.ts"
 
 const text = (id: string, extra: { name?: string; hidden?: boolean } = {}): DesignNode => ({
   type: "text",
@@ -150,7 +150,7 @@ describe("the canvas menu", () => {
     ])
     const items = opened.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
-      items.map((entry) => (entry.action === "pasteHere" ? undefined : keymap[entry.action].keys[0]))
+      items.map((entry) => (entry.action === "pasteHere" ? undefined : shortcutOf(entry.action)))
     )
     expect(labelOf(opened, "copy")).toBe(keymap.copy.label)
     expect(labelOf(opened, "pasteHere")).toBe("Paste here")
@@ -319,13 +319,13 @@ describe("the canvas menu", () => {
       "zoomToFit"
     ])
     expect(opened.flatMap((entry) => (entry.kind === "item" ? [[entry.label, entry.keys]] : []))).toEqual([
-      ["New screen", keymap.newScreen.keys[0]],
-      ["New component", keymap.newComponent.keys[0]],
-      ["Insert…", keymap.insert.keys[0]],
-      ["Find references…", keymap.findReferences.keys[0]],
+      ["New screen", "Ctrl+Alt+N"],
+      ["New component", "Ctrl+Alt+Shift+N"],
+      ["Insert…", "/"],
+      ["Find references…", "R"],
       ["Paste here", undefined],
-      ["Select all", keymap.selectAll.keys[0]],
-      ["Zoom to fit", keymap.zoomToFit.keys[0]]
+      ["Select all", "Ctrl+A"],
+      ["Zoom to fit", "Shift+1"]
     ])
   })
 

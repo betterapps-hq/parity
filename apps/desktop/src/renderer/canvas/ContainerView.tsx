@@ -58,8 +58,7 @@ import { stopEventPropagation } from "tldraw"
 import { commandIcons } from "../chrome/command-icons.ts"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { Hint } from "../chrome/Hint.tsx"
-import { keymap } from "../chrome/keymap.ts"
-import { formatKeys } from "../chrome/keys.ts"
+import { shortcutOf } from "../chrome/keymap.ts"
 import { Name, NameInput } from "../chrome/Name.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
@@ -677,10 +676,10 @@ function TitleButton({
       />
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
         <ContextMenuItem onClick={() => setRenaming(true)}>
-          <RenameIcon /> Rename <ContextMenuShortcut>{formatKeys(keymap.rename.keys[0])}</ContextMenuShortcut>
+          <RenameIcon /> Rename <ContextMenuShortcut>{shortcutOf("rename")}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>
-          <DuplicateIcon /> Duplicate <ContextMenuShortcut>{formatKeys(keymap.duplicate.keys[0])}</ContextMenuShortcut>
+          <DuplicateIcon /> Duplicate <ContextMenuShortcut>{shortcutOf("duplicate")}</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuSeparator />
         {others.map((kind) => (
@@ -691,7 +690,7 @@ function TitleButton({
         ))}
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>
-          <DeleteIcon /> Delete <ContextMenuShortcut>{formatKeys(keymap.delete.keys[0])}</ContextMenuShortcut>
+          <DeleteIcon /> Delete <ContextMenuShortcut>{shortcutOf("delete")}</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

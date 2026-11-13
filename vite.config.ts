@@ -1,4 +1,5 @@
 import { availableParallelism } from "node:os"
+import { join } from "node:path"
 import base from "@buildkitgg/oxlint-config/base"
 import { defineConfig } from "vite-plus"
 
@@ -103,8 +104,12 @@ export default defineConfig({
     // push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with `--type-aware
     // --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
     extends: [base],
-    // A list of JS plugins replaces the one base registers, so it's kept.
-    jsPlugins: [...(base.jsPlugins ?? []), { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
+    // A list of JS plugins replaces the one base registers, so it's kept. `parity` is the workspace's own rules.
+    jsPlugins: [
+      ...(base.jsPlugins ?? []),
+      { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
+      { name: "parity", specifier: join(import.meta.dirname, "scripts/lint-rules.ts") }
+    ],
     ignorePatterns: [
       ".agents/skills/**",
       ".claude/skills/**",
@@ -250,6 +255,16 @@ export default defineConfig({
             }
           ]
         }
+      },
+      {
+        // Keys shown in the app come from the keymap through shortcutOf, so a changed binding shows everywhere at once
+        // (PAR-1041). Explorations sketch keys freely, and tests and stories write out the keys they expect to see.
+        files: ["apps/**"],
+        rules: { "parity/shortcut-from-keymap": "error" }
+      },
+      {
+        files: ["apps/desktop/src/renderer/explorations/**", "apps/**/*.stories.tsx", "apps/**/*.test.ts"],
+        rules: { "parity/shortcut-from-keymap": "off" }
       },
       {
         files: ["apps/desktop/src/renderer/chrome/AppSelect.tsx", "apps/desktop/src/renderer/chrome/AppChips.tsx"],

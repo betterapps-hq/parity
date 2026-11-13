@@ -40,8 +40,8 @@ import { installCliCommand } from "./cli-command.ts"
 import { iconFor } from "./command-icons.ts"
 import type { CommandStates } from "./command-state.ts"
 import { activeSession, clearBitmapCache, exit, exportAllImages } from "./commands.ts"
-import { type Command, keymap } from "./keymap.ts"
-import { formatKeys, isMac } from "./keys.ts"
+import { type Command, shortcutOf } from "./keymap.ts"
+import { isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
 import { openReport } from "./ReportProblemDialog.tsx"
@@ -123,7 +123,7 @@ function Item({ command, variant, children }: { command: Command; variant?: "des
       onClick={() => void actions[command].run("menu")}
     >
       {icon} {children ?? state.label}
-      <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>
+      <MenubarShortcut>{shortcutOf(command)}</MenubarShortcut>
     </MenubarItem>
   )
 }
@@ -136,13 +136,14 @@ function Toggle({
   icon: Icon,
   checked,
   onChange,
-  keys,
+  command,
   children
 }: {
   icon: LucideIcon
   checked: boolean
   onChange: (checked: boolean) => void
-  keys?: string
+  /** The command its keys run, whose keys it shows. */
+  command?: Command
   children: ReactNode
 }) {
   return (
@@ -150,7 +151,7 @@ function Toggle({
       <Icon /> {children}
       <MenubarShortcut className="flex items-center gap-1.5">
         {checked && <Check className="text-foreground" />}
-        {keys && formatKeys(keys)}
+        {command && shortcutOf(command)}
       </MenubarShortcut>
     </MenubarCheckboxItem>
   )
@@ -209,7 +210,7 @@ function FileItems() {
       {/* On a Mac, Quit is in the Parity menu, as every app's is. */}
       {!mac && (
         <MenubarItem onClick={exit}>
-          <LogOut /> Exit <MenubarShortcut>{formatKeys("Alt F4")}</MenubarShortcut>
+          <LogOut /> Exit <MenubarShortcut>{shortcutOf("exit")}</MenubarShortcut>
         </MenubarItem>
       )}
     </>
@@ -264,7 +265,7 @@ function ViewItems() {
         icon={PanelsLeftRight}
         checked={layout.left || layout.right}
         onChange={(open) => setLayout({ left: open, right: open })}
-        keys={keymap.panels.keys[0]}
+        command="panels"
       >
         Panels
       </Toggle>
@@ -272,7 +273,7 @@ function ViewItems() {
         icon={SquareTerminal}
         checked={!!layout.console}
         onChange={(open) => setLayout({ console: open })}
-        keys={keymap.console.keys[0]}
+        command="console"
       >
         Console
       </Toggle>
@@ -280,7 +281,7 @@ function ViewItems() {
         icon={Grid3x3}
         checked={preferences.layoutGrid}
         onChange={(layoutGrid) => setPreferences({ layoutGrid })}
-        keys={keymap.layoutGrid.keys[0]}
+        command="layoutGrid"
       >
         Layout grid
       </Toggle>

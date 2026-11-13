@@ -28,8 +28,7 @@ import {
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
-import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
+import { type Command as KeyCommand, type Group, groups, keymap, shortcutOf } from "./keymap.ts"
 import { setLayout } from "./layout.ts"
 import { Name } from "./Name.tsx"
 import { getPreferences, setPreferences } from "./preferences.ts"
@@ -46,6 +45,7 @@ interface Item extends FindItem<Heading> {
   available?(): boolean
   /** Shown at the end of the row: an action's keys, a layer's design, a component's source. */
   detail?: string
+  /** An action's keys, as `shortcutOf` writes them. */
   keys?: string
   icon?: ReactNode
 }
@@ -195,7 +195,7 @@ function commandItems(): Item[] {
       group: keymap[id].group,
       label: states[id].label,
       keywords: `${keymap[id].group} ${keymap[id].label}`,
-      keys: keymap[id].keys[0],
+      keys: shortcutOf(id),
       run: () => actions[id].run("search"),
       available: () => states[id].enabled
     }))
@@ -394,7 +394,7 @@ export function ActionsSearch() {
                   {named.has(item.group) ? <Name>{item.label}</Name> : <span className="truncate">{item.label}</span>}
                   {item.keys ? (
                     <CommandShortcut>
-                      <Kbd>{formatKeys(item.keys)}</Kbd>
+                      <Kbd>{item.keys}</Kbd>
                     </CommandShortcut>
                   ) : (
                     item.detail && (

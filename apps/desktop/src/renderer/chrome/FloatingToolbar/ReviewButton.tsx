@@ -13,8 +13,7 @@ import { useProject } from "../../canvas/context.ts"
 import { reviewToolLook } from "../../collaboration/annotations/annotation-kinds.ts"
 import type { Tool } from "../../selection.ts"
 import { actions } from "../actions.ts"
-import { keymap } from "../keymap.ts"
-import { formatKeys } from "../keys.ts"
+import { type Command, keymap, shortcutOf } from "../keymap.ts"
 import { CommandTip, MenuArrow, pressable, pressMotion, toolButton } from "../toolbar-parts.tsx"
 
 interface ReviewButtonProps {
@@ -57,11 +56,11 @@ export function ReviewButton({ review }: ReviewButtonProps) {
               }
             }}
           >
-            <ReviewMenuItem tool="comment" shortcut={keymap.comment.keys[0]} />
+            <ReviewMenuItem tool="comment" shortcut="comment" />
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center">
               {keymap.annotate.label}
-              <DropdownMenuShortcut>{formatKeys(keymap.annotate.keys[0])}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{shortcutOf("annotate")}</DropdownMenuShortcut>
             </DropdownMenuLabel>
             {annotationKinds.map((kind) => (
               <ReviewMenuItem key={kind} tool={kind} />
@@ -75,7 +74,7 @@ export function ReviewButton({ review }: ReviewButtonProps) {
 
 interface ReviewMenuItemProps {
   tool: ReviewTool
-  shortcut?: string
+  shortcut?: Command
 }
 
 function ReviewMenuItem({ tool, shortcut }: ReviewMenuItemProps) {
@@ -85,7 +84,7 @@ function ReviewMenuItem({ tool, shortcut }: ReviewMenuItemProps) {
     <DropdownMenuRadioItem value={tool} closeOnClick>
       <Icon style={{ color }} />
       {name}
-      {shortcut && <DropdownMenuShortcut>{formatKeys(shortcut)}</DropdownMenuShortcut>}
+      {shortcut && <DropdownMenuShortcut>{shortcutOf(shortcut)}</DropdownMenuShortcut>}
     </DropdownMenuRadioItem>
   )
 }

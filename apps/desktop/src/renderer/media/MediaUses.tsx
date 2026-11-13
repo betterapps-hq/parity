@@ -167,7 +167,7 @@ export function EveryUse({ image, onBack, onShow }: { image: ProjectImage; onBac
   return (
     <section ref={view} aria-label={`Where ${image.name} is used`} className="flex max-h-[26rem] flex-col text-xs">
       <div className="flex shrink-0 items-center gap-1 border-b px-1.5 py-1.5">
-        <IconButton label="Back" shortcut="Esc" className="size-7" onClick={onBack}>
+        <IconButton label="Back" shortcut="close" className="size-7" onClick={onBack}>
           <ArrowLeft />
         </IconButton>
         <Name className="min-w-0 flex-1 pr-1.5 text-sm font-medium">{image.name}</Name>

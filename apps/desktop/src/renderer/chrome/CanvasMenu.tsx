@@ -29,7 +29,6 @@ import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightCl
 import { openSource } from "./code-editor.ts"
 import { iconFor } from "./command-icons.ts"
 import { createDesign } from "./create.ts"
-import { formatKeys } from "./keys.ts"
 
 type TriggerProps = ComponentProps<typeof ContextMenuTrigger>
 
@@ -247,7 +246,7 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
         >
           {icon}
           {entry.label}
-          {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
+          {entry.keys && <ContextMenuShortcut>{entry.keys}</ContextMenuShortcut>}
         </ContextMenuItem>
       )
     }

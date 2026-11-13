@@ -12,7 +12,7 @@ import {
 import { editingState, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import type { CommandStates } from "./command-state.ts"
-import { type Command, keymap } from "./keymap.ts"
+import { type Command, shortcutOf } from "./keymap.ts"
 import { unnamedIconLabel } from "./layer-kind.ts"
 
 /**
@@ -27,7 +27,7 @@ export interface MenuItem {
   kind: "item"
   action: MenuAction
   label: string
-  /** The keys shown, the keymap's first for the command. */
+  /** The keys shown, as `shortcutOf` writes them for the command. */
   keys?: string
   enabled: boolean
 }
@@ -208,7 +208,7 @@ export function menuItem(action: MenuAction, states: CommandStates, label?: stri
 
   const { enabled, label: named } = states[action]
 
-  return { kind: "item", action, label: label ?? named, keys: keymap[action].keys[0], enabled }
+  return { kind: "item", action, label: label ?? named, keys: shortcutOf(action), enabled }
 }
 
 /** Groups of items with a line between each, leaving out the empty ones. */

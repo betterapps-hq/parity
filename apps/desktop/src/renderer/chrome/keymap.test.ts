@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type Command, keymap, shortcutFor } from "./keymap.ts"
+import { type Command, fixedKeys, keymap, keysOf, shortcutFor, shortcutOf } from "./keymap.ts"
 import { formatKeys, matches } from "./keys.ts"
 
 /** A key event as the browser sends one: `key` is what the layout types, `code` the physical key. */
@@ -157,5 +157,40 @@ describe("formatKeys", () => {
   it("leaves text that isn't keys alone", () => {
     expect(formatKeys("Hold Space", true)).toBe("Hold Space")
     expect(formatKeys("Hold Space", false)).toBe("Hold Space")
+  })
+})
+
+describe("shortcutOf", () => {
+  it("shows a command's first keys as the platform writes them", () => {
+    expect(shortcutOf("redo", false)).toBe("Ctrl+Shift+Z")
+    expect(shortcutOf("redo", true)).toBe("⇧⌘Z")
+    expect(shortcutOf("zoomIn", false)).toBe("Ctrl+Plus")
+    expect(shortcutOf("delete", true)).toBe("⌫")
+  })
+
+  it("shows the keys the tab bar and the start page wrote out before they read the keymap", () => {
+    expect(shortcutOf("home", false)).toBe("Alt+Home")
+    expect(shortcutOf("newTab", false)).toBe("Ctrl+T")
+    expect(shortcutOf("actions", false)).toBe("Ctrl+K")
+    expect(shortcutOf("openFolder", false)).toBe("Ctrl+O")
+    expect(shortcutOf("openFile", false)).toBe("Ctrl+Shift+O")
+  })
+
+  it("shows a control's fixed keys, as Exit shows Alt F4", () => {
+    expect(shortcutOf("exit", false)).toBe("Alt+F4")
+    expect(shortcutOf("close", false)).toBe("Esc")
+    expect(shortcutOf("previous", false)).toBe("←")
+    expect(shortcutOf("confirm", false)).toBe("Enter")
+    expect(shortcutOf("remove", false)).toBe("Del")
+    expect(shortcutOf("remove", true)).toBe("⌫")
+  })
+
+  it("never takes a command's name for a control's keys", () => {
+    expect(Object.keys(fixedKeys).filter((name) => Object.hasOwn(keymap, name))).toEqual([])
+  })
+
+  it("reads the keys the handlers match", () => {
+    expect(keysOf("redo")).toEqual(["Ctrl Shift Z", "Ctrl Y"])
+    expect(shortcutFor(press("y", "KeyY", { ctrl: true }), ["redo"])).toBe("redo")
   })
 })

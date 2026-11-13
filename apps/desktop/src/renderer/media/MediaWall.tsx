@@ -24,6 +24,7 @@ import { Link2, Trash2 } from "lucide-react"
 import { type CSSProperties, type KeyboardEvent, useState } from "react"
 import { useHoverCard } from "../chrome/hover-card.ts"
 import { dragItem } from "../chrome/insert-from-panel.ts"
+import { shortcutOf } from "../chrome/keymap.ts"
 import { MediaCard, removeLabel } from "./MediaCard.tsx"
 import type { MediaLayers } from "./MediaUses.tsx"
 import { PictureMissing, ProjectPicture, ProjectVideo, transparencyGrid } from "./ProjectPicture.tsx"
@@ -257,7 +258,7 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
         )}
         <ContextMenuItem variant="destructive" onClick={() => onRemove(image)}>
           <Trash2 /> {removeLabel(image)}
-          <ContextMenuShortcut>Del</ContextMenuShortcut>
+          <ContextMenuShortcut>{shortcutOf("remove")}</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

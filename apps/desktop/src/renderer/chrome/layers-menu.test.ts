@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import type { MenuEntry } from "./canvas-menu.ts"
 import { commandStates } from "./command-state.ts"
-import { keymap } from "./keymap.ts"
+import { keymap, shortcutOf } from "./keymap.ts"
 import { layersMenu, type LayersRow, rowSelection } from "./layers-menu.ts"
 
 const text = (id: string, extra: { hidden?: boolean } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
@@ -84,7 +84,7 @@ describe("the Layers row menu", () => {
     ])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
-      items.map((entry) => (entry.action === "pasteHere" ? undefined : keymap[entry.action].keys[0]))
+      items.map((entry) => (entry.action === "pasteHere" ? undefined : shortcutOf(entry.action)))
     )
     expect(items.map((entry) => entry.label)).toEqual([
       keymap.rename.label,

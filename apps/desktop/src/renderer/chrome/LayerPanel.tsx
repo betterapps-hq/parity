@@ -41,8 +41,7 @@ import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
-import { keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
+import { keymap, shortcutOf } from "./keymap.ts"
 import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -493,7 +492,7 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
       </p>
       {wrap && (
         <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
-          <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{formatKeys(keymap.wrap.keys[0])}</Kbd>
+          <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{shortcutOf("wrap")}</Kbd>
         </Button>
       )}
     </div>
