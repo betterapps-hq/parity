@@ -207,6 +207,7 @@ async function discover(): Promise<{
     ...routers,
     ...entitiesFound
   ])
+
   const used = entitiesFound.map(({ adapter }) => adapter)
   const entities = await importEntities(root, config.components, used)
 
