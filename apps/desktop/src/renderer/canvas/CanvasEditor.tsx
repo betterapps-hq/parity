@@ -34,6 +34,7 @@ import { PageLinksUtil } from "./PageLinksUtil.tsx"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
 import { routePageLinks } from "./route-pages.ts"
+import { followStoryLayout } from "./story-screens.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
 import { type CanvasId, createCanvasId, IndicatorOverlayUtil } from "./tldraw-names.ts"
@@ -462,6 +463,7 @@ export function CanvasEditor({
       const stopOverlays = sizeOverlays(editor)
       const stopStore = store.subscribe(sync)
       const stopHeld = heldBoards.subscribe(sync)
+      const stopStoryLayout = followStoryLayout(editor, store)
 
       // A pan or a zoom is a gesture of its own, recorded once the camera settles (PAR-640).
       const camera = new CameraGestures()
@@ -666,6 +668,7 @@ export function CanvasEditor({
         hiddenTabs.delete(editor)
         stopStore()
         stopHeld()
+        stopStoryLayout()
         stopTranslation()
         // A drag still going as the canvas goes, as when its tab closes: its frame counter stops with it.
         translation?.frames()

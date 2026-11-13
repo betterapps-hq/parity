@@ -4,6 +4,7 @@ import {
   type ContainerSpec,
   type DesignNode,
   type NodeStyle,
+  type PropValues,
   componentNode,
   componentRole,
   groupComponents
@@ -68,15 +69,17 @@ export function componentBoardId(component: string): string {
 
 /**
  * A board for each of the project's own components (see `boardGroups`), a row for each group, with its top left at the
- * layout's. Each holds the component as inserting it would place it, with a sample for each required prop and its name
- * as the children it takes, once `components` says what it takes, inside the `parents` it needs, outermost first, when
- * it's found it needs some (`nextBoardParents`). The board hugs what it draws, 2px around it, and is clear.
+ * layout's. Each holds the component as inserting it would place it, with the props `samples` gives it, as a story's
+ * args, then a sample for each other required prop and its name as the children it takes, once `components` says what
+ * it takes, inside the `parents` it needs, outermost first, when it's found it needs some (`nextBoardParents`). The
+ * board hugs what it draws, 2px around it, and is clear.
  */
 export function componentBoards(
   sources: Readonly<Record<string, ComponentSource>>,
   components: Readonly<Record<string, ComponentInfo>>,
   layout: BoardLayout,
-  parents: Readonly<Record<string, readonly string[]>> = {}
+  parents: Readonly<Record<string, readonly string[]>> = {},
+  samples: Readonly<Record<string, PropValues>> = {}
 ): ComponentBoard[] {
   return boardGroups(sources).flatMap((group, row) =>
     group.ids.map((component, column) => {
@@ -90,7 +93,7 @@ export function componentBoards(
 
           return outer.type === "component" ? { ...outer, slots: { children: [inner] } } : inner
         },
-        componentNode(component, components[component], taken)
+        componentNode(component, components[component], taken, samples[component])
       )
 
       return {

@@ -68,6 +68,23 @@ describe("componentBoards", () => {
     })
   })
 
+  it("draws a component with the props its samples give, as a story's args, before its own samples", () => {
+    const plan: ComponentInfo = {
+      name: "Button",
+      path: "src/components/plan-card.tsx",
+      props: [
+        { name: "name", kind: "string", required: true, group: "own" },
+        { name: "features", kind: "unknown", required: true, group: "own" }
+      ]
+    }
+
+    const board = componentBoards(sources, { Button: plan }, layout, {}, { Button: { features: ["Email support"] } })[0]
+
+    expect(board?.board.root).toMatchObject({
+      children: [{ type: "component", component: "Button", props: { features: ["Email support"], name: "name" } }]
+    })
+  })
+
   it("draws a part inside the parents it needs, and reads what it draws inside it, not them", () => {
     const board = componentBoards(sources, {}, layout, { CardTitle: ["Card"] }).find(
       (each) => each.component === "CardTitle"

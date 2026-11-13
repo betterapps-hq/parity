@@ -1,4 +1,4 @@
-import { addDesigns, type CanvasDocument, type ComponentInfo } from "@parity-app/core"
+import { addDesigns, type CanvasDocument, type ComponentInfo, type PropValues } from "@parity-app/core"
 import { type BoardLayout, boardsHeight, componentBoards } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 
@@ -8,7 +8,7 @@ import type { ProjectInfo } from "@parity-app/project"
  */
 export const componentBoardsFile = "(components)"
 
-type BoardsInfo = Pick<ProjectInfo, "id" | "sources" | "documents">
+type BoardsInfo = Pick<ProjectInfo, "id" | "sources" | "documents"> & Partial<Pick<ProjectInfo, "entities">>
 
 /** Each open project's component boards: the component and file of each, by design id. */
 const boardPlaces = new Map<string, ReadonlyMap<string, { component: string; file: string }>>()
@@ -36,7 +36,7 @@ export function componentBoardsDocument(
   components: Readonly<Record<string, ComponentInfo>> = {},
   parents: Readonly<Record<string, readonly string[]>> = {}
 ): { path: string; document: CanvasDocument }[] {
-  const boards = componentBoards(info.sources, components, boardLayout(info), parents)
+  const boards = componentBoards(info.sources, components, boardLayout(info), parents, screenSamples(info))
 
   boardPlaces.set(info.id, new Map(boards.map(({ board, component, file }) => [board.id, { component, file }])))
 
@@ -51,6 +51,27 @@ export function componentBoardsDocument(
           )
         }
       ]
+}
+
+/**
+ * Props for the components the project's tools draw on their screens, as a story's args: the first screen's for each
+ * component it draws at its top, so a component's board draws as its first story does rather than without what it
+ * needs, as a plan card without its features.
+ */
+function screenSamples(info: BoardsInfo) {
+  const samples: Record<string, PropValues> = {}
+
+  for (const { screen } of info.entities?.screens ?? []) {
+    const drawn = screen.root.type === "layout" ? screen.root.children : []
+
+    for (const node of drawn) {
+      if (node.type === "component" && node.props && !(node.component in samples)) {
+        samples[node.component] = node.props
+      }
+    }
+  }
+
+  return samples
 }
 
 /** The component a board draws, or undefined for a design. */

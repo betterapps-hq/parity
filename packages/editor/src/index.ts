@@ -258,6 +258,8 @@ export {
 
 export { fitPicture, packWall, type PictureSize, type Stretch, tallnessOf } from "./media-wall.ts"
 
+export { type PackedBox, type PackGaps, packRows } from "./pack-rows.ts"
+
 export { moveLayersAcross, moveLayersWithin, readLayersDrag } from "./move-layers.ts"
 
 export {
