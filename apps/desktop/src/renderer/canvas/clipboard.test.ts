@@ -175,8 +175,21 @@ describe("pasting from an empty clipboard", () => {
     vi.stubGlobal("navigator", { clipboard: { readText: () => Promise.resolve(""), read: () => Promise.resolve([]) } })
   })
 
+  it("Paste pastes nothing and says nothing, but records it", async () => {
+    const { store, selection, ...rest } = session()
+    // SAFETY: an empty clipboard pastes nothing, so the project's root is all Paste reads of its info.
+    const info = { root: "project" } as ProjectSession["info"]
+    await pasteClipboard({ store, selection, ...rest, editor: undefined, info })
+
+    expect(layers(store)).toEqual(["title", "body", "footer"])
+    expect(store.getHistory().canUndo).toBe(false)
+    expect(toast.info).not.toHaveBeenCalled()
+    expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
+      { how: "paste", content: "empty", reason: "empty" }
+    ])
+  })
+
   it.each([
-    { name: "Paste", how: "paste", paste: pasteClipboard, selected: {} },
     {
       name: "Paste over layers",
       how: "over",
@@ -193,9 +206,7 @@ describe("pasting from an empty clipboard", () => {
   ])("$name says there's nothing to paste and pastes nothing", async ({ how, paste, selected }) => {
     const { store, selection, ...rest } = session()
     selection.set(selected)
-    // SAFETY: an empty clipboard pastes nothing, so the project's root is all Paste reads of its info.
-    const info = { root: "project" } as ProjectSession["info"]
-    await paste({ store, selection, ...rest, editor: undefined, info })
+    await paste({ store, selection, ...rest })
 
     expect(layers(store)).toEqual(["title", "body", "footer"])
     expect(store.getHistory().canUndo).toBe(false)

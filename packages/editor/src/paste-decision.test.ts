@@ -17,6 +17,8 @@ const layerish: PasteContent[] = ["layers", "image", "svg", "video", "text"]
 const media: PasteContent[] = ["layers", "image", "svg", "video"]
 
 const empty: PasteAction = { do: "nothing", reason: "empty", message: nothingToPaste }
+const quietlyEmpty: PasteAction = { do: "nothing", reason: "empty" }
+const quiet = "Paste stays quiet on an empty clipboard, as it does in other apps"
 const unreadable: PasteAction = { do: "nothing", reason: "unreadable", message: unreadablePaste }
 const wrongKind = (message: string): PasteAction => ({ do: "nothing", reason: "wrongKind", message })
 const unavailable: PasteAction = { do: "nothing" }
@@ -38,8 +40,8 @@ const table: Row[] = [
   [{ how: "paste", where: "canvas" }, "notes", { do: "notes", at: "beside" }],
   [{ how: "paste", where: "design" }, "unreadable", unreadable],
   [{ how: "paste", where: "canvas" }, "unreadable", unreadable],
-  [{ how: "paste", where: "design" }, "empty", empty],
-  [{ how: "paste", where: "canvas" }, "empty", empty],
+  [{ how: "paste", where: "design" }, "empty", quietlyEmpty, quiet],
+  [{ how: "paste", where: "canvas" }, "empty", quietlyEmpty, quiet],
 
   // Paste over selection (Ctrl+Shift+V)
   [{ how: "over", where: "layers" }, layerish, { do: "layers", at: "over" }],
@@ -153,10 +155,11 @@ describe("what a paste does", () => {
     expect(cases.map(({ name }) => name).toSorted()).toEqual(every.toSorted())
   })
 
-  it("says the same about an empty clipboard and an unreadable copy whichever paste it is", () => {
+  it("says the same about an empty clipboard whichever paste it is but Paste, and about an unreadable copy", () => {
     const available = asks.filter((ask) => ask.where !== "nothing")
+    const placed = available.filter((ask) => ask.how !== "paste")
 
-    expect(new Set(available.map((ask) => JSON.stringify(decidePaste(ask, "empty"))))).toEqual(
+    expect(new Set(placed.map((ask) => JSON.stringify(decidePaste(ask, "empty"))))).toEqual(
       new Set([JSON.stringify(empty)])
     )
     expect(new Set(available.map((ask) => JSON.stringify(decidePaste(ask, "unreadable"))))).toEqual(

@@ -89,8 +89,11 @@ export function decidePaste(ask: PasteAsk, content: PasteContent): PasteAction {
     return { do: "nothing" }
   }
 
+  // Paste on an empty clipboard stays quiet, as it does in other apps; the other pastes, asked for a place, say why.
   if (content === "empty") {
-    return { do: "nothing", reason: "empty", message: nothingToPaste }
+    return ask.how === "paste"
+      ? { do: "nothing", reason: "empty" }
+      : { do: "nothing", reason: "empty", message: nothingToPaste }
   }
 
   if (content === "unreadable") {

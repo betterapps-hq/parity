@@ -2409,9 +2409,10 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **Layers naming components the project doesn't have** still paste, with a warning naming them, wherever they land, a
   new screen included.
 - **The four pastes decide alike** (PAR-985). Paste, Paste over selection, Paste to replace and Paste here each take
-  what's on the clipboard and where they'd paste, and one table says what they do. Whichever paste it is, an empty
-  clipboard says "There's nothing on the clipboard to paste", and a copy that can't be read shows the same error. A
-  paste's undo step is named for what landed: "Paste text", "Paste image", "Paste 2 layers here".
+  what's on the clipboard and where they'd paste, and one table says what they do. Paste over, Paste to replace and
+  Paste here say "There's nothing on the clipboard to paste" when it's empty; Paste (Ctrl+V and Edit > Paste) stays
+  quiet, as it does in other apps. Every paste shows the same error for a copy that can't be read. A paste's undo step
+  is named for what landed: "Paste text", "Paste image", "Paste 2 layers here".
 - **They differ only where they go,** on purpose. Paste over puts layers over layers and designs over designs, and Paste
   to replace takes only layers; both need something selected to paste on, and do nothing without it, as their menu items
   show. Paste here puts designs and notes at the pointer wherever it is, and over a design with no layout under the
@@ -2450,10 +2451,11 @@ one state and refusing an unknown key.
 
 `packages/editor/src/paste-decision.test.ts` (105) is the table: each paste, where it would paste, each kind of content,
 and what it does, with the rows that differ on purpose saying why, and a check that every combination is in exactly one
-row. It also checks that an empty clipboard and an unreadable copy get the same answer from every paste that's
-available, and names undo steps for layers, text, images, SVG, videos, images and videos together, and Paste here.
-`apps/desktop/src/renderer/canvas/clipboard.test.ts`, on the real stores: Paste, Paste over layers, Paste over designs
-and Paste to replace from an empty clipboard each say there's nothing to paste, record it, and leave no undo step.
+row. It also checks that an empty clipboard gets the same answer from every paste that's available but Paste, and an
+unreadable copy from all of them, and names undo steps for layers, text, images, SVG, videos, images and videos
+together, and Paste here. `apps/desktop/src/renderer/canvas/clipboard.test.ts`, on the real stores, from an empty
+clipboard: Paste over layers, Paste over designs and Paste to replace each say there's nothing to paste, record it, and
+leave no undo step; Paste records it and says nothing.
 
 Gaps: reading and writing the system clipboard, images and the other messages have no automated test. The inspector's
 mark on a value a state takes away has no automated DOM test.
