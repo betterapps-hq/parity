@@ -594,6 +594,9 @@ importers:
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../icons
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
       '@parity-app/style-schema':
         specifier: workspace:*
         version: link:../style-schema
@@ -616,6 +619,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { posix } from "node:path"
 import { importSpecifiers } from "@parity-app/code"
-import { isStylesheetFile } from "@parity-app/core"
+import { isStylesheetFile } from "./code-changes.ts"
 import type { CodeSnapshot } from "./code-fingerprint.ts"
 
 /** Extensions an import may leave out, in the order bundlers try them. */

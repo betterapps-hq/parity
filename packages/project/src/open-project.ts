@@ -11,10 +11,10 @@ import {
   type ModeSettings,
   parseCanvasDocument,
   parseLibraryManifest,
-  type ProjectDetection,
   type StorybookInfo,
   type ThemeVariable
 } from "@parity-app/core"
+import type { ProjectDetection } from "./detection.ts"
 import type { DiscoveredProject } from "./index.ts"
 import { insideProject } from "./inside-project.ts"
 

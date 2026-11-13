@@ -11,11 +11,11 @@ import type {
   LibraryIcons,
   ModeSettings,
   ModesChange,
-  ProjectDetection,
   ResolvedMode,
   ThemeVariable
 } from "@parity-app/core"
 import type { FoundScreen, ReferenceAdded } from "@parity-app/editor"
+import type { ProjectDetection } from "@parity-app/project"
 import type { Token } from "@parity-app/tokens"
 import type { WarningGroup } from "./warnings.ts"
 

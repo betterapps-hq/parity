@@ -11,6 +11,7 @@
   "dependencies": {
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
     "@parity-app/tokens": "workspace:*"
   },
   "devDependencies": {

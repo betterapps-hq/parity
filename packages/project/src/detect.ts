@@ -1,16 +1,11 @@
 import { dirname, join, relative, resolve } from "node:path"
-import type {
-  BuilderDetection,
-  Detection,
-  PackageManagerDetection,
-  PackageManifest,
-  ProjectDetection
-} from "@parity-app/core"
+import type { BuilderDetection, PackageManifest } from "@parity-app/core"
 import type { Agent } from "package-manager-detector"
 import { resolveCommand } from "package-manager-detector/commands"
 import { AGENTS, LOCKS } from "package-manager-detector/constants"
 import { detect } from "package-manager-detector/detect"
 import semver from "semver"
+import type { Detection, PackageManagerDetection, ProjectDetection } from "./detection.ts"
 import { nearestLockfiles } from "./lockfile.ts"
 import { findPackage, readPackage } from "./packages.ts"
 import { storybookConfig } from "./storybook.ts"

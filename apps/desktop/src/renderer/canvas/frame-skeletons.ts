@@ -1,4 +1,4 @@
-import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/core"
+import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/editor"
 import { type RefObject, useEffect, useState } from "react"
 import { flagsOf } from "../bits.ts"
 import { frameContent, frameDrawsDesign } from "../frame-host.ts"

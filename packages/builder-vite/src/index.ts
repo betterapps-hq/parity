@@ -10,19 +10,17 @@ import {
   type BuilderDetection,
   type BuilderStartOptions,
   type CodeChange,
-  commandOption,
   type ExportsTarget,
-  gatherChanges,
   iconStyleModules,
   type LibraryInfo,
   libraryImports,
   parseManifest,
   type ProjectConfig,
   scriptConfigExtensions,
-  scriptRunning,
   valueImports
 } from "@parity-app/core"
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
+import { commandOption, gatherChanges, scriptRunning } from "@parity-app/project"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { stampChange } from "./code-changes.ts"

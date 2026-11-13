@@ -5,10 +5,8 @@ import {
   type BuilderAdapter,
   type BuilderDetection,
   type ComponentSource,
-  type Detection,
   type JsonValue,
   type LibraryInfo,
-  type PackageManagerDetection,
   prepareCanvasCss,
   type RendererAdapter,
   type StorybookInfo,
@@ -16,7 +14,13 @@ import {
   type ThemeVariable
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
-import { detectProject, discoverProject, readPackage } from "@parity-app/project"
+import {
+  type Detection,
+  detectProject,
+  discoverProject,
+  type PackageManagerDetection,
+  readPackage
+} from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { extractTokens } from "@parity-app/tokens"

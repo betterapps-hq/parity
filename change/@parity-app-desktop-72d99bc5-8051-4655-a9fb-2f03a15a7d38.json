@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Move core's last files that aren't the .par model to the packages that use them, and drop core's unused names (PAR-1044)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

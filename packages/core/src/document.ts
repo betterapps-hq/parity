@@ -12,21 +12,17 @@ const position = fileObject({ x: finiteNumber, y: finiteNumber })
 
 export const canvasObjectKinds = ["table", "operation", "route"] as const
 
-export type CanvasObjectKind = (typeof canvasObjectKinds)[number]
-
+/**
+ * Something from a lens's model placed on the canvas. Only where it sits is saved: the table, operation or route itself
+ * is read from the project each time, by `ref`, its own key in that model. One whose model is gone stays, shown as
+ * missing, until the person removes it.
+ */
 const canvasObjectSpec = fileObject({
   kind: z.enum(canvasObjectKinds),
   /** A table as `schema.table`, an operation by its id, a route by its URL pattern. */
   ref: z.string(),
   position
 })
-
-/**
- * Something from a lens's model placed on the canvas. Only where it sits is saved: the table, operation or route itself
- * is read from the project each time, by `ref`, its own key in that model. One whose model is gone stays, shown as
- * missing, until the person removes it.
- */
-export type CanvasObjectSpec = z.infer<typeof canvasObjectSpec>
 
 /** The canvas objects, each table, operation and route at most once. */
 const canvasObjects = z.array(canvasObjectSpec).superRefine((objects, context) => {
@@ -47,10 +43,8 @@ export const linkEndKinds = ["screen", "component", ...canvasObjectKinds] as con
 
 export type LinkEndKind = (typeof linkEndKinds)[number]
 
-const linkEnd = fileObject({ kind: z.enum(linkEndKinds), ref: z.string() })
-
 /** One end of a link: a canvas object by its kind and ref, or a screen or component design by its id. */
-export type LinkEnd = z.infer<typeof linkEnd>
+const linkEnd = fileObject({ kind: z.enum(linkEndKinds), ref: z.string() })
 
 const linkType = z.enum(["shows", "calls", "reads", "writes"])
 
@@ -75,6 +69,7 @@ export function linkAllowed(type: LinkType, from: LinkEndKind, to: LinkEndKind):
   return allowed.from.includes(from) && allowed.to.includes(to)
 }
 
+/** A typed link between two ends, such as a screen that shows a route or an operation that reads a table. */
 const linkSpec = fileObject({ id: z.string(), type: linkType, from: linkEnd, to: linkEnd }).superRefine(
   (link, context) => {
     if (linkAllowed(link.type, link.from.kind, link.to.kind)) {
@@ -86,9 +81,6 @@ const linkSpec = fileObject({ id: z.string(), type: linkType, from: linkEnd, to:
     problem(context, [], `a ${link.type} link goes from ${joined}`)
   }
 )
-
-/** A typed link between two ends, such as a screen that shows a route or an operation that reads a table. */
-export type LinkSpec = z.infer<typeof linkSpec>
 
 /** The links the person drew, each id once. */
 const linkSpecs = z.array(linkSpec).superRefine((links, context) => {
@@ -111,8 +103,6 @@ const lensSources = fileObject({
 
 /** The adapter or standard each lens reads, by its id, where the person chose it. */
 export type LensSources = z.infer<typeof lensSources>
-
-export type Lens = keyof LensSources
 
 const componentRef = fileObject({ path: z.string(), export: z.string() })
 
@@ -728,6 +718,3 @@ export const parseCanvasDocument: DataParser<CanvasDocument> = parserFor(canvasD
 
 /** Validates one node tree on its own, as agents insert them. `path` is where it sits, for the error's pointer. */
 export const parseDesignNode: DataParser<DesignNode> = parserFor(nodeTree)
-
-/** Validates a state's or viewport's patch on its own. `path` is where it sits, for the error's pointer. */
-export const parseNodePatch = parserFor(nodePatch)

@@ -1,5 +1,5 @@
+import type { RenderNode } from "@parity-app/core"
 import { z } from "zod"
-import type { RenderNode } from "./render.ts"
 
 /** How one component's inline style changes: the properties to set, and the ones to take off. */
 export interface InlineStyleChange {
