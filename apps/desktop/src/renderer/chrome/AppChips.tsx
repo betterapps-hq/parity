@@ -86,7 +86,8 @@ export function AppChips({
         {changed && <ChangeMark />}
       </ComboboxChips>
       {options && (
-        <ComboboxContent anchor={anchor} className="text-xs">
+        // As far below the box as a select's list sits below its button (the kit's combobox would leave 6px).
+        <ComboboxContent anchor={anchor} sideOffset={4} className="text-xs">
           <ComboboxEmpty className="text-xs">{empty}</ComboboxEmpty>
           <ComboboxList>
             {(group: { value: string; items: string[] }) => (
