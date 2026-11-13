@@ -55,7 +55,7 @@ import {
   ChevronsDownUp,
   Eye,
   EyeOff,
-  LayoutGrid,
+  Grid2x2,
   Lock,
   LockOpen,
   Plus,
@@ -907,7 +907,7 @@ function GroupHeading({ group }: { group: Group }) {
 }
 
 /**
- * A folder's row, as Storybook's sidebar draws one: a folder for a group, and a grid of four squares, in blue, for a
+ * A folder's row, as Storybook's sidebar draws one: a folder for a group, and a square split in four, in blue, for a
  * component's, which holds the component's stories. A click opens or closes it.
  */
 function FolderLine({
@@ -922,7 +922,7 @@ function FolderLine({
   searching: boolean
   onClick: () => void
 }) {
-  const Icon = folder.kind === "component" ? LayoutGrid : Folder
+  const Icon = folder.kind === "component" ? Grid2x2 : Folder
 
   return (
     <div
@@ -1188,7 +1188,7 @@ const LayerRow = memo(function LayerRow({
               <ChevronRight className={`size-3.5 transition-transform ${row.expanded ? "rotate-90" : ""}`} />
             </button>
             {row.node && <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />}
-            {story && <Bookmark className="size-3.5 shrink-0" style={{ color }} />}
+            {story && <Bookmark className="size-3.5 shrink-0" style={{ color: "var(--canvas-story)" }} />}
             {!row.node && !story && (
               <DesignIcon
                 kind={board ? "component" : container.kind}

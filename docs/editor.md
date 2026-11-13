@@ -6612,12 +6612,12 @@ The project opens with a screen for each of its Storybook stories, listed in Lay
 laid out in a row for each story file, left of everything else on the canvas.
 
 - **Listed as Storybook lists them.** Under Stories, each part of a story's title is a folder, as Storybook's sidebar
-  nests them: a group is a folder, a component holds its stories under a grid of four squares in blue, and each story is
-  a bookmark named for itself, as `Outline` in UI, Button. Folders start closed; selecting a story on the canvas opens
-  the folders it's in. A click opens or closes a folder. The arrow keys move through folders and stories alike: Right
-  opens a folder or goes into it, Left closes it or goes up to the folder above, and Enter or Space opens or closes it.
-  A search opens every folder with something found in it and leaves out the rest. The adapter says which folders each
-  screen is in (`ImportedScreen.folders`); Layers draws any adapter's that way.
+  nests them: a group is a folder, a component holds its stories under a square split in four, in blue, and each story
+  is a teal bookmark named for itself, as `Outline` in UI, Button. Folders start closed; selecting a story on the canvas
+  opens the folders it's in. A click opens or closes a folder. The arrow keys move through folders and stories alike:
+  Right opens a folder or goes into it, Left closes it or goes up to the folder above, and Enter or Space opens or
+  closes it. A search opens every folder with something found in it and leaves out the rest. The adapter says which
+  folders each screen is in (`ImportedScreen.folders`); Layers draws any adapter's that way.
 
 - **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
   meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
