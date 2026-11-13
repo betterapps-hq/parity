@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 02:33:22 GMT",
+      "version": "0.80.2",
+      "tag": "@parity-app/desktop_v0.80.2",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "215c4fd0a6744075b48b063a872baabfe5beae67",
+            "comment": "Keep a guest's components and their render statuses in modules of their own (PAR-988)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2070fa75dd59700a4e16f32c50bc53f5a8257055",
+            "comment": "Mount, read and take apart every frame through one host module (PAR-988)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6e6f6695f6567195a8bd8f5da857e653e4abcaa5",
+            "comment": "Core and editor name what other packages may use in src/index.ts"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7166ffbe026d52871fcd3c6eb51727766f658125",
+            "comment": "Send a replay of the editor window when an end-to-end test fails in CI"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 02:03:37 GMT",
       "version": "0.80.1",
       "tag": "@parity-app/desktop_v0.80.1",

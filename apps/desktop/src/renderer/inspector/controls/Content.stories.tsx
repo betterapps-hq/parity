@@ -38,9 +38,6 @@ export const Paragraph: Story = { render: () => <Content /> }
 /** Heading 2, `<h2>`. */
 export const Heading2: Story = { render: () => <Content start="h2" /> }
 
-/** Label, `<label>`. */
-export const Label: Story = { render: () => <Content start="label" /> }
-
 /** Words longer than a line: they wrap, and the field grows with them. */
 export const LongText: Story = {
   render: () => (

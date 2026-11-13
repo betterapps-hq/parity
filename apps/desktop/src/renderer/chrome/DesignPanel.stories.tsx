@@ -46,18 +46,6 @@ export const ScreenSelected: Story = { loaders: [inspecting("design", () => ({ d
 /** A component design selected: Plan card's params with their defaults, and the three places it's used. */
 export const ComponentSelected: Story = { loaders: [inspecting("design", () => ({ design: design("Plan card") }))] }
 
-/** A screen just switched to a component: no params yet, and not used anywhere yet. */
-export const NewComponent: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Button")
-      example().store.updateContainer(key, "Change design kind", (current) => ({ ...current, kind: "component" }))
-
-      return { design: key }
-    })
-  ]
-}
-
 /** A design with a very long name: the name field scrolls and the file badge truncates. */
 export const LongName: Story = {
   loaders: [
