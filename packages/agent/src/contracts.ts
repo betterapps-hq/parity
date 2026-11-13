@@ -933,7 +933,7 @@ const placedReferencesReply = z.looseObject({
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
- * say. A screenshot is a snippet Parity writes, so it answers as `exec` does.
+ * say. A screenshot is a call Parity makes on the snippet API, so it answers as `exec` does.
  */
 export const replies = {
   copy: z.looseObject({ tabs: z.array(tabSummary), focusedAt: number.optional() }),

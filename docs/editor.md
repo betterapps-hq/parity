@@ -7740,8 +7740,8 @@ desktop errors. It also checks that caller identity travels separately from oper
 A snippet can compute for 5 seconds between `await`s and run for 2 minutes in all, renders and screenshots included
 (`agentLimits` in `packages/agent/src/run.ts`). Past either, it stops and fails like any other failed call, with
 `execution_failed`, an `editId` and nothing changed, and the message says which limit it reached. The tab's next call
-still runs, with the values earlier calls left in its context. The app's own snippets, which export or report a list of
-designs, have no limit on the whole run, only on computing between `await`s (`appLimits`).
+still runs, with the values earlier calls left in its context. Parity's own calls, such as Export and Report, aren't
+snippets and have neither limit (see "Parity's own calls on the agent API").
 
 Each tab's context runs its own promise jobs (`microtaskMode: "afterEvaluate"`), and only while something is evaluated
 in it, under that evaluation's timeout. So code after an `await` runs under a timeout too: when an API call settles,
@@ -7779,6 +7779,21 @@ of every call: defaults, the caller's cursor, the state report, a check's frame 
 the offscreen renderer and the console, and writes screenshots. `packages/agent/src/dispatch.test.ts` runs every method
 through a fixture host and checks each answer against its schema in `replies`, with presence, applied changes, saved
 screenshots, frame counts, the primary mode (PAR-579) and an unknown method.
+
+### Parity's own calls on the agent API (PAR-1053)
+
+The window's Export all, Export selected and Copy as PNG, and an agent's `screenshot`, `report`, `place`, `problems` and
+`accessibility`, call the agent API as functions with data, not as snippets in the vm. `perform` in
+`packages/agent/src/run.ts` runs a call against a working copy of the tab: it shows the caller's cursor start and end,
+applies what changed as one step, and gives back what the call returned or what it threw. `execute` runs an agent's
+snippet through it. Export and Report draw states × modes through the API's `Screenshot`, however many frames that is,
+without a snippet's time limit; a design that isn't there fails with its coded error, and a frame that fails to draw is
+a warning. A workspace is built in `perform` for a call and in `reader` in `dispatch.ts` for a read, which needs the
+workspace itself and no call around it.
+
+`packages/agent/src/dispatch.test.ts` ("exportPictures", "framePictures", "report") exports one state and mode, every
+state in each mode shown, a frame that fails to draw and a design missing partway through the list; draws a design at
+two scales; and reports a frame per mode shown, sending nothing when a frame fails partway through.
 
 `packages/cli/src/operations.test.ts` launches both real entry points against local RPC, covering each operation's
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot

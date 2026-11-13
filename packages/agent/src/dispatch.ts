@@ -22,7 +22,7 @@ import { callerIdentity, presenceIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
 import { activeTab, type CopyReport, matchTab } from "./routing.ts"
-import { appLimits, type ExecRequest, execute } from "./run.ts"
+import { type ExecRequest, execResult, execute, perform } from "./run.ts"
 import { sheetLayout } from "./sheet.ts"
 import type {
   AccessibilityFinding,
@@ -174,14 +174,15 @@ const methods: MethodTable = {
   },
   exec: (params, { host, presence, caller }) => exec(host, presence, params.tab, params, caller),
   async screenshot(params, call) {
-    const options = { state: params.state, mode: params.mode, scale: params.scale }
+    const { design, state, mode, scale } = params
 
-    const request = {
-      label: `Screenshot ${params.design}`,
-      code: `Print(await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)}))`
+    const request: AppCall = {
+      label: `Screenshot ${design}`,
+      // Printing the count, as the answer always has.
+      calls: async (api) => api.Print(await api.Screenshot(design, { state, mode, scale }))
     }
 
-    // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
+    // The call is Parity's own, not a snippet, so a failure has nothing for the agent to retry by editId.
     if (!params.sheet) {
       const { editId: _editId, ...result } = await exec(call.host, call.presence, params.tab, request)
 
@@ -481,8 +482,7 @@ function workspaceSnapshot(snapshot: TabSnapshot) {
 
 /** Everything an agent needs to get its bearings in a tab, in one read. */
 function state(snapshot: TabSnapshot): Answer<"state"> {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
+  const api = readOnly(snapshot)
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
   // By file and id, since two files can hold designs with the same id.
   const references = new Map<string, number>()
@@ -578,11 +578,9 @@ async function place(host: AgentHost, presence: Call["presence"], request: Param
 
   // Placing what the node already shows changes nothing, and is still reported, which main counts once.
   if (target.holds !== placedUrl(shown)) {
-    const options = state ? `, ${JSON.stringify({ state })}` : ""
-
     const result = await execIn(host, presence, snapshot, {
       label: `Place ${found.title}`,
-      code: `Update(${JSON.stringify(node)}, ${JSON.stringify(target.change)}${options})`
+      calls: async (api) => api.Update(node, target.change, state ? { state } : undefined)
     })
 
     const changed = result.changes.designs[0]
@@ -670,9 +668,7 @@ function placeTarget(
   prop: string | undefined,
   state: string | undefined
 ): PlaceTarget | { refusal: string } {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  const workspace = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state")
-  const located = workspace.locate(path)
+  const located = reader(snapshot).locate(path)
 
   if (!located) {
     return { refusal: `There's no node at ${path}. Read the design with Get to find the image's path.` }
@@ -736,6 +732,15 @@ function refused(message: string, code = "invalid"): Answer<"place"> {
   return { placed: false, problem: { code, message } }
 }
 
+/**
+ * One of Parity's own calls on the agent API, run as a function with data rather than as a snippet in the vm, so it has
+ * no snippet's time limit and no editId to retry.
+ */
+interface AppCall {
+  label: string
+  calls: (api: AgentApi) => Promise<void>
+}
+
 /** Runs a snippet in a tab, applies what it changed there, and keeps its screenshots as files. */
 async function exec(
   host: AgentHost,
@@ -757,28 +762,15 @@ function createdDesigns(changes: AgentChangeSet): Record<string, string> {
   )
 }
 
+/** Runs a snippet, or one of Parity's own calls, in a tab, applies what it changed, and keeps its screenshots as files. */
 async function execIn(
   host: AgentHost,
   presence: Call["presence"],
   snapshot: TabSnapshot,
-  request: ExecRequest,
+  request: ExecRequest | AppCall,
   caller?: Caller
 ): Promise<Answer<"exec"> & { changes: AgentChangeSet }> {
-  const run: ExecRequest = { label: request.label || "Agent edit" }
-
-  if (request.code !== undefined) {
-    run.code = request.code
-  }
-
-  if (request.editId !== undefined) {
-    run.editId = request.editId
-  }
-
-  if (request.edits !== undefined) {
-    run.edits = request.edits
-  }
-
-  const { changes, screenshots, ...rest } = await runIn(host, presence, snapshot, run, caller)
+  const { changes, screenshots, ...rest } = await runIn(host, presence, snapshot, request, caller)
 
   const paths =
     screenshots.length > 0
@@ -800,18 +792,21 @@ async function execIn(
   }
 }
 
-/** Runs a snippet in a tab and applies what it changed there, keeping its screenshots as pictures, not files. */
+/**
+ * Runs a snippet, or one of Parity's own calls, in a tab and applies what it changed there, keeping its screenshots as
+ * pictures, not files.
+ */
 async function runIn(
   host: AgentHost,
   presence: Call["presence"],
   snapshot: TabSnapshot,
-  run: ExecRequest,
+  request: ExecRequest | AppCall,
   caller?: Caller
 ): Promise<ExecResult & { applied: boolean }> {
   const tabId = snapshot.tab.id
-  const label = run.label || "Agent edit"
+  const label = request.label || "Agent edit"
 
-  const result = await execute(run, workspaceSnapshot(snapshot), {
+  const hooks: AgentHooks = {
     presence: presence(tabId),
     render: renderFor(host, snapshot),
     iconNames: (set, module) => host.iconNames(tabId, set, module),
@@ -819,7 +814,12 @@ async function runIn(
     supports: (queries) => host.supports(queries),
     screen: (id, connector) => host.screen(id, connector),
     caller: caller?.name
-  })
+  }
+
+  const result =
+    "calls" in request
+      ? execResult(await perform(workspaceSnapshot(snapshot), hooks, label, request.calls))
+      : await execute(snippet(request, label), workspaceSnapshot(snapshot), hooks)
 
   const { changes } = result
 
@@ -827,6 +827,25 @@ async function runIn(
     changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0 || !!changes.references?.length
 
   return { ...result, applied: result.ok && hasChanges }
+}
+
+/** An agent's snippet request with only what `execute` reads, whatever else its params held. */
+function snippet(request: ExecRequest, label: string): ExecRequest {
+  const run: ExecRequest = { label }
+
+  if (request.code !== undefined) {
+    run.code = request.code
+  }
+
+  if (request.editId !== undefined) {
+    run.editId = request.editId
+  }
+
+  if (request.edits !== undefined) {
+    run.edits = request.edits
+  }
+
+  return run
 }
 
 /**
@@ -902,18 +921,11 @@ export async function exportPictures(
   designs: string[],
   scale: number
 ): Promise<{ files: { name: string; png: string }[]; warnings: string[] }> {
-  const options = JSON.stringify({ state: "all", mode: "shown", scale })
-
-  const result = await execute(
-    { label: "Export", code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${options})` },
-    workspaceSnapshot(snapshot),
-    { presence: () => undefined, render: renderFor(host, snapshot) },
-    appLimits
-  )
-
-  if (!result.ok) {
-    throw new Error(result.error ?? "The designs couldn't be rendered")
-  }
+  const result = await screenshots(host, snapshot, "Export", async (api) => {
+    for (const design of designs) {
+      await api.Screenshot(design, { state: "all", mode: "shown", scale })
+    }
+  })
 
   const containers = new Map(
     snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
@@ -952,6 +964,26 @@ export async function exportPictures(
   })
 
   return { files, warnings: result.warnings }
+}
+
+/**
+ * The frames `shoot` screenshots through the agent API, drawn offscreen with nothing shown on the canvas, for the
+ * window's Export and an agent's Report. A failure throws what the API threw, such as an unknown design's coded error.
+ */
+async function screenshots(
+  host: AgentHost,
+  snapshot: TabSnapshot,
+  label: string,
+  shoot: (api: AgentApi) => Promise<void>
+): Promise<{ screenshots: Screenshot[]; warnings: string[] }> {
+  const hooks = { presence: () => undefined, render: renderFor(host, snapshot) }
+  const done = await perform(workspaceSnapshot(snapshot), hooks, label, shoot)
+
+  if (!done.ok) {
+    throw done.error
+  }
+
+  return { screenshots: done.screenshots, warnings: done.warnings }
 }
 
 /**
@@ -995,16 +1027,11 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
   if (snapshot && params.design !== undefined) {
     const options = params.state === undefined ? { mode: "shown" } : { mode: "shown", state: params.state }
 
-    const result = await execute(
-      { label: "Report", code: `await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)})` },
-      workspaceSnapshot(snapshot),
-      { presence: () => undefined, render: renderFor(host, snapshot) },
-      appLimits
-    )
+    const shown = params.design
 
-    if (!result.ok) {
-      throw new CodedError(result.error ?? "The design couldn't be drawn", result.details ?? { code: "app_error" })
-    }
+    const result = await screenshots(host, snapshot, "Report", async (api) => {
+      await api.Screenshot(shown, options)
+    })
 
     for (const shot of result.screenshots) {
       design = shot.design
@@ -1049,19 +1076,11 @@ export async function framePictures(
   const warnings: string[] = []
 
   for (const scale of scales) {
-    const result = await execute(
-      {
-        label: "Export",
-        code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${JSON.stringify({ scale })})`
-      },
-      workspaceSnapshot(snapshot),
-      { presence: () => undefined, render: renderFor(host, snapshot) },
-      appLimits
-    )
-
-    if (!result.ok) {
-      throw new Error(result.error ?? "The designs couldn't be rendered")
-    }
+    const result = await screenshots(host, snapshot, "Export", async (api) => {
+      for (const design of designs) {
+        await api.Screenshot(design, { scale })
+      }
+    })
 
     frames.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
     warnings.push(...result.warnings)
@@ -1113,41 +1132,43 @@ async function checkDesign<T>(
   let frames = 0
   const render = renderFor(host, snapshot)
 
-  const workspace = new AgentWorkspace(
-    workspaceSnapshot(snapshot),
-    {
-      presence,
-      render: (request) => {
-        frames++
+  const hooks = {
+    presence,
+    render: (request: FrameRequest) => {
+      frames++
 
-        return render(request)
-      }
-    },
-    label
-  )
+      return render(request)
+    }
+  }
 
-  const api = workspace.api()
-  workspace.emit({ kind: "start" })
-
-  try {
+  const done = await perform(workspaceSnapshot(snapshot), hooks, label, async (api) => {
     const found = await check(api, design)
     const { id, name } = api.GetDesign(design)
-    workspace.emit({ kind: "end" })
 
-    return { design: { id, name }, found, frames, warnings: workspace.result().warnings }
-  } catch (error) {
-    workspace.emit({ kind: "end", error: error instanceof Error ? error.message : String(error) })
-    throw error
-  } finally {
-    workspace.flush()
+    return { design: { id, name }, found }
+  })
+
+  if (!done.ok) {
+    throw done.error
   }
+
+  return { ...done.value, frames, warnings: done.warnings }
 }
 
 /** The agent API, for calls that only read. */
 function readOnly(snapshot: TabSnapshot): AgentApi {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
+  return reader(snapshot).api()
+}
 
-  return new AgentWorkspace(workspaceSnapshot(snapshot), noop, "Read").api()
+/**
+ * A working copy of a tab to read from at once, which draws nothing and shows nothing on the canvas. A call that runs
+ * goes through `perform` in run.ts, the one other place a workspace is built; a read needs the workspace itself, such
+ * as its `locate`, in step with the answer, without a call's start, end or changes to apply.
+ */
+function reader(snapshot: TabSnapshot): AgentWorkspace {
+  const hooks = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
+
+  return new AgentWorkspace(workspaceSnapshot(snapshot), hooks, "Read")
 }
 
 /** A name that's safe as a file name on every system: no reserved characters, no control characters. */
