@@ -17,10 +17,6 @@ export interface Inspecting {
 
 const inspecting = windowStore<Inspecting>(() => ({ picking: false }))
 
-export function getInspecting(): Inspecting {
-  return inspecting.get()
-}
-
 function update(change: Partial<Inspecting>): void {
   inspecting.update((state) => ({ ...state, ...change }))
 }

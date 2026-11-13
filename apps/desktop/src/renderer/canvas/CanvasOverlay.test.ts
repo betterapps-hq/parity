@@ -551,4 +551,72 @@ describe("following the camera", () => {
     expect(frames).toEqual([0, 0, 0])
     expect(errors).toEqual([])
   })
+
+  // The text editor follows the camera with the other overlays (PAR-986), not in an animation frame of its own: where
+  // it's drawn as each frame is about to be painted is where it settles once the camera rests.
+  it("keeps the text editor on its text in each frame the camera moves", async () => {
+    await page.evaluate(
+      // @ts-expect-error The bundle's global.
+      (containers) => app.mount(containers, { camera: true }),
+      [dashboard, statCard]
+    )
+    await page.evaluate(
+      ({ design, mode }) => {
+        const picked = { design, node: "chart-title", mode, state: "default" }
+        // @ts-expect-error The page's session.
+        window.session.selection.set(picked)
+        // @ts-expect-error The page's session.
+        window.session.selection.setEditing(picked)
+      },
+      { design, mode }
+    )
+    await page.waitForTimeout(800)
+
+    const cameras = [
+      { x: -30, y: 10, z: 1.5 },
+      { x: 20, y: -15, z: 0.75 },
+      { x: 0, y: 0, z: 1 }
+    ]
+
+    const frames = await page.evaluate(async (cameras) => {
+      const editor = () => {
+        const { style } = document.querySelector<HTMLTextAreaElement>("textarea[aria-label='Edit text']")!
+
+        return [style.left, style.top, style.width, style.minWidth, style.minHeight, style.fontSize].join(" ")
+      }
+
+      const found: { painted: string; settled: string }[] = []
+
+      for (const camera of cameras) {
+        const painted = await new Promise<string>((resolve) => {
+          requestAnimationFrame(() => {
+            // @ts-expect-error The page's camera.
+            window.camera.set(camera)
+            const ticker = document.body.appendChild(document.createElement("div"))
+
+            const observer = new ResizeObserver(() => {
+              observer.disconnect()
+              ticker.remove()
+              resolve(editor())
+            })
+
+            observer.observe(ticker)
+          })
+        })
+
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        found.push({ painted, settled: editor() })
+      }
+
+      return found
+    }, cameras)
+
+    for (const { painted, settled } of frames) {
+      expect(painted).toBe(settled)
+    }
+
+    // It moved with the camera.
+    expect(new Set(frames.map(({ settled }) => settled)).size).toBe(3)
+    expect(errors).toEqual([])
+  })
 })

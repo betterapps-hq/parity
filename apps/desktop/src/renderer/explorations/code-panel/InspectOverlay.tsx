@@ -4,10 +4,11 @@ import { useProject } from "../../canvas/context.ts"
 import { frameAt, type SourcedElement, shortSource, sourcedElementAt } from "../../canvas/element-sources.ts"
 import { type AreaSpace, areaSpace, type Box } from "../../canvas/frame-geometry.ts"
 import { chipColors, kindColors } from "../../canvas/kinds.tsx"
+import { scheduleOverlay } from "../../canvas/overlay-scheduler.ts"
 import { allFrames, findFrames, findNodeElements, nodeOfElement } from "../../frame.ts"
 import { useSelection } from "../../selection.ts"
 import { elementsWrittenAt } from "./element-list.ts"
-import { getInspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"
+import { type Inspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"
 
 /** What the overlay draws: boxes in the canvas area's coordinates, and the label of the one under the pointer. */
 interface Marks {
@@ -107,36 +108,28 @@ export function InspectOverlay() {
     }
   }, [inspecting.picking, session])
 
-  // The boxes follow the camera, layout changes and animations, so they're measured every frame. With nothing to mark,
-  // nothing is measured, since reading a box lays the page out first, mid-frame, while the camera moves (PAR-653).
+  // The boxes follow the camera, layout changes and animations, measured with the canvas's other overlays (PAR-986, see
+  // `overlay-scheduler.ts`). With nothing to mark, nothing is read, since reading a box lays the page out (PAR-653).
   useEffect(() => {
-    let frame = 0
-    let last = ""
+    const area = rootRef.current?.parentElement
 
-    const tick = () => {
-      frame = requestAnimationFrame(tick)
-      const area = rootRef.current?.parentElement
-
-      if (!area || area.closest("[hidden]")) {
-        return
-      }
-
-      let space: AreaSpace | undefined
-      const box = (element: Element): Box => (space ??= areaSpace(area)).box(element.getBoundingClientRect())
-
-      const next = measure(getInspecting(), selected, pointed, box)
-      const serialized = JSON.stringify(next)
-
-      if (serialized !== last) {
-        last = serialized
-        setMarks(next)
-      }
+    if (!area) {
+      return undefined
     }
 
-    frame = requestAnimationFrame(tick)
+    return scheduleOverlay(area, session, {
+      showing: () => inspecting.picking || (!!selected.design && !!selected.node),
+      // Picking, the pointer can be over any frame.
+      designs: () => (inspecting.picking ? "every" : new Set(selected.design ? [selected.design] : [])),
+      measure: () => {
+        let space: AreaSpace | undefined
+        const box = (element: Element): Box => (space ??= areaSpace(area)).box(element.getBoundingClientRect())
 
-    return () => cancelAnimationFrame(frame)
-  }, [pointed, selected])
+        return measure(inspecting, selected, pointed, box)
+      },
+      draw: setMarks
+    })
+  }, [inspecting, pointed, selected, session])
 
   return (
     <div
@@ -180,7 +173,7 @@ export function InspectOverlay() {
  * one hovered in the Code section, dashed, in each of the layer's frames, the first labelled.
  */
 function measure(
-  inspecting: ReturnType<typeof getInspecting>,
+  inspecting: Inspecting,
   selected: ReturnType<typeof useSelection>,
   pointed: { host: HTMLElement; element: SourcedElement } | undefined,
   box: (element: Element) => Box
