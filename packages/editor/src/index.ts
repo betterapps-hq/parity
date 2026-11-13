@@ -376,6 +376,8 @@ export {
 
 export { boardReader } from "./shown.ts"
 
+export { type DrawnBox, frameSkeleton, type FrameSkeleton } from "./skeleton.ts"
+
 export {
   distancesBetween,
   EvenSpacing,
@@ -409,6 +411,8 @@ export {
 } from "./spacing-handles.ts"
 
 export { editStatus, type EditStatus, type StatusOptions } from "./status.ts"
+
+export { styleChanges } from "./style-changes.ts"
 
 export {
   fillEdit,

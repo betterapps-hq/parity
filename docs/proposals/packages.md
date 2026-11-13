@@ -11,7 +11,8 @@ models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and
 ledger of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints
 and reads classes through (PAR-943), on 2026-11-11. `@parity-app/processes` holds what the desktop app's processes
 decide, moved out of core (PAR-989), and the one lifecycle every child process and worker goes through (PAR-987), on
-2026-11-12. The first items are in Linear's Package boundaries stream.
+2026-11-12. Core's last files that weren't the model moved to the packages that use them, and its unused names went
+(PAR-1044), the same day. The first items are in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -36,6 +37,10 @@ when it's spread through UI code. Today:
   or React, and has 12 test files. Its `values/` module checks and evaluates decorator and sample values (PAR-572); the
   guest imports its evaluator and `icon-names.ts` alone, as `@parity-app/core/values/evaluate` and
   `@parity-app/core/icon-names`, since they import nothing at runtime.
+- **What isn't the model lives with what uses it** (PAR-1044): frame skeletons and the style changes an edit previews in
+  `@parity-app/editor`; detection's types, package.json scripts, stylesheet extensions and gathered code changes in
+  `@parity-app/project`; and the JSONC parser in `@parity-app/registry`, since `project` depends on `registry` and both
+  read config files with it.
 - **Core and editor name what other packages may use** in `src/index.ts`, one `export { … }` per module, and a name
   nothing outside uses stays inside (PAR-989). Their `package.json` `exports` allow nothing else, apart from core
   modules that load on their own: `errors`, `fixtures`, `icon-names`, `props`, `schema` and `values/evaluate`.

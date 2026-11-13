@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import type { DrawnBox } from "@parity-app/core"
+import type { DrawnBox } from "@parity-app/editor"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"

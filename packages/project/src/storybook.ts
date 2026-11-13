@@ -1,15 +1,14 @@
 import { readdir, readFile } from "node:fs/promises"
 import { join, posix, relative } from "node:path"
 import {
-  commandOption,
   type ComponentSource,
   scriptConfigExtensions,
   type PackageManifest,
-  scriptRunning,
   type StorybookInfo,
   type StoryFile
 } from "@parity-app/core"
 import { findConfig } from "./configs.ts"
+import { commandOption, scriptRunning } from "./scripts.ts"
 
 /** Storybook's own config: `main` in its config folder, with any extension Storybook accepts. */
 const mainConfig = { files: ["main"], extensions: [...scriptConfigExtensions], here: true }

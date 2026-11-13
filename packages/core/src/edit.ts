@@ -1175,19 +1175,6 @@ export function removeState(container: ContainerSpec, stateId: string): Containe
   return next
 }
 
-/** Moves a state to a new position. The base state stays first. */
-export function moveState(container: ContainerSpec, stateId: string, index: number): ContainerSpec {
-  if (isBaseState(container, stateId)) {
-    throw new Error("The base state stays first")
-  }
-
-  const state = findState(container, stateId)
-  const rest = designStates(container).filter((candidate) => candidate !== state)
-  const at = Math.max(1, Math.min(index, rest.length))
-
-  return { ...container, states: [...rest.slice(0, at), state, ...rest.slice(at)] }
-}
-
 /** Removes a node from the design and from every state and variant that patches it, or anything inside it. */
 export function deleteNode(container: ContainerSpec, nodeId: string): ContainerSpec {
   const location = locateNode(container.root, nodeId)
@@ -1478,18 +1465,6 @@ export function addVariantOption(container: ContainerSpec, param: string, name: 
   const options = [...spec.options, { id, name }]
 
   return { container: { ...container, params: { ...container.params, [param]: { ...spec, options } } }, id }
-}
-
-export function renameVariantOption(
-  container: ContainerSpec,
-  param: string,
-  option: string,
-  name: string
-): ContainerSpec {
-  const spec = variantParam(container, param)
-  const options = spec.options.map((candidate) => (candidate.id === option ? { ...candidate, name } : candidate))
-
-  return { ...container, params: { ...container.params, [param]: { ...spec, options } } }
 }
 
 /**

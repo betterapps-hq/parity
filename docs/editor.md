@@ -3246,7 +3246,7 @@ Code:
   (`describeFieldNote`, `summarizeFieldNotes`). It takes data and returns data; it can move to `@parity-app/editor` when
   PAR-7 makes it.
 - `packages/core/src/frame-rules.ts`: the rules that show an edit over a frame's own (`previewRules`), and
-  `packages/core/src/style-changes.ts`: which of a component's inline styles an edit changes between two renders of a
+  `packages/editor/src/style-changes.ts`: which of a component's inline styles an edit changes between two renders of a
   design (`styleChanges`).
 - `apps/desktop/src/renderer/inspector/controls/number-rules.ts`: what a number field takes, as rules (`NumberRules`):
   its range, whether it's whole, what an empty field and a number past either end do, and the unit and words it reads.
@@ -3295,8 +3295,8 @@ Tests:
 - `apps/desktop/src/renderer/canvas/change-preview.test.ts` (4), with the real store: each preview in place of the last
   and taken back with nothing to undo, a commit after previews as one undo step, a commit in a run's gesture, and Redo
   kept when a preview is taken back.
-- `packages/core/src/style-changes.test.ts` (6): only what an edit changes, properties taken off, a component's style, a
-  state that sets its own value, and nothing for no change.
+- `packages/editor/src/style-changes.test.ts` (6): only what an edit changes, properties taken off, a component's style,
+  a state that sets its own value, and nothing for no change.
 - `apps/desktop/src/renderer/inspector/controls/number-rules.test.ts` (7), without a DOM: the reason in one form with
   its range and what else a field takes; maths from the value there and the unit after a number; a number past either
   end stopped or refused; an empty field unset or refused; words read first; the reason for text it can't read; and
@@ -5442,12 +5442,12 @@ frame's own pixels through the frame's geometry (see One reading of a frame for 
 same at any zoom and in a companion mode's smaller frame. The last 400 are kept in memory, by what their frame shows.
 
 Code: `useFrameSkeleton` and `measureFrame` in `apps/desktop/src/renderer/canvas/frame-skeletons.ts`; `frameSkeleton` in
-`packages/core/src/skeleton.ts`, which turns the boxes into paths; `canvas/FrameSkeleton.tsx`, which draws them; the
+`packages/editor/src/skeleton.ts`, which turns the boxes into paths; `canvas/FrameSkeleton.tsx`, which draws them; the
 `.frame-skeleton` rules in `styles.css`.
 
 Tests: `apps/desktop/src/renderer/canvas/frame-skeletons-drawn.test.ts` (26, in Chrome: what a frame draws, measured at
 zooms from 5% to 100% and at half the frame's size, in the design's pixels; nothing for a frame that hasn't drawn or
-isn't drawn). `packages/core/src/skeleton.test.ts` (8: the background, text as bars, borders, what's too thin or past
+isn't drawn). `packages/editor/src/skeleton.test.ts` (8: the background, text as bars, borders, what's too thin or past
 the frame, boxes drawn alike in one path, overlaps kept in order, the largest boxes kept when there are too many, and an
 empty frame). Gap: a skeleton shown on the canvas has no test of its own; it was checked by measuring the example
 project's Billing frames, main and companion, at 100%, 10% and 5% in the running app, which agreed to within a hundredth
@@ -5603,8 +5603,9 @@ Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerF
 `designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
-For edits: `stampChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`, wired in its `start`; the
-`codeChanged` method in `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
+For edits: `stampChange` in `packages/builder-vite/src/code-changes.ts` and `gatherChanges` in
+`packages/project/src/code-changes.ts`, wired in builder-vite's `start`; the `codeChanged` method in
+`packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
 `renderer/workspace.ts`; `frameKeys` and `drawnComponents` in `shared/render-job.ts`; `stale` in `useFrameBitmap` and
@@ -5642,10 +5643,10 @@ file, but frames drew the CSS the guest was loaded with until Parity restarted: 
 as text, and a code change only loaded components again.
 
 - **The builder says a stylesheet changed.** Vite's `stampChange` stamps the file's modules and their importers as for
-  any code change, and says `styles` when the file is a stylesheet (core's `isStylesheetFile`) whose modules include one
-  the guest imports as text (Vite's `styles.css?inline`), directly or through an `@import`. A component's own CSS module
-  isn't one; it loads again with its component. Core's `gatherChanges` sends a burst with a stylesheet in it even when
-  no component file changed.
+  any code change, and says `styles` when the file is a stylesheet (project's `isStylesheetFile`) whose modules include
+  one the guest imports as text (Vite's `styles.css?inline`), directly or through an `@import`. A component's own CSS
+  module isn't one; it loads again with its component. Core's `gatherChanges` sends a burst with a stylesheet in it even
+  when no component file changed.
 - **The builder says where the restyled guest is** (`BuilderSession.restyledGuestUrl(stamp)`), asked of its process.
   Vite's is its own address with the change's stamp (`restyledGuest`, `?styles=<stamp>`): Vite writes the stamped
   stylesheets' imports with `?t=`, so the guest loaded there imports the CSS as it is now, while the renderer and
@@ -5665,7 +5666,7 @@ stylesheets as they are now at an address the windows haven't loaded, or leaves 
 on each stylesheet change, which costs a whole builder start.
 
 Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
-`packages/core/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
+`packages/project/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
 `packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
 `packages/processes/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and
 `restyledGuest` in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
@@ -5673,7 +5674,7 @@ Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherCha
 discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
 `packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
 
-Tests: `packages/core/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
+Tests: `packages/project/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
 `packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
 change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the

@@ -1,4 +1,4 @@
-import type { CodeChange } from "./adapters.ts"
+import type { CodeChange } from "@parity-app/core"
 
 /**
  * The extensions of the stylesheets build tools compile (plain CSS, Sass, Less, Stylus and PostCSS), the one list

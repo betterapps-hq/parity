@@ -8,7 +8,6 @@ import {
   type LibraryEdits,
   type LibraryManifest,
   libraryManifestExtension,
-  parseJsonc,
   libraryManifest,
   libraryPackage,
   parseData,
@@ -17,6 +16,9 @@ import {
 import { isText } from "@parity-app/core/values/evaluate"
 import semver from "semver"
 import { z } from "zod"
+import { parseJsonc } from "./jsonc.ts"
+
+export { parseJsonc } from "./jsonc.ts"
 
 /**
  * A `.lib.par` Parity keeps for a package that doesn't ship one, the way DefinitelyTyped keeps types. Each file names

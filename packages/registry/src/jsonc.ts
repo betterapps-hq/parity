@@ -1,4 +1,4 @@
-import type { JsonValue } from "./schema.ts"
+import type { JsonValue } from "@parity-app/core"
 
 /** Parses JSON with comments and trailing commas, as tsconfig files allow. Comment markers inside strings are kept. */
 export function parseJsonc(text: string): JsonValue {

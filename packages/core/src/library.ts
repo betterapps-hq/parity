@@ -27,8 +27,6 @@ export const libraryPackage = fileObject({
   range: z.string().optional()
 })
 
-export type LibraryPackage = z.infer<typeof libraryPackage>
-
 /** How a component was recognised, which is also why it's believed to be one. */
 export const componentEvidence = ["function", "forwardRef", "memo", "lazy", "class", "exotic"] as const
 
@@ -161,8 +159,6 @@ export type LibraryComponent = z.infer<typeof libraryComponent>
 
 const libraryComponentEdit = fileObject({ as: z.enum(componentEvidence).optional(), ...componentFields })
 
-export type LibraryComponentEdit = z.infer<typeof libraryComponentEdit>
-
 const libraryComponents = fileObject({
   /** The module components are imported from. Defaults to the package name. */
   import: z.string().optional(),
@@ -177,8 +173,6 @@ export type LibraryComponents = z.infer<typeof libraryComponents>
 
 /** One React component that draws an icon given as data, as Hugeicons' `HugeiconsIcon` does with its `icon` prop. */
 const iconRenderer = fileObject({ import: z.string(), component: z.string(), prop: z.string() })
-
-export type IconRenderer = z.infer<typeof iconRenderer>
 
 const iconVariants = fileObject({
   /**
@@ -198,8 +192,6 @@ const iconVariants = fileObject({
   /** What the picker shows first. An icon without a size in its name scales with the text. */
   default: fileObject({ style: z.string().optional(), size: finiteNumber.optional() }).optional()
 })
-
-export type IconVariants = z.infer<typeof iconVariants>
 
 const libraryIcons = fileObject({
   /** The module icons are imported from. Defaults to the package name. */

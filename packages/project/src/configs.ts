@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { dirname, relative, resolve } from "node:path"
-import { packageManifest, parseData, parseJsonc } from "@parity-app/core"
+import { packageManifest, parseData } from "@parity-app/core"
+import { parseJsonc } from "@parity-app/registry"
 import { createConfigLoader, type LoadConfigSource } from "unconfig"
 import { z } from "zod"
 

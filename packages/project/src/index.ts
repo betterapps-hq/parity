@@ -8,11 +8,11 @@ import {
   libraryId,
   libraryManifestExtension,
   type PackageManifest,
-  parseJsonc,
   parseLibraryManifest,
   type ProjectConfig,
   type RendererAdapter
 } from "@parity-app/core"
+import { parseJsonc } from "@parity-app/registry"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findStorybook } from "./storybook.ts"
 import { type ShadcnConfig, shadcnConfig, stylesWith } from "./styles.ts"
@@ -31,6 +31,12 @@ export {
 } from "@parity-app/code"
 
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+
+export { type Detection, type PackageManagerDetection, type ProjectDetection } from "./detection.ts"
+
+export { gatherChanges, isStylesheetFile, type StampedChange, stylesheetExtensions } from "./code-changes.ts"
+
+export { commandOption, scriptRunning } from "./scripts.ts"
 
 export {
   diffFile,

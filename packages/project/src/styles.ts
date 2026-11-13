@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
-import { isStylesheetFile, parseData, parseJsonc, stylesheetExtensions } from "@parity-app/core"
+import { parseData } from "@parity-app/core"
+import { parseJsonc } from "@parity-app/registry"
 import { z } from "zod"
+import { isStylesheetFile, stylesheetExtensions } from "./code-changes.ts"
 
 /** An app's global stylesheets: the project's own, by path from its root, and packages', by their specifiers. */
 export interface AppStyles {

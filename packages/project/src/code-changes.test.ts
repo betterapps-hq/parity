@@ -1,5 +1,5 @@
+import type { CodeChange } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
-import type { CodeChange } from "./adapters.ts"
 import { gatherChanges, isStylesheetFile } from "./code-changes.ts"
 
 describe("isStylesheetFile", () => {

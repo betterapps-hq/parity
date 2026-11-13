@@ -1,5 +1,5 @@
 import { posix } from "node:path"
-import { isStylesheetFile, type StampedChange, stylesheetExtensions } from "@parity-app/core"
+import { isStylesheetFile, type StampedChange, stylesheetExtensions } from "@parity-app/project"
 
 /** A module in Vite's graph, as a code change reads it: its file, and its id with any query, as `a.css?inline`. */
 interface ChangeModule {

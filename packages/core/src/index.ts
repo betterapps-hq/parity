@@ -29,8 +29,6 @@ export {
 
 export { boardLayoutAt, boardSize, companionScale, gutterScale, shrinkBelow } from "./board.ts"
 
-export { gatherChanges, isStylesheetFile, type StampedChange, stylesheetExtensions } from "./code-changes.ts"
-
 export {
   bodyAttribute,
   collectCustomProperties,
@@ -54,15 +52,11 @@ export { extractComponent, findRepeats, type RepeatCandidate } from "./decompose
 
 export { type ChangeConflict, describeConflicts, type DesignChange, type ModesChange } from "./design-change.ts"
 
-export { type Detection, type PackageManagerDetection, type ProjectDetection } from "./detection.ts"
-
 export { deviceForWidth, type DeviceKind, devicePresets, lengthToPixels, screenHeightForWidth } from "./devices.ts"
 
 export {
   canvasDocument,
   type CanvasDocument,
-  type CanvasObjectKind,
-  type CanvasObjectSpec,
   type ComponentNode,
   type ComponentRef,
   type ContainerKind,
@@ -83,9 +77,6 @@ export {
   type InstanceNode,
   isAccessibilityProp,
   type LayoutNode,
-  type Lens,
-  type LinkEnd,
-  type LinkSpec,
   type NodePatch,
   nodeTree,
   noteSpec,
@@ -93,7 +84,6 @@ export {
   type ParamSpec,
   paramTypes,
   parseCanvasDocument,
-  parseNodePatch,
   patchUnset,
   type PropValues,
   type ReferenceSpec,
@@ -133,7 +123,6 @@ export {
   mapNodes,
   moveNode,
   moveNodes,
-  moveState,
   type NodeChange,
   nodeIds,
   nodeInState,
@@ -146,7 +135,6 @@ export {
   removeParam,
   removeState,
   renameState,
-  renameVariantOption,
   resetOverride,
   targetPatches,
   tidyPatch,
@@ -223,8 +211,6 @@ export {
   swapInstance
 } from "./instances.ts"
 
-export { parseJsonc } from "./jsonc.ts"
-
 export { componentNode, librarySource, withLibraryContext } from "./library-insert.ts"
 
 export {
@@ -232,13 +218,10 @@ export {
   type ComponentEvidence,
   type ComponentSample,
   type DecoratorElement,
-  type IconRenderer,
-  type IconVariants,
   isSampleText,
   type LibraryBreakpoint,
   libraryCanvas,
   type LibraryComponent,
-  type LibraryComponentEdit,
   type LibraryComponents,
   type LibraryDecorator,
   libraryDesigns,
@@ -250,7 +233,6 @@ export {
   type LibraryManifest,
   libraryManifestExtension,
   libraryPackage,
-  type LibraryPackage,
   type ParentSignal,
   parseLibraryEdits,
   parseLibraryManifest,
@@ -355,10 +337,6 @@ export {
   plainObject
 } from "./schema.ts"
 
-export { commandOption, scriptRunning } from "./scripts.ts"
-
-export { type DrawnBox, frameSkeleton, type FrameSkeleton } from "./skeleton.ts"
-
 export { slotName } from "./slot-names.ts"
 
 export {
@@ -373,8 +351,6 @@ export {
   slotPlaceProblem,
   slotProblem
 } from "./slots.ts"
-
-export { styleChanges } from "./style-changes.ts"
 
 export { type DescribedToken, type TokenCategory, type TokenExtension } from "./token-types.ts"
 
