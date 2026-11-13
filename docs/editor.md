@@ -3161,9 +3161,9 @@ Code:
   `sizeField` and `sizeEdit`, `layoutTypeEdit`, `placementEdit` and `textSizingEdit`.
 - `chrome/style-editor.ts`'s `useStyleEditor` is the one way the inspector's rows are wired: it measures layers,
   previews a row's edit and makes it or its reset through the store, for `chrome/LayerPanel.tsx`,
-  `chrome/MultiPanel.tsx` and the stories. `chrome/PropsSection.tsx` has the number props, which `chrome/LayerPanel.tsx`
-  previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and taken back to its
-  checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
+  `chrome/MultiPanel.tsx` and the stories. `inspector/sections/PropsSection.tsx` has the number props, which
+  `chrome/LayerPanel.tsx` previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and
+  taken back to its checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
 - `canvas/style-preview.ts`: `StylePreview`, which lays previews over the frames' rules (`previewFrameRules` in
   `frame.ts`) and writes a component's onto its element, takes them back, and settles them for the change.
   `chrome/style-editor.ts` wires it into the inspector.
@@ -3342,17 +3342,17 @@ out for each layer; `eachLength` and `eachSideOf` in `inspector/style-values.ts`
 `StoresContext` and `Unstored` there can mark what the document can't hold yet; nothing provides them in the panel, so
 nothing is disabled. `useDrawnBox` in `chrome/style-editor.ts` draws the panel again when the selected layer's drawn
 size changes. The Component instance section and the props rows are `InstanceSection` and `PropRows` in
-`inspector/controls/instance-section.tsx`, with their stories in `Instance.stories.tsx`; `chrome/LayerPanel.tsx` gives
-an instance's params as rows (`instanceRows`), `chrome/PropsSection.tsx` a code component's, and `ParamRows` in
-`chrome/ComponentsSection.tsx` a component design's own. The preset offered is `closestPreset` in
-`inspector/controls/preset-data.ts`. The sections take what they offer from the project through one `ProjectData` in
-`inspector/controls/field-parts.tsx`, which `StyleSections` gives: the project's tokens, turned into the controls' sets
-once by `projectTokenSets` in `inspector/token-sets.ts`; the design's colors, from `designColors` in
-`packages/editor/src/design-colors.ts`; and its images, from `useProjectImages` in `inspector/image-source.ts`. A field
-drawn outside it throws. The stories give the stand-ins in `inspector/controls/stand-in-tokens.ts` through the same
-`ProjectData` (`useStandInProject` in `playground.tsx`). `inspector/style-values.ts` reads a style's values as the
-controls show them, and writes the controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx`
-measures an absolutely placed layer, through the style editor's `place`.
+`inspector/controls/instance-section.tsx`, with their stories in `Instance.stories.tsx`; `PropsSection` in
+`inspector/sections/PropsSection.tsx` gives an instance's params as rows (`instanceRows`), a code component's props, and
+`ParamRows` a component design's own. The preset offered is `closestPreset` in `inspector/controls/preset-data.ts`. The
+sections take what they offer from the project through one `ProjectData` in `inspector/controls/field-parts.tsx`, which
+`StyleSections` gives: the project's tokens, turned into the controls' sets once by `projectTokenSets` in
+`inspector/token-sets.ts`; the design's colors, from `designColors` in `packages/editor/src/design-colors.ts`; and its
+images, from `useProjectImages` in `inspector/image-source.ts`. A field drawn outside it throws. The stories give the
+stand-ins in `inspector/controls/stand-in-tokens.ts` through the same `ProjectData` (`useStandInProject` in
+`playground.tsx`). `inspector/style-values.ts` reads a style's values as the controls show them, and writes the
+controls' values back as the style holds them. `placeNode` in `chrome/LayerPanel.tsx` measures an absolutely placed
+layer, through the style editor's `place`.
 
 Tests:
 
@@ -3451,6 +3451,22 @@ Tests:
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+
+### One Props section (PAR-1030)
+
+A component's props are one section, whatever the component is. On a component design, Props defines them: each with its
+default to edit, a menu to rename or remove it, its slots, and + to add one. On an instance, it sets them, under the
+component's name, in the same rows, whether the component is a design or code. A design's own instance adds the menu
+with Swap, Reset overrides, Push to main and Detach, and its slots; a code component's adds Attributes after it.
+
+Code: `PropsSection` in `apps/desktop/src/renderer/inspector/sections/PropsSection.tsx`, given `component` for a
+design's own props, or an instance with its edits; `ComponentProps`, `DesignInstanceProps` and `CodeInstanceProps` in
+the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance's or an image's base-only controls.
+
+Tests:
+
+- `chrome/PropsSection.stories.tsx` (Inspector › Props), `chrome/LayerInstances.stories.tsx` and
+  `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
 
 ### Each field's label names its control (PAR-892)
 
@@ -3831,7 +3847,7 @@ layer where it used to take a value of unknown type.
 
 Code: `packages/code/src/props.ts` (`classify` and `slotKind`, and the group a slot takes in `componentProps`),
 `packages/core/src/props.ts` (`propsPanel`, what the section lists, and `nodePropInput`, how a node prop's field edits
-it), and `chrome/PropsSection.tsx` in the app.
+it), and `inspector/sections/PropsSection.tsx` in the app.
 
 Tests:
 
@@ -3877,8 +3893,9 @@ The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/cor
 `slot-names.ts`. Filling a slot from an instance is PAR-84.
 
 Code: `chrome/slot-props.tsx` (a slot's row, Add and Make slot), `chrome/slot-focus.ts` (the slot to focus and a refused
-name, kept for each tab until it closes), `ParamsSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
-`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+name, kept for each tab until it closes), `ComponentProps` in `inspector/sections/PropsSection.tsx`,
+`chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in
+`canvas/kinds.tsx`.
 
 Tests:
 
@@ -4022,8 +4039,9 @@ The file keeps a fill as `slots` on the instance, by slot name, as a code compon
 picture's tree `slotPreviewTree`.
 
 Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
-`inspector/controls/slot-picker.tsx`, `InstanceSection` and `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob`
-and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
+`inspector/controls/slot-picker.tsx`, `DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in
+`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
+`canvas/insert.ts`.
 
 Tests:
 
@@ -4414,7 +4432,7 @@ drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` f
 `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `inspector/sections/section-edits.ts` (the style
 sections' runs, as `inspector/controls/edit-session.ts` says). A number prop's runs are gestures of its own
 (`NumberProp` in `inspector/controls/number-field.tsx`). Their gesture reaches the store through `style-editor.ts`,
-`LayerPanel.tsx` and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
+`LayerPanel.tsx` and `inspector/sections/PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 
@@ -4514,9 +4532,9 @@ with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layer
 lands on, from the selection model in `packages/editor/src/selection.ts`. The app's `DesignStore.editFrame` looks the
 design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`),
 `chrome/LayerTree.tsx` (the row's hidden mark), `chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx`
-(the layer as the board shows it, `BaseDesignNote` in the Image and Instance sections), `chrome/edit-scope.ts`
-(`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx`
-(`ValueInput`).
+(the layer as the board shows it), `chrome/BaseDesignNote.tsx` (in the Image and Instance sections),
+`chrome/edit-scope.ts` (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and
+`chrome/fields.tsx` (`ValueInput`).
 
 Tests:
 
@@ -5132,7 +5150,7 @@ from what the design shows, with fresh ids, to change freely.
 
 Code: `insertIntoDesign` in `packages/editor/src/insert.ts` (an `instance` item with `detached`), applied by
 `insertItem` in `apps/desktop/src/renderer/canvas/insert.ts`; the library rows' menu in `AssetsPanel.tsx`;
-`InstanceSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`.
+`DesignInstanceProps` in `apps/desktop/src/renderer/inspector/sections/PropsSection.tsx`.
 
 Tests: `packages/core/src/library.test.ts` (1: a library design placed in an app draws its components and params,
 linked, and the same once detached, with no link left). `packages/editor/src/insert.test.ts` (1: a detached copy placed

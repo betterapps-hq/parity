@@ -14,10 +14,10 @@ import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { useProject } from "../canvas/context.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
-import { PropsSection } from "./PropsSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
@@ -109,12 +109,12 @@ export function SelectedProps({ only }: { only?: "attributes" }) {
     return null
   }
 
-  const { node, components, override, change, reset } = layer
+  const { node, override, change, reset } = layer
 
   return (
     <PropsSection
+      entry={layer.entry}
       node={node}
-      info={components[node.component]}
       changed={(name) => override?.props?.[name] !== undefined}
       onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
       onReset={(name) => reset({ kind: "props", key: name })}
