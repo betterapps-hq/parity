@@ -15,7 +15,7 @@ import { FourSidesField } from "./sides.tsx"
  * says so and offers Contain margins (`flow-root`). Auto top and bottom margins do nothing there, so the row dims.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Margin",
+  title: "Parity/Inspector/Rows/Margin",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -17,7 +17,7 @@ import { FourSidesField } from "./sides.tsx"
  * preview. It writes the fewest classes, shorthand first.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Padding",
+  title: "Parity/Inspector/Rows/Padding",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

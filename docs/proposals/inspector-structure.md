@@ -113,4 +113,8 @@ Each step is its own pull request, and the app looks the same after each.
    alone. The `only` parts that stories passed to `LayerPanel` are gone (PAR-1031).
 4. **The table.** `styleParts` becomes `panelParts`, covering every section, with its tests in `@parity-app/editor`.
    `LayerPanel` draws its list.
-5. **Stories move,** one level per pull request, from Parts up, deleting each old folder as its stories land.
+5. **Stories move,** from Parts up, deleting each old folder as its stories land. Parts, Fields, Lists and Rows are only
+   new titles, so they moved first, in one pull request (PAR-1033): Controls › Fields, Unique and Lists, and every
+   Controls › Controls story but Component instance and Content, which move with Sections. Inspector › Fields is Fields
+   › All fields until it's split, and the app's Select is Fields › Select. Sections, Layers and Panel follow steps 2
+   to 4.

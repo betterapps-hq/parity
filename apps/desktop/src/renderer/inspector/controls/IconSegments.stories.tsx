@@ -6,7 +6,7 @@ import { layoutTypes } from "./layout-controls.tsx"
 
 /** A choice of one drawn as icons in a row, each named in its hint, as Layout's Type is. */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Icon segments",
+  title: "Parity/Inspector/Fields/Icon segments",
   decorators: [
     (Story) => (
       <div className="w-64 p-4">

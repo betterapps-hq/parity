@@ -61,6 +61,19 @@ export function commandPaths(
   return folders.flatMap((folder) => extensions.map((extension) => join(folder, command + extension.toLowerCase())))
 }
 
+/** What `cmd.exe` reads as more than a character, including `%`, which it expands even between quotes. */
+const cmdSpecial = /([()\][%!^"`<>&|;, *?])/g
+
+/**
+ * The command line that runs a batch file, such as VS Code's `code.cmd`, with these arguments through `cmd.exe`, which
+ * only a shell can on Windows. Each is quoted for the program and every character `cmd.exe` would act on, quotes
+ * included, is escaped with `^`, so a folder named `100%PATH%` or `R&D` reaches the editor as it's spelled. Windows file
+ * names can't hold `"`, so the arguments, a path and a line, need no escaping for the program beyond their quotes.
+ */
+export function batchCommandLine(command: string, args: readonly string[]): string {
+  return [command, ...args].map((value) => `"${value}"`.replaceAll(cmdSpecial, "^$1")).join(" ")
+}
+
 /**
  * The line, from 1, where a module declares or lists an export: `export function Button`, `export const Button`,
  * `function Button` that a later `export { Button }` names, or the `export { … Button … }` itself, and `export default`

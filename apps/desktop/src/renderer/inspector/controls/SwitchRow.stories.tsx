@@ -8,7 +8,7 @@ import { FieldGrid, SwitchRow } from "./field-row.tsx"
  * end of the row. Clicking the name flips it too.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Switch",
+  title: "Parity/Inspector/Fields/Switch",
   decorators: [
     (Story) => (
       <div className="w-64 p-4">

@@ -15,7 +15,11 @@ const mainEnvironment = z.object({
     .string()
     .refine((url) => URL.canParse(url), "expected a URL")
     .default("parity://app/index.html"),
-  /** The port for the Chrome DevTools Protocol, so agents and scripts can inspect the canvas; 0 picks a free one. */
+  /**
+   * The port for the Chrome DevTools Protocol, so agents and scripts can inspect the canvas; 0 picks a free one. It
+   * works in installed copies too, on purpose: `scripts/try-update.ts` drives a built copy through it, and whoever can
+   * set Parity's environment can pass Chromium's own `--remote-debugging-port` anyway (PAR-982).
+   */
   PARITY_DEBUG_PORT: wholeNumber.pipe(z.int().max(65535)).optional(),
   /** The page's size, such as 1439x901, which `pnpm perf` and the end-to-end tests ask for. */
   PARITY_WINDOW_SIZE: z
