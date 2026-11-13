@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Split libgen's relateParts into passes with a test each; output unchanged.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
