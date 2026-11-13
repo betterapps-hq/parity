@@ -38,7 +38,7 @@ function TitleBar() {
   )
 }
 
-export const body = () => within(document.body)
+const body = () => within(document.body)
 
 /** A story that opens `name` once `setup` has readied the project, then runs `check` on the open menu. */
 export function opened(

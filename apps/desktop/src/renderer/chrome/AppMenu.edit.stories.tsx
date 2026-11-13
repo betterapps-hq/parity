@@ -1,9 +1,9 @@
 import { layersSelection } from "@parity-app/editor"
 import type { Meta } from "@storybook/react-vite"
-import { expect } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { actions } from "./actions.ts"
-import { body, hero, menuStories, opened, selecting, unavailable, valueInUsersCard } from "./app-menu-stories.tsx"
+import { hero, menuStories, opened, selecting, unavailable, valueInUsersCard } from "./app-menu-stories.tsx"
 import type { AppMenu } from "./AppMenu.tsx"
 import { renameDesign } from "./chrome-fixtures.tsx"
 
@@ -14,6 +14,8 @@ const meta = {
 } satisfies Meta<typeof AppMenu>
 
 export default meta
+
+const body = () => within(document.body)
 
 /** After renaming a design, with a layer selected: Undo names the rename, and the rest apply to the layer. */
 export const LayerSelected = opened(

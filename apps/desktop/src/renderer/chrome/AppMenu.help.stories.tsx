@@ -1,7 +1,7 @@
 import type { Meta } from "@storybook/react-vite"
-import { expect, userEvent, waitFor } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { body, menuStories, type MenuStory, openMenu, opened, openSubmenu } from "./app-menu-stories.tsx"
+import { menuStories, type MenuStory, openMenu, opened, openSubmenu } from "./app-menu-stories.tsx"
 import type { AppMenu } from "./AppMenu.tsx"
 import { exampleOpen } from "./chrome-fixtures.tsx"
 
@@ -12,6 +12,8 @@ const meta = {
 } satisfies Meta<typeof AppMenu>
 
 export default meta
+
+const body = () => within(document.body)
 
 /** Searching actions, the keyboard shortcuts, reporting a problem, the Developer submenu, updates and About. */
 export const Default = opened("Help")

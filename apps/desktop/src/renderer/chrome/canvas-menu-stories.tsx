@@ -2,8 +2,6 @@ import { within } from "storybook/test"
 
 /** What the Canvas menu's stories share: reading what an open menu lists. */
 
-export const body = () => within(document.body)
-
 /** What a menu lists: each item's name, `(unavailable)` after one that is, and `---` between sections. */
 export function items(menu: HTMLElement): string[] {
   return [...menu.querySelectorAll(":scope > [role=menuitem], :scope > [role=separator]")].map((item) => {

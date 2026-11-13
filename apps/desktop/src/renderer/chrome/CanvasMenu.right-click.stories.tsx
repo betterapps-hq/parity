@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { design, example, layerElement, node, onCanvas } from "../stories/fixtures.tsx"
-import { body, items } from "./canvas-menu-stories.tsx"
+import { items } from "./canvas-menu-stories.tsx"
 
 /**
  * Right-clicking the canvas, over the whole window: what a right-click selects before the canvas menu opens, what its
@@ -23,6 +23,8 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
+const body = () => within(document.body)
 
 type Story = StoryObj<typeof meta>
 

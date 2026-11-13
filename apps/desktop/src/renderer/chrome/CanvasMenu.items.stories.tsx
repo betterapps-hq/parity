@@ -1,9 +1,9 @@
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { layersSelection, type Selection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { design, example, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
-import { body, items, keysOf } from "./canvas-menu-stories.tsx"
+import { items, keysOf } from "./canvas-menu-stories.tsx"
 import type { MenuTarget } from "./canvas-menu.ts"
 import { CanvasMenuItems } from "./CanvasMenu.tsx"
 import { formatKeys } from "./keys.ts"
@@ -20,6 +20,8 @@ const meta = {
 } satisfies Meta<typeof CanvasMenuItems>
 
 export default meta
+
+const body = () => within(document.body)
 
 type Story = StoryObj<typeof meta>
 

@@ -1,11 +1,10 @@
 import type { Meta } from "@storybook/react-vite"
-import { expect, userEvent, waitFor } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { blankProjectAt, frameDesigns, openAlso, openProjects } from "../stories/fixtures.tsx"
 import { pickingWith } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import {
-  body,
   menuItems,
   menuStories,
   type MenuStory,
@@ -26,6 +25,8 @@ const meta = {
 } satisfies Meta<typeof AppMenu>
 
 export default meta
+
+const body = () => within(document.body)
 
 /** With a design selected. New screen and New component are Object's, not File's. */
 export const DesignSelected = opened("File", selecting(pricing), async () => {
