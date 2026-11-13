@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 
 import {
-  Badge,
   Table,
   TableBody,
   TableCell,
@@ -9,6 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@buildkitgg/shadcn-baseui-nova"
+import { PageHeader } from "@/components/page-header"
+import { StatusBadge } from "@/components/status-badge"
 import { projects } from "@/data/projects"
 
 export const Route = createFileRoute("/projects/")({ component: Projects })
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/projects/")({ component: Projects })
 function Projects() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-semibold">Projects</h1>
+      <PageHeader title="Projects" />
       <Table>
         <TableHeader>
           <TableRow>
@@ -40,13 +41,7 @@ function Projects() {
               </TableCell>
               <TableCell>{project.owner}</TableCell>
               <TableCell>
-                <Badge
-                  variant={
-                    project.status === "Active" ? "default" : "secondary"
-                  }
-                >
-                  {project.status}
-                </Badge>
+                <StatusBadge status={project.status} />
               </TableCell>
               <TableCell className="text-right text-muted-foreground">
                 {project.updated}
