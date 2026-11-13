@@ -236,7 +236,7 @@ export const elementTypeIcons = {
   datePicker: "calendar",
   colorPicker: "pipette",
   filePicker: "upload",
-  progress: "gauge",
+  progress: "loader",
   image: "image",
   vector: "pen-tool",
   video: "film",
