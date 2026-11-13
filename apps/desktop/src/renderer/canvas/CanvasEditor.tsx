@@ -188,6 +188,7 @@ function settleZoom(editor: Editor): () => void {
     frame ||= requestAnimationFrame(check)
   })
 
+  // Not put back when this stops: tldraw runs `onMount`'s teardown only as the editor goes, and a remount sets it again.
   editor.getEfficientZoomLevel = () => settled.get()
 
   return () => {

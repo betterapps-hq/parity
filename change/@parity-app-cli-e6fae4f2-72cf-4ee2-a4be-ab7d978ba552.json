@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a list entry back if it goes while it's dragged (PAR-982)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

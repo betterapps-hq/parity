@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process"
 import { access, readFile } from "node:fs/promises"
-import { codeEditors, commandPaths, editorsFor, exportLine } from "@parity-app/core"
+import { batchCommandLine, codeEditors, commandPaths, editorsFor, exportLine } from "@parity-app/core"
 import { shell } from "electron"
 import type { OpenInEditorRequest } from "../shared/protocol.ts"
 
@@ -77,14 +77,13 @@ async function firstThere(paths: string[]): Promise<string | undefined> {
 
 /**
  * Starts the editor apart from Parity, so it stays open when Parity quits. On Windows an editor's command is a batch
- * file, which only a shell can run, so it and its arguments are quoted for one.
+ * file, which only a shell can run, so it and its arguments are escaped for `cmd.exe` (see `batchCommandLine`).
  */
 function launch(command: string, args: string[]): Promise<void> {
   const batch = process.platform === "win32" && /\.(cmd|bat)$/i.test(command)
-  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`
 
   const child = batch
-    ? spawn(quote(command), args.map(quote), { shell: true, detached: true, stdio: "ignore", windowsHide: true })
+    ? spawn(batchCommandLine(command, args), { shell: true, detached: true, stdio: "ignore", windowsHide: true })
     : spawn(command, args, { detached: true, stdio: "ignore" })
 
   return new Promise((resolve, reject) => {

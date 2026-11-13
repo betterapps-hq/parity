@@ -323,6 +323,8 @@ interface Carry {
   from: number
   label: string
   listeners: () => Listeners
+  /** The entry's hook that picked it up, which puts it back if the entry goes while it's carried. */
+  owner: object
   /** Where the pointer was pressed, from the list's top. */
   pressedAt: number
   pointerY: number
@@ -437,6 +439,7 @@ function pickUp(options: {
   group: string
   label: string
   listeners: () => Listeners
+  owner: object
   pointerId: number
   pressedY: number
   pointerY: number
@@ -514,6 +517,7 @@ function pickUp(options: {
     from,
     label: options.label,
     listeners: options.listeners,
+    owner: options.owner,
     pressedAt: options.pressedY - listTop,
     pointerY: options.pointerY,
     shift: 0,
@@ -608,6 +612,17 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
     latest.current = { onMove, onCarry }
   })
 
+  // An entry that goes while it's carried, as when an undo removes it, never hears the pointer let go: it's put back,
+  // so the grabbing cursor, the Escape listener and the others' offsets go with it.
+  useLayoutEffect(
+    () => () => {
+      if (carrying?.owner === latest) {
+        putDown(true)
+      }
+    },
+    []
+  )
+
   const listeners = () => latest.current
 
   return {
@@ -642,6 +657,7 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
             group,
             label,
             listeners,
+            owner: latest,
             pointerId,
             pressedY: clientY,
             pointerY: moved.clientY,
@@ -676,6 +692,7 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
           group,
           label,
           listeners,
+          owner: latest,
           pointerId: event.pointerId,
           pressedY: event.clientY,
           pointerY: event.clientY,
