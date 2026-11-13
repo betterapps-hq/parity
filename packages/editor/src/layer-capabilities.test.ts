@@ -1,7 +1,10 @@
 import type { ContainerSpec, DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
+  designCapabilities,
   layerCapabilities,
+  type InspectorSection,
+  panelParts,
   selectionCapabilities,
   type StyleControl,
   styleParts,
@@ -91,7 +94,12 @@ describe("a layer's capabilities", () => {
       media: false,
       inFlex: false,
       inGrid: false,
-      styled: true
+      styled: true,
+      design: false,
+      component: false,
+      instance: false,
+      attrs: false,
+      copy: false
     })
   })
 
@@ -204,5 +212,47 @@ describe("the sections and controls a mixed selection gets", () => {
 
   it("leave out the style sections when one layer takes no style", () => {
     expect(partsOf(screen(), ["flex-layout", "flex-row"])).toEqual({ sections: [], controls: [] })
+  })
+})
+
+describe("the sections each selection gets", () => {
+  /** The sections one layer of `container` gets, found by its id or path, or the design's own without one. */
+  function sectionsOf(container: ContainerSpec, id?: string, node?: DesignNode): InspectorSection[] {
+    if (id === undefined) {
+      return panelParts(designCapabilities(container, takesStyle))
+    }
+
+    const layer = node ?? styleSelection(container, [id], undefined)!.layers[0]!.node
+
+    return panelParts(selectionCapabilities(container, [{ id, node: layer, parent: undefined }], takesStyle))
+  }
+
+  it("give a screen its components to make and its modes, and no style sections", () => {
+    expect(sectionsOf(screen("screen"))).toEqual(["header", "components", "modes", "export"])
+  })
+
+  it("give a component design its states, the props it defines and its modes", () => {
+    expect(sectionsOf(screen("component"))).toEqual(["header", "states", "props", "modes", "export"])
+  })
+
+  it("give a frame its root's style sections, and no modes", () => {
+    expect(sectionsOf(screen("frame"))).toEqual(["header", "styles", "export"])
+  })
+
+  it.each([
+    ["flex-layout", ["header", "styles", "export"]],
+    ["flex-text", ["header", "content", "styles", "export"]],
+    ["flex-image", ["header", "media", "styles", "export"]],
+    ["flex-card", ["header", "props", "styles", "export"]],
+    ["flex-button", ["header", "props", "attributes", "styles", "export"]],
+    ["flex-row", ["header", "props", "attributes", "noStyle", "styles", "export"]]
+  ] as const)("give %s its own sections", (id, sections) => {
+    expect(sectionsOf(screen(), id)).toEqual(sections)
+  })
+
+  it("leave an image's file to its component inside an instance", () => {
+    const image: DesignNode = { type: "image", id: "photo", src: "photo.png" }
+
+    expect(sectionsOf(screen(), "card/photo", image)).toEqual(["header", "styles", "export"])
   })
 })

@@ -3454,6 +3454,36 @@ Tests:
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
+### One table picks the sections (PAR-1032)
+
+Which sections the Design tab shows, in what order, comes from one table, for a whole design and for a layer alike. The
+selection's capabilities say what it is: a whole design, in a component design, an instance, a copy inside an instance,
+text, an image or video, whether it takes style, and whether it passes attributes on. Each section says what it needs:
+
+| Section    | Shown for                                                               |
+| ---------- | ----------------------------------------------------------------------- |
+| Header     | Everything                                                              |
+| States     | A component design                                                      |
+| Props      | A component design, which defines them, or an instance, which sets them |
+| Attributes | A code component's instance                                             |
+| Components | A screen                                                                |
+| Content    | Text                                                                    |
+| Media      | An image or a video, but not inside an instance                         |
+| No style   | A code component that takes no `style`                                  |
+| Styles     | A layer, or a frame, as `styleTable` picks them                         |
+| Modes      | A screen or a component design                                          |
+| Export     | Everything                                                              |
+
+The panels look the same.
+
+Code: `panelTable`, `panelParts`, `designCapabilities` and the `design`, `component`, `instance`, `attrs` and `copy`
+capabilities in `packages/editor/src/layer-capabilities.ts`; `LayerPanel` in `chrome/LayerPanel.tsx` and `DesignPanel`
+in `chrome/DesignPanel.tsx` draw the list.
+
+Tests: `packages/editor/src/layer-capabilities.test.ts`, the sections each selection gets (9): a screen, a component
+design and a frame, a layout, text, an image, a design's instance, a code component's, one that takes no style, and an
+image inside an instance.
+
 ### Each section takes the selection (PAR-1031)
 
 Each section of a layer's panel reads the selected layer and edits it itself, so the panel is a list of sections and a

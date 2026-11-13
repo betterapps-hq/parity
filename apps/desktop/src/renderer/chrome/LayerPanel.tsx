@@ -15,8 +15,9 @@ import {
   type StateSpec,
   type VideoNode
 } from "@parity-app/core"
+import { type InspectorSection, panelParts, selectionCapabilities } from "@parity-app/editor"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
 import { useProject } from "../canvas/context.ts"
 import { frameGeometry, frameSize } from "../canvas/frame-geometry.ts"
@@ -58,11 +59,14 @@ import { TextWithProp } from "./text-prop.tsx"
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a
- * component's board takes edits the same way. Inside an instance, edits change only that copy. Each section takes the
- * selected layer itself (`useSelectedLayer`), so a story draws one alone (PAR-1031).
+ * component's board takes edits the same way. Inside an instance, edits change only that copy. Which sections show, in
+ * what order, is `panelParts` in `@parity-app/editor`, from what the layer can do (PAR-1032); each takes the selected
+ * layer itself (`useSelectedLayer`), so a story draws one alone (PAR-1031).
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
-  const { store } = useProject()
+  const session = useProject()
+  const { store } = session
+  const components = useComponents(session.components)
   const layer = useSelectedLayer()
 
   // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
@@ -76,16 +80,29 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
   }
 
-  return (
-    <>
-      <LayerHeader />
-      <PropsSection />
-      <AttributesSection />
-      <LayerContent />
-      <LayerMedia />
-      <LayerStyles />
-    </>
+  const can = selectionCapabilities(
+    layer.entry.container,
+    [{ id: layer.nodeId, node: layer.node, parent: undefined }],
+    (component) => components[component]?.takesStyle
   )
+
+  return panelParts(can).map((section) => {
+    const Section = layerSections[section]
+
+    return Section && <Section key={section} />
+  })
+}
+
+/** What draws each of a layer's sections; a design's own, as States and Modes, aren't a layer's. */
+const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
+  header: LayerHeader,
+  props: PropsSection,
+  attributes: AttributesSection,
+  content: LayerContent,
+  media: LayerMedia,
+  noStyle: LayerNoStyle,
+  styles: LayerStyles,
+  export: LayerExport
 }
 
 /**
@@ -358,13 +375,44 @@ function LayerMedia() {
   return <MediaSection entry={layer.entry} node={layer.node} />
 }
 
-/**
- * The selected layer's style sections, edited in the state and variant shown, then Export. A code component that takes
- * no `style` says so first.
- */
+/** That a code component taking no `style` can't be sized or styled here, before the style sections. */
+function LayerNoStyle() {
+  const layer = useSelectedLayer()
+
+  return (
+    layer?.node.type === "component" && (
+      <NoStyleNote component={layer.node.component} wrap={layer.inner === undefined} />
+    )
+  )
+}
+
+/** The selected layer's style sections, edited in the state and variant shown. */
 function LayerStyles() {
+  const layer = useSelectedLayer()
+
+  return layer ? <LayerStyleSections entry={layer.entry} nodeId={layer.nodeId} /> : null
+}
+
+/** The style sections for one layer, edited through its style editor. */
+function LayerStyleSections({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
   const session = useProject()
   const components = useComponents(session.components)
+  const styleEditor = useStyleEditor(entry, [nodeId])
+
+  return (
+    styleEditor && (
+      <StyleSections
+        editor={styleEditor}
+        container={entry.container}
+        takesStyle={(component) => components[component]?.takesStyle}
+      />
+    )
+  )
+}
+
+/** Export, for the selected layer. */
+function LayerExport() {
+  const session = useProject()
   const entries = useContainerEntries(session.store)
   const layer = useSelectedLayer()
 
@@ -372,35 +420,9 @@ function LayerStyles() {
     return null
   }
 
-  const { entry, nodeId, node, inner } = layer
-  const name = layerLabel(node, entries, session.store.getComponentLibrary(), session.info.libraries)
+  const name = layerLabel(layer.node, entries, session.store.getComponentLibrary(), session.info.libraries)
 
-  return (
-    <>
-      {node.type === "component" && components[node.component]?.takesStyle === false && (
-        <NoStyleNote component={node.component} wrap={!inner} />
-      )}
-
-      <LayerStyleSections entry={entry} nodeId={nodeId} takesStyle={(component) => components[component]?.takesStyle} />
-
-      <ExportSection targets={[{ design: entry.key, node: nodeId, name }]} label={`Export ${name}`} />
-    </>
-  )
-}
-
-/** The style sections for one layer, edited through its style editor. */
-function LayerStyleSections({
-  entry,
-  nodeId,
-  takesStyle
-}: {
-  entry: ContainerEntry
-  nodeId: string
-  takesStyle: (component: string) => boolean | undefined
-}) {
-  const styleEditor = useStyleEditor(entry, [nodeId])
-
-  return styleEditor && <StyleSections editor={styleEditor} container={entry.container} takesStyle={takesStyle} />
+  return <ExportSection targets={[{ design: layer.entry.key, node: layer.nodeId, name }]} label={`Export ${name}`} />
 }
 
 /**
