@@ -4,8 +4,9 @@ import { DoesNothing } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import {
   alignChoices,
-  ClipContentField,
+  caseChoices,
   clipChoices,
+  ClipContentField,
   cursorChoices as cursorChoicesOf,
   cursorDrawer,
   cursorValue,
@@ -226,6 +227,19 @@ export const AlignDoesNothing: Story = {
       inherited="start"
       start={{ option: "center" }}
       doesNothing="The text is Auto width, as wide as its line, so there's no room to align it in"
+    />
+  )
+}
+
+/** Case: Uppercase pressed. Small caps writes `font-variant-caps`, which has no utility of its own. */
+export const Case: Story = {
+  render: () => (
+    <Toggles
+      label="Case"
+      property="text-transform"
+      choices={caseChoices}
+      inherited="none"
+      start={{ option: "uppercase" }}
     />
   )
 }
