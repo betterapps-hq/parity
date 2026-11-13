@@ -7,10 +7,11 @@ import {
   findNode,
   type ImageNode,
   isInnerPath,
-  mapNode,
   type NodePatch,
+  type OwnFields,
   type PatchField,
   patchSize,
+  setOwnFields,
   slotAtPath,
   type StateSpec,
   type VideoNode
@@ -689,46 +690,24 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
   const kind = node.type
   const noun = kind === "video" ? "video" : "image"
 
-  const edit = (label: string, field: "src" | "alt" | "fit" | "controls", update: (media: MediaNode) => MediaNode) =>
-    updateAndRecord(
-      store,
-      entry.key,
-      label,
-      (container) => ({
-        ...container,
-        root: mapNode(container.root, node.id, (current) => (current.type === kind ? update(current) : current))
-      }),
-      {
-        field: `${kind}.${field}`,
-        layers: [node.id],
-        read: (container) => {
-          const media = findNode(container.root, node.id)
+  const edit = (label: string, field: "src" | "alt" | "fit" | "controls", fields: OwnFields) =>
+    updateAndRecord(store, entry.key, label, (container) => setOwnFields(container, node.id, fields), {
+      field: `${kind}.${field}`,
+      layers: [node.id],
+      read: (container) => {
+        const media = findNode(container.root, node.id)
 
-          if (media?.type !== kind) {
-            return undefined
-          }
-
-          if (field !== "controls") {
-            return media[field]
-          }
-
-          return media.type === "video" ? media.controls : undefined
+        if (media?.type !== kind) {
+          return undefined
         }
+
+        if (field !== "controls") {
+          return media[field]
+        }
+
+        return media.type === "video" ? media.controls : undefined
       }
-    )
-
-  /** The node without `field` when `value` is empty or off, and with it otherwise. */
-  const setting = <K extends "alt" | "fit">(media: MediaNode, field: K, value: MediaNode[K] | undefined): MediaNode => {
-    const next = { ...media }
-
-    if (value) {
-      next[field] = value
-    } else {
-      delete next[field]
-    }
-
-    return next
-  }
+    })
 
   return (
     <PanelSection title="Content">
@@ -738,17 +717,10 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
       />
       <FieldGrid>
         <Field label="File">
-          <TextInput
-            value={node.src}
-            onCommit={(src) => src && edit(`Change ${noun}`, "src", (media) => ({ ...media, src }))}
-          />
+          <TextInput value={node.src} onCommit={(src) => src && edit(`Change ${noun}`, "src", { src })} />
         </Field>
         <Field label="Alt text" hint="What it shows, for screen readers. Leave empty if it's decoration.">
-          <TextInput
-            multiline
-            value={node.alt ?? ""}
-            onCommit={(alt) => edit(`Describe ${noun}`, "alt", (media) => setting(media, "alt", alt))}
-          />
+          <TextInput multiline value={node.alt ?? ""} onCommit={(alt) => edit(`Describe ${noun}`, "alt", { alt })} />
         </Field>
         <Field label="Fit">
           <AppSelect<ImageFit>
@@ -761,24 +733,14 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
               { value: "contain", label: "Contain, shown whole" },
               { value: "fill", label: "Fill, stretched" }
             ]}
-            onValueChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit ?? undefined))}
+            onValueChange={(fit) => edit("Change fit", "fit", { fit })}
           />
         </Field>
         {node.type === "video" && (
           <SwitchRow
             label="Controls"
             checked={node.controls === true}
-            onCheckedChange={(controls) =>
-              edit(controls ? "Show controls" : "Hide controls", "controls", (media) => {
-                if (media.type !== "video") {
-                  return media
-                }
-
-                const { controls: _was, ...rest } = media
-
-                return controls ? { ...rest, controls } : rest
-              })
-            }
+            onCheckedChange={(controls) => edit(controls ? "Show controls" : "Hide controls", "controls", { controls })}
           />
         )}
       </FieldGrid>

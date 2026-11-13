@@ -327,7 +327,9 @@ Update("dashboard/Stats", {
 Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style`, `unset`
 and `component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it. An image or
 video node also takes `src`, `alt` and `credit` (`[{ name, url? }]`), in the base design only. To put a photo or video a
-search found in one, use `place_result`, which tells the source it was used.
+search found in one, use `place_result`, which tells the source it was used. `null` or an empty string takes away a
+`name`, a `tag` or `alt`, as clearing the field in the editor does. A field the node doesn't have, such as `tag` on an
+image or `component` on a text, is refused.
 
 On a component, with `{ state: "loading" }` the change belongs to that state instead of the base design, and `null`
 takes back the state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To

@@ -30,8 +30,6 @@ import {
   dropPatches,
   designModes,
   type DesignNode,
-  type ImageNode,
-  type VideoNode,
   editInner,
   editNode,
   editResponsive,
@@ -52,7 +50,6 @@ import {
   locateInner,
   locateNode,
   mapChildLists,
-  mapNode,
   type ModeSettings,
   modeSettings,
   modesReport,
@@ -75,6 +72,7 @@ import {
   type ReferenceSpec,
   type ResolvedMode,
   resolveModes,
+  setOwnFields,
   type StateSpec,
   uniqueId,
   unknownReference,
@@ -1050,15 +1048,6 @@ export class AgentWorkspace {
       (name) => change[name] !== undefined
     )
 
-    const picture = (["src", "alt", "credit"] as const).find((name) => change[name] !== undefined)
-
-    if (picture && node.type !== "image" && node.type !== "video") {
-      throw new CodedError(`Only an image or a video has ${picture}; a component takes its picture as a prop`, {
-        code: "invalid_input",
-        field: picture
-      })
-    }
-
     if (!base && (renames.length > 0 || bind)) {
       throw new CodedError("A state can only change hidden, text, props, style and unset", {
         code: "invalid_input",
@@ -1075,34 +1064,8 @@ export class AgentWorkspace {
     let next = editNode(container, stateId, node.id, toChange(change), kept)
 
     if (base && renames.length > 0) {
-      next = {
-        ...next,
-        root: mapNode(next.root, node.id, (current) => {
-          const updated = { ...current }
-
-          if (change.name === null) {
-            delete updated.name
-          } else if (change.name !== undefined) {
-            updated.name = change.name
-          }
-
-          if (updated.type === "text" && change.tag === null) {
-            delete updated.tag
-          } else if (updated.type === "text" && change.tag) {
-            updated.tag = change.tag
-          }
-
-          if (updated.type === "component" && change.component !== undefined) {
-            updated.component = change.component
-          }
-
-          if (updated.type === "image" || updated.type === "video") {
-            pictured(updated, change)
-          }
-
-          return updated
-        })
-      }
+      const { name, tag, component, src, alt, credit } = change
+      next = setOwnFields(next, node.id, { name, tag, component, src, alt, credit })
     }
 
     if (bind) {
@@ -2726,24 +2689,6 @@ function describeDropped(dropped: DroppedParts): string | undefined {
  * Sets an image's picture or a video's footage, its description and its credit from an Update, where `null` takes the
  * description or credit away.
  */
-function pictured(image: ImageNode | VideoNode, change: UpdateChange): void {
-  if (change.src !== undefined) {
-    image.src = change.src
-  }
-
-  if (change.alt === null) {
-    delete image.alt
-  } else if (change.alt !== undefined) {
-    image.alt = change.alt
-  }
-
-  if (change.credit === null) {
-    delete image.credit
-  } else if (change.credit !== undefined) {
-    image.credit = change.credit
-  }
-}
-
 /** A variant's option as a call gives it, with its id settled. */
 interface OptionChanges {
   id: string

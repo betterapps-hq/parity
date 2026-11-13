@@ -2,11 +2,11 @@ import {
   type ContainerSpec,
   type DesignNode,
   findNode,
-  mapNode,
   type NodeChange,
   type NodeStyle,
   type ParamSpec,
   type PatchField,
+  setOwnFields,
   styleKeys
 } from "@parity-app/core"
 import { kindName, type StyleRow, type StyleSelection, styleRows } from "@parity-app/editor"
@@ -260,7 +260,7 @@ export function renameAndRecord(
   layer?: string
 ): void {
   if (layer !== undefined) {
-    updateAndRecord(store, key, "Rename layer", (current) => renameLayer(current, layer, name), {
+    updateAndRecord(store, key, "Rename layer", (current) => setOwnFields(current, layer, { name: name ?? null }), {
       field: "name",
       layers: [layer],
       read: (current) => findNode(current.root, layer)?.name
@@ -279,22 +279,6 @@ export function renameAndRecord(
     field: "name",
     read: (current) => current.name
   })
-}
-
-function renameLayer(container: ContainerSpec, nodeId: string, name: string | undefined): ContainerSpec {
-  const root = mapNode(container.root, nodeId, (node) => {
-    const next = { ...node }
-
-    if (name) {
-      next.name = name
-    } else {
-      delete next.name
-    }
-
-    return next
-  })
-
-  return { ...container, root }
 }
 
 /** A layer field's name as `inspector.changed` sends it: `text`, `hidden`, `props.*` or `style.*`. */
