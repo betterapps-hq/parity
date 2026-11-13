@@ -6,26 +6,41 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  DropdownMenuItem,
+  Input,
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  type ComponentInfo,
   type ComponentProp,
+  type ContainerSpec,
   type DesignNode,
+  designSlots,
+  findNode,
+  type InstanceNode,
   isMadeValue,
   type MadeValue as Made,
   nodePropInput,
-  propsPanel
+  overrideCount,
+  type ParamSpec,
+  propsPanel,
+  removeParam,
+  renameParam,
+  resetInstance,
+  swapInstance
 } from "@parity-app/core"
-import { Plus, X } from "lucide-react"
+import { Pencil, Plus, Trash2, X } from "lucide-react"
 import { useState } from "react"
-import { FieldGrid, nameButton } from "../inspector/controls/field-row.tsx"
-import { InstanceSection, type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
-import type { PropPreview } from "../inspector/controls/number-field.tsx"
-import { Hint } from "./Hint.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { useProject } from "../../canvas/context.ts"
+import { focusOnMount } from "../../canvas/kinds.tsx"
+import { projectLibrary } from "../../canvas/layers.ts"
+import { BaseDesignNote } from "../../chrome/BaseDesignNote.tsx"
+import { detachAndRecord, pushAndRecord } from "../../chrome/component-events.ts"
+import { Hint } from "../../chrome/Hint.tsx"
+import { paramValue, updateAndRecord } from "../../chrome/inspector-events.ts"
+import { InstanceSlotFields } from "../../chrome/instance-slots.tsx"
+import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
   booleanValue,
   numberValue,
@@ -35,12 +50,71 @@ import {
   readPropValue,
   textValue,
   valueKind
-} from "./prop-values.ts"
+} from "../../chrome/prop-values.ts"
+import { revealSelection } from "../../chrome/reveal.ts"
+import { AddProp as AddParam, NewPropRow, SlotPropRow } from "../../chrome/slot-props.tsx"
+import { useComponents } from "../../components-store.ts"
+import { type ContainerEntry, useContainerEntries } from "../../design-store.ts"
+import { FieldGrid, nameButton, TitleMenu } from "../controls/field-row.tsx"
+import { InstanceSection, type PropRow, PropRows, type PropValueRow } from "../controls/instance-section.tsx"
+import type { PropPreview } from "../controls/number-field.tsx"
 
-interface PropsSectionProps {
-  node: Extract<DesignNode, { type: "component" }>
-  /** What the component accepts, when its source could be read. */
-  info: ComponentInfo | undefined
+/** A code component placed in a design. */
+type CodeNode = Extract<DesignNode, { type: "component" }>
+
+/** Sets one prop: undefined unsets it, so its default shows. A run of Up and Down presses shares `gesture`. */
+type PropEdit = (name: string, value: PropValue | undefined, gesture?: string) => void
+
+/** An instance's props as its layer's panel edits them, in the state being edited. */
+interface InstanceEdits {
+  entry: ContainerEntry
+  /** The instance as it's shown: of a component design, or of a code component. */
+  node: InstanceNode | CodeNode
+  /** A design instance as the design has it, when it's one of the design's own layers rather than a nested one. */
+  own?: InstanceNode
+  changed: (name: string) => boolean
+  /** Props the state being edited takes away, still listed so they can be set or reset there. */
+  taken?: readonly string[]
+  onChange: PropEdit
+  /** Shows a number prop on the canvas while it's typed or scrubbed, before it's made. */
+  onPreview?: (name: string, value: number | undefined) => void
+  /** Takes the preview back. */
+  onCancel?: () => void
+  onReset: (name: string) => void
+  /** Draws the attributes a code component's instance passes on alone, as a story does. */
+  only?: "attributes"
+}
+
+/**
+ * Props (PAR-1030): a component design's, defined with their defaults, given as `component`; or an instance's, set,
+ * with no difference between a component that's a design and one that's code. A code component's instance has
+ * Attributes after it, for what it passes on to its element.
+ */
+export function PropsSection(props: { component: ContainerEntry } | InstanceEdits) {
+  if ("component" in props) {
+    return <ComponentProps entry={props.component} />
+  }
+
+  const { entry, node, own, ...edits } = props
+
+  if (node.type === "instance") {
+    return (
+      <DesignInstanceProps
+        entry={entry}
+        node={node}
+        own={own}
+        changed={edits.changed}
+        onChange={(name, value) => edits.onChange(name, value)}
+        onReset={edits.onReset}
+      />
+    )
+  }
+
+  return <CodeInstanceProps node={node} {...edits} />
+}
+
+interface CodeInstanceProps {
+  node: CodeNode
   changed: (name: string) => boolean
   /** Props the state being edited takes away, still listed so they can be set or reset there. */
   taken?: readonly string[]
@@ -56,7 +130,7 @@ interface PropsSectionProps {
 }
 
 /** A prop's value as a component layer holds it. */
-type HeldValue = NonNullable<PropsSectionProps["node"]["props"]>[string]
+type HeldValue = NonNullable<CodeNode["props"]>[string]
 
 const groupTitles = new Map([
   ["html", "Attributes"],
@@ -71,9 +145,8 @@ const groupTitles = new Map([
  * shown faintly. Attributes it passes to its element are added one at a time from a searchable list, and removed from
  * their row. Node props, `children` and a Fluent slot alike, take text or say they're set in layers (see `propsPanel`).
  */
-export function PropsSection({
+function CodeInstanceProps({
   node,
-  info,
   changed,
   taken = [],
   onChange,
@@ -81,7 +154,9 @@ export function PropsSection({
   onCancel,
   onReset,
   only
-}: PropsSectionProps) {
+}: CodeInstanceProps) {
+  const session = useProject()
+  const info = useComponents(session.components)[node.component]
   const values = node.props ?? {}
   const known = new Map((info?.props ?? []).map((prop) => [prop.name, prop]))
   // Variants and own props always show; pass-through attributes only once set, or taken away in this state.
@@ -200,7 +275,7 @@ export function PropsSection({
  * code underneath: attributes, aria ones and events, added one at a time from a searchable list and removed from their
  * row. Every component instance has it.
  */
-export function AttributesSection({
+function AttributesSection({
   rows,
   addable,
   onAdd,
@@ -227,7 +302,7 @@ export function AttributesSection({
  * One attribute's row in Attributes, for its kind of value when the element declares it. Accessibility and Events say
  * what kind of attribute it is; a plain one says nothing its section doesn't. Removed by × until a state changes it.
  */
-export function attributeRow(
+function attributeRow(
   name: string,
   prop: ComponentProp | undefined,
   held: HeldValue,
@@ -442,4 +517,310 @@ function initialValue(prop: ComponentProp): PropValue | undefined {
   }
 
   return ""
+}
+
+/**
+ * An instance of a component design: which component, its state and its props, and, for one of the design's own
+ * instances (`own`), its overrides, and swapping or detaching it, drawn as the approved Component instance section.
+ */
+function DesignInstanceProps({
+  entry,
+  node,
+  own,
+  changed,
+  onChange,
+  onReset
+}: {
+  entry: ContainerEntry
+  /** The instance as it's shown. */
+  node: InstanceNode
+  /** The instance as the design has it, when it's one of the design's own nodes rather than a nested one. */
+  own?: InstanceNode
+  changed: (name: string) => boolean
+  onChange: (name: string, value: PropValue | undefined) => void
+  onReset: (name: string) => void
+}) {
+  const session = useProject()
+  const { store, selection } = session
+  const entries = useContainerEntries(store)
+  const component = entries.find((candidate) => candidate.container.id === node.design)
+  // A library's design isn't one of the project's, so it's placed and detached here but edited in the library.
+  const design = component?.container ?? store.getComponentLibrary().get(node.design)
+
+  const from = component
+    ? undefined
+    : session.info.libraries.find((candidate) => candidate.designs?.some((placed) => placed.id === node.design))
+
+  if (!design) {
+    return (
+      <PanelSection title="Component instance">
+        <p className="type-message text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
+      </PanelSection>
+    )
+  }
+
+  const library = projectLibrary(store)
+
+  // The instance's own field, as the design has it, to record what a change to it did.
+  const instanceField = (name: "design") => ({
+    field: `instance.${name}`,
+    layers: [node.id],
+    read: (container: ContainerSpec) => {
+      const instance = findNode(container.root, node.id)
+
+      return instance?.type === "instance" ? instance[name] : undefined
+    }
+  })
+
+  const menu = own && {
+    overrides: overrideCount(own),
+    // Another component this copy could become: not the design it's in, which can't contain itself.
+    swappable: entries
+      .filter(
+        (candidate) =>
+          candidate.container.kind === "component" &&
+          candidate.container.id !== entry.container.id &&
+          candidate.container.id !== node.design
+      )
+      .map((candidate) => ({ id: candidate.container.id, name: candidate.container.name })),
+    onSwap: (id: string) =>
+      updateAndRecord(
+        store,
+        entry.key,
+        "Swap instance",
+        (container) => swapInstance(container, node.id, id, library),
+        instanceField("design")
+      ),
+    onResetOverrides: () =>
+      updateAndRecord(store, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
+        field: "overrides",
+        layers: [node.id],
+        read: (container) => {
+          const instance = findNode(container.root, node.id)
+
+          return instance?.type === "instance" ? instance.overrides : undefined
+        }
+      }),
+    onPush: component && (() => pushAndRecord(store, entry.key, component.key, node.id)),
+    onDetach: () => detachAndRecord(store, entry.key, node.id)
+  }
+
+  return (
+    <InstanceSection
+      component={design.name}
+      onGoTo={
+        component &&
+        (() => {
+          selection.set({ design: component.key })
+          revealSelection(session)
+        })
+      }
+      linked={from?.name}
+      props={instanceRows(design.params ?? {}, node.args ?? {})}
+      changed={changed}
+      onResetProp={onReset}
+      onChange={(name, value) => onChange(name, value)}
+      menu={menu}
+      note={own && <BaseDesignNote entry={entry} what="Reset overrides, Swap and Detach" />}
+    >
+      {own && <InstanceSlotFields entry={entry} instance={own} />}
+    </InstanceSection>
+  )
+}
+
+/**
+ * A component design's params as an instance's prop rows, with what the instance gives each: a variant offers its
+ * options with its default first, and the rest take the value their type says, with the default shown faintly.
+ */
+function instanceRows(
+  params: NonNullable<ContainerSpec["params"]>,
+  args: NonNullable<InstanceNode["args"]>
+): PropRow[] {
+  return Object.entries(params).map(([name, param]): PropRow => {
+    const held = readPropValue(args[name])
+    const fallback = readPropValue(param.default)
+
+    if (param.type === "variant") {
+      const options = (param.options ?? []).map((option) => ({ id: option.id, name: option.name }))
+
+      return {
+        name,
+        type: "variant",
+        value: textValue.safeParse(held).data,
+        default: textValue.safeParse(param.default).data ?? options[0]?.id,
+        options
+      }
+    }
+
+    if (param.type === "boolean") {
+      return { name, type: "boolean", value: booleanValue.safeParse(held ?? fallback).data ?? false }
+    }
+
+    if (param.type === "number") {
+      return {
+        name,
+        type: "number",
+        value: numberValue.safeParse(held).data,
+        default: numberValue.safeParse(fallback).data
+      }
+    }
+
+    if (param.type === "text") {
+      return {
+        name,
+        type: "text",
+        value: held === undefined ? undefined : plainText(held),
+        default: fallback === undefined ? undefined : plainText(fallback)
+      }
+    }
+
+    return { name, type: "value", value: held, default: fallback, loose: true }
+  })
+}
+
+/**
+ * A component design's props: params with their defaults, then slots, a kind of prop that takes layers, with the layout
+ * each fills where a param has its default. Variants aren't listed for now (PAR-1017).
+ */
+function ComponentProps({ entry }: { entry: ContainerEntry }) {
+  const all = Object.entries(entry.container.params ?? {})
+  const params = all.filter(([, param]) => param.type !== "variant")
+  const slots = designSlots(entry.container)
+
+  return (
+    <PanelSection
+      title="Props"
+      count={params.length + slots.length}
+      description="What each instance can change."
+      action={<AddParam entry={entry} />}
+    >
+      <div className="flex flex-col gap-2.5">
+        {params.length > 0 && <ParamRows entry={entry} params={params} />}
+        {slots.map((slot) => (
+          <SlotPropRow key={slot.node.id} entry={entry} slot={slot} />
+        ))}
+        <NewPropRow entry={entry} />
+      </div>
+    </PanelSection>
+  )
+}
+
+/** A param's row for its kind of value: its default, which an instance shows faintly until it sets its own. */
+function paramRow(name: string, param: ParamSpec): PropValueRow {
+  const value = readPropValue(param.default)
+  const kind = valueKind(value, param.type)
+
+  if (kind === "boolean") {
+    return { type: "boolean", value: booleanValue.safeParse(value).data ?? false }
+  }
+
+  if (kind === "number") {
+    return { type: "number", value: numberValue.safeParse(value).data }
+  }
+
+  if (kind === "text") {
+    return { type: "text", value: textValue.safeParse(value).data, placeholder: `${name}'s default` }
+  }
+
+  return { type: "value", value, loose: kind === "any" }
+}
+
+/**
+ * A component design's params in the rows an instance's props are drawn in, each with its default to edit, and a menu
+ * at the end of its name's row to rename or remove it.
+ */
+function ParamRows({ entry, params }: { entry: ContainerEntry; params: [string, ParamSpec][] }) {
+  const session = useProject()
+  const [renaming, setRenaming] = useState<string>()
+  const [error, setError] = useState<string>()
+
+  const record = (label: string, name: string, change: (container: ContainerSpec) => ContainerSpec, gesture?: string) =>
+    updateAndRecord(session.store, entry.key, label, change, {
+      field: `params.${name}`,
+      read: (container) => paramValue(container, name),
+      gesture
+    })
+
+  const rename = (from: string, to: string) => {
+    setRenaming(undefined)
+
+    if (to === "" || to === from) {
+      setError(undefined)
+
+      return
+    }
+
+    try {
+      record(`Rename ${from}`, from, (container) => renameParam(container, from, to))
+      setError(undefined)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }
+
+  const rows = params.map(([name, param]): PropRow => {
+    if (renaming === name) {
+      return {
+        name,
+        type: "shown",
+        shown: (
+          <Input
+            ref={focusOnMount}
+            defaultValue={name}
+            aria-label={`Rename ${name}`}
+            className="h-7 px-2 font-mono text-xs"
+            onBlur={(event) => rename(name, event.currentTarget.value.trim())}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur()
+              } else if (event.key === "Escape") {
+                setRenaming(undefined)
+              }
+            }}
+          />
+        )
+      }
+    }
+
+    return {
+      ...paramRow(name, param),
+      name,
+      hint: `${name}: ${param.type}`,
+      action: (
+        <TitleMenu label={`More options for ${name}`} className="size-5" menuClassName="w-40">
+          <DropdownMenuItem onClick={() => setRenaming(name)}>
+            <Pencil /> Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => record(`Remove ${name}`, name, (container) => removeParam(container, name))}
+          >
+            <Trash2 /> Remove
+          </DropdownMenuItem>
+        </TitleMenu>
+      )
+    }
+  })
+
+  return (
+    <>
+      <FieldGrid>
+        <PropRows
+          rows={rows}
+          onChange={(name, value, gesture) =>
+            record(
+              `Change ${name} default`,
+              name,
+              (container) => ({
+                ...container,
+                params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
+              }),
+              gesture
+            )
+          }
+        />
+      </FieldGrid>
+      {error && <p className="type-message text-destructive">{error}</p>}
+    </>
+  )
 }

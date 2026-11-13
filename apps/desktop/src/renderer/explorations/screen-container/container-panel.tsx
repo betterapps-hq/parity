@@ -31,19 +31,17 @@ import { DesignIcon, designColor, kindColors } from "../../canvas/kinds.tsx"
 import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { extractIntoComponent } from "../../chrome/components.ts"
-import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { PropsSection } from "../../chrome/PropsSection.tsx"
 import { revealSelection } from "../../chrome/reveal.ts"
 import { StatesSection } from "../../chrome/StatesSection.tsx"
 import { useStyleEditor } from "../../chrome/style-editor.ts"
 import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
-import { useComponents } from "../../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { FieldTarget } from "../../inspector/controls/field-row.tsx"
+import { PropsSection } from "../../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../../selection.ts"
 
 /*
@@ -113,7 +111,7 @@ export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
     <>
       <ContainerHeader entry={entry} />
       <RootSections entry={entry} />
-      {component && <ParamsSection entry={entry} />}
+      {component && <PropsSection component={entry} />}
       {component && <StatesSection entry={entry} />}
       <ModesSection entry={entry} />
       {!component && <RepeatedPartsSection entry={entry} />}
@@ -254,7 +252,6 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { store, selection } = session
   const selected = useSelection(selection)
-  const components = useComponents(session.components)
   const { container, key } = entry
   const rootId = container.root.id
   const state = editingState(container, selected.state)
@@ -277,8 +274,8 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
     <>
       {node.type === "component" && (
         <PropsSection
+          entry={entry}
           node={node}
-          info={components[node.component]}
           changed={(name) => override?.props?.[name] !== undefined}
           onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
           onReset={(name) => reset({ kind: "props", key: name })}

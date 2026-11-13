@@ -1,28 +1,16 @@
-import { Button, DropdownMenuItem, Input } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  type ContainerSpec,
-  designSlots,
-  type ParamSpec,
-  removeParam,
-  renameParam,
-  type RepeatCandidate
-} from "@parity-app/core"
-import { Diamond, Pencil, ScanSearch, Sparkles, Trash2 } from "lucide-react"
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { type RepeatCandidate } from "@parity-app/core"
+import { Diamond, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
-import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
+import { kindColors } from "../canvas/kinds.tsx"
 import type { ContainerEntry } from "../design-store.ts"
-import { FieldGrid, TitleMenu } from "../inspector/controls/field-row.tsx"
-import { type PropRow, PropRows, type PropValueRow } from "../inspector/controls/instance-section.tsx"
 import { extractIntoComponent } from "./components.ts"
 import { Hint } from "./Hint.tsx"
-import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { booleanValue, numberValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
-import { AddProp, NewPropRow, SlotPropRow } from "./slot-props.tsx"
 
 /**
  * Breaking a screen into components. Repeated parts are found exactly; extracting one makes a component design with
@@ -137,152 +125,5 @@ function CandidateCard({
         </Button>
       </div>
     </li>
-  )
-}
-
-/**
- * A component design's props: params with their defaults, then slots, a kind of prop that takes layers, with the layout
- * each fills where a param has its default. Variants aren't listed for now (PAR-1017).
- */
-export function ParamsSection({ entry }: { entry: ContainerEntry }) {
-  const all = Object.entries(entry.container.params ?? {})
-  const params = all.filter(([, param]) => param.type !== "variant")
-  const slots = designSlots(entry.container)
-
-  return (
-    <PanelSection
-      title="Props"
-      count={params.length + slots.length}
-      description="What each instance can change."
-      action={<AddProp entry={entry} />}
-    >
-      <div className="flex flex-col gap-2.5">
-        {params.length > 0 && <ParamRows entry={entry} params={params} />}
-        {slots.map((slot) => (
-          <SlotPropRow key={slot.node.id} entry={entry} slot={slot} />
-        ))}
-        <NewPropRow entry={entry} />
-      </div>
-    </PanelSection>
-  )
-}
-
-/** A param's row for its kind of value: its default, which an instance shows faintly until it sets its own. */
-function paramRow(name: string, param: ParamSpec): PropValueRow {
-  const value = readPropValue(param.default)
-  const kind = valueKind(value, param.type)
-
-  if (kind === "boolean") {
-    return { type: "boolean", value: booleanValue.safeParse(value).data ?? false }
-  }
-
-  if (kind === "number") {
-    return { type: "number", value: numberValue.safeParse(value).data }
-  }
-
-  if (kind === "text") {
-    return { type: "text", value: textValue.safeParse(value).data, placeholder: `${name}'s default` }
-  }
-
-  return { type: "value", value, loose: kind === "any" }
-}
-
-/**
- * A component design's params in the rows an instance's props are drawn in, each with its default to edit, and a menu
- * at the end of its name's row to rename or remove it.
- */
-function ParamRows({ entry, params }: { entry: ContainerEntry; params: [string, ParamSpec][] }) {
-  const session = useProject()
-  const [renaming, setRenaming] = useState<string>()
-  const [error, setError] = useState<string>()
-
-  const record = (label: string, name: string, change: (container: ContainerSpec) => ContainerSpec, gesture?: string) =>
-    updateAndRecord(session.store, entry.key, label, change, {
-      field: `params.${name}`,
-      read: (container) => paramValue(container, name),
-      gesture
-    })
-
-  const rename = (from: string, to: string) => {
-    setRenaming(undefined)
-
-    if (to === "" || to === from) {
-      setError(undefined)
-
-      return
-    }
-
-    try {
-      record(`Rename ${from}`, from, (container) => renameParam(container, from, to))
-      setError(undefined)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    }
-  }
-
-  const rows = params.map(([name, param]): PropRow => {
-    if (renaming === name) {
-      return {
-        name,
-        type: "shown",
-        shown: (
-          <Input
-            ref={focusOnMount}
-            defaultValue={name}
-            aria-label={`Rename ${name}`}
-            className="h-7 px-2 font-mono text-xs"
-            onBlur={(event) => rename(name, event.currentTarget.value.trim())}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur()
-              } else if (event.key === "Escape") {
-                setRenaming(undefined)
-              }
-            }}
-          />
-        )
-      }
-    }
-
-    return {
-      ...paramRow(name, param),
-      name,
-      hint: `${name}: ${param.type}`,
-      action: (
-        <TitleMenu label={`More options for ${name}`} className="size-5" menuClassName="w-40">
-          <DropdownMenuItem onClick={() => setRenaming(name)}>
-            <Pencil /> Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => record(`Remove ${name}`, name, (container) => removeParam(container, name))}
-          >
-            <Trash2 /> Remove
-          </DropdownMenuItem>
-        </TitleMenu>
-      )
-    }
-  })
-
-  return (
-    <>
-      <FieldGrid>
-        <PropRows
-          rows={rows}
-          onChange={(name, value, gesture) =>
-            record(
-              `Change ${name} default`,
-              name,
-              (container) => ({
-                ...container,
-                params: { ...container.params, [name]: { ...container.params![name]!, default: value } }
-              }),
-              gesture
-            )
-          }
-        />
-      </FieldGrid>
-      {error && <p className="type-message text-destructive">{error}</p>}
-    </>
   )
 }

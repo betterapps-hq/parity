@@ -9,8 +9,9 @@ import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } fro
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
@@ -159,7 +160,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
   return (
     <>
       {container.kind === "component" && <StatesSection entry={entry} />}
-      {container.kind === "component" ? <ParamsSection entry={entry} /> : <ComponentsSection entry={entry} />}
+      {container.kind === "component" ? <PropsSection component={entry} /> : <ComponentsSection entry={entry} />}
 
       <ModesSection entry={entry} />
     </>

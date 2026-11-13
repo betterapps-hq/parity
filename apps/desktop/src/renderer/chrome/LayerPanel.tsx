@@ -11,27 +11,23 @@ import {
   findNode,
   type ImageNode,
   innerChanges,
-  type InstanceNode,
   isInnerPath,
   locateInner,
   locateNode,
   mapNode,
   nodeOnBoard,
   type NodePatch,
-  overrideCount,
   type PatchField,
   patchSize,
   propChange,
-  resetInstance,
   resetOverride,
   slotAtPath,
   type StateSpec,
-  swapInstance,
   targetPatches,
   type VideoNode
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
-import { Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
+import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import type { Editor } from "tldraw"
 import { useChangePreview } from "../canvas/change-preview.ts"
@@ -45,13 +41,13 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
-import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
-import { detachAndRecord, pushAndRecord } from "./component-events.ts"
+import { BaseDesignNote } from "./BaseDesignNote.tsx"
+import { pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
-import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
@@ -64,15 +60,13 @@ import {
   renameAndRecord,
   updateAndRecord
 } from "./inspector-events.ts"
-import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
+import { SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
-import { booleanValue, numberValue, plainText, type PropValue, readPropValue, textValue } from "./prop-values.ts"
-import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
@@ -257,7 +251,7 @@ function DesignLayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; node
   )
 
   const instance = node.type === "instance" && (
-    <InstanceSection
+    <PropsSection
       entry={entry}
       node={node}
       own={location.node.type === "instance" ? location.node : undefined}
@@ -452,7 +446,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
       </div>
 
       {node.type === "instance" && (
-        <InstanceSection
+        <PropsSection
           entry={entry}
           node={node}
           changed={(name) => changesField(override, { kind: "props", key: name })}
@@ -526,8 +520,8 @@ function LayerSections({
 
   const props = node.type === "component" && (
     <PropsSection
+      entry={entry}
       node={node}
-      info={components[node.component]}
       changed={(name) => changesField(override, { kind: "props", key: name })}
       taken={override?.unset?.props}
       onChange={(name, value, gesture) =>
@@ -700,165 +694,6 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
 }
 
 /**
- * An instance of a component design: which component, its state and its props, and, for one of the design's own
- * instances (`own`), its overrides, and swapping or detaching it, drawn as the approved Component instance section.
- */
-function InstanceSection({
-  entry,
-  node,
-  own,
-  changed,
-  onChange,
-  onReset
-}: {
-  entry: ContainerEntry
-  /** The instance as it's shown. */
-  node: InstanceNode
-  /** The instance as the design has it, when it's one of the design's own nodes rather than a nested one. */
-  own?: InstanceNode
-  changed: (name: string) => boolean
-  onChange: (name: string, value: PropValue | undefined) => void
-  onReset: (name: string) => void
-}) {
-  const session = useProject()
-  const { store, selection } = session
-  const entries = useContainerEntries(store)
-  const component = entries.find((candidate) => candidate.container.id === node.design)
-  // A library's design isn't one of the project's, so it's placed and detached here but edited in the library.
-  const design = component?.container ?? store.getComponentLibrary().get(node.design)
-
-  const from = component
-    ? undefined
-    : session.info.libraries.find((candidate) => candidate.designs?.some((placed) => placed.id === node.design))
-
-  if (!design) {
-    return (
-      <PanelSection title="Component instance">
-        <p className="type-message text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
-      </PanelSection>
-    )
-  }
-
-  const library = projectLibrary(store)
-
-  // The instance's own field, as the design has it, to record what a change to it did.
-  const instanceField = (name: "design") => ({
-    field: `instance.${name}`,
-    layers: [node.id],
-    read: (container: ContainerSpec) => {
-      const instance = findNode(container.root, node.id)
-
-      return instance?.type === "instance" ? instance[name] : undefined
-    }
-  })
-
-  const menu = own && {
-    overrides: overrideCount(own),
-    // Another component this copy could become: not the design it's in, which can't contain itself.
-    swappable: entries
-      .filter(
-        (candidate) =>
-          candidate.container.kind === "component" &&
-          candidate.container.id !== entry.container.id &&
-          candidate.container.id !== node.design
-      )
-      .map((candidate) => ({ id: candidate.container.id, name: candidate.container.name })),
-    onSwap: (id: string) =>
-      updateAndRecord(
-        store,
-        entry.key,
-        "Swap instance",
-        (container) => swapInstance(container, node.id, id, library),
-        instanceField("design")
-      ),
-    onResetOverrides: () =>
-      updateAndRecord(store, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
-        field: "overrides",
-        layers: [node.id],
-        read: (container) => {
-          const instance = findNode(container.root, node.id)
-
-          return instance?.type === "instance" ? instance.overrides : undefined
-        }
-      }),
-    onPush: component && (() => pushAndRecord(store, entry.key, component.key, node.id)),
-    onDetach: () => detachAndRecord(store, entry.key, node.id)
-  }
-
-  return (
-    <InstanceControls
-      component={design.name}
-      onGoTo={
-        component &&
-        (() => {
-          selection.set({ design: component.key })
-          revealSelection(session)
-        })
-      }
-      linked={from?.name}
-      props={instanceRows(design.params ?? {}, node.args ?? {})}
-      changed={changed}
-      onResetProp={onReset}
-      onChange={(name, value) => onChange(name, value)}
-      menu={menu}
-      note={own && <BaseDesignNote entry={entry} what="Reset overrides, Swap and Detach" />}
-    >
-      {own && <InstanceSlotFields entry={entry} instance={own} />}
-    </InstanceControls>
-  )
-}
-
-/**
- * A component design's params as an instance's prop rows, with what the instance gives each: a variant offers its
- * options with its default first, and the rest take the value their type says, with the default shown faintly.
- */
-function instanceRows(
-  params: NonNullable<ContainerSpec["params"]>,
-  args: NonNullable<InstanceNode["args"]>
-): PropRow[] {
-  return Object.entries(params).map(([name, param]): PropRow => {
-    const held = readPropValue(args[name])
-    const fallback = readPropValue(param.default)
-
-    if (param.type === "variant") {
-      const options = (param.options ?? []).map((option) => ({ id: option.id, name: option.name }))
-
-      return {
-        name,
-        type: "variant",
-        value: textValue.safeParse(held).data,
-        default: textValue.safeParse(param.default).data ?? options[0]?.id,
-        options
-      }
-    }
-
-    if (param.type === "boolean") {
-      return { name, type: "boolean", value: booleanValue.safeParse(held ?? fallback).data ?? false }
-    }
-
-    if (param.type === "number") {
-      return {
-        name,
-        type: "number",
-        value: numberValue.safeParse(held).data,
-        default: numberValue.safeParse(fallback).data
-      }
-    }
-
-    if (param.type === "text") {
-      return {
-        name,
-        type: "text",
-        value: held === undefined ? undefined : plainText(held),
-        default: fallback === undefined ? undefined : plainText(fallback)
-      }
-    }
-
-    return { name, type: "value", value: held, default: fallback, loose: true }
-  })
-}
-
-/**
  * Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. Only a
  * component has states and variants, so a screen's or a frame's edits always change the design, and it shows nothing.
  */
@@ -982,34 +817,6 @@ export function placeNode(
     size: { width: Math.round(rect.width / scale), height: Math.round(rect.height / scale) },
     inFlow: { x: Math.round(rect.left / scale - left), y: Math.round(rect.top / scale - top) }
   }
-}
-
-/**
- * Says, before anything is changed, that the controls it heads change the design itself, when the Editing control
- * above sends other edits to a state or a variant: `what` can't differ from one state to another. It's tinted as that
- * control is, so the two read together. Nothing shows while edits change the design anyway.
- */
-function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }) {
-  const { selection } = useProject()
-  const selected = useSelection(selection)
-  const note = baseDesignNote(entry.container, editingState(entry.container, selected.state), what)
-
-  if (!note) {
-    return null
-  }
-
-  return (
-    <p
-      className="type-message mb-2 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5"
-      style={{
-        borderColor: kindColors.component,
-        background: "color-mix(in oklch, var(--canvas-component) 8%, transparent)"
-      }}
-    >
-      <Info className="mt-0.5 size-3.5 shrink-0" style={{ color: kindColors.component }} aria-hidden />
-      <span>{note}</span>
-    </p>
-  )
 }
 
 /** A picture's or a video's layer, which the section edits the same way. */
