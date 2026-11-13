@@ -25,7 +25,11 @@ export type LayersDrag = NonNullable<ReturnType<typeof readLayersDrag>>
 const selectLook = [
   "rounded-[min(var(--radius-md),10px)]! border! border-input! bg-transparent! py-0.5! ps-1.5! pe-2!",
   "transition-colors dark:bg-input/30! dark:hover:bg-input/50!",
-  "ring-0! hover:not-focus-within:ring-0! focus-within:border-ring! focus-within:ring-3! focus-within:ring-ring/50!",
+  "ring-0! hover:not-focus-within:ring-0!",
+  // A click opens the list and leaves the box as it was, as a click on the select does. Only focus reached by keyboard,
+  // with the list still closed, rings it, as the select's keyboard focus does.
+  "has-[input:focus-visible:not([aria-expanded=true])]:border-ring!",
+  "has-[input:focus-visible:not([aria-expanded=true])]:ring-3! has-[input:focus-visible:not([aria-expanded=true])]:ring-ring/50!",
   // Outside the border, as the select's ring is, not inside it as the chips' is.
   "[--tw-ring-inset:_]!"
 ].join(" ")
