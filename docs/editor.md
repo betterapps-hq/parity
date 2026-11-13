@@ -6477,8 +6477,12 @@ for the component its route draws, else its path.
   there to the board, behind the title, whose name and path sit on the canvas's own color. Pages side by side share a
   level, so a line only ever passes behind the title of the page it leads to, at any zoom: zoomed out, where a title
   takes more of the canvas, the curve turns down higher. Once a title reaches up to the page above, the line curves all
-  the way down. Its dashes flow slowly down the tree. The lines are drawn from where the boards are now, so they follow
-  a page that's moved, and they sit behind every board.
+  the way down. Its dashes flow slowly down the tree, at any zoom, so the tree shows which way it runs. Lines are faint
+  until a page is selected or hovered, on the canvas or in Layers: then its way up to the top of the tree and its lines
+  to the pages right under it come forward in the page color, drawn over the rest. Selecting Billing brings forward
+  Billing's line and Settings', and selecting Settings brings forward its line up to App and its lines to Billing and
+  Profile. The lines are drawn from where the boards are now, so they follow a page that's moved, and they sit behind
+  every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
@@ -6503,21 +6507,24 @@ Tried in a development build on the example project, opened cold: seven page scr
 between them, each showing its page, `/settings` redirected to Profile, with no errors; the lines' dashes moved from
 each page toward the pages under it.
 
-Code: `pageTree`, `placePages`, `routeScreens` and `pageLinkLine` in `packages/editor/src/route-boards.ts`, with
-`titleTop` in `canvas-labels.ts`; `projectRoutes` in `apps/desktop/src/utility/projects.ts`;
-`apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`; `PageFrame` and the title's backdrop in
-`ContainerView.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`.
+Code: `pageTree`, `placePages`, `routeScreens`, `pageLinkLine` and `pageLinksLit` in
+`packages/editor/src/route-boards.ts`, with `titleTop` in `canvas-labels.ts`; `projectRoutes` in
+`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`;
+`PageFrame` and the title's backdrop in `ContainerView.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`.
 
-Tests: `packages/editor/src/route-boards.test.ts` (11: each layout's pages hung from its index, the root's index at the
+Tests: `packages/editor/src/route-boards.test.ts` (14: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout without an index hanging its pages from the page above; a forest
 without a root index, and nothing without routes; each page centered over the pages under it, a level below; each page's
 URL with its params' samples; a splat's empty sample; a screen for each page, named for its component, with the screen
 it hangs from, ending above the designs; each viewport's frame as tall as its screen; a line curving across above the
 lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
-title reaches the page above), and `canvas-labels.test.ts` (`titleTop`, up close and zoomed out). Gaps: reading routes
-when the project opens, the page frames, drawing the lines and the titles' backdrop, and the bundling have no test of
-their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
-path read clearly, with each line meeting its page's top edge.
+title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
+under it, for several pages at once, and none for no page or a page outside the tree), and `canvas-labels.test.ts`
+(`titleTop`, up close and zoomed out). Gaps: reading routes when the project opens, the page frames, drawing the lines
+and the titles' backdrop, and the bundling have no test of their own; all were tried in the app. The lines were checked
+on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge.
+Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with
+its own routes) at 5% and 10%, by selecting Settings and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

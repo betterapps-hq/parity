@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   pageFrameName,
   pageLinkLine,
+  pageLinksLit,
   pageName,
   type PageNode,
   pageTree,
@@ -203,5 +204,28 @@ describe("pageLinkLine", () => {
 
   it("curves all the way to the page once its title reaches up to the page above", () => {
     expect(pageLinkLine(above, below, 0.02)).toBe("M 640 800 C 640 1350, 2080 1350, 2080 1900")
+  })
+})
+
+describe("pageLinksLit", () => {
+  // The example's tree: App holds Pricing and Settings, and Settings holds Billing and Profile.
+  const links = [
+    { from: "app", to: "pricing" },
+    { from: "app", to: "settings" },
+    { from: "settings", to: "billing" },
+    { from: "settings", to: "profile" }
+  ]
+
+  it("lights a page's way up to the top of the tree and the lines to the pages right under it", () => {
+    expect(pageLinksLit(links, ["settings"])).toEqual(new Set(["settings", "billing", "profile"]))
+    expect(pageLinksLit(links, ["billing"])).toEqual(new Set(["billing", "settings"]))
+  })
+
+  it("lights what each of several pages lights, as a selected page and a hovered one", () => {
+    expect(pageLinksLit(links, ["pricing", "profile"])).toEqual(new Set(["pricing", "profile", "settings"]))
+  })
+
+  it("lights nothing for no page, or a page outside the tree", () => {
+    expect(pageLinksLit(links, [undefined, "a design"])).toEqual(new Set())
   })
 })

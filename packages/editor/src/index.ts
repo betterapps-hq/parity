@@ -460,6 +460,7 @@ export {
   pageFrameName,
   type PageLayout,
   pageLinkLine,
+  pageLinksLit,
   type PageMode,
   pageName,
   type PageNode,

@@ -265,6 +265,37 @@ export function pageLinkLine(above: BoardBox, below: BoardBox, zoom: number): st
   return `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${curveEnd - bend}, ${x2} ${curveEnd}${drop}`
 }
 
+/**
+ * The lines of the app's page tree that a page brings forward when it's selected or hovered (PAR-1076): those on its way
+ * up to the top of the tree, and those down to the pages right under it. Each line is a parent and a child, and it's
+ * named here by its child, which has one parent. Lines are named by their pages' keys; a page in no line lights none.
+ */
+export function pageLinksLit(
+  links: readonly { from: string; to: string }[],
+  pages: readonly (string | undefined)[]
+): Set<string> {
+  const parentOf = new Map(links.map(({ from, to }) => [to, from]))
+  const lit = new Set<string>()
+
+  for (const page of pages) {
+    if (page === undefined) {
+      continue
+    }
+
+    for (const { from, to } of links) {
+      if (from === page) {
+        lit.add(to)
+      }
+    }
+
+    for (let child = page; parentOf.has(child) && !lit.has(child); child = parentOf.get(child)!) {
+      lit.add(child)
+    }
+  }
+
+  return lit
+}
+
 /** Each viewport's frame as tall as its screen, so a page's frame is a window onto it rather than its whole length. */
 function pageFrames(modes: ModeSettings): Record<string, FrameSize> {
   const viewport = modes.variables.find((variable) => variable.kind === "viewport")
