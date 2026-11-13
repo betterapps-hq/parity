@@ -52,7 +52,7 @@ Every id an adapter registers is its own (`storybook:open`, `tanstack-router:rou
 ## The shape
 
 The interfaces for each kind of adapter (renderer, builder, styles, router, entities) keep what's particular to them,
-and share one base that holds registrations:
+and share one base that holds detection and registrations:
 
 ```ts
 interface Adapter {
@@ -64,10 +64,33 @@ interface Adapter {
   icons?: Record<string, string>
   /** What detection reads its version from. */
   versions?: VersionFacts
-  /** What it adds to the editor, from what Parity found of its tool. */
+  /** Files, from the project root, whose coming, going or changing means it's detected again. */
+  watches?: readonly string[]
+  /** Whether the project uses its tool, and what was found. */
+  detect(project: DetectContext): Promise<AdapterDetection>
+  /** What it adds to the editor, from what Parity found of its tool. Only asked once it's detected. */
   registers?(facts: ProjectFacts): Registrations
   /** Runs one of its actions. */
   run?(action: string, context: ActionContext): Promise<ActionResult>
+}
+
+/** What every detector reads the project through, so each can look where its tool keeps its traces. */
+interface DetectContext {
+  root: string
+  pkg: PackageManifest
+  /** A file's text by its path from the root, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+  /** The project's files whose path matches, leaving out dependencies and builds. */
+  files(match: RegExp): Promise<string[]>
+}
+
+interface AdapterDetection {
+  found: boolean
+  version?: string
+  /** Its config file, from the project root. */
+  config?: string
+  /** What was found, or what was looked for, in a sentence. */
+  summary: string
 }
 
 interface Registrations {
@@ -82,8 +105,22 @@ interface Registrations {
 }
 ```
 
-`status` becomes one field of `registers`. The service asks each detected adapter once when the project opens, and again
-when one of the adapter's files changes, and sends the results to the windows with the project's info, by adapter.
+## Detect, then register
+
+Opening a project runs every adapter's detector, all at once, and registers only those that find their tool:
+
+1. **Detect.** Each `detect` gets the same `DetectContext`. Today a renderer, router and entities adapter take a
+   package.json, a builder the root folder, and Tailwind a stylesheet's text; all of them can look through one context.
+   What each finds is its line in the project's detection, with its version checked against the cutoff from its
+   `versions`, so `detect.ts` keeps no list of tools.
+2. **Choose.** A project needs one renderer and one builder, the first in the list that finds its tool. Every other
+   adapter that finds its tool is used.
+3. **Register.** The service calls `registers` on each adapter in use, and sends the results to the windows with the
+   project's info, by adapter. `status` is one field of it.
+4. **Again when it changes.** When a file one of its `watches` names comes, goes or changes, as when
+   `.storybook/main.ts` is added, the adapter is detected again. One that's found registers afresh; one that's gone
+   takes its registrations with it. An adapter also registers afresh when the tool's own files change, as when a story
+   is added.
 
 ## Data, not React
 
@@ -127,7 +164,9 @@ since packages will be published to a registry. The workspace lists `adapters/*`
    and Storybook, one list the service, the builder process, Storybook's example project and the fixtures share, and a
    Tailwind status item. React and Vite move into `frameworks` and `builders`, and every folder drops `-adapter`, while
    no other session is changing them.
-2. **Version facts.** Detection reads each adapter's `versions`, and the fixed list in `detect.ts` goes.
+2. **One detector each, and version facts.** Every `detect` takes a `DetectContext` and returns an `AdapterDetection`,
+   detection reads each adapter's `versions`, `watches` takes over from a builder's `configFiles`, and the fixed list in
+   `detect.ts` goes.
 3. **Actions.** Storybook registers Open in Storybook; `storybook.open` and the `{ tool }` click go.
 4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
    registers.
