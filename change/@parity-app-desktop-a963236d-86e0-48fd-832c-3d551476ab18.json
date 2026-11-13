@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A layout's and a text layer's Design panels lead with the sections each uses most, and Typography folds on a layout until it's set",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

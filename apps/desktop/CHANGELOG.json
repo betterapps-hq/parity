@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 06:50:37 GMT",
+      "version": "0.81.0",
+      "tag": "@parity-app/desktop_v0.81.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "57ef1313648b0d3182092dd77acfd7894590af45",
+            "comment": "A layout's and a text layer's Design panels lead with the sections each uses most, and Typography folds on a layout until it's set"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 06:22:21 GMT",
       "version": "0.80.6",
       "tag": "@parity-app/desktop_v0.80.6",

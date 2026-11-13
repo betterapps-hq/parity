@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 06:22:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 06:50:37 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.81.0
+
+Fri, 13 Nov 2026 06:50:37 GMT
+
+### Minor changes
+
+- A layout's and a text layer's Design panels lead with the sections each uses most, and Typography folds on a layout
+  until it's set (ajcraswell@gmail.com)
 
 ## 0.80.6
 
