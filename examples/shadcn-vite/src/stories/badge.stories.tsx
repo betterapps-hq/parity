@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { Badge } from "../components/ui/badge"
+import { Badge } from "@buildkitgg/shadcn-baseui-nova"
 
 const meta = {
   component: Badge,

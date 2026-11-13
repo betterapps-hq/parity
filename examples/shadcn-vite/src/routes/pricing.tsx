@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@buildkitgg/shadcn-baseui-nova"
 
 export const Route = createFileRoute("/pricing")({ component: Pricing })
 
