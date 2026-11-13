@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Chip fields open their list as close below the box as a select does",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

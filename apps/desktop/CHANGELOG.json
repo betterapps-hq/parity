@@ -2,6 +2,65 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 06:01:58 GMT",
+      "version": "0.80.5",
+      "tag": "@parity-app/desktop_v0.80.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "26eb946de810eb55d6e4cc3b7873b5f1e7a66832",
+            "comment": "Work out what a token comes to in one place, tokenValue, which the editor and the agent's SetTokens checks both read (PAR-1049)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "131b01c08701ce2482fa870d6ef773b726da2f5a",
+            "comment": "Every shortcut shown reads the keymap through one lookup, shortcutOf, so a changed binding will show everywhere at once"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "88feb44df2d6282185ccaabebb8ab5287fb0ed84",
+            "comment": "Export and Report draw their frames through the agent API as functions, not as snippets in the vm, so no snippet time limit applies to them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2b4c37c3781911be4496530e2da57ef59871f9cf",
+            "comment": "Agent snippets are stopped once they run for 2 minutes or compute for 5 seconds between awaits, including after their first await, and fail without changing anything"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "acf1371ffdcac317586ae6cdccd3617107d4b324",
+            "comment": "Agents' viewport patches are written through core's editResponsive, and a state an agent writes keeps an unset key the layer doesn't have"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4d0b1c9c80cf3c48f9cfb3409cbe1aab4f344642",
+            "comment": "An agent's Copy now copies layers as Ctrl+V pastes them: as the base shows them, keeping only the bindings the destination has params for."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "127868a884ea074771295e658d7a147003935871",
+            "comment": "Chip fields open their list as close below the box as a select does"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dede72c37ce0dede706fa5c18f9848126248ce3a",
+            "comment": "Move core's last files that aren't the .par model to the packages that use them, and drop core's unused names (PAR-1044)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 04:51:57 GMT",
       "version": "0.80.4",
       "tag": "@parity-app/desktop_v0.80.4",

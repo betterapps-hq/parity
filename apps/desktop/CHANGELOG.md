@@ -1,8 +1,28 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 04:51:57 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 06:01:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.5
+
+Fri, 13 Nov 2026 06:01:58 GMT
+
+### Patches
+
+- Work out what a token comes to in one place, tokenValue, which the editor and the agent's SetTokens checks both read
+  (PAR-1049) (ajcraswell@gmail.com)
+- Every shortcut shown reads the keymap through one lookup, shortcutOf, so a changed binding will show everywhere at
+  once (ajcraswell@gmail.com)
+- Export and Report draw their frames through the agent API as functions, not as snippets in the vm, so no snippet time
+  limit applies to them (ajcraswell@gmail.com)
+- Agent snippets are stopped once they run for 2 minutes or compute for 5 seconds between awaits, including after their
+  first await, and fail without changing anything (ajcraswell@gmail.com)
+- Agents' viewport patches are written through core's editResponsive, and a state an agent writes keeps an unset key the
+  layer doesn't have (ajcraswell@gmail.com)
+- An agent's Copy now copies layers as Ctrl+V pastes them: as the base shows them, keeping only the bindings the
+  destination has params for. (ajcraswell@gmail.com)
+- Chip fields open their list as close below the box as a select does (ajcraswell@gmail.com)
 
 ## 0.80.4
 

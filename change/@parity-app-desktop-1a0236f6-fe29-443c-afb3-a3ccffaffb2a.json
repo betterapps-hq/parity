@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Every shortcut shown reads the keymap through one lookup, shortcutOf, so a changed binding will show everywhere at once",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
