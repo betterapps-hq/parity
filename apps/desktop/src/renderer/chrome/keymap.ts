@@ -60,7 +60,7 @@ export const keymap = {
   wrap: { group: "Object", label: "Wrap in layout", keys: ["Ctrl G", "Ctrl Alt G", "Shift A"] },
   unwrap: { group: "Object", label: "Unwrap layout", keys: ["Ctrl Shift G", "Alt Shift A", "Ctrl Backspace"] },
   makeComponent: { group: "Object", label: "Make component", keys: ["Ctrl Alt K"] },
-  goToMain: { group: "Object", label: "Go to the main component", keys: ["Ctrl Alt Shift K"] },
+  goToMain: { group: "Object", label: "Go to component", keys: ["Ctrl Alt Shift K"] },
   detach: { group: "Object", label: "Detach instance", keys: ["Ctrl Alt B"] },
   bringForward: { group: "Object", label: "Bring forward", keys: ["Ctrl ]"] },
   sendBackward: { group: "Object", label: "Send backward", keys: ["Ctrl ["] },
@@ -100,7 +100,7 @@ export const keymap = {
   save: { group: "File", label: "Save", keys: ["Ctrl S"] },
   saveCopy: { group: "File", label: "Save a copy", keys: ["Ctrl Shift S"] },
   exportSelection: { group: "File", label: "Export selected", keys: ["Ctrl Shift E"] },
-  closeTab: { group: "File", label: "Close tab", keys: ["Ctrl W"] },
+  closeTab: { group: "File", label: "Close project", keys: ["Ctrl W"] },
   settings: { group: "File", label: "Settings", keys: ["Ctrl ,"] },
 
   actions: { group: "Help", label: "Search actions", keys: ["Ctrl K", "Ctrl /"] },

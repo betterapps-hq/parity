@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Tidy the menus: each command in one menu, an icon on every item, Copy as PNG in Edit and the canvas menu, and upkeep under Help > Developer",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -3,8 +3,8 @@
 Status: built, 2026-11-08 (PAR-710). Andrew chose Inter over Geist and approved the rest on 2026-11-08, but for the
 weights, which wait for the check in [Open: the weights](#open-the-weights); font smoothing waits with them. The roles
 are described in [typography.md](../typography.md), which is the reference from here on. The lint rule under "Holding to
-it" is PAR-729. The comparison stories and their stylesheet were removed with the build; Parity/Type/Scale draws every
-role.
+it" is PAR-729. The comparison stories and their stylesheet were removed with the build; Parity/Typography/Scale draws
+every role.
 
 ## In one line
 
@@ -403,8 +403,8 @@ Reviews of the proposal raised these, and they were decided as follows.
   detail rather than keys, a path or a layer's design, keeps its lowercase's hyphens: the shortcut's raised symbols are
   for keys only.
 - **Storybook:** the Type control and the exploration's stylesheet go, since the app is the proposed type then. The
-  Scale story stays, as Parity/Type/Scale: one column, every role in [typography.md](../typography.md) drawn with its
-  classes and measured, so a change to a role is reviewed where it shows.
+  Scale story stays, as Parity/Typography/Scale: one column, every role in [typography.md](../typography.md) drawn with
+  its classes and measured, so a change to a role is reviewed where it shows.
 - **Holding to it:** [typography.md](../typography.md) describes the roles and their classes. A rule in the vite-plus
   oxlint plugin config fails one-off type values (`text-[…px]`, `font-[…]`, `tracking-[…]`, `leading-[…]`, `/[…]`) and
   the named one-offs the audit found (any `leading-*` but `leading-none` on fixed-size chips and glyphs, any

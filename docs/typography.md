@@ -134,7 +134,7 @@ The three 12px titles differ only by weight and color, so they're components, no
   a `type-*` class beside a `text-{size}` class, `font-mono` with `font-medium`, `font-medium` on the kit's
   `TabsTrigger`, `Toggle`, `ToggleGroupItem`, `Badge`, `Kbd`, `Label` and `FieldLabel`, `text-xl`, and `text-xs` with
   `font-medium` or `font-semibold` and `text-muted-foreground` outside the title components.
-- **The Scale story.** Parity/Type/Scale draws every role above that isn't a popup (a panel's select is checked by
+- **The Scale story.** Parity/Typography/Scale draws every role above that isn't a popup (a panel's select is checked by
   opening one in the panel stories) with the classes listed here, measured underneath, so a change to a role shows in
   Storybook, where it's reviewed.
 
