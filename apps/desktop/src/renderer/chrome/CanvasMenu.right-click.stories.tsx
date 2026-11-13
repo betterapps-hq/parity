@@ -3,16 +3,15 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { design, example, layerElement, node, onCanvas } from "../stories/fixtures.tsx"
-import { formatKeys } from "./keys.ts"
+import { body, items } from "./canvas-menu-stories.tsx"
 
 /**
- * The canvas's right-click menu (`CanvasMenu`), over the whole window. A right-click on a design selects what's under
- * the pointer first, unless it's inside the selection, then lists what can be done with the selection, each item with
- * its keys; on the canvas around the designs it's short. Each story presses and releases the right button as the mouse
- * does, so tldraw opens the menu as it does in the app.
+ * Right-clicking the canvas, over the whole window: what a right-click selects before the canvas menu opens, what its
+ * items do where it was opened, and where it opens nothing. Each story presses and releases the right button as the
+ * mouse does, so tldraw opens the menu as it does in the app. What the menu lists is in Canvas menu/Items.
  */
 const meta = {
-  title: "Parity/Chrome/Canvas menu",
+  title: "Parity/Chrome/Canvas menu/Right-click",
   component: AppWindow,
   decorators: [
     (Story) => (
@@ -33,7 +32,6 @@ interface ClientPoint {
   y: number
 }
 
-const body = () => within(document.body)
 const selected = () => example().selection.get()
 
 /** Presses and releases the right button at a point, as the mouse does. */
@@ -82,76 +80,14 @@ function leftOf(designName: string): ClientPoint {
   return { x: (canvas.left + board.left) / 2, y: board.top + board.height / 2 }
 }
 
-/** What a menu lists: each item's name, `(unavailable)` after one that is, and `---` between sections. */
-function items(menu: HTMLElement): string[] {
-  return [...menu.querySelectorAll(":scope > [role=menuitem], :scope > [role=separator]")].map((item) => {
-    if (item.getAttribute("role") === "separator") {
-      return "---"
-    }
-
-    const name = nameOf(item)
-
-    return item.hasAttribute("data-disabled") ? `${name} (unavailable)` : name
-  })
-}
-
-/** An item's name: its text, without its shortcut or icon. */
-function nameOf(item: Element): string {
-  return [...item.childNodes]
-    .flatMap((child) =>
-      child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg") ? [] : [child.textContent]
-    )
-    .join("")
-    .trim()
-}
-
-/** The keys an item of a menu shows. */
-function keysOf(menu: HTMLElement, name: string): string | undefined {
-  const item = within(menu)
-    .getAllByRole("menuitem")
-    .find((candidate) => nameOf(candidate) === name)
-
-  return item?.querySelector("[data-slot=context-menu-shortcut]")?.textContent ?? undefined
-}
-
-/**
- * A layer, right-clicked with nothing selected: the top-level layer under the pointer is selected, as a click selects
- * it, and the menu acts on it, in the order Figma's does, each item with its keys from the keymap.
- */
-export const Layer: Story = onCanvas(["Pricing"], undefined, async () => {
-  const menu = await rightClick(middleOf("Pricing", "Headline"))
+/** On a layer with nothing selected: the top-level layer under the pointer is selected, as a click selects it. */
+export const SelectsWhatAClickWould: Story = onCanvas(["Pricing"], undefined, async () => {
+  await rightClick(middleOf("Pricing", "Headline"))
   await expect(selected()).toMatchObject({ design: design("Pricing"), node: node("Pricing", "Hero") })
-  await expect(items(menu)).toEqual([
-    "Select layer",
-    "---",
-    "Copy",
-    "Copy as PNG",
-    "Paste here",
-    "Paste over selection",
-    "Paste to replace",
-    "Duplicate",
-    "---",
-    "Bring to front",
-    "Bring forward",
-    "Send backward",
-    "Send to back",
-    "---",
-    "Wrap in layout",
-    "Make component",
-    "---",
-    "Hide",
-    "Lock",
-    "---",
-    "Export…"
-  ])
-  await expect(keysOf(menu, "Copy")).toBe(formatKeys("Ctrl C"))
-  await expect(keysOf(menu, "Paste to replace")).toBe(formatKeys("Ctrl Shift R"))
-  await expect(keysOf(menu, "Paste here")).toBeUndefined()
-  await expect(keysOf(menu, "Export…")).toBe(formatKeys("Ctrl Shift E"))
 })
 
-/** An instance, right-clicked beside the one selected: it's selected instead, and the menu goes to its component. */
-export const Instance: Story = onCanvas(
+/** On an instance beside the one selected: it's selected instead, and the menu goes to its component. */
+export const SelectsAnotherInstance: Story = onCanvas(
   ["Pricing"],
   () => example().selection.set(layersSelection(design("Pricing"), [node("Pricing", "Starter plan")])),
   async () => {
@@ -161,8 +97,8 @@ export const Instance: Story = onCanvas(
   }
 )
 
-/** Several layers, right-clicked on one of them: the selection stays, and what acts on one layer is unavailable. */
-export const SeveralLayers: Story = onCanvas(
+/** On one of several selected layers: the selection stays, so the menu acts on all of them. */
+export const KeepsSeveralLayers: Story = onCanvas(
   ["Pricing"],
   () =>
     example().selection.set(
@@ -173,58 +109,20 @@ export const SeveralLayers: Story = onCanvas(
       ])
     ),
   async () => {
-    const menu = await rightClick(middleOf("Pricing", "Lede"))
+    await rightClick(middleOf("Pricing", "Lede"))
     await expect(selected().nodes).toHaveLength(3)
-    await expect(items(menu)).toEqual(
-      expect.arrayContaining(["Wrap in layout", "Bring forward (unavailable)", "Make component (unavailable)"])
-    )
   }
 )
 
-/** A selected design, right-clicked inside: it stays selected, and the menu leaves out what acts on layers. */
-export const Design: Story = onCanvas(
+/** Inside a selected design: it stays selected, rather than the layer under the pointer. */
+export const KeepsADesign: Story = onCanvas(
   ["Pricing"],
   () => example().selection.set({ design: design("Pricing") }),
   async () => {
-    const menu = await rightClick(middleOf("Pricing", "Headline"))
+    await rightClick(middleOf("Pricing", "Headline"))
     await expect(selected()).toEqual({ design: design("Pricing") })
-    await expect(items(menu)).toEqual([
-      "Select layer",
-      "---",
-      "Copy",
-      "Copy as PNG",
-      "Paste here",
-      "Paste over selection",
-      "Duplicate",
-      "---",
-      "Convert to component",
-      "---",
-      "Lock",
-      "---",
-      "Export…"
-    ])
   }
 )
-
-/**
- * The canvas around the designs: New screen and New component, made where it was right-clicked, and Insert, each with
- * its keys (PAR-546); then pasting there; then selecting everything and fitting it all in view.
- */
-export const EmptyCanvas: Story = onCanvas(["Pricing"], undefined, async () => {
-  const menu = await rightClick(leftOf("Pricing"))
-  await expect(items(menu)).toEqual([
-    "New screen",
-    "New component",
-    "Insert…",
-    "---",
-    "Paste here",
-    "---",
-    "Select all",
-    "Zoom to fit"
-  ])
-  await expect(keysOf(menu, "New screen")).toBe(formatKeys("Ctrl Alt N"))
-  await expect(keysOf(menu, "New component")).toBe(formatKeys("Ctrl Alt Shift N"))
-})
 
 /**
  * New screen, chosen from the menu around the designs: an untitled screen is made with its top left where the canvas

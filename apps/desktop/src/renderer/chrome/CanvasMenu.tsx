@@ -34,7 +34,7 @@ import { formatKeys } from "./keys.ts"
 type TriggerProps = ComponentProps<typeof ContextMenuTrigger>
 
 /** Where the menu opened: the pointer, and the design under it, if any. */
-interface Opened {
+export interface Opened {
   point: Point
   target?: MenuTarget
 }
@@ -183,7 +183,7 @@ export function CanvasMenu({ children }: { children: ReactElement }) {
       <ContextMenuTrigger ref={setArea} onContextMenu={onContextMenu} render={children} />
       {/* As wide as its longest item, so New component and its keys stay on one line. */}
       <ContextMenuContent className="min-w-60 [&_[role=menuitem]]:whitespace-nowrap" aria-label="Canvas">
-        {opened && <MenuItems opened={opened} />}
+        {opened && <CanvasMenuItems opened={opened} />}
       </ContextMenuContent>
     </ContextMenu>
   )
@@ -208,7 +208,7 @@ function underBackdrop(event: MouseEvent): Element | undefined {
 }
 
 /** The menu's items, for what's selected now, which the right-click has just set. */
-function MenuItems({ opened }: { opened: Opened }) {
+export function CanvasMenuItems({ opened }: { opened: Opened }) {
   const session = useProject()
   const selection = useSelection(session.selection)
   const entries = useContainerEntries(session.store)
