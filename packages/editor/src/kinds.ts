@@ -14,7 +14,7 @@ import {
   snapToSpacingGrid
 } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
-import { asShown, fitBindings, type Pasted, pasteLayers, type PasteTarget } from "./clipboard.ts"
+import { asShown, copyLayersInto, fitBindings, type Pasted, type PasteTarget } from "./clipboard.ts"
 
 /**
  * Turning a design into another kind, and a frame going inside another design. A frame is the light kind: a layout on
@@ -183,7 +183,7 @@ export function pasteFramesInto(
     return undefined
   }
 
-  return pasteLayers(
+  return copyLayersInto(
     container,
     target,
     designs.map((design) => frameAsLayout(design, unit))

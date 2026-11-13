@@ -5,13 +5,11 @@ import {
   insertNode,
   jsonText,
   moveNodes,
-  nodeIds,
   type StateSpec,
-  topmostNodes,
-  withFreshIds
+  topmostNodes
 } from "@parity-app/core"
 import { z } from "zod"
-import { asShown, fitBindings } from "./clipboard.ts"
+import { asShown, copiesFor } from "./clipboard.ts"
 import type { MoveTarget } from "./drop-target.ts"
 
 /**
@@ -59,7 +57,7 @@ export interface LayersMoved {
 /**
  * Moves the layers `ids`, the outermost of them, from one design to a place in another: they leave `source` and copies
  * of them go into `destination`, as the source's board shows them in `state` and `viewport` (see `asShown`), with ids
- * new there and the bindings `destination` has params for (see `fitBindings`). Returns both designs and the copies'
+ * new there and the bindings `destination` has params for (see `copiesFor`). Returns both designs and the copies'
  * ids, to select; both the same and no copies when none of the layers is in `source`.
  */
 export function moveLayersAcross(
@@ -70,10 +68,9 @@ export function moveLayersAcross(
   state: StateSpec,
   viewport?: string
 ): LayersMoved {
-  const taken = nodeIds(destination.root)
-
-  const copies = topmostNodes(source.root, ids).map((node) =>
-    withFreshIds(fitBindings(asShown(source, node, state, viewport), destination), taken)
+  const copies = copiesFor(
+    destination,
+    topmostNodes(source.root, ids).map((node) => asShown(source, node, state, viewport))
   )
 
   if (copies.length === 0) {

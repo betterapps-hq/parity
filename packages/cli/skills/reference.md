@@ -85,7 +85,7 @@ Replace(path: string, node: unknown): string
 /** Reorders or reparents a node within one design. */
 Move(path: string, parent: string, options?: PlaceOptions): void
 
-/** Copies a node, with everything inside it, and returns the copy's id. */
+/** Copies a node, with everything inside it, as a paste does, and returns the copy's id. */
 Copy(path: string, parent: string, options?: CopyOptions): string
 
 Delete(path: string): void

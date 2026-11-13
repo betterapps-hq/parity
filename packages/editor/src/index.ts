@@ -21,15 +21,16 @@ export { type BoardBox, type LabelKind, labelLook, stateLabelSpace, titleReach }
 
 export {
   applyStyle,
+  asShown,
   type ClipboardEnvelope,
   type ClipboardPayload,
   copyDesigns,
   copyLayers,
+  copyLayersInto,
   copyNotes,
   isParityCopy,
   isSvgMarkup,
   missingComponents,
-  pasteLayers,
   pasteTarget,
   type PasteTarget,
   readEnvelope,

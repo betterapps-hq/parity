@@ -5,6 +5,7 @@ import {
   type ClipboardPayload,
   copyDesigns,
   copyLayers,
+  copyLayersInto,
   copyNotes,
   designsAt,
   isParityCopy,
@@ -19,7 +20,6 @@ import {
   pastedPlacement,
   pasteHere,
   type PasteHow,
-  pasteLayers,
   type PasteRefusal,
   pasteStepName,
   type PasteTarget,
@@ -757,7 +757,7 @@ export function placeLayers(
     entry.key,
     label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`),
     (container) => {
-      const pasted = pasteLayers(container, target, nodes)
+      const pasted = copyLayersInto(container, target, nodes)
       copies = pasted.copies
 
       return pasted.container

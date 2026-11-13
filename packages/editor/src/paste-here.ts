@@ -4,12 +4,10 @@ import {
   insertNode,
   lengthSteps,
   locateNode,
-  nodeIds,
   type NodeStyle,
-  type StateSpec,
-  withFreshIds
+  type StateSpec
 } from "@parity-app/core"
-import { fitBindings, type Pasted } from "./clipboard.ts"
+import { copiesFor, type Pasted } from "./clipboard.ts"
 import { type Box, type Flow, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
 import { boardReader } from "./shown.ts"
 
@@ -53,7 +51,7 @@ const besideGap = 4
  * pointer. A copy that's absolutely placed itself goes in the slot and at the pointer. At the pointer is its left and
  * top in half steps of the spacing scale, in place of its own insets, though one stretched between its insets keeps its
  * right or bottom (see `placedAt`); several copies placed there go side by side from it. Copies keep the bindings the
- * design has params for (see `fitBindings`). Image files dropped onto the canvas land the same way. Returns the design
+ * design has params for (see `copiesFor`). Image files dropped onto the canvas land the same way. Returns the design
  * and the copies' ids; none when `here` isn't one of the design's layouts or a slot of one of its components.
  */
 export function pasteHere(
@@ -70,14 +68,11 @@ export function pasteHere(
   }
 
   const { layout, slot, free, index, at } = target
-  const taken = nodeIds(container.root)
   // Several copies placed at the pointer go side by side from it, each a gap right of the one before when that one has
   // a width of its own; one that fills or hugs leaves the next where it starts.
   let left = at.left
 
-  const copies = nodes.map((node) => {
-    const copy = withFreshIds(fitBindings(node, container), taken)
-
+  const copies = copiesFor(container, nodes).map((copy) => {
     if (!free && copy.style?.position !== "absolute") {
       return copy
     }

@@ -343,7 +343,9 @@ change.
 
 `Replace` swaps a node for a new one in the same place and returns its id. `Move` reorders or reparents a node within
 its design; to move it to another design, `Copy` it there and `Delete` the original. `Copy` gives the copy fresh ids and
-returns the new id. A design's root can't be deleted; use `Replace`.
+returns the new id. It copies the node as the base shows it, with the default variant options and the values bound
+params show. A binding stays only where the destination has a param of that name, and elsewhere the copy keeps the value
+it showed. A design's root can't be deleted; use `Replace`.
 
 The new node and everything in it get fresh ids, so `Replace` throws away the patches on the old node and what was
 inside it: its `Responsive` patches, its changes in every state and its variant options' patches. Replacing a design's

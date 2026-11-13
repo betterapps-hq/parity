@@ -600,6 +600,45 @@ Print(JSON.stringify([Get("card/body", { state: "plain" }).style, Get("card/body
   })
 })
 
+describe("Copy into a design, as a paste does (PAR-1048)", () => {
+  /** A card whose title is bound to its `title` param, and a page with no params. */
+  const designs = (): ContainerSpec[] => [
+    {
+      id: "card",
+      name: "Card",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      params: { title: { type: "text", default: "Welcome" } },
+      root: {
+        type: "layout",
+        id: "body",
+        children: [{ type: "text", id: "title", name: "Title", text: "Title", bind: { text: "title" } }]
+      }
+    },
+    {
+      id: "page",
+      name: "Page",
+      kind: "screen",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "main", children: [] }
+    }
+  ]
+
+  it("copies the layer as shown, bound where the design has the param and unbound where it doesn't", async () => {
+    const result = await read(
+      designs(),
+      `const within = Copy("card/title", "card/body", { name: "Again" })
+const across = Copy("card/title", "page")
+Print(JSON.stringify([Get("card/" + within), Get("page/" + across)]))`
+    )
+
+    expect(result).toEqual([
+      { type: "text", id: expect.any(String), name: "Again", text: "Welcome", bind: { text: "title" } },
+      { type: "text", id: expect.any(String), name: "Title", text: "Welcome" }
+    ])
+  })
+})
+
 describe("Accessibility props on layout and text layers (PAR-913)", () => {
   const cell: ContainerSpec = {
     id: "cell",
