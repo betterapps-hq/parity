@@ -3579,7 +3579,7 @@ a field can be used anywhere in the app; the other levels are under Parity › I
 | Folder   | Holds                                                                                         |
 | -------- | --------------------------------------------------------------------------------------------- |
 | Panel    | Inspector, Accessibility tab, Modes tab                                                       |
-| Layers   | Layout, Text, Kinds, Instances, Several layers, Designs                                       |
+| Layers   | All kinds, Layout, Text, Kinds, Instances, Several layers, Designs                            |
 | Sections | Header, State selector, Props, Attributes, Slots, Content, Components, Modes, Export          |
 |          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Typography, CSS                    |
 | Rows     | Box model, Padding, Margin, Radius, Size and aspect ratio, and the rest of a section's rows   |
@@ -3653,7 +3653,8 @@ Code: `LayoutPanel` and `layoutSections` in `chrome/LayoutPanel.tsx`, `TextPanel
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
 typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
-Layout.
+Layout. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
+`LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
 

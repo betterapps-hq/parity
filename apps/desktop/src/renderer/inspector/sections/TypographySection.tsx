@@ -77,7 +77,9 @@ export function TypographySection({ editor, edit, can }: SectionProps) {
 
   if (!can.text && !sets && !added) {
     return (
-      <PanelSection title="Typography" action={<SectionButton what="typography" onClick={() => setAdded(true)} />} />
+      <PanelSection title="Typography" action={<SectionButton what="typography" onClick={() => setAdded(true)} />}>
+        {null}
+      </PanelSection>
     )
   }
 
