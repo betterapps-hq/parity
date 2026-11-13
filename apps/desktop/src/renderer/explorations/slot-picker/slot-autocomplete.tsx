@@ -1,3 +1,4 @@
+import { ComboboxTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { readLayersDrag } from "@parity-app/editor"
 import { ChevronRight, Diamond } from "lucide-react"
 import { type DragEvent, type ReactNode, useState } from "react"
@@ -5,9 +6,10 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { AppChip, AppChips, type AppChipsGroup, AppChipsInput } from "../../chrome/AppChips.tsx"
 
 /*
- * The slot picker as an autocomplete: the layers filling a slot as chips, as the shipped picker shows its one layer,
- * with an input after them. Focusing it lists what can go in, under Components and On this screen; typing searches
- * both, and picking one fills the slot. A layer dragged from Layers onto the box fills it too.
+ * The slot picker as an autocomplete: the one layer filling a slot as a chip, as the shipped picker shows it, with an
+ * input after it and a chevron at the end. Focusing the input or pressing the chevron lists what can go in, under
+ * Components and On this screen; typing searches both, and picking one fills the slot, in place of what filled it. A
+ * layer dragged from Layers onto the box fills it too.
  */
 
 /** The drag Layers starts, as LayerTree sets it. */
@@ -35,19 +37,21 @@ export interface OfferedLayer extends PickerLayer {
 }
 
 export interface SlotAutocompleteProps {
-  /** The slot's name, for the box and each chip's ×. */
+  /** The slot's name, for the box and the chip's ×. */
   label: string
-  /** The layers filling the slot, in order; none while its placeholder shows. */
-  fill: readonly PickerLayer[]
+  /** The layer filling the slot; none while its placeholder shows. A slot holds one at most. */
+  layer: PickerLayer | undefined
   /** The project's components that can go in. */
   components: readonly { id: string; name: string }[]
   /** The design's layers that can go in, in Layers' order. */
   layers: readonly OfferedLayer[]
-  onAddComponent: (id: string) => void
-  onMoveLayers: (ids: string[]) => void
-  /** Layers dragged from Layers and dropped on the box. */
+  /** Fills the slot with a new instance of a component, in place of what filled it. */
+  onPickComponent: (id: string) => void
+  /** Moves a layer into the slot, in place of what filled it. */
+  onPickLayer: (id: string) => void
+  /** Layers dragged from Layers and dropped on the box; the first of them fills the slot. */
   onDropLayers: (drag: LayersDrag) => void
-  onRemove: (id: string) => void
+  onClear: () => void
   onSelectLayer: (id: string) => void
   /** Starts the box as a drop target, for a story that shows a drag in progress. */
   defaultDragOver?: boolean
@@ -55,13 +59,13 @@ export interface SlotAutocompleteProps {
 
 export function SlotAutocomplete({
   label,
-  fill,
+  layer,
   components,
   layers,
-  onAddComponent,
-  onMoveLayers,
+  onPickComponent,
+  onPickLayer,
   onDropLayers,
-  onRemove,
+  onClear,
   onSelectLayer,
   defaultDragOver = false
 }: SlotAutocompleteProps) {
@@ -81,21 +85,21 @@ export function SlotAutocomplete({
     },
     {
       label: "On this screen",
-      options: layers.map((layer) => ({
-        value: layer.id,
-        label: layer.name,
+      options: layers.map((offered) => ({
+        value: offered.id,
+        label: offered.name,
         // Nested as Layers nests them while browsing. Flat while searching, each after the layer it's in, so two
         // matches with the same name can be told apart.
         icon:
-          searching && layer.parent ? (
+          searching && offered.parent ? (
             <span className="flex max-w-1/2 min-w-0 items-center gap-1 text-muted-foreground">
-              {layer.icon}
-              <span className="truncate">{layer.parent}</span>
+              {offered.icon}
+              <span className="truncate">{offered.parent}</span>
               <ChevronRight className="size-3 shrink-0" />
             </span>
           ) : (
-            <span className="flex shrink-0" style={{ paddingLeft: searching ? 0 : layer.depth * 12 }}>
-              {layer.icon}
+            <span className="flex shrink-0" style={{ paddingLeft: searching ? 0 : offered.depth * 12 }}>
+              {offered.icon}
             </span>
           )
       }))
@@ -104,8 +108,10 @@ export function SlotAutocomplete({
 
   return (
     <AppChips
+      // A pick closes the list: the box starts again with what now fills the slot.
+      key={layer?.id ?? "empty"}
       aria-label={label}
-      value={fill.map((layer) => layer.id)}
+      value={layer ? [layer.id] : []}
       inputValue={query}
       onInputValueChange={setQuery}
       options={options}
@@ -121,37 +127,25 @@ export function SlotAutocomplete({
       data-drop-target={dragOver || undefined}
       {...box}
       onValueChange={(next) => {
-        const kept = new Set(next)
-        const added = next.filter((value) => !fill.some((layer) => layer.id === value))
-
-        for (const layer of fill) {
-          if (!kept.has(layer.id)) {
-            onRemove(layer.id)
-          }
-        }
-
-        const picked = added.find((value) => value.startsWith(componentPrefix))
-
-        if (picked) {
-          onAddComponent(picked.slice(componentPrefix.length))
-        }
-
-        const moved = added.filter((value) => !value.startsWith(componentPrefix))
-
-        if (moved.length > 0) {
-          onMoveLayers(moved)
-        }
-
+        // The chips keep a list; the slot keeps one, so a pick stands in for what was there.
+        const picked = next.find((value) => value !== layer?.id)
         setQuery("")
+
+        if (picked?.startsWith(componentPrefix)) {
+          onPickComponent(picked.slice(componentPrefix.length))
+        } else if (picked) {
+          onPickLayer(picked)
+        } else if (next.length === 0) {
+          onClear()
+        }
       }}
     >
-      {fill.map((layer) => (
+      {layer && (
         <AppChip
-          key={layer.id}
-          removeLabel={`Remove ${layer.name} from ${label}`}
+          removeLabel={`Clear ${label}`}
           className="cursor-pointer"
           onClick={(event) => {
-            // The chip selects its layer; its × only removes it.
+            // The chip selects its layer; its × only clears the slot.
             event.stopPropagation()
 
             if (!(event.target instanceof Element && event.target.closest("[data-slot=combobox-chip-remove]"))) {
@@ -162,8 +156,9 @@ export function SlotAutocomplete({
           {layer.icon}
           <span className="truncate">{layer.name}</span>
         </AppChip>
-      ))}
-      <AppChipsInput aria-label={`Add to ${label}`} placeholder={fill.length === 0 ? "Add a layer" : undefined} />
+      )}
+      <AppChipsInput aria-label={`Fill ${label}`} placeholder={layer ? undefined : "Add a layer"} />
+      <ComboboxTrigger className="ml-auto flex h-5 shrink-0 items-center pr-1.5 pl-1" />
     </AppChips>
   )
 }
