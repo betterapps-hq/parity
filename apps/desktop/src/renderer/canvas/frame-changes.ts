@@ -8,6 +8,7 @@ import {
 import { useEffect, useRef, useSyncExternalStore } from "react"
 import type { RenderJob } from "../../shared/protocol.ts"
 import { request } from "../service.ts"
+import { type Signal, signal } from "../store.ts"
 
 /*
  * Whether each frame on the canvas, the nodes in it and its board changed since the frame was first looked at while its
@@ -19,7 +20,7 @@ import { request } from "../service.ts"
 interface DesignChanges {
   frames: Map<string, FrameChange>
   combined: ChangeStatus
-  listeners: Set<() => void>
+  changes: Signal
 }
 
 const unknown: ChangeStatus = { state: "unknown" }
@@ -33,7 +34,7 @@ function designChanges(key: string): DesignChanges {
   let found = designs.get(key)
 
   if (!found) {
-    found = { frames: new Map(), combined: unknown, listeners: new Set() }
+    found = { frames: new Map(), combined: unknown, changes: signal() }
     designs.set(key, found)
   }
 
@@ -52,7 +53,7 @@ export function recordChange(id: FrameId, change: FrameChange | undefined): void
   }
 
   design.combined = combineChanges([...design.frames.values()].map((frame) => frame.status))
-  design.listeners.forEach((listener) => listener())
+  design.changes.notify()
 }
 
 /** Frames asked about in this task, waiting to be sent together once it's done. */
@@ -106,9 +107,8 @@ export function useFrameChange(id: FrameId, job: RenderJob, key: string): FrameC
   // A frame taken off the canvas no longer counts toward its board.
   useEffect(() => () => recordChange({ project, design, state, mode }, undefined), [project, design, state, mode])
 
-  return useSyncExternalStore(
-    (listener) => subscribe(project, design, listener),
-    () => designs.get(designKey(project, design))?.frames.get(frame)
+  return useSyncExternalStore(designChanges(designKey(project, design)).changes.subscribe, () =>
+    designs.get(designKey(project, design))?.frames.get(frame)
   )
 }
 
@@ -122,15 +122,7 @@ export function designChange(project: string, design: string): ChangeStatus {
 
 /** `designChange`, kept current. */
 export function useDesignChange(project: string, design: string): ChangeStatus {
-  return useSyncExternalStore(
-    (listener) => subscribe(project, design, listener),
-    () => designChange(project, design)
+  return useSyncExternalStore(designChanges(designKey(project, design)).changes.subscribe, () =>
+    designChange(project, design)
   )
-}
-
-function subscribe(project: string, design: string, listener: () => void): () => void {
-  const { listeners } = designChanges(designKey(project, design))
-  listeners.add(listener)
-
-  return () => listeners.delete(listener)
 }

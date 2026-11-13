@@ -3,6 +3,7 @@ import { definePreview } from "@buildkitgg/storybook-config/preview"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"
 import { installClassMerger } from "../src/renderer/class-merger.ts"
+import { resetWindowStores } from "../src/renderer/store.ts"
 import { restore } from "../src/renderer/stories/fixtures.tsx"
 import { installHost } from "../src/renderer/stories/host.ts"
 import { startTheme } from "../src/renderer/theme.ts"
@@ -16,6 +17,10 @@ installHost()
 startTheme()
 
 installClassMerger()
+
+// The first story starts as a new window does, as `restore` has every later one start: every window-wide store at its
+// first value, panels and preferences at their defaults rather than as this browser last saved them.
+resetWindowStores()
 
 // Buildkit's base preview matches color and date controls by argument name (PAR-730).
 export default definePreview({

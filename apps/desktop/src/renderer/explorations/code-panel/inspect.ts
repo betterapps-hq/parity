@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useStore, windowStore } from "../../store.ts"
 
 /**
  * Picking an element inside a component to see where its code is (PAR-167), as a browser's developer tools pick one:
@@ -15,24 +15,19 @@ export interface Inspecting {
   hovered?: { node: string; at: string }
 }
 
-let state: Inspecting = { picking: false }
-const listeners = new Set<() => void>()
+const inspecting = windowStore<Inspecting>(() => ({ picking: false }))
 
 export function getInspecting(): Inspecting {
-  return state
+  return inspecting.get()
 }
 
 function update(change: Partial<Inspecting>): void {
-  state = { ...state, ...change }
-
-  for (const listener of listeners) {
-    listener()
-  }
+  inspecting.update((state) => ({ ...state, ...change }))
 }
 
 /** Starts or stops picking on the canvas. */
 export function setPicking(picking: boolean): void {
-  if (state.picking !== picking) {
+  if (inspecting.get().picking !== picking) {
     update({ picking })
   }
 }
@@ -43,18 +38,13 @@ export function pickElement(picked: Inspecting["picked"]): void {
 }
 
 export function hoverElement(hovered: Inspecting["hovered"]): void {
-  if (state.hovered?.at !== hovered?.at || state.hovered?.node !== hovered?.node) {
+  const now = inspecting.get().hovered
+
+  if (now?.at !== hovered?.at || now?.node !== hovered?.node) {
     update({ hovered })
   }
 }
 
 export function useInspecting(): Inspecting {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => state
-  )
+  return useStore(inspecting)
 }

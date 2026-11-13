@@ -1,31 +1,16 @@
-import { useSyncExternalStore } from "react"
+import { useStore, windowStore } from "../store.ts"
 
 /** Whether the canvas shows the keyboard tab order of the selected design. It's off until asked for. */
-let shown = false
-const listeners = new Set<() => void>()
-
-export function getTabOrderShown(): boolean {
-  return shown
-}
+const shown = windowStore(() => false)
 
 export function setTabOrderShown(next: boolean): void {
-  if (next === shown) {
-    return
-  }
-
-  shown = next
-
-  for (const listener of listeners) {
-    listener()
+  if (next !== shown.get()) {
+    shown.set(next)
   }
 }
 
 export function useTabOrderShown(): boolean {
-  return useSyncExternalStore((listener) => {
-    listeners.add(listener)
-
-    return () => listeners.delete(listener)
-  }, getTabOrderShown)
+  return useStore(shown)
 }
 
 const focusableSelector = [

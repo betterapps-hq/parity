@@ -1,10 +1,9 @@
 import type { UpdateState } from "@parity-app/processes"
-import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
+import { useStore, windowStore } from "../store.ts"
 import { type UpdateNotice, UpdateToast } from "./UpdateToast.tsx"
 
-let state: UpdateState = { phase: "disabled", beta: false }
-const listeners = new Set<() => void>()
+const state = windowStore<UpdateState>(() => ({ phase: "disabled", beta: false }))
 let notificationId = "parity-update"
 let notificationSequence = 0
 let dismissed = false
@@ -22,11 +21,7 @@ function dismissNotification(id: string): void {
 
 /** A single store serves About, Settings and the notification; progress updates replace the same Sonner toast. */
 export function receiveUpdate(next: UpdateState): void {
-  state = next
-
-  for (const listener of listeners) {
-    listener()
-  }
+  state.set(next)
 
   let notice: UpdateNotice | undefined
 
@@ -99,16 +94,7 @@ export function receiveUpdate(next: UpdateState): void {
 }
 
 export function useUpdates(): UpdateState {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => {
-        listeners.delete(listener)
-      }
-    },
-    () => state
-  )
+  return useStore(state)
 }
 
 /** Called once by the app, not by Storybook's stand-in window. Subscribe before reading to avoid a stale initial reply. */
@@ -134,13 +120,15 @@ export function checkForUpdates(): void {
   hidden = undefined
   foreground = true
 
-  if (["disabled", "downloading", "ready", "manual", "installing"].includes(state.phase)) {
-    receiveUpdate(state)
+  const now = state.get()
+
+  if (["disabled", "downloading", "ready", "manual", "installing"].includes(now.phase)) {
+    receiveUpdate(now)
 
     return
   }
 
-  receiveUpdate({ phase: "checking", beta: state.beta })
+  receiveUpdate({ phase: "checking", beta: now.beta })
 
   if (pending) {
     return
@@ -149,7 +137,7 @@ export function checkForUpdates(): void {
   pending = window.canvasHost.updates
     .check()
     .catch(() => {
-      receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't check for updates." })
+      receiveUpdate({ phase: "error", beta: state.get().beta, message: "Couldn't check for updates." })
     })
     .finally(() => {
       pending = undefined
@@ -161,7 +149,7 @@ export function actOnUpdate(): void {
   void window.canvasHost.updates
     .act()
     .catch(() => {
-      receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't open the update." })
+      receiveUpdate({ phase: "error", beta: state.get().beta, message: "Couldn't open the update." })
     })
     .finally(() => {
       foreground = false

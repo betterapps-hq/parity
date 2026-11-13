@@ -1,5 +1,5 @@
 import type { PictureSize } from "@parity-app/editor"
-import { useSyncExternalStore } from "react"
+import { useStore, windowStore } from "../store.ts"
 
 /*
  * The natural sizes of the pictures the Media tab has shown, by address. A project's image list says where each file
@@ -7,36 +7,20 @@ import { useSyncExternalStore } from "react"
  * size is learned as its picture loads. The wall lays out by them, a card shows them, and inserting one needs them.
  */
 
-let sizes: ReadonlyMap<string, PictureSize> = new Map()
-const listeners = new Set<() => void>()
+const sizes = windowStore<ReadonlyMap<string, PictureSize>>(() => new Map())
 
 /** Keeps a picture's size once it has loaded. Says nothing when it's the size already known. */
 export function notePictureSize(url: string, size: PictureSize): void {
-  const known = sizes.get(url)
+  const known = sizes.get().get(url)
 
   if (known?.width === size.width && known.height === size.height && known.seconds === size.seconds) {
     return
   }
 
-  sizes = new Map(sizes).set(url, size)
-
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-/** Every size known so far: the same map until one more is learned. */
-export function pictureSizes(): ReadonlyMap<string, PictureSize> {
-  return sizes
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-
-  return () => listeners.delete(listener)
+  sizes.update((now) => new Map(now).set(url, size))
 }
 
 /** The sizes known so far, following each one learned. */
 export function usePictureSizes(): ReadonlyMap<string, PictureSize> {
-  return useSyncExternalStore(subscribe, pictureSizes)
+  return useStore(sizes)
 }

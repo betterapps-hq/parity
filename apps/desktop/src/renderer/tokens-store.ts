@@ -14,6 +14,7 @@ import type { Token } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import type { DesignStore } from "./design-store.ts"
 import { previewToken } from "./guest.ts"
+import { signal } from "./store.ts"
 import { inTokenOrder } from "./token-values.ts"
 
 /**
@@ -23,7 +24,7 @@ import { inTokenOrder } from "./token-values.ts"
  * stylesheet as it was.
  */
 export class TokenStore {
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
   private tokens: Token[]
   /** The edits the shared stylesheet shows now. */
   private shown: TokenEdits = noTokenEdits
@@ -52,11 +53,7 @@ export class TokenStore {
     this.unfollow()
   }
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   get = () => this.tokens
 
@@ -127,10 +124,7 @@ export class TokenStore {
     this.shown = edits
     this.tokens = tokensWithEdits(this.loaded, edits)
     this.overrides = withTokenOverrides(this.overrides, differences, this.loaded)
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 }
 

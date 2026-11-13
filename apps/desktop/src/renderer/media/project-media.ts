@@ -4,6 +4,7 @@ import { useContainerEntries } from "../design-store.ts"
 import { projectPart } from "../project-part.ts"
 import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
+import { createStore } from "../store.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /*
@@ -31,8 +32,7 @@ const freshFor = 1600
 
 /** One open project's image files: the last scan, and what was just added. */
 class MediaFiles {
-  private state: FilesState = { fresh: [] }
-  private readonly listeners = new Set<() => void>()
+  private readonly files = createStore<FilesState>(() => ({ fresh: [] }))
   private scanning: Promise<void> | undefined
   /** The paths designs named with no file there when a scan was last asked for. */
   private askedFor: string | undefined
@@ -41,13 +41,9 @@ class MediaFiles {
 
   constructor(private readonly projectId: string) {}
 
-  get = (): FilesState => this.state
+  get = this.files.get
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.files.subscribe
 
   /** Whether a scan has been asked for since designs last named these paths without a file. */
   askedAbout(missing: string): boolean {
@@ -71,11 +67,12 @@ class MediaFiles {
 
   /** Marks the ones just added for a moment, as they arrive on the wall. */
   markFresh(srcs: readonly string[]): void {
-    this.set({ ...this.state, fresh: srcs })
+    this.set({ ...this.files.get(), fresh: srcs })
 
     const timer = setTimeout(() => {
       this.timers.delete(timer)
-      this.set({ ...this.state, fresh: this.state.fresh.filter((src) => !srcs.includes(src)) })
+      const state = this.files.get()
+      this.set({ ...state, fresh: state.fresh.filter((src) => !srcs.includes(src)) })
     }, freshFor)
 
     this.timers.add(timer)
@@ -84,20 +81,19 @@ class MediaFiles {
   /** Forgets what it found and stops: a scan under way is let go, and nothing just added stays marked. */
   dispose(): void {
     this.disposed = true
-    this.listeners.clear()
 
     for (const timer of this.timers) {
       clearTimeout(timer)
     }
 
     this.timers.clear()
-    this.state = { fresh: [] }
+    this.files.dispose()
   }
 
   private async ask(): Promise<void> {
     try {
       const scanned = await request("images.scan", { projectId: this.projectId })
-      this.set({ ...this.state, scanned })
+      this.set({ ...this.files.get(), scanned })
     } catch (error) {
       if (this.disposed) {
         return
@@ -105,7 +101,8 @@ class MediaFiles {
 
       reportError(error, { operation: "images.scan", title: "Couldn't list the project's media" })
       // What it last knew stays; with nothing known, the tab shows none rather than waiting forever.
-      this.set({ ...this.state, scanned: this.state.scanned ?? { files: [], references: [] } })
+      const state = this.files.get()
+      this.set({ ...state, scanned: state.scanned ?? { files: [], references: [] } })
     }
   }
 
@@ -114,11 +111,7 @@ class MediaFiles {
       return
     }
 
-    this.state = state
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.files.set(state)
   }
 }
 

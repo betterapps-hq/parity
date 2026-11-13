@@ -1,23 +1,19 @@
 import type { TelemetryLevel } from "@parity-app/telemetry"
-import { useEffect, useSyncExternalStore } from "react"
+import { useEffect } from "react"
 import type { TelemetryState } from "../../shared/protocol.ts"
 import { recordInterface } from "../interface-events.ts"
 import { followTelemetry } from "../replay.ts"
+import { useStore, windowStore } from "../store.ts"
 
 /** The Telemetry setting and install ID as main last gave them; Settings and About share it (PAR-626). */
-let state: TelemetryState | undefined
-const listeners = new Set<() => void>()
+const state = windowStore<TelemetryState | undefined>(() => undefined)
 
 /** Keeps what main says, tells Settings and About, and starts or stops Session Replay with it (PAR-624). */
 export function receiveTelemetry(next: TelemetryState | undefined): TelemetryState | undefined {
-  state = next
+  state.set(next)
 
   if (next) {
     followTelemetry(next)
-  }
-
-  for (const listener of listeners) {
-    listener()
   }
 
   return next
@@ -37,14 +33,7 @@ export function useTelemetry(open: boolean): TelemetryState | undefined {
     }
   }, [open])
 
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => state
-  )
+  return useStore(state)
 }
 
 /** Each level's name, as Settings and About show it. */

@@ -1,6 +1,7 @@
 import { type ExternalToast, toast } from "sonner"
 import type { ProjectEditResult } from "../../shared/protocol.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import type { Attributes } from "./event-attributes.ts"
 
@@ -47,26 +48,36 @@ async function undo(
   id: string,
   afterUndo: (() => Promise<void>) | undefined
 ): Promise<void> {
-  toast.loading(`Putting back ${files(edit)}…`, { id, description: undefined, action: undefined })
-  let undone: ProjectEditResult
+  const undone = await serviceCall({
+    progress: `Putting back ${files(edit)}…`,
+    shown: { id, description: undefined, action: undefined },
+    run: () => request("project.undoEdit", { projectId, id: edit.id }),
+    done(answer) {
+      track("projectEdit.undone", { files: paths(answer), outcome: "ok" })
 
-  try {
-    undone = await request("project.undoEdit", { projectId, id: edit.id })
-  } catch (error) {
-    const failed: Attributes<"projectEdit.undone"> = { files: paths(edit), outcome: "error" }
-    const code = errorCode(error)
+      // It says what was put back once the project has reloaded, below.
+      return "keep"
+    },
+    failed: {
+      operation: "project.undoEdit",
+      title: "Couldn't undo it",
+      description: message,
+      track(error) {
+        const failed: Attributes<"projectEdit.undone"> = { files: paths(edit), outcome: "error" }
+        const code = errorCode(error)
 
-    if (code) {
-      failed.code = code
+        if (code) {
+          failed.code = code
+        }
+
+        track("projectEdit.undone", failed)
+      }
     }
+  })
 
-    track("projectEdit.undone", failed)
-    reportError(error, { operation: "project.undoEdit", title: "Couldn't undo it", id, description: message(error) })
-
+  if (!undone) {
     return
   }
-
-  track("projectEdit.undone", { files: paths(undone), outcome: "ok" })
 
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {

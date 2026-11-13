@@ -3,6 +3,7 @@
  * design-options-values.md specifies them, with the project's images. Their tokens are the project's, as `ProjectData` gives them.
  */
 import { formatNumber } from "@parity-app/style-schema"
+import { windowStore } from "../../store.ts"
 import type { Length } from "./data.ts"
 import { type ColorToken, drawnColor, type ShadowToken } from "./tokens.ts"
 
@@ -112,24 +113,20 @@ const startingImages: ProjectImage[] = [
  * The images the project has as the exploration runs: its own, then those added to it, dropped, pasted, uploaded or
  * picked from Unsplash, as each would be copied into `public/images/`. Kept here so every editor and preview sees them.
  */
-let images: readonly ProjectImage[] = startingImages
-const watchers = new Set<() => void>()
+const added = windowStore<readonly ProjectImage[]>(() => startingImages)
 
 /** The project's images now; the same list until one's added, so React can watch it. */
-export const projectImages = (): readonly ProjectImage[] => images
+export const projectImages = added.get
 
 /** Calls `watch` each time an image is added, until the function it returns is called. */
-export function watchProjectImages(watch: () => void): () => void {
-  watchers.add(watch)
-
-  return () => watchers.delete(watch)
-}
+export const watchProjectImages = added.subscribe
 
 /**
  * Adds an image to the project under its file's name made fit for a class (`My Photo.PNG` is `my-photo.png`), numbered
  * when that's taken, and gives the path a fill uses for it. One already there with the same picture is used again.
  */
 export function addProjectImage(fileName: string, preview: string): string {
+  const images = added.get()
   const same = images.find((image) => image.preview === preview)
 
   if (same) {
@@ -151,8 +148,7 @@ export function addProjectImage(fileName: string, preview: string): string {
     name = `${stem}-${count}${extension}`
   }
 
-  images = [...images, { name, preview }]
-  watchers.forEach((watch) => watch())
+  added.set([...images, { name, preview }])
 
   return `/images/${name}`
 }
@@ -172,7 +168,7 @@ export interface StockPhoto {
 export const stockSrc = (photo: StockPhoto) => `https://images.unsplash.com/${photo.id}`
 
 export const imagePreview = (src: string): string | undefined =>
-  images.find((image) => `/images/${image.name}` === src)?.preview ??
+  added.get().find((image) => `/images/${image.name}` === src)?.preview ??
   stockPhotos.find((photo) => stockSrc(photo) === src)?.preview
 
 /** An image as its row names it: the project's by its file's name, Unsplash's by its title. */

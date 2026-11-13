@@ -15,6 +15,7 @@ import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { resetWithWindow } from "../store.ts"
 import {
   type ProjectDesigns,
   type ProjectSession,
@@ -168,10 +169,8 @@ function readRecent(): string[] {
   }
 }
 
-/** Forgets what was picked lately, as a first run starts: stories start from nothing picked. */
-export function forgetRecentPicks(): void {
-  saveRecent([])
-}
+// Nothing picked yet, as a first run starts, so each story starts from nothing picked.
+resetWithWindow(() => saveRecent([]))
 
 function saveRecent(recent: readonly string[]): void {
   try {

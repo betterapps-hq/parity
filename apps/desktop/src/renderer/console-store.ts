@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react"
 import type { ConsoleChange, ConsoleEntry, LoggedEntry } from "../shared/protocol.ts"
+import { resetWithWindow, createStore, useStore } from "./store.ts"
 
 /**
  * What a project's designs wrote to the console (PAR-147), from the same log `parity console` reads: each message
@@ -39,16 +40,11 @@ class ConsoleLog {
   readonly #entries = new Map<number, LoggedEntry>()
   #logged: readonly ConsoleMessage[] = []
   #failures: readonly ConsoleMessage[] = []
-  #messages: readonly ConsoleMessage[] = []
-  readonly #listeners = new Set<() => void>()
+  readonly #messages = createStore<readonly ConsoleMessage[]>(() => [])
 
-  get = (): readonly ConsoleMessage[] => this.#messages
+  get = this.#messages.get
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.#listeners.add(listener)
-
-    return () => this.#listeners.delete(listener)
-  }
+  subscribe = this.#messages.subscribe
 
   /**
    * Takes in what the main process kept or counted again, by id, from the project's builder at `guestUrl`. A message
@@ -95,19 +91,26 @@ class ConsoleLog {
     this.#join()
   }
 
-  #join(): void {
-    this.#messages = this.#failures.length === 0 ? this.#logged : [...this.#failures, ...this.#logged]
-    this.#tell()
+  /** Forgets every message, failures too, as a story or test starts. */
+  reset(): void {
+    this.#entries.clear()
+    this.#logged = []
+    this.#failures = []
+    this.#messages.reset()
   }
 
-  #tell(): void {
-    for (const listener of this.#listeners) {
-      listener()
-    }
+  #join(): void {
+    this.#messages.set(this.#failures.length === 0 ? this.#logged : [...this.#failures, ...this.#logged])
   }
 }
 
 const logs = new Map<string, ConsoleLog>()
+
+resetWithWindow(() => {
+  for (const log of logs.values()) {
+    log.reset()
+  }
+})
 
 /** A project's console log, by the project's id. */
 export function consoleLog(projectId: string): ConsoleLog {
@@ -161,7 +164,7 @@ function origin(url: string): string {
 export function useConsole(projectId: string): readonly ConsoleMessage[] {
   const log = consoleLog(projectId)
 
-  return useSyncExternalStore(log.subscribe, log.get)
+  return useStore(log)
 }
 
 /**

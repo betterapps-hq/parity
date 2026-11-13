@@ -8,10 +8,9 @@ import {
 } from "@parity-app/connectors"
 import type { ImageDetails } from "@parity-app/core"
 import { keepImageDetails, mediaWords } from "@parity-app/editor"
-import { toast } from "sonner"
 import type { DesignStore } from "../design-store.ts"
 import { openLibraryBrowser } from "../library/library-browser.ts"
-import { reportError } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { mediaFilesOf } from "./project-media.ts"
@@ -74,40 +73,42 @@ export async function addStock(
   library: ConnectorInfo,
   picked: readonly Found[]
 ): Promise<void> {
-  const progress = toast.loading(`Adding ${pickedWords(picked)} from ${library.name}…`)
-
   const saved: Saved[] = []
   const failed: { found: Found; error: unknown }[] = []
 
-  for (const found of picked) {
-    try {
-      const { src, path } = await request("images.saveFrom", {
-        projectId: session.id,
-        url: found.video?.url ?? found.image.url,
-        name: found.title
-      })
+  await serviceCall({
+    progress: `Adding ${pickedWords(picked)} from ${library.name}…`,
+    async run() {
+      for (const found of picked) {
+        try {
+          const { src, path } = await request("images.saveFrom", {
+            projectId: session.id,
+            url: found.video?.url ?? found.image.url,
+            name: found.title
+          })
 
-      saved.push({ found, src, path })
-    } catch (error) {
-      failed.push({ found, error })
+          saved.push({ found, src, path })
+        } catch (error) {
+          failed.push({ found, error })
+        }
+      }
+    },
+    done() {
+      const [first] = failed
+
+      return first
+        ? {
+            failure: first.error,
+            operation: "images.saveFrom",
+            title:
+              failed.length === 1
+                ? `Couldn't add ${first.found.title}`
+                : `Couldn't add ${pickedWords(failed.map(({ found }) => found))}`,
+            context: { pictures: failed.length }
+          }
+        : "dismiss"
     }
-  }
-
-  if (failed.length > 0) {
-    const [first] = failed
-
-    reportError(first?.error, {
-      operation: "images.saveFrom",
-      title:
-        failed.length === 1
-          ? `Couldn't add ${first?.found.title}`
-          : `Couldn't add ${pickedWords(failed.map(({ found }) => found))}`,
-      context: { pictures: failed.length },
-      id: progress
-    })
-  } else {
-    toast.dismiss(progress)
-  }
+  })
 
   if (saved.length === 0) {
     return

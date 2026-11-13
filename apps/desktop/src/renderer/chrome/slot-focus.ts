@@ -1,5 +1,5 @@
-import { useSyncExternalStore } from "react"
 import { projectPart } from "../project-part.ts"
+import { createStore, useStore } from "../store.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -17,35 +17,8 @@ interface SlotFocus {
 
 type Session = Pick<ProjectSession, "untilClosed">
 
-/** One open project's slot to focus, if any. */
-class SlotFocusState {
-  private state: SlotFocus | undefined
-  private readonly listeners = new Set<() => void>()
-
-  get = (): SlotFocus | undefined => this.state
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
-
-  set(next: SlotFocus | undefined): void {
-    this.state = next
-
-    for (const listener of this.listeners) {
-      listener()
-    }
-  }
-
-  dispose(): void {
-    this.listeners.clear()
-    this.state = undefined
-  }
-}
-
-/** An open project's slot to focus, dropped when its tab closes. */
-export const slotFocusOf = projectPart((_session: Session) => new SlotFocusState())
+/** An open project's slot to focus, if any, dropped when its tab closes. */
+export const slotFocusOf = projectPart((_session: Session) => createStore<SlotFocus | undefined>(() => undefined))
 
 /** Asks Props to focus the name of the slot that `node` is, forgetting any refusal. */
 export function focusSlot(session: Session, design: string, node: string): void {
@@ -75,7 +48,7 @@ export function refuseSlotName(session: Session, design: string, node: string, e
 
 export function useSlotFocus(session: Session, design: string): SlotFocus | undefined {
   const focus = slotFocusOf(session)
-  const current = useSyncExternalStore(focus.subscribe, focus.get)
+  const current = useStore(focus)
 
   return current?.design === design ? current : undefined
 }

@@ -4,6 +4,7 @@ import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import { toast } from "sonner"
 import { layerLabel } from "../canvas/kinds.tsx"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { getPreferences } from "./preferences.ts"
@@ -85,15 +86,9 @@ export async function exportLayers(
     return
   }
 
-  const began = performance.now()
-
   const files = exportFiles(
     targets.map((target) => target.name),
     sizes
-  )
-
-  const progress = toast.loading(
-    files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`
   )
 
   const exported: Exported = {
@@ -103,50 +98,41 @@ export async function exportLayers(
     designs: targets.length
   }
 
-  try {
-    const { files: written, warnings } = await request("layers.export", {
-      projectId,
-      folder,
-      layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
-      files
-    })
+  const answer = await serviceCall({
+    progress: files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`,
+    run: () =>
+      request("layers.export", {
+        projectId,
+        folder,
+        layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
+        files
+      }),
+    done({ files: written, warnings }, took) {
+      track("export.done", { ...exported, durationMs: took, files: written.length, warnings: warnings.length })
 
-    track("export.done", {
-      ...exported,
-      durationMs: since(began),
-      files: written.length,
-      warnings: warnings.length
-    })
-    toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
-      id: progress,
-      description: folder,
-      action: written[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(written[0]!) } : undefined
-    })
-
-    if (warnings.length > 0) {
-      toast.warning("Some layers couldn't be drawn", {
-        description: warnings.join("\n"),
-        classNames: { description: "whitespace-pre-line" }
-      })
-    }
-  } catch (error) {
-    trackExportFailed({ ...exported, durationMs: since(began) }, error)
-    reportError(error, {
+      return {
+        success: written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`,
+        description: folder,
+        action: written[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(written[0]!) } : undefined
+      }
+    },
+    failed: {
       operation: "layers.export",
       title: "Couldn't export",
-      id: progress,
-      description: errorMessage(error)
+      track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
+    }
+  })
+
+  if (answer && answer.warnings.length > 0) {
+    toast.warning("Some layers couldn't be drawn", {
+      description: answer.warnings.join("\n"),
+      classNames: { description: "whitespace-pre-line" }
     })
   }
 }
 
 /** What an export wrote, for `export.done` and `export.failed`, which add how long it took. */
 type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code" | "durationMs">
-
-/** The whole milliseconds since `began`, a `performance.now()`. */
-function since(began: number): number {
-  return Math.round(performance.now() - began)
-}
 
 function trackExportFailed(exported: Exported & { durationMs: number }, cause: unknown): void {
   const failed: EventAttributes<typeof registeredEvents, "export.failed"> = { ...exported }
@@ -185,42 +171,35 @@ export async function exportAllImages(
     return
   }
 
-  const began = performance.now()
   const scale = getPreferences().exportScale
   const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
-  const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
   const exported: Exported = { kind: "designs", formats: ["png"], scales: [scale], designs: designs.length }
 
-  try {
+  const answer = await serviceCall({
+    progress: `Exporting ${named ?? store.designsLabel(designs)}…`,
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
-    const { files, warnings } = await request("designs.export", {
-      projectId: session.id,
-      folder,
-      designs,
-      scale
-    })
+    run: () => request("designs.export", { projectId: session.id, folder, designs, scale }),
+    done({ files, warnings }, took) {
+      track("export.done", { ...exported, durationMs: took, files: files.length, warnings: warnings.length })
 
-    track("export.done", { ...exported, durationMs: since(began), files: files.length, warnings: warnings.length })
-    toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
-      id: progress,
-      description: folder,
-      action: files[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(files[0]!) } : undefined
-    })
-
-    if (warnings.length > 0) {
-      toast.warning("Some previews had problems", {
-        description: warnings.join("\n"),
-        // One warning to a line.
-        classNames: { description: "whitespace-pre-line" }
-      })
-    }
-  } catch (error) {
-    trackExportFailed({ ...exported, durationMs: since(began) }, error)
-    reportError(error, {
+      return {
+        success: files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`,
+        description: folder,
+        action: files[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(files[0]!) } : undefined
+      }
+    },
+    failed: {
       operation: "designs.export",
       title: "Couldn't export",
-      id: progress,
-      description: errorMessage(error)
+      track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
+    }
+  })
+
+  if (answer && answer.warnings.length > 0) {
+    toast.warning("Some previews had problems", {
+      description: answer.warnings.join("\n"),
+      // One warning to a line.
+      classNames: { description: "whitespace-pre-line" }
     })
   }
 }
