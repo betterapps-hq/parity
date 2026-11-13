@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 02:03:37 GMT",
+      "version": "0.80.1",
+      "tag": "@parity-app/desktop_v0.80.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ac4a52a5bc27b83717cd01ad8f75776389e06bec",
+            "comment": "The desktop app's process logic moves out of core into @parity-app/processes"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4417be6684923148cb577dc60957edf65cf5796e",
+            "comment": "Each style section, and a design's Props, Components and Modes, has its own Storybook stories"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 01:34:11 GMT",
       "version": "0.80.0",
       "tag": "@parity-app/desktop_v0.80.0",

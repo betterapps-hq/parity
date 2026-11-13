@@ -1,99 +1,453 @@
-export * from "./arrange.ts"
+export {
+  alignBoxes,
+  alignInLayouts,
+  type Alignment,
+  copyLayersInPlace,
+  type DesignBox,
+  type DesignRef,
+  distributeBoxes,
+  type Order,
+  removeDesigns,
+  removeLayers,
+  reorderLayer,
+  repositionDesigns,
+  siblingsOf,
+  topLayers,
+  unwrapLayout,
+  wrapInLayout
+} from "./arrange.ts"
 
-export * from "./canvas-labels.ts"
+export { type BoardBox, type LabelKind, labelLook, stateLabelSpace, titleReach } from "./canvas-labels.ts"
 
-export * from "./clipboard.ts"
+export {
+  applyStyle,
+  type ClipboardEnvelope,
+  type ClipboardPayload,
+  copyDesigns,
+  copyLayers,
+  copyNotes,
+  isParityCopy,
+  isSvgMarkup,
+  missingComponents,
+  pasteLayers,
+  pasteTarget,
+  type PasteTarget,
+  readEnvelope,
+  styleOf,
+  textLayer,
+  writeEnvelope
+} from "./clipboard.ts"
 
-export * from "./component-preview.ts"
+export {
+  componentPreviewTree,
+  componentUses,
+  missingProps,
+  type PreviewContext,
+  previewFrameWidth,
+  previewProblem,
+  type PreviewProblem,
+  previewRootId,
+  previewVariants,
+  slotPreviewTree
+} from "./component-preview.ts"
 
-export * from "./components.ts"
+export { makeComponent } from "./components.ts"
 
-export * from "./composition.ts"
+export { componentComposition, type ComponentComposition } from "./composition.ts"
 
-export * from "./create.ts"
+export { newDesign } from "./create.ts"
 
-export * from "./design-changes.ts"
+export {
+  addDesign,
+  addNote,
+  changeDesign,
+  changeDesigns,
+  changeNote,
+  deleteDesign,
+  mergeAgentChanges,
+  moveDesign,
+  type ReferenceAdded,
+  reorderDesign,
+  replaceDocuments
+} from "./design-changes.ts"
 
-export * from "./design-colors.ts"
+export { designColors } from "./design-colors.ts"
 
-export * from "./document-equality.ts"
+export { withTidyView } from "./document-equality.ts"
 
-export * from "./drop-files.ts"
+export {
+  countMedia,
+  designOfMedia,
+  dropHint,
+  dropLabel,
+  type DroppedFile,
+  fileBaseName,
+  type FileMedium,
+  limitOf,
+  mayBeMedia,
+  mediaAccept,
+  type MediaCount,
+  mediaExtension,
+  mediaKinds,
+  mediaWords,
+  mediumOfType,
+  megabytes,
+  skippedMessage,
+  sortDrop,
+  type TakenFile,
+  videoLimit
+} from "./drop-files.ts"
 
-export * from "./drop-slot.ts"
+export { type Box, flowOf, type Point, type Rect, type Slot } from "./drop-slot.ts"
 
-export * from "./drop-target.ts"
+export {
+  type DropTarget,
+  dropTargetAt,
+  frameLayout,
+  type FrameLayout,
+  type MeasuredLayer,
+  type MoveTarget
+} from "./drop-target.ts"
 
-export * from "./edit-frame.ts"
+export { activeState, editFrame, type EditFrame, editingState, type Picked } from "./edit-frame.ts"
 
-export * from "./export-files.ts"
+export {
+  copyScale,
+  defaultExportSizes,
+  describeFiles,
+  exportFiles,
+  type ExportSize,
+  nextExportSize,
+  planExport,
+  planPicture
+} from "./export-files.ts"
 
-export * from "./find-anything.ts"
+export { findAnything, type FindItem, rememberPick } from "./find-anything.ts"
 
-export * from "./frames.ts"
+export {
+  clickedFrameSize,
+  detachInstancesOf,
+  draggedBox,
+  drawnFrame,
+  fittedFrame,
+  frameOfText,
+  type FramePreset,
+  framePresets,
+  frameRootShown,
+  frameRootStored,
+  hugsContent,
+  instanceCount,
+  snapToEdges,
+  textFrameRenamed,
+  withFrameSize
+} from "./frames.ts"
 
-export * from "./handles.ts"
+export { type Edge, handleBoxes } from "./handles.ts"
 
-export * from "./history.ts"
+export {
+  changedBesides,
+  type ChangeOptions,
+  checkpoint,
+  type Checkpoint,
+  type DesignHistory,
+  type DesignSnapshot,
+  type DesignStep,
+  endGesture,
+  fileWrite,
+  type FileWrite,
+  type HistoryEntry,
+  historyLimit,
+  type HistoryState,
+  mergedDocument,
+  openDesigns,
+  recordChange,
+  redoChange,
+  reloadFile,
+  revertTo,
+  saveFailure,
+  type SaveState,
+  startSave,
+  type TokenFailure,
+  undoChange,
+  unsavedPaths,
+  withStylesheet,
+  writeFailed,
+  writeStarted,
+  writeSucceeded
+} from "./history.ts"
 
-export * from "./home.ts"
+export { openingDesigns } from "./home.ts"
 
-export * from "./insert-search.ts"
+export {
+  compareRanked,
+  hiddenHeading,
+  hiddenReason,
+  type HiddenReason,
+  type InsertOption,
+  type InsertOrigin,
+  type InsertRow,
+  insertRows,
+  isLate,
+  searchOption
+} from "./insert-search.ts"
 
-export * from "./insert.ts"
+export {
+  componentLabel,
+  type InsertAt,
+  type InsertContext,
+  insertIntoDesign,
+  type InsertItem,
+  insertLabel,
+  nodeForItem,
+  readInsertItem,
+  whereToInsert
+} from "./insert.ts"
 
-export * from "./kind-names.ts"
+export { kindName, kindsName, kindTitle } from "./kind-names.ts"
 
-export * from "./kinds.ts"
+export { type DroppedParts, turnInto } from "./kinds.ts"
 
-export * from "./layer-capabilities.ts"
+export {
+  type Capabilities,
+  type CapabilityDesign,
+  designCapabilities,
+  type InspectorSection,
+  panelParts,
+  selectionCapabilities,
+  type StyleControl,
+  styleParts,
+  type StyleSection,
+  type TakesStyle
+} from "./layer-capabilities.ts"
 
-export * from "./layers-tree.ts"
+export {
+  branchIds,
+  closedTree,
+  expandedRows,
+  layerRowId,
+  revealIds,
+  revealRows,
+  searchRows,
+  siblingIds,
+  toggleRow,
+  toggleRows,
+  type TreeRow,
+  treeRows
+} from "./layers-tree.ts"
 
-export * from "./locking.ts"
+export {
+  designsLocked,
+  isLocked,
+  layersLocked,
+  lockableIds,
+  lockSource,
+  type LockSource,
+  setDesignLocked,
+  toggleLockedLayers,
+  unlockedPath
+} from "./locking.ts"
 
-export * from "./media-wall.ts"
+export { fitPicture, packWall, type PictureSize, type Stretch, tallnessOf } from "./media-wall.ts"
 
-export * from "./move-layers.ts"
+export { moveLayersAcross, moveLayersWithin, readLayersDrag } from "./move-layers.ts"
 
-export * from "./move-resize.ts"
+export {
+  absoluteDrag,
+  type Arrow,
+  arrowOf,
+  dragThreshold,
+  type Drawn,
+  type DrawnSteps,
+  frameResize,
+  frameSizeReset,
+  layerResize,
+  type LayerResizeStart,
+  layerSizeReset,
+  type LayerSnapStart,
+  type LayersNudge,
+  layersResize,
+  nudgedPosition,
+  nudgeLayers,
+  resizeStart,
+  type StyleChange,
+  withFrame
+} from "./move-resize.ts"
 
-export * from "./new-screen.ts"
+export { type DesignName, designOfItem, designOfLayers } from "./new-screen.ts"
 
-export * from "./overlay-measuring.ts"
+export { drawsOver, measuresNext, movesOnlyTheView, overlayDesigns, settleUntil } from "./overlay-measuring.ts"
 
-export * from "./paste-decision.ts"
+export {
+  decidePaste,
+  noLayoutHere,
+  type PasteAction,
+  type PasteAsk,
+  type PasteContent,
+  type PasteHow,
+  type PasteRefusal,
+  pasteStepName
+} from "./paste-decision.ts"
 
-export * from "./paste-here.ts"
+export { type HereLayout, type HereSlot, pasteHere, slotHere } from "./paste-here.ts"
 
-export * from "./paste-over.ts"
+export { designsAt, placeOver, replaceLayers, selectionToPasteOn } from "./paste-over.ts"
 
-export * from "./placement.ts"
+export {
+  aboveEverything,
+  type Bounds,
+  designGap,
+  freeSpotBeside,
+  panToShow,
+  pastedPlacement,
+  rightOfEverything,
+  viewMargin
+} from "./placement.ts"
 
-export * from "./project-images.ts"
+export {
+  cantRemove,
+  codeFilesUsing,
+  type CodeFileUse,
+  type CodeReference,
+  codeReferences,
+  designsUsing,
+  type DesignUse,
+  filterImages,
+  findImage,
+  findUses,
+  type ImageFile,
+  imageItem,
+  type ImageMedium,
+  imagesFolder,
+  inUse,
+  keepImageDetails,
+  mediaFolderOf,
+  mediaFolders,
+  mediumOf,
+  type ProjectImage,
+  projectImages,
+  removalOf,
+  usesOnCard,
+  videosFolder
+} from "./project-images.ts"
 
-export * from "./recovery.ts"
+export { readRecoveryCopy, recoveryCopy, type RecoveryCopy, recoveryCopySchema, restoreRecovery } from "./recovery.ts"
 
-export * from "./references.ts"
+export {
+  addReferences,
+  changeReference,
+  type FoundScreen,
+  moreFromApp,
+  nearestBox,
+  type ReferenceAnchor,
+  referenceBounds,
+  referenceExpired,
+  referenceFrom,
+  referenceRow,
+  referenceSearch,
+  type ReferenceSearch,
+  referenceSize
+} from "./references.ts"
 
-export * from "./render-failures.ts"
+export { designFailures, failureAdvice, layerFailure } from "./render-failures.ts"
 
-export * from "./review.ts"
+export {
+  type AnnotationKind,
+  annotationKinds,
+  isReviewTool,
+  pickReview,
+  type Review,
+  type ReviewTool,
+  reviewToolFor,
+  startReview,
+  stopReview
+} from "./review.ts"
 
-export * from "./selection.ts"
+export {
+  designsSelection,
+  layersSelection,
+  sameSelection,
+  selectedDesigns,
+  selectedNodes,
+  type Selection,
+  selectionKey,
+  toggleLayer
+} from "./selection.ts"
 
-export * from "./shown.ts"
+export { boardReader } from "./shown.ts"
 
-export * from "./snap.ts"
+export {
+  distancesBetween,
+  EvenSpacing,
+  type LayerSnapped,
+  type LayerSnapScene,
+  snapBox,
+  type SnapBox,
+  type SnapGuide,
+  snapLayer,
+  type SnapPoint,
+  snaps,
+  type SnapSpacing
+} from "./snap.ts"
 
-export * from "./spacing-handles.ts"
+export {
+  type LengthToken,
+  type PaddingSide,
+  paddingSides,
+  pickedSpacing,
+  type SidesHeld,
+  spacingDrag,
+  type SpacingEdit,
+  type SpacingEditStart,
+  type SpacingHandle,
+  spacingHandles,
+  type SpacingLayout,
+  spacingName,
+  spacingScaleName,
+  spacingStep,
+  typedSpacing
+} from "./spacing-handles.ts"
 
-export * from "./status.ts"
+export { editStatus, type EditStatus, type StatusOptions } from "./status.ts"
 
-export * from "./style-editing.ts"
+export {
+  fillEdit,
+  type LayerMeasure,
+  layoutTypeEdit,
+  placementEdit,
+  type RowKey,
+  shownSize,
+  sidesOf,
+  sizeEdit,
+  type StackingContext,
+  type StyleEdit,
+  type StyleRow,
+  styleRows,
+  styleSelection,
+  type StyleSelection,
+  styleValues,
+  type StyleValues,
+  tidySides
+} from "./style-editing.ts"
 
-export * from "./text-editing.ts"
+export {
+  editableText,
+  openingSelection,
+  type TextRange,
+  textSizing,
+  textToEdit,
+  withEditedText
+} from "./text-editing.ts"
 
-export * from "./token-edits.ts"
+export {
+  noTokenEdits,
+  type TokenChange,
+  tokenDifferences,
+  type TokenEdit,
+  type TokenEdits,
+  tokensWithEdits,
+  type TokenWrite,
+  withTokenEdits,
+  withTokenOverrides
+} from "./token-edits.ts"
 
-export * from "./zoom-settle.ts"
+export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"

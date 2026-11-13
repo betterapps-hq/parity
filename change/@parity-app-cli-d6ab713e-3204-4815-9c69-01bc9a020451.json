@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "The desktop app's process logic moves out of core into @parity-app/processes",
+  "comment": "Core and editor name what other packages may use in src/index.ts",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

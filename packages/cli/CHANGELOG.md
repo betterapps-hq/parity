@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 13 Nov 2026 01:34:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 02:04:23 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.60.4
+
+Fri, 13 Nov 2026 02:04:23 GMT
+
+### Patches
+
+- The desktop app's process logic moves out of core into @parity-app/processes (ajcraswell@gmail.com)
 
 ## 0.60.3
 

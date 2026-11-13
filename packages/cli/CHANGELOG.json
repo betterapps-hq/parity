@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 02:04:23 GMT",
+      "version": "0.60.4",
+      "tag": "@parity-app/cli_v0.60.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ac4a52a5bc27b83717cd01ad8f75776389e06bec",
+            "comment": "The desktop app's process logic moves out of core into @parity-app/processes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 01:34:43 GMT",
       "version": "0.60.3",
       "tag": "@parity-app/cli_v0.60.3",

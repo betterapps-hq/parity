@@ -54,11 +54,13 @@ approving `cd-npm.yml`'s Production job moves `latest` to it. The CLI's sender a
 in `~/.parity/installed-cli.json`, and the next command reports `production`. A version that was `latest` stays
 `production` after a newer one is promoted.
 
-`ci` sends only errors and reports, with their breadcrumbs: no spans, logs or replays (PAR-777). Those stay in the run's
-local copy, which the end-to-end suite checks. CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to
-2026-11-09, which would have run past every plan's 5 million spans a month. So a CI test pass shows in Sentry only
-through its errors. Its spans and logs are in the `telemetry-github-<run>-<attempt>` artifact of its App tests run, kept
-for 7 days; [telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) says how to read it (PAR-785).
+`ci` sends only errors and reports, with their breadcrumbs, and a replay for each failed end-to-end test: no spans, logs
+or other replays (PAR-777, PAR-1043). Spans and logs stay in the run's local copy, which the end-to-end suite checks. CI
+sent 718,000 of `parity-desktop`'s 794,000 spans in the week to 2026-11-09, which would have run past every plan's 5
+million spans a month. So a CI test pass shows in Sentry only through its errors, and a failed test through its replay
+too, tagged `e2e_test` and `test_run` and linked from the job's log. Its spans and logs are in the
+`telemetry-github-<run>-<attempt>` artifact of its App tests run, kept for 7 days;
+[telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) says how to read it (PAR-785).
 
 ## Releases and source maps
 
