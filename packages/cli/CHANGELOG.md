@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 13 Nov 2026 02:04:23 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 02:33:44 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.60.5
+
+Fri, 13 Nov 2026 02:33:44 GMT
+
+### Patches
+
+- Core and editor name what other packages may use in src/index.ts (ajcraswell@gmail.com)
 
 ## 0.60.4
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 02:33:44 GMT",
+      "version": "0.60.5",
+      "tag": "@parity-app/cli_v0.60.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6e6f6695f6567195a8bd8f5da857e653e4abcaa5",
+            "comment": "Core and editor name what other packages may use in src/index.ts"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 02:04:23 GMT",
       "version": "0.60.4",
       "tag": "@parity-app/cli_v0.60.4",
