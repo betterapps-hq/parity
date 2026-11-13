@@ -29,8 +29,13 @@ export interface ServiceProcess {
 export interface ProjectServiceOptions<Process extends ServiceProcess, Window> {
   /** Forks a fresh service. */
   fork: () => Process
-  /** Answers what the service asks main. */
-  handlers: Handlers<MainMethods>
+  /** Answers what the service asks main, but for which processes it's running, which the lifecycle keeps itself. */
+  handlers: Handlers<Omit<MainMethods, "children">>
+  /**
+   * Ends a process the service started and every process that one started. A service that exits by itself, as by
+   * crashing, leaves them running, so each it said it was running is ended this way (PAR-1019).
+   */
+  endTree: (pid: number) => void
   /** The app's windows, as against the offscreen renderers. */
   windows: () => Window[]
   /** Whether `window`'s page is loading, so it connects once it has loaded. */
@@ -85,6 +90,7 @@ export interface ProjectService<Window> {
 export function createProjectService<Process extends ServiceProcess, Window>({
   fork,
   handlers,
+  endTree,
   windows,
   loading,
   parityPage,
@@ -114,10 +120,18 @@ export function createProjectService<Process extends ServiceProcess, Window>({
     pendingRestart = undefined
     const forked = now()
     const service = fork()
+    /** The processes the service said it's running, such as a project's Storybook. */
+    let children: number[] = []
 
     const channel = createChannel<MainMethods, ServiceProcessMethods>({
       errors: codedErrors,
-      handlers,
+      handlers: {
+        ...handlers,
+        // Ids from another process are data: anything but a process id is left out.
+        children: (pids) => {
+          children = Array.isArray(pids) ? pids.filter((pid) => Number.isSafeInteger(pid) && pid > 0) : []
+        }
+      },
       disconnected: () => new Error("The project service stopped"),
       trace: currentTraceHeaders,
       around: handleInSpan
@@ -132,6 +146,15 @@ export function createProjectService<Process extends ServiceProcess, Window>({
 
       if (running?.service === service) {
         running = undefined
+      }
+
+      // A service main ended took its whole tree with it (PAR-980). One that exited by itself left its children
+      // running, and they can't be found from it now that it's gone, so main ends each it said it was running. They're
+      // ended as the service's exit arrives, before the system can give their ids to anything else (PAR-1019).
+      if (!retired.has(service) && stopped !== service) {
+        for (const pid of children) {
+          endTree(pid)
+        }
       }
 
       const ranMs = now() - forked

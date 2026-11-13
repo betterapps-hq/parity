@@ -60,6 +60,12 @@ export interface MainMethods {
   record: { params: unknown; result: undefined }
   /** The open projects' `.env` values, which main scrubs and passes to every window, as projects open and close. */
   secrets: { params: string[]; result: undefined }
+  /**
+   * The ids of the processes the service started that are still running, as a project's Storybook, sent each time one
+   * starts or ends. A service that crashes can't end them, and its children can't be found from it once it's gone, so
+   * main ends these trees itself (PAR-1019).
+   */
+  children: { params: number[]; result: undefined }
   /** An agent called the app, so what follows is tagged as its driving (PAR-630). Main checks it, since it's data. */
   agentCalled: { params: unknown; result: undefined }
   /**
