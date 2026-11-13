@@ -22,7 +22,8 @@ held.
   to "Edit designs" if omitted.
 - `Print(...)` (or `console.log`) is how you see values. Objects print as JSON.
 - Values assigned without `const` or `let` carry over to your next snippet in the same tab.
-- A snippet has 5 seconds of computing time. Rendering (screenshots and checks) doesn't count against it.
+- A snippet can compute for 5 seconds between `await`s, and run for 2 minutes in all, renders included. Past either, it
+  stops and fails, changing nothing. For more renders than fit in 2 minutes, split them across calls.
 - To retry a failed snippet, send `editId` with `edits`, each an exact `{ find, replace }` on the snippet text (`all` to
   replace every match). Omitted edits default to an empty list. Do not send a new snippet with `editId`.
 - The result lists every node you created with a `name` under "Created". A snippet that builds a whole screen can name a

@@ -22,7 +22,7 @@ import { callerIdentity, presenceIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
 import { activeTab, type CopyReport, matchTab } from "./routing.ts"
-import { type ExecRequest, execute } from "./run.ts"
+import { appLimits, type ExecRequest, execute } from "./run.ts"
 import { sheetLayout } from "./sheet.ts"
 import type {
   AccessibilityFinding,
@@ -907,7 +907,8 @@ export async function exportPictures(
   const result = await execute(
     { label: "Export", code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${options})` },
     workspaceSnapshot(snapshot),
-    { presence: () => undefined, render: renderFor(host, snapshot) }
+    { presence: () => undefined, render: renderFor(host, snapshot) },
+    appLimits
   )
 
   if (!result.ok) {
@@ -997,7 +998,8 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
     const result = await execute(
       { label: "Report", code: `await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)})` },
       workspaceSnapshot(snapshot),
-      { presence: () => undefined, render: renderFor(host, snapshot) }
+      { presence: () => undefined, render: renderFor(host, snapshot) },
+      appLimits
     )
 
     if (!result.ok) {
@@ -1053,7 +1055,8 @@ export async function framePictures(
         code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${JSON.stringify({ scale })})`
       },
       workspaceSnapshot(snapshot),
-      { presence: () => undefined, render: renderFor(host, snapshot) }
+      { presence: () => undefined, render: renderFor(host, snapshot) },
+      appLimits
     )
 
     if (!result.ok) {

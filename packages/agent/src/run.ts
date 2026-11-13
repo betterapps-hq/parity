@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { createContext, Script, type Context } from "node:vm"
 import { CodedError, describeConflicts, errorDetails } from "@parity-app/core"
+import { z } from "zod"
 import type { AgentHooks, AgentSnapshot, ExecResult } from "./types.ts"
 import { type AgentApi, AgentWorkspace } from "./workspace.ts"
 
@@ -13,8 +14,40 @@ export interface ExecRequest {
   edits?: { find: string; replace: string; all?: boolean }[]
 }
 
-/** Each tab keeps one context, so values assigned without `const` or `let` carry over to the next call. */
-const contexts = new Map<string, Context>()
+/**
+ * How long a snippet may run, in milliseconds. A run is stopped once it has taken `total` in all, renders and screenshots
+ * included, or has computed for `stretch` without awaiting, and it fails, changing nothing.
+ */
+export interface SnippetLimits {
+  total: number
+  stretch: number
+}
+
+/**
+ * An agent's snippet gets 2 minutes, room for dozens of renders and screenshots, which can take seconds each, and 5
+ * seconds of computing between awaits, which its start alone had before (PAR-1037).
+ */
+export const agentLimits: SnippetLimits = { total: 120_000, stretch: 5000 }
+
+/**
+ * The app's own snippets, which export or report designs by screenshotting each in a list they're given, take as long
+ * as those renders do, however many there are.
+ */
+export const appLimits: SnippetLimits = { total: Number.POSITIVE_INFINITY, stretch: 5000 }
+
+/**
+ * Each tab keeps one context, so values assigned without `const` or `let` carry over to the next call, with its own
+ * `Promise`, which `run` hands the snippet API calls' results as.
+ */
+interface TabContext {
+  context: Context
+  promise: PromiseConstructor
+}
+
+const contexts = new Map<string, TabContext>()
+
+/** Evaluated in a snippet's context to run the promise jobs waiting there. */
+const nothing = new Script("undefined")
 
 /** Snippets that failed, kept so a retry can patch them instead of resending. */
 const failed = new Map<string, string>()
@@ -24,7 +57,12 @@ const failed = new Map<string, string>()
  * step through `hooks.apply` when given, or fails and changes nothing, returning an `editId` to retry with. A call
  * whose changes conflict with what changed in the editor since the snapshot fails the same way, naming the designs.
  */
-export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hooks: AgentHooks): Promise<ExecResult> {
+export async function execute(
+  request: ExecRequest,
+  snapshot: AgentSnapshot,
+  hooks: AgentHooks,
+  limits: SnippetLimits = agentLimits
+): Promise<ExecResult> {
   const code = request.editId ? patch(request.editId, request.edits ?? []) : request.code
 
   if (!code?.trim()) {
@@ -38,7 +76,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
   workspace.emit({ kind: "start" })
 
   try {
-    await run(snapshot.tab, code, workspace.api())
+    await run(snapshot.tab, code, workspace.api(), limits)
     await workspace.checkTokenKinds()
     const result = workspace.result()
     const { designs, modes, tokens, references = [] } = result.changes
@@ -81,20 +119,177 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
   }
 }
 
-async function run(tab: string, code: string, api: AgentApi): Promise<void> {
-  let context = contexts.get(tab)
+/**
+ * Runs a snippet in its tab's context until it settles or runs out of time. The context runs its own promise jobs
+ * (`afterEvaluate`), and only while something is evaluated in it, under that evaluation's timeout. So the snippet's
+ * start runs under one, and once an API call it awaits settles, `resume` evaluates nothing there to run what it does
+ * next under another, which stops a loop after an `await` as it stops one before. Once the run is over, the API calls
+ * it was given refuse, so a loop still awaiting them stops too.
+ */
+async function run(tab: string, code: string, api: AgentApi, limits: SnippetLimits): Promise<void> {
+  const { context, promise } = tabContext(tab)
+  const start = performance.now()
+  let over = false
+  // Whether the last stretch was cut short by the run's time, not its own limit, which says which a timeout was.
+  let lastOfRun = false
+  let stop: (cause: unknown) => void = () => undefined
 
-  if (!context) {
-    context = createContext({})
-    contexts.set(tab, context)
+  // `runInContext` gives whatever the script evaluates to, which each call says.
+  const evaluate = <Value>(script: Script): Value => {
+    const left = limits.total - (performance.now() - start)
+    lastOfRun = left < limits.stretch
+
+    return script.runInContext(context, { timeout: Math.max(1, Math.floor(Math.min(limits.stretch, left))) })
   }
 
-  Object.assign(context, api, { console: { log: api.Print, warn: api.Print, error: api.Print } })
+  const live: Live = {
+    over: () => over,
+    // Checked as well as timed, since API calls that settle without waiting on anything never let the timer fire.
+    spent: () => over || performance.now() - start >= limits.total,
+    resume: () => {
+      try {
+        if (live.spent()) {
+          throw outOfTime(limits)
+        }
+
+        evaluate<undefined>(nothing)
+      } catch (cause) {
+        stop(cause)
+      }
+    }
+  }
+
+  const guarded = guard(api, live, promise, limits)
+  Object.assign(context, guarded, { console: { log: guarded.Print, warn: guarded.Print, error: guarded.Print } })
   // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote.
   const script = new Script(`(async () => {\n${code}\n})()`, { filename: "snippet.js", lineOffset: -1 })
-  // The timeout bounds only what runs before the snippet's first `await`; what runs after isn't stopped (PAR-1037).
-  // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
-  await (script.runInContext(context, { timeout: 5000 }) as Promise<void>)
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      stop = (cause) => {
+        over = true
+        reject(cause)
+      }
+
+      if (Number.isFinite(limits.total)) {
+        timer = setTimeout(() => stop(outOfTime(limits)), limits.total)
+      }
+
+      // Its own `then`, not `await` or `Promise.race`, which would queue the call to it among the context's jobs.
+      // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
+      void evaluate<Promise<void>>(script).then(resolve, reject)
+    })
+  } catch (cause) {
+    if (!isTimeout(cause)) {
+      throw cause
+    }
+
+    throw lastOfRun ? outOfTime(limits) : stretchTooLong(limits)
+  } finally {
+    over = true
+    clearTimeout(timer)
+  }
+}
+
+function tabContext(tab: string): TabContext {
+  let found = contexts.get(tab)
+
+  if (!found) {
+    const context = createContext({}, { microtaskMode: "afterEvaluate" })
+    // SAFETY: a new context's `Promise` is its own constructor, read before a snippet could assign another.
+    found = { context, promise: new Script("Promise").runInContext(context) as PromiseConstructor }
+    contexts.set(tab, found)
+  }
+
+  return found
+}
+
+/** A run as the API calls it was given see it. */
+interface Live {
+  /** Whether the run has ended, after which nothing it was waiting on goes on. */
+  over(): boolean
+  /** Whether API calls refuse: the run has ended or its time is spent. */
+  spent(): boolean
+  /** Runs the promise jobs waiting in the context: what the snippet does next. */
+  resume(): void
+}
+
+/**
+ * The API with each function refusing once the run's time is spent, and each promise one returns handed to the snippet
+ * as a promise of its context, settled with `resume` right after. The snippet's `await` queues what it does next on
+ * that promise, so it's waiting in the context to run when `resume` does. A promise from here would queue it only after
+ * a job of this process's own, too late when the call settles without waiting on anything.
+ */
+function guard(api: AgentApi, live: Live, SnippetPromise: PromiseConstructor, limits: SnippetLimits): AgentApi {
+  const guarded: AgentApi = { ...api }
+
+  for (const [name, member] of Object.entries(api)) {
+    // Each function is wrapped alike, whatever it takes and gives.
+    const value: unknown = member
+
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the snippet API's edge: its functions are told from its values to be wrapped
+    if (typeof value !== "function") {
+      continue
+    }
+
+    const call = (...args: unknown[]) => {
+      if (live.spent()) {
+        throw outOfTime(limits)
+      }
+
+      const result: unknown = value(...args)
+
+      if (!(result instanceof Promise)) {
+        return result
+      }
+
+      return new SnippetPromise((resolve, reject) => {
+        const settle = (done: () => void) => {
+          // A call a stopped run made settles into nothing, so what that run would do next never runs.
+          if (!live.over()) {
+            done()
+            live.resume()
+          }
+        }
+
+        void result.then(
+          (settled) => settle(() => resolve(settled)),
+          (cause) => settle(() => reject(cause))
+        )
+      })
+    }
+
+    Object.assign(guarded, { [name]: call })
+  }
+
+  return guarded
+}
+
+function outOfTime(limits: SnippetLimits): Error {
+  return new Error(
+    `Stopped after ${seconds(limits.total)}, the most a snippet can run. Split the work across calls, ` +
+      "or look for a loop that never ends."
+  )
+}
+
+function stretchTooLong(limits: SnippetLimits): Error {
+  return new Error(
+    `Stopped after ${seconds(limits.stretch)} of computing without an await. Look for a loop that never ends.`
+  )
+}
+
+function seconds(ms: number): string {
+  const [count, unit] = ms >= 60_000 ? [ms / 60_000, "minute"] : [ms / 1000, "second"]
+
+  return `${count} ${unit}${count === 1 ? "" : "s"}`
+}
+
+/** What `vm` throws when an evaluation runs past its timeout, from a realm whose `Error` may not be this one's. */
+const timeoutError = z.object({ code: z.literal("ERR_SCRIPT_EXECUTION_TIMEOUT") })
+
+function isTimeout(cause: unknown): boolean {
+  return timeoutError.safeParse(cause).success
 }
 
 function patch(editId: string, edits: { find: string; replace: string; all?: boolean }[]): string {
