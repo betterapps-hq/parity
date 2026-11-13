@@ -1,8 +1,9 @@
+import type { TrackSize } from "@parity-app/style-schema"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { gridTrackComparisons, gridTrackPoints } from "./comparisons.tsx"
 import { LayerPreview } from "./controls.tsx"
-import type { Draft, Track } from "./data.ts"
+import type { Draft } from "./data.ts"
 import { LayoutSection } from "./layout-controls.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { layoutWrites } from "./writes.ts"
@@ -19,7 +20,7 @@ import { layoutWrites } from "./writes.ts"
  * More holds Fill gaps.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Grid tracks",
+  title: "Parity/Inspector/Rows/Grid tracks",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -27,7 +28,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const fill = (value = 1): Track => ({ kind: "fr", value })
+const fill = (value = 1): TrackSize => ({ kind: "fr", value })
 
 function Tracks({ start }: { start: Draft }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: { number: 12 }, ...start })

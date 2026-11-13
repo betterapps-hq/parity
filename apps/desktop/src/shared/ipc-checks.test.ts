@@ -1,4 +1,4 @@
-import { codeEditors } from "@parity-app/core"
+import { codeEditors } from "@parity-app/processes"
 import { describe, expect, it } from "vite-plus/test"
 import {
   consoleAnnouncement,

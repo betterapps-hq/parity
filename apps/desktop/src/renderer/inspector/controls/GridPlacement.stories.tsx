@@ -1,9 +1,10 @@
+import type { TrackSize } from "@parity-app/style-schema"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { gridPlacementComparisons, gridPlacementPoints } from "./comparisons.tsx"
 import { LayerPreview, type Measured } from "./controls.tsx"
-import type { Draft, Track } from "./data.ts"
+import type { Draft } from "./data.ts"
 import { GridCellSection } from "./grid-cell.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { placementWrites } from "./writes.ts"
@@ -22,7 +23,7 @@ import { placementWrites } from "./writes.ts"
  * of a span. Click Pro plan in the preview to see it selected.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Grid placement",
+  title: "Parity/Inspector/Rows/Grid placement",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -30,7 +31,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const fill: Track = { kind: "fr", value: 1 }
+const fill: TrackSize = { kind: "fr", value: 1 }
 
 function Placement({ start }: { start: Draft }) {
   const [draft, set] = useDraft({

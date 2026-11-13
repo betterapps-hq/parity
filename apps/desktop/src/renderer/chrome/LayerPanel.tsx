@@ -1,79 +1,54 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  boardTarget,
-  changesField,
-  type ContainerSpec,
   type DesignNode,
   designStates,
-  editNode,
   editsDesign,
   type EditTarget,
   findNode,
   type ImageNode,
-  innerChanges,
-  type InstanceNode,
   isInnerPath,
-  locateInner,
-  locateNode,
   mapNode,
-  nodeOnBoard,
   type NodePatch,
-  overrideCount,
   type PatchField,
   patchSize,
-  propChange,
-  resetInstance,
-  resetOverride,
   slotAtPath,
   type StateSpec,
-  swapInstance,
-  targetPatches,
   type VideoNode
 } from "@parity-app/core"
-import { editingState } from "@parity-app/editor"
-import { Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
-import { type ReactNode, useMemo, useState } from "react"
+import { type InspectorSection, panelParts, selectionCapabilities } from "@parity-app/editor"
+import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
+import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
-import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameGeometry, frameSize } from "../canvas/frame-geometry.ts"
 import { nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
-import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
+import { projectLibrary } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
-import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
+import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
-import { detachAndRecord, pushAndRecord } from "./component-events.ts"
+import { BaseDesignNote } from "./BaseDesignNote.tsx"
+import { pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
-import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
-import {
-  fieldName,
-  fieldValue,
-  type LayerChange,
-  PreviewedProp,
-  recordLayerChange,
-  renameAndRecord,
-  updateAndRecord
-} from "./inspector-events.ts"
-import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
+import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
+import { SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
-import { booleanValue, numberValue, plainText, type PropValue, readPropValue, textValue } from "./prop-values.ts"
-import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
+import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
@@ -82,29 +57,52 @@ import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
 
 /**
- * One part of a design layer's panel, which a story shows on its own (PAR-1022): the header, with the layer's name, eye,
- * the editing bar and Make component or Make slot; an instance's props and slots; a text's content; or a code
- * component's props.
- */
-export type LayerPart = "header" | "state" | "instance" | "content" | "props"
-
-/**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a
- * component's board takes edits the same way. Inside an instance, edits change only that copy. `only` draws one part
- * of a design layer's panel, as a story does; the app draws them all.
+ * component's board takes edits the same way. Inside an instance, edits change only that copy. Which sections show, in
+ * what order, is `panelParts` in `@parity-app/editor`, from what the layer can do (PAR-1032); each takes the selected
+ * layer itself (`useSelectedLayer`), so a story draws one alone (PAR-1031).
  */
-export function LayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: LayerPart }) {
-  const { store } = useProject()
-
-  if (!isInnerPath(nodeId)) {
-    return <DesignLayerPanel entry={entry} nodeId={nodeId} only={only} />
-  }
+export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+  const session = useProject()
+  const { store } = session
+  const components = useComponents(session.components)
+  const layer = useSelectedLayer()
 
   // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
-  const slot = slotAtPath(entry.container.root, nodeId, projectLibrary(store))
+  const slot = isInnerPath(nodeId) && slotAtPath(entry.container.root, nodeId, projectLibrary(store))
 
-  return slot ? <SlotPanel entry={entry} {...slot} /> : <InnerLayerPanel entry={entry} path={nodeId} />
+  if (slot) {
+    return <SlotPanel entry={entry} {...slot} />
+  }
+
+  if (!layer) {
+    return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
+  }
+
+  const can = selectionCapabilities(
+    layer.entry.container,
+    [{ id: layer.nodeId, node: layer.node, parent: undefined }],
+    (component) => components[component]?.takesStyle
+  )
+
+  return panelParts(can).map((section) => {
+    const Section = layerSections[section]
+
+    return Section && <Section key={section} />
+  })
+}
+
+/** What draws each of a layer's sections; a design's own, as States and Modes, aren't a layer's. */
+const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
+  header: LayerHeader,
+  props: PropsSection,
+  attributes: AttributesSection,
+  content: LayerContent,
+  media: LayerMedia,
+  noStyle: LayerNoStyle,
+  styles: LayerStyles,
+  export: LayerExport
 }
 
 /**
@@ -138,374 +136,215 @@ function LayerActions({ node }: { node: DesignNode }) {
   return <HeaderActions actions={actions} onAction={act} />
 }
 
-/** One of the design's own layers, or one part of its panel. */
-function DesignLayerPanel({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: LayerPart }) {
+/**
+ * The selected layer's header: its name, kind, links and eye, then where edits go, and Make component or Make slot for
+ * one of the design's own layers; for a layer inside an instance, that edits change only that copy, with Reset, Push to
+ * main and Edit in its component.
+ */
+export function LayerHeader() {
   const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
+  const { store } = session
   const entries = useContainerEntries(store)
+  const layer = useSelectedLayer()
+
+  if (!layer) {
+    return null
+  }
+
+  const { entry, nodeId, node, override, change, reset, state, target, inner } = layer
   const { container, key } = entry
-  const location = locateNode(container.root, nodeId)
+  const kind = layerKind(layer.layer, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
+  const label = layerLabel(layer.layer, entries, store.getComponentLibrary(), session.info.libraries)
 
-  if (!location) {
-    return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
+  const heading = (name: ReactNode) => (
+    <SelectionHeading
+      icon={<NodeIcon node={layer.layer} className={headingIcon} />}
+      color={nodeColor(layer.layer)}
+      name={name}
+      kind={kind.label}
+      detail={kind.description}
+      action={
+        <>
+          <LayerActions node={layer.layer} />
+          <VisibleToggle node={node} override={override} change={change} reset={reset} />
+        </>
+      }
+    />
+  )
+
+  if (inner) {
+    return (
+      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
+        {heading(<Name className={`px-1.5 ${headingName}`}>{label}</Name>)}
+        <CopyBar />
+      </div>
+    )
   }
 
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const node = nodeOnBoard(container, location.node, state)
-  const override = targetPatches(container, target)?.[nodeId]
-  const kind = layerKind(location.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
-
-  const change: LayerChange = (label, value, gesture, shown = node) => {
-    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
-      gesture
-    })
-
-    if (shown) {
-      recordLayerChange(key, [nodeId], state.id, shown, value, gesture)
-    }
-  }
-
-  // The layer as a design shows it in the state being edited, to read what a reset changed.
-  const shownIn = (current: ContainerSpec) => {
-    const layer = locateNode(current.root, nodeId)?.node
-
-    return layer && nodeOnBoard(current, layer, editingState(current, state.id))
-  }
-
-  const reset = (field?: PatchField) => {
-    const update = (current: ContainerSpec) => resetOverride(current, boardTarget(current, state.id), nodeId, field)
-
-    if (field) {
-      updateAndRecord(store, key, "Reset change", update, {
-        field: fieldName(field),
-        layers: [nodeId],
-        state: state.id,
-        read: (current) => fieldValue(shownIn(current), field)
-      })
-
-      return
-    }
-
-    updateAndRecord(store, key, "Reset change", update, {
-      field: "overrides",
-      layers: [nodeId],
-      state: state.id,
-      read: (current) => targetPatches(current, boardTarget(current, state.id))?.[nodeId]
-    })
-  }
-
-  const selector = <ComponentStateSelector entry={entry} state={state} target={target} />
-
-  const header = (
+  return (
     <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-      <SelectionHeading
-        icon={<NodeIcon node={location.node} className={headingIcon} />}
-        color={nodeColor(location.node)}
-        name={
-          <NameInput
-            key={`${nodeId}:${location.node.name ?? ""}`}
-            defaultValue={location.node.name ?? ""}
-            placeholder={layerLabel(location.node, entries, store.getComponentLibrary(), session.info.libraries)}
-            aria-label="Layer name"
-            className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
-            onBlur={(event) => {
-              const name = event.currentTarget.value.trim()
+      {heading(
+        <NameInput
+          key={`${nodeId}:${layer.layer.name ?? ""}`}
+          defaultValue={layer.layer.name ?? ""}
+          placeholder={label}
+          aria-label="Layer name"
+          className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
+          onBlur={(event) => {
+            const name = event.currentTarget.value.trim()
 
-              if (name === (location.node.name ?? "")) {
-                return
-              }
+            if (name === (layer.layer.name ?? "")) {
+              return
+            }
 
-              renameAndRecord(store, key, name || undefined, nodeId)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur()
-              }
-            }}
-          />
-        }
-        kind={kind.label}
-        detail={kind.description}
-        action={
-          <>
-            <LayerActions node={location.node} />
-            <VisibleToggle node={node} override={override} change={change} reset={reset} />
-          </>
-        }
-      />
-      {selector}
+            renameAndRecord(store, key, name || undefined, nodeId)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
+          }}
+        />
+      )}
+      <ComponentStateSelector entry={entry} state={state} target={target} />
       {/* A component or an instance is already one, so it has no Make component. */}
-      {location.ancestors.length > 0 && location.node.type !== "instance" && location.node.type !== "component" && (
+      {layer.depth > 0 && layer.layer.type !== "instance" && layer.layer.type !== "component" && (
         <MakeComponent
           entry={entry}
           nodeId={nodeId}
           beside={
-            location.node.type === "layout" &&
-            container.kind === "component" && <MakeSlot entry={entry} node={location.node} />
+            layer.layer.type === "layout" &&
+            container.kind === "component" && <MakeSlot entry={entry} node={layer.layer} />
           }
         />
       )}
       {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
-      {location.ancestors.length === 0 && location.node.type === "layout" && container.kind === "component" && (
+      {layer.depth === 0 && layer.layer.type === "layout" && container.kind === "component" && (
         <div className="mt-2 flex">
-          <MakeSlot entry={entry} node={location.node} />
+          <MakeSlot entry={entry} node={layer.layer} />
         </div>
       )}
     </div>
   )
+}
 
-  const instance = node.type === "instance" && (
-    <InstanceSection
-      entry={entry}
-      node={node}
-      own={location.node.type === "instance" ? location.node : undefined}
-      changed={(name) => changesField(override, { kind: "props", key: name })}
-      onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
-      onReset={(name) => reset({ kind: "props", key: name })}
-    />
-  )
+/** Where the selected layer's edits go, alone: the state or variant being edited, and switching it. */
+export function LayerStateSelector() {
+  const layer = useSelectedLayer()
 
-  const sections = (part?: "content" | "props") => (
-    <LayerSections
-      entry={entry}
-      nodeId={nodeId}
-      node={node}
-      override={override}
-      change={change}
-      reset={reset}
-      only={part}
-    />
-  )
-
-  if (only === "header") {
-    return header
-  }
-
-  if (only === "state") {
-    return <div className={`px-4 pb-3 ${panelEnd}`}>{selector}</div>
-  }
-
-  if (only === "instance") {
-    return instance
-  }
-
-  if (only) {
-    return sections(only)
+  if (!layer || layer.inner) {
+    return null
   }
 
   return (
-    <>
-      {header}
-      {instance}
-      {sections()}
-    </>
+    <div className={`px-4 pb-3 ${panelEnd}`}>
+      <ComponentStateSelector entry={layer.entry} state={layer.state} target={layer.target} />
+    </div>
   )
 }
 
 /**
- * A layer inside an instance. Edits are this copy's overrides: the rest of the copy keeps following its component, and
- * each override can be reset or pushed to the component, so every instance gets it.
+ * Under a layer inside an instance: that edits change only this copy, with Reset and Push to main, or where edits go
+ * while they're sent to a state; then Edit in the component the layer belongs to.
  */
-function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string }) {
+function CopyBar() {
   const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
+  const { store } = session
   const entries = useContainerEntries(store)
-  const { container, key } = entry
-  const library = projectLibrary(store)
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const inner = locateInner(container, path, library, { state, variants: container.view?.variants })
+  const layer = useSelectedLayer()
 
-  if (!inner) {
-    return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
+  if (!layer?.inner) {
+    return null
   }
 
-  const node = inner.shown
-  const override = innerChanges(container, target, path, library)
+  const { entry, nodeId, inner, override, reset, state, target } = layer
   const own = inner.instance.overrides?.[inner.key]
   const main = entries.find((candidate) => candidate.container.id === inner.instance.design)
 
-  const change: LayerChange = (label, value, gesture, shown = node) => {
-    store.updateContainer(
-      key,
-      label,
-      (current) => editLayer(store, current, boardTarget(current, state.id), path, value),
-      { gesture }
-    )
+  const push = () =>
+    main && pushAndRecord(store, entry.key, main.key, inner.instance.id, { key: inner.key, path: nodeId })
 
-    if (shown) {
-      recordLayerChange(key, [path], state.id, shown, value, gesture)
-    }
-  }
-
-  // The layer as the copy shows it in the state being edited, to read what a reset changed.
-  const shownIn = (current: ContainerSpec) =>
-    locateInner(current, path, library, { state: editingState(current, state.id), variants: current.view?.variants })
-      ?.shown
-
-  const reset = (field?: PatchField) => {
-    const update = (current: ContainerSpec) => resetLayer(store, current, boardTarget(current, state.id), path, field)
-
-    if (field) {
-      updateAndRecord(store, key, "Reset change", update, {
-        field: fieldName(field),
-        layers: [path],
-        state: state.id,
-        read: (current) => fieldValue(shownIn(current), field)
-      })
-
-      return
-    }
-
-    updateAndRecord(store, key, "Reset change", update, {
-      field: "overrides",
-      layers: [path],
-      state: state.id,
-      read: (current) => innerChanges(current, boardTarget(current, state.id), path, library)
-    })
-  }
-
-  const push = () => main && pushAndRecord(store, key, main.key, inner.instance.id, { key: inner.key, path })
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
   const owner = entries.find((candidate) => candidate.container.id === inner.component.id)
-  const kind = layerKind(inner.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
 
   return (
     <>
-      <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <SelectionHeading
-          icon={<NodeIcon node={inner.node} className={headingIcon} />}
-          color={nodeColor(inner.node)}
-          name={
-            <Name className={`px-1.5 ${headingName}`}>
-              {layerLabel(inner.node, entries, store.getComponentLibrary(), session.info.libraries)}
-            </Name>
-          }
-          kind={kind.label}
-          detail={kind.description}
-          action={
-            <>
-              <LayerActions node={inner.node} />
-              <VisibleToggle node={node} override={override} change={change} reset={reset} />
-            </>
-          }
-        />
-        {editsDesign(container, target) ? (
-          <div
-            className="mt-3 rounded-md border px-2.5 py-2 text-xs"
-            style={{
-              borderColor: kindColors.component,
-              background: "color-mix(in oklch, var(--canvas-component) 8%, transparent)"
-            }}
-          >
-            <p className="type-message">
-              <span className="text-muted-foreground">Editing this copy of </span>
-              {main?.container.name ?? inner.instance.design}
-              <span className="text-muted-foreground">, changes only this instance</span>
-            </p>
-            <div className="mt-2 flex gap-1.5">
+      {editsDesign(entry.container, target) ? (
+        <div
+          className="mt-3 rounded-md border px-2.5 py-2 text-xs"
+          style={{
+            borderColor: kindColors.component,
+            background: "color-mix(in oklch, var(--canvas-component) 8%, transparent)"
+          }}
+        >
+          <p className="type-message">
+            <span className="text-muted-foreground">Editing this copy of </span>
+            {main?.container.name ?? inner.instance.design}
+            <span className="text-muted-foreground">, changes only this instance</span>
+          </p>
+          <div className="mt-2 flex gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 flex-1 px-2 text-xs"
+              disabled={patchSize(override ?? {}) === 0}
+              onClick={() => reset()}
+            >
+              Reset
+            </Button>
+            <Hint
+              label={own ? `Make this layer's overrides the default in every ${main?.container.name}` : undefined}
+              wait
+            >
               <Button
                 variant="outline"
                 size="sm"
                 className="h-6 flex-1 px-2 text-xs"
-                disabled={patchSize(override) === 0}
-                onClick={() => reset()}
+                disabled={!own || !main}
+                onClick={push}
               >
-                Reset
+                Push to main
               </Button>
-              <Hint
-                label={own ? `Make this layer's overrides the default in every ${main?.container.name}` : undefined}
-                wait
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 flex-1 px-2 text-xs"
-                  disabled={!own || !main}
-                  onClick={push}
-                >
-                  Push to main
-                </Button>
-              </Hint>
-            </div>
+            </Hint>
           </div>
-        ) : (
-          <ComponentStateSelector entry={entry} state={state} target={target} />
-        )}
-        {owner && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-2 w-full"
-            onClick={() => {
-              const root = inner.node.id === owner.container.root.id
-              session.selection.set(root ? { design: owner.key } : { design: owner.key, node: inner.node.id })
-              revealSelection(session)
-            }}
-          >
-            <Diamond style={{ color: kindColors.component }} /> Edit in {owner.container.name}
-          </Button>
-        )}
-      </div>
-
-      {node.type === "instance" && (
-        <InstanceSection
-          entry={entry}
-          node={node}
-          changed={(name) => changesField(override, { kind: "props", key: name })}
-          onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
-          onReset={(name) => reset({ kind: "props", key: name })}
-        />
+        </div>
+      ) : (
+        <ComponentStateSelector entry={entry} state={state} target={target} />
       )}
-
-      <LayerSections entry={entry} nodeId={path} node={node} override={override} change={change} reset={reset} inner />
+      {owner && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full"
+          onClick={() => {
+            const root = inner.node.id === owner.container.root.id
+            session.selection.set(root ? { design: owner.key } : { design: owner.key, node: inner.node.id })
+            revealSelection(session)
+          }}
+        >
+          <Diamond style={{ color: kindColors.component }} /> Edit in {owner.container.name}
+        </Button>
+      )}
     </>
   )
 }
 
 /**
- * The sections every layer has: its content, visibility, props and style, edited through `change` and `reset`, or with
- * `only`, its content or a code component's props alone.
+ * A text layer's words, in Content. In a component design, the button beside them uses one of the component's props
+ * for the text; a copy's text can't.
  */
-function LayerSections({
-  entry,
-  nodeId,
-  node,
-  override,
-  change,
-  reset,
-  inner = false,
-  only
-}: {
-  entry: ContainerEntry
-  nodeId: string
-  /** The layer as it's shown, with the state's, variant's and copy's changes applied. */
-  node: DesignNode
-  /** What the state, variant or copy being edited changes about it, to mark and reset. */
-  override: NodePatch | undefined
-  /** Makes a change, as part of a gesture's one undo step when given, as a run of Up and Down presses in a field. */
-  change: LayerChange
-  reset: (field?: PatchField) => void
-  /** Inside an instance, where an image's file and description belong to the component. */
-  inner?: boolean
-  only?: "content" | "props"
-}) {
-  const session = useProject()
-  const components = useComponents(session.components)
-  const entries = useContainerEntries(session.store)
-  const name = layerLabel(node, entries, session.store.getComponentLibrary(), session.info.libraries)
-  const styleEditor = useStyleEditor(entry, [nodeId])
-  // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
-  const propPreview = useChangePreview(session.store, entry.key)
-  const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
-  // A component design's own text layers can show one of its text props; a copy's can't.
-  const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
+export function LayerContent() {
+  const layer = useSelectedLayer()
+
+  if (layer?.node.type !== "text") {
+    return null
+  }
+
+  const { entry, nodeId, node, override, change, reset, inner } = layer
+  const usesProps = entry.container.kind === "component" && !inner
 
   const withTextProp = (field: ReactNode) =>
-    usesProps && node.type === "text" ? (
+    usesProps ? (
       <TextWithProp entry={entry} nodeId={nodeId} bound={node.bind?.text}>
         {field}
       </TextWithProp>
@@ -513,7 +352,7 @@ function LayerSections({
       field
     )
 
-  const content = node.type === "text" && (
+  return (
     <ContentSection
       text={node.text}
       tag={undefined}
@@ -523,53 +362,67 @@ function LayerSections({
       aroundText={(field) => withTextProp(field)}
     />
   )
+}
 
-  const props = node.type === "component" && (
-    <PropsSection
-      node={node}
-      info={components[node.component]}
-      changed={(name) => changesField(override, { kind: "props", key: name })}
-      taken={override?.unset?.props}
-      onChange={(name, value, gesture) =>
-        previewedProp.commit(node, change, `Change ${name}`, propChange(name, value), gesture)
-      }
-      onPreview={(name, value) => previewedProp.show(node, change, `Change ${name}`, propChange(name, value))}
-      onCancel={() => previewedProp.cancel()}
-      onReset={(name) => reset({ kind: "props", key: name })}
-    />
-  )
+/** An image's or a video's Content, for one of the design's own: inside an instance, its file belongs to the component. */
+function LayerMedia() {
+  const layer = useSelectedLayer()
 
-  if (only === "content") {
-    return content
+  if (!layer || layer.inner || (layer.node.type !== "image" && layer.node.type !== "video")) {
+    return null
   }
 
-  if (only === "props") {
-    return props
-  }
+  return <MediaSection entry={layer.entry} node={layer.node} />
+}
+
+/** That a code component taking no `style` can't be sized or styled here, before the style sections. */
+function LayerNoStyle() {
+  const layer = useSelectedLayer()
 
   return (
-    <>
-      {content}
-
-      {(node.type === "image" || node.type === "video") && !inner && <MediaSection entry={entry} node={node} />}
-
-      {props}
-
-      {node.type === "component" && components[node.component]?.takesStyle === false && (
-        <NoStyleNote component={node.component} wrap={!inner} />
-      )}
-
-      {styleEditor && (
-        <StyleSections
-          editor={styleEditor}
-          container={entry.container}
-          takesStyle={(component) => components[component]?.takesStyle}
-        />
-      )}
-
-      <ExportSection targets={[{ design: entry.key, node: nodeId, name }]} label={`Export ${name}`} />
-    </>
+    layer?.node.type === "component" && (
+      <NoStyleNote component={layer.node.component} wrap={layer.inner === undefined} />
+    )
   )
+}
+
+/** The selected layer's style sections, edited in the state and variant shown. */
+function LayerStyles() {
+  const layer = useSelectedLayer()
+
+  return layer ? <LayerStyleSections entry={layer.entry} nodeId={layer.nodeId} /> : null
+}
+
+/** The style sections for one layer, edited through its style editor. */
+function LayerStyleSections({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+  const session = useProject()
+  const components = useComponents(session.components)
+  const styleEditor = useStyleEditor(entry, [nodeId])
+
+  return (
+    styleEditor && (
+      <StyleSections
+        editor={styleEditor}
+        container={entry.container}
+        takesStyle={(component) => components[component]?.takesStyle}
+      />
+    )
+  )
+}
+
+/** Export, for the selected layer. */
+function LayerExport() {
+  const session = useProject()
+  const entries = useContainerEntries(session.store)
+  const layer = useSelectedLayer()
+
+  if (!layer) {
+    return null
+  }
+
+  const name = layerLabel(layer.node, entries, session.store.getComponentLibrary(), session.info.libraries)
+
+  return <ExportSection targets={[{ design: layer.entry.key, node: layer.nodeId, name }]} label={`Export ${name}`} />
 }
 
 /**
@@ -700,165 +553,6 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
 }
 
 /**
- * An instance of a component design: which component, its state and its props, and, for one of the design's own
- * instances (`own`), its overrides, and swapping or detaching it, drawn as the approved Component instance section.
- */
-function InstanceSection({
-  entry,
-  node,
-  own,
-  changed,
-  onChange,
-  onReset
-}: {
-  entry: ContainerEntry
-  /** The instance as it's shown. */
-  node: InstanceNode
-  /** The instance as the design has it, when it's one of the design's own nodes rather than a nested one. */
-  own?: InstanceNode
-  changed: (name: string) => boolean
-  onChange: (name: string, value: PropValue | undefined) => void
-  onReset: (name: string) => void
-}) {
-  const session = useProject()
-  const { store, selection } = session
-  const entries = useContainerEntries(store)
-  const component = entries.find((candidate) => candidate.container.id === node.design)
-  // A library's design isn't one of the project's, so it's placed and detached here but edited in the library.
-  const design = component?.container ?? store.getComponentLibrary().get(node.design)
-
-  const from = component
-    ? undefined
-    : session.info.libraries.find((candidate) => candidate.designs?.some((placed) => placed.id === node.design))
-
-  if (!design) {
-    return (
-      <PanelSection title="Component instance">
-        <p className="type-message text-destructive">The component &quot;{node.design}&quot; doesn&apos;t exist.</p>
-      </PanelSection>
-    )
-  }
-
-  const library = projectLibrary(store)
-
-  // The instance's own field, as the design has it, to record what a change to it did.
-  const instanceField = (name: "design") => ({
-    field: `instance.${name}`,
-    layers: [node.id],
-    read: (container: ContainerSpec) => {
-      const instance = findNode(container.root, node.id)
-
-      return instance?.type === "instance" ? instance[name] : undefined
-    }
-  })
-
-  const menu = own && {
-    overrides: overrideCount(own),
-    // Another component this copy could become: not the design it's in, which can't contain itself.
-    swappable: entries
-      .filter(
-        (candidate) =>
-          candidate.container.kind === "component" &&
-          candidate.container.id !== entry.container.id &&
-          candidate.container.id !== node.design
-      )
-      .map((candidate) => ({ id: candidate.container.id, name: candidate.container.name })),
-    onSwap: (id: string) =>
-      updateAndRecord(
-        store,
-        entry.key,
-        "Swap instance",
-        (container) => swapInstance(container, node.id, id, library),
-        instanceField("design")
-      ),
-    onResetOverrides: () =>
-      updateAndRecord(store, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
-        field: "overrides",
-        layers: [node.id],
-        read: (container) => {
-          const instance = findNode(container.root, node.id)
-
-          return instance?.type === "instance" ? instance.overrides : undefined
-        }
-      }),
-    onPush: component && (() => pushAndRecord(store, entry.key, component.key, node.id)),
-    onDetach: () => detachAndRecord(store, entry.key, node.id)
-  }
-
-  return (
-    <InstanceControls
-      component={design.name}
-      onGoTo={
-        component &&
-        (() => {
-          selection.set({ design: component.key })
-          revealSelection(session)
-        })
-      }
-      linked={from?.name}
-      props={instanceRows(design.params ?? {}, node.args ?? {})}
-      changed={changed}
-      onResetProp={onReset}
-      onChange={(name, value) => onChange(name, value)}
-      menu={menu}
-      note={own && <BaseDesignNote entry={entry} what="Reset overrides, Swap and Detach" />}
-    >
-      {own && <InstanceSlotFields entry={entry} instance={own} />}
-    </InstanceControls>
-  )
-}
-
-/**
- * A component design's params as an instance's prop rows, with what the instance gives each: a variant offers its
- * options with its default first, and the rest take the value their type says, with the default shown faintly.
- */
-function instanceRows(
-  params: NonNullable<ContainerSpec["params"]>,
-  args: NonNullable<InstanceNode["args"]>
-): PropRow[] {
-  return Object.entries(params).map(([name, param]): PropRow => {
-    const held = readPropValue(args[name])
-    const fallback = readPropValue(param.default)
-
-    if (param.type === "variant") {
-      const options = (param.options ?? []).map((option) => ({ id: option.id, name: option.name }))
-
-      return {
-        name,
-        type: "variant",
-        value: textValue.safeParse(held).data,
-        default: textValue.safeParse(param.default).data ?? options[0]?.id,
-        options
-      }
-    }
-
-    if (param.type === "boolean") {
-      return { name, type: "boolean", value: booleanValue.safeParse(held ?? fallback).data ?? false }
-    }
-
-    if (param.type === "number") {
-      return {
-        name,
-        type: "number",
-        value: numberValue.safeParse(held).data,
-        default: numberValue.safeParse(fallback).data
-      }
-    }
-
-    if (param.type === "text") {
-      return {
-        name,
-        type: "text",
-        value: held === undefined ? undefined : plainText(held),
-        default: fallback === undefined ? undefined : plainText(fallback)
-      }
-    }
-
-    return { name, type: "value", value: held, default: fallback, loose: true }
-  })
-}
-
-/**
  * Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. Only a
  * component has states and variants, so a screen's or a frame's edits always change the design, and it shows nothing.
  */
@@ -982,34 +676,6 @@ export function placeNode(
     size: { width: Math.round(rect.width / scale), height: Math.round(rect.height / scale) },
     inFlow: { x: Math.round(rect.left / scale - left), y: Math.round(rect.top / scale - top) }
   }
-}
-
-/**
- * Says, before anything is changed, that the controls it heads change the design itself, when the Editing control
- * above sends other edits to a state or a variant: `what` can't differ from one state to another. It's tinted as that
- * control is, so the two read together. Nothing shows while edits change the design anyway.
- */
-function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }) {
-  const { selection } = useProject()
-  const selected = useSelection(selection)
-  const note = baseDesignNote(entry.container, editingState(entry.container, selected.state), what)
-
-  if (!note) {
-    return null
-  }
-
-  return (
-    <p
-      className="type-message mb-2 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5"
-      style={{
-        borderColor: kindColors.component,
-        background: "color-mix(in oklch, var(--canvas-component) 8%, transparent)"
-      }}
-    >
-      <Info className="mt-0.5 size-3.5 shrink-0" style={{ color: kindColors.component }} aria-hidden />
-      <span>{note}</span>
-    </p>
-  )
 }
 
 /** A picture's or a video's layer, which the section edits the same way. */

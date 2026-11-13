@@ -1,32 +1,46 @@
 import { insertNode, setSlot } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Decorator } from "@storybook/react-vite"
+import type { ComponentType } from "react"
+import { useProject } from "../canvas/context.ts"
+import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
+import { useSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
-import { DesignTab } from "./DesignPanel.tsx"
+import { DesignTabFields } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, PanelColumn } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
-import type { LayerPart } from "./LayerPanel.tsx"
 
 /*
- * What the Parity/Inspector/Layer stories share: the Design tab with one layer selected, drawn as the inspector draws
- * it, in folders by what they show (Kinds, Basics, States, Instances and Slots).
+ * What the inspector's Layers and Sections stories share: the Design tab with one layer selected, drawn as the inspector
+ * draws it, or one section of it alone.
  */
 
 export const renderInspector = () => <Inspector />
 
 /**
- * One part of the selected layer's panel alone, as the Design tab draws it, at the inspector's width (PAR-1022): what a
- * story demos, without the sections it isn't about.
+ * One section of the selected layer's panel alone, at the inspector's width: what a story demos, without the sections
+ * it isn't about. Each section takes the selection itself (PAR-1031).
  */
-export const renderPart = (part: LayerPart) =>
+export const renderSection = (Section: ComponentType) =>
   function Part() {
     return (
       <PanelColumn>
-        <DesignTab only={part} />
+        <DesignTabFields>
+          <Section />
+        </DesignTabFields>
       </PanelColumn>
     )
   }
+
+/** One of the selected design's sections alone, as `renderSection` draws a layer's. */
+export const renderDesignSection = (Section: ComponentType<{ entry: ContainerEntry }>) =>
+  renderSection(function Selected() {
+    const { store, selection } = useProject()
+    const entry = useContainerEntry(store, useSelection(selection).design)
+
+    return entry ? <Section entry={entry} /> : null
+  })
 
 export const inspectorStage: Decorator = (Story) => (
   <InspectorStage>

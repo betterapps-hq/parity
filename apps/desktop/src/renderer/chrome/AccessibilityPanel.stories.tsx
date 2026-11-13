@@ -15,7 +15,7 @@ import { Inspector } from "./Inspector.tsx"
  * Checks are kept per design while Storybook runs, so each story with a check checks again for itself.
  */
 const meta = {
-  title: "Parity/Inspector/Accessibility",
+  title: "Parity/Inspector/Panel/Accessibility tab",
   component: AccessibilityPanel,
   render: () => <Inspector />,
   decorators: [

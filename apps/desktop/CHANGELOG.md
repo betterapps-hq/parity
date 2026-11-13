@@ -1,8 +1,72 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 23:26:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 02:03:37 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.1
+
+Fri, 13 Nov 2026 02:03:37 GMT
+
+### Patches
+
+- The desktop app's process logic moves out of core into @parity-app/processes (ajcraswell@gmail.com)
+
+## 0.80.0
+
+Fri, 13 Nov 2026 01:34:11 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+### Patches
+
+- Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers
+  move into the style package (ajcraswell@gmail.com)
+- Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo
+  step with pasteStepName in place of pasteLabel (PAR-985) (ajcraswell@gmail.com)
+- The Design tab picks every section a selection shows from one table (ajcraswell@gmail.com)
+
+## 0.79.0
+
+Fri, 13 Nov 2026 01:07:43 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+## 0.78.1
+
+Fri, 13 Nov 2026 00:49:27 GMT
+
+### Patches
+
+- A component's props are one section, on a component design and on any instance (ajcraswell@gmail.com)
+
+## 0.78.0
+
+Fri, 13 Nov 2026 00:21:56 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+### Patches
+
+- Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a
+  list entry back if it goes while it's dragged (PAR-982) (ajcraswell@gmail.com)
+
+## 0.77.1
+
+Thu, 12 Nov 2026 23:58:16 GMT
+
+### Patches
+
+- Selection headers no longer offer Open in editor; its design is kept as an exploration (ajcraswell@gmail.com)
+- Show the newest accessibility check's result when a design is checked again before the last check answers (PAR-979)
+  (ajcraswell@gmail.com)
+- Class names and a slot's layer share one chips field built on the kit's Combobox chips (ajcraswell@gmail.com)
 
 ## 0.77.0
 

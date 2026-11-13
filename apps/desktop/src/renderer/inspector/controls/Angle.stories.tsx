@@ -1,10 +1,10 @@
+import { gradientDirections } from "@parity-app/style-schema"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { AngleField } from "./angle.tsx"
 import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
-import { gradientDirections } from "./lists-data.ts"
 import { type Angle, angleDegrees } from "./motion-data.ts"
 import { angleWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
@@ -21,7 +21,7 @@ import { mixedWrites } from "./writes.ts"
  * a turn, where only the direction matters, as a gradient's Angle does.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Angle",
+  title: "Parity/Inspector/Fields/Angle",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -15,9 +15,6 @@ import {
 import {
   type BuilderAdapter,
   type BuilderDetection,
-  type BuilderProcessOptions,
-  builderProcessOptions,
-  type BuilderProcessSession,
   type BuilderStartOptions,
   type ClassPrinter,
   type CodeChange,
@@ -32,6 +29,7 @@ import {
   withLibraryCanvas,
   writeClasses
 } from "@parity-app/core"
+import { type BuilderProcessOptions, builderProcessOptions, type BuilderProcessSession } from "@parity-app/processes"
 import {
   appFiles,
   changesLockfiles,

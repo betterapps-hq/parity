@@ -1,11 +1,19 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  type Basis,
+  evaluateLength as evaluate,
+  expressionForm,
+  formatNumber,
+  isReadFailure,
+  remPx
+} from "@parity-app/style-schema"
 import type { PreviewKind } from "@parity-app/tokens"
 import { SlidersHorizontal } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { numberValue } from "../../chrome/prop-values.ts"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { arbitrary, formatNumber, lengthForm, remPx } from "./css-values.ts"
+import { arbitrary } from "./css-values.ts"
 import {
   comboboxProps,
   fieldBox,
@@ -64,280 +72,8 @@ function namedToken(name: string): FieldToken | undefined {
   )
 }
 
-/** What a length expression is worked out against: the font size, the viewport, and what a % is of. */
-export interface Basis {
-  /** What 100% comes to: the parent's width for Width, the parent's font size for Font size. */
-  percent: number
-  fontSize?: number
-  viewport?: { width: number; height: number }
-}
-
-type Lexeme =
-  | { type: "number"; value: number; unit: string }
-  | { type: "name"; value: string }
-  | { type: "symbol"; value: string }
-
-function lex(text: string): Lexeme[] | { reason: string } {
-  const out: Lexeme[] = []
-  let at = 0
-
-  while (at < text.length) {
-    const rest = text.slice(at)
-    const space = /^\s+/.exec(rest)
-
-    if (space) {
-      at += space[0].length
-      continue
-    }
-
-    const number = /^(\d*\.?\d+)(px|rem|em|vw|vh|%)?/i.exec(rest)
-
-    if (number) {
-      out.push({ type: "number", value: Number(number[1]), unit: (number[2] ?? "").toLowerCase() })
-      at += number[0].length
-      continue
-    }
-
-    const name = /^--?[a-z][\w-]*|^[a-z][\w-]*/i.exec(rest)
-
-    if (name) {
-      out.push({ type: "name", value: name[0].toLowerCase() })
-      at += name[0].length
-      continue
-    }
-
-    if ("+-*/(),".includes(rest[0]!)) {
-      out.push({ type: "symbol", value: rest[0]! })
-      at += 1
-      continue
-    }
-
-    return { reason: `Can't read "${rest[0]}"` }
-  }
-
-  return out
-}
-
-/** A worked-out value: pixels, or a plain number to multiply or divide by. */
-type Amount = { px: number; plain: false } | { px: number; plain: true }
-
-/** Works out a length expression in pixels, or says why it can't. */
-export function evaluateLength(text: string, basis: Basis): number | { reason: string } {
-  const lexed = lex(text)
-
-  if (!Array.isArray(lexed)) {
-    return lexed
-  }
-
-  let at = 0
-  const peek = () => lexed[at]
-
-  const fail = (reason: string): never => {
-    throw new Error(reason)
-  }
-
-  const expect = (symbol: string) => {
-    const next = lexed[at]
-
-    if (next?.type !== "symbol" || next.value !== symbol) {
-      fail(symbol === ")" ? "A bracket isn't closed" : `Expected "${symbol}"`)
-    }
-
-    at += 1
-  }
-
-  const unitPx = (value: number, unit: string): Amount => {
-    const viewport = basis.viewport ?? { width: 1280, height: 800 }
-
-    const per = new Map([
-      ["px", 1],
-      ["rem", 16],
-      ["em", basis.fontSize ?? 16],
-      ["vw", viewport.width / 100],
-      ["vh", viewport.height / 100],
-      ["%", basis.percent / 100]
-    ])
-
-    if (unit === "") {
-      return { px: value, plain: true }
-    }
-
-    return { px: value * per.get(unit)!, plain: false }
-  }
-
-  const args = (): Amount[] => {
-    expect("(")
-    const list = [sum()]
-
-    while (peek()?.type === "symbol" && peek()!.value === ",") {
-      at += 1
-      list.push(sum())
-    }
-
-    expect(")")
-
-    return list
-  }
-
-  const factor = (): Amount => {
-    const next = peek()
-
-    if (!next) {
-      return fail("It ends too soon")
-    }
-
-    if (next.type === "symbol" && next.value === "-") {
-      at += 1
-      const operand = factor()
-
-      return { ...operand, px: -operand.px }
-    }
-
-    if (next.type === "symbol" && next.value === "(") {
-      at += 1
-      const inner = sum()
-      expect(")")
-
-      return inner
-    }
-
-    if (next.type === "number") {
-      at += 1
-
-      return unitPx(next.value, next.unit)
-    }
-
-    if (next.type === "name") {
-      at += 1
-
-      if (next.value === "var") {
-        expect("(")
-        const variable = peek()
-
-        if (variable?.type !== "name" || !variable.value.startsWith("--")) {
-          return fail("var() takes a token, such as --spacing")
-        }
-
-        at += 1
-        const name = variable.value.slice(2)
-        let fallback: Amount | undefined
-
-        if (peek()?.type === "symbol" && peek()!.value === ",") {
-          at += 1
-          fallback = sum()
-        }
-
-        expect(")")
-        const px = lengthVars[name]
-
-        if (px === undefined && fallback) {
-          return fallback
-        }
-
-        if (px === undefined) {
-          return fail(`There's no --${name} token`)
-        }
-
-        return { px, plain: false }
-      }
-
-      const list = args()
-      const lengths = list.map((amount) => amount.px)
-
-      if (next.value === "calc") {
-        if (list.length !== 1) {
-          return fail("calc() takes one sum")
-        }
-
-        return list[0]!
-      }
-
-      if (next.value === "min") {
-        return { px: Math.min(...lengths), plain: false }
-      }
-
-      if (next.value === "max") {
-        return { px: Math.max(...lengths), plain: false }
-      }
-
-      if (next.value === "clamp") {
-        if (list.length !== 3) {
-          return fail("clamp() takes three values: least, preferred and most")
-        }
-
-        return { px: Math.min(Math.max(lengths[1]!, lengths[0]!), lengths[2]!), plain: false }
-      }
-
-      return fail(`${next.value}() isn't a function a length takes`)
-    }
-
-    if (next.value === ")" || next.value === ",") {
-      return fail(`Something's missing before "${next.value}"`)
-    }
-
-    return fail(`Can't read "${next.value}" there`)
-  }
-
-  const product = (): Amount => {
-    let left = factor()
-
-    while (peek()?.type === "symbol" && (peek()!.value === "*" || peek()!.value === "/")) {
-      const op = peek()!.value
-      at += 1
-      const right = factor()
-
-      if (op === "*") {
-        if (!left.plain && !right.plain) {
-          fail("Two lengths can't be multiplied")
-        }
-
-        left = { px: left.px * right.px, plain: left.plain && right.plain }
-      } else {
-        if (!right.plain) {
-          fail("Divide by a number, not a length")
-        }
-
-        if (right.px === 0) {
-          fail("It can't divide by 0")
-        }
-
-        left = { px: left.px / right.px, plain: left.plain }
-      }
-    }
-
-    return left
-  }
-
-  function sum(): Amount {
-    let left = product()
-
-    while (peek()?.type === "symbol" && (peek()!.value === "+" || peek()!.value === "-")) {
-      const op = peek()!.value
-      at += 1
-      const right = product()
-
-      if (left.plain !== right.plain) {
-        fail("A length and a plain number can't be added")
-      }
-
-      left = { px: op === "+" ? left.px + right.px : left.px - right.px, plain: left.plain }
-    }
-
-    return left
-  }
-
-  try {
-    const result = sum()
-
-    if (at < lexed.length) {
-      return { reason: `Can't read what's after ${text.slice(0, 24)}` }
-    }
-
-    return result.px
-  } catch (error) {
-    return { reason: error instanceof Error ? error.message : String(error) }
-  }
-}
+/** A length expression worked out in pixels against the length tokens an expression can name, or why it can't be. */
+export const evaluateLength = (text: string, basis: Basis) => evaluate(text, basis, lengthVars)
 
 /** The CSS with each token's `var()` filled in, as `CSS.supports` checks it and the swatch draws it. */
 export function fillTokens(text: string): string {
@@ -352,49 +88,13 @@ export function fillTokens(text: string): string {
   })
 }
 
-/** What an expression is stored as: its simplest form, so it reads back the same way. */
-export type Simplest = { token: string; alpha?: { step: number } } | { step: number } | { value: string }
-
-export function simplest(text: string): Simplest {
-  const trimmed = text.trim()
-  const token = /^var\(--([\w-]+)\)$/.exec(trimmed)?.[1]
-
-  if (token !== undefined && token !== "spacing") {
-    return { token: token.replace(/^color-/, "") }
-  }
-
-  const step = /^calc\(\s*var\(--spacing\)\s*\*\s*(\d*\.?\d+)\s*\)$/.exec(trimmed)?.[1]
-
-  if (step !== undefined) {
-    return { step: Number(step) }
-  }
-
-  const mix = /^color-mix\(\s*in\s+oklab\s*,\s*var\(--color-([\w-]+)\)\s+(\d*\.?\d+)%\s*,\s*transparent\s*\)$/.exec(
-    trimmed
-  )
-
-  if (mix) {
-    return { token: mix[1]!, alpha: { step: Number(mix[2]) } }
-  }
-
-  // Whole pixels are a spacing step, as every length writes them.
-  const px = /^(\d*\.?\d+)(px)?$/.exec(trimmed)?.[1]
-  const form = px === undefined ? undefined : lengthForm(Number(px))
-
-  if (form !== undefined && "step" in form) {
-    return form
-  }
-
-  return { value: trimmed }
-}
-
 /** What an expression field writes, in its simplest form. */
 export function expressionWrites(property: string, prefix: string, text: string | undefined): Writes {
   if (text === undefined) {
     return { stored: undefined, css: [], tailwind: [] }
   }
 
-  const form = simplest(text)
+  const form = expressionForm(text)
 
   if ("step" in form) {
     return {
@@ -579,7 +279,7 @@ export function ExpressionField({
   // Set while Enter or Escape puts focus back on the field, so the editor's blur doesn't commit again.
   const returning = useRef(false)
   const listId = useId()
-  const form = value === undefined ? undefined : simplest(value)
+  const form = value === undefined ? undefined : expressionForm(value)
   const isExpression = form !== undefined && "value" in form && !/^\d/.test(form.value)
 
   const comesTo =
@@ -591,7 +291,7 @@ export function ExpressionField({
     if (kind === "length") {
       const result = evaluateLength(text, basis)
 
-      if (result instanceof Object) {
+      if (isReadFailure(result)) {
         return result.reason
       }
     }
@@ -772,7 +472,7 @@ export function ExpressionField({
     const reading = readUnitNumber(trimmed, { units: { px: 1, rem: remPx }, current: px ?? 0, label, takes })
 
     if ("reason" in reading) {
-      return { reason: reading.reason.endsWith(takes) ? reading.reason : `${reading.reason}. ${takes}` }
+      return reading
     }
 
     return { value: `${reading.value}px` }
@@ -979,7 +679,7 @@ function ClampFields({
             read={(text): Reading<string> => {
               const result = evaluateLength(text, basis)
 
-              return result instanceof Object ? { reason: result.reason } : { value: text.trim() }
+              return isReadFailure(result) ? { reason: result.reason } : { value: text.trim() }
             }}
             onCommit={(text) => onChange(parts.map((part, at) => (at === index ? text : part)))}
           />

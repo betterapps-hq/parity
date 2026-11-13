@@ -1,8 +1,9 @@
+import type { Basis } from "@parity-app/style-schema"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { numberValue } from "../../chrome/prop-values.ts"
-import { type Basis, evaluateLength, ExpressionField, expressionWrites, fillTokens } from "./expression.tsx"
+import { evaluateLength, ExpressionField, expressionWrites, fillTokens } from "./expression.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
 import { TextSample } from "./text-preview.tsx"
@@ -18,7 +19,7 @@ import { TextSample } from "./text-preview.tsx"
  * focus back on the field.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Expression",
+  title: "Parity/Inspector/Fields/Expression",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

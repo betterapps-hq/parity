@@ -5,7 +5,16 @@
  * them. Functions that look a token up take the project's tokens, so a token made with Create token is found too.
  */
 import { springLinear, springSamples, springSettle } from "@parity-app/core"
-import { type BoxPoint, formatNumber } from "./css-values.ts"
+import {
+  type Bezier,
+  easingBeziers,
+  type EasingPlot,
+  formatNumber,
+  isReadFailure,
+  plotCss,
+  readEasingFunction
+} from "@parity-app/style-schema"
+import { type BoxPoint } from "./css-values.ts"
 import type { DurationToken, EasingToken } from "./tokens.ts"
 
 /** A number to `places` decimals, as a value is kept. */
@@ -90,9 +99,6 @@ export function timeMs(time: Time | undefined, tokens: readonly DurationToken[])
 /** Tailwind v4's `--default-transition-duration`, which a transition with no duration of its own takes. */
 export const defaultDuration = 150
 
-/** A cubic Bézier's two handles, as `cubic-bezier(x1, y1, x2, y2)` takes them. */
-export type Bezier = [number, number, number, number]
-
 /** A spring: by the time it takes and how much it bounces, or by its physics, as Framer's are set. */
 export type Spring = { duration: number; bounce: number } | { stiffness: number; damping: number; mass: number }
 
@@ -104,56 +110,22 @@ export type Easing = { keyword: EasingKeyword } | { token: string } | { value: s
 
 export type EasingKeyword = "linear" | "ease-in" | "ease-out" | "ease-in-out"
 
-/**
- * Tailwind v4's easings, as its theme defines them: the one table of their curves here. Tailwind's differ from CSS's
- * keywords of the same names (its `ease-in` is `cubic-bezier(0.4, 0, 1, 1)`, CSS's 0.42), so a preview draws these
- * numbers, never the keyword.
- */
+/** Tailwind v4's easings as the panel offers them, by name, each drawn from the package's one table of curves. */
 export const easingPresets: { keyword: EasingKeyword; label: string; curve: Bezier }[] = [
-  { keyword: "linear", label: "Linear", curve: [0, 0, 1, 1] },
-  { keyword: "ease-in", label: "Ease in", curve: [0.4, 0, 1, 1] },
-  { keyword: "ease-out", label: "Ease out", curve: [0, 0, 0.2, 1] },
-  { keyword: "ease-in-out", label: "Ease in out", curve: [0.4, 0, 0.2, 1] }
+  { keyword: "linear", label: "Linear", curve: easingBeziers.linear },
+  { keyword: "ease-in", label: "Ease in", curve: easingBeziers["ease-in"] },
+  { keyword: "ease-out", label: "Ease out", curve: easingBeziers["ease-out"] },
+  { keyword: "ease-in-out", label: "Ease in out", curve: easingBeziers["ease-in-out"] }
 ]
 
 /** Tailwind v4's `--default-transition-timing-function`, which a transition with no easing of its own takes. */
 export const defaultCurve: Bezier = [0.4, 0, 0.2, 1]
 
-/** What an easing draws: a curve, a staircase, or a spring's samples. */
-export type EasingPlot =
-  | { kind: "bezier"; curve: Bezier }
-  | { kind: "steps"; count: number; jump: "start" | "end" }
-  | { kind: "samples"; values: number[] }
+/** `cubic-bezier(…)` or `steps(…)` as what it draws, or nothing when it's neither. */
+export function easingValuePlot(text: string): EasingPlot | undefined {
+  const plot = readEasingFunction(text)
 
-/** `cubic-bezier(…)` or `steps(…)` read, or nothing when it's neither. */
-export function readEasingValue(text: string): EasingPlot | undefined {
-  const bezier = /^cubic-bezier\(\s*([^)]*)\)$/i.exec(text.trim())
-
-  if (bezier) {
-    const numbers = bezier[1]!.split(",").map((part) => Number(part.trim()))
-
-    if (numbers.length !== 4 || numbers.some((number) => !Number.isFinite(number))) {
-      return undefined
-    }
-
-    const [x1, y1, x2, y2] = numbers
-
-    if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) {
-      return undefined
-    }
-
-    return { kind: "bezier", curve: [x1, y1, x2, y2] }
-  }
-
-  const steps = /^steps\(\s*(\d+)\s*(?:,\s*(jump-start|start|jump-end|end)\s*)?\)$/i.exec(text.trim())
-
-  if (steps && Number(steps[1]) > 0) {
-    const jump = steps[2]?.toLowerCase().endsWith("start") ? "start" : "end"
-
-    return { kind: "steps", count: Number(steps[1]), jump }
-  }
-
-  return undefined
+  return isReadFailure(plot) ? undefined : plot
 }
 
 /** A preset's curve, from the one table. */
@@ -184,7 +156,7 @@ export function easingPlot(easing: Easing | undefined, tokens: readonly EasingTo
     return { kind: "bezier", curve: token?.curve ?? defaultCurve }
   }
 
-  return readEasingValue(easing.value) ?? { kind: "bezier", curve: defaultCurve }
+  return easingValuePlot(easing.value) ?? { kind: "bezier", curve: defaultCurve }
 }
 
 /**
@@ -193,19 +165,6 @@ export function easingPlot(easing: Easing | undefined, tokens: readonly EasingTo
  */
 export function drawnEasing(easing: Easing | undefined, tokens: readonly EasingToken[]): string {
   return plotCss(easingPlot(easing, tokens))
-}
-
-/** A plot as CSS draws it: `cubic-bezier()`, `steps()`, or a spring's `linear()`. */
-export function plotCss(plot: EasingPlot): string {
-  if (plot.kind === "bezier") {
-    return bezierCss(plot.curve)
-  }
-
-  if (plot.kind === "samples") {
-    return `linear(${plot.values.join(", ")})`
-  }
-
-  return plot.jump === "end" ? `steps(${plot.count})` : `steps(${plot.count}, jump-start)`
 }
 
 /** An easing in words: its preset's name, its token's, Steps 4, Spring 400ms, or Custom. */
@@ -232,7 +191,7 @@ export function easingName(easing: Easing | undefined): string {
     return `Spring ${spring.stiffness}/${spring.damping}/${spring.mass}`
   }
 
-  const plot = readEasingValue(easing.value)
+  const plot = easingValuePlot(easing.value)
 
   if (plot?.kind === "steps") {
     return `Steps ${plot.count}`
@@ -240,8 +199,6 @@ export function easingName(easing: Easing | undefined): string {
 
   return "Custom"
 }
-
-export const bezierCss = (curve: Bezier) => `cubic-bezier(${curve.map((number) => round(number)).join(", ")})`
 
 /* A spring is solved in `@parity-app/core`, which draws it on the canvas too. */
 export { springLinear, springSamples, springSettle }

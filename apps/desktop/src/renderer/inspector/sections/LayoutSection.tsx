@@ -1,6 +1,7 @@
 import type { NodeStyle } from "@parity-app/core"
 import { layoutTypeEdit, type StyleValues } from "@parity-app/editor"
-import type { Draft, Track } from "../controls/data.ts"
+import type { TrackSize } from "@parity-app/style-schema"
+import type { Draft } from "../controls/data.ts"
 import { LayoutSection as ApprovedLayout } from "../controls/layout-controls.tsx"
 import type { Side } from "../controls/sides-writes.ts"
 import { lengthOf, sideOf } from "../style-values.ts"
@@ -16,7 +17,7 @@ const places = ["start", "center", "end"] as const
 const placeOf = (justify: Justify | undefined) => places.find((place) => place === justify)
 
 /** A grid's tracks as the section draws them: as many equal columns, and rows that hug their children, as it has. */
-const tracks = (count: number, track: Track): Track[] => Array.from({ length: count }, () => track)
+const tracks = (count: number, track: TrackSize): TrackSize[] => Array.from({ length: count }, () => track)
 
 /**
  * The layout as the approved section draws it: an Auto gap for children spread out (`justify-between`, `around` or

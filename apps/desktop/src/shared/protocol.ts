@@ -14,27 +14,23 @@ import type {
   CanvasDocument,
   ChangeConflict,
   CodeChange,
-  GuestComponentSource,
   ComponentInfo,
   ComponentSource,
   DesignChange,
-  DetectionCorrections,
-  FrameViewport,
   LeftOutExport,
   ModesChange,
-  ThemeVariable,
-  UpdateState,
   WrittenClasses
 } from "@parity-app/core"
-import type { CodeReference, EditStatus, ExportSize, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
+import type { CodeReference, EditStatus, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
+import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
-import type { CssDeclaration } from "@parity-app/style-schema"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
-import type { TokenChange, TokenWrite } from "@parity-app/tokens"
+import type { TokenChange } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+import type { ProjectPicture, ServiceParams } from "./service-params.ts"
 
 /**
  * What a project's styling framework wrote for the declarations its frames draw layers with (PAR-942): each one's
@@ -58,23 +54,23 @@ export interface ProjectEditResult {
 /** Requests a canvas window sends to the project service, by method name. */
 export interface ServiceMethods {
   /** Opens a project, or returns it if it's already open. Without a root, opens the default project. */
-  "project.open": { params: { root?: string }; result: ProjectInfo }
-  "project.close": { params: { projectId: string }; result: undefined }
+  "project.open": { params: ServiceParams["project.open"]; result: ProjectInfo }
+  "project.close": { params: ServiceParams["project.close"]; result: undefined }
   /**
    * Whether what detection reads of an open project (its stylesheets, `components.json`, dependencies, Vite config)
    * changed since it opened, so only opening it again takes that in (PAR-820).
    */
-  "project.detectAgain": { params: { projectId: string }; result: boolean }
+  "project.detectAgain": { params: ServiceParams["project.detectAgain"]; result: boolean }
   /** The project's components and their props, once inferred from source. */
-  "project.components": { params: { projectId: string }; result: Record<string, ComponentInfo> }
+  "project.components": { params: ServiceParams["project.components"]; result: Record<string, ComponentInfo> }
   /**
    * The person's corrections to which exports are components, whenever the main project file's change: the component
    * list follows them, though they're saved only when the file is.
    */
-  "project.correctComponents": { params: { projectId: string; corrections?: DetectionCorrections }; result: undefined }
+  "project.correctComponents": { params: ServiceParams["project.correctComponents"]; result: undefined }
   /** Libraries that can be added, and the ones the project has. */
   "library.catalog": {
-    params: { projectId: string }
+    params: ServiceParams["library.catalog"]
     result: {
       id: string
       name: string
@@ -88,57 +84,57 @@ export interface ServiceMethods {
    * Installs a library with the project's package manager and imports its styles. The tab then reopens to pick up its
    * components.
    */
-  "library.add": { params: { projectId: string; library: string }; result: { log: string; edit?: ProjectEditResult } }
+  "library.add": { params: ServiceParams["library.add"]; result: { log: string; edit?: ProjectEditResult } }
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
-  "library.importStyles": { params: { projectId: string; library: string }; result: ProjectEditResult | undefined }
-  "document.save": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
+  "library.importStyles": { params: ServiceParams["library.importStyles"]; result: ProjectEditResult | undefined }
+  "document.save": { params: ServiceParams["document.save"]; result: undefined }
   /**
    * Keeps a recovery copy of the project's unsaved changes in Parity's app data, or removes it when there's none, so a
    * crash or a forced quit doesn't lose them (PAR-905).
    */
-  "recovery.keep": { params: { projectId: string; copy?: RecoveryCopy }; result: undefined }
+  "recovery.keep": { params: ServiceParams["recovery.keep"]; result: undefined }
   /** The recovery copy kept for the project when Parity last closed with its changes unsaved, if there is one. */
-  "recovery.read": { params: { projectId: string }; result: RecoveryCopy | undefined }
+  "recovery.read": { params: ServiceParams["recovery.read"]; result: RecoveryCopy | undefined }
   /**
    * Saves an image pasted onto the canvas into the project's public folder, where the dev server serves it. `data` is
    * the file, base64 encoded; `type` its media type. No edit when the same image was saved before.
    */
   "images.import": {
-    params: { projectId: string; name: string; type: string; data: string }
+    params: ServiceParams["images.import"]
     result: { src: string; path: string; edit?: ProjectEditResult }
   }
   /**
    * The project's image files under `public/images/`, and the lines of its code that name them (PAR-834). The window
    * and agents put them together with their designs through `projectImages`.
    */
-  "images.scan": { params: { projectId: string }; result: { files: ImageFile[]; references: CodeReference[] } }
+  "images.scan": { params: ServiceParams["images.scan"]; result: { files: ImageFile[]; references: CodeReference[] } }
   /**
    * Saves a picture from a stock library's link into `public/images/`, as adding one from the library browser does
    * (PAR-839), named after what it shows. Refuses a link that isn't https, or that doesn't give a picture Parity takes.
    */
-  "images.saveFrom": { params: { projectId: string; url: string; name: string }; result: { src: string; path: string } }
+  "images.saveFrom": { params: ServiceParams["images.saveFrom"]; result: { src: string; path: string } }
   /**
    * Removes an image file from `public/images/` as an edit, so undoing it puts the file back. Refuses a file the
    * project's code names; the caller checks its designs first.
    */
-  "images.remove": { params: { projectId: string; path: string }; result: { path: string; edit: ProjectEditResult } }
+  "images.remove": { params: ServiceParams["images.remove"]; result: { path: string; edit: ProjectEditResult } }
   /**
    * Takes back an edit the service made to the project's files, unless a file has changed since. Only the project's
    * latest 50 edits can be undone.
    */
-  "project.undoEdit": { params: { projectId: string; id: string }; result: ProjectEditResult }
+  "project.undoEdit": { params: ServiceParams["project.undoEdit"]; result: ProjectEditResult }
   /**
    * Opens a component's docs or first story in the project's Storybook, starting it if needed. Returns the address
    * to open; without a component, Storybook's home.
    */
-  "storybook.open": { params: { projectId: string; component?: string }; result: { url: string } }
+  "storybook.open": { params: ServiceParams["storybook.open"]; result: { url: string } }
   /** Writes a copy of the project's designs to a `.par` file anywhere, chosen by the person. */
-  "document.saveCopy": { params: { path: string; document: CanvasDocument }; result: undefined }
+  "document.saveCopy": { params: ServiceParams["document.saveCopy"]; result: undefined }
   /**
    * Renders designs to PNG files in a folder: each design in every state, in its main mode and the modes beside it.
    */
   "designs.export": {
-    params: { projectId: string; folder: string; designs: string[]; scale: number }
+    params: ServiceParams["designs.export"]
     result: { files: string[]; warnings: string[] }
   }
   /**
@@ -147,12 +143,7 @@ export interface ServiceMethods {
    * design; each file names the layer it's of by its index there.
    */
   "layers.export": {
-    params: {
-      projectId: string
-      folder: string
-      layers: { design: string; node?: string }[]
-      files: { layer: number; name: string; size: ExportSize }[]
-    }
+    params: ServiceParams["layers.export"]
     result: { files: string[]; warnings: string[] }
   }
   /**
@@ -161,10 +152,7 @@ export interface ServiceMethods {
    * the design sits on the canvas, and `name` names the layer in a warning. No PNG when nothing could be drawn.
    */
   "layers.picture": {
-    params: {
-      projectId: string
-      layers: { design: string; node?: string; name: string; at: { x: number; y: number } }[]
-    }
+    params: ServiceParams["layers.picture"]
     result: { png?: string; warnings: string[] }
   }
   /**
@@ -173,7 +161,7 @@ export interface ServiceMethods {
    * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).
    */
   /** The bitmap as a data URL, a lossless WebP as it's kept (PAR-535), and the frame's height kept with it. */
-  "frames.capture": { params: { job: RenderJob; height?: number }; result: { src?: string; height?: number } }
+  "frames.capture": { params: ServiceParams["frames.capture"]; result: { src?: string; height?: number } }
   /**
    * The bitmaps of frames kept on disk from earlier captures of the same jobs with the same code, where there are any
    * (PAR-158), in the jobs' order. They're asked for before anything is captured, so a project opened again shows its
@@ -183,68 +171,71 @@ export interface ServiceMethods {
    * frame that hasn't drawn yet takes while it shows the bitmap (PAR-179).
    */
   /** Each job's kept bitmap and its frame's height, `stale` when it's the frame's latest from other code (PAR-993). */
-  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number; stale?: true }[] } }
+  "frames.stored": {
+    params: ServiceParams["frames.stored"]
+    result: { kept: { src?: string; height?: number; stale?: true }[] }
+  }
   /**
    * Whether each frame, and each node in it, changed since it was first looked at while its project's open (PAR-997):
    * the frames as JSON text, each by its id and the job it's drawn with, and their changes in the same order.
    */
-  "frames.changes": { params: { frames: string }; result: { changes: FrameChange[] } }
+  "frames.changes": { params: ServiceParams["frames.changes"]; result: { changes: FrameChange[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
-  "frames.clearStored": { params: undefined; result: undefined }
+  "frames.clearStored": { params: ServiceParams["frames.clearStored"]; result: undefined }
   /**
    * Keeps a project's picture for the start page (PAR-607), in place of the one before. Each frame is cut to the top of
    * its window and given back as it's kept.
    */
-  "pictures.store": { params: { root: string; picture: ProjectPicture }; result: ProjectPicture }
+  "pictures.store": { params: ServiceParams["pictures.store"]; result: ProjectPicture }
   /** The pictures kept for these projects, by root. A project with none kept isn't in it. */
-  "pictures.read": { params: { roots: string[] }; result: Record<string, ProjectPicture> }
+  "pictures.read": { params: ServiceParams["pictures.read"]; result: Record<string, ProjectPicture> }
   /** Lets go of the pictures of every project but these, the ones the start page still lists. */
-  "pictures.keepOnly": { params: { roots: string[] }; result: undefined }
+  "pictures.keepOnly": { params: ServiceParams["pictures.keepOnly"]; result: undefined }
   /**
    * What the start page needs from this computer (PAR-188): which of these projects' folders aren't there any more, and
    * the example project's folder, when this copy of Parity has it.
    */
-  "start.check": { params: { roots: string[] }; result: { missing: string[]; example?: string } }
+  "start.check": { params: ServiceParams["start.check"]; result: { missing: string[]; example?: string } }
   /**
    * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
    * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
    */
-  "previews.lookup": { params: { previews: PreviewJob[] }; result: { previews: ComponentPreview[] } }
+  "previews.lookup": { params: ServiceParams["previews.lookup"]; result: { previews: ComponentPreview[] } }
   /**
    * Makes a component's preview in the offscreen window, behind canvas bitmaps and agents' renders, and keeps it on
    * disk. One already made for its key is given back without drawing.
    */
-  "previews.make": { params: { preview: PreviewJob; priority: "visible" | "idle" }; result: ComponentPreview }
+  "previews.make": { params: ServiceParams["previews.make"]; result: ComponentPreview }
   /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.
    */
   "accessibility.check": {
-    params: { projectId: string; design: string }
+    params: ServiceParams["accessibility.check"]
     result: { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
   }
   /** Writes token values back to the project's stylesheets, taking out those without a value. */
-  "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
+  "tokens.save": { params: ServiceParams["tokens.save"]; result: ProjectEditResult }
   /**
    * The classes the project's styling framework writes for each declaration, by its own compiler, for frames to draw
    * layers with (PAR-942). `written` are the classes the window's frames already have, compiled again with the new
    * ones, so the window's stylesheet of classes is whole whether or not the service was started again since.
    */
   "styles.classes": {
-    params: { projectId: string; declarations: CssDeclaration[]; written: string[] }
+    params: ServiceParams["styles.classes"]
     result: FrameClassesWritten
   }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.
    */
-  "processes.list": { params: Record<string, never>; result: ProjectProcess[] }
+  "processes.list": { params: ServiceParams["processes.list"]; result: ProjectProcess[] }
   /** Stops a server Parity started, or cancels a task. */
-  "processes.stop": { params: { id: string }; result: undefined }
+  "processes.stop": { params: ServiceParams["processes.stop"]; result: undefined }
   /** Starts a server again, or runs a task again. */
-  "processes.restart": { params: { id: string }; result: undefined }
+  "processes.restart": { params: ServiceParams["processes.restart"]; result: undefined }
   /** Forgets a process that stopped or a task that finished, so it leaves the list. */
-  "processes.dismiss": { params: { id: string }; result: undefined }
+  "processes.dismiss": { params: ServiceParams["processes.dismiss"]; result: undefined }
 }
 
 /**
@@ -395,6 +386,8 @@ export const windowMethods = Object.keys({
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
+
+export type { PictureFrame, PictureScreen, PreviewJob, ProjectPicture, RenderJob } from "./service-params.ts"
 
 /**
  * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:
@@ -625,60 +618,6 @@ export type OpenInEditorRequest = z.infer<typeof openInEditorRequest>
 
 export type SaveDialogOptions = z.infer<typeof saveDialogOptions>
 
-/** A frame the offscreen render window draws, to measure it or capture it. */
-export interface RenderJob {
-  /** The project drawn, so the render window lets go of its last guest when the project's moves to a new address. */
-  projectId: string
-  guestUrl: string
-  /** Components the guest adds before drawing, since the type checker found them after it loaded. */
-  components?: Record<string, GuestComponentSource>
-  theme: ThemeVariable[]
-  tree: unknown
-  /**
-   * The frame and the window it stands for, as core's `frameGeometry` gives them, so the offscreen frame matches the
-   * live one. `height` is the frame's own fixed height, which clips it; without one the frame is as tall as its content.
-   * `viewport` is the browser window, which viewport units and the project's window size checks measure, and which
-   * keeps its height when the frame grows past it.
-   */
-  mode: {
-    width: number
-    height?: number
-    viewport: FrameViewport
-    classNames: string[]
-    attributes: Record<string, string>
-    /** The mode's options by variable, for decorators. */
-    globals?: Record<string, string>
-    /** The mode stands for a phone or a tablet, whose frames take thin scrollbars (core's `isTouchMode`). */
-    touch?: true
-  }
-  scale: number
-  /** Also check the frame with axe-core. */
-  audit?: boolean
-  /** When auditing, the color tokens to read the values of in the frame, for contrast fixes. */
-  colorTokens?: string[]
-  /**
-   * Draw what the frame's components portal out of it (a dialog, a popover's popup, a menu) inside it, in the flow after
-   * the rest, as a component preview does (PAR-517).
-   */
-  inlinePortals?: true
-  /**
-   * Every token value that differs from the project's compiled CSS, such as unsaved edits: the complete set, not
-   * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
-   */
-  previews?: TokenChange[]
-  /**
-   * The design it draws, by key, with the state and mode, so what the frame writes to the console is kept as that
-   * design's (PAR-147). None for a component preview. No stored name has it.
-   */
-  design?: { key: string; state?: string; mode?: string }
-}
-
-/** A component's preview to look up or make: the job that draws it, as inserting it would place it. */
-export interface PreviewJob {
-  component: string
-  job: RenderJob
-}
-
 /** A preview's pictures, which the window shows as plain images from `parity-preview:` addresses. */
 export interface PreviewImage {
   /** At most 240 by 152 pixels, for list rows, grid tiles and the picker. */
@@ -688,34 +627,6 @@ export interface PreviewImage {
   /** The large picture's size, in pixels; the thumbnail has its shape. */
   width: number
   height: number
-}
-
-/** One frame in a project's picture: its bitmap, and its mode as the board's caption names it. */
-export interface PictureFrame {
-  /** The bitmap as a data URL: a WebP, or a PNG where the service couldn't encode one. */
-  src: string
-  /** The mode's name, such as Mobile. */
-  mode: string
-  /** The frame's width and its window's height, in its own CSS pixels: the picture shows the top of the frame. */
-  width: number
-  height: number
-}
-
-/** A screen in a project's picture: its main frame, and the phone frame beside it where its board shows one. */
-export interface PictureScreen {
-  name: string
-  main: PictureFrame
-  phone?: PictureFrame
-}
-
-/**
- * A project's picture for the start page (PAR-607): its first few screens as the canvas last drew them once saved, so a
- * card can show the first and flip through the rest.
- */
-export interface ProjectPicture {
-  /** When it was taken, in milliseconds since 1970. */
-  taken: number
-  screens: PictureScreen[]
 }
 
 /** What's kept of a component's preview for its code as it's drawn now. */

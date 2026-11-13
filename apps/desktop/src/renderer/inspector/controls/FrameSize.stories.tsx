@@ -13,7 +13,7 @@ import { Playground } from "./playground.tsx"
  * CSS.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Frame size",
+  title: "Parity/Inspector/Rows/Frame size",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Selection headers no longer offer Open in editor; its design is kept as an exploration",
+  "comment": "Core and editor name what other packages may use in src/index.ts",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

@@ -1,23 +1,10 @@
-import {
-  boardTarget,
-  editNode,
-  locateNode,
-  type NodeChange,
-  type PatchField,
-  propChange,
-  resetOverride,
-  targetPatches
-} from "@parity-app/core"
-import { boardReader, type Selection, editingState } from "@parity-app/editor"
+import { type Selection, type StyleSection } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { useProject } from "../canvas/context.ts"
-import { useComponents } from "../components-store.ts"
-import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
-import { useSelection } from "../selection.ts"
+import { type ContainerEntry } from "../design-store.ts"
 import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
-import { PropsSection } from "./PropsSection.tsx"
+import { useSelectedLayer } from "./selected-layer.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
@@ -67,77 +54,24 @@ export function inspecting(rightTab: string, prepare?: () => Selection | void): 
   }
 }
 
-/** The selected layer in the state being edited, with the edits the layer panel makes to it. */
-function useSelectedLayer() {
-  const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
-  const components = useComponents(session.components)
-  const nodeId = selected.node
-  const location = entry && nodeId ? locateNode(entry.container.root, nodeId) : undefined
-
-  if (!entry || !nodeId || !location) {
-    return undefined
-  }
-
-  const { container, key } = entry
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const override = targetPatches(container, target)?.[nodeId]
-
-  const change = (label: string, value: NodeChange, gesture?: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
-      gesture
-    })
-
-  const reset = (field: PatchField) =>
-    store.updateContainer(key, "Reset change", (current) =>
-      resetOverride(current, boardTarget(current, state.id), nodeId, field)
-    )
-
-  const node = boardReader(container, { state })(location.node)
-
-  return { entry, nodeId, node, components, override, change, reset }
-}
-
-/** The selected component layer's props section and Attributes, as the layer panel shows them, or `only` Attributes. */
-export function SelectedProps({ only }: { only?: "attributes" }) {
-  const layer = useSelectedLayer()
-
-  if (layer?.node.type !== "component") {
-    return null
-  }
-
-  const { node, components, override, change, reset } = layer
-
-  return (
-    <PropsSection
-      node={node}
-      info={components[node.component]}
-      changed={(name) => override?.props?.[name] !== undefined}
-      onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
-      onReset={(name) => reset({ kind: "props", key: name })}
-      only={only}
-    />
-  )
-}
-
-/** The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown. */
-export function SelectedStyles() {
+/**
+ * The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown: every one,
+ * or `only` that one alone.
+ */
+export function SelectedStyles({ only }: { only?: StyleSection }) {
   const layer = useSelectedLayer()
 
   if (!layer) {
     return null
   }
 
-  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} />
+  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} only={only} />
 }
 
-function LayerStyles({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+function LayerStyles({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: StyleSection }) {
   const editor = useStyleEditor(entry, [nodeId])
 
-  return editor ? <StyleSections editor={editor} container={entry.container} /> : null
+  return editor ? <StyleSections editor={editor} container={entry.container} only={only} /> : null
 }
 
 /** Types as a person would, a key at a time. */

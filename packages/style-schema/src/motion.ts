@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { type ReadFailure, readFailure } from "./read.ts"
 import { finiteNumber, stored } from "./stored.ts"
 import { off, stepForm, token, tokenForm, valueForm } from "./value.ts"
 
@@ -89,15 +90,97 @@ export function transitionProperties(property: string): readonly string[] {
   return isTransitionSet(property) ? transitionSetProperties[property] : [property]
 }
 
+/** A cubic Bézier's two handles, as `cubic-bezier(x1, y1, x2, y2)` takes them. */
+export type Bezier = [number, number, number, number]
+
 /**
- * Tailwind v4's easing curves, as its theme defines them. They differ from CSS's keywords of the same names, so where
- * the project doesn't define the variable, these numbers draw it.
+ * Tailwind v4's easings as its theme defines them: the one table of their curves. Tailwind's differ from CSS's keywords
+ * of the same names (its `ease-in` is `cubic-bezier(0.4, 0, 1, 1)`, CSS's 0.42), so a preview draws these numbers.
+ */
+export const easingBeziers: Record<EasingKeyword, Bezier> = {
+  linear: [0, 0, 1, 1],
+  "ease-in": [0.4, 0, 1, 1],
+  "ease-out": [0, 0, 0.2, 1],
+  "ease-in-out": [0.4, 0, 0.2, 1]
+}
+
+/** A curve as CSS writes it, each number to two decimals: `cubic-bezier(0.4, 0, 0.2, 1)`. */
+export const bezierCss = (curve: Bezier): string =>
+  `cubic-bezier(${curve.map((number) => Math.round(number * 100) / 100).join(", ")})`
+
+/**
+ * Tailwind v4's easing curves as CSS, which draw a keyword where the project doesn't define its variable. `linear` is
+ * CSS's own.
  */
 export const easingCurves: Record<EasingKeyword, string> = {
   linear: "linear",
-  "ease-in": "cubic-bezier(0.4, 0, 1, 1)",
-  "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
-  "ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)"
+  "ease-in": bezierCss(easingBeziers["ease-in"]),
+  "ease-out": bezierCss(easingBeziers["ease-out"]),
+  "ease-in-out": bezierCss(easingBeziers["ease-in-out"])
+}
+
+/** What an easing draws: a curve, a staircase, or a spring's samples. */
+export type EasingPlot =
+  | { kind: "bezier"; curve: Bezier }
+  | { kind: "steps"; count: number; jump: "start" | "end" }
+  | { kind: "samples"; values: number[] }
+
+/**
+ * An easing function written as CSS, `cubic-bezier(…)` or `steps(…)`, read as what it draws; or why it can't be read.
+ * A curve's handles must sit within the curve's time, from 0 to 1, and steps must number at least one.
+ */
+export function readEasingFunction(text: string): EasingPlot | ReadFailure {
+  const trimmed = text.trim()
+  const bezier = /^cubic-bezier\(\s*([^)]*)\)$/i.exec(trimmed)
+
+  if (bezier) {
+    const numbers = bezier[1]!.split(",").map((part) => Number(part.trim()))
+    const [x1, y1, x2, y2] = numbers
+
+    if (
+      numbers.length !== 4 ||
+      x1 === undefined ||
+      y1 === undefined ||
+      x2 === undefined ||
+      y2 === undefined ||
+      numbers.some((number) => !Number.isFinite(number))
+    ) {
+      return readFailure("arguments", "cubic-bezier() takes four numbers")
+    }
+
+    if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) {
+      return readFailure("out-of-range", "A curve's first and third numbers are from 0 to 1")
+    }
+
+    return { kind: "bezier", curve: [x1, y1, x2, y2] }
+  }
+
+  const steps = /^steps\(\s*(\d+)\s*(?:,\s*(jump-start|start|jump-end|end)\s*)?\)$/i.exec(trimmed)
+
+  if (steps) {
+    if (Number(steps[1]) < 1) {
+      return readFailure("out-of-range", "steps() takes at least one step")
+    }
+
+    const jump = steps[2]?.toLowerCase().endsWith("start") ? "start" : "end"
+
+    return { kind: "steps", count: Number(steps[1]), jump }
+  }
+
+  return readFailure("unreadable", "Enter cubic-bezier(…) or steps(…)")
+}
+
+/** A plot as CSS draws it: `cubic-bezier()`, `steps()`, or a spring's `linear()`. */
+export function plotCss(plot: EasingPlot): string {
+  if (plot.kind === "bezier") {
+    return bezierCss(plot.curve)
+  }
+
+  if (plot.kind === "samples") {
+    return `linear(${plot.values.join(", ")})`
+  }
+
+  return plot.jump === "end" ? `steps(${plot.count})` : `steps(${plot.count}, jump-start)`
 }
 
 /** Tailwind v4's `--default-transition-duration`, in milliseconds. */

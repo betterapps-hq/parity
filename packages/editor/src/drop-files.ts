@@ -231,11 +231,6 @@ export function dropLabel(count: MediaCount): string {
   return `Drop ${mediaWords(count).replace(/^the /, "")}`
 }
 
-/** The undo step's label for pasting copied files: "Paste image", "Paste video". */
-export function pasteLabel(count: MediaCount): string {
-  return `Paste ${mediaWords(count).replace(/^the /, "")}`
-}
-
 /** A file's name without its extension, as the file it's saved as and a design made of it are named. */
 export function fileBaseName(name: string): string {
   return name.replace(/\.[^./\\]*$/, "") || name

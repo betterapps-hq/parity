@@ -2,7 +2,8 @@
  * What the text, opacity and keyword fields store and write, for the readout beside their stories: the stored value
  * in PAR-652's value forms, the CSS, and the Tailwind classes, as design-options-values.md's Writes lines give them.
  */
-import { arbitrary, formatNumber, lengthClass, lengthCss, lengthForm } from "./css-values.ts"
+import { formatNumber, lengthForm } from "@parity-app/style-schema"
+import { arbitrary, lengthClass, lengthCss } from "./css-values.ts"
 import { type BlendMode, stackFamilies } from "./text-data.ts"
 import type { SizeToken } from "./tokens.ts"
 import { type StoredObject, withAllow, type Writes } from "./writes.ts"

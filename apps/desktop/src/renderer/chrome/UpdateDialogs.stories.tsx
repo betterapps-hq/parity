@@ -1,4 +1,4 @@
-import type { UpdateState } from "@parity-app/core"
+import type { UpdateState } from "@parity-app/processes"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect } from "react"
 import type { BuildInfo } from "../../shared/protocol.ts"

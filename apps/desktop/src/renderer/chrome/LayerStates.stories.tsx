@@ -2,16 +2,17 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { DesignTab } from "./DesignPanel.tsx"
 import { slowly } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderPart } from "./layer-stories.tsx"
+import { inspectorStage, pick, renderSection } from "./layer-stories.tsx"
+import { LayerStateSelector } from "./LayerPanel.tsx"
 
 /**
  * A component's layer picked in one of its states: the component state selector says where edits go, and picks another
  * state to send them to (PAR-1022). It shows on a component's own layers only.
  */
 const meta = {
-  title: "Parity/Inspector/Layer/States",
+  title: "Parity/Inspector/Sections/State selector",
   component: DesignTab,
-  render: renderPart("state"),
+  render: renderSection(LayerStateSelector),
   decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 

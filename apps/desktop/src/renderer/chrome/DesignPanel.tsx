@@ -1,20 +1,23 @@
 import { Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { ResolvedMode } from "@parity-app/core"
-import { kindTitle, selectionKey } from "@parity-app/editor"
+import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
+import type { ComponentType, ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
+import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
+import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
-import { LayerPanel, type LayerPart } from "./LayerPanel.tsx"
+import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -29,21 +32,31 @@ import { ModeViewportIcon } from "./viewports.tsx"
  * The Design tab: whatever is selected, a design, one of its layers or modes, or text on the canvas. Its number fields
  * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
  */
-export function DesignTab({ only }: { only?: LayerPart }) {
+export function DesignTab() {
+  return (
+    <DesignTabFields>
+      <SelectedPanel />
+    </DesignTabFields>
+  )
+}
+
+/**
+ * What every section in the Design tab reads beside the selection: which selection its fields edit, and the first
+ * state's name. A story drawing one section alone puts it in this.
+ */
+export function DesignTabFields({ children }: { children: ReactNode }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
 
   return (
     <FieldTarget value={selectionKey(selected)}>
-      <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>
-        <SelectedPanel only={only} />
-      </FirstStateName>
+      <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>{children}</FirstStateName>
     </FieldTarget>
   )
 }
 
-function SelectedPanel({ only }: { only?: LayerPart }) {
+function SelectedPanel() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
@@ -77,13 +90,48 @@ function SelectedPanel({ only }: { only?: LayerPart }) {
   }
 
   if (selected.node) {
-    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} only={only} />
+    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
   }
 
   return <DesignPanel entry={entry} />
 }
 
+/** A whole design's sections, as `panelParts` picks them from what it can do (PAR-1032). */
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
+  const session = useProject()
+  const components = useComponents(session.components)
+  const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
+
+  return panelParts(can).map((section) => {
+    const Section = designSections[section]
+
+    return Section && <Section key={section} entry={entry} />
+  })
+}
+
+/** What draws each of a design's sections; a layer's own, as Content and Attributes, aren't a design's. */
+const designSections: Partial<Record<InspectorSection, ComponentType<{ entry: ContainerEntry }>>> = {
+  header: DesignHeader,
+  states: StatesSection,
+  props: () => <PropsSection />,
+  components: ComponentsSection,
+  styles: FrameStyles,
+  modes: ModesSection,
+  export: DesignExport
+}
+
+/** Export, for a whole design. */
+function DesignExport({ entry }: { entry: ContainerEntry }) {
+  return (
+    <ExportSection
+      targets={[{ design: entry.key, name: entry.container.name }]}
+      label={`Export ${entry.container.name}`}
+    />
+  )
+}
+
+/** A design's name and kind, and for a frame, the mode it's drawn in and that it isn't written to code. */
+function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { store } = session
   const settings = useModeSettings(store)
@@ -134,10 +182,6 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           </div>
         )}
       </div>
-
-      {container.kind === "frame" ? <FrameStyles entry={entry} /> : <ScreenOrComponentSections entry={entry} />}
-
-      <ExportSection targets={[{ design: key, name: container.name }]} label={`Export ${container.name}`} />
     </>
   )
 }
@@ -152,25 +196,11 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
   return editor ? <StyleSections editor={editor} container={entry.container} /> : null
 }
 
-/** A screen's or component's states, params or components, and the modes it shows. */
-function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
-  const { container } = entry
-
-  return (
-    <>
-      {container.kind === "component" && <StatesSection entry={entry} />}
-      {container.kind === "component" ? <ParamsSection entry={entry} /> : <ComponentsSection entry={entry} />}
-
-      <ModesSection entry={entry} />
-    </>
-  )
-}
-
 /**
  * A screen's or component's modes in its own order, each put in place by its handle. The first is the one it shows
  * first, so it always shows; each other's switch shows it beside the first.
  */
-function ModesSection({ entry }: { entry: ContainerEntry }) {
+export function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { store, selection } = useProject()
   const settings = useModeSettings(store)
   const selected = useSelection(selection)

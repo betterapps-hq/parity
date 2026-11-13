@@ -1,3 +1,4 @@
+import { bezierCss } from "@parity-app/style-schema"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
@@ -5,15 +6,7 @@ import { HoverCard } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
 import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
-import {
-  bezierCss,
-  defaultCurve,
-  defaultDuration,
-  type Spring,
-  springSettle,
-  type Time,
-  timeMs
-} from "./motion-data.ts"
+import { defaultCurve, defaultDuration, type Spring, springSettle, type Time, timeMs } from "./motion-data.ts"
 import { easingWrites, timeWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
 import { TimeField } from "./time.tsx"
@@ -27,7 +20,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * spring's settle time, set by Easing.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Time",
+  title: "Parity/Inspector/Fields/Time",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -16,7 +16,7 @@ import { standInTokenSets } from "./stand-in-tokens.ts"
  * another order is one Custom entry, edited as text, with Put in order where that doesn't change what's drawn.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Lists/Filter list",
+  title: "Parity/Inspector/Lists/Filter list",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

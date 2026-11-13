@@ -2,13 +2,8 @@ import { writeFileSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import {
-  type BuilderAdapter,
-  type BuilderProcessSession,
-  type CodeChange,
-  type ComponentSource,
-  parseCanvasDocument
-} from "@parity-app/core"
+import { type BuilderAdapter, type CodeChange, type ComponentSource, parseCanvasDocument } from "@parity-app/core"
+import type { BuilderProcessSession } from "@parity-app/processes"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"

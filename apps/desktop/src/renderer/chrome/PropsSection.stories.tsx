@@ -2,17 +2,18 @@ import { designStates, editNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { inspecting, InspectorStage, PanelColumn, search, SelectedProps, slowly } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, PanelColumn, search, slowly } from "./inspector-stories.tsx"
 
 /**
  * A component layer's props, as the layer panel shows them, inferred from the component's source: variants offer their
  * options, booleans a switch, numbers and strings an input, each with its default. What it passes on to its element is
- * in Inspector › Attributes.
+ * in Sections › Attributes.
  */
 const meta = {
-  title: "Parity/Inspector/Props",
-  component: SelectedProps,
+  title: "Parity/Inspector/Sections/Props/Code component",
+  render: () => <PropsSection />,
   decorators: [
     (Story) => (
       <InspectorStage>
@@ -22,7 +23,7 @@ const meta = {
       </InspectorStage>
     )
   ]
-} satisfies Meta<typeof SelectedProps>
+} satisfies Meta
 
 export default meta
 

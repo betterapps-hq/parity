@@ -4,22 +4,10 @@
  * spots' keywords. Each takes data and returns text; none knows about fields or tokens.
  */
 import { stepFieldValue } from "@parity-app/core"
-
-/** Pixels in a whole spacing step, at Tailwind's default `--spacing` of 0.25rem. */
-export const spacingPx = 4
-
-/** Pixels in a rem, as the inspector's fields count them. */
-export const remPx = 16
+import { formatNumber, lengthForm, spacingPx } from "@parity-app/style-schema"
 
 /** A number brought within `min` and `max`. */
 export const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value))
-
-/** A number as fields and classes show it: at most `places` decimals (three unless said), with no trailing zeros. */
-export function formatNumber(value: number, places = 3): string {
-  const factor = 10 ** places
-
-  return String(Math.round(value * factor) / factor)
-}
 
 /** Tailwind's fraction for a percentage, where it has one (50% is `1/2`), or `full` for 100%, as call 10 writes them. */
 export function fraction(percent: number): string | undefined {
@@ -48,15 +36,6 @@ export function arbitrary(css: string): string {
     .replaceAll(/\s+([+\-*/])\s+/g, "$1")
     .replaceAll("_", String.raw`\_`)
     .replaceAll(/\s+/g, "_")
-}
-
-/**
- * A length in pixels in PAR-652's value forms: a spacing step wherever it's a whole pixel (any multiple of a quarter
- * step, as `p-3.25` is 13px), and a value otherwise (`13.3px`). Every writer of a length uses this, so 13px is a step
- * in padding, a size and a move alike.
- */
-export function lengthForm(px: number): { step: number } | { value: string } {
-  return Number.isInteger(px) ? { step: px / spacingPx } : { value: `${formatNumber(px)}px` }
 }
 
 /** A length after a utility's prefix: `130` for a step, `[13.3px]` otherwise. */
