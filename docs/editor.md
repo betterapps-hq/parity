@@ -5434,26 +5434,33 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
 to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/renderer-react/src/guest.ts`,
-declared on `Guest` in `packages/core/src/adapters.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which
-`setSources` in `renderer/workspace.ts` and `renderer/render.ts` call.
+declared on `Guest` in `packages/core/src/adapters.ts`, keep where each component comes from in the guest's registry
+(`componentRegistry` in `component-registry.ts`, PAR-988), with each component's drawn or failing status in
+`render-statuses.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in
+`renderer/workspace.ts` and `renderer/render.ts` call.
 
 Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
 moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
 added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
-given, and adds one given again). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new to the list,
-one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it was, and
-nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2: a
-component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
-and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
-`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
-with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
-its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
-the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
-Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
-That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
-changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
-changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
-`addComponents` on.
+given, and adds one given again). `packages/renderer-react/src/component-registry.test.ts` (6: a file's address on the
+dev server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded
+from there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and
+one only given forgotten; and the revision going up once a change, heard until unsubscribed) and
+`render-statuses.test.ts` (4: drawn once and heard once a task, failing while any boundary shows an error, a component
+still loading not drawn, and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for
+`guestChanges`: one new to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every
+component stays where it was, and nothing when only what else the list says about one changes).
+`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+`apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
+components and the rest kept when it does, and a job built with every field passing the service's check whole; for
+`frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
+draws, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens previewed while
+`drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys follow the
+revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts` give and
+take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by reading them.
+A component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
+share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
 ### Failing components, in the console, and code edits picked up live (PAR-165)
 
