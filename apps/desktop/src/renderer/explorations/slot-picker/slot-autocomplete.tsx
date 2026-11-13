@@ -18,6 +18,18 @@ const layersMime = "application/x-parity-layers"
 /** Layers dragged from Layers: the key of the design they're in and their ids. */
 export type LayersDrag = NonNullable<ReturnType<typeof readLayersDrag>>
 
+/**
+ * The box as the panel's select draws its button (`AppSelect`, small): its border, fill, hover, corners, padding and
+ * focus ring, over the chips' own field look. Marked important, since `AppChips` sets its look before these.
+ */
+const selectLook = [
+  "rounded-[min(var(--radius-md),10px)]! border! border-input! bg-transparent! py-0.5! ps-1.5! pe-2!",
+  "transition-colors dark:bg-input/30! dark:hover:bg-input/50!",
+  "ring-0! hover:not-focus-within:ring-0! focus-within:border-ring! focus-within:ring-3! focus-within:ring-ring/50!",
+  // Outside the border, as the select's ring is, not inside it as the chips' is.
+  "[--tw-ring-inset:_]!"
+].join(" ")
+
 /** Picks of a component are told from a layer's id by this prefix. */
 const componentPrefix = "component:"
 
@@ -115,11 +127,13 @@ export function SlotAutocomplete({
       inputValue={query}
       onInputValueChange={setQuery}
       options={options}
+      className={selectLook}
       // Lit as a layout in Layers is while a layer would drop inside it.
       style={
         dragOver
           ? {
-              boxShadow: `inset 0 0 0 2px ${kindColors.layer}`,
+              borderColor: kindColors.layer,
+              boxShadow: `inset 0 0 0 1px ${kindColors.layer}`,
               background: `color-mix(in oklch, ${kindColors.layer} 12%, transparent)`
             }
           : undefined
@@ -158,7 +172,7 @@ export function SlotAutocomplete({
         </AppChip>
       )}
       <AppChipsInput aria-label={`Fill ${label}`} placeholder={layer ? undefined : "Add a layer"} />
-      <ComboboxTrigger className="ml-auto flex h-5 shrink-0 items-center pr-1.5 pl-1" />
+      <ComboboxTrigger className="ml-auto flex h-5 shrink-0 items-center pl-1" />
     </AppChips>
   )
 }
