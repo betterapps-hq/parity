@@ -19,9 +19,10 @@ connector or lens lands, update its row here. The visual version is the
 | ❌     | Not supported                  |
 
 Everything here was read from the code on 2026-10-28. Only one stack is tested end to end: the example project
-(`examples/shadcn-vite`), which is React 19, Vite 8, Tailwind CSS v4, shadcn and TypeScript 6. The validation projects
-at the end of this page are the plan for testing more. Four of them exist in `fixtures/` (`vite7-js`, `react-aria`,
-`mantine` and `too-old`), so far checked by their detection snapshot only.
+(`examples/shadcn-vite`), which is React 19, Vite 8, Tailwind CSS v4, shadcn, TypeScript 6 and TanStack Router with
+file-based routes (PAR-1072). The validation projects at the end of this page are the plan for testing more. Four of
+them exist in `fixtures/` (`vite7-js`, `react-aria`, `mantine` and `too-old`), so far checked by their detection
+snapshot only.
 
 ## Four kinds of requirement
 
