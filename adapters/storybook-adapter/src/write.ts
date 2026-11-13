@@ -80,6 +80,7 @@ function argsEdits(story: ts.ObjectLiteralExpression, own: ReadonlyMap<string, A
   const parts = argsObject.properties.flatMap((element) => {
     const name =
       element.name && (ts.isIdentifier(element.name) || ts.isStringLiteral(element.name)) && element.name.text
+
     const value = ts.isPropertyAssignment(element) ? valueOf(element.initializer) : undefined
 
     // Code, and what isn't an arg's JSON value, stays as it's written.
