@@ -2,6 +2,37 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 00:21:56 GMT",
+      "version": "0.78.0",
+      "tag": "@parity-app/desktop_v0.78.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cc4122089c87e30bc7f0189c63c44c82ca0bd897",
+            "comment": "Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a list entry back if it goes while it's dragged (PAR-982)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "85a7a8bcbf86be4093f75324b1bfe67d58c9025a",
+            "comment": "A component instance's attributes have their own Attributes section, after its props"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ac4ffefcefe402b399aa0723d40d96544ac09892",
+            "comment": "Inspector stories move into Rows, Fields and Lists"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 23:58:16 GMT",
       "version": "0.77.1",
       "tag": "@parity-app/desktop_v0.77.1",

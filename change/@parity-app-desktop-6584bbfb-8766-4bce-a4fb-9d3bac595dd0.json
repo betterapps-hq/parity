@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A component instance's attributes have their own Attributes section, after its props",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

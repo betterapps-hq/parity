@@ -1,8 +1,21 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 23:58:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 00:21:56 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.78.0
+
+Fri, 13 Nov 2026 00:21:56 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+### Patches
+
+- Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a
+  list entry back if it goes while it's dragged (PAR-982) (ajcraswell@gmail.com)
 
 ## 0.77.1
 
