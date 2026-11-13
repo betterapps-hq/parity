@@ -22,7 +22,14 @@ import {
   Toggle,
   useHighlightedCode
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type DesignNode, type ElementSource, isInnerPath, locateInner, locateNode } from "@parity-app/core"
+import {
+  type DesignNode,
+  type ElementSource,
+  elementSourceAttribute,
+  isInnerPath,
+  locateInner,
+  locateNode
+} from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
 import { CodeXml, Crosshair, FileCode2, Package, SquareArrowOutUpRight } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
@@ -35,6 +42,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { Name } from "../../chrome/Name.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../design-store.ts"
+import { watchFrame } from "../../frame-host.ts"
 import { findFrames, findNodeElements, subscribeFrames } from "../../frame.ts"
 import { useSelection } from "../../selection.ts"
 import type { ProjectDesigns, ProjectSession } from "../../workspace.ts"
@@ -324,20 +332,18 @@ function useLayerElements(entry: ContainerEntry, nodeId: string): SourcedElement
   const [elements, setElements] = useState<SourcedElement[]>([])
   const { mode, state } = selected
   useEffect(() => {
-    let observer: MutationObserver | undefined
-    let watched: Node | undefined
+    let stopWatching: (() => void) | undefined
+    let watched: Element | undefined
 
     const read = () => {
       const host = findFrames(document, entry.key, { mode, state })[0] ?? findFrames(document, entry.key)[0]
       const next = host ? sourcedElements(findNodeElements(host, nodeId)) : []
       setElements((current) => (sameElements(current, next) ? current : next))
-      const root = host?.shadowRoot ?? undefined
 
-      if (root && root !== watched) {
-        observer?.disconnect()
-        observer = new MutationObserver(read)
-        observer.observe(root, { subtree: true, childList: true, attributeFilter: ["data-parity-source"] })
-        watched = root
+      if (host && host !== watched) {
+        stopWatching?.()
+        stopWatching = watchFrame(host, read, { attributes: [elementSourceAttribute] })
+        watched = host
       }
     }
 
@@ -346,7 +352,7 @@ function useLayerElements(entry: ContainerEntry, nodeId: string): SourcedElement
 
     return () => {
       stop()
-      observer?.disconnect()
+      stopWatching?.()
     }
   }, [entry.key, nodeId, mode, state])
 
