@@ -2,6 +2,71 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 04:24:09 GMT",
+      "version": "0.80.3",
+      "tag": "@parity-app/desktop_v0.80.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5ec3f4065b01a8b4463663f6988160ad51fe5354",
+            "comment": "Keep the text editor on its text in every frame of a zoom, with every canvas overlay measured by one scheduler"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b13a092d9247ca8eecd6b937258ddb396f806c6f",
+            "comment": "Tidy the menus: each command in one menu, an icon on every item, Copy as PNG in Edit and the canvas menu, and upkeep under Help > Developer"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ee4626e98f0408c82bd7a42a64819cec368005a9",
+            "comment": "Keep open projects' .env values out of every window's page, and scrub them from what windows send in main"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3fdfac2c53c7f443fdf0ba91351c7cbf8aa8eb28",
+            "comment": "Start, stop and time out every child process and worker through one lifecycle, with one output tail size"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0860a5dde49f9141fd210699ce3569298dedc3cd",
+            "comment": "Layer order items in the Object menu show layer icons: one layer for a step, a stack for all the way."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f29ed57bbf3858f3e2d3cb804dfda5c20cd06d6c",
+            "comment": "A control's stories show it alone, and a Demo story shows what it writes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cec8f548721aad6c7a968329bf9cc85332b4d542",
+            "comment": "Hold Session Replay while sleeping.e2e.ts counts DOM nodes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3491e7ac5464910668e7f7fb458f3ec93fe8e0bb",
+            "comment": "Name what keeps the console's badges when the end-to-end reset fails"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6accc21449879a2fd5b6adb4d4c56db45aff60df",
+            "comment": "Build the window's stores on one primitive and its slow calls on one helper"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 02:33:22 GMT",
       "version": "0.80.2",
       "tag": "@parity-app/desktop_v0.80.2",

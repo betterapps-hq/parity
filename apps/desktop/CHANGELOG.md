@@ -1,8 +1,25 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 02:33:22 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 04:24:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.3
+
+Fri, 13 Nov 2026 04:24:09 GMT
+
+### Patches
+
+- Keep the text editor on its text in every frame of a zoom, with every canvas overlay measured by one scheduler
+  (ajcraswell@gmail.com)
+- Tidy the menus: each command in one menu, an icon on every item, Copy as PNG in Edit and the canvas menu, and upkeep
+  under Help > Developer (ajcraswell@gmail.com)
+- Keep open projects' .env values out of every window's page, and scrub them from what windows send in main
+  (ajcraswell@gmail.com)
+- Start, stop and time out every child process and worker through one lifecycle, with one output tail size
+  (ajcraswell@gmail.com)
+- Layer order items in the Object menu show layer icons: one layer for a step, a stack for all the way.
+  (ajcraswell@gmail.com)
 
 ## 0.80.2
 

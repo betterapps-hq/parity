@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Start, stop and time out every child process and worker through one lifecycle, with one output tail size",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

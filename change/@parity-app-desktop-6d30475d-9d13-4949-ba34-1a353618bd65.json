@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep open projects' .env values out of every window's page, and scrub them from what windows send in main",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
