@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Count changes from the last git commit in a git repository, through swappable change detectors, and outline changed boards in yellow for now",
+  "comment": "Count changes from the last git commit in a git repository, through swappable change detectors",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
