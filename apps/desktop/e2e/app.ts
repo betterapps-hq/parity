@@ -212,9 +212,9 @@ export class App {
   }
 
   /**
-   * Sends the editor window's replay of the last minute or so, tagged with the test that failed and the run, and writes
-   * where to watch it (PAR-1043). In CI that's the minute buffered before the failure, as a replay of its own; with
-   * nothing recorded, or a page that can't answer, it says so instead, since the failure is the test's to report.
+   * Sends the editor window's replay, tagged with the test that failed and the run, and writes where to watch it
+   * (PAR-1043). In CI that's what the buffer held as the test failed, as a replay of its own; with nothing recorded, or
+   * a page that can't answer, it says so instead, since the failure is the test's to report.
    */
   async sendReplay(test: string): Promise<void> {
     const run = appEnvironment().PARITY_TEST_RUN

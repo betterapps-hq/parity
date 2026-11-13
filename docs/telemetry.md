@@ -131,7 +131,7 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   full, and every line of it carries that `testRun`, which the suite checks. The editor window keeps only a buffer of
   Session Replay, which a failed test sends (below). The `parity` command it runs sends the same, with the same tags,
   and writes its log and outbox inside the copy's profile.
-- **A failed test sends a replay of the editor window** (PAR-1043), of the minute or so before it failed, tagged
+- **A failed test sends a replay of the editor window** (PAR-1043), of what CI's buffer holds as it fails, tagged
   `e2e_test` with the test's full name and `test_run` with the run. The job's log says where to watch it, in a line
   starting `Replay of "<test>":` after the failure. `e2e/failed-replay.ts` asks for it once the test's `afterEach` has
   run, so a reset that fails is in it too. Passing tests send none.
@@ -246,9 +246,11 @@ Storybook or the CLI.
 - **While diagnostics are on, every session is recorded.** The share is `replaySessionRate` in
   `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so. Replay is
   started by hand, `followTelemetry` in the same file, so Sentry's own sample rates are 0.
-- **CI keeps a buffer instead** (PAR-1043): the last minute, in memory, sent only when `sendReplay` asks, as the
-  end-to-end suite does for a failed test, or as a report does. That sends the buffer as a replay of its own and starts
-  a fresh buffer, so CI never goes on to record whole sessions. An error doesn't send it.
+- **CI keeps a buffer instead** (PAR-1043), in memory, sent only when `sendReplay` asks, as the end-to-end suite does
+  for a failed test, or as a report does. That sends the buffer as a replay of its own and starts a fresh buffer, so CI
+  never goes on to record whole sessions. An error doesn't send it. The buffer holds a minute at most, and starts again
+  each time recording resumes after a hold below, so a test's replay starts where its zoom settled: for a drag test, the
+  drag and the reset after it.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
 - **The window's own canvases are recorded,** such as the selection overlay, as pictures twice a second while they

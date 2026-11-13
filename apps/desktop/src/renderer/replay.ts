@@ -198,10 +198,10 @@ export const replayPrivacy = {
 
 /**
  * Records the editor window with Session Replay while diagnostics are on, its secrets scrubbed and its canvases
- * included, and stops while they're off (PAR-624). CI, which sends only errors and reports (PAR-777), keeps the last
- * minute in memory instead and sends it only when `sendReplay` asks, as the end-to-end suite does for a failed test
- * (PAR-1043). The recorder is added the first time they're on, so with them off it never loads. Only the editor window
- * calls this, as it learns the setting and each time it changes; the offscreen renderers never record.
+ * included, and stops while they're off (PAR-624). CI, which sends only errors and reports (PAR-777), keeps a buffer
+ * of a minute at most in memory instead and sends it only when `sendReplay` asks, as the end-to-end suite does for a
+ * failed test (PAR-1043). The recorder is added the first time they're on, so with them off it never loads. Only the
+ * editor window calls this, as it learns the setting and each time it changes; the offscreen renderers never record.
  */
 export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "level" | "errorsOnly">): void {
   if (level === "off") {
