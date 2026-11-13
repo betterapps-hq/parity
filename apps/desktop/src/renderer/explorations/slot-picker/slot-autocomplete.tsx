@@ -11,7 +11,7 @@ import { AppChip, AppChips, type AppChipsGroup, AppChipsInput } from "../../chro
  */
 
 /** The drag Layers starts, as LayerTree sets it. */
-export const layersMime = "application/x-parity-layers"
+const layersMime = "application/x-parity-layers"
 
 /** Layers dragged from Layers: the key of the design they're in and their ids. */
 export type LayersDrag = NonNullable<ReturnType<typeof readLayersDrag>>
