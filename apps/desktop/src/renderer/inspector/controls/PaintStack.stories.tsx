@@ -23,7 +23,7 @@ import { mixedWrites } from "./writes.ts"
  * `background-color`, the rest as `background-image` layers.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Lists/Paint stack",
+  title: "Parity/Inspector/Lists/Paint stack",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

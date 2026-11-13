@@ -445,6 +445,16 @@ describe("dispatch", () => {
     expect(answer).not.toHaveProperty("editId")
   })
 
+  it("names a screenshot's file with what's safe in a file name, whatever its design's id holds", async () => {
+    const fixture = fixtureHost()
+    const tab = await fixture.host.snapshot(undefined)
+    tab.documents[0]!.document.containers[0]!.id = String.raw`..\..\Startup\run:me`
+    await dispatch("screenshot", { design: "Sign up", scale: 1 }, fixture.host, caller)
+    await dispatch("screenshot", { design: "Sign up", sheet: true }, fixture.host, caller)
+
+    expect(fixture.asked.names).toEqual(["....Startuprunme-default-desktop-light", "....Startuprunme-sheet"])
+  })
+
   it("puts a design's frames together as one labeled sheet, kept as one file", async () => {
     const { answer, asked } = await ask("screenshot", { design: "signup", state: "all", mode: "all", sheet: true })
     const [sheet] = asked.sheets

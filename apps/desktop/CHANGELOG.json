@@ -2,6 +2,64 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 00:21:56 GMT",
+      "version": "0.78.0",
+      "tag": "@parity-app/desktop_v0.78.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cc4122089c87e30bc7f0189c63c44c82ca0bd897",
+            "comment": "Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a list entry back if it goes while it's dragged (PAR-982)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "85a7a8bcbf86be4093f75324b1bfe67d58c9025a",
+            "comment": "A component instance's attributes have their own Attributes section, after its props"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ac4ffefcefe402b399aa0723d40d96544ac09892",
+            "comment": "Inspector stories move into Rows, Fields and Lists"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 23:58:16 GMT",
+      "version": "0.77.1",
+      "tag": "@parity-app/desktop_v0.77.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a9b2d5e33f29cca8eca89efc9cd877fec787bd8d",
+            "comment": "Selection headers no longer offer Open in editor; its design is kept as an exploration"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ccc41852b9bb12e0f64e568cb38ddcba508d7df7",
+            "comment": "Show the newest accessibility check's result when a design is checked again before the last check answers (PAR-979)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a4c5e1d5797ce71ee7c78a115472957faf546b99",
+            "comment": "Class names and a slot's layer share one chips field built on the kit's Combobox chips"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 23:26:30 GMT",
       "version": "0.77.0",
       "tag": "@parity-app/desktop_v0.77.0",

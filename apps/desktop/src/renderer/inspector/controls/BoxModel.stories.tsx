@@ -18,7 +18,7 @@ import { mergeWrites } from "./writes.ts"
  * pink the canvas draws padding in today, within a dashed edge.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Box model",
+  title: "Parity/Inspector/Rows/Box model",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

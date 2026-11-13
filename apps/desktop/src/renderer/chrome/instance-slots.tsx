@@ -181,35 +181,38 @@ function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: I
       hint="Layers from this design, shown in place of its placeholder"
     >
       <SlotCard slot={slot} card={card}>
-        <SlotPickerField
-          label={shownName(slot.name)}
-          layer={
-            layer && {
-              id: layer.id,
-              name: name ?? "",
-              icon: (
-                <NodeIcon
-                  node={layer}
-                  libraries={session.info.libraries}
-                  className="size-3 shrink-0"
-                  style={{ color: nodeColor(layer) }}
-                />
-              )
+        {/* The card sits by the row's box: resting on it or the left arrow key opens it, and a click selects the slot. */}
+        <div className="min-w-0">
+          <SlotPickerField
+            label={shownName(slot.name)}
+            layer={
+              layer && {
+                id: layer.id,
+                name: name ?? "",
+                icon: (
+                  <NodeIcon
+                    node={layer}
+                    libraries={session.info.libraries}
+                    className="size-3 shrink-0"
+                    style={{ color: nodeColor(layer) }}
+                  />
+                )
+              }
             }
-          }
-          onClear={() => clear(slot)}
-          onSelectLayer={select}
-          aria-describedby={card.open ? card.id : undefined}
-          onPointerEnter={card.enter}
-          onPointerLeave={card.leave}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowLeft") {
-              event.preventDefault()
-              card.openWithKeyboard()
-            }
-          }}
-          onClick={() => select(slotPath(instance, slot))}
-        />
+            onClear={() => clear(slot)}
+            onSelectLayer={select}
+            aria-describedby={card.open ? card.id : undefined}
+            onPointerEnter={card.enter}
+            onPointerLeave={card.leave}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault()
+                card.openWithKeyboard()
+              }
+            }}
+            onClick={() => select(slotPath(instance, slot))}
+          />
+        </div>
       </SlotCard>
     </Field>
   )

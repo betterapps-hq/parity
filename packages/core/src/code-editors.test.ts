@@ -1,5 +1,9 @@
+import { spawnSync } from "node:child_process"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
-import { codeEditors, commandPaths, editorsFor, exportLine } from "./code-editors.ts"
+import { batchCommandLine, codeEditors, commandPaths, editorsFor, exportLine } from "./code-editors.ts"
 
 describe("the editors a choice tries", () => {
   it("tries every known editor in order for Automatic, one for a named editor, and none for the system's app", () => {
@@ -33,6 +37,30 @@ describe("where a command can be on PATH", () => {
       "/usr/local/bin/zed",
       "/usr/bin/zed"
     ])
+  })
+})
+
+describe("the command line that runs an editor's batch file", () => {
+  it("escapes every character cmd.exe acts on, quotes and percents included", () => {
+    expect(batchCommandLine(String.raw`C:\VS Code\code.cmd`, ["--goto", String.raw`D:\R&D\100%PATH%\a.tsx:3`])).toBe(
+      String.raw`^"C:\VS^ Code\code.cmd^" ^"--goto^" ^"D:\R^&D\100^%PATH^%\a.tsx:3^"`
+    )
+  })
+
+  it.runIf(process.platform === "win32")("passes paths through cmd.exe and a batch file as they're spelled", () => {
+    const folder = mkdtempSync(join(tmpdir(), "parity editor "))
+
+    try {
+      // As VS Code's code.cmd passes its arguments on, with %*.
+      const batch = join(folder, "echo (1).cmd")
+      writeFileSync(batch, '@echo off\r\nnode -e "console.log(JSON.stringify(process.argv.slice(1)))" -- %*\r\n')
+      const args = ["--goto", String.raw`D:\R&D (old)\100%PATH%\a!b^c;d, e.tsx:12`, "%USERNAME%"]
+      const run = spawnSync(batchCommandLine(batch, args), { shell: true, encoding: "utf8" })
+
+      expect(JSON.parse(run.stdout)).toEqual(args)
+    } finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
   })
 })
 

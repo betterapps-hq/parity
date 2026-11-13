@@ -31,7 +31,7 @@ import { type KeywordValue, keywordWrites } from "./text-writes.ts"
  * `CSS.supports`. The ⋯ menu has Inherit where the property inherits, Custom value, and Unset.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Keyword sets",
+  title: "Parity/Inspector/Fields/Keyword sets",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
