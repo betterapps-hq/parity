@@ -7,7 +7,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ModeSettings } from "@parity-app/core"
-import { builtOn, defaultValues, type PreviewKind, previewKind, type Token } from "@parity-app/tokens"
+import { builtOn, defaultValues, type PreviewKind, previewKind, type Token, type TokenMap } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
@@ -24,7 +24,7 @@ import {
 } from "react"
 import { useProject } from "../canvas/context.ts"
 import { useHistory, useModeSettings } from "../design-store.ts"
-import { comesTo, type TokenMap } from "../token-values.ts"
+import { comesTo } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
 import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
