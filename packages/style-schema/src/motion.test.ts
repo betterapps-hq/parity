@@ -1,6 +1,42 @@
 import { describe, expect, it } from "vite-plus/test"
 import { nodeStyle } from "./model.ts"
-import { springLinear, springSettle, transitionCss } from "./motion.ts"
+import {
+  bezierCss,
+  easingBeziers,
+  easingCurves,
+  plotCss,
+  readEasingFunction,
+  springLinear,
+  springSettle,
+  transitionCss
+} from "./motion.ts"
+import { isReadFailure } from "./read.ts"
+
+describe("readEasingFunction", () => {
+  it("reads a curve and steps as what they draw, which plotCss writes back", () => {
+    for (const css of ["cubic-bezier(0.2, 0.8, 0.2, 1)", "steps(4)", "steps(3, jump-start)"]) {
+      const plot = readEasingFunction(css)
+
+      expect(isReadFailure(plot) ? plot.code : plotCss(plot)).toBe(css)
+    }
+
+    expect(readEasingFunction("steps(2, start)")).toEqual({ kind: "steps", count: 2, jump: "start" })
+  })
+
+  it("says what kind of failure it is", () => {
+    expect(readEasingFunction("cubic-bezier(0.2, 0.8, 1)")).toMatchObject({ code: "arguments" })
+    expect(readEasingFunction("cubic-bezier(1.2, 0, 0, 1)")).toMatchObject({ code: "out-of-range" })
+    expect(readEasingFunction("steps(0)")).toMatchObject({ code: "out-of-range" })
+    expect(readEasingFunction("ease-out")).toMatchObject({ code: "unreadable" })
+  })
+})
+
+describe("easingCurves", () => {
+  it("writes Tailwind's curves from the one table", () => {
+    expect(easingCurves["ease-in"]).toBe("cubic-bezier(0.4, 0, 1, 1)")
+    expect(bezierCss(easingBeziers["ease-in-out"])).toBe(easingCurves["ease-in-out"])
+  })
+})
 
 describe("transitionCss", () => {
   it("writes Tailwind's defaults for an unset time and easing, and each set's properties", () => {

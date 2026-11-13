@@ -34,13 +34,19 @@ describe("what a number field takes, from its rules", () => {
 
   it("stops a number past either end, or refuses it where the rules say", () => {
     expect(readNumberText("140", opacity, 0)).toEqual({ value: 100 })
-    expect(readNumberText("1200", weight, 400)).toEqual({ reason: "Weight takes a whole number from 1 to 1000" })
+    expect(readNumberText("1200", weight, 400)).toEqual({
+      code: "out-of-range",
+      reason: "Weight takes a whole number from 1 to 1000"
+    })
     expect(readNumberText("399.6", weight, 400)).toEqual({ value: 400 })
   })
 
   it("unsets on an empty field, or refuses one it needs", () => {
     expect(readNumberText("", opacity, 50)).toEqual({ value: undefined })
-    expect(readNumberText(" ", weight, 400)).toEqual({ reason: "Weight takes a whole number from 1 to 1000" })
+    expect(readNumberText(" ", weight, 400)).toEqual({
+      code: "incomplete",
+      reason: "Weight takes a whole number from 1 to 1000"
+    })
   })
 
   it("reads its words first, without case", () => {
@@ -51,7 +57,7 @@ describe("what a number field takes, from its rules", () => {
   })
 
   it("keeps the reason for text it can't read", () => {
-    expect(readNumberText("abc", weight, 400)).toEqual({ reason: `"abc" isn't a valid number` })
+    expect(readNumberText("abc", weight, 400)).toEqual({ code: "unreadable", reason: `"abc" isn't a valid number` })
   })
 
   it("steps by its own steps, held to its range", () => {

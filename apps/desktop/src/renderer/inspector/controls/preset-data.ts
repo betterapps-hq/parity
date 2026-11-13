@@ -7,7 +7,8 @@
  * what the Text section shows and writes. PAR-707's exploration, removed once this story carried its chosen design,
  * modeled Fluent, MUI, Chakra and Tailwind projects' presets and their code (`typography-preset/presets.ts` in edcde46e).
  */
-import { formatNumber, sameValue } from "./css-values.ts"
+import { formatNumber } from "@parity-app/style-schema"
+import { sameValue } from "./css-values.ts"
 import { resolveFont, sizePx } from "./font-fields.tsx"
 import {
   type FontSize,

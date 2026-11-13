@@ -9,7 +9,8 @@ import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { compareComponents, loader, mergeManifest, selectComponents } from "./index.ts"
 import { isFunction, isRecord, isText, type LiveObject } from "./live.ts"
-import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
+import { guessParent } from "./parts-chains.ts"
+import { relateParts } from "./parts.ts"
 import { foundComponent, loadFrom, testReact } from "./react-for-tests.ts"
 import { cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
@@ -171,11 +172,11 @@ describe("parts", () => {
 
     const found = foundComponent
 
-    const { relations, tried } = await relateParts(
-      loadLibrary,
-      "demo",
-      ["Accordion", "AccordionItem", "AccordionTrigger", "Badge", "BadgeContext", "Field"].map(found)
-    )
+    const { relations, tried } = await relateParts({
+      load: loadLibrary,
+      specifier: "demo",
+      components: ["Accordion", "AccordionItem", "AccordionTrigger", "Badge", "BadgeContext", "Field"].map(found)
+    })
 
     expect(tried).toBe(true)
     expect(relations.get("AccordionTrigger")).toMatchObject({
@@ -227,14 +228,12 @@ describe("parts", () => {
       names
     )
 
-    const { relations } = await relateParts(
-      async (specifier) => (specifier === "demo" ? library : load(specifier)),
-      "demo",
-      names.map(foundComponent),
-      [],
-      {},
-      uses
-    )
+    const { relations } = await relateParts({
+      load: async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      specifier: "demo",
+      components: names.map(foundComponent),
+      examples: uses
+    })
 
     expect(relations.get("MenuSubTrigger")).toMatchObject({
       parents: ["Menu", "MenuContent", "MenuSub"],
@@ -263,14 +262,12 @@ describe("parts", () => {
       ["Highlight"]
     )
 
-    const { relations } = await relateParts(
-      async (specifier) => (specifier === "demo" ? library : load(specifier)),
-      "demo",
-      [foundComponent("Highlight")],
-      [],
-      {},
-      uses
-    )
+    const { relations } = await relateParts({
+      load: async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      specifier: "demo",
+      components: [foundComponent("Highlight")],
+      examples: uses
+    })
 
     // A text layer is an element on the canvas, so the text goes in the prop.
     expect(relations.get("Highlight")?.sample).toEqual({ props: { children: "Spotlight bulb" } })
@@ -308,14 +305,12 @@ describe("parts", () => {
       names
     )
 
-    const { relations } = await relateParts(
-      async (specifier) => (specifier === "demo" ? library : load(specifier)),
-      "demo",
-      names.map(foundComponent),
-      [],
-      {},
-      uses
-    )
+    const { relations } = await relateParts({
+      load: async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      specifier: "demo",
+      components: names.map(foundComponent),
+      examples: uses
+    })
 
     expect(relations.get("Row")).toMatchObject({
       parents: ["Table", "TableBody"],
@@ -362,14 +357,12 @@ describe("parts", () => {
       names
     )
 
-    const { relations } = await relateParts(
-      async (specifier) => (specifier === "demo" ? library : load(specifier)),
-      "demo",
-      names.map(foundComponent),
-      [],
-      {},
-      uses
-    )
+    const { relations } = await relateParts({
+      load: async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      specifier: "demo",
+      components: names.map(foundComponent),
+      examples: uses
+    })
 
     expect(relations.get("MenuItem")).toMatchObject({
       parents: ["Menu", "MenuContent", "MenuGroup"],
@@ -416,15 +409,13 @@ describe("parts", () => {
       names
     )
 
-    const { relations } = await relateParts(
-      async (specifier) => (specifier === "demo" ? library : load(specifier)),
-      "demo",
-      names.map(foundComponent),
-      [],
-      {},
-      uses,
-      new Map([["SelectScrollUpButton", ["SelectContent"]]])
-    )
+    const { relations } = await relateParts({
+      load: async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      specifier: "demo",
+      components: names.map(foundComponent),
+      examples: uses,
+      renderedBy: new Map([["SelectScrollUpButton", ["SelectContent"]]])
+    })
 
     expect(relations.get("SelectScrollUpButton")).toMatchObject({ parents: ["SelectContent"], parentsFrom: "source" })
     expect(relations.get("SelectScrollUpButton")?.inside).toBeUndefined()
@@ -658,60 +649,19 @@ describe("errors from the app", () => {
 
     const found = foundComponent
 
-    const { relations } = await relateParts(
-      async (specifier) => (specifier === "demo" ? library : load(specifier)),
-      "demo",
-      ["Root", "Item", "Content", "Search", "Validity"].map(found),
-      [],
-      {},
-      new Map(),
-      new Map(),
-      new Map(),
-      undefined,
-      {
+    const { relations } = await relateParts({
+      load: async (specifier) => (specifier === "demo" ? library : load(specifier)),
+      specifier: "demo",
+      components: ["Root", "Item", "Content", "Search", "Validity"].map(found),
+      appErrors: {
         Content: "`Content` must be used within `Item`",
         Search: "input is a void element tag and must neither have `children` nor use `dangerouslySetInnerHTML`."
       }
-    )
+    })
 
     expect(relations.get("Content")).toMatchObject({ parents: ["Root", "Item"], parentsFrom: "app" })
     expect(relations.get("Search")?.sample).toEqual({ children: [] })
     // Children that must be a function get one.
     expect(relations.get("Validity")?.sample).toEqual({ children: [{ $render: ["Text"] }] })
-  })
-})
-
-describe("finishing parents and samples", () => {
-  it("starts a chain outside the parents its outermost parent needs, unless they're circular", () => {
-    const relations = new Map<string, PartRelation>([
-      ["MenuTrigger", {}],
-      ["Menu", { parents: ["MenuTrigger"], optionalParents: ["MenuTrigger"] }],
-      ["MenuSection", { parents: ["Menu"] }],
-      ["SubmenuTrigger", { parents: ["MenuSection"] }],
-      ["Sheet", { parents: ["SheetTrigger"] }],
-      ["SheetTrigger", { parents: ["Sheet"] }]
-    ])
-
-    completeChains(relations)
-    expect(relations.get("SubmenuTrigger")).toEqual({
-      parents: ["MenuTrigger", "Menu", "MenuSection"],
-      optionalParents: ["MenuTrigger"]
-    })
-    expect(relations.get("MenuSection")?.parents).toEqual(["MenuTrigger", "Menu"])
-    expect(relations.get("Sheet")?.parents).toEqual(["SheetTrigger"])
-  })
-
-  it("finds the children a sample spells out for a part, at any depth", () => {
-    const table = [
-      { component: "TableHeader", children: [{ component: "Column", children: ["Name"] }] },
-      {
-        component: "TableBody",
-        children: [{ component: "Row" }, { component: "Row", children: [{ component: "Cell", children: ["Ada"] }] }]
-      }
-    ]
-
-    expect(spelledOut(table, "Row")).toEqual([{ component: "Cell", children: ["Ada"] }])
-    expect(spelledOut(table, "Cell")).toEqual(["Ada"])
-    expect(spelledOut(table, "Footer")).toBeUndefined()
   })
 })

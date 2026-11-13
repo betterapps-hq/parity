@@ -10,13 +10,14 @@ import {
   TabsList,
   TabsTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
+import { type Bezier, bezierCss, type EasingPlot, formatNumber, plotCss } from "@parity-app/style-schema"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { EasingArt, easingRange, easingScale, useReducedMotion } from "../../chrome/token-previews.tsx"
-import { clamp, formatNumber, sameValue } from "./css-values.ts"
+import { clamp, sameValue } from "./css-values.ts"
 import {
   arrowMoves,
   drag,
@@ -35,16 +36,12 @@ import {
 import { Field, FieldGrid, type Segment, Segments } from "./field-row.tsx"
 import { CreateTokenNote } from "./list-parts.tsx"
 import {
-  type Bezier,
-  bezierCss,
   defaultCurve,
   type Easing,
   easingName,
-  easingPresets,
-  type EasingPlot,
   easingPlot,
-  plotCss,
-  readEasingValue,
+  easingPresets,
+  easingValuePlot,
   type Spring,
   springSettle
 } from "./motion-data.ts"
@@ -180,7 +177,7 @@ function readEasing(text: string, tokens: readonly EasingToken[]): Easing | unde
     return { token: token.name }
   }
 
-  if (readEasingValue(text)) {
+  if (easingValuePlot(text)) {
     return { value: text.trim().replaceAll(/\s+/g, " ") }
   }
 
