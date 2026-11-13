@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { type InstanceProp, InstanceSection } from "./instance-section.tsx"
 import { Playground } from "./playground.tsx"
 
@@ -177,15 +176,3 @@ export const Variants: Story = { render: () => <Instance component="Button" star
  * faintly.
  */
 export const Objects: Story = { render: () => <Instance component="Revenue chart" start={chart} /> }
-
-/**
- * Every prop changed from what it comes from (PAR-1020), to show each kind's mark: the dot on the corner of a text or
- * JSON box, a number's box, a variant's select and a switch.
- */
-export const Changed: Story = {
-  render: () => (
-    <MarkChanged>
-      <Instance component="Stat card" start={statCard} />
-    </MarkChanged>
-  )
-}

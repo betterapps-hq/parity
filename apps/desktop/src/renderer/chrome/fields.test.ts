@@ -11,28 +11,20 @@ const errors: string[] = []
 
 /**
  * What the page loads: a Seats row holding a number prop of 70, whose preview is made in the design while it shows,
- * with what it asks for logged, and token pickers for a fill set to primary, an unset text color and radii that differ
- * across the selection.
+ * with what it asks for logged.
  */
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { TokenInput } from "./fields.tsx"
 import { Field } from "../inspector/controls/field-row.tsx"
 import { NumberProp } from "../inspector/controls/number-field.tsx"
 
-const tokens = [
-  { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.5 0.2 260)" } },
-  { name: "muted", category: "color", source: "semantic", values: { default: "oklch(0.95 0 0)" } },
-  { name: "radius-lg", category: "radius", source: "theme", values: { default: "10px" } }
-]
 window.log = []
 
 function Harness() {
   // A number prop of 70, whose preview is made in the design while it shows, as ChangePreview makes it.
   const [prop, setProp] = useState(70)
-  const [textColor, setTextColor] = useState(undefined)
   window.prop = prop
   return h(TooltipProvider, null,
     h(Field, { label: "Seats" }, h(NumberProp, {
@@ -52,16 +44,6 @@ function Harness() {
         window.log.push(gesture ? ["prop commit", next, "in a run"] : ["prop commit", next])
         setProp(next)
       }
-    })),
-    // Token pickers, named for their property and what they show, as the Design tab's Fill, Color and Radius rows are.
-    h(Field, { label: "Fill" }, h(TokenInput, {
-      label: "Fill", value: "primary", tokens, categories: ["color"], onChange: () => {}
-    })),
-    h(Field, { label: "Color" }, h(TokenInput, {
-      label: "Text color", value: textColor, tokens, categories: ["color"], onChange: setTextColor
-    })),
-    h(Field, { label: "Radius", mixed: true }, h(TokenInput, {
-      label: "Radius", value: undefined, tokens, categories: ["radius"], onChange: () => {}
     }))
   )
 }
@@ -192,21 +174,5 @@ describe("number props (PAR-203)", () => {
       ["prop preview", 90],
       ["prop commit", 90]
     ])
-  })
-})
-
-describe("token pickers (PAR-722)", () => {
-  const picker = (name: string) => page.getByRole("button", { name, exact: true })
-
-  it("names each for its property and the token, None or Mixed it shows", async () => {
-    expect(await picker("Fill, primary").count()).toBe(1)
-    expect(await picker("Text color, None").count()).toBe(1)
-    expect(await picker("Radius, Mixed").count()).toBe(1)
-  })
-
-  it("renames the picker for the token picked in it", async () => {
-    await picker("Text color, None").click()
-    await page.getByRole("option", { name: "primary" }).click()
-    await expect.poll(() => picker("Text color, primary").count()).toBe(1)
   })
 })

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { ColorInput, TokenColorEditor } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { CardPreview } from "./preview-card.tsx"
@@ -14,7 +15,7 @@ import { colorWrites } from "./writes.ts"
  * read, with the reason under them.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Color picker",
+  title: "Parity/Fields/Color picker",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -80,4 +81,17 @@ export const EditingAToken: Story = {
       <TokenColorEditor token={colorTokens.find((token) => token.name === "chart-2")!} />
     </div>
   )
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Custom,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

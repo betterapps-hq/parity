@@ -1,8 +1,21 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { clearSlot, findNode, type InstanceNode, type InstanceSlot, instanceSlots } from "@parity-app/core"
+import {
+  clearSlot,
+  type ContainerSpec,
+  type DesignNode,
+  fillSlotWithComponent,
+  fillSlotWithLayer,
+  findNode,
+  type InstanceNode,
+  type InstanceSlot,
+  instanceSlots,
+  slotCandidates,
+  slotComponents
+} from "@parity-app/core"
 import { slotPreviewTree } from "@parity-app/editor"
 import { ArrowLeft, SquareDashed } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
+import { toast } from "sonner"
 import { useProject } from "../canvas/context.ts"
 import { kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
@@ -10,22 +23,19 @@ import { treePreviewJob, useOneOffPreview } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { shownName, TypeTile } from "../inspector/controls/instance-section.tsx"
-import { SlotPickerField } from "../inspector/controls/slot-picker.tsx"
+import { type LayersDrag, SlotPickerField } from "../inspector/controls/slot-picker.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { updateAndRecord } from "./inspector-events.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { revealSelection } from "./reveal.ts"
 
 /*
- * An instance's slots (PAR-84): in its panel each is a row after the params, saying whether the instance fills it,
- * with a picture of what shows there on hover; selected, a slot has a panel of its own, and a click in Components adds
- * into it.
+ * An instance's slots (PAR-84): in its panel each is a row after the params, picking what fills it from the design's
+ * layers and the project's components (PAR-1046), with a picture of what shows there on hover; selected, a slot has a
+ * panel of its own, and a click in Components adds into it.
  */
 
 const slotColor = kindColors.component
-
-/** The path that selects an instance's slot: the instance, then the component's slot layout (see `slotAtPath`). */
-const slotPath = (instance: InstanceNode, slot: InstanceSlot) => `${instance.id}/${slot.node.id}`
 
 /** The names of the layers filling a slot, as Layers names them; none while it shows its placeholder. */
 function useFillNames(slot: InstanceSlot): string[] {
@@ -37,28 +47,32 @@ function useFillNames(slot: InstanceSlot): string[] {
 }
 
 /**
- * Clears a slot as one undoable step, deleting what fills it. It's recorded as the slot's layers, by id, before and
- * after (PAR-713).
+ * Changes what fills a slot as one undoable step, recorded as the slot's layers, by id, before and after (PAR-713).
  */
-function useClear(entry: ContainerEntry, instance: InstanceNode) {
+function useSlotChange(entry: ContainerEntry, instance: InstanceNode) {
   const { store } = useProject()
 
-  return (slot: InstanceSlot) =>
-    updateAndRecord(
-      store,
-      entry.key,
-      `Clear ${slot.name}`,
-      (container) => ({ ...container, root: clearSlot(container.root, instance.id, slot.name) }),
-      {
-        field: `slots.${slot.name}`,
-        layers: [instance.id],
-        read: (container) => {
-          const node = findNode(container.root, instance.id)
+  return (slot: InstanceSlot, label: string, change: (container: ContainerSpec) => ContainerSpec) =>
+    updateAndRecord(store, entry.key, label, change, {
+      field: `slots.${slot.name}`,
+      layers: [instance.id],
+      read: (container) => {
+        const node = findNode(container.root, instance.id)
 
-          return node?.type === "instance" ? node.slots?.[slot.name]?.map((layer) => layer.id) : undefined
-        }
+        return node?.type === "instance" ? node.slots?.[slot.name]?.map((layer) => layer.id) : undefined
       }
-    )
+    })
+}
+
+/** Clears a slot as one undoable step, deleting what fills it. */
+function useClear(entry: ContainerEntry, instance: InstanceNode) {
+  const change = useSlotChange(entry, instance)
+
+  return (slot: InstanceSlot) =>
+    change(slot, `Clear ${slot.name}`, (container) => ({
+      ...container,
+      root: clearSlot(container.root, instance.id, slot.name)
+    }))
 }
 
 /** What fills a slot, as its card and its panel say it: its layer's name, or nothing while it's empty. */
@@ -135,8 +149,8 @@ function SlotCard({
 
   return (
     <Popover open={card.open} onOpenChange={card.setOpen}>
-      {/* The row opens its card by resting on it or by a key; a click selects the slot instead. */}
-      <PopoverTrigger render={children} onClick={(event) => event.preventBaseUIHandler()} />
+      {/* The row opens its card by resting on it or by a key; a click opens its list instead. */}
+      <PopoverTrigger render={children} nativeButton={false} onClick={(event) => event.preventBaseUIHandler()} />
       <PopoverContent
         className="flex w-72 flex-col gap-2 p-3"
         align="start"
@@ -161,13 +175,56 @@ function SlotCard({
   )
 }
 
-/** One slot after an instance's params: what fills it, a click to select it, its card, and Clear inside the field. */
+/**
+ * One slot after an instance's params: what fills it, picked from the design's layers and the project's components or
+ * dropped from Layers (PAR-1046), its card, and Clear inside the field.
+ */
 function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot }) {
   const session = useProject()
+  const entries = useContainerEntries(session.store)
+  const library = session.store.getComponentLibrary()
   const card = useHoverCard()
   const clear = useClear(entry, instance)
-  const [name] = useFillNames(slot)
-  const layer = slot.fill[0]
+  const change = useSlotChange(entry, instance)
+  const label = shownName(slot.name)
+  const candidates = slotCandidates(entry.container.root, instance.id)
+
+  const named = (node: DesignNode) => layerLabel(node, entries, library, session.info.libraries)
+
+  const shown = (node: DesignNode) => ({
+    id: node.id,
+    name: named(node),
+    icon: (
+      <NodeIcon
+        node={node}
+        libraries={session.info.libraries}
+        className="size-3 shrink-0"
+        style={{ color: nodeColor(node) }}
+      />
+    )
+  })
+
+  const fillWith = (id: string) =>
+    change(slot, `Fill ${slot.name}`, (container) => fillSlotWithLayer(container, instance.id, slot.name, id))
+
+  // Only the design's own layers can go in, and of those, not the instance or what it's inside.
+  const drop = ({ design, ids }: LayersDrag) => {
+    const first = ids[0]
+    const dropped = first === undefined ? undefined : findNode(entry.container.root, first)
+    const allowed = candidates.find((candidate) => ids.includes(candidate.node.id))
+
+    if (design !== entry.key) {
+      toast.info(`Only layers in this design can go in ${label}`)
+    } else if (allowed) {
+      fillWith(allowed.node.id)
+    } else if (dropped) {
+      toast.info(
+        first === instance.id
+          ? `${named(dropped)} can't go in its own slot`
+          : `${named(dropped)} can't go in ${label}, which is inside it`
+      )
+    }
+  }
 
   const select = (node: string) => {
     session.selection.set({ design: entry.key, node })
@@ -175,42 +232,43 @@ function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: I
   }
 
   return (
-    <Field
-      label={shownName(slot.name)}
-      icon={<TypeTile type="slot" />}
-      hint="Layers from this design, shown in place of its placeholder"
-    >
+    <Field label={label} icon={<TypeTile type="slot" />} hint="Shown in place of its placeholder">
       <SlotCard slot={slot} card={card}>
-        {/* The card sits by the row's box: resting on it or the left arrow key opens it, and a click selects the slot. */}
+        {/* The card sits by the row's box: resting on it, or the left arrow key in an empty input, opens it. */}
         <div className="min-w-0">
           <SlotPickerField
-            label={shownName(slot.name)}
-            layer={
-              layer && {
-                id: layer.id,
-                name: name ?? "",
-                icon: (
-                  <NodeIcon
-                    node={layer}
-                    libraries={session.info.libraries}
-                    className="size-3 shrink-0"
-                    style={{ color: nodeColor(layer) }}
-                  />
-                )
-              }
+            label={label}
+            layer={slot.fill[0] && shown(slot.fill[0])}
+            layers={candidates.map(({ node, depth, parent }) => ({
+              ...shown(node),
+              depth,
+              parent: parent && named(parent)
+            }))}
+            components={slotComponents(
+              entries.map((each) => each.container),
+              entry.container,
+              instance
+            ).map(({ id, name }) => ({ id, name }))}
+            onPickLayer={fillWith}
+            onPickComponent={(component) =>
+              change(
+                slot,
+                `Fill ${slot.name}`,
+                (container) => fillSlotWithComponent(container, instance.id, slot.name, component).container
+              )
             }
+            onDropLayers={drop}
             onClear={() => clear(slot)}
             onSelectLayer={select}
             aria-describedby={card.open ? card.id : undefined}
             onPointerEnter={card.enter}
             onPointerLeave={card.leave}
             onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault()
+              // Typed text keeps the arrow, to move through it.
+              if (event.key === "ArrowLeft" && !(event.target instanceof HTMLInputElement && event.target.value)) {
                 card.openWithKeyboard()
               }
             }}
-            onClick={() => select(slotPath(instance, slot))}
           />
         </div>
       </SlotCard>

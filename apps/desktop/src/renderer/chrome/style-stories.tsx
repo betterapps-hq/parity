@@ -4,7 +4,7 @@ import type { Decorator } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { z } from "zod"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { inspecting, InspectorStage, PanelColumn, SelectedStyles, slowly } from "./inspector-stories.tsx"
+import { inspecting, SectionStage, SelectedStyles, slowly } from "./inspector-stories.tsx"
 
 /*
  * What the style sections' stories share: one style section of the selected layer alone, at the inspector's width,
@@ -17,16 +17,14 @@ export const renderStyleSection = (section: StyleSection) =>
     return <SelectedStyles only={section} />
   }
 
-/** The inspector's column, at the width a story sets in `panelWidth`, or the column's own. */
+/** The section alone, without the panel around it, at the width a story sets in `panelWidth`, or the inspector's. */
 export const styleStage: Decorator = (Story, { parameters }) => {
   const width = z.number().safeParse(parameters.panelWidth)
 
   return (
-    <InspectorStage>
-      <PanelColumn width={width.success ? width.data : undefined}>
-        <Story />
-      </PanelColumn>
-    </InspectorStage>
+    <SectionStage width={width.success ? width.data : undefined}>
+      <Story />
+    </SectionStage>
   )
 }
 

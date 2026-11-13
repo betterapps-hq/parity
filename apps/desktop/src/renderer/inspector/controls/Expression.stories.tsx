@@ -4,6 +4,7 @@ import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { numberValue } from "../../chrome/prop-values.ts"
 import { evaluateLength, ExpressionField, expressionWrites, fillTokens } from "./expression.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
 import { TextSample } from "./text-preview.tsx"
@@ -19,7 +20,7 @@ import { TextSample } from "./text-preview.tsx"
  * focus back on the field.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Expression",
+  title: "Parity/Fields/Expression",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -211,4 +212,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(editor)
     await userEvent.type(editor, "calc(100% - ){Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Calc,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

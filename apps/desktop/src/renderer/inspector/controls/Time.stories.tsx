@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { HoverCard } from "./easing.tsx"
-import { useTokens } from "./field-parts.tsx"
+import { Changed as MarkChanged, useTokens } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { defaultCurve, defaultDuration, type Spring, springSettle, type Time, timeMs } from "./motion-data.ts"
 import { easingWrites, timeWrites } from "./motion-writes.ts"
@@ -19,7 +19,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * spring's settle time, set by Easing.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Time",
+  title: "Parity/Fields/Time",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -153,4 +153,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "soon{Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Step,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

@@ -3,6 +3,7 @@ import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { ColorInput } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { CardPreview } from "./preview-card.tsx"
@@ -16,7 +17,7 @@ import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
  * Beside it, what it stores and what it writes as CSS and as Tailwind.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Color field",
+  title: "Parity/Fields/Color field",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -161,4 +162,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.click(field)
     await userEvent.type(field, "blurple{Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Token,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

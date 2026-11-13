@@ -9,10 +9,9 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  Toggle
+  DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Unlink } from "lucide-react"
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Unlink } from "lucide-react"
 import { type ReactNode, useContext, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import {
@@ -705,8 +704,8 @@ export const clipChoices: KeywordChoice[] = [
 ]
 
 /**
- * Clip content: a toggle, and the menu beside it for how (Clip, Scroll, Scroll when needed). Off, the layer's content
- * shows outside it (Visible). Turning it on clips, written as `overflow: clip` rather than `hidden`.
+ * Clip content: a menu of how (Clip, Scroll, Scroll when needed). Unset, the layer's content shows outside it
+ * (Visible). Clip is written as `overflow: clip` rather than `hidden`.
  */
 export function ClipContentField({
   value,
@@ -717,36 +716,15 @@ export function ClipContentField({
   mixed?: boolean
   onChange: (value: KeywordValue | undefined) => void
 }) {
-  const on = value !== undefined
-
   return (
-    <div className="flex items-start gap-1">
-      <Hint
-        label={on ? "Stop clipping content" : "Clip content"}
-        detail={on ? undefined : "Unset: content shows outside the layer (visible)"}
-      >
-        <Toggle
-          variant="outline"
-          size="sm"
-          className="h-7 px-2"
-          aria-label="Clip content"
-          pressed={on}
-          onPressedChange={(pressed) => onChange(pressed ? { option: "clip" } : undefined)}
-        >
-          <Crop />
-        </Toggle>
-      </Hint>
-      <div className="min-w-0 flex-1">
-        <KeywordMenu
-          label="Clip content"
-          property="overflow"
-          choices={clipChoices}
-          value={value}
-          placeholder="Visible"
-          mixed={mixed}
-          onChange={onChange}
-        />
-      </div>
-    </div>
+    <KeywordMenu
+      label="Clip content"
+      property="overflow"
+      choices={clipChoices}
+      value={value}
+      placeholder="Visible"
+      mixed={mixed}
+      onChange={onChange}
+    />
   )
 }

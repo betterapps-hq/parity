@@ -3,7 +3,7 @@ import { opens, renderStyleSection, styled, styleStage } from "../../chrome/styl
 
 /** A text layer's color, font, size, weight, spacing, alignment and decorations, or those of the text inside a layout. */
 const meta = {
-  title: "Parity/Inspector/Sections/Text",
+  title: "Parity/Inspector/Sections/Typography",
   render: renderStyleSection("text"),
   decorators: [styleStage]
 } satisfies Meta
@@ -13,7 +13,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /** A text layer, Pricing's headline: color, size, weight, letter spacing, centered, and its max lines. */
-export const Text: Story = { loaders: [styled("Pricing", "Headline")] }
+export const Typography: Story = { loaders: [styled("Pricing", "Headline")] }
 
 /** Text decorations: underlined and italic, in title case. */
 export const TextDecorations: Story = {

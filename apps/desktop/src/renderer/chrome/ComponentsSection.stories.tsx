@@ -3,13 +3,13 @@ import { userEvent, within } from "storybook/test"
 import { design } from "../stories/fixtures.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { inspecting, slowly } from "./inspector-stories.tsx"
-import { inspectorStage, renderDesignSection } from "./layer-stories.tsx"
+import { sectionStage, renderDesignSection } from "./layer-stories.tsx"
 
 /** A screen's repeated parts, found on request, each with its copies and the params extracting it would give. */
 const meta = {
   title: "Parity/Inspector/Sections/Components",
   render: renderDesignSection(ComponentsSection),
-  decorators: [inspectorStage]
+  decorators: [sectionStage]
 } satisfies Meta
 
 export default meta

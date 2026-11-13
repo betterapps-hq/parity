@@ -1,5 +1,4 @@
 import {
-  addState,
   addVariant,
   type ContainerSpec,
   type DesignNode,
@@ -31,7 +30,6 @@ import {
   recordLayerChange,
   renameAndRecord,
   rowChanged,
-  statesValue,
   updateAndRecord
 } from "./inspector-events.ts"
 
@@ -321,20 +319,6 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
         { id: expect.any(String), name: "Large" }
       ]
     })
-  })
-
-  it("records the states by id and name when one is added", () => {
-    const { store, recorded } = setup()
-    updateAndRecord(store, key, "Add state", (current) => addState(current, "New state").container, {
-      field: "states",
-      read: statesValue
-    })
-    const [event] = recorded()
-    expect(JSON.parse(z.string().parse(event!.from))).toEqual([
-      { id: "default", name: "Default" },
-      { id: "closed", name: "Closed" }
-    ])
-    expect(JSON.parse(z.string().parse(event!.to))).toHaveLength(3)
   })
 
   it("records a layout made a slot, with its name", () => {

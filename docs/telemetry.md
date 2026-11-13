@@ -352,13 +352,13 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
     title on the canvas, through `renameAndRecord` (PAR-728);
   - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.design`, the component it was
     swapped to;
-  - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
-    all or States' Reset;
+  - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset or
+    Reset all;
   - `bind.text`, the prop a component's text layer uses (`chrome/text-prop.tsx`);
   - `slot`, the slot a component's layout is, and `slots.*`, the layers, by id, an instance fills a slot with
     (`chrome/slot-props.tsx`, `chrome/instance-slots.tsx`);
-  - `states`, each by id and name (`chrome/StatesSection.tsx`), and `params.*`, a component's prop or variant, a
-    variant's options by id and name (`chrome/ComponentsSection.tsx`, `chrome/slot-props.tsx`). These have no layers;
+  - `params.*`, a component's prop or variant, a variant's options by id and name (`chrome/ComponentsSection.tsx`,
+    `chrome/slot-props.tsx`). These have no layers;
   - `token.*`, a token's values by theme, from the Tokens panel, with no design or layers.
 
   `updateAndRecord` in `chrome/inspector-events.ts` makes a change through the design store and reads the field back

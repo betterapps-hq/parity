@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
@@ -20,7 +21,7 @@ import { type FontValue, fontWrites } from "./text-writes.ts"
  * installed on this computer, standing in for Google Fonts, which the app adds to the project when one is chosen.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Font family",
+  title: "Parity/Fields/Font family",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -102,4 +103,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.click(field)
     await userEvent.type(field, "Inter{Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Token,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

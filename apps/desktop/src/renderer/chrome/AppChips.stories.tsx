@@ -11,7 +11,7 @@ import { slowly } from "./inspector-stories.tsx"
  * slot's layer. What they show and add is each field's own story; these are what any chips box does.
  */
 const meta = {
-  title: "Parity/Inspector/Parts/Chips",
+  title: "Parity/Fields/Parts/Chips",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont, WeightField } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
@@ -20,7 +21,7 @@ import type { StoredObject, Writes } from "./writes.ts"
  * Weight offers.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Weight and style",
+  title: "Parity/Fields/Weight and style",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -140,3 +141,16 @@ export const FakedItalic: Story = { render: () => <Weight font={{ stack: "Impact
 
 /** Layers with different weights: Mixed, until one is chosen for them all. */
 export const Mixed: Story = { render: () => <Weight font={{ token: "sans" }} mixed /> }
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Named,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
+}

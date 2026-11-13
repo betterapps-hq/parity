@@ -715,6 +715,8 @@ the tree longer and every later change slower.
 - **Designs are dragged to reorder them** among the designs of their group, components, screens or frames, in their own
   file, which is the order the panel lists them in. A line under or over the row shows where it would go, and the move
   is one undo step ("Reorder screen").
+- **Dragging a layer's row leaves the selection as it is,** so the inspector keeps showing what it showed, such as an
+  instance whose slot the layer can be dropped on (PAR-1046). A drop in Layers selects what moved.
 - **Hovering a design's row outlines its board** on the canvas, as hovering the board does.
 - **The keyboard,** as before: Tab moves from the search to Collapse all to the tree, Up and Down move through the rows,
   scrolling as they go, Right and Left open and close a row or move into and out of it, `*` opens the row's siblings,
@@ -3254,10 +3256,9 @@ Code:
   `numberTakes` is the reason every number field gives ("Weight takes a whole number from 1 to 1000").
 - `inspector/controls/number-field.tsx`: `NumberField`, `ValueField` with those rules, which Weight, Steps, a spring's
   numbers, a curve's handles and a shadow's sliders use; `PercentField` on it; and `NumberProp`, a number a design holds
-  outside its style, a prop or, through `ValueInput` in `chrome/fields.tsx`, a prop's default in a component design's
-  Props section, in an edit session of its own. A color's channels read and step by the same rules in their own input.
-  `PixelField` in `controls.tsx` is the length beside it. A grid's lines and a track's count keep readers of their own,
-  since they mix numbers with words.
+  outside its style, in an edit session of its own. A color's channels read and step by the same rules in their own
+  input. `PixelField` in `controls.tsx` is the length beside it. A grid's lines and a track's count keep readers of
+  their own, since they mix numbers with words.
 - `chrome/fields.tsx`: `Field`, the row the Layer panel's text, choice, switch and token inputs sit in, and
   `FieldTarget`, which `chrome/DesignPanel.tsx` sets to the selection's `selectionKey`, what a run of presses edits.
 - `packages/editor/src/style-editing.ts` (PAR-567): the selected layers' style as rows. `styleSelection` takes the
@@ -3301,20 +3302,20 @@ Tests:
   its range and what else a field takes; maths from the value there and the unit after a number; a number past either
   end stopped or refused; an empty field unset or refused; words read first; the reason for text it can't read; and
   steps held to the range.
-- `apps/desktop/src/renderer/chrome/fields.test.ts` (6), in Chrome: a number prop whose preview the value it's given
+- `apps/desktop/src/renderer/chrome/fields.test.ts` (4), in Chrome: a number prop whose preview the value it's given
   holds (PAR-203): a run of Up presses in one gesture that Escape takes back, `/20` previewed and committed from 70,
-  Escape taking the preview back and Enter making what it comes back to, and a scrub from 70; and the token pickers'
-  names (PAR-722).
+  Escape taking the preview back and Enter making what it comes back to, and a scrub from 70.
 - `apps/desktop/src/renderer/canvas/style-preview.test.ts` (8), in Chrome: a preview drawn in each state's frame as a
   rule, never inline, a state that sets its own width left alone, a later preview putting back what it doesn't change,
   taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
   settling for the change, which the frame takes away as it draws it, and nothing shown for no change.
-- `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, KeepsAnyLength and Stepping.
+- `inspector/controls/NumberField.stories.tsx` TypingMaths, SpacingLength, KeepsAnyLength and SteppingACount: maths in a
+  count, a spacing length stepping a whole step and ten with Shift, 281 typed kept as it is, and a count stepping by 1.
 - `inspector/controls/NumberField.stories.tsx` InvalidAsTyped: what can't be read stays, marked invalid.
 - `inspector/sections/SizeSection.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the
   narrowest inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show
-  the value whole. OffScaleSize: a 281px width shown as it is; Fields › All fields' KeepsAnyLength checks 281 typed is
-  kept.
+  the value whole. OffScaleSize: a 281px width shown as it is; Fields › Number field's KeepsAnyLength checks 281 typed
+  is kept.
 - `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
@@ -3388,8 +3389,8 @@ section with the group's own title leads it without a title of its own, and its 
   over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
   spacing). A layer that sets no type of its own is offered none. The presets listed are still the stand-in project's,
   measured with the project's type tokens. Not saved: Preset, and the color's opacity.
-- **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content. Not saved: Blend
-  mode, Corner shape, Each corner and Scroll always.
+- **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
+  Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
   opacity, Each side and Position.
 - **Effects:** the Shadow list, then Filters.
@@ -3531,15 +3532,12 @@ such as an instance's slot ("sideActions slot, Empty").
 Since PAR-923 the style sections use the approved controls instead, whose token chips are named the same way with a
 colon ("Text color: primary", "Radius: md"), and whose pickers are named for their row ("Text color picker").
 
-Code: `TokenInput` in `apps/desktop/src/renderer/chrome/fields.tsx` takes the `label`, which every caller passes:
-`chrome/fields.stories.tsx` and the typography preset exploration's Text section.
+Code: `ValueField` in `apps/desktop/src/renderer/inspector/controls/field-parts.tsx` names its token chip and picker for
+its `label`.
 
 Tests:
 
-- `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
-  names, and the name following a token picked in the picker. Both fail without the change.
-- `inspector/sections/FillSection.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and
-  NoTokenMatches open their pickers by name: "Fill 1 picker" for the first.
+- `inspector/sections/FillSection.stories.tsx` PickingAColor opens its picker by name: "Fill 1 picker".
 
 ### One field row (PAR-1029)
 
@@ -3555,39 +3553,43 @@ Code: `Field`, `FieldGrid` and `SwitchRow` in `apps/desktop/src/renderer/inspect
 
 Tests:
 
-- `inspector/controls/FieldRow.stories.tsx` (Inspector › Parts › Field row): Set finds the field by the row's name;
-  Changed In A State puts the value back with the reset arrow; Mixed, Long Name, Half Rows, With An Action, Locked To A
-  Preset, Overriding A Preset and Changes With The Viewport, for review.
+- `inspector/controls/FieldRow.stories.tsx` (Fields › Parts › Field row): Set finds the field by the row's name; Changed
+  In A State puts the value back with the reset arrow; Mixed, Long Name, Half Rows, With An Action, Locked To A Preset,
+  Overriding A Preset and Changes With The Viewport, for review.
 - `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
-- `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
-  the slot with its ×, without selecting the layer, which leaves it empty.
+- `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker, PAR-1046): Filled selects the layer from its chip
+  and clears the slot with its ×, without selecting the layer; Open lists On this screen before Components; Searching
+  finds each Button after the layer it's in; Picked, Replaced and Picked Component fill the slot, one layer at a time;
+  Dragging lights the box for a layer from Layers, and Dropped fills it.
 
 ### The inspector's stories in seven levels (PAR-1033)
 
 The inspector's stories sit in the levels the panel is built from, each built only from the one below it: Panel (the
 inspector and its tabs), Layers (what each kind of selection shows), Sections, Rows, Lists, Fields and Parts. A case
 lives at the lowest level it's about, so a section's own cases are Sections stories, drawn alone, and a field's are
-Fields stories.
+Fields stories. Fields, with Parts inside them, are at Storybook's top level (Parity › Fields), outside Inspector, since
+a field can be used anywhere in the app; the other levels are under Parity › Inspector.
 
-| Folder   | Holds                                                                                        |
-| -------- | -------------------------------------------------------------------------------------------- |
-| Panel    | Inspector, Accessibility tab, Modes tab                                                      |
-| Layers   | Kinds, Instances, Several layers, Designs                                                    |
-| Sections | Header, State selector, States, Props, Attributes, Slots, Content, Components, Modes, Export |
-|          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Text                              |
-| Rows     | Box model, Padding, Margin, Size and aspect ratio, and the rest of a section's labelled rows |
-| Lists    | Paint stack, Shadow list, Filter list, Transition list                                       |
-| Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
-| Parts    | Field row, Chips                                                                             |
+| Folder   | Holds                                                                                         |
+| -------- | --------------------------------------------------------------------------------------------- |
+| Panel    | Inspector, Accessibility tab, Modes tab                                                       |
+| Layers   | Kinds, Instances, Several layers, Designs                                                     |
+| Sections | Header, State selector, Props, Attributes, Slots, Content, Components, Modes, Export          |
+|          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Typography, CSS                    |
+| Rows     | Box model, Padding, Margin, Radius, Size and aspect ratio, and the rest of a section's rows   |
+| Lists    | Paint stack, Shadow list, Filter list, Transition list                                        |
+| Fields   | Number field, Percent field, Segments, Select, Switch, Class names, Slot picker, and the rest |
+| Parts    | Inside Fields: Field row, Chips, Token menu, Unit menu, Search list                           |
 
 Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. A control's
 stories in Fields, Rows and Lists show the control alone; each file's Demo story also shows what it stores and writes as
 CSS and Tailwind, with a preview and other tools' screenshots where it has them (`ShowWrites` in `playground.tsx`,
-PAR-1045). Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the
-one it holds (`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a
-component's props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components
-and Modes.
+PAR-1045). A Sections story draws its section alone at the inspector's width, without the panel around it
+(`SectionStage` in `chrome/inspector-stories.tsx`); only Panel and Layers stories draw the panel. Each style section has
+its own file beside it in `inspector/sections`, drawing that section alone with the one it holds (`StyleSections`'
+`only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's props, a screen's
+repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
 
 Tests: none; the stories are checked in Storybook.
 
@@ -3600,7 +3602,6 @@ text, an image or video, whether it takes style, and whether it passes attribute
 | Section    | Shown for                                                               |
 | ---------- | ----------------------------------------------------------------------- |
 | Header     | Everything                                                              |
-| States     | A component design                                                      |
 | Props      | A component design, which defines them, or an instance, which sets them |
 | Attributes | A code component's instance                                             |
 | Components | A screen                                                                |
@@ -3665,15 +3666,15 @@ keeps it: one of a row's several fields, such as Min's Minimum width and Minimum
 as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
 token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
 
-Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/inspector/controls/field-row.tsx`; `TextInput`,
-`SwitchInput` and `ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label
-doesn't say it. A number field (`NumberField`) is named by its own `label`.
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/inspector/controls/field-row.tsx`; `TextInput` and
+`AppSelect` in `chrome/AppSelect.tsx` take a name only where the row's label doesn't say it. A number field
+(`NumberField`) is named by its own `label`.
 
 Tests:
 
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
-- `chrome/fields.stories.tsx` EveryKind: each kind of field found by its row's label, and the token pickers by their own
-  names. Typing finds its control by name.
+- `inspector/controls/FieldRow.stories.tsx` Typing: the text field found by its row's name, committing nothing until
+  Enter.
 - `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
@@ -3692,9 +3693,9 @@ Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/ins
 `Field` and `SwitchRow` in `inspector/controls/field-row.tsx` mark their control; `changedSides` on `FourSidesField` in
 `inspector/controls/sides.tsx`.
 
-Tests: none; it's checked in Parts › Field row's Changed In A State, which every control's box shares, and in the marks
-that differ: Switch's Switch Changed, Chips' Changed, Component instance's Changed (each kind of prop) and Padding's One
-Side Changed.
+Tests: none. Every field under Fields has a Changed story showing its own mark; Fields › Parts › Field row's Changed In
+A State shows the row's reset arrow beside it, Chips' Changed a chips box's, and Rows › Padding's One Side Changed a row
+of several fields marking only the side given.
 
 ### Selects (PAR-1023)
 
@@ -3718,10 +3719,11 @@ Tests:
 ### Chips (PAR-1035)
 
 A field of tags, such as class names or the layer in a slot, is one component, `AppChips`, built from the kit's Combobox
-chips. A chip reads at the panel's 10px with an × that removes it, and the box grows onto more lines as chips are added.
-A chip too long for the box truncates. Backspace in the empty input removes the last chip. Given options, typing in the
-input lists the matches under the box in groups, and picking one adds it as a chip. When nothing matches, the list says
-No matches. Keyboard use, focus and names are Base UI's.
+chips. Its box is drawn as the panel's text input is, with its border, fill and corners; the ring shows while typing in
+it, but not while its list is open. A chip reads at the panel's 10px with an × that removes it, and the box grows onto
+more lines as chips are added. A chip too long for the box truncates. Backspace in the empty input removes the last
+chip. Given options, typing in the input lists the matches under the box in groups, and picking one adds it as a chip.
+When nothing matches, the list says No matches. Keyboard use, focus and names are Base UI's.
 
 Code: `AppChips`, `AppChip` and `AppChipsInput` in `apps/desktop/src/renderer/chrome/AppChips.tsx`, used by
 `ClassTagsField` in `inspector/controls/class-tags.tsx` and `SlotPickerField` in `inspector/controls/slot-picker.tsx`;
@@ -3744,7 +3746,7 @@ Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the r
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
 Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
-Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
+Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -4206,10 +4208,23 @@ A slot it leaves empty shows the placeholder.
 
 - **The instance's panel** lists each slot after its params, as a prop: the Slot tile and its name with a capital first
   letter, over its Slot picker: the layer that fills it as a chip, with its kind's icon and the name Layers gives it, or
-  an empty box. Clicking the chip selects the layer, so it can be renamed, and its × clears the slot, deleting the
-  layer. Resting on one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by
-  itself so a large component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a
-  dashed edge. Clicking the box selects the slot.
+  an empty box that says Add a layer. Clicking the chip selects the layer, so it can be renamed, and its × clears the
+  slot, deleting the layer. Resting on one, or the left arrow key in its empty input, opens a card beside it with a
+  picture of what shows there, drawn by itself so a large component's slot is as easy to see as a small one's; an empty
+  one's placeholder is faded inside a dashed edge.
+- **The Slot picker is drawn as the panel's select is** (PAR-1046): its border, fill, hover and corners, a chevron at
+  its end, and its list as close below it. A click leaves the box as it was; only focus reached by keyboard rings it.
+  Focusing it or pressing the chevron lists what can go in: On this screen, the design's layers nested as Layers nests
+  them, then Components, the project's components by name. The list leaves out the design's root, the layers the
+  instance is inside, and the instance with everything in it, and Components leaves out the instance's own component and
+  the design it sits in, none of which can go in. Typing searches both groups; while searching, each layer shows after
+  the layer it's in, so two Buttons can be told apart. A slot holds one layer here: picking a layer moves it in, with
+  its id and its changes, and picking a component fills the slot with a new instance of it, each in place of what filled
+  it, which is deleted as Clear deletes it. Each is one undo step ("Fill features").
+- **A layer dragged from Layers onto the picker fills the slot** the same way, and the box lights up while it's over it.
+  Of several dragged layers, the first that can go in does. A layer from another design, the instance itself, or a layer
+  it's inside can't, and a toast says why ("Only layers in this design can go in Features", "Pricing can't go in
+  Features, which is inside it").
 - **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
@@ -4223,27 +4238,33 @@ A slot it leaves empty shows the placeholder.
   it out as `"…"` past the level asked for, as it does a layout's children (PAR-966).
 
 The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
-`@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
-`render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
-picture's tree `slotPreviewTree`.
+`@parity-app/core`: `instanceSlots`, `slotAtPath`, `clearSlot`, and for the picker `slotCandidates`, `slotComponents`,
+`fillSlotWithLayer` and `fillSlotWithComponent` in `slots.ts`, the fill drawn by `resolveDesign` in `render.ts`, and
+Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the picture's tree
+`slotPreviewTree`.
 
 Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
-`inspector/controls/slot-picker.tsx`, `DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in
-`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
-`canvas/insert.ts`.
+`inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`, `DesignInstanceProps` in
+`inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview`
+in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
 
 Tests:
 
 - `packages/core/src/slots.test.ts`, filling an instance's slots (7): a fill kept in its slot and listed, a fill drawn
   with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, Detach twice of a
   component whose own instance fills a slot (PAR-966), and the file refusing a fill that reuses an id.
+- `packages/core/src/slots.test.ts`, "picking what fills an instance's slot (PAR-1046)" (5): the layers offered, nested,
+  without the root, the instance's ancestors or what's in it; a layer moved in with its changes, deleting the old fill
+  and its changes; the layers refused; a component's new instance replacing a fill or filling an empty slot; and the
+  components offered.
 - `packages/core/src/decompose.test.ts`, "findRepeats among instances filling a slot" (2, PAR-966): instances told apart
   by their fills with the values that differ found, and a shorter fill beside a longer one.
 - `packages/agent/src/workspace.test.ts`, "Get reading the layers an instance fills its slots with" (2, PAR-966): the
   fill as a state and a mode draw it, and left out past the depth asked for, an empty layout reading as empty and an
   empty fill as `"…"`.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
-- Stories: Parity/Inspector/Sections/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+- Stories: Parity/Fields/Slot picker (above), Parity/Inspector/Sections/Slots (Instance Slots and Slot Selected) and
+  Parity/Canvas/Selection › Filled Slot.
 
 Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
 drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old
@@ -4770,10 +4791,9 @@ not in Monthly; and 12 typed in a number param with no default gave the number 1
 ### Only a component has states (PAR-1002)
 
 States such as Default, Hover or Loading belong to a component design. A screen or a frame is drawn as its layers are,
-so the project file refuses `states` on one, and a screen's Design tab has no States section, its board no state menu
-and its layers no Editing control. An instance has no State picker either: a copy always shows its component's base
-state, under its own overrides. A screen that needs a component to look another way sets the component's params in the
-instance.
+so the project file refuses `states` on one, and a screen's board has no state menu and its layers no Editing control.
+An instance has no State picker either: a copy always shows its component's base state, under its own overrides. A
+screen that needs a component to look another way sets the component's params in the instance.
 
 - **Turning a component into a screen keeps its base state's look.** What the base state changes moves into the screen's
   layers, the other states are dropped, and a notice names them ("Removed 2 states: Hover and Pressed") with Undo.
@@ -4813,7 +4833,7 @@ Tests:
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
 - Stories: `chrome/LayerPanel.stories.tsx` Text (a screen's layer, no Editing control) and ComponentInstance (no State
-  row), and `chrome/StatesSection.stories.tsx` on components.
+  row).
 
 ### A design's modes in its own order (PAR-923)
 
@@ -6765,8 +6785,8 @@ Tests: `packages/editor/src/kind-names.test.ts` (3: one by kind, several of one 
 `apps/desktop/src/renderer/chrome/edit-scope.test.ts` ("change every state"). End to end,
 `apps/desktop/e2e/keyboard.e2e.ts` (the View menu and the Keyboard shortcuts dialog), `selecting.e2e.ts` ("Move
 screen"), `dropping.e2e.ts` and `inserting.e2e.ts` (Local components). The stories that show these labels are the modes
-menu, the inspector's Design tab, the States section, the board and the status bar. Gaps: the strings themselves are
-checked by reading them, not by tests, as [conventions.md](conventions.md) says of prose.
+menu, the inspector's Design tab, the board and the status bar. Gaps: the strings themselves are checked by reading
+them, not by tests, as [conventions.md](conventions.md) says of prose.
 
 ### Installed app updates (PAR-160)
 

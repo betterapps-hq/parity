@@ -30,7 +30,6 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { revealSelection } from "../../chrome/reveal.ts"
 import { useLayer } from "../../chrome/selected-layer.ts"
-import { StatesSection } from "../../chrome/StatesSection.tsx"
 import { useStyleEditor } from "../../chrome/style-editor.ts"
 import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
@@ -107,7 +106,6 @@ export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
       <ContainerHeader entry={entry} />
       <RootSections entry={entry} />
       {component && <PropsSection />}
-      {component && <StatesSection entry={entry} />}
       <ModesSection entry={entry} />
       {!component && <RepeatedPartsSection entry={entry} />}
     </>

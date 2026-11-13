@@ -231,8 +231,8 @@ describe("the sections each selection gets", () => {
     expect(sectionsOf(screen("screen"))).toEqual(["header", "components", "modes", "export"])
   })
 
-  it("give a component design its states, the props it defines and its modes", () => {
-    expect(sectionsOf(screen("component"))).toEqual(["header", "states", "props", "modes", "export"])
+  it("give a component design the props it defines and its modes", () => {
+    expect(sectionsOf(screen("component"))).toEqual(["header", "props", "modes", "export"])
   })
 
   it("give a frame its root's style sections, and no modes", () => {

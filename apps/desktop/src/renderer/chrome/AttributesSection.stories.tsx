@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AttributesSection } from "../inspector/sections/PropsSection.tsx"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { inspecting, InspectorStage, PanelColumn, search, slowly } from "./inspector-stories.tsx"
+import { inspecting, search, SectionStage, slowly } from "./inspector-stories.tsx"
 
 /**
  * What a component instance passes on to its component's root element (PAR-1026): attributes, aria ones and events,
@@ -15,11 +15,9 @@ const meta = {
   render: () => <AttributesSection />,
   decorators: [
     (Story) => (
-      <InspectorStage>
-        <PanelColumn>
-          <Story />
-        </PanelColumn>
-      </InspectorStage>
+      <SectionStage>
+        <Story />
+      </SectionStage>
     )
   ]
 } satisfies Meta

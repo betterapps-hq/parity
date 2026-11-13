@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { inspecting, InspectorStage, PanelColumn, search, slowly } from "./inspector-stories.tsx"
+import { inspecting, search, SectionStage, slowly } from "./inspector-stories.tsx"
 
 /**
  * A component layer's props, as the layer panel shows them, inferred from the component's source: variants offer their
@@ -16,11 +16,9 @@ const meta = {
   render: () => <PropsSection />,
   decorators: [
     (Story) => (
-      <InspectorStage>
-        <PanelColumn>
-          <Story />
-        </PanelColumn>
-      </InspectorStage>
+      <SectionStage>
+        <Story />
+      </SectionStage>
     )
   ]
 } satisfies Meta

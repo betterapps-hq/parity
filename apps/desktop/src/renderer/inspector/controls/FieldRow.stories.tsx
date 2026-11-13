@@ -2,7 +2,7 @@ import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Plus } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, fn, userEvent, within } from "storybook/test"
 import { TextInput } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { Field, FieldGrid, nameButton } from "./field-row.tsx"
@@ -13,7 +13,7 @@ import { Field, FieldGrid, nameButton } from "./field-row.tsx"
  * fields inside look like is each field's own story.
  */
 const meta = {
-  title: "Parity/Inspector/Parts/Field row",
+  title: "Parity/Fields/Parts/Field row",
   component: Field,
   decorators: [
     (Story) => (
@@ -47,6 +47,26 @@ export const Set: Story = {
   ),
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole("textbox", { name: "Label" })).toHaveValue("Get started")
+  }
+}
+
+/** What a text field commits, to check that typing alone commits nothing. */
+const committed = fn()
+
+/** Typing in the field: nothing is committed until Enter, which commits what was typed. */
+export const Typing: Story = {
+  render: (args) => (
+    <Field {...args}>
+      <TextInput value="Get started" onCommit={committed} />
+    </Field>
+  ),
+  play: async ({ canvasElement }) => {
+    committed.mockClear()
+    const field = within(canvasElement).getByRole("textbox", { name: "Label" })
+    await userEvent.type(field, " today")
+    await expect(committed).not.toHaveBeenCalled()
+    await userEvent.keyboard("{Enter}")
+    await expect(committed).toHaveBeenCalledWith("Get started today")
   }
 }
 

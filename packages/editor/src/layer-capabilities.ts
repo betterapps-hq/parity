@@ -134,7 +134,6 @@ export function selectionCapabilities(
 /** The Design tab's sections for one selected layer or design, in the order they show. */
 export type InspectorSection =
   | "header"
-  | "states"
   | "props"
   | "attributes"
   | "components"
@@ -158,7 +157,6 @@ export interface PanelPart {
  */
 export const panelTable: readonly PanelPart[] = [
   { section: "header", needs: () => true },
-  { section: "states", needs: (can) => can.design && can.component },
   // A component design defines its props; an instance sets them.
   { section: "props", needs: (can) => (can.design ? can.component : can.instance) },
   { section: "attributes", needs: (can) => !can.design && can.attrs },

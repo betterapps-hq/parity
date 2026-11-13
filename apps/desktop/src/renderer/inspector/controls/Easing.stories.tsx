@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import { EasingField, HoverCard } from "./easing.tsx"
-import { useTokens } from "./field-parts.tsx"
+import { Changed as MarkChanged, useTokens } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { drawnEasing, type Easing, springSettle } from "./motion-data.ts"
 import { easingWrites, timeWrites } from "./motion-writes.ts"
@@ -18,7 +18,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * duration, so its class runs long and it offers Create token first, in its token list and in the note under it.
  */
 const meta = {
-  title: "Parity/Inspector/Fields/Easing and spring",
+  title: "Parity/Fields/Easing and spring",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -153,4 +153,17 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "bouncy{Enter}")
   }
+}
+
+/** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */
+export const Changed: Story = {
+  ...Preset,
+  play: undefined,
+  decorators: [
+    (Story) => (
+      <MarkChanged>
+        <Story />
+      </MarkChanged>
+    )
+  ]
 }

@@ -29,6 +29,14 @@ export interface AppChipsGroup {
 }
 
 /**
+ * The box over the kit's chips box, whose classes these replace where they clash: drawn as the panel's text input is
+ * (`TextInput`), with its border, fill and corners, at the panel's height and padding. The ring shows while typing in
+ * it, as the input's does, but not while its list is open, as a select's button keeps its look while its list is.
+ */
+const boxClasses =
+  "relative min-h-7 w-full min-w-0 gap-1 rounded-lg py-0.5 ps-1.5 pe-2 text-xs has-data-[slot=combobox-chip]:ps-1.5 has-data-[slot=combobox-chip]:pe-2 focus-within:border-input focus-within:ring-0 has-[input:focus-visible:not([aria-expanded=true])]:border-ring has-[input:focus-visible:not([aria-expanded=true])]:ring-3"
+
+/**
  * The app's chips: the kit's Combobox chips composed once, as a panel field draws them, so a field of tags (class
  * names, a slot's layer) doesn't put the parts together itself. `AppChips` is the box, `AppChip` one chip with its ×,
  * and `AppChipsInput` the typing after them. Given `options`, typing in the input filters them in a popup under the box,
@@ -76,17 +84,14 @@ export function AppChips({
       inputValue={inputValue}
       onInputValueChange={onInputValueChange && ((next: string) => onInputValueChange(next))}
     >
-      <ComboboxChips
-        {...box}
-        ref={setAnchor}
-        className={`relative min-h-7 w-full min-w-0 gap-1 rounded-md border-0 bg-muted/50 px-1 py-1 text-xs ring-inset focus-within:ring-1 focus-within:ring-ring hover:not-focus-within:ring-1 hover:not-focus-within:ring-border dark:bg-input/40 ${className}`}
-      >
+      <ComboboxChips {...box} ref={setAnchor} className={`${boxClasses} ${className}`}>
         {children}
         {/* Changed in the state being edited, or set over what it comes from (PAR-1020). */}
         {changed && <ChangeMark />}
       </ComboboxChips>
       {options && (
-        <ComboboxContent anchor={anchor} className="text-xs">
+        // As far below the box as a select's list sits below its button (the kit's combobox would leave 6px).
+        <ComboboxContent anchor={anchor} sideOffset={4} className="text-xs">
           <ComboboxEmpty className="text-xs">{empty}</ComboboxEmpty>
           <ComboboxList>
             {(group: { value: string; items: string[] }) => (

@@ -5,7 +5,7 @@ import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, slowly, typing } from "./inspector-stories.tsx"
-import { inspectorStage, pick, renderInspector, renderSection } from "./layer-stories.tsx"
+import { sectionStage, pick, renderInspector, renderSection } from "./layer-stories.tsx"
 import { LayerHeader } from "./LayerPanel.tsx"
 
 /** What every layer's panel has at its head: its name, Make component, and whether it shows, or that it's gone. */
@@ -13,7 +13,7 @@ const meta = {
   title: "Parity/Inspector/Sections/Header",
   component: DesignTab,
   render: renderSection(LayerHeader),
-  decorators: [inspectorStage]
+  decorators: [sectionStage]
 } satisfies Meta<typeof DesignTab>
 
 export default meta
