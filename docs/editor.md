@@ -5890,34 +5890,45 @@ byte, and 2 differed by at most 6 of 255 in a channel around a card's shadow, wh
 differs between two runs with the same number of windows. That captures go to separate windows has no automated test;
 the end-to-end suite starts each copy on a fresh profile, so it captures its frames this way.
 
-### What changed since a frame was first looked at (PAR-997)
+### What changed since the last commit, or since a frame was first looked at (PAR-997, PAR-1074)
 
 Whether a frame, a node in it, or its board changed is answered by `@parity-app/change-detection`, never worked out from
 what a bitmap or a render key says. A first try at outlining changed boards read the bitmap cache's `stale` flag, which
 means "this picture isn't for this key", and stayed yellow after an edit was undone.
 
-- **A status is unknown, unchanged, or changed with the files that changed.** It compares the frame's trace now with its
-  baseline: the files it reads, each with a hash of its contents (see Bitmaps kept between sessions), so undoing an edit
-  gives the same digest and the frame is unchanged again. When only Parity's renderer changed, it's changed with no
-  files.
-- **The baseline is the frame's first trace while its project is open.** `ChangeBaselines` keeps it by the frame's id
-  (project, design, state and mode), so a new guest or render key doesn't make it another frame, and drops a project's
-  when it closes. A git ref or an accepted visual-test baseline would be compared the same way.
+- **A status is unknown, unchanged, or changed with the files that changed.** It compares the files the frame reads, as
+  its trace lists them, with a baseline, so putting a file back as it was makes the frame unchanged again.
+- **A change detector picks the baseline (PAR-1074).** `ChangeDetector` in `@parity-app/change-detection` says whether
+  it can count a project, which of its files differ from its baseline, and when the baseline moves. The service picks
+  the first detector that can count a project when its frames first ask. Only git's exists so far; a `.par` file's last
+  save, or hashes saved when a screen is marked approved, would be detectors of their own.
+- **In a git repository, the baseline is the last commit.** `gitDetector` asks `git status` which files differ from
+  `HEAD`: changed or deleted, staged or not, or not tracked and not ignored. A file outside the project, as a
+  workspace's lockfile, counts too. Git's own comparison is used, so line endings it converts on checkout aren't
+  changes. A change made before Parity opened shows at once, and committing it clears it.
+- **Elsewhere, the baseline is the frame's first trace while its project is open.** `ChangeBaselines` keeps it by the
+  frame's id (project, design, state and mode), so a new guest or render key doesn't make it another frame, and drops a
+  project's when it closes. Each file is a hash of its contents (see Bitmaps kept between sessions); when only Parity's
+  renderer changed, the frame is changed with no files.
 - **Nodes.** A trace also lists the files each component the frame draws reads. A node changed when its component's
   files did, or a file no component reads, such as a stylesheet, a tool's config or a lockfile, or a node inside it,
   since it draws what's inside it. A trace without the list, as kept in a bitmap, gives every node the frame's status.
 - **A board adds its frames up:** changed when one is, unknown when none has said and one can't, else unchanged.
 - **The service answers, the canvas asks.** `frames.changes` takes frames by id with their jobs, traces each and
-  compares it with its baseline. Each frame asks again whenever its key changes, all the canvas's frames in one request,
-  and `useFrameChange` and `useDesignChange` read the answers. A board whose frames changed has `data-changed`, for
-  tools and tests to read; nothing shows it yet.
+  compares it with its baseline, asking each project's detector once for the request. Each frame asks again whenever its
+  key changes, all the canvas's frames in one request, and whenever its project's baseline moves: the git detector
+  watches the repository's git folder, and a change to `HEAD` or the index, as a commit, a checkout or staging makes,
+  sends the window `project.committed`. `useFrameChange` and `useDesignChange` read the answers.
+- **Nothing on the canvas shows it yet.** A changed board has `data-changed`, for tools and tests to read.
 
-Tried in a development build on the example project, with a yellow outline on `data-changed` added locally for testing:
-just opened, no board was outlined; after adding a comment to `badge.tsx`, the 30 boards whose frames draw a badge were;
-after undoing it, none was.
+Tried in a development build on the example project, a folder in this repository: just opened, no board had
+`data-changed`; after adding a comment to `badge.tsx`, the 32 boards whose frames draw a badge had it; after committing
+it, none had, and after undoing the commit and the edit, none had. With the comment added before the window loaded, the
+32 boards had it on first look.
 
-Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `trace.ts`); `componentReads` and the `components`
-list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
+Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `detector.ts`, `trace.ts`); `componentReads` and
+the `components` list in `apps/desktop/src/utility/frame-traces.ts`; `apps/desktop/src/utility/git-detector.ts` and
+`change-detectors.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
 `apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
 
 Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
@@ -5925,13 +5936,20 @@ digest and the files that differ, came or went otherwise; a board changed with e
 can't say and none changed or there are none, else unchanged; the node whose component's file changed and the nodes
 holding it, but not the rest; every component reading a shared file; every node for a stylesheet; a component that
 started reading a file; and the frame's status for every node when it's unchanged, unknown or traced without
-components). `packages/change-detection/src/baselines.test.ts` (3: counted from the first trace and unchanged once the
+components). `packages/change-detection/src/baselines.test.ts` (7: counted from the first trace and unchanged once the
 files are back; unknown for a frame not traced, which takes no baseline; each frame's own baseline, started again once
-its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads.
-`apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and each
-gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go). Gaps:
-`frames.changes` itself, and that a frame asks again when its key changes, have no test of their own; both were tried in
-the app.
+its project's forgotten; from the last commit, changed by the frame's own differing files only, unchanged on the first
+look when its files are as committed, the node whose component reads the changed file, and unknown untraced).
+`apps/desktop/src/utility/git-detector.test.ts` (6, on a real repository: nothing for a project as committed; edited,
+staged, deleted and new files from the project's root, a workspace lockfile as `../../`, ignored files left out;
+unchanged once a file's put back; nothing outside git; a folder inside a repository counted and one outside not; one
+call when a commit moves `HEAD`, and none once stopped). `apps/desktop/src/utility/change-detectors.test.ts` (2: the
+first detector that can count a project, none when none can; watching once, telling when the baseline moves, and
+stopping when the project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component
+reads. `apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and
+each gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go).
+Gaps: `frames.changes` itself, and that a frame asks again when its key changes or its baseline moves, have no test of
+their own; both were tried in the app.
 
 ### Component previews, made offscreen and kept on disk (PAR-207)
 

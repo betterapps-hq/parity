@@ -21,6 +21,7 @@ import {
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
 import { cacheUse, reportCacheUse } from "./cache-use.ts"
+import { ProjectChangeDetectors } from "./change-detectors.ts"
 import { reportRunningChildren } from "./children.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
@@ -28,6 +29,7 @@ import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
 import { frameTraces } from "./frame-traces.ts"
+import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -88,8 +90,14 @@ const projects = openProjects({
 const previews = componentPreviews(projects)
 const traces = frameTraces(projects)
 
-// Each open project's frames' traces when first looked at, which their changes are counted from (PAR-997).
+// What each open project's frames' changes are counted from: its change detector's baseline, the last commit in a git
+// repository (PAR-1074), else each frame's trace when first looked at (PAR-997). When a detector's baseline moves, as a
+// commit moves git's, the window asks again.
 const baselines = new ChangeBaselines()
+
+const detectors = new ProjectChangeDetectors([gitDetector], (projectId) => {
+  editor?.request("project.committed", { projectId }).catch(() => undefined)
+})
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
@@ -100,6 +108,7 @@ const reopening = startReopening({
   close: (root) =>
     projects.close(root).finally(() => {
       baselines.forget(root)
+      void detectors.forget(root)
       rememberOpen()
     })
 })
@@ -132,6 +141,7 @@ const handlers: Handlers<ServiceMethods> = {
   "project.close": ({ projectId }) =>
     projects.close(projectId).finally(() => {
       baselines.forget(projectId)
+      void detectors.forget(projectId)
       rememberOpen()
     }),
   "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
@@ -175,14 +185,32 @@ const handlers: Handlers<ServiceMethods> = {
 
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
   },
-  "frames.changes": async ({ frames }) => ({
-    changes: await Promise.all(
-      parseInput(changedFrames, frames).map(async ({ id, job }) =>
-        // SAFETY: the window builds a job's tree with `renderJob`, which gives render nodes; the checks leave it as it came.
-        baselines.compare(id, job.tree as RenderNode[], await traces.trace(job).catch(() => undefined))
+  "frames.changes": async ({ frames }) => {
+    // Each project's detector is asked once for the request, and every frame of it compares with the same answer.
+    const changed = new Map<string, Promise<ReadonlySet<string> | undefined>>()
+
+    const changedIn = (projectId: string) => {
+      const root = projects.previewProject(projectId)?.root
+
+      const known =
+        changed.get(projectId) ?? (root ? detectors.changedFiles(projectId, root) : Promise.resolve(undefined))
+
+      changed.set(projectId, known)
+
+      return known
+    }
+
+    return {
+      changes: await Promise.all(
+        parseInput(changedFrames, frames).map(async ({ id, job }) => {
+          const [trace, files] = await Promise.all([traces.trace(job).catch(() => undefined), changedIn(job.projectId)])
+
+          // SAFETY: the window builds a job's tree with `renderJob`, which gives render nodes; the checks leave it as it came.
+          return baselines.compare(id, job.tree as RenderNode[], trace, files)
+        })
       )
-    )
-  }),
+    }
+  },
   "frames.stored": async ({ jobs }) => ({
     kept: await Promise.all(
       parseInput(storedJobs, jobs).map(async (job) => {

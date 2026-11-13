@@ -11,6 +11,7 @@ import type {
   WindowMethods
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
+import { askChangesAgain } from "../canvas/frame-changes.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
@@ -121,6 +122,11 @@ const handlers: Handlers = {
   },
   "project.detectionChanged": ({ projectId }) => {
     workspace.detectionChanged(projectId)
+
+    return undefined
+  },
+  "project.committed": ({ projectId }) => {
+    askChangesAgain(projectId)
 
     return undefined
   },
