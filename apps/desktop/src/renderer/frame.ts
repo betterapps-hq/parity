@@ -267,6 +267,15 @@ export function previewFrameRules(host: Element, css: string): void {
   }
 }
 
+/** Adds a stylesheet after a frame's own, once. A host that isn't a frame yet takes none. */
+export function adoptFrameSheet(host: Element, sheet: CSSStyleSheet): void {
+  const shadow = host.shadowRoot
+
+  if (shadow && !shadow.adoptedStyleSheets.includes(sheet)) {
+    shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet]
+  }
+}
+
 /** Sizes the window a frame stands for: the project's viewport units measure it. */
 export function setFrameViewport(host: HTMLElement, viewport: FrameViewport): void {
   host.style.setProperty(viewportWidthProperty, `${viewport.width / 100}px`)

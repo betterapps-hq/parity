@@ -60,6 +60,7 @@ import { Name, NameInput } from "../chrome/Name.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
+import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
@@ -216,31 +217,16 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
       }
     }
 
-    // The design is drawn into the frame's shadow root, once the frame has made it, and its root element can be drawn
-    // again as it changes.
-    const drawn = new MutationObserver(() => {
+    // The design is drawn into the frame once it's mounted, and its root element can be drawn again as it changes.
+    const stopDrawn = watchFrame(host, () => {
       watch()
       fit()
     })
 
-    let frame = 0
-
-    const start = () => {
-      if (!host.shadowRoot) {
-        frame = requestAnimationFrame(start)
-
-        return
-      }
-
-      drawn.observe(host.shadowRoot, { childList: true, subtree: true, characterData: true })
-      watch()
-    }
-
-    start()
+    watch()
 
     return () => {
-      cancelAnimationFrame(frame)
-      drawn.disconnect()
+      stopDrawn()
       observer.disconnect()
     }
   }, [board, hugs, key, store])

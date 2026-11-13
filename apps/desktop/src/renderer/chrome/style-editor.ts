@@ -15,6 +15,7 @@ import { useProject } from "../canvas/context.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
@@ -126,17 +127,15 @@ function useDrawnBox(
     }
 
     const resizes = new ResizeObserver(soon)
-    const watched = new Map<HTMLElement, MutationObserver>()
+    const watched = new Map<HTMLElement, () => void>()
 
     const watch = (host: HTMLElement) => {
-      if (watched.has(host) || !host.shadowRoot) {
+      if (watched.has(host)) {
         return
       }
 
       resizes.observe(host)
-      const changes = new MutationObserver(soon)
-      changes.observe(host.shadowRoot, { subtree: true, childList: true, attributes: true, characterData: true })
-      watched.set(host, changes)
+      watched.set(host, watchFrame(host, soon, { attributes: true }))
     }
 
     findFrames(area, design).forEach(watch)
@@ -149,7 +148,7 @@ function useDrawnBox(
       if (mounted) {
         watch(host)
       } else {
-        watched.get(host)?.disconnect()
+        watched.get(host)?.()
         watched.delete(host)
         resizes.unobserve(host)
       }
@@ -164,8 +163,8 @@ function useDrawnBox(
       stopFrames()
       resizes.disconnect()
 
-      for (const changes of watched.values()) {
-        changes.disconnect()
+      for (const stop of watched.values()) {
+        stop()
       }
 
       cancelAnimationFrame(frame)

@@ -135,11 +135,12 @@ Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side
 props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
 inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
 lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
-`apps/desktop/src/renderer/frame.ts`. `ModeView` and the offscreen renderer (`render.ts`) register each frame's guest.
-Hovering and clicking go through `canvas/hit.ts`, outlines, sizes and resize handles through `canvas/CanvasOverlay.tsx`,
-dragging through `canvas/layer-drag.ts`, inserting through `canvas/insert.ts` (its rules in
-`packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a layer's box. Whether a component takes `style` is
-read in `packages/code/src/props.ts` (`takesStyle`), and the note is in `chrome/LayerPanel.tsx`.
+`apps/desktop/src/renderer/frame.ts`. `mountFrame` in `frame-host.ts` registers each frame's guest, for `ModeView` and
+the offscreen renderer (`render.ts`) alike. Hovering and clicking go through `canvas/hit.ts`, outlines, sizes and resize
+handles through `canvas/CanvasOverlay.tsx`, dragging through `canvas/layer-drag.ts`, inserting through
+`canvas/insert.ts` (its rules in `packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a layer's box.
+Whether a component takes `style` is read in `packages/code/src/props.ts` (`takesStyle`), and the note is in
+`chrome/LayerPanel.tsx`.
 
 Tests:
 
@@ -4383,10 +4384,10 @@ Every change people or agents make goes into one history per project, and stays 
   Parity's window.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
-  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
-  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
-  on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since frames draw that rule on their body as
-  well, as below.
+  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by `frameSetup` in
+  `apps/desktop/src/renderer/frame-setup.ts` for the canvas's frames and the offscreen page's). An attribute the mode
+  sets itself wins. A theme's attribute on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since
+  frames draw that rule on their body as well, as below.
 - **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
   `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
   after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
@@ -7370,6 +7371,53 @@ Tests:
 Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
+
+### One module mounts every frame (PAR-988)
+
+A frame on the canvas and one the offscreen page draws for an agent, an export, a bitmap or a component preview are
+mounted, read and taken apart the same way, so what one draws the other draws too.
+
+- **One description of the mode.** Both describe a frame's mode as a render job does (`renderJobMode`): its classes and
+  attributes, its options for decorators, its window, and whether it stands for a touch screen. `frameSetup` turns that
+  into what the frame is prepared with (the body's classes, the attributes that switch the project's themes on, the
+  window its styles measure, thin scrollbars) and what the guest mounts with (the options, the window its code asks).
+- **Mounting.** `mountFrame` prepares the frame, gives it the tree's rules, mounts the guest, and has the frame's node
+  lookups go through what the guest says it drew. What it gives back draws an update in place with its rules in the same
+  task, resizes the window, says when the design is in the frame, and adopts a sheet after the frame's own, as a
+  component preview's for its popups.
+- **Taking apart.** Unmounting stops the lookups going through the guest, empties the frame and unmounts the guest. On
+  the canvas the guest lets go a microtask later, outside the canvas's commit; the frame is emptied at once either way,
+  so a frame built again straight after starts clean. A mount taken apart after a newer one started on the same frame
+  leaves the newer one alone.
+- **Reading a frame.** A frame is a shadow root on its host, and only `frame-host.ts` and `frame.ts` reach into it. The
+  rest of the app asks: `watchFrame` hears what a frame draws change (with attributes or resources loading, when asked),
+  and a watch asked for before the frame is mounted starts when it is, so the board that hugs its content no longer
+  polls for the frame each animation frame; `frameBody`, `frameContent`, `frameDrawsDesign`, `frameAnimates` and
+  `blurFrame` read the rest.
+
+Code: `mountFrame`, `watchFrame` and the readers in `apps/desktop/src/renderer/frame-host.ts`, `frameSetup` in
+`frame-setup.ts`, built on `prepareFrame`, the rules and the lookups in `frame.ts`. The canvas's adapter is
+`ModeView.tsx`, the offscreen page's `render.ts`. The overlay (`canvas/CanvasOverlay.tsx`), a board that hugs its
+content (`canvas/ContainerView.tsx`), the style editor (`chrome/style-editor.ts`), the code panel, bitmaps, skeletons,
+the tab order, written elements and inline portals read frames through it.
+
+Tests:
+
+- `apps/desktop/src/renderer/frame-setup.test.ts` (5): the body's classes and theme attributes, the window for styles
+  and code, options and touch passed on, nothing extra for a desktop mode without options, and sheets after the
+  project's.
+- `apps/desktop/src/renderer/frame-host.test.ts` (11), in Chrome with a guest of the test's own: a tree drawn in a body
+  set up for the mode and found through the guest; an update drawn in place and a resize passed on; unmounting empties
+  the frame and lookups stop going through the guest; a microtask's wait for the guest with the frame emptied at once; a
+  newer mount left alone by an older one's unmount; a watch asked for before mounting heard after, none once stopped,
+  and only the attributes asked for; nothing to read before mounting; a design drawn once a node carries its attribute;
+  and focus let go.
+- `ModeView.test.ts`, `render.test.ts` and `frame.test.ts` still cover each adapter's own part, in Chrome.
+
+Gaps: `render.ts`'s wiring runs in the offscreen window, which the end-to-end tests cover in CI. Checked in the running
+app on 2026-11-12: bitmaps at 3% and live frames at 31% and 82%, a mode turned on and off, a layer selected inside a
+frame, one state picked with every state hidden, an export of a screen and a component (through the service call the
+Export button makes once a folder is picked) and a tab closed without saving, which unmounted every frame.
 
 ### Which node overflows what (PAR-456, PAR-886, PAR-904)
 
