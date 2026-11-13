@@ -40,6 +40,7 @@ import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
 import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
 import type { DesignStore } from "../design-store.ts"
+import { frameAnimates, watchFrame } from "../frame-host.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
@@ -366,10 +367,11 @@ export function CanvasOverlay() {
         layoutGrid: getPreferences().layoutGrid
       })
 
+    // An animation or a transition running in a frame, which the outlines over it follow as it goes.
     const animating = () => {
       const drawn = designs()
 
-      return allFrames(area).some((host) => drawsOver(drawn, host.dataset.design) && animates(host))
+      return allFrames(area).some((host) => drawsOver(drawn, host.dataset.design) && frameAnimates(host))
     }
 
     const draw = (now: boolean) => {
@@ -456,8 +458,6 @@ export function CanvasOverlay() {
     const watched = new Map<HTMLElement, () => void>()
 
     const watch = (host: HTMLElement, mounted: boolean) => {
-      const shadow = host.shadowRoot
-
       if (!mounted || !area.contains(host)) {
         watched.get(host)?.()
         watched.delete(host)
@@ -468,18 +468,12 @@ export function CanvasOverlay() {
 
       resizes.observe(host)
 
-      if (!shadow || watched.has(host)) {
-        return
+      if (!watched.has(host)) {
+        watched.set(
+          host,
+          watchFrame(host, () => wakeFor(host), { attributes: true, loads: true })
+        )
       }
-
-      const changes = new MutationObserver(() => wakeFor(host))
-      changes.observe(shadow, { subtree: true, childList: true, attributes: true, characterData: true })
-      const loaded = () => wakeFor(host)
-      shadow.addEventListener("load", loaded, true)
-      watched.set(host, () => {
-        changes.disconnect()
-        shadow.removeEventListener("load", loaded, true)
-      })
     }
 
     for (const host of allFrames(area)) {
@@ -749,11 +743,6 @@ function SpacingHandlesFor({
       onStep={(handle, count, keys) => stepSpacing(session, target, handle, measure, count, keys)}
     />
   )
-}
-
-/** Whether an animation or a transition runs in a frame, which the outlines over it follow as it goes. */
-function animates(host: HTMLElement): boolean {
-  return !!host.shadowRoot?.getAnimations().some((animation) => animation.playState === "running")
 }
 
 /**

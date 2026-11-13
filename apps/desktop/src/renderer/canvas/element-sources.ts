@@ -1,4 +1,5 @@
 import { type ElementSource, elementSourceAttribute, parseElementSource } from "@parity-app/core"
+import { frameContent } from "../frame-host.ts"
 
 /**
  * The elements a project's own files wrote, found by the line each carries in development (PAR-167, see
@@ -22,7 +23,8 @@ export interface SourcedElement {
  * the elements' boxes, since frames don't take the pointer outside Interact.
  */
 export function sourcedElementAt(host: Element, x: number, y: number): SourcedElement | undefined {
-  const found = host.shadowRoot ? writtenAt(host.shadowRoot, x, y) : undefined
+  const content = frameContent(host)
+  const found = content ? writtenAt(content, x, y) : undefined
 
   return found && sourcedElement(found, 0)
 }

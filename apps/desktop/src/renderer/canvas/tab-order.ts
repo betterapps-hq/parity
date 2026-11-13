@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react"
+import { frameContent } from "../frame-host.ts"
 
 /** Whether the canvas shows the keyboard tab order of the selected design. It's off until asked for. */
 let shown = false
@@ -50,7 +51,7 @@ const focusableSelector = [
  * the one Tab lands on.
  */
 export function tabOrder(host: Element): HTMLElement[] {
-  const root = host.shadowRoot
+  const root = frameContent(host)
 
   if (!root) {
     return []

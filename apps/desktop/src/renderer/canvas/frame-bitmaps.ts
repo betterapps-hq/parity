@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { react } from "tldraw"
 import type { RenderJob, ServiceMethods } from "../../shared/protocol.ts"
 import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts"
+import { frameDrawsDesign } from "../frame-host.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
@@ -405,7 +406,7 @@ export function useFirstDrawWaits(rest: BoardRest | undefined, frame: Omit<Undra
 export function drawnHeight(tile: HTMLElement | null, width: number): number | undefined {
   const host = tile?.querySelector<HTMLElement>("[data-frame]")
 
-  if (!host?.shadowRoot?.querySelector("[data-canvas-node]")) {
+  if (!host || !frameDrawsDesign(host)) {
     return undefined
   }
 
