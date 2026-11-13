@@ -54,7 +54,7 @@ import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
-import { readFromCode } from "./read-from-code.ts"
+import { readFromCode, writesProps } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
 import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
@@ -108,10 +108,23 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     (component) => components[component]?.takesStyle
   )
 
+  // What a story draws takes its args as props, which are written back to its file; nothing else of it is.
+  const story = writesProps(layer.entry.path, layer.nodeId)
+
   return panelParts(can).map((section) => {
     const Section = layerSections[section]
 
-    return Section && <Section key={section} />
+    if (!Section) {
+      return undefined
+    }
+
+    return story && section !== "props" ? (
+      <fieldset key={section} disabled className="contents">
+        <Section />
+      </fieldset>
+    ) : (
+      <Section key={section} />
+    )
   })
 }
 

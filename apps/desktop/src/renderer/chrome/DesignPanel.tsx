@@ -24,7 +24,7 @@ import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
-import { readFromCode } from "./read-from-code.ts"
+import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
 import { RouteSection } from "./RoutePanel.tsx"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
@@ -98,7 +98,7 @@ function SelectedPanel() {
 
     // A layer of a page, a component's board or a story is read from the project's code: its values show, and nothing
     // edits them.
-    return readFromCode(entry.path) ? (
+    return readFromCode(entry.path) && !writesProps(entry.path, selected.node) ? (
       <fieldset disabled className="contents">
         {panel}
       </fieldset>

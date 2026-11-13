@@ -3,9 +3,12 @@ import { basename, extname, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
   type ComponentSource,
+  type ContainerSpec,
   type DescribedTokens,
   type EntitiesAdapter,
   type EntitiesSource,
+  type FileWrite,
+  type ImportedScreen,
   type LibraryInfo,
   libraryId,
   libraryManifestExtension,
@@ -311,6 +314,39 @@ export async function importEntities(
   }
 
   return entities
+}
+
+/**
+ * Screens the project's tools describe, as edited in Parity, written back through the adapters that imported them:
+ * the files each changes, and the entities as they are once written. Only a screen whose layers changed is written.
+ */
+export async function exportEntities(
+  root: string,
+  components: Record<string, ComponentSource>,
+  adapters: readonly EntitiesAdapter[],
+  imported: ProjectEntities,
+  edited: readonly ContainerSpec[]
+): Promise<{ writes: FileWrite[]; entities: ProjectEntities }> {
+  const tsconfig = readTsconfig(root)
+  const source = entitiesSource(root, components, (specifier) => resolveAlias(root, tsconfig, specifier))
+  const byId = new Map(edited.map((container) => [container.id, container]))
+  const writes: FileWrite[] = []
+  const screens: ImportedScreen[] = []
+
+  for (const screen of imported.screens ?? []) {
+    const now = byId.get(screen.screen.id)
+    const adapter = adapters.find((each) => each.id === screen.adapter)
+
+    if (!now || JSON.stringify(now.root) === JSON.stringify(screen.screen.root) || !adapter?.export) {
+      screens.push(screen)
+      continue
+    }
+
+    writes.push(...(await adapter.export(screen, now, source)))
+    screens.push({ ...screen, screen: { ...screen.screen, root: now.root } })
+  }
+
+  return { writes, entities: { ...imported, screens } }
 }
 
 /** How an entities adapter reads the project at `root`: its files, leaving out dependencies and builds, and its components. */

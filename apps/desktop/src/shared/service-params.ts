@@ -149,6 +149,7 @@ export const serviceParams = {
   "library.add": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
+  "entities.save": project.extend({ document: canvasDocument }),
   "recovery.keep": project.extend({ copy: recoveryCopy.optional() }),
   "recovery.read": project,
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),

@@ -6605,23 +6605,34 @@ laid out in a row for each story file, left of everything else on the canvas.
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
   name.
-- **Read-only, never saved.** The screens are in a design file of their own that's never written, and a layer of one
-  shows its values without editing them.
+- **Args written back.** The props of what a story draws are its args, and they edit as any component's do. Saving sends
+  the stories' design file to the service (`entities.save`), which hands each screen whose layers changed to the adapter
+  that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes the args that differ from the meta's into the
+  story's `args` in its file, keeping code there, such as a function, as it's written.
+- **Otherwise read-only.** The rest of a story's screen is Storybook's to lay out: its other layers and sections show
+  their values without editing them, and nothing else of it is saved.
 - **Not yet.** A story's decorators, loaders and the `context` its `render` is given aren't applied. A story file added
-  while the project is open shows once it's opened again. Edits aren't written back to the story's file.
+  while the project is open shows once it's opened again. A story that's a function, or whose args are a constant, isn't
+  written to, nor can a story take away an arg its meta gives. A screen can't yet be saved as a new story.
 
 Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
 two under Stories. Plan card / Popular drew the app's own PlanCard with the Popular badge, and Button / Outline its
 outline button at its own size. Card / Invite and Plan card / Side By Side drew their own `render` functions: the invite
-card, and two plan cards side by side.
+card, and two plan cards side by side. Setting Plan card / Popular's Price to $32 and saving wrote `price: "$32"` into
+the story's args, beside `popular: true`, and the screen drew $32.
 
 Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and `importStoryScreens` in
 `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`; `storyScreensDocument` in
-`apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in `apps/desktop/src/renderer/workspace.ts`.
+`apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in `apps/desktop/src/renderer/workspace.ts`;
+`writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`; `exportEntities` in
+`packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts` writes; `writesProps` in
+`apps/desktop/src/renderer/chrome/read-from-code.ts`.
 
-Tests: `adapters/storybook-adapter/src/storybook.test.ts` (6: a file's meta and stories with args over the meta's, where
-a story's render function is, a file without a default export, a story's name in words, stories imported as screens of
-their component, grouped by title, and a story that renders itself drawing its function from its file).
+Tests: `adapters/storybook-adapter/src/storybook.test.ts` (10: a file's meta and stories with args over the meta's,
+where a story's render function is, a file without a default export, a story's name in words, stories imported as
+screens of their component, grouped by title, a story that renders itself drawing its function from its file, a story's
+own args written over the meta's with code kept, args added to a story without any and none for the meta's, a story
+that's a function left alone, and a screen's props written back to its file).
 
 ### Opening in seconds (PAR-179)
 

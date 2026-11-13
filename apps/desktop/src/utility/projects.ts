@@ -48,6 +48,7 @@ import {
   documentTarget,
   findLockfiles,
   findPackage,
+  exportEntities,
   importEntities,
   importersOf,
   lockfileFolders,
@@ -300,6 +301,7 @@ export interface OpenProjects {
   components: (projectId: string) => Promise<Record<string, ComponentInfo>>
   correctComponents: (params: ServiceMethods["project.correctComponents"]["params"]) => Promise<undefined>
   saveDocument: (params: ServiceMethods["document.save"]["params"]) => Promise<undefined>
+  saveEntities: (params: ServiceMethods["entities.save"]["params"]) => Promise<undefined>
   saveTokens: (params: ServiceMethods["tokens.save"]["params"]) => Promise<ProjectEditResult>
   frameClasses: (params: ServiceMethods["styles.classes"]["params"]) => Promise<FrameClassesWritten>
   /** The project's code as the address a job draws from first served it, while the project is open. */
@@ -1450,6 +1452,30 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
      * new ones created under the project as long as they end in `.par`. What it wrote is known once it has landed, so
      * the watcher takes the change as the service's own.
      */
+    async saveEntities({ projectId, document }) {
+      const project = getProject(projectId)
+      const { info } = project
+
+      await queued(project, async () => {
+        const { writes, entities } = await exportEntities(
+          info.root,
+          project.list.sources,
+          adapters.entities ?? [],
+          info.entities,
+          parseCanvasDocument(document).containers
+        )
+
+        for (const { path, text } of writes) {
+          await writeProjectFile(info.root, path, text)
+          project.known.set(path, text)
+        }
+
+        info.entities = entities
+      })
+
+      return undefined
+    },
+
     async saveDocument({ projectId, path, document }) {
       const project = getProject(projectId)
       const entry = project.info.documents.find((candidate) => candidate.path === path)

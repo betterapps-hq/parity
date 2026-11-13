@@ -436,6 +436,17 @@ export interface EntitiesAdapter {
   detect(pkg: PackageManifest): boolean
   /** The entities the tool's files describe. */
   import(source: EntitiesSource): Promise<ProjectEntities>
+  /**
+   * A screen it imported, as edited in Parity, written back to the tool's files: each file it changes, with its new
+   * text. None when the edit is one the tool's files can't hold.
+   */
+  export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
+}
+
+/** A file an adapter writes, by its path from the project's root, with its whole new text. */
+export interface FileWrite {
+  path: string
+  text: string
 }
 
 /** How an entities adapter reads a project: its files, and which of the project's components an import names. */

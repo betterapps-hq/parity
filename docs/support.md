@@ -223,7 +223,8 @@ package per tool, each named for it: `storybook-adapter`, `tanstack-router-adapt
 and `react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler: each story whose meta names a component
 and has no `render` of its own is a screen of that component with the story's args as its props. A story that renders
 itself draws its `render` function, loaded from its file, with its args as props. Decorators and the `render` function's
-`context` aren't applied yet, and edits aren't written back to its file yet.
+`context` aren't applied yet. Edits to a story's args are written back to its file, as the args that differ from its
+meta's; nothing else of a story's screen is.
 
 ### Language
 

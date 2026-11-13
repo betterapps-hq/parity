@@ -1,12 +1,16 @@
-import type {
-  ContainerSpec,
-  DesignNode,
-  EntitiesSource,
-  GuestComponentSource,
-  ImportedScreen,
-  ProjectEntities
+import {
+  type ComponentNode,
+  type ContainerSpec,
+  type DesignNode,
+  type EntitiesSource,
+  type FileWrite,
+  type GuestComponentSource,
+  type ImportedScreen,
+  isMadeValue,
+  type ProjectEntities
 } from "@parity-app/core"
-import { readStoryFile, type Story, type StoryFile } from "./csf.ts"
+import { readStoryFile, type Story, type StoryArgs, type StoryFile } from "./csf.ts"
+import { writeStoryArgs } from "./write.ts"
 
 /** Story files, as Storybook's default `stories` glob finds them. */
 export const storyFilePattern = /\.stories\.(?:[cm]?[jt]sx?)$/
@@ -87,6 +91,48 @@ export function storyScreen(path: string, story: Story, component: string): Cont
       children: [node]
     }
   }
+}
+
+/**
+ * A story's screen, as edited, written back to its file: the props of what it draws as the story's args. The rest of
+ * the screen is Storybook's to lay out, so nothing else is written.
+ */
+export async function exportStoryScreen(
+  screen: ImportedScreen,
+  edited: ContainerSpec,
+  source: EntitiesSource
+): Promise<FileWrite[]> {
+  const [path, exportName] = splitRef(screen.ref)
+  const drawn = edited.root.type === "layout" ? edited.root.children.find((child) => child.id === "story") : undefined
+  const text = path && (await source.read(path))
+
+  if (!exportName || !text || drawn?.type !== "component") {
+    return []
+  }
+
+  const written = writeStoryArgs(text, exportName, storyArgs(drawn.props ?? {}), path)
+
+  return written === text ? [] : [{ path, text: written }]
+}
+
+/** Props as a story's args: their JSON values, leaving out values the package makes (`$call`) and dates (`$date`). */
+function storyArgs(props: NonNullable<ComponentNode["props"]>): StoryArgs {
+  const json = Object.entries(props).filter(([, value]) => !isMadeValue(value) && !dateValue(value))
+
+  // SAFETY: a sample's props without made values and dates are plain JSON, which is what a story's args hold.
+  return Object.fromEntries(json) as StoryArgs
+}
+
+/** Whether a prop is a date, which a story's args can't hold as JSON. */
+function dateValue(value: NonNullable<ComponentNode["props"]>[string]): boolean {
+  return JSON.stringify(value)?.startsWith('{"$date"') ?? false
+}
+
+/** A story's ref as its file and its export's name. */
+function splitRef(ref: string): [string, string | undefined] {
+  const at = ref.lastIndexOf("#")
+
+  return at === -1 ? [ref, undefined] : [ref.slice(0, at), ref.slice(at + 1)]
 }
 
 /** The title Storybook gives a file without one: its component's name, else the file's name. */

@@ -8,6 +8,9 @@ import { componentBoardsTop } from "./component-boards.ts"
  */
 export const storyScreensFile = "(stories)"
 
+/** The layer of a story's screen that draws the story, as `storybook-adapter` names it. */
+export const storyLayer = "story"
+
 /** How the imported screens are laid out: a row for each group, left of the boards and pages. */
 const layout = { width: 1280, height: 800, gap: 160, rowGap: 1100, beside: 800 }
 

@@ -1297,9 +1297,15 @@ async function createSession(
     info.modes.settings,
     info.mainDocument,
     {
-      // The app's pages, components and stories are drawn from its code each time, so they're never saved (PAR-1076).
-      saveDocument: (path, document) =>
-        generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document),
+      // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
+      // stories are written back to their own files, through the adapter that read them.
+      saveDocument: (path, document) => {
+        if (path === storyScreensFile) {
+          return request("entities.save", { projectId: info.id, document })
+        }
+
+        return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document)
+      },
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])

@@ -88,6 +88,8 @@ export interface ServiceMethods {
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
   "library.importStyles": { params: ServiceParams["library.importStyles"]; result: ProjectEditResult | undefined }
   "document.save": { params: ServiceParams["document.save"]; result: undefined }
+  /** Writes the screens the project's tools describe, as edited, back to the tools' files, as a story's args. */
+  "entities.save": { params: ServiceParams["entities.save"]; result: undefined }
   /**
    * Keeps a recovery copy of the project's unsaved changes in Parity's app data, or removes it when there's none, so a
    * crash or a forced quit doesn't lose them (PAR-905).

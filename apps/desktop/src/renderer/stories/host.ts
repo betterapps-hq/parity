@@ -665,6 +665,7 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
       return { log: `+ ${String(request.params.library)}\nDone in 1.2s` }
     case "document.save":
+    case "entities.save":
     case "document.saveCopy":
       if (service.saveFails) {
         throw new Error("EPERM: operation not permitted, open 'shadcn-vite.par'")

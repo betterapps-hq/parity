@@ -1,9 +1,11 @@
 import type { EntitiesAdapter, PackageManifest } from "@parity-app/core"
-import { importStoryScreens, storybookId } from "./screens.ts"
+import { exportStoryScreen, importStoryScreens, storybookId } from "./screens.ts"
 
 export { type ArgValue, readStoryFile, type Story, type StoryArgs, type StoryFile, storyName } from "./csf.ts"
 
-export { importStoryScreens, storyFilePattern, storyScreen } from "./screens.ts"
+export { exportStoryScreen, importStoryScreens, storyFilePattern, storyScreen } from "./screens.ts"
+
+export { writeStoryArgs } from "./write.ts"
 
 /** Whether a project depends on Storybook. */
 function detect(pkg: PackageManifest): boolean {
@@ -12,10 +14,11 @@ function detect(pkg: PackageManifest): boolean {
   )
 }
 
-/** Storybook: its stories, read from their CSF files, as screens. */
+/** Storybook: its stories, read from their CSF files as screens, and their args written back. */
 export const storybookAdapter: EntitiesAdapter = {
   id: storybookId,
   name: "Storybook",
   detect,
-  import: importStoryScreens
+  import: importStoryScreens,
+  export: exportStoryScreen
 }

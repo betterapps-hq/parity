@@ -150,6 +150,7 @@ const handlers: Handlers<ServiceMethods> = {
     }),
   "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
   "document.save": projects.saveDocument,
+  "entities.save": projects.saveEntities,
   "recovery.keep": ({ projectId, copy }) => recovery.keep(projectId, copy),
   "recovery.read": ({ projectId }) => recovery.read(projectId),
   "document.saveCopy": saveDocumentCopy,

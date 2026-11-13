@@ -158,7 +158,7 @@ function addImports(statement: ts.ImportDeclaration, specifier: string, imports:
 }
 
 /** An expression without what only types it: `satisfies`, `as`, `!` and brackets. */
-function unwrap(expression: ts.Expression): ts.Expression {
+export function unwrap(expression: ts.Expression): ts.Expression {
   let current = expression
 
   while (
@@ -174,7 +174,7 @@ function unwrap(expression: ts.Expression): ts.Expression {
 }
 
 /** The object an expression is, following a constant it names. */
-function objectOf(
+export function objectOf(
   expression: ts.Expression | undefined,
   constants: ReadonlyMap<string, ts.Expression>
 ): ts.ObjectLiteralExpression | undefined {
@@ -230,7 +230,10 @@ function identifierOf(expression: ts.Expression | undefined): string | undefined
 }
 
 /** An `args` object's JSON values, following a constant it names. */
-function argsOf(expression: ts.Expression | undefined, constants: ReadonlyMap<string, ts.Expression>): StoryArgs {
+export function argsOf(
+  expression: ts.Expression | undefined,
+  constants: ReadonlyMap<string, ts.Expression>
+): StoryArgs {
   const object = objectOf(expression, constants)
 
   return object ? objectValue(object) : {}
@@ -255,7 +258,7 @@ function objectValue(object: ts.ObjectLiteralExpression): StoryArgs {
 }
 
 /** A literal's JSON value, or undefined for code that isn't one. */
-function valueOf(expression: ts.Expression): ArgValue | undefined {
+export function valueOf(expression: ts.Expression): ArgValue | undefined {
   const inner = unwrap(expression)
 
   if (ts.isStringLiteral(inner) || ts.isNoSubstitutionTemplateLiteral(inner)) {

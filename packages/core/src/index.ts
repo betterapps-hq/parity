@@ -24,6 +24,7 @@ export {
   type RendererAdapter,
   type RouterAdapter,
   type EntitiesAdapter,
+  type FileWrite,
   type EntitiesSource,
   type ImportedScreen,
   type ProjectEntities,

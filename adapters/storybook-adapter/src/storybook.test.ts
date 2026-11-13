@@ -1,7 +1,8 @@
-import type { EntitiesSource } from "@parity-app/core"
+import type { ContainerSpec, DesignNode, EntitiesSource } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { readStoryFile, storyName } from "./csf.ts"
-import { importStoryScreens } from "./screens.ts"
+import { exportStoryScreen, importStoryScreens } from "./screens.ts"
+import { writeStoryArgs } from "./write.ts"
 
 const button = `
 import type { Meta, StoryObj } from "@storybook/react-vite"
@@ -126,5 +127,66 @@ describe("importStoryScreens", () => {
     expect(screens[3]?.screen.root).toMatchObject({
       children: [{ type: "component", component: "story:src/stories/card.stories.tsx#Invite", name: "Invite" }]
     })
+  })
+})
+
+describe("writeStoryArgs", () => {
+  it("gives a story the args that differ from its meta's, keeping code in its args as it's written", () => {
+    const written = writeStoryArgs(button, "Outline", {
+      children: "Save changes",
+      disabled: true,
+      variant: "ghost"
+    })
+
+    expect(written).toContain(
+      'export const Outline: Story = { args: { variant: "ghost", onClick: () => {}, disabled: true } }'
+    )
+    expect(readStoryFile(written).stories[1]?.args).toEqual({
+      children: "Save changes",
+      disabled: true,
+      variant: "ghost"
+    })
+  })
+
+  it("adds args to a story without any, and leaves one with the meta's args alone", () => {
+    expect(writeStoryArgs(button, "Default", { children: "Delete", disabled: false })).toContain(
+      'export const Default: Story = { args: { children: "Delete" } }'
+    )
+    expect(writeStoryArgs(button, "Default", { children: "Save changes", disabled: false })).toBe(button)
+  })
+
+  it("leaves a story that's a function as it is", () => {
+    expect(writeStoryArgs(card, "Plain", { title: "Hi" })).toBe(card)
+  })
+})
+
+describe("exportStoryScreen", () => {
+  it("writes the props of what a story's screen draws back to its file as the story's args", async () => {
+    const files = new Map([["src/stories/button.stories.tsx", button]])
+
+    const source: EntitiesSource = {
+      files: async () => [...files.keys()],
+      read: async (path) => files.get(path),
+      componentFor: async (_file, _specifier, name) => `ui/button/${name}`
+    }
+
+    const [screen] = (await importStoryScreens(source)).screens ?? []
+
+    if (!screen) {
+      throw new Error("no screen")
+    }
+
+    const drawn: DesignNode = {
+      type: "component",
+      id: "story",
+      component: "ui/button/Button",
+      props: { children: "Publish", disabled: false }
+    }
+
+    const edited: ContainerSpec = { ...screen.screen, root: { type: "layout", id: "root", children: [drawn] } }
+    const writes = await exportStoryScreen(screen, edited, source)
+
+    expect(writes.map((write) => write.path)).toEqual(["src/stories/button.stories.tsx"])
+    expect(readStoryFile(writes[0]?.text ?? "").stories[0]?.args).toEqual({ children: "Publish", disabled: false })
   })
 })
