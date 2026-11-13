@@ -8,8 +8,8 @@ import { inspecting, slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /**
- * The Design tab with one design or layer of each kind selected, one story each, named as its header names the kind.
- * The other Layer folders hold the cases beyond these: its name and header, states, instances and slots.
+ * The Design tab with one layer of each kind selected, one story each, named as its header names the kind: the
+ * sections that kind gets. Each section's own cases are in Sections, and a whole design's panel in Layers › Designs.
  */
 const meta = {
   title: "Parity/Inspector/Layers/Kinds",
@@ -22,23 +22,11 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** A screen, Pricing: what it repeats, its modes, and Export. */
-export const Screen: Story = { loaders: [inspecting("design", () => ({ design: design("Pricing") }))] }
-
-/** A component, Plan card: its states, variants, props and modes, and the code an instance writes. */
-export const Component: Story = { loaders: [inspecting("design", () => ({ design: design("Plan card") }))] }
-
 /** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
 export const Text: Story = { loaders: [pick("Pricing", "Headline")] }
 
-/** A horizontal layout, Pricing's nav: a Layout section first among its styles. */
-export const HorizontalLayout: Story = { name: "Horizontal layout", loaders: [pick("Pricing", "Nav")] }
-
-/** A vertical layout, Pricing's hero. */
-export const VerticalLayout: Story = { name: "Vertical layout", loaders: [pick("Pricing", "Hero")] }
-
-/** A grid, Pricing's plans: its header says Grid layout, with the grid icon the Layout section uses. */
-export const Grid: Story = { loaders: [pick("Pricing", "Plans")] }
+/** A layout, Pricing's nav: a Layout section first among its styles. */
+export const Layout: Story = { loaders: [pick("Pricing", "Nav")] }
 
 /**
  * A component instance, Plan card's call to action: Button's props under its name, the attributes it passes on, its
