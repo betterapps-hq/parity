@@ -1,12 +1,9 @@
+import { adapters } from "@parity-app/adapters"
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
-import { reactRenderer } from "@parity-app/react-adapter"
-import { storybookAdapter } from "@parity-app/storybook-adapter"
-import { tailwindStyles } from "@parity-app/tailwind-adapter"
-import { tanstackRouter } from "@parity-app/tanstack-router-adapter"
 import { errorCode } from "@parity-app/telemetry"
-import { portFree, viteBuilder } from "@parity-app/vite-adapter"
+import { portFree } from "@parity-app/vite-adapter"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
@@ -58,11 +55,7 @@ process.env.ELECTRON_RUN_AS_NODE = "1"
 let editor: Channel<ServiceMethods, WindowMethods> | undefined
 
 const projects = openProjects({
-  renderers: [reactRenderer],
-  builders: [viteBuilder],
-  styles: [tailwindStyles],
-  routers: [tanstackRouter],
-  entities: [storybookAdapter],
+  ...adapters,
   startBuilder,
   checker,
   detections: { saved: savedDetection, save: saveDetection },

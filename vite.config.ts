@@ -12,10 +12,20 @@ import { defineConfig } from "vite-plus"
 const readers = ["code", "project", "registry"]
 
 /**
- * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters, the media player
- * and fixtures.
+ * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and their list,
+ * the media player and fixtures.
  */
-const edge = ["agent", "vite-adapter", "cli", "fixtures", "libgen", "media-player", "react-adapter", "tailwind-adapter"]
+const edge = [
+  "adapters",
+  "agent",
+  "vite-adapter",
+  "cli",
+  "fixtures",
+  "libgen",
+  "media-player",
+  "react-adapter",
+  "tailwind-adapter"
+]
 
 const packageFiles = (names: string[]) => names.flatMap((name) => [`packages/${name}/**`, `adapters/${name}/**`])
 const packageImports = (names: string[]) => names.flatMap((name) => [`@parity-app/${name}`, `@parity-app/${name}/**`])

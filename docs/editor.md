@@ -7302,29 +7302,37 @@ the count ("376 components"); its tooltip splits it into the app's own and each 
 Shadcn Nova".
 
 - **An adapter says what its item is.** Any adapter (renderer, builder, styles, router or entities) can have `status`,
-  which returns `StatusItem`s: a Lucide icon by name, a bold value, the words after it, the tooltip's title and line,
-  and what a click opens, which is a left panel tab or a tool the app runs (only `storybook` so far). The window draws
-  the icon by its name with Lucide's `DynamicIcon`, and draws a plain circle for a name Lucide doesn't have.
+  which returns `StatusItem`s: an icon, a bold value, the words after it, the tooltip's title and line, and what a click
+  opens, which is a left panel tab or a tool the app runs (only `storybook` so far).
+- **An item shows its tool's logo unless it names an icon.** An adapter's `icon` is its tool's logo as path data (an
+  `AdapterIcon`: a `viewBox`, one path, and `evenodd` where one part is cut out of another), which the window fills with
+  the text's colour, so it reads like the Lucide icons beside it in either theme. Path data draws nothing but the shape,
+  so a logo can't run script or load anything. An item that names a Lucide icon gets it from `DynamicIcon`, and a name
+  Lucide doesn't have draws a plain circle. React's and Vite's logos come from the ones `create-vite` puts in a new
+  project, Storybook's from the favicon it ships; TanStack Router has none yet, so its routes item names `route`.
 - **It's told what Parity found.** The service calls each adapter the project uses with its tool's version (the running
   builder's, otherwise detection's), the package manager, the entities it imported and the app's routes. It then adds
   "Parity doesn't test this version" to an untested tool's tooltip, so adapters don't each repeat it.
-- **What the example shows:** React and Vite, each with its version in its tooltip; 8 routes from TanStack Router, which
-  opens Layers, where they're listed (the root route isn't counted); and 12 stories from Storybook, which opens
-  Storybook. Storybook's item used to count components with stories (4), which wasn't the number of stories the canvas
-  shows.
-- **Not yet.** Tailwind has no item of its own; it's named in the tokens' tooltip. The components and tokens items stay
-  the app's, since their counts change while the project is open.
+- **What the example shows:** React, Vite and Tailwind CSS, each with its logo and its version in its tooltip,
+  Tailwind's opening the Tokens panel; 8 routes from TanStack Router, which opens Layers, where they're listed (the root
+  route isn't counted); and 12 stories from Storybook, with its logo, which opens Storybook. Storybook's item used to
+  count components with stories (4), which wasn't the number of stories the canvas shows.
+- **The components and tokens items stay the app's,** since their counts change while the project is open.
 
-Tried on 2026-11-13 in the running app on the example, as above.
+Tried on 2026-11-13 in the running app on the example, as above: the four logos in dark mode, and Tailwind's tooltip and
+Enter on it opening the Tokens panel.
 
-Code: `StatusItem`, `StatusFacts` and each adapter interface's `status` in `packages/core/src/adapters.ts`;
-`adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
-`apps/desktop/src/utility/projects.ts`; the items in `adapters/react-adapter`, `vite-adapter`, `tanstack-router-adapter`
-and `storybook-adapter`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
+`packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
+`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`,
+`tailwind-adapter`, `tanstack-router-adapter` and `storybook-adapter`; the one list of adapters in `packages/adapters`;
+and `chrome/StatusBar.tsx`, which draws `info.status`.
 
-Tests: Storybook, `chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the React, Vite and
-Storybook adapters (`.storybook/example-project.ts`). Gaps: no unit test calls `adapterStatus`, and the story play
-functions weren't run.
+Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
+an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
+its own id), and `adapters/tailwind-adapter/src/index.test.ts` (Tailwind's item). Storybook,
+`chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
+(`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
 
 ### The status bar's process lights stay off the main thread (PAR-524)
 

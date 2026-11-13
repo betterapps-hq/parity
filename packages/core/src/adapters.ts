@@ -78,8 +78,8 @@ export function parseManifest(text: string, file: string): PackageManifest {
  * the app changing.
  */
 export interface StatusItem {
-  /** A Lucide icon's name, as `book-open`. */
-  icon: string
+  /** A Lucide icon's name, as `route`. Without one, the item shows its adapter's logo. */
+  icon?: string
   /** What's in bold: the tool's name, or a count. */
   value: string
   /** The words after it, as ` in Storybook` or ` 8.3.5`, which a narrow status bar leaves to screen readers. */
@@ -104,9 +104,42 @@ export interface StatusFacts {
   routes?: readonly ProjectRoute[]
 }
 
-/** A status item, with the adapter that gave it. */
+/** A status item, with the adapter that gave it, and that adapter's logo when the item names no icon. */
 export interface AdapterStatusItem extends StatusItem {
   adapter: string
+  logo?: AdapterIcon
+}
+
+/**
+ * An adapter's logo, as one shape the app fills with the text's colour, so it reads as an icon beside Lucide's in any
+ * theme. It's path data rather than SVG markup, so it draws nothing but the shape.
+ */
+export interface AdapterIcon {
+  /** The `viewBox` the path is drawn in, as `0 0 24 24`. */
+  viewBox: string
+  /** The path's data, every part of the logo in one. */
+  path: string
+  /** How overlapping parts fill: `evenodd` cuts one out of another, as the S out of Storybook's book. */
+  fillRule?: "nonzero" | "evenodd"
+}
+
+/** What every adapter has, whatever it integrates: who it is, its logo, and what it adds to the status bar. */
+export interface Adapter {
+  id: string
+  name: string
+  /** Its tool's logo. */
+  icon?: AdapterIcon
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
+}
+
+/** The adapters Parity opens projects with, by what they integrate. */
+export interface Adapters {
+  renderers: RendererAdapter[]
+  builders: BuilderAdapter[]
+  styles: StylesAdapter[]
+  routers: RouterAdapter[]
+  entities: EntitiesAdapter[]
 }
 
 /**
@@ -116,9 +149,7 @@ export interface AdapterStatusItem extends StatusItem {
  * the customer's own toolchain into the customer's module graph, so components render with the customer's copy of the
  * framework rather than the canvas app's.
  */
-export interface RendererAdapter {
-  id: string
-  name: string
+export interface RendererAdapter extends Adapter {
   detect(pkg: PackageManifest): boolean
   /** Module specifier, resolvable from the host, whose module exports `createGuest(init: GuestInit): Guest`. */
   guestModule: string
@@ -139,8 +170,6 @@ export interface RendererAdapter {
    * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export.
    */
   findComponents(source: string, file: string): ComponentExport[]
-  /** What it adds to the status bar. */
-  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** An export a renderer recognises as a component. */
@@ -181,9 +210,7 @@ export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] a
  * Compiles a customer's components with the customer's own build setup (Vite, webpack, Next.js…) and serves them to the
  * canvas as a guest module.
  */
-export interface BuilderAdapter {
-  id: string
-  name: string
+export interface BuilderAdapter extends Adapter {
   /**
    * The config files, relative to the project root, that say whether this builder serves the project (PAR-826).
    * Detection follows them, so adding or taking one away detects an open project again; the build tool follows a
@@ -193,8 +220,6 @@ export interface BuilderAdapter {
   /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
   detect(root: string): Promise<BuilderDetection>
   start(options: BuilderStartOptions): Promise<BuilderSession>
-  /** What it adds to the status bar. */
-  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** What a builder found: the tool's version and config file, or what it looked for when it found nothing. */
@@ -429,9 +454,7 @@ export interface DrawnNodes {
  * Reads a styling framework's theme (Tailwind, Panda, vanilla-extract…) from a project's own installation. Compiled CSS
  * only carries the variables the project's code already uses; the theme has every value a design may pick.
  */
-export interface StylesAdapter {
-  id: string
-  name: string
+export interface StylesAdapter extends Adapter {
   /** Whether a stylesheet of the project uses this framework. */
   detect(source: string): boolean
   /** Every theme variable, resolved by the project's own copy of the framework. */
@@ -447,8 +470,6 @@ export interface StylesAdapter {
    * custom properties, which `writeTokenChanges` in `@parity-app/tokens` writes.
    */
   writeTokens(source: string, writes: readonly TokenWrite[], theme: readonly ThemeVariable[]): string
-  /** What it adds to the status bar. */
-  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
@@ -472,9 +493,7 @@ export interface ThemeVariable {
  * to screens, for one. It reads through `source`, so it runs without a disk, and gives back only entities, so nothing
  * outside it knows the tool's format. A project can have several: each fills in the entities its tool describes.
  */
-export interface EntitiesAdapter {
-  id: string
-  name: string
+export interface EntitiesAdapter extends Adapter {
   /** Whether the project uses the tool, from its package.json. */
   detect(pkg: PackageManifest): boolean
   /** The entities the tool's files describe. */
@@ -484,8 +503,6 @@ export interface EntitiesAdapter {
    * text. None when the edit is one the tool's files can't hold.
    */
   export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
-  /** What it adds to the status bar. */
-  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** A file an adapter writes, by its path from the project's root, with its whole new text. */
@@ -529,9 +546,7 @@ export interface ImportedScreen {
  * Lists an app's routes from its router's own files (TanStack Router, React Router…), so the canvas can draw each page
  * (PAR-1073). The app's own entry draws a page at its URL; the adapter only says which routes there are.
  */
-export interface RouterAdapter {
-  id: string
-  name: string
+export interface RouterAdapter extends Adapter {
   /** Whether the project uses this router, from its package.json. */
   detect(pkg: PackageManifest): boolean
   /**
@@ -540,8 +555,6 @@ export interface RouterAdapter {
    * there, as before its tooling first writes them.
    */
   readRoutes(read: (path: string) => string | undefined): ProjectRoute[]
-  /** What it adds to the status bar. */
-  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** One route of an app, as its router declares it. */

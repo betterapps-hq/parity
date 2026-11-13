@@ -1,0 +1,19 @@
+{
+  "name": "@parity-app/adapters",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./builders": "./src/builders.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "@parity-app/react-adapter": "workspace:*",
+    "@parity-app/storybook-adapter": "workspace:*",
+    "@parity-app/tailwind-adapter": "workspace:*",
+    "@parity-app/tanstack-router-adapter": "workspace:*",
+    "@parity-app/vite-adapter": "workspace:*"
+  }
+}

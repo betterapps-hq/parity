@@ -1,8 +1,10 @@
 # Proposal: what adapters register in the editor (PAR-1071)
 
-Status: draft for discussion. Only status items are built: each adapter's `status` hook adds its own items to the status
-bar (2026-11-13). Plugins, and how they're packaged and trusted, are in [extensions.md](extensions.md); this page is
-only about where an adapter's content appears in the editor.
+Status: draft for discussion. Built on 2026-11-13: each adapter's `status` hook adds its own items to the status bar,
+and step 1 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind and
+Storybook bring their logos, `packages/adapters` is the one list, and Tailwind has a status item. Plugins, and how
+they're packaged and trusted, are in [extensions.md](extensions.md); this page is only about where an adapter's content
+appears in the editor.
 
 ## In one line
 
@@ -58,10 +60,10 @@ and share one base that holds detection and registrations:
 interface Adapter {
   id: string
   name: string
-  /** Its logo, as SVG that draws in `currentColor`. */
-  icon?: string
+  /** Its logo, as path data filled with the text's colour. */
+  icon?: AdapterIcon
   /** Icons its registrations name, by name. */
-  icons?: Record<string, string>
+  icons?: Record<string, AdapterIcon>
   /** What detection reads its version from. */
   versions?: VersionFacts
   /** Files, from the project root, whose coming, going or changing means it's detected again. */
@@ -104,6 +106,23 @@ interface Registrations {
   servers?: ServerInfo[]
 }
 ```
+
+## Who detects a tool today
+
+No one place does. Storybook is detected three times, each asking something slightly different, and the app joins the
+answers by the id `"storybook"`:
+
+| Where                                                      | What it checks                                                                            | What uses the answer                                                                                                                |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| The adapter's own `detect(pkg)`                            | `storybook` or any `@storybook/*` in package.json                                         | `importEntities`, to read stories as screens, and `projects.ts`, to choose whose status item shows                                  |
+| The fixed `tools` list in `packages/project/src/detect.ts` | The same dependencies again, then the installed version, `.storybook/main` and the majors | The project's detection and the version cutoff, which `adapterStatus` matches to the adapter by id                                  |
+| `findStorybook` in `packages/project/src/storybook.ts`     | Its config folder, the script that starts it, its port, and which components have stories | `info.storybook`: whether a component has stories in the Assets panel, `openInStorybook`, and starting it in `utility/storybook.ts` |
+
+React, Vite and Tailwind each have their adapter's `detect` and an entry in that list. TanStack Router has only its
+adapter's `detect`, so it isn't in the project's detection and has no version cutoff.
+
+With one detector each, all three become the Storybook adapter's `detect`, which says whether it's found, its version,
+its config and why. Its script, port and which components have stories are what it knows for its own registrations.
 
 ## Detect, then register
 
@@ -160,10 +179,11 @@ since packages will be published to a registry. The workspace lists `adapters/*`
 
 ## Order of work
 
-1. **The base, icons and one list of adapters.** The `Adapter` base, logos for React, Vite, Tailwind, TanStack Router
-   and Storybook, one list the service, the builder process, Storybook's example project and the fixtures share, and a
-   Tailwind status item. React and Vite move into `frameworks` and `builders`, and every folder drops `-adapter`, while
-   no other session is changing them.
+1. **The base, icons and one list of adapters.** Built: the `Adapter` base, logos for React, Vite, Tailwind and
+   Storybook, one list (`packages/adapters`) the service, the builder process, Storybook's example project and the
+   fixtures share, and a Tailwind status item. Left: TanStack Router's logo, which needs one from its brand kit, and
+   moving React and Vite into `frameworks` and `builders` with every folder dropping `-adapter`. The move waits until no
+   dev app or Storybook is running from this checkout, since they hold the adapters' folders open.
 2. **One detector each, and version facts.** Every `detect` takes a `DetectContext` and returns an `AdapterDetection`,
    detection reads each adapter's `versions`, `watches` takes over from a builder's `configFiles`, and the fixed list in
    `detect.ts` goes.
@@ -174,8 +194,10 @@ since packages will be published to a registry. The workspace lists `adapters/*`
 
 ## Decisions needed
 
-- **Logos as SVG markup or as path data.** Markup carries any logo, but the app has to strip scripts and outside links
-  from it. Path data is safe by construction but can't carry a logo with several colours.
+- **Logos as path data (decided in step 1).** An `AdapterIcon` is a `viewBox`, one path and its fill rule, which the app
+  fills with the text's colour. It can't run script or load anything, so nothing needs stripping; a logo in several
+  colours draws in one, which suits the status bar and the layers panel. A colour logo can be added beside it later if a
+  place needs one.
 - **Whether routes leave the `.par` model.** `RouteNode` is one of core's node types today, though the `(pages)` file
   that holds them is never saved. A node type an adapter registers would be a generic node naming its adapter and kind,
   which a design could only hold once adapters' node types can be saved.

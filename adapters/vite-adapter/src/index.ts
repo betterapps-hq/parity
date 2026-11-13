@@ -27,6 +27,7 @@ import { appPageModes } from "./app-page.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
+import { viteLogo } from "./logo.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
 /** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */
@@ -42,11 +43,11 @@ const loopback = "127.0.0.1"
 export const viteBuilder: BuilderAdapter = {
   id: "vite",
   name: "Vite",
+  icon: viteLogo,
   configFiles: viteConfigFiles,
   detect: detectVite,
   status: ({ version, packageManager }) => [
     {
-      icon: "hammer",
       value: "Vite",
       hint: version ? `Vite ${version}` : "Vite",
       detail: `Builds the project, with ${packageManager}`

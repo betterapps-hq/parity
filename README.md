@@ -112,6 +112,7 @@ serves them as MCP tools, and `parity skill` prints the skill that teaches an ag
 | `adapters/react-adapter`    | The React adapter, which draws components in frames.                                           |
 | `adapters/vite-adapter`     | The Vite adapter, which runs a project's own Vite.                                             |
 | `adapters/tailwind-adapter` | The Tailwind CSS adapter.                                                                      |
+| `packages/adapters`         | The one list of adapters Parity opens projects with.                                           |
 | `packages/cli`              | The `parity` command and MCP server, and the skill for agents.                                 |
 | `packages/libgen`           | Writes a `.lib.par` by inspecting a component library, an icon set or an app.                  |
 | `packages/registry`         | Parity's own `.lib.par` files, for libraries that don't ship one.                              |

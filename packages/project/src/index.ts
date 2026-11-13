@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { basename, extname, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
+  type Adapter,
   type AdapterStatusItem,
   type ComponentSource,
   type ContainerSpec,
@@ -18,9 +19,7 @@ import {
   type ProjectConfig,
   type ProjectEntities,
   type ProjectRoute,
-  type RendererAdapter,
-  type StatusFacts,
-  type StatusItem
+  type RendererAdapter
 } from "@parity-app/core"
 import { parseJsonc } from "@parity-app/registry"
 import type { ProjectDetection } from "./detection.ts"
@@ -323,7 +322,7 @@ export async function importEntities(
 
 /** An adapter that may add items to the status bar, with what Parity found of its tool. */
 export interface StatusSource {
-  adapter: { id: string; status?(facts: StatusFacts): StatusItem[] }
+  adapter: Pick<Adapter, "id" | "icon" | "status">
   /** The tool's version when the running tool says it; otherwise detection's. */
   version?: string
 }
@@ -331,6 +330,7 @@ export interface StatusSource {
 /**
  * The status bar's items, as each adapter in `sources` tells them, in order. An entities adapter is told the entities
  * it imported, and a router the app's routes; an item from a tool at a version Parity doesn't test says so in its tooltip.
+ * An item that names no icon carries its adapter's logo.
  */
 export function adapterStatus(
   sources: readonly StatusSource[],
@@ -350,11 +350,19 @@ export function adapterStatus(
       routes
     })
 
-    return (items ?? []).map((item) => ({
-      ...item,
-      adapter: adapter.id,
-      detail: untested ? `${item.detail ?? item.hint}. Parity doesn't test this version` : item.detail
-    }))
+    return (items ?? []).map((item) => {
+      const told: AdapterStatusItem = {
+        ...item,
+        adapter: adapter.id,
+        detail: untested ? `${item.detail ?? item.hint}. Parity doesn't test this version` : item.detail
+      }
+
+      if (!item.icon && adapter.icon) {
+        told.logo = adapter.icon
+      }
+
+      return told
+    })
   })
 }
 

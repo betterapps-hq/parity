@@ -597,6 +597,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         [
           { adapter: renderer },
           { adapter: builder, version: session.toolVersion },
+          ...adapters.styles.filter((adapter) => adapter.id === styles.info?.id).map((adapter) => ({ adapter })),
           ...(adapters.routers ?? []).filter((adapter) => adapter.detect(pkg)).map((adapter) => ({ adapter })),
           ...(adapters.entities ?? []).filter((adapter) => adapter.detect(pkg)).map((adapter) => ({ adapter }))
         ],

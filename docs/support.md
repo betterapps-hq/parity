@@ -73,6 +73,10 @@ snapshot only.
 
 ## By kind of tool
 
+Every adapter Parity opens projects with is listed once, in `packages/adapters`, which the project service, the
+builder's process, Storybook's example project and the validation projects all read. Supporting a new tool means writing
+its adapter and adding it to that list. Each adapter can bring its tool's logo, which its status bar item shows.
+
 ### UI framework (renderer adapter)
 
 | Tool                 | Status | Notes                                                                                                                                                                           |

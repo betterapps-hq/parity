@@ -1,10 +1,12 @@
 import { basename, dirname } from "node:path"
 import type { ComponentEvidence, ComponentExport, PackageManifest, RendererAdapter } from "@parity-app/core"
 import ts from "typescript"
+import { reactLogo } from "./logo.ts"
 
 export const reactRenderer: RendererAdapter = {
   id: "react",
   name: "React",
+  icon: reactLogo,
   detect: (pkg) => hasDependency(pkg, "react") && hasDependency(pkg, "react-dom"),
   guestModule: "@parity-app/react-adapter/guest",
   runtimePackages: ["react", "react-dom"],
@@ -18,7 +20,6 @@ export const reactRenderer: RendererAdapter = {
   findComponents,
   status: ({ version }) => [
     {
-      icon: "brush",
       value: "React",
       hint: version ? `React ${version}` : "React",
       detail: "Renders the project's components"

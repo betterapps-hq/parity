@@ -1,4 +1,5 @@
 import type { EntitiesAdapter, PackageManifest } from "@parity-app/core"
+import { storybookLogo } from "./logo.ts"
 import { exportStoryScreen, importStoryScreens, storybookId } from "./screens.ts"
 
 export { type ArgValue, readStoryFile, type Story, type StoryArgs, type StoryFile, storyName } from "./csf.ts"
@@ -18,6 +19,7 @@ function detect(pkg: PackageManifest): boolean {
 export const storybookAdapter: EntitiesAdapter = {
   id: storybookId,
   name: "Storybook",
+  icon: storybookLogo,
   detect,
   import: importStoryScreens,
   export: exportStoryScreen,
@@ -26,7 +28,6 @@ export const storybookAdapter: EntitiesAdapter = {
 
     return [
       {
-        icon: "book-open",
         value: stories.toLocaleString(),
         words: stories === 1 ? " story" : " stories",
         hint: version ? `Storybook ${version}` : "Storybook",

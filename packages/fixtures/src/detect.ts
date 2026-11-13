@@ -1,15 +1,13 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
+import { adapters } from "@parity-app/adapters"
 import {
-  type BuilderAdapter,
   type BuilderDetection,
   type ComponentSource,
   type JsonValue,
   type LibraryInfo,
   prepareCanvasCss,
-  type RendererAdapter,
   type StorybookInfo,
-  type StylesAdapter,
   type ThemeVariable
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
@@ -20,15 +18,10 @@ import {
   type PackageManagerDetection,
   readPackage
 } from "@parity-app/project"
-import { reactRenderer } from "@parity-app/react-adapter"
-import { tailwindStyles } from "@parity-app/tailwind-adapter"
 import { extractTokens } from "@parity-app/tokens"
-import { viteBuilder } from "@parity-app/vite-adapter"
 
 // The adapters the desktop app opens projects with.
-const renderers: RendererAdapter[] = [reactRenderer]
-const builders: BuilderAdapter[] = [viteBuilder]
-const stylesAdapters: StylesAdapter[] = [tailwindStyles]
+const { renderers, builders, styles: stylesAdapters } = adapters
 
 /**
  * The version cutoff depends on the date, so snapshots are taken as of a fixed one and don't change by themselves. Move

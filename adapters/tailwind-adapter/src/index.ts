@@ -1,5 +1,6 @@
 import type { StylesAdapter, ThemeVariable } from "@parity-app/core"
 import { loadDesignSystem } from "./design-system.ts"
+import { tailwindLogo } from "./logo.ts"
 import { tailwindPrinter } from "./printer.ts"
 import { writeTailwindTokens } from "./tokens.ts"
 
@@ -11,6 +12,15 @@ import { writeTailwindTokens } from "./tokens.ts"
 export const tailwindStyles: StylesAdapter = {
   id: "tailwind",
   name: "Tailwind CSS",
+  icon: tailwindLogo,
+  status: ({ version }) => [
+    {
+      value: "Tailwind CSS",
+      hint: version ? `Tailwind CSS ${version}` : "Tailwind CSS",
+      detail: "Reads the theme and writes classes. Click to show the tokens",
+      opens: { tab: "tokens" }
+    }
+  ],
   detect: (source) => /@import\s+["']tailwindcss["']|@tailwind\s+(?:base|utilities)/.test(source),
   async loadTheme(root, stylesheet) {
     const system = await loadDesignSystem(root, stylesheet)

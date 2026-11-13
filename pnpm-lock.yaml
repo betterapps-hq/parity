@@ -402,6 +402,9 @@ importers:
       '@parity-app/account':
         specifier: workspace:*
         version: link:../../packages/account
+      '@parity-app/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../../packages/agent
@@ -447,18 +450,9 @@ importers:
       '@parity-app/service':
         specifier: workspace:*
         version: link:../../packages/service
-      '@parity-app/storybook-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/storybook-adapter
       '@parity-app/style-schema':
         specifier: workspace:*
         version: link:../../packages/style-schema
-      '@parity-app/tailwind-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/tailwind-adapter
-      '@parity-app/tanstack-router-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/tanstack-router-adapter
       '@parity-app/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
@@ -669,6 +663,27 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
 
+  packages/adapters:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      '@parity-app/react-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/react-adapter
+      '@parity-app/storybook-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/storybook-adapter
+      '@parity-app/tailwind-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/tailwind-adapter
+      '@parity-app/tanstack-router-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/tanstack-router-adapter
+      '@parity-app/vite-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/vite-adapter
+
   packages/agent:
     dependencies:
       '@parity-app/core':
@@ -780,24 +795,18 @@ importers:
 
   packages/fixtures:
     dependencies:
+      '@parity-app/adapters':
+        specifier: workspace:*
+        version: link:../adapters
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
-      '@parity-app/react-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/react-adapter
-      '@parity-app/tailwind-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/tailwind-adapter
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
-      '@parity-app/vite-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/vite-adapter
 
   packages/icons:
     dependencies:

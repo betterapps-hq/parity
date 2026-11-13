@@ -1,13 +1,11 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { adapters } from "@parity-app/adapters"
 import { hasElementSources, inferProps } from "@parity-app/code"
 import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
 import { adapterStatus, detectProject, discoverProject, importEntities, readPackage } from "@parity-app/project"
-import { reactRenderer } from "@parity-app/react-adapter"
-import { storybookAdapter } from "@parity-app/storybook-adapter"
-import { tailwindStyles } from "@parity-app/tailwind-adapter"
-import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/vite-adapter"
+import { guestModuleSource, taggedModule } from "@parity-app/vite-adapter"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 
@@ -161,24 +159,36 @@ async function discover(): Promise<{
     throw new Error(`There's no package.json in ${root}`)
   }
 
-  const config = await discoverProject(root, reactRenderer, pkg)
+  // The adapters the app's service would choose: the example is React, built with Vite and styled with Tailwind.
+  const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg)) ?? adapters.renderers[0]!
+  const builder = adapters.builders[0]!
+  const config = await discoverProject(root, renderer, pkg)
   const stylesheet = config.styles[0]
-  const theme = stylesheet ? await tailwindStyles.loadTheme(root, stylesheet).catch(() => []) : []
+  const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
+  const styles = stylesheet ? adapters.styles.find((adapter) => adapter.detect(source)) : undefined
+  const theme = styles && stylesheet ? await styles.loadTheme(root, stylesheet).catch(() => []) : []
   const mainDocument = config.documents.find((path) => !path.includes("/")) ?? "shadcn-vite.par"
   // The example's main designs file is the only one stories open, read from Storybook's own copy.
   const documents = [await readDocument(mainDocument)]
   const main = documents[0]?.document
 
   const detection = await detectProject(root, pkg)
-  const entities = await importEntities(root, pkg, config.components, [storybookAdapter])
-  const tools = [{ adapter: reactRenderer }, { adapter: viteBuilder, version: "8" }, { adapter: storybookAdapter }]
+  const used = adapters.entities.filter((adapter) => adapter.detect(pkg))
+  const entities = await importEntities(root, pkg, config.components, used)
+
+  const tools = [
+    { adapter: renderer },
+    { adapter: builder, version: "8" },
+    ...(styles ? [{ adapter: styles }] : []),
+    ...used.map((adapter) => ({ adapter }))
+  ]
 
   const info: Omit<ProjectInfo, "guestUrl"> = {
     id: root,
     root,
     name: pkg.name ?? "shadcn-vite",
-    renderer: { id: reactRenderer.id, name: reactRenderer.name },
-    builder: { id: "vite", name: "Vite", toolVersion: "8" },
+    renderer: { id: renderer.id, name: renderer.name },
+    builder: { id: builder.id, name: builder.name, toolVersion: "8" },
     theme,
     routes: [],
     entities: {},
@@ -193,8 +203,8 @@ async function discover(): Promise<{
     modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
   }
 
-  if (stylesheet) {
-    info.styles = { id: tailwindStyles.id, name: tailwindStyles.name, stylesheet }
+  if (styles && stylesheet) {
+    info.styles = { id: styles.id, name: styles.name, stylesheet }
   }
 
   if (config.storybook) {

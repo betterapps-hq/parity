@@ -1,4 +1,4 @@
-import type { StatusItem } from "@parity-app/core"
+import type { AdapterStatusItem, StatusItem } from "@parity-app/core"
 import { Blocks, CircleX, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
 import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 import type { ReactNode } from "react"
@@ -43,7 +43,7 @@ export function StatusBar() {
       {info.status.map((item) => (
         <Item
           key={`${item.adapter}:${item.icon}:${item.hint}`}
-          icon={<DynamicIcon name={iconName(item.icon)} className="size-3.5" />}
+          icon={<ItemIcon item={item} />}
           hint={item.hint}
           detail={item.detail}
           onClick={item.opens && (() => open(item.opens))}
@@ -86,8 +86,23 @@ export function StatusBar() {
  * Components panel, a notification or an agent's tools give them.
  */
 
-/** An adapter's icon by its Lucide name, or a plain one for a name Lucide doesn't have. */
-function iconName(name: string): IconName {
+/**
+ * An adapter's item's icon: the Lucide icon it names, or a plain one for a name Lucide doesn't have, else its adapter's
+ * logo, filled with the text's colour.
+ */
+function ItemIcon({ item }: { item: AdapterStatusItem }) {
+  if (!item.icon && item.logo) {
+    return (
+      <svg viewBox={item.logo.viewBox} className="size-3.5" fill="currentColor" aria-hidden>
+        <path d={item.logo.path} fillRule={item.logo.fillRule} />
+      </svg>
+    )
+  }
+
+  return <DynamicIcon name={iconName(item.icon)} className="size-3.5" />
+}
+
+function iconName(name: string | undefined): IconName {
   return iconNames.find((each) => each === name) ?? "circle"
 }
 
