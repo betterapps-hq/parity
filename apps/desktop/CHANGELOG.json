@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Fri, 13 Nov 2026 00:49:27 GMT",
+      "version": "0.78.1",
+      "tag": "@parity-app/desktop_v0.78.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8e18ed2435d90a164d5dee67ec6d9fdc2e318d32",
+            "comment": "Take the project service's param types from their schemas (PAR-992)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a71bffcbe9eaa8158be125736e3532efed0c2bed",
+            "comment": "A component's props are one section, on a component design and on any instance"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 00:21:56 GMT",
       "version": "0.78.0",
       "tag": "@parity-app/desktop_v0.78.0",

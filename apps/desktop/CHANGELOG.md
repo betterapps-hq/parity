@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 00:21:56 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 00:49:27 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.78.1
+
+Fri, 13 Nov 2026 00:49:27 GMT
+
+### Patches
+
+- A component's props are one section, on a component design and on any instance (ajcraswell@gmail.com)
 
 ## 0.78.0
 
