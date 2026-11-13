@@ -20,15 +20,11 @@ export interface ComponentBoard {
   file: string
 }
 
-/**
- * A board's own style: hugging the component, 2px around it, on a light gray, so a component with no fill or a faint
- * border of its own, as Empty or Input, stands out from the page rather than being white on white.
- */
+/** A board's own style: hugging the component, 2px around it, with no fill of its own. */
 const boardStyle = {
   width: { size: "hug" },
   padding: { step: 0.5 },
-  color: { token: "foreground" },
-  fills: [{ type: "solid", color: { value: "#f5f5f5" } }]
+  color: { token: "foreground" }
 } as const satisfies NodeStyle
 
 /** Where the boards go and how far apart. */
@@ -74,7 +70,7 @@ export function componentBoardId(component: string): string {
  * A board for each of the project's own components (see `boardGroups`), a row for each group, with its top left at the
  * layout's. Each holds the component as inserting it would place it, with a sample for each required prop and its name
  * as the children it takes, once `components` says what it takes, inside the `parents` it needs, outermost first, when
- * it's found it needs some (`nextBoardParents`). The board hugs what it draws, 2px around it, on a light gray.
+ * it's found it needs some (`nextBoardParents`). The board hugs what it draws, 2px around it, and is clear.
  */
 export function componentBoards(
   sources: Readonly<Record<string, ComponentSource>>,
@@ -105,8 +101,8 @@ export function componentBoards(
           name: componentLabel(component),
           kind: "frame",
           position: { x: layout.x + column * layout.column, y: layout.y + row * layout.row },
-          // The component alone, 2px in from the board's edges so nothing it draws at its edges is cut off, on a light
-          // gray.
+          // The component alone, 2px in from the board's edges so nothing it draws at its edges is cut off, on nothing
+          // but the canvas.
           root: { type: "layout", id: "root", style: boardStyle, children: [node] }
         }
       }

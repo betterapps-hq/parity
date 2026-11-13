@@ -6519,10 +6519,9 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
 - **Drawn from the code.** The guest draws each component as inserting it would place it. A required prop gets its
   default or its first option, and a component that takes children gets its own name as text. It starts without samples
   and takes them once the props have been read from the component's types, a moment after the project opens. The board
-  hugs the component with 2px around it, so nothing at its edges is cut off, on a light gray (#f5f5f5), so a white
-  component or a faint border shows against it rather than against the page's white. Its title shows the component's
-  icon, its name, and its file underneath. At 100% a component is its own size: the example's Button is 65.7 × 32, as in
-  a browser.
+  hugs the component with 2px around it, so nothing at its edges is cut off, and has no fill, so the component sits on
+  the canvas. Its title shows the component's icon, its name, and its file underneath. At 100% a component is its own
+  size: the example's Button is 65.7 × 32, as in a browser.
 - **Inside the parents a part needs.** A part that fails for want of a parent, as AvatarImage needs Avatar and
   TabsTrigger needs TabsList inside Tabs, is drawn again inside the next parents to try (`nextBoardParents`), until it
   draws: first the component its error names, then the components of its file whose names begin its own, outermost, then
@@ -6581,7 +6580,7 @@ in `canvas/kinds.tsx`; `ElementPanel` in `chrome/LayerPanel.tsx`;
 `sampleBoards` and `ownWork` in `workspace.ts`; `ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
 
 Tests: `packages/editor/src/component-boards.test.ts` (4: the panel's groups without pages, libraries, dependencies or
-providers; a row for each group from the layout's top left; the component 2px in on a light gray, with a sample for each
+providers; a row for each group from the layout's top left; the component 2px in on no fill, with a sample for each
 required prop and its name as children; a part inside its parents, with what it draws read into it);
 `packages/editor/src/board-parents.test.ts` (6: the parent an error names, a parent kept that gets it further and the
 rest of its file tried, a parent that fails itself dropped, no search for another error, the end of the search, and a
