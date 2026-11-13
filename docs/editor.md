@@ -566,9 +566,10 @@ Tests:
   slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
   layout; a card component's default slot found through the element its layers are drawn in, by a layer in it and by the
   row around them, and its footer slot; and the layout around the card over the title it draws itself.
-- `chrome/AppMenu.stories.tsx` (EditLayerInInstance and ObjectLayerInInstance, under Parity/Chrome/App menu): with the
-  Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the pastes, and Object greys
-  Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end test below checks the same.
+- `chrome/AppMenu.edit.stories.tsx` and `AppMenu.object.stories.tsx` (LayerInInstance, under Parity/Chrome/App menu/Edit
+  and /Object): with the Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the
+  pastes, and Object greys Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end
+  test below checks the same.
 - `chrome/CanvasMenu.stories.tsx` (8 stories, under Parity/Chrome/Canvas menu), on the real canvas with tldraw: Layer,
   Instance, SeveralLayers, Design, EmptyCanvas, NewScreenHere, SelectLayer and Interacting. Each right-clicks through
   tldraw's pointer events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the
@@ -1906,11 +1907,12 @@ Tests:
   before anything's typed; `chrome/canvas-menu.test.ts`: the menu around the designs with its labels and keys, and
   Select all and Zoom to fit unavailable on an empty canvas.
 - Stories, which replace the exploration Parity / Explorations / Starting on the canvas, deleted with this build: Parity
-  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu (File,
-  ObjectWithNothingSelected), Parity / Chrome / Search (New), Parity / Chrome / Canvas menu (EmptyCanvas,
-  NewScreenHere), Parity / Chrome / Quick insert (NothingSelected, NowhereToInsertInto), Parity / Left panel /
-  Components (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All but the two Quick insert
-  ones played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the canvas, for Open's story too.
+  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu / File
+  (DesignSelected) and / Object (NothingSelected), Parity / Chrome / Search (New), Parity / Chrome / Canvas menu
+  (EmptyCanvas, NewScreenHere), Parity / Chrome / Quick insert (NothingSelected, NowhereToInsertInto), Parity / Left
+  panel / Components (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All but the two
+  Quick insert ones played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the canvas, for
+  Open's story too.
 - End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
   component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
   screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
@@ -2156,10 +2158,10 @@ Tests:
   apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the tab it's given;
   the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once there's
   something to duplicate, recorded both times.
-- Stories, Parity / Chrome / App menu: EditLayerInInstance and ObjectLayerInInstance (greyed items, Cut and Delete among
-  them, and the keymap's names for a layer inside an instance), FileExportSelectedAsItsShortcutDoes (PAR-976); Parity /
-  Chrome / Search: NamesWhatItDoes (a locked design's Unlock, found by "lock"). Parity / Chrome / Zoom controls:
-  NothingToFit, Zoom to fit unavailable in a project with nothing on its canvas.
+- Stories, Parity / Chrome / App menu / Edit and / Object: LayerInInstance (greyed items, Cut and Delete among them, and
+  the keymap's names for a layer inside an instance); / File: ExportSelectedAsItsShortcutDoes (PAR-976); Parity / Chrome
+  / Search: NamesWhatItDoes (a locked design's Unlock, found by "lock"). Parity / Chrome / Zoom controls: NothingToFit,
+  Zoom to fit unavailable in a project with nothing on its canvas.
 - Tried in the app on 2026-11-12 with `scripts/drive.ts`: the menubar, canvas menu and Layers menu with nothing, a
   screen, a component, a layer and every design selected; Hide from Object, then Show in Object and Layers, and Undo
   naming the step; the canvas menu from Shift+F10; and each item's accessible name, its label and its keys.
@@ -2210,7 +2212,7 @@ Tests:
   design, a group capped keeping its best; recent picks first, latest first, not listed again, kept while they match and
   dropped once gone; and at most six picks, the latest first.
 - Stories, Parity / Chrome / Search: Everything ("card" finds designs, layers, components and tokens), Recent (Zoom to
-  fit and Plan card picked, then listed under Recent) and New; Parity / Chrome / App menu: EditAfterWrapping (Repeat
+  fit and Plan card picked, then listed under Recent) and New; Parity / Chrome / App menu / Edit: AfterWrapping (Repeat
   wrap in layout with its keys, available).
 
 Gaps: no end-to-end test runs Repeat or picks a layer, component or token from the search.
@@ -3025,8 +3027,8 @@ reasons a file can't be written, and a crop kept inside the picture). `apps/desk
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
 `chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
 `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
-`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys, and FileExportSelectedAsItsShortcutDoes in
-`chrome/AppMenu.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
+`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
+`chrome/AppMenu.file.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
 drawing offscreen and writing the files run in the desktop app's service, which no test opens; the e2e suite covers the
 window's export, not this.
 
