@@ -4,7 +4,6 @@ import {
   Calendar,
   ChevronsUpDown,
   CircleDot,
-  FileUp,
   Film,
   Gauge,
   Image,
@@ -25,7 +24,8 @@ import {
   Table,
   TextCursorInput,
   ToggleRight,
-  Type
+  Type,
+  Upload
 } from "lucide-react"
 import { createElement } from "react"
 import { kindColors } from "./kinds.tsx"
@@ -47,7 +47,7 @@ const layerIcons: Record<LayerIconName, LucideIcon> = {
   "sliders-horizontal": SlidersHorizontal,
   calendar: Calendar,
   pipette: Pipette,
-  "file-up": FileUp,
+  upload: Upload,
   gauge: Gauge,
   image: Image,
   "pen-tool": PenTool,

@@ -235,7 +235,7 @@ export const elementTypeIcons = {
   slider: "sliders-horizontal",
   datePicker: "calendar",
   colorPicker: "pipette",
-  filePicker: "file-up",
+  filePicker: "upload",
   progress: "gauge",
   image: "image",
   vector: "pen-tool",
