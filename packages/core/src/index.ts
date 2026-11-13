@@ -117,6 +117,7 @@ export {
   dropPatches,
   duplicateState,
   editNode,
+  editResponsive,
   editsDesign,
   type EditTarget,
   editTargetName,

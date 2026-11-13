@@ -522,6 +522,22 @@ Print(JSON.stringify([merged, Get("profile/page").responsive.mobile, Get("profil
       { props: { layout: "stacked", title: "Ada" } }
     ])
   })
+
+  it("takes keys away with unset, takes them all back with null, and drops the whole patch with null (PAR-1050)", async () => {
+    const result = await read(
+      structuredClone(effectiveFixture.designs),
+      `Responsive("profile/heading", "mobile", { unset: { style: ["opacity"] }, style: { opacity: { step: 50 } } })
+const taken = Get("profile/heading").responsive.mobile
+Responsive("profile/heading", "mobile", { unset: null })
+const back = Get("profile/heading").responsive.mobile
+Responsive("profile/heading", "mobile", { text: null })
+const emptied = Get("profile/heading").responsive
+Responsive("profile/page", "mobile", null)
+Print(JSON.stringify([taken, back, emptied ?? "none", Get("profile/page").responsive ?? "none"]))`
+    )
+
+    expect(result).toEqual([{ text: "Me", unset: { style: ["opacity"] } }, { text: "Me" }, "none", "none"])
+  })
 })
 
 describe("instance overrides keyed by a layer's name (PAR-887)", () => {

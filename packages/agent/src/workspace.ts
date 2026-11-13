@@ -34,6 +34,7 @@ import {
   type VideoNode,
   editInner,
   editNode,
+  editResponsive,
   type EvalScope,
   drawnNode,
   type EvalContext,
@@ -75,7 +76,6 @@ import {
   type ResolvedMode,
   resolveModes,
   type StateSpec,
-  tidyPatch,
   uniqueId,
   unknownReference,
   walkNodes,
@@ -1259,27 +1259,8 @@ export class AgentWorkspace {
     }
 
     const { path: file, container, node } = this.findNode(path)
-
-    const root = mapNode(container.root, node.id, (current) => {
-      const responsive = { ...current.responsive }
-      const patch = input === null ? undefined : mergePatch(responsive[viewport], input)
-
-      if (patch) {
-        responsive[viewport] = patch
-      } else {
-        delete responsive[viewport]
-      }
-
-      if (Object.keys(responsive).length === 0) {
-        const { responsive: _emptied, ...rest } = current
-
-        return rest
-      }
-
-      return { ...current, responsive }
-    })
-
-    this.setContainer(file, { ...container, root }, node.id)
+    const change = input === null ? undefined : viewportChange(input, node.responsive?.[viewport])
+    this.setContainer(file, editResponsive(container, node.id, viewport, change), node.id)
   }
 
   // States ------------------------------------------------------------------------------------------------------------
@@ -2624,55 +2605,24 @@ function nullsToUndefined<T extends object>(values: T): { [K in keyof T]: Exclud
 }
 
 /**
- * A viewport's patch with `input` merged over it: `hidden` and `text` replaced, props and style key by key, and the
- * keys `unset` lists added to what it takes away. `null` takes a value away, or everything `unset` held. A key is never
- * both set and taken away, so the later call wins. A patch left with nothing is no patch.
+ * A viewport's patch as a change to the one it has, `current`: as a state's, except that `null` for `unset` takes back
+ * every key the patch takes away, which a change says by naming each without a value.
  */
-function mergePatch(current: NodePatch | undefined, input: PatchInput): NodePatch | undefined {
-  const next: NodePatch = { ...current }
+function viewportChange(input: PatchInput, current: NodePatch | undefined): NodeChange {
+  const change = toChange(input)
 
-  if (input.hidden !== undefined) {
-    next.hidden = input.hidden ?? undefined
+  if (input.unset === null) {
+    change.props = { ...withoutValues(current?.unset?.props), ...change.props }
+    change.style = { ...withoutValues(current?.unset?.style), ...change.style }
   }
 
-  if (input.text !== undefined) {
-    next.text = input.text ?? undefined
-  }
-
-  const unset = input.unset === null ? undefined : current?.unset
-  next.props = mergeKeys(current?.props, input.props, input.unset?.props)
-  next.style = mergeKeys(current?.style, input.style, input.unset?.style)
-
-  next.unset = {
-    props: takenKeys(unset?.props, Object.keys(input.props ?? {}), input.unset?.props),
-    style: takenKeys(unset?.style, Object.keys(input.style ?? {}), input.unset?.style)
-  }
-
-  const tidied = tidyPatch(next)
-
-  return Object.keys(tidied).length > 0 ? tidied : undefined
+  return change
 }
 
-/** Values with `input`'s merged over them, where `null` takes one away, less the keys `taken` lists. */
-function mergeKeys<T extends object>(
-  current: T | undefined,
-  input: { [K in keyof T]?: T[K] | null } | undefined,
-  taken: readonly string[] | undefined
-): T {
-  const merged = Object.entries({ ...current, ...input })
-
-  // SAFETY: every entry is one of `current`'s or `input`'s, less the `null` ones, so each key holds its own type;
-  // `Object.fromEntries` only knows it has string keys.
-  return Object.fromEntries(merged.filter(([key, value]) => value !== null && !taken?.includes(key))) as T
-}
-
-/** The keys a patch takes away: those it did, less the ones `given` now sets, plus those `added` lists. */
-function takenKeys<K extends string>(
-  kept: readonly K[] | undefined,
-  given: readonly string[],
-  added: readonly K[] | undefined
-): K[] {
-  return [...new Set([...(kept ?? []).filter((key) => !given.includes(key)), ...(added ?? [])])]
+/** Each of `keys` without a value, as a change takes a key back. */
+function withoutValues<K extends string>(keys: readonly K[] | undefined): Partial<Record<K, undefined>> {
+  // SAFETY: every entry is one of `keys`; `Object.fromEntries` only knows it has string keys.
+  return Object.fromEntries((keys ?? []).map((key) => [key, undefined])) as Partial<Record<K, undefined>>
 }
 
 /**

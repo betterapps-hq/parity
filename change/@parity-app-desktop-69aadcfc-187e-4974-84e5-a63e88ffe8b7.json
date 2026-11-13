@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Agents' viewport patches are written through core's editResponsive, and a state an agent writes keeps an unset key the layer doesn't have",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

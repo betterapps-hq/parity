@@ -564,8 +564,9 @@ function findOption(container: ContainerSpec, param: string, option: string) {
 /** How a change is written into a patch. */
 export interface PatchOptions {
   /**
-   * Keep values equal to what's under the patch. The editor drops them, since typing the base value back means no
-   * change; an agent naming a value for a state means the state shows it, whatever the base becomes.
+   * Keep what the change names even where it matches what's under the patch: a value equal to its own, and taking away
+   * a key it doesn't have. The editor drops them, since typing the base value back means no change; an agent naming a
+   * value for a state means the state shows it, whatever the base becomes.
    */
   keepEqual?: boolean
 }
@@ -611,6 +612,39 @@ export function editNode(
     target,
     patchWith(targetPatches(container, target), nodeId, under, change, options)
   )
+}
+
+/**
+ * Writes a change into a node's patch for one viewport, merged over what that patch has key by key as `patchWith`
+ * merges a state's; `undefined` takes the whole patch away, and a patch left with nothing goes. Every value the change
+ * names is kept, even one equal to the node's own: a viewport's style wins over the states and variant options (see
+ * `nodePatch`), so it still decides what the viewport shows when one of them sets the key.
+ */
+export function editResponsive(
+  container: ContainerSpec,
+  nodeId: string,
+  viewport: string,
+  change: NodeChange | undefined
+): ContainerSpec {
+  if (!findNode(container.root, nodeId)) {
+    throw new Error(`No node "${nodeId}" in ${container.name}`)
+  }
+
+  const root = mapNode(container.root, nodeId, (node) => {
+    const { responsive: current, ...rest } = node
+    let responsive: PatchLayer = current
+
+    if (change) {
+      responsive = patchWith(current, viewport, node, change, { keepEqual: true })
+    } else if (current?.[viewport]) {
+      const { [viewport]: _removed, ...others } = current
+      responsive = Object.keys(others).length > 0 ? others : undefined
+    }
+
+    return responsive ? { ...rest, responsive } : rest
+  })
+
+  return { ...container, root }
 }
 
 /**
@@ -722,7 +756,7 @@ export function patchWith(
   }
 
   if (patch.unset || change.unset) {
-    patch.unset = unsetWith(patch, under, change)
+    patch.unset = unsetWith(patch, under, change, keepEqual)
 
     // What's taken away isn't also set.
     if (change.unset?.props) {
@@ -745,10 +779,15 @@ export function patchWith(
 
 /**
  * What a patch takes away once `change` is applied to it: a key the change sets or takes back is no longer taken away,
- * and a key the change takes away is, when `under` has it, and leaves the patch's values. One `under` doesn't have
- * shows as taken away already, so there's nothing to keep.
+ * and a key the change takes away is, when `under` has it or `keepEqual` says to, and leaves the patch's values. One
+ * `under` doesn't have shows as taken away already, so otherwise there's nothing to keep.
  */
-function unsetWith(patch: NodePatch, under: DesignNode, change: NodeChange): PatchUnset | undefined {
+function unsetWith(
+  patch: NodePatch,
+  under: DesignNode,
+  change: NodeChange,
+  keepEqual: boolean
+): PatchUnset | undefined {
   // Each takes the keys the change sets and the keys `under` has, which are all it needs of their values.
   const keys = <K extends string>(
     kept: readonly K[] | undefined,
@@ -759,7 +798,7 @@ function unsetWith(patch: NodePatch, under: DesignNode, change: NodeChange): Pat
     const next = new Set((kept ?? []).filter((key) => !changed.includes(key)))
 
     for (const key of taken ?? []) {
-      if (base.includes(key)) {
+      if (keepEqual || base.includes(key)) {
         next.add(key)
       } else {
         next.delete(key)
