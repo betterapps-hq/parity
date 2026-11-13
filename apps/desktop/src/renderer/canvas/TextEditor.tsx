@@ -13,6 +13,7 @@ import { useProject } from "./context.ts"
 import { type AreaSpace, areaSpace, type ElementGeometry, frameGeometry } from "./frame-geometry.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
+import { scheduleOverlay } from "./overlay-scheduler.ts"
 
 /** What closed the editor: Enter, Escape, or clicking away. */
 type TextEditEnd = "enter" | "escape" | "blur"
@@ -27,9 +28,9 @@ interface EditorLayout {
 
 /**
  * Edits a text layer in place, over the rendered text, then writes it to the state it was picked in. It opens with the
- * double-clicked word selected, or the whole text; follows the text every frame, so it moves and scales with the
- * camera; and wraps where the text wraps, at its own width. Escape and Enter keep the edit, as clicking away does,
- * except while an input method is composing, which uses those keys itself.
+ * double-clicked word selected, or the whole text; follows the text with the canvas's other overlays, so it moves and
+ * scales with the camera; and wraps where the text wraps, at its own width. Escape and Enter keep the edit, as clicking
+ * away does, except while an input method is composing, which uses those keys itself.
  */
 export function TextEditor() {
   const session = useProject()
@@ -108,41 +109,37 @@ export function TextEditor() {
     opened.current = { text, range: openingSelection(text, offset) }
     textarea.value = text
 
-    // The text itself is hidden while the editor draws it, and measured every frame, so the editor stays on it as the
-    // camera pans and zooms, and as the layout around it moves.
+    // The text itself is hidden while the editor draws it, and measured whenever the canvas area's overlays are
+    // (PAR-986, see `overlay-scheduler.ts`): in the frame the camera moves, and after anything that can move the text,
+    // such as typing, the layout around it or a font loading, so the editor stays on it as the canvas pans and zooms.
     let hidden = hide(found.element)
     let { host } = found
-    let last = ""
-    let frame = 0
 
-    const tick = () => {
-      const now = find()
-      const current = now?.element ?? hidden.element
-      host = now?.host ?? host
+    const stop = scheduleOverlay(area, session, {
+      showing: () => true,
+      designs: () => new Set([editing.design]),
+      measure: () => {
+        const now = find()
+        const current = now?.element ?? hidden.element
+        host = now?.host ?? host
 
-      if (current !== hidden.element) {
-        hidden.restore()
-        hidden = hide(current)
-      }
+        // The frame drew the text anew: the new element is hidden in place of the old. It's the one write a measure
+        // makes, and only when the text is drawn again, which doesn't happen while the camera moves.
+        if (current !== hidden.element) {
+          hidden.restore()
+          hidden = hide(current)
+        }
 
-      const next = editorLayout(current, frameGeometry(host).element(current), areaSpace(area), grows, hidden.color)
-      const serialized = JSON.stringify(next)
-
-      if (serialized !== last) {
-        last = serialized
-        setLayout(next)
-      }
-
-      frame = requestAnimationFrame(tick)
-    }
-
-    tick()
+        return editorLayout(current, frameGeometry(host).element(current), areaSpace(area), grows, hidden.color)
+      },
+      draw: setLayout
+    })
 
     return () => {
-      cancelAnimationFrame(frame)
+      stop()
       hidden.restore()
     }
-  }, [editing, selection, store])
+  }, [editing, selection, store, session])
 
   const shown = layout !== undefined
   useEffect(() => {

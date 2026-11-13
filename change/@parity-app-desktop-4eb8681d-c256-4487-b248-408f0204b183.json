@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep the text editor on its text in every frame of a zoom, with every canvas overlay measured by one scheduler",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

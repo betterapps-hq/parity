@@ -3,6 +3,7 @@ import { findFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { areaSpace, type Box } from "./frame-geometry.ts"
+import { scheduleOverlay } from "./overlay-scheduler.ts"
 import { tabOrder, useTabOrderShown } from "./tab-order.ts"
 
 /** Each frame's tab stops, in the canvas area's coordinates. */
@@ -20,50 +21,37 @@ const color = "#f97316"
  */
 export function TabOrderOverlay() {
   const shown = useTabOrderShown()
-  const { selection } = useProject()
-  const design = useSelection(selection).design
+  const session = useProject()
+  const design = useSelection(session.selection).design
   const rootRef = useRef<HTMLDivElement>(null)
   const [measured, setMeasured] = useState<Trails>([])
   const trails = shown && design ? measured : []
 
-  // Stops follow the camera, layout changes and animations, so they're measured every frame.
+  // Stops follow the camera, layout changes and animations, measured with the canvas's other overlays (PAR-986, see
+  // `overlay-scheduler.ts`).
   useEffect(() => {
-    if (!shown || !design) {
+    const area = rootRef.current?.parentElement
+
+    if (!shown || !design || !area) {
       return undefined
     }
 
-    let frame = 0
-    let last = ""
+    return scheduleOverlay(area, session, {
+      showing: () => true,
+      designs: () => new Set([design]),
+      measure: () => {
+        const space = areaSpace(area)
 
-    const tick = () => {
-      frame = requestAnimationFrame(tick)
-      const area = rootRef.current?.parentElement
-
-      if (!area || area.closest("[hidden]")) {
-        return
-      }
-
-      const space = areaSpace(area)
-
-      const next = findFrames(area, design).map((host) => ({
-        key: `${host.dataset.mode}:${host.dataset.state}`,
-        stops: tabOrder(host)
-          .slice(0, maxStops)
-          .map((element) => space.box(element.getBoundingClientRect()))
-      }))
-
-      const serialized = JSON.stringify(next)
-
-      if (serialized !== last) {
-        last = serialized
-        setMeasured(next)
-      }
-    }
-
-    frame = requestAnimationFrame(tick)
-
-    return () => cancelAnimationFrame(frame)
-  }, [design, shown])
+        return findFrames(area, design).map((host) => ({
+          key: `${host.dataset.mode}:${host.dataset.state}`,
+          stops: tabOrder(host)
+            .slice(0, maxStops)
+            .map((element) => space.box(element.getBoundingClientRect()))
+        }))
+      },
+      draw: setMeasured
+    })
+  }, [design, shown, session])
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[305] overflow-hidden" aria-hidden>

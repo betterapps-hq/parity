@@ -3,6 +3,7 @@ import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { areaSpace, frameGeometry } from "../canvas/frame-geometry.ts"
+import { scheduleOverlay } from "../canvas/overlay-scheduler.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { type AgentPalette, agentColors, agentPalettes } from "./agent-colors.ts"
 import { ActionIcon, AgentBadge, AgentPointer } from "./AgentPointer.tsx"
@@ -437,30 +438,33 @@ function AgentCursor({
 
 /** A measurement's size, in CSS pixels as the design lays it out, under what was measured. */
 function MeasureLabel({ label, palette }: { label: Label; palette: AgentPalette }) {
+  const session = useProject()
   const { target, leaving } = label
   const ref = useRef<HTMLDivElement>(null)
   const element = target.element()
   const size = element && { w: Math.round(element.offsetWidth), h: Math.round(element.offsetHeight) }
 
+  // It follows what was measured with the canvas's other overlays (PAR-986, see `overlay-scheduler.ts`), placed before
+  // it's first painted.
   useLayoutEffect(() => {
-    let frame = 0
+    const chip = ref.current
+    const area = chip?.closest<HTMLElement>(".canvas-area")
 
-    const follow = () => {
-      const box = target.box()
-      const style = ref.current?.style
-
-      if (style) {
-        style.left = `${box.x + box.w / 2}px`
-        style.top = `${box.y + box.h}px`
-      }
-
-      frame = requestAnimationFrame(follow)
+    if (!chip || !area) {
+      return undefined
     }
 
-    follow()
-
-    return () => cancelAnimationFrame(frame)
-  }, [target])
+    return scheduleOverlay(area, session, {
+      showing: () => true,
+      // What an agent measures can be in any design.
+      designs: () => "every",
+      measure: () => target.box(),
+      draw: (box) => {
+        chip.style.left = `${box.x + box.w / 2}px`
+        chip.style.top = `${box.y + box.h}px`
+      }
+    })
+  }, [target, session])
 
   if (!size) {
     return null

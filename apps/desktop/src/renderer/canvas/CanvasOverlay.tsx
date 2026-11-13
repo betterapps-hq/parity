@@ -8,8 +8,6 @@ import {
   resolveModes
 } from "@parity-app/core"
 import {
-  distancesBetween,
-  drawsOver,
   type Edge,
   editableText,
   frameResize,
@@ -19,13 +17,10 @@ import {
   layersResize,
   type SpacingEdit,
   isLocked,
-  measuresNext,
-  movesOnlyTheView,
   overlayDesigns,
   pasteHere,
   resizeStart,
   selectedNodes,
-  settleUntil,
   spacingHandles,
   textLayer,
   toggleLayer,
@@ -33,20 +28,18 @@ import {
 } from "@parity-app/editor"
 import { SquareDashed } from "lucide-react"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
-import { flushSync } from "react-dom"
-import { type Editor, react, type TLRecord } from "tldraw"
+import type { Editor } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
-import { getPreferences, subscribePreferences } from "../chrome/preferences.ts"
+import { getPreferences } from "../chrome/preferences.ts"
 import type { DesignStore } from "../design-store.ts"
-import { frameAnimates, watchFrame } from "../frame-host.ts"
-import { allFrames, findFrames, findNodeElement, nodeBox, subscribeFrames } from "../frame.ts"
+import { allFrames, findFrames, findNodeElement, nodeBox } from "../frame.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { useProject } from "./context.ts"
-import { type AreaSpace, areaSpace, type Box, frameGeometry, frameSize } from "./frame-geometry.ts"
+import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
 import { followPress, gestures } from "./gesture.ts"
 import {
@@ -60,22 +53,23 @@ import {
   selectionFrame,
   underPoint
 } from "./hit.ts"
-import { chipColors, chipFor, designColor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
-import { type DragView, getDragView, pressLayers } from "./layer-drag.ts"
-import { resizeBoxes, type SpacingMeasure } from "./layer-measure.ts"
+import { chipColors, chipFor, kindColors, layerLabel, nodeColor } from "./kinds.tsx"
+import { getDragView, pressLayers } from "./layer-drag.ts"
+import { resizeBoxes } from "./layer-measure.ts"
 import { getSnapMeasures, LayerSnapping } from "./layer-snap.ts"
 import { findLayer } from "./layers.ts"
 import { addFrameOfText } from "./new-screen.ts"
+import { type Handles, noMarks, type OverlayMarks, type OverlayScene, overlayMarks } from "./overlay-marks.ts"
+import { scheduleOverlay } from "./overlay-scheduler.ts"
 import { placeAtPoint } from "./paste-here.ts"
 import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
-import { formatPx, type Redline, RedlineView } from "./Redline.tsx"
+import { formatPx, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { pressBackground } from "./select-box.ts"
 import {
   measureSpacing,
   pickSpacing,
   pressSpacing,
-  type SpacingTarget,
   spacingValue,
   stepSpacing,
   typeSpacing,
@@ -83,44 +77,6 @@ import {
 } from "./spacing-edit.ts"
 import { spacingKey, SpacingHandles } from "./SpacingHandles.tsx"
 import { TextEditor } from "./TextEditor.tsx"
-
-/** Resize handles around a selected layer, or around each frame of a selected design. */
-interface Handles {
-  kind: "node" | "frame"
-  key: string
-  box: Box
-  color: string
-  edges: Edge[]
-  /** What the handles say they do, for a frame's (see `ResizeHandles`). */
-  label?: string
-  design: string
-  mode: string
-  state: string
-  node?: string
-  /** Several layers resized together by handles on the box around them all (PAR-169). */
-  nodes?: string[]
-}
-
-interface Model {
-  outlines: { key: string; box: Box; color: string; dashed: boolean; thick: boolean }[]
-  /** The selection's name over it and its size under it; several layers are counted rather than named. */
-  label?: { box: Box; name: string; size: string; color: string; counted?: boolean }
-  redlines: Redline[]
-  handles: Handles[]
-  drag?: DragView
-  /** The selected layout's padding and gap handles (PAR-169). */
-  spacingHandles?: { target: SpacingTarget; measure: SpacingMeasure }
-  /** Column grids over frames, from View > Layout grid. */
-  columns?: { key: string; box: Box }[]
-  /** A selected frame's size, under it, as a layer's is: a frame's name is its title above it. */
-  frameSize?: { box: Box; size: string }
-  /** A selected component design's slots (PAR-83), each outlined and named, so it's clear where instances put layers. */
-  slots?: { key: string; box: Box; name: string }[]
-}
-
-const empty: Model = { outlines: [], redlines: [], handles: [] }
-const nodeEdges: Edge[] = ["n", "e", "s", "w", "ne", "se", "sw", "nw"]
-const frameEdges: Edge[] = ["e", "s", "se"]
 
 /**
  * Everything drawn over the canvas in screen space: selection and hover outlines for layers inside designs, the
@@ -130,8 +86,7 @@ const frameEdges: Edge[] = ["e", "s", "se"]
 export function CanvasOverlay() {
   const session = useProject()
   const rootRef = useRef<HTMLDivElement>(null)
-  const tickerRef = useRef<HTMLDivElement>(null)
-  const [model, setModel] = useState<Model>(empty)
+  const [model, setModel] = useState<OverlayMarks>(noMarks)
   const pointer = useRef<{ point?: Point; alt: boolean; deep: boolean }>({ alt: false, deep: false })
   const editing = useEditing(session.selection)
   // The padding or gap handle being dragged, and what it's come to.
@@ -339,227 +294,34 @@ export function CanvasOverlay() {
     }
   }, [session])
 
-  // Outlines follow the camera, layout changes, animations and drags, so they're measured when one of those can have
-  // moved them, not every frame (PAR-522, see `@parity-app/editor`'s overlay-measuring.ts): each change measures every
-  // frame for a moment, and after that only while an animation runs in a frame drawn over. Measuring rests otherwise.
-  // The camera is followed apart from that, in the frame it moves (PAR-653): see `followCamera` below. It starts again
-  // once the canvas mounts, to follow its camera and shapes.
-  const { editor } = session
+  // Outlines follow the camera, layout changes, animations and drags, measured when the canvas area's one scheduler
+  // decides (PAR-986, see `overlay-scheduler.ts`): `readScene` reads the boxes, and `overlayMarks` turns them into
+  // what's drawn. Interacting, outlines and handles would sit over the components being tried.
   useEffect(() => {
-    const { selection, store } = session
+    const { selection } = session
     const area = rootRef.current?.parentElement
 
     if (!area) {
       return undefined
     }
 
-    let frame = 0
-    let last = ""
-    let until = 0
-
-    const showing = () =>
-      !!selection.get().design || !!selection.getHover()?.node || !!getDragView() || getPreferences().layoutGrid
-
-    const designs = () =>
-      overlayDesigns({
-        selected: selection.get().design,
-        hovered: selection.getHover()?.design,
-        layoutGrid: getPreferences().layoutGrid
-      })
-
-    // An animation or a transition running in a frame, which the outlines over it follow as it goes.
-    const animating = () => {
-      const drawn = designs()
-
-      return allFrames(area).some((host) => drawsOver(drawn, host.dataset.design) && frameAnimates(host))
-    }
-
-    const draw = (now: boolean) => {
-      if (area.closest("[hidden]")) {
-        return
-      }
-
-      // Interacting, outlines and handles would sit over the components being tried.
-      const next = selection.getTool() === "interact" ? empty : measure(session, area, pointer.current.alt)
-      const serialized = JSON.stringify(next)
-
-      if (serialized === last) {
-        return
-      }
-
-      last = serialized
-
-      if (now) {
-        flushSync(() => setModel(next))
-      } else {
-        setModel(next)
-      }
-    }
-
-    const tick = () => {
-      frame = 0
-
-      if (measuresNext({ now: performance.now(), until, showing: showing(), animating })) {
-        frame = requestAnimationFrame(tick)
-      }
-
-      draw(false)
-    }
-
-    // The camera moves in tldraw's own animation frame, which moves the canvas and has boards' gutters follow the zoom
-    // (PAR-602). Measured in an animation frame of its own, outlines were drawn from before the camera moved or after,
-    // and laid the page out partway through the frame; and drawn from React state, they were painted a frame late. So
-    // once the camera has moved, the outlines are measured when the frame has been laid out, and drawn before it's
-    // painted: a ResizeObserver's callbacks run then, after every animation frame callback, so the camera changes the
-    // size of a hidden element to be called.
-    const ticker = tickerRef.current
-
-    const followCamera = () => {
-      if (!ticker || !showing()) {
-        return
-      }
-
-      ticker.style.width = ticker.style.width === "1px" ? "2px" : "1px"
-    }
-
-    const laidOut = new ResizeObserver(() => draw(true))
-
-    if (ticker) {
-      laidOut.observe(ticker)
-    }
-
-    const wake = () => {
-      until = settleUntil(performance.now(), until)
-      frame ||= requestAnimationFrame(tick)
-    }
-
-    // A frame's change wakes measuring only when it's drawn over.
-    const wakeFor = (host: HTMLElement) => {
-      if (drawsOver(designs(), host.dataset.design)) {
-        wake()
-      }
-    }
-
-    // The canvas area resizing or showing again, and frames changing size.
-    const resizes = new ResizeObserver((entries) => {
-      const drawn = designs()
-
-      const moved = ({ target }: ResizeObserverEntry) =>
-        target === area || (target instanceof HTMLElement && drawsOver(drawn, target.dataset.design))
-
-      if (entries.some(moved)) {
-        wake()
-      }
-    })
-
-    resizes.observe(area)
-    // What frames draw changing: React committing, a component's own DOM and style writes, a class starting a
-    // transition, an image loading.
-    const watched = new Map<HTMLElement, () => void>()
-
-    const watch = (host: HTMLElement, mounted: boolean) => {
-      if (!mounted || !area.contains(host)) {
-        watched.get(host)?.()
-        watched.delete(host)
-        resizes.unobserve(host)
-
-        return
-      }
-
-      resizes.observe(host)
-
-      if (!watched.has(host)) {
-        watched.set(
-          host,
-          watchFrame(host, () => wakeFor(host), { attributes: true, loads: true })
-        )
-      }
-    }
-
-    for (const host of allFrames(area)) {
-      watch(host, true)
-    }
-
-    const stopFrames = subscribeFrames((host, mounted) => {
-      watch(host, mounted)
-
-      if (area.contains(host)) {
-        wakeFor(host)
-      }
-    })
-
-    // The selection, hover, tool and preferences; the designs; tldraw's boards; and the pointer and keys, which drive
-    // drags, snapping, resizing and Alt's redlines. The camera, and the wheel that moves it, are left to `followCamera`,
-    // which measures once in each frame the camera moves; measuring every frame as well would lay the page out twice.
-    const stopSelection = selection.subscribe(wake)
-    const stopPreferences = subscribePreferences(wake)
-    const stopStore = store.subscribe(wake)
-
-    const stopEditor = editor?.store.listen(({ changes }) => {
-      const types = (records: Record<string, TLRecord>) => Object.values(records).map((record) => record.typeName)
-
-      const change = {
-        added: types(changes.added),
-        updated: Object.values(changes.updated).map(([from, to]) => {
-          const before = new Map(Object.entries(from))
-
-          return {
-            type: to.typeName,
-            fields: Object.entries(to).flatMap(([field, value]) => (before.get(field) === value ? [] : [field]))
-          }
+    return scheduleOverlay(area, session, {
+      showing: () =>
+        !!selection.get().design || !!selection.getHover()?.node || !!getDragView() || getPreferences().layoutGrid,
+      designs: () =>
+        overlayDesigns({
+          selected: selection.get().design,
+          hovered: selection.getHover()?.design,
+          layoutGrid: getPreferences().layoutGrid
         }),
-        removed: types(changes.removed)
-      }
-
-      if (!movesOnlyTheView(change)) {
-        wake()
-      }
+      measure: () =>
+        selection.getTool() === "interact" ? noMarks : overlayMarks(readScene(session, area, pointer.current.alt)),
+      draw: setModel
     })
-
-    const stopCamera =
-      editor &&
-      react("overlay follows the camera", () => {
-        editor.getCamera()
-        followCamera()
-      })
-
-    const inputs = ["pointermove", "pointerdown", "pointerup", "pointercancel", "keydown", "keyup"]
-
-    for (const type of inputs) {
-      window.addEventListener(type, wake, { capture: true, passive: true })
-    }
-
-    document.fonts.addEventListener("loadingdone", wake)
-    wake()
-
-    return () => {
-      cancelAnimationFrame(frame)
-      laidOut.disconnect()
-      resizes.disconnect()
-
-      for (const stop of watched.values()) {
-        stop()
-      }
-
-      stopFrames()
-      stopSelection()
-      stopPreferences()
-      stopStore()
-      stopEditor?.()
-      stopCamera?.()
-
-      for (const type of inputs) {
-        window.removeEventListener(type, wake, { capture: true })
-      }
-
-      document.fonts.removeEventListener("loadingdone", wake)
-    }
-  }, [session, editor])
+  }, [session])
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[300] overflow-hidden">
-      {/* Resized as the camera moves, to measure once the frame is laid out (see followCamera). */}
-      <div ref={tickerRef} aria-hidden className="invisible absolute top-0 left-0 h-0" />
       <FrameDrawingView />
       {model.outlines.map((outline) => (
         <div
@@ -713,7 +475,7 @@ function SpacingHandlesFor({
   onDrag
 }: {
   session: Pick<ProjectSession, "store" | "tokens">
-  spacing: NonNullable<Model["spacingHandles"]>
+  spacing: NonNullable<OverlayMarks["spacingHandles"]>
   dragging: ({ key: string } & SpacingEdit) | undefined
   onDrag: (edit: ({ key: string } & SpacingEdit) | undefined) => void
 }) {
@@ -767,40 +529,64 @@ function selectHit(selection: SelectionStore, hit: Hit, node: string | undefined
   }
 }
 
-function measure(
+/**
+ * What the overlay draws from (see `overlayMarks`): what's selected and hovered, read from the stores, and the boxes of
+ * what it outlines, read from the page in the overlay's pixels. Only what's drawn is read.
+ */
+function readScene(
   session: ProjectDesigns & Pick<ProjectSession, "editor" | "info" | "tokens">,
   area: HTMLElement,
   alt: boolean
-): Model {
-  const { selection, store, editor } = session
-
-  if (!editor) {
-    return empty
-  }
-
+): OverlayScene {
+  const { selection, store } = session
   const current = selection.get()
   const hover = selection.getHover()
+  const drag = getDragView()
   const space = areaSpace(area)
-  const toBox = space.box
+  const unit = spacingUnit(session.tokens.get())
 
-  // A box on screen as its size in the design's pixels, in the frame that draws it.
-  const sizeIn = (host: HTMLElement, rect: DOMRect) => {
-    const { width, height } = frameSize(frameGeometry(host), rect)
-
-    return `${formatPx(width)} × ${formatPx(height)}`
+  const scene: OverlayScene = {
+    tool: selection.getTool(),
+    layers: [],
+    locked: false,
+    slots: [],
+    alt,
+    snaps: getSnapMeasures().map(({ from, to, length }) => ({ from: space.point(from), to: space.point(to), length })),
+    unit
   }
 
-  const model: Model = { outlines: [], redlines: [], handles: [] }
+  if (current.node) {
+    scene.node = current.node
+  }
+
+  if (drag) {
+    scene.drag = drag
+  }
+
+  // A frame as the overlay draws over it, its box read once asked for.
+  const frameBox = (host: HTMLElement, rect = host.getBoundingClientRect()) => ({
+    mode: host.dataset.mode ?? "",
+    state: host.dataset.state ?? "",
+    box: space.box(rect),
+    scale: frameGeometry(host).scale
+  })
+
   const entry = current.design ? store.getEntry(current.design) : undefined
   const picked = entry ? selectionFrame(area, entry.key, current) : undefined
 
-  let selectedRect: DOMRect | undefined
+  if (entry) {
+    const { kind, locked } = entry.container
+    // A design's frames are read only for what's drawn on them: a frame's size and handles, with no layer selected.
+    const frames = current.node ? [] : findFrames(area, entry.key).map((host) => frameBox(host))
+    scene.design = picked
+      ? { key: entry.key, kind, locked: !!locked, frames, picked: frameBox(picked) }
+      : { key: entry.key, kind, locked: !!locked, frames }
+  }
+
   // While layers are dragged they are hidden where they were, so they have no outline there. An absolutely placed layer
   // moves itself, so its outline follows it.
-  const layers = entry && !getDragView()?.ghost ? selectedNodes(current) : []
-  // Locked layers keep their outline but take no handles, so they're changed only from the panels (PAR-192).
-  const locked = layers.some((id) => isLocked(entry!.container, id))
-  const pickedRects: DOMRect[] = []
+  const layers = entry && !drag?.ghost ? selectedNodes(current) : []
+  scene.locked = layers.some((id) => isLocked(entry!.container, id))
 
   for (const id of layers) {
     const node = findLayer(store, entry!.container, id)
@@ -813,130 +599,24 @@ function measure(
       color = nodeColor(node)
     }
 
-    for (const { host, rect, picked: isPicked } of nodeInFrames(area, entry!.key, id, picked)) {
-      model.outlines.push({
-        key: `sel:${id}:${host.dataset.mode}:${host.dataset.state}`,
-        box: toBox(rect),
-        color,
-        dashed: !isPicked,
-        thick: isPicked
-      })
-
-      if (!isPicked) {
-        continue
-      }
-
-      pickedRects.push(rect)
-
-      if (id !== current.node) {
-        continue
-      }
-
-      selectedRect = rect
-
-      if (layers.length > 1) {
-        continue
-      }
-
-      model.label = {
-        box: toBox(rect),
-        name: node ? layerLabel(node, store.getEntries(), store.getComponentLibrary(), session.info.libraries) : id,
-        size: sizeIn(host, rect),
-        color
-      }
-
-      // A locked layer, selected from Layers, isn't resized on the canvas (PAR-192).
-      if (selection.getTool() === "select" && !getDragView() && !isInnerPath(id) && !locked) {
-        model.handles.push({
-          kind: "node",
-          key: "node",
-          box: toBox(rect),
-          color,
-          edges: nodeEdges,
-          design: entry!.key,
-          mode: host.dataset.mode ?? "",
-          state: host.dataset.state ?? "",
-          node: id
-        })
-      }
-    }
-  }
-
-  // Several layers: one box around them all, with their count and its size.
-  if (layers.length > 1 && pickedRects.length > 0 && picked) {
-    const left = Math.min(...pickedRects.map((rect) => rect.left))
-    const top = Math.min(...pickedRects.map((rect) => rect.top))
-    const right = Math.max(...pickedRects.map((rect) => rect.right))
-    const bottom = Math.max(...pickedRects.map((rect) => rect.bottom))
-    const around = new DOMRect(left, top, right - left, bottom - top)
-    const box = toBox(around)
-    model.outlines.push({ key: "union", box, color: kindColors.layer, dashed: false, thick: false })
-
-    // Resized together by handles on that box, unless one is inside an instance, which keeps the component's size.
-    if (selection.getTool() === "select" && !getDragView() && !layers.some(isInnerPath) && !locked) {
-      model.handles.push({
-        kind: "node",
-        key: "union",
-        box,
-        color: kindColors.layer,
-        edges: nodeEdges,
-        design: entry!.key,
-        mode: picked.dataset.mode ?? "",
-        state: picked.dataset.state ?? "",
-        nodes: layers
-      })
-    }
-
-    model.label = {
-      box,
-      name: `${layers.length} layers`,
-      size: sizeIn(picked, around),
-      color: kindColors.layer,
-      counted: true
-    }
-  }
-
-  const drag = getDragView()
-
-  if (drag) {
-    model.drag = drag
-  }
-
-  if (entry?.container.kind === "frame" && !current.node) {
-    const host = findFrames(area, entry.key)[0]
-
-    if (host) {
-      const rect = host.getBoundingClientRect()
-      model.frameSize = { box: toBox(rect), size: sizeIn(host, rect) }
-    }
+    scene.layers.push({
+      id,
+      name: node ? layerLabel(node, store.getEntries(), store.getComponentLibrary(), session.info.libraries) : id,
+      color,
+      inner: isInnerPath(id),
+      boxes: nodeInFrames(area, entry!.key, id, picked).map(({ host, rect, picked: isPicked }) => ({
+        ...frameBox(host, rect),
+        picked: isPicked
+      }))
+    })
   }
 
   if (entry && picked && !drag) {
-    const slots = designSlots(entry.container).flatMap(({ name, node }) =>
+    scene.slots = designSlots(entry.container).flatMap(({ name, node }) =>
       nodeInFrames(area, entry.key, node.id, picked)
         .filter((item) => item.picked)
-        .map(({ rect }) => ({ key: `slot:${node.id}`, box: toBox(rect), name }))
+        .map(({ rect }) => ({ id: node.id, name, box: space.box(rect) }))
     )
-
-    if (slots.length > 0) {
-      model.slots = slots
-    }
-  }
-
-  if (entry && !current.node && selection.getTool() === "select" && !entry.container.locked) {
-    for (const host of findFrames(area, entry.key)) {
-      model.handles.push({
-        kind: "frame",
-        key: `frame:${host.dataset.mode}:${host.dataset.state}`,
-        box: toBox(host.getBoundingClientRect()),
-        color: designColor(entry.container.kind),
-        edges: frameEdges,
-        label: entry.container.kind === "frame" ? "Drag to resize the frame" : undefined,
-        design: entry.key,
-        mode: host.dataset.mode ?? "",
-        state: host.dataset.state ?? ""
-      })
-    }
   }
 
   if (hover?.node && !(hover.design === current.design && hover.node === current.node)) {
@@ -954,57 +634,46 @@ function measure(
     const target = nodeInFrames(area, hover.design, hover.node, frame).find((item) => item.picked)
 
     if (target && node) {
-      const { rect } = target
-      const color = isInnerPath(hover.node) ? kindColors.component : nodeColor(node)
-      model.outlines.push({ key: "hover", box: toBox(rect), color, dashed: false, thick: false })
-      const unit = spacingUnit(session.tokens.get())
+      const inPicked = !!picked && target.host === picked
 
-      // Measured from the selected layer as the hovered frame draws it.
-      let from: DOMRect | undefined
-
-      if (target.host === picked) {
-        from = selectedRect
-      } else if (hover.design === current.design && current.node && !getDragView()) {
-        from = nodeBox(target.host, current.node)
+      scene.hover = {
+        box: space.box(target.rect),
+        color: isInnerPath(hover.node) ? kindColors.component : nodeColor(node),
+        scale: frameGeometry(target.host).scale,
+        inPicked
       }
 
-      if (alt && from) {
-        model.redlines = redlines(from, rect, frameGeometry(target.host).scale, unit, space)
-      } else if (alt && !selectedRect && hoverEntry) {
-        // Nothing selected to measure from: Alt shows the hovered layer's distances to the edges of its parent.
+      if (alt && !inPicked && hover.design === current.design && current.node && !drag) {
+        const from = nodeBox(target.host, current.node)
+
+        if (from) {
+          scene.hover.from = space.box(from)
+        }
+      }
+
+      if (alt && hoverEntry) {
         const parent = locateNode(hoverEntry.container.root, hover.node)?.ancestors.at(-1)
         const parentRect = parent && nodeBox(target.host, parent.id)
 
         if (parentRect) {
-          model.redlines = redlines(rect, parentRect, frameGeometry(target.host).scale, unit, space)
+          scene.hover.parent = space.box(parentRect)
         }
       }
     }
   }
 
-  // A layer snapping as it's moved or resized shows its distances to what it lines up with.
-  const snapped = getSnapMeasures()
-
-  if (snapped.length > 0) {
-    const unit = spacingUnit(session.tokens.get())
-    model.redlines = snapped.flatMap(({ from, to, length }) =>
-      Math.hypot(to.x - from.x, to.y - from.y) < 0.5 ? [] : [redline(space.point(from), space.point(to), length, unit)]
-    )
-  }
-
-  // A selected layout's padding and gaps take handles, which hatch the space they change only while they're in use.
+  // A single selected layout's padding and gaps, as the picked frame draws them.
   const single = layers.length === 1 ? layers[0] : undefined
   const layout = entry && single ? findLayer(store, entry.container, single) : undefined
 
-  if (single && layout?.type === "layout" && picked && !getDragView()) {
+  if (single && layout?.type === "layout" && picked && !drag) {
     const element = findNodeElement(picked, single)
     // Inside an instance, the children's ids carry the same prefix as the layout's.
     const prefix = single.slice(0, single.lastIndexOf("/") + 1)
     const children = layout.children.map((child) => findNodeElement(picked, `${prefix}${child.id}`))
 
-    // Its padding and gaps take handles, except inside an instance, where they're the component's (PAR-169).
-    if (element && selection.getTool() === "select" && !isInnerPath(single) && !locked) {
-      model.spacingHandles = {
+    if (element) {
+      scene.spacing = {
         target: {
           design: entry!.key,
           mode: picked.dataset.mode ?? "",
@@ -1016,73 +685,22 @@ function measure(
     }
   }
 
+  // Every frame on screen, for its column grid.
   if (getPreferences().layoutGrid) {
-    model.columns = layoutColumns(area, toBox)
+    const view = area.getBoundingClientRect()
+
+    scene.grid = allFrames(area).flatMap((host) => {
+      const rect = host.getBoundingClientRect()
+
+      if (rect.right < view.left || rect.left > view.right || rect.bottom < view.top || rect.top > view.bottom) {
+        return []
+      }
+
+      return [{ ...frameBox(host, rect), key: `${host.dataset.design}:${host.dataset.mode}:${host.dataset.state}` }]
+    })
   }
 
-  return model
-}
-
-/**
- * Column grids, sized for each frame's width the way most design systems lay pages out: 4 columns on phones, 8 on
- * tablets, 12 on wider screens, with margins and gutters growing to match.
- */
-function layoutColumns(area: HTMLElement, toBox: (rect: DOMRect) => Box): { key: string; box: Box }[] {
-  const columns: { key: string; box: Box }[] = []
-  const view = area.getBoundingClientRect()
-
-  for (const host of allFrames(area)) {
-    const rect = host.getBoundingClientRect()
-
-    if (rect.right < view.left || rect.left > view.right || rect.bottom < view.top || rect.top > view.bottom) {
-      continue
-    }
-
-    const { scale } = frameGeometry(host)
-    const width = rect.width / scale
-    let grid = { count: 12, margin: 32, gutter: 24 }
-
-    if (width < 600) {
-      grid = { count: 4, margin: 16, gutter: 16 }
-    } else if (width < 1024) {
-      grid = { count: 8, margin: 24, gutter: 24 }
-    }
-
-    const column = (width - grid.margin * 2 - grid.gutter * (grid.count - 1)) / grid.count
-
-    if (column <= 0) {
-      continue
-    }
-
-    for (let index = 0; index < grid.count; index++) {
-      const left = rect.left + (grid.margin + index * (column + grid.gutter)) * scale
-      columns.push({
-        key: `${host.dataset.design}:${host.dataset.mode}:${host.dataset.state}:${index}`,
-        box: toBox(new DOMRect(left, rect.top, column * scale, rect.height))
-      })
-    }
-  }
-
-  return columns
-}
-
-/**
- * Distances between the selected box and another, Figma style: to each edge of a box that contains it (padding),
- * otherwise the gaps between them on each axis. The boxes are on screen, the lines in the overlay's pixels, and each
- * length in the design's, at `scale` screen pixels to one of them.
- */
-export function redlines(a: DOMRect, b: DOMRect, scale: number, unit: number, space: AreaSpace): Redline[] {
-  return distancesBetween(space.box(a), space.box(b)).flatMap(({ from, to, length }) =>
-    length < 0.5 ? [] : [redline(from, to, length / scale, unit)]
-  )
-}
-
-/** A distance to draw, from and to points on screen, `length` pixels of the design long. */
-function redline(from: Point, to: Point, length: number, unit: number): Redline {
-  const px = Math.round(length * 10) / 10
-  const steps = px / unit
-
-  return { x1: from.x, y1: from.y, x2: to.x, y2: to.y, px, steps: Number.isInteger(steps * 2) ? steps : undefined }
+  return scene
 }
 
 /**
