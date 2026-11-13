@@ -182,8 +182,19 @@ export function fillSlotWithLayer(
   return { ...cleared, root: moveNodes(cleared.root, [layerId], instanceId, { slot }) }
 }
 
+/** A design with one of its instances' slots filled by a new instance, and that instance's id. */
+interface FilledSlot {
+  container: ContainerSpec
+  id: string
+}
+
 /** Fills one of an instance's slots with a new instance of a component, in place of what filled it. Its id comes back. */
-export function fillSlotWithComponent(container: ContainerSpec, instanceId: string, slot: string, component: string) {
+export function fillSlotWithComponent(
+  container: ContainerSpec,
+  instanceId: string,
+  slot: string,
+  component: string
+): FilledSlot {
   const cleared = emptied(container, instanceId, slot)
   const id = generateId(nodeIds(cleared.root))
   const root = insertNode(cleared.root, instanceId, { type: "instance", id, design: component }, { slot })
