@@ -58,17 +58,17 @@ export function LargerView({
               {picked && <Check />} {picked ? "Picked" : "Pick"}
             </Button>
           )}
-          <IconButton label="Close" shortcut="Esc" size="icon" onClick={onClose}>
+          <IconButton label="Close" shortcut="close" size="icon" onClick={onClose}>
             <X />
           </IconButton>
         </div>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center gap-3 bg-muted/40 p-4 dark:bg-muted/20">
-        <IconButton label="Previous" shortcut="←" size="icon" onClick={() => onStep(-1)}>
+        <IconButton label="Previous" shortcut="previous" size="icon" onClick={() => onStep(-1)}>
           <ChevronLeft />
         </IconButton>
         <Stage key={found.id} found={found} />
-        <IconButton label="Next" shortcut="→" size="icon" onClick={() => onStep(1)}>
+        <IconButton label="Next" shortcut="next" size="icon" onClick={() => onStep(1)}>
           <ChevronRight />
         </IconButton>
       </div>

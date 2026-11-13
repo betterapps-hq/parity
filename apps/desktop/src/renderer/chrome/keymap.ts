@@ -1,8 +1,9 @@
-import { matches } from "./keys.ts"
+import { formatKeys, isMac, matches } from "./keys.ts"
 
 /**
- * Every keyboard shortcut, in one place. The menus and tooltips show these keys, the Keyboard shortcuts dialog lists
- * them, and the key handlers match events against them, so what's shown is what works.
+ * Every keyboard shortcut, in one place. The menus and tooltips show these keys through `shortcutOf`, the Keyboard
+ * shortcuts dialog lists them and the key handlers match events against them through `keysOf`, so what's shown is
+ * what works.
  *
  * Keys are written as on Windows, a space between each: `Ctrl Shift Z`. `formatKeys` shows them joined by `+` on
  * Windows and Linux (`Ctrl+Shift+Z`), and with the Mac's symbols on a Mac, where Ctrl is Cmd. The first keys are the
@@ -132,9 +133,48 @@ export const gestures = {
   deepest: { group: "Selection", label: "Select the deepest layer under the pointer", keys: "Ctrl", with: "click" }
 } as const satisfies Record<string, Gesture>
 
+/**
+ * Keys a control or the system answers to on its own, which the app shows beside it but doesn't bind: Windows closes the
+ * window on Alt F4, and a viewer closes on Esc and steps with the arrows. They aren't commands, so the key handlers
+ * don't match them and the Keyboard shortcuts list leaves them out.
+ */
+export const fixedKeys = {
+  exit: "Alt F4",
+  close: "Esc",
+  previous: "←",
+  next: "→",
+  confirm: "Enter",
+  remove: "Del"
+} as const
+
+export type Fixed = keyof typeof fixedKeys
+
+/** Something whose keys are shown: a command, or a control's fixed keys. */
+export type Shortcut = Command | Fixed
+
+/**
+ * Every keys that run a command, the shown ones first. The key handlers and every place that shows keys read them here
+ * rather than from `keymap`, so a binding changed in one place works and shows everywhere at once.
+ */
+export function keysOf(command: Command): readonly string[] {
+  return keymap[command].keys
+}
+
+/**
+ * The keys shown for a command or a control, as the platform writes them: `Ctrl+T`, or `⌘T` on a Mac. A command shows
+ * its first keys. Every menu, tooltip and list that shows one key reads it here.
+ */
+export function shortcutOf(shortcut: Shortcut, mac = isMac()): string {
+  return formatKeys(isFixed(shortcut) ? fixedKeys[shortcut] : keysOf(shortcut)[0]!, mac)
+}
+
+function isFixed(shortcut: Shortcut): shortcut is Fixed {
+  return Object.hasOwn(fixedKeys, shortcut)
+}
+
 /** Whether a key event is one of a binding's shortcuts. */
 function isShortcut(event: KeyboardEvent, command: Command): boolean {
-  return keymap[command].keys.some((keys) => matches(event, keys))
+  return keysOf(command).some((keys) => matches(event, keys))
 }
 
 /** The binding, if any, a key event matches. */

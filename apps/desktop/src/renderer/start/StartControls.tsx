@@ -18,7 +18,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { accountActions, useAccount } from "../account/account.ts"
 import { currentOrganization, knownOrganizations, OrganizationBadge } from "../account/OrganizationBadge.tsx"
 import { NobodyAvatar } from "../account/PersonAvatar.tsx"
-import { formatKeys } from "../chrome/keys.ts"
+import { shortcutOf } from "../chrome/keymap.ts"
 import { AzureDevOpsMark, GitHubMark } from "./marks.tsx"
 import { newProjectNotReady, notReady, useStartActions } from "./start-actions.ts"
 
@@ -48,7 +48,7 @@ export function SearchButton({ large, takeFocus = false }: { large?: boolean; ta
     >
       <Search className={large ? "size-[18px]" : "size-4"} />
       <span className="flex-1 truncate">{large ? "Search projects and actions" : "Search"}</span>
-      <Kbd>{formatKeys("Ctrl K")}</Kbd>
+      <Kbd>{shortcutOf("actions")}</Kbd>
     </button>
   )
 }
@@ -69,10 +69,10 @@ export function OpenMenu() {
       />
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuItem onClick={actions.openFolder}>
-          <FolderOpen /> Open a folder <DropdownMenuShortcut>{formatKeys("Ctrl O")}</DropdownMenuShortcut>
+          <FolderOpen /> Open a folder <DropdownMenuShortcut>{shortcutOf("openFolder")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={actions.openFile}>
-          <FileInput /> Open a project file <DropdownMenuShortcut>{formatKeys("Ctrl Shift O")}</DropdownMenuShortcut>
+          <FileInput /> Open a project file <DropdownMenuShortcut>{shortcutOf("openFile")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={clone}>

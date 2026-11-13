@@ -82,7 +82,6 @@ import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
 import { keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
 import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
@@ -721,7 +720,7 @@ function GroupHeading({ group }: { group: Group }) {
       <GroupLabel className="flex-1">{group.title}</GroupLabel>
       <IconButton
         label={keymap[group.command].label}
-        shortcut={keymap[group.command].keys[0]}
+        shortcut={group.command}
         onClick={() => addDesign(session, group.kind)}
         className="size-6"
       >
@@ -1169,7 +1168,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
       >
         {icon}
         {entry.label}
-        {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
+        {entry.keys && <ContextMenuShortcut>{entry.keys}</ContextMenuShortcut>}
       </ContextMenuItem>
     )
   })

@@ -64,13 +64,7 @@ interface ZoomButtonProps {
 
 function ZoomButton({ command, disabled, onClick, children }: ZoomButtonProps) {
   return (
-    <IconButton
-      label={keymap[command].label}
-      shortcut={keymap[command].keys[0]}
-      disabled={disabled}
-      pressable
-      onClick={onClick}
-    >
+    <IconButton label={keymap[command].label} shortcut={command} disabled={disabled} pressable onClick={onClick}>
       {children}
     </IconButton>
   )

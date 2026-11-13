@@ -78,7 +78,7 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
           <div className="flex-1" />
           <IconButton
             label={`Hide ${label.toLowerCase()}`}
-            shortcut="Ctrl \"
+            shortcut="panels"
             onClick={() => setLayout({ [side]: false })}
           >
             <Close />
@@ -112,7 +112,7 @@ function CollapsedRail({
       className={`flex w-12 shrink-0 flex-col items-center gap-1 bg-background py-2 ${side === "left" ? "border-r" : "border-l"}`}
       aria-label={label}
     >
-      <IconButton label={`Show ${label.toLowerCase()}`} shortcut="Ctrl \" onClick={() => setLayout({ [side]: true })}>
+      <IconButton label={`Show ${label.toLowerCase()}`} shortcut="panels" onClick={() => setLayout({ [side]: true })}>
         <Open />
       </IconButton>
       <div className="my-1 h-px w-6 bg-border" />

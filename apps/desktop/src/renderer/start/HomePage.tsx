@@ -2,7 +2,7 @@ import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowRight, FileInput, FolderOpen, Inbox } from "lucide-react"
 import { useEffect, useId, useMemo } from "react"
 import { useAccount } from "../account/account.ts"
-import { formatKeys } from "../chrome/keys.ts"
+import { shortcutOf } from "../chrome/keymap.ts"
 import { Name } from "../chrome/Name.tsx"
 import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
 import { useExampleFolder, useKnownProjects } from "../workspace.ts"
@@ -124,7 +124,7 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
           {project.opened === undefined ? project.root : `You last opened it ${whenLabel(project.opened, now)}.`}
         </p>
         <Button onClick={resume} aria-label={`Resume ${project.name}`} className="mt-1 gap-2">
-          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">{formatKeys("Enter")}</Kbd>
+          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">{shortcutOf("confirm")}</Kbd>
         </Button>
       </div>
     </section>

@@ -41,7 +41,6 @@ import { openSource } from "./code-editor.ts"
 import { allLevels, consoleFilterOf, type Shown, useConsoleFilter } from "./console-filter.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
-import { keymap } from "./keymap.ts"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
 import { Name } from "./Name.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
@@ -158,11 +157,7 @@ function ConsoleHeader({ session, messages }: { session: ProjectSession; message
       <IconButton label="Clear the console" onClick={() => clearConsole(session)}>
         <Ban />
       </IconButton>
-      <IconButton
-        label="Close the console"
-        shortcut={keymap.console.keys[0]}
-        onClick={() => setLayout({ console: false })}
-      >
+      <IconButton label="Close the console" shortcut="console" onClick={() => setLayout({ console: false })}>
         <X />
       </IconButton>
     </div>

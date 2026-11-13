@@ -1,13 +1,13 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
 import { actions, commandsFor } from "./actions.ts"
-import { type Command, keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
+import { type Command, type Shortcut, shortcutOf } from "./keymap.ts"
 import { pressable as pressing, pressMotion } from "./toolbar-parts.tsx"
 
 interface IconButtonProps {
   label: string
-  shortcut?: string
+  /** Whose keys the tooltip shows: a command, or a control's fixed keys, as Close shows Esc. */
+  shortcut?: Shortcut
   /** `icon` for a 32px button, as on the canvas's toolbar; small by default. */
   size?: "icon" | "icon-sm"
   disabled?: boolean
@@ -46,7 +46,7 @@ export function IconButton({
         }
       />
       <TooltipContent>
-        {label} {shortcut && <Kbd>{formatKeys(shortcut)}</Kbd>}
+        {label} {shortcut && <Kbd>{shortcutOf(shortcut)}</Kbd>}
       </TooltipContent>
     </Tooltip>
   )
@@ -67,7 +67,7 @@ export function CommandButton({ command, children }: CommandButtonProps) {
   return (
     <IconButton
       label={state.label}
-      shortcut={keymap[command].keys[0]}
+      shortcut={command}
       size="icon"
       disabled={!state.enabled}
       pressable

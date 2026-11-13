@@ -10,8 +10,7 @@ import {
 import { ChevronDown } from "lucide-react"
 import { type CSSProperties, type ReactElement, useEffect, useRef } from "react"
 import { asEasing, pop, springs } from "../springs.ts"
-import { type Command, keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
+import { type Command, keymap, shortcutOf } from "./keymap.ts"
 
 /* What the bars floating on the canvas share (PAR-795): the toolbar, zoom, and the review tools' bars. */
 
@@ -74,13 +73,11 @@ interface CommandTipProps {
 
 /** A control's tooltip: its label and the first of its command's keys, as every tooltip in the app shows them. */
 export function CommandTip({ command, label, children }: CommandTipProps) {
-  const binding = keymap[command]
-
   return (
     <Tooltip>
       <TooltipTrigger render={children} />
       <TooltipContent side="top">
-        {label ?? binding.label} <Kbd>{formatKeys(binding.keys[0]!)}</Kbd>
+        {label ?? keymap[command].label} <Kbd>{shortcutOf(command)}</Kbd>
       </TooltipContent>
     </Tooltip>
   )

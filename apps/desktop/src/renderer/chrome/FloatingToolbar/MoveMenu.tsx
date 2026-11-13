@@ -8,7 +8,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { isTool } from "../../selection.ts"
 import { actions } from "../actions.ts"
-import { keymap } from "../keymap.ts"
+import { gestures, keymap, shortcutOf } from "../keymap.ts"
 import { formatKeys } from "../keys.ts"
 import { MenuArrow } from "../toolbar-parts.tsx"
 import { type PointerTool, pointerTools, toolIcons } from "./tool-details.ts"
@@ -39,13 +39,15 @@ export function MoveMenu({ current }: MoveMenuProps) {
               <DropdownMenuRadioItem key={tool} value={tool}>
                 <Icon />
                 {keymap[tool].label}
-                <DropdownMenuShortcut>{formatKeys(keymap[tool].keys[0])}</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutOf(tool)}</DropdownMenuShortcut>
               </DropdownMenuRadioItem>
             )
           })}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">Or hold Space and drag to pan with any tool.</p>
+        <p className="px-2 pt-1 pb-1.5 text-xs text-muted-foreground">
+          Or hold {formatKeys(gestures.pan.keys)} and drag to pan with any tool.
+        </p>
       </DropdownMenuContent>
     </DropdownMenu>
   )

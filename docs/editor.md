@@ -501,7 +501,7 @@ Gaps: a label beside a line near the canvas's edge can run past it, as the centr
 ### Right-click menus (PAR-168)
 
 A right-click on a design opens Figma's canvas menu, as far as Parity's commands go, for what's selected. Each item
-shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `formatKeys`), and runs the
+shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `shortcutOf`), and runs the
 menubar's command. A row in the Layers panel has a menu of its own, built the same way (below).
 
 - **Icons** come from `commandIcons` in `apps/desktop/src/renderer/chrome/command-icons.ts`, one per command and no two
@@ -2151,29 +2151,45 @@ What the keys do on the canvas, and when they belong to a design or a field inst
 
 ### How shortcuts are shown
 
-Every shortcut is written once, in the keymap, as on Windows with a space between keys (`Ctrl Shift Z`), and shown
-through `formatKeys` so it reads as one chord:
+Every shortcut is written once, in the keymap, as on Windows with a space between keys (`Ctrl Shift Z`), and every place
+that shows one reads it through one lookup, `shortcutOf(command)`, which formats it so it reads as one chord (PAR-1041):
 
 - **On Windows and Linux** keys are joined by `+`: `Ctrl+Shift+Z`, `Alt+F4`, `Shift+←`. A `+` or `-` key is named when
   it's joined, `Ctrl+Plus` and `Ctrl+Minus`, as Windows's own apps write them, so it can't be read as the separator. A
   single key stays as it is (`+`, `Del`).
 - **On a Mac** they're the Mac's symbols, modifiers first in the Mac's order, with nothing between: `⇧⌘Z`.
 - **Text that isn't keys,** such as `Hold Space`, is shown as written.
-- **Keys show as keycaps (`Kbd`)** in tooltips, the toolbar, the start screen, Search actions, the Wrap in layout
-  buttons, the resize handles' hint and the Keyboard shortcuts dialog. Menus keep the kit's own shortcut parts (the
-  menubar's, context menus' and dropdowns'), which show them as plain text, as Figma's and the system's menus do. Both
-  go through `formatKeys`.
+- **Keys show as keycaps (`Kbd`)** in tooltips, the toolbar, the tab bar, the start screen, Search actions, the Wrap in
+  layout buttons, the resize handles' hint and the Keyboard shortcuts dialog. Menus keep the kit's own shortcut parts
+  (the menubar's, context menus' and dropdowns'), which show them as plain text, as Figma's and the system's menus do.
+- **A command shows its first keys** everywhere one key is shown: menus, tooltips, the tab bar, the start page, Search
+  actions and messages such as Paste style's "Copy a layer's style first, with Ctrl+Alt+C". The Keyboard shortcuts
+  dialog lists all of them, read through `keysOf(command)`, which the key handlers match against too.
+- **Keys a control answers to on its own** are `fixedKeys`, shown through the same lookup but not bound or listed:
+  Exit's Alt+F4, which Windows handles; Esc on Close and Back, and ← and → in the Library's larger view; Enter on
+  Resume; and Del on a picture's Remove. People won't be able to change these, so they aren't commands.
 
-Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
-`*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
-`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `toolbar-parts.tsx` (`CommandTip`) and `ShortcutsDialog.tsx` do.
-The Layers row's menu, the toolbar's tools and review tools, Zoom, and the Wrap in layout button for several layers take
-their labels and keys from the keymap too, so none types a shortcut by hand (PAR-571).
+Code: `keysOf`, `shortcutOf` and `fixedKeys` in `apps/desktop/src/renderer/chrome/keymap.ts`, and `formatKeys` in
+`chrome/keys.ts`. `IconButton` takes the command or fixed keys whose keys its tooltip shows, the canvas and Layers
+menus' items and Search actions' rows carry the keys `shortcutOf` wrote, and the menubar's `Item` and `Toggle`, the
+toolbar's `CommandTip` and the floating bars' menus call it. Only the Keyboard shortcuts dialog and the gesture hints
+(`KeyHints`, `ResizeHandles`, the Move menu's pan hint) call `formatKeys` themselves, for keys they read from the
+keymap's `gestures` or `keysOf`. The `parity/shortcut-from-keymap` lint rule (`scripts/lint-rules.ts`, on in
+`vite.config.ts`) refuses `formatKeys` given keys written out, outside explorations, stories and tests. Changing a
+binding (PAR-1042) changes what `keysOf` returns, and every place that shows or matches keys reads it there. Keys still
+written as text, which belong to their controls: the inspector's "Alt+Down" picker hint, Angle's "Shift snaps to 15°",
+the grid cell map's arrows, Shift and Delete, and a new prop's "Enter to add"; and the media player's own keycaps
+(`packages/media-player`), which can't read the app's keymap.
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
-and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
-reads the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard
-shortcuts dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
+and every key in the keymap showing as one chord off a Mac; `shortcutOf`: a command's first keys on both platforms, the
+keys the tab bar and start page wrote out before (Alt+Home, Ctrl+T, Ctrl+K, Ctrl+O, Ctrl+Shift+O), the fixed keys, no
+fixed name that's a command's, and `keysOf` giving the keys the handlers match. `chrome/canvas-menu.test.ts` and
+`chrome/layers-menu.test.ts` check each item's keys against `shortcutOf`, and the empty canvas's menu against the keys
+written out. `scripts/lint.test.ts` (3): the lint rule refuses a string or template of keys naming `shortcutOf`, allows
+keys passed in, and allows explorations and stories. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2) reads
+the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard shortcuts
+dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
 
 ### Whether a command applies, and what it's called (PAR-971)
 

@@ -12,7 +12,7 @@ import {
 import { Search } from "lucide-react"
 import { Fragment, useState } from "react"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
-import { type Binding, type Gesture, gestures, groups, keymap } from "./keymap.ts"
+import { type Command, type Gesture, gestures, groups, keymap, keysOf } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { DialogGroupTitle } from "./PanelSection.tsx"
 
@@ -39,7 +39,10 @@ export function ShortcutsDialog() {
   }
 
   const rows = (group: string): Row[] => [
-    ...Object.values<Binding>(keymap).filter((binding) => binding.group === group),
+    // SAFETY: the keymap has an entry for every command, so its own keys are the commands.
+    ...(Object.keys(keymap) as Command[])
+      .filter((command) => keymap[command].group === group)
+      .map((command) => ({ label: keymap[command].label, keys: keysOf(command) })),
     ...Object.values<Gesture>(gestures)
       .filter((gesture) => gesture.group === group)
       .map((gesture) => ({ ...gesture, keys: [gesture.keys] }))
