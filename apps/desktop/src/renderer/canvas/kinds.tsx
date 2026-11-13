@@ -97,7 +97,8 @@ export function designColor(kind: ContainerKind | undefined): string {
 
 /** Library components and instances of component designs are purple, text is green, and plain layout is a layer. */
 export function nodeColor(node: DesignNode): string {
-  if (node.type === "component" || node.type === "instance") {
+  // What a route draws is its component (PAR-1076).
+  if (node.type === "component" || node.type === "instance" || (node.type === "route" && node.component)) {
     return kindColors.component
   }
 
@@ -177,8 +178,9 @@ export function NodeIcon({
     return <Diamond {...props} />
   }
 
+  // What a route draws shows as the component it is; a route that names none, as a redirecting index, as a route.
   if (node.type === "route") {
-    return <Route {...props} />
+    return node.component ? <Diamond {...props} /> : <Route {...props} />
   }
 
   // A slot is a hole each instance fills.

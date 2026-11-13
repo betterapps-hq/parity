@@ -6463,10 +6463,12 @@ for the component its route draws, else its path.
 
 - **Layers.** Layers lists the app's pages under Routes, before Screens and Frames; component designs are listed in the
   Components panel. A page shows the route icon, in Layers and on its title, and its title shows its route's path under
-  its name. Its layers are a Route layer for each route that draws it, the root's outermost, each inside the one before
-  as it draws at that route's outlet: Billing's are RootLayout, SettingsLayout, Billing. A Route layer is named for its
-  component, else its path, and its Design panel shows the route's path, params, file and component, and whether it
-  loads data or can redirect, read-only. What each route's component draws comes with React's tree (step 4).
+  its name; selecting it shows its route's path, params, file and component, and whether it loads data or can redirect,
+  read-only. Its layers are what each route that draws it draws, the root's outermost, each inside the one before as it
+  draws at that route's outlet, as children passed to it: Billing's are RootLayout, SettingsLayout, Billing. Each shows
+  as the component its route draws, with the component's icon and color, and its panel shows its route too; a route that
+  names no component, as a redirecting index, shows as a route, named for its path. What each component draws inside
+  comes with React's tree (step 4).
 - **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
   part, as the `/settings` index is "Settings", else Home.
 - **Lines.** A dashed line curves from the middle of each page's bottom edge to the middle of the top edge of each page

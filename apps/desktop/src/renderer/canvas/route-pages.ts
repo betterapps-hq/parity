@@ -12,6 +12,7 @@ export const routePagesFile = "(pages)"
 interface PagePlace {
   url: string
   path: string
+  route: string
 }
 
 /** Each open project's page screens, by design id. */
@@ -46,7 +47,7 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
     levelGap: 1100
   })
 
-  pagePlaces.set(info.id, new Map(screens.map(({ screen, url, path }) => [screen.id, { url, path }])))
+  pagePlaces.set(info.id, new Map(screens.map(({ screen, url, path, route }) => [screen.id, { url, path, route }])))
   pageLinks.set(
     info.id,
     screens.flatMap(({ screen, parent }) =>
@@ -70,6 +71,11 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
 /** The URL a page screen's frames draw, or undefined for a design. */
 export function routePageUrl(project: string, design: string): string | undefined {
   return pagePlaces.get(project)?.get(design)?.url
+}
+
+/** The id of the route a page screen draws, or undefined for a design. */
+export function routePageRoute(project: string, design: string): string | undefined {
+  return pagePlaces.get(project)?.get(design)?.route
 }
 
 /** The path of a page screen's route, as its router writes it, or undefined for a design. */

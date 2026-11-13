@@ -140,6 +140,8 @@ export interface RouteScreen {
   screen: ContainerSpec
   url: string
   path: string
+  /** The id of the route it draws. */
+  route: string
   parent?: string
 }
 
@@ -163,20 +165,29 @@ export function pageName(route: Pick<ProjectRoute, "component" | "path">): strin
 }
 
 /**
- * A page's layers (PAR-1076): a Route layer for each route that draws it, from the root's in, each inside the one
- * before as it draws at that route's outlet. Each is named for its component, else its path.
+ * A page's layers (PAR-1076): a layer for each route that draws it, from the root's in, each inside the one before as
+ * it draws at that route's outlet, as the children passed to it. Each shows as the component its route draws, named for
+ * it, else as the route, named for its path.
  */
 export function routeLayers(routes: readonly ProjectRoute[], page: ProjectRoute): DesignNode {
   const byId = new Map(routes.map((route) => [route.id, route]))
 
-  const layer = (route: ProjectRoute, children: DesignNode[]): DesignNode => ({
-    type: "route",
-    // A layer's id has no slash, which a layer's path inside an instance uses.
-    id: `route:${encodeURIComponent(route.id)}`,
-    name: route.component ?? route.path,
-    route: route.id,
-    children
-  })
+  const layer = (route: ProjectRoute, children: DesignNode[]): DesignNode => {
+    const drawn: DesignNode = {
+      type: "route",
+      // A layer's id has no slash, which a layer's path inside an instance uses.
+      id: `route:${encodeURIComponent(route.id)}`,
+      name: route.component ?? route.path,
+      route: route.id,
+      children
+    }
+
+    if (route.component !== undefined) {
+      drawn.component = route.component
+    }
+
+    return drawn
+  }
 
   let layers = layer(page, [])
 
@@ -212,6 +223,7 @@ export function routeScreens(
     const placed: RouteScreen = {
       url: page.url,
       path: page.route.path,
+      route: page.route.id,
       screen: {
         id,
         name: pageName(page.route),

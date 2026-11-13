@@ -5,6 +5,7 @@ import { Crown, GripVertical, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
+import { routePageRoute } from "../canvas/route-pages.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -22,6 +23,7 @@ import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { ReferencePanel } from "./ReferencePanel.tsx"
+import { RouteSection } from "./RoutePanel.tsx"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -100,6 +102,19 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const components = useComponents(session.components)
   const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
+  // A page of the app (PAR-1076): its header, its route, its modes and Export; nothing of it is designed.
+  const route = routePageRoute(session.id, entry.container.id)
+
+  if (route !== undefined) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <RouteSection route={route} />
+        <ModesSection entry={entry} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
 
   return panelParts(can).map((section) => {
     const Section = designSections[section]
@@ -135,15 +150,17 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { primary } = containerModes(settings, container)
+  // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
+  const page = routePageRoute(session.id, container.id) !== undefined
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={<DesignIcon kind={container.kind} className={headingIcon} />}
+          icon={<DesignIcon kind={container.kind} route={page} className={headingIcon} />}
           color={designColor(container.kind)}
-          kind={kindTitle(container.kind)}
-          detail={`${kindTitle(container.kind)}, saved in ${entry.path}`}
+          kind={page ? "Route" : kindTitle(container.kind)}
+          detail={page ? "Route, read from the app's router" : `${kindTitle(container.kind)}, saved in ${entry.path}`}
           name={
             <NameInput
               key={container.name}

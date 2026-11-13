@@ -277,15 +277,18 @@ const routeNode = nodeBase.extend({
   type: z.literal("route"),
   /** The route's id, as its router has it: `/settings/billing`, or `__root__` for the root. */
   route: z.string(),
+  /** The component the route draws, by its name in the route's file, when it names one. */
+  component: z.string().optional(),
   get children(): z.ZodArray<typeof designNode> {
     return z.array(designNode)
   }
 })
 
 /**
- * One of the app's routes on a page (PAR-1076): what its component draws, with the next route inside it at its outlet.
- * A page's layers start with the routes that draw it, the root's outermost. It's read from the project's router, so
- * it's never designed: the route's path, params, file and component are the project's, by `route`.
+ * What one of the app's routes draws on a page (PAR-1076): its component, with the next route's inside it at its outlet.
+ * A page's layers are the routes that draw it, the root's outermost, each shown as the component it draws. It's read
+ * from the project's router, so it's never designed: the route's path, params, file and component are the project's, by
+ * `route`.
  */
 export type RouteNode = z.infer<typeof routeNode>
 

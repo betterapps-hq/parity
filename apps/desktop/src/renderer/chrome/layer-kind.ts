@@ -53,10 +53,11 @@ export function layerKind(
   }
 
   if (node.type === "route") {
-    return {
-      label: "Route",
-      description: node.route === "__root__" ? "The app's root route" : `The ${node.route} route`
-    }
+    const route = node.route === "__root__" ? "the app's root route" : `the ${node.route} route`
+
+    return node.component
+      ? { label: "Component instance", description: `${node.component} component, drawn by ${route}` }
+      : { label: "Route", description: `Drawn by ${route}` }
   }
 
   let layout = node.style?.flexDirection === "row" ? "Horizontal layout" : "Vertical layout"

@@ -90,9 +90,10 @@ Recommendation: Parity's own hook, growing from `drawn-nodes.ts`.
 The viewer opens up one component at a time. In development React 19 gives each element an owner, the component whose
 code created it, so one rule covers every view: show what the component owns.
 
-- **A component:** its own elements are layers, and each component instance it renders is a leaf.
-- **A page:** the same, with the route's component as the owner. Its instances are leaves, and nothing inside them is
-  opened.
+- **A component:** its own elements are layers, and each component instance it renders shows the layers passed into it
+  as children, which the component owns, but not the instance's own internals.
+- **A page:** the same, with the route's component as the owner. In `<Card><p>Hi</p></Card>` the page owns the `p`, so
+  it's a layer inside the Card's instance, as a slot's content is; what Card draws around it isn't opened.
 
 So the viewer never walks inside a package's components, and needs neither their source nor their props' values.
 
@@ -156,21 +157,23 @@ The example project needs a router to build this against.
 
 ### Route layers
 
-A page's layers start with its routes. `/settings/billing` draws the root route, then the settings route, then the
-billing route, each inside the one before at its outlet, so Layers shows a Route layer for each, nested as they draw:
+A page is its route: its row in Layers shows the route icon, its title shows its name with its path under it, and
+selecting it shows its path, params, file and component, and whether it loads data or can redirect. `/settings/billing`
+draws the root route's component, then the settings route's, then the billing route's, each inside the one before at its
+outlet, as children passed to it, so its layers are those components, nested as they draw:
 
 ```text
-Route /                    root layout
-  header, nav …
-  Route /settings          settings layout
-    aside …
-    Route /settings/billing
-      h1, Plan card instance …
+Billing                    the page, route icon
+  RootLayout               component instance
+    header, nav …
+    SettingsLayout         component instance
+      aside …
+      Billing              component instance
+        h1, Plan card instance …
 ```
 
-Each Route layer is opened, since together they are the page, and the owner rule applies inside each: its own elements
-are layers and its instances are leaves. A Route layer's panel shows its path, its params, its file and its component,
-and whether it loads data or guards the page.
+Each is opened, since together they are the page, and the owner rule applies inside each. Each shows as the component it
+draws, and its panel shows its route's details too.
 
 Pages that fetch data need mock data, through MSW, and pages behind a sign-in need a signed-in user. Mock data is the
 largest piece of work here.
@@ -213,6 +216,5 @@ without Electron, and the app wires it up.
 
 1. **The hook:** Parity's own, or React DevTools' backend as a dependency. Recommendation: Parity's own.
 2. **The example project:** add TanStack Router as a dependency, so routes have something to be built against.
-3. **Children passed into an instance on a page:** in `<Card><p>Hi</p></Card>` the page owns the `p`, drawn inside the
-   Card. It shows either as a layer inside the Card's instance, like a slot's content, or stays hidden until the Card is
-   opened.
+3. **Children passed into an instance on a page:** decided: they're layers inside the instance, as a slot's content is
+   (see Stopping at the instance).

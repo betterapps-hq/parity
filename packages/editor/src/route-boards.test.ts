@@ -129,18 +129,21 @@ describe("routeLayers", () => {
       id: "route:__root__",
       name: "RootLayout",
       route: "__root__",
+      component: "RootLayout",
       children: [
         {
           type: "route",
           id: "route:%2Fsettings",
           name: "SettingsLayout",
           route: "/settings",
+          component: "SettingsLayout",
           children: [
             {
               type: "route",
               id: "route:%2Fsettings%2Fbilling",
               name: "Billing",
               route: "/settings/billing",
+              component: "Billing",
               children: []
             }
           ]
