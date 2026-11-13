@@ -67,6 +67,9 @@ export const OriginUnset: Story = { render: () => <Position which="origin" /> }
 /** Its top left spot: `origin-top-left`. The preview's card is scaled to 80% about it. */
 export const OriginSpot: Story = { render: () => <Position which="origin" start={{ x: 0, y: 0 }} /> }
 
+/** OriginSpot, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...OriginSpot, parameters: { demo: true } }
+
 /** Off the spots, 30% by 70%: no spot lights, a dot shows where it is, and it's written `origin-[30%_70%]`. */
 export const OriginOffTheSpots: Story = { render: () => <Position which="origin" start={{ x: 30, y: 70 }} /> }
 

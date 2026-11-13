@@ -68,6 +68,9 @@ export const Unset: Story = { render: () => <Rotation /> }
 /** 45°, a step: `rotate-45`. */
 export const Step: Story = { render: () => <Rotation start={{ step: 45 }} /> }
 
+/** Step, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Step, parameters: { demo: true } }
+
 /** −12°, kept negative: `-rotate-12`. */
 export const Negative: Story = { render: () => <Rotation start={{ step: -12 }} /> }
 

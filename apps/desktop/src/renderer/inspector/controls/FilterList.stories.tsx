@@ -54,6 +54,9 @@ export const Empty: Story = { render: () => <Filters start={[]} /> }
 /** Layer blur at `blur-sm`: the card and its picture are blurred. */
 export const LayerBlur: Story = { render: () => <Filters start={[{ id: "blur", kind: "blur", value: "blur-sm" }]} /> }
 
+/** LayerBlur, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...LayerBlur, parameters: { demo: true } }
+
 /** Background blur of 6px, a value of its own: what shows through the card is blurred. */
 export const BackgroundBlur: Story = {
   render: () => <Filters start={[{ id: "blur", kind: "backdropBlur", value: { px: 6 } }]} />

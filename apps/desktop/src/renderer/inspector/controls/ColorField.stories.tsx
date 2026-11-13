@@ -92,6 +92,9 @@ function ColorField({ value, alpha, allowed, tokensOnly, mixed, theme, hover = f
 /** A token, `primary`, as a chip. Click beside it and press Backspace, or use its ×, to remove it, then type `2f6fed`. */
 export const Token: Story = { render: () => <ColorField value="primary" /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /** A token with its opacity after it, `bg-card/70`: the % field is the token's alpha, written after its name. */
 export const TokenWithOpacity: Story = { render: () => <ColorField value="card" alpha={70} /> }
 
@@ -134,6 +137,7 @@ export const SetForATheme: Story = {
  * nothing, since it's on no scale.
  */
 export const SteppedThroughShades: Story = {
+  parameters: { demo: true },
   render: () => <ColorField value="blue-500" alpha={80} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)

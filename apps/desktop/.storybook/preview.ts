@@ -3,6 +3,7 @@ import { definePreview } from "@buildkitgg/storybook-config/preview"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"
 import { installClassMerger } from "../src/renderer/class-merger.ts"
+import { ShowWrites } from "../src/renderer/inspector/controls/playground.tsx"
 import { restore } from "../src/renderer/stories/fixtures.tsx"
 import { installHost } from "../src/renderer/stories/host.ts"
 import { startTheme } from "../src/renderer/theme.ts"
@@ -45,6 +46,8 @@ export default definePreview({
 
       // Tooltips need a provider, which the app puts around everything.
       return createElement(TooltipProvider, null, Story())
-    }
+    },
+    // A control's Demo story shows what it writes beside it; the rest show the control alone.
+    (Story, { parameters }) => createElement(ShowWrites, { value: parameters.demo === true }, Story())
   ]
 })

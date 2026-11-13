@@ -59,6 +59,9 @@ function Radius({
 /** A token, `radius-lg`, as a pill named lg, whose hint says radius-lg and what it comes to. */
 export const Token: Story = { render: () => <Radius start={{ radius: "radius-lg" }} /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /** Each corner its own, laid out where it is: the top two at 2xl, the bottom two at sm. */
 export const PerCorner: Story = {
   render: () => <Radius start={{ radius: ["radius-2xl", "radius-2xl", "radius-sm", "radius-sm"] }} />

@@ -98,6 +98,9 @@ export const Empty: Story = { render: () => <Paints start={[]} /> }
 /** One solid, a token: `bg-card`, written as the background color. Its alpha is the % after the chip. */
 export const Solid: Story = { render: () => <Paints start={[solid("fill", "card")]} /> }
 
+/** Solid, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Solid, parameters: { demo: true } }
+
 /** A solid of its own, #2f6fed at 80%, with no mark: Tokens offers the nearest first, then Create token. */
 export const SolidOffTheSystem: Story = { render: () => <Paints start={[solid("fill", "#2f6fed", 80)]} /> }
 

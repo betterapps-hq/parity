@@ -104,6 +104,9 @@ function Margin({
 /** Auto across, centering Plans: `mx-auto`, a chip in the field, with what each side comes to in its hint. */
 export const AutoAcross: Story = { render: () => <Margin start={[undefined, "auto", undefined, "auto"]} /> }
 
+/** AutoAcross, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...AutoAcross, parameters: { demo: true } }
+
 /** −8 at the top, pulling Plans up over the header: the top side alone, `-mt-2`. */
 export const Negative: Story = { render: () => <Margin start={[px(-8), undefined, undefined, undefined]} /> }
 

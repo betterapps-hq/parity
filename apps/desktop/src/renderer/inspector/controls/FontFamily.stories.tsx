@@ -57,6 +57,9 @@ function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: bo
  */
 export const Token: Story = { render: () => <Font start={{ token: "sans" }} /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /** Unset: Geist, muted, inherited from Plans, which the hint names. Nothing is written. */
 export const Unset: Story = { render: () => <Font /> }
 

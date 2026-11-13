@@ -3495,10 +3495,13 @@ Fields stories.
 | Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
 | Parts    | Field row, Chips                                                                             |
 
-Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. Each style
-section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
-(`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's
-props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
+Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. A control's
+stories in Fields, Rows and Lists show the control alone; each file's Demo story also shows what it stores and writes as
+CSS and Tailwind, with a preview and other tools' screenshots where it has them (`ShowWrites` in `playground.tsx`,
+PAR-1045). Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the
+one it holds (`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a
+component's props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components
+and Modes.
 
 Tests: none; the stories are checked in Storybook.
 

@@ -40,6 +40,9 @@ function Size({ start }: { start: Draft }) {
 /** Fixed at 520 by 520 pixels, written as spacing steps (`w-130`). Up on W makes it 524. */
 export const Fixed: Story = { render: () => <Size start={{ width: 520, height: 520 }} /> }
 
+/** Fixed, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Fixed, parameters: { demo: true } }
+
 /** W at the project's container-md token, 448 pixels, as its pill; Sizing lists the tokens under the words. */
 export const Token: Story = { render: () => <Size start={{ width: { token: "container-md" }, height: 320 }} /> }
 

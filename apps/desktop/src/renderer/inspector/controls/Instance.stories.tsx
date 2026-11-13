@@ -157,6 +157,9 @@ function Instance({
 /** A stat card: text props in the field's box, the two on-or-off props as switch rows. */
 export const StatCard: Story = { render: () => <Instance component="Stat card" start={statCard} /> }
 
+/** StatCard, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...StatCard, parameters: { demo: true } }
+
 /** Overridden: two layers inside differ, so the menu's Reset overrides says 2, and value changed in this state. */
 export const Overridden: Story = {
   render: () => <Instance component="Stat card" start={statCard} overrides={2} changedProps={["value"]} />

@@ -79,6 +79,9 @@ export const Unset: Story = { render: () => <Appearance /> }
 /** 50%, a step: `opacity-50`. Up makes it 51%; drag the icon to scrub. */
 export const Step: Story = { render: () => <Appearance opacity={{ percent: 50 }} /> }
 
+/** Step, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Step, parameters: { demo: true } }
+
 /** 47.5%, on a quarter of a percent, still a step: `opacity-47.5`, unmarked. */
 export const OnAQuarterStep: Story = { render: () => <Appearance opacity={{ percent: 47.5 }} /> }
 

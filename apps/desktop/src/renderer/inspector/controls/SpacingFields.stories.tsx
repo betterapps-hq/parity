@@ -65,6 +65,9 @@ function Spacing({ padding: startPadding, margin: startMargin = none }: { paddin
 /** Padding alone: margin's fields are unset, 0 and muted. */
 export const PaddingOnly: Story = { render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} /> }
 
+/** PaddingOnly, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...PaddingOnly, parameters: { demo: true } }
+
 /** A margin of 8 above and below, under the padding: two fields each. */
 export const WithMargin: Story = {
   render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} margin={[px(8), undefined, px(8), undefined]} />

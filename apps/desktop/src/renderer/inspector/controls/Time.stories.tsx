@@ -117,6 +117,9 @@ export const Step: Story = {
   }
 }
 
+/** Step, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Step, parameters: { demo: true } }
+
 /** `0.2s` typed and Enter pressed: it becomes 200ms. */
 export const TypedInSeconds: Story = {
   render: () => <Timing />,

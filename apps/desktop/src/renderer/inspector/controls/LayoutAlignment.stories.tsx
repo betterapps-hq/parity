@@ -46,6 +46,9 @@ function Layout({ start }: { start: Draft }) {
 /** Vertical, children stretched across: `flex flex-col`, the default. */
 export const Vertical: Story = { render: () => <Layout start={{ direction: "column" }} /> }
 
+/** Vertical, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Vertical, parameters: { demo: true } }
+
 /** Horizontal, centered both ways from the box's middle spot. */
 export const HorizontalCentered: Story = {
   render: () => <Layout start={{ direction: "row", justify: "center", align: "center" }} />

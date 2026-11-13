@@ -48,6 +48,9 @@ function Stroke({ start, tokensOnly }: { start: Draft; tokensOnly?: boolean }) {
 /** The project's usual stroke on every side: `border border-border`, in layout. */
 export const AllSides: Story = { render: () => <Stroke start={{ border: "border", borderWidth: every(1) }} /> }
 
+/** AllSides, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...AllSides, parameters: { demo: true } }
+
 /** The bottom side only: Each side opens to show it, writing `border-b`. */
 export const BottomOnly: Story = {
   render: () => <Stroke start={{ border: "border", borderWidth: [undefined, undefined, px(1), undefined] }} />

@@ -96,6 +96,9 @@ function StrengthBox() {
   )
 }
 
+/** FillStrengths, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...FillStrengths, parameters: { demo: true } }
+
 /** Padding alone: margin's sides are unset, 0 and faint. */
 export const PaddingOnly: Story = { render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} /> }
 

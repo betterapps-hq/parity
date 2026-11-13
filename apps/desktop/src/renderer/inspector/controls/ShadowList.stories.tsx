@@ -120,6 +120,9 @@ export const Empty: Story = { render: () => <Shadows start={[]} /> }
 /** A shadow token, `shadow-md`, as a chip; its numbers are in its hint and its editor. */
 export const Token: Story = { render: () => <Shadows start={[drop("md", "shadow-md")]} /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /**
  * A composite token with a part overridden: `shadow-lg`'s color set to primary at 20% on this layer. The color's field
  * has the change dot and its reset arrow, and the chip has a dot: `shadow-lg shadow-primary/20`.

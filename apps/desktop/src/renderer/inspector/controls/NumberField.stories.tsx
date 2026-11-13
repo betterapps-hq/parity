@@ -136,6 +136,9 @@ export const Plain: Story = {
   render: () => <StoryField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />
 }
 
+/** Plain, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Plain, parameters: { demo: true } }
+
 /**
  * The same field where the property takes the project's spacing tokens, as Gap does: the chevron at its end lists
  * them, with the one nearest 18 first and Create token after them. Up steps a whole spacing step, 4px. Type `+8`,

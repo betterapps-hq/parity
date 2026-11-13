@@ -71,6 +71,9 @@ function Padding({
 /** 16 on every side: vertical and horizontal, as Figma's, writing `p-4`. */
 export const EverySide: Story = { render: () => <Padding start={all(px(16))} /> }
 
+/** EverySide, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...EverySide, parameters: { demo: true } }
+
 /** 8 down and 16 across: `px-4 py-2`, which Tailwind v4 writes as padding-inline and padding-block. */
 export const VerticalAndHorizontal: Story = { render: () => <Padding start={[px(8), px(16), px(8), px(16)]} /> }
 

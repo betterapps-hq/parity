@@ -85,6 +85,9 @@ const none: Position["insets"] = [undefined, undefined, undefined, undefined]
 /** In layout: placed by its layout, so there's no inset box and nothing is written. Choose Absolute to take it out. */
 export const InLayout: Story = { render: () => <Placement start={{ placement: "static", insets: none }} /> }
 
+/** InLayout, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...InLayout, parameters: { demo: true } }
+
 /**
  * Absolute, pinned left and top where it was: `absolute top-6 left-6`. Right and bottom are Auto; click their lines to
  * pin them where they are.

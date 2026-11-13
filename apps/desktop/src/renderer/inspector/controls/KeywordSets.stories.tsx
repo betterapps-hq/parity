@@ -183,6 +183,9 @@ export const AlignSet: Story = {
   )
 }
 
+/** AlignSet, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...AlignSet, parameters: { demo: true } }
+
 /** Layers with different alignments: none pressed, and Mixed after them. */
 export const AlignMixed: Story = {
   render: () => <Toggles label="Align" property="text-align" choices={alignChoices} inherited="start" mixed />
