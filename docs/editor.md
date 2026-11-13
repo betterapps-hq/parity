@@ -3504,8 +3504,8 @@ Tests:
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
 - `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
   each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
-  PickingASizing opening their pickers by name. Layers › Kinds (`chrome/LayerPanel.stories.tsx`) shows the sections each
-  kind of layer gets.
+  PickingASizing opening their pickers by name. Layers › Layout and Text are those kinds' own panels, and Layers › Kinds
+  (`chrome/LayerPanel.stories.tsx`) shows the sections each other kind of layer gets.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -3579,7 +3579,7 @@ a field can be used anywhere in the app; the other levels are under Parity › I
 | Folder   | Holds                                                                                         |
 | -------- | --------------------------------------------------------------------------------------------- |
 | Panel    | Inspector, Accessibility tab, Modes tab                                                       |
-| Layers   | Kinds, Instances, Several layers, Designs                                                     |
+| Layers   | All kinds, Layout, Text, Kinds, Instances, Several layers, Designs                            |
 | Sections | Header, State selector, Props, Attributes, Slots, Content, Components, Modes, Export          |
 |          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Typography, CSS                    |
 | Rows     | Box model, Padding, Margin, Radius, Size and aspect ratio, and the rest of a section's rows   |
@@ -3637,6 +3637,24 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `LayerHeader`, `LayerStateSelector` and `LayerContent` in `chrome/LayerPanel.tsx`; `PropsSection` and
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
+
+### A layout's and a text layer's own panels (PAR-1057, PAR-1058)
+
+A layout and a text layer each have a Design panel of their own, which puts the style sections in that kind's order
+([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing, Position, Fill,
+Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with Content and
+Typography, then Size, Position and Appearance, with Fill, its background, after them. The capability table still leaves
+out what the layer can't take: a design's root has no Position, and a frame's root starts with its size. On a layout, a
+component or an instance, Typography folds to its title and + until it sets something; + opens it.
+
+Code: `LayoutPanel` and `layoutSections` in `chrome/LayoutPanel.tsx`, `TextPanel` and `textSections` in
+`chrome/TextPanel.tsx`, which `LayerPanel` draws for those kinds; `StyleSections`' `order`; the fold in
+`inspector/sections/TypographySection.tsx`.
+
+Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
+typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
+Layout. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
+`LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
 

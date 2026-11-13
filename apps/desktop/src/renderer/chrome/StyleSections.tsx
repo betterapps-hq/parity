@@ -74,6 +74,7 @@ export function StyleSections({
   editor,
   container,
   takesStyle,
+  order,
   only
 }: {
   editor: StyleEditor
@@ -81,11 +82,18 @@ export function StyleSections({
   container?: ContainerSpec
   /** Whether a code component takes the layer's style; unknown counts as taking it. */
   takesStyle?: TakesStyle
+  /**
+   * A layer kind's sections, in its own order (PAR-1056); the table still leaves out those its layers can't take. Without
+   * it, every section the table gives, in the table's order.
+   */
+  order?: readonly StyleSection[]
   /** One section and the one it holds, as a story draws a section alone; the panel draws every section. */
   only?: StyleSection
 }) {
   const can = selectionCapabilities(container ?? noRoot, editor.selection.layers, takesStyle)
-  const { sections: all, controls } = styleParts(can)
+  const parts = styleParts(can)
+  const { controls } = parts
+  const all = order ? order.filter((section) => parts.sections.includes(section)) : parts.sections
   const sections = only ? all.filter((section) => section === only || section === groups[only]?.holds) : all
   const { edit, live } = useEditSession(editor)
   const tokens = useMemo(() => projectTokenSets(editor.tokens), [editor.tokens])

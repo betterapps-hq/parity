@@ -20,8 +20,11 @@ export const TextDecorations: Story = {
   loaders: [styled("Sign in", "Create an account", { fontStyle: "italic", textTransform: "capitalize" })]
 }
 
-/** Text styles on a layout, Pricing's footer: they apply to the text inside, which says so. */
-export const TextInside: Story = { loaders: [styled("Pricing", "Footer")] }
+/**
+ * Text styles on a layout, Pricing's footer, set in the primary color: they apply to the text inside, which says so. A
+ * layout that sets none folds the section to its title and + (Layers › Layout).
+ */
+export const TextInside: Story = { loaders: [styled("Pricing", "Footer", { color: { token: "primary" } })] }
 
 /** Styles a state changes, Stat card's label in Loading: each control with the change dot, and a reset. */
 export const ChangedInAState: Story = {
