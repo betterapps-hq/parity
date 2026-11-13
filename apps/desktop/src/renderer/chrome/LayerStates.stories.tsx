@@ -10,7 +10,7 @@ import { LayerStateSelector } from "./LayerPanel.tsx"
  * state to send them to (PAR-1022). It shows on a component's own layers only.
  */
 const meta = {
-  title: "Parity/Inspector/Layer/States",
+  title: "Parity/Inspector/Sections/State selector",
   component: DesignTab,
   render: renderSection(LayerStateSelector),
   decorators: [inspectorStage]

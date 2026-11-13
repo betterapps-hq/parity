@@ -11,7 +11,7 @@ import { Inspector } from "./Inspector.tsx"
  * (its name, kind, states, components or params, and the modes it's shown in), a mode column, or text on the canvas.
  */
 const meta = {
-  title: "Parity/Inspector/Design",
+  title: "Parity/Inspector/Layers/Designs",
   component: DesignTab,
   render: () => <Inspector />,
   decorators: [

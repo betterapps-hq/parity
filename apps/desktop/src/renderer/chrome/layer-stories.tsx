@@ -9,8 +9,8 @@ import { inspecting, InspectorStage, PanelColumn } from "./inspector-stories.tsx
 import { Inspector } from "./Inspector.tsx"
 
 /*
- * What the Parity/Inspector/Layer stories share: the Design tab with one layer selected, drawn as the inspector draws
- * it, in folders by what they show (Kinds, Basics, States, Instances and Slots).
+ * What the inspector's Layers and Sections stories share: the Design tab with one layer selected, drawn as the inspector
+ * draws it, or one section of it alone.
  */
 
 export const renderInspector = () => <Inspector />

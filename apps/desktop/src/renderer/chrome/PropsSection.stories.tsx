@@ -9,10 +9,10 @@ import { inspecting, InspectorStage, PanelColumn, search, slowly } from "./inspe
 /**
  * A component layer's props, as the layer panel shows them, inferred from the component's source: variants offer their
  * options, booleans a switch, numbers and strings an input, each with its default. What it passes on to its element is
- * in Inspector › Attributes.
+ * in Sections › Attributes.
  */
 const meta = {
-  title: "Parity/Inspector/Props",
+  title: "Parity/Inspector/Sections/Props/Code component",
   render: () => <PropsSection />,
   decorators: [
     (Story) => (

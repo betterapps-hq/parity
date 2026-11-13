@@ -3452,21 +3452,27 @@ Tests:
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
-### One Props section (PAR-1030)
+### The inspector's stories in seven levels (PAR-1033)
 
-A component's props are one section, whatever the component is. On a component design, Props defines them: each with its
-default to edit, a menu to rename or remove it, its slots, and + to add one. On an instance, it sets them, under the
-component's name, in the same rows, whether the component is a design or code. A design's own instance adds the menu
-with Swap, Reset overrides, Push to main and Detach, and its slots; a code component's adds Attributes after it.
+The inspector's stories sit in the levels the panel is built from, each built only from the one below it: Panel (the
+inspector and its tabs), Layers (what each kind of selection shows), Sections, Rows, Lists, Fields and Parts. A case
+lives at the lowest level it's about, so a section's own cases are Sections stories, drawn alone, and a field's are
+Fields stories.
 
-Code: `PropsSection` in `apps/desktop/src/renderer/inspector/sections/PropsSection.tsx`, given `component` for a
-design's own props, or an instance with its edits; `ComponentProps`, `DesignInstanceProps` and `CodeInstanceProps` in
-the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance's or an image's base-only controls.
+| Folder   | Holds                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------- |
+| Panel    | Inspector, Accessibility tab                                                                 |
+| Layers   | Kinds, Instances, Several layers, Designs                                                    |
+| Sections | Header, State selector, States, Props, Attributes, Slots, Content, Styles, Modes, Export     |
+| Rows     | Box model, Padding, Margin, Size and aspect ratio, and the rest of a section's labelled rows |
+| Lists    | Paint stack, Shadow list, Filter list, Transition list                                       |
+| Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
+| Parts    | Field row, Chips                                                                             |
 
-Tests:
+Still to split: Sections › Styles into one story file per style section, and Layers › Designs' cases for Props,
+Components and Modes into those sections.
 
-- `chrome/PropsSection.stories.tsx` (Inspector › Props), `chrome/LayerInstances.stories.tsx` and
-  `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
+Tests: none; the stories are checked in Storybook.
 
 ### One table picks the sections (PAR-1032)
 
@@ -3529,7 +3535,7 @@ the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance
 
 Tests:
 
-- `chrome/PropsSection.stories.tsx` (Inspector › Props), `chrome/LayerInstances.stories.tsx` and
+- `chrome/PropsSection.stories.tsx` (Sections › Props › Code component), `chrome/LayerInstances.stories.tsx` and
   `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
 
 ### Each field's label names its control (PAR-892)
@@ -3620,8 +3626,8 @@ one sentence ("Editing Default changes every state") and wraps when it doesn't f
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layer: Image Layer and Editing A State; Fields: Changed In A State;
-Design: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
+Fields › All fields: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -3687,8 +3693,9 @@ libraries and the project's own components; a library matched by its whole id; a
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
 project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
 label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
-layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds,
-Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Kinds, Layers
+› Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
+and dark.
 
 ### Which sections a layer gets (PAR-892)
 

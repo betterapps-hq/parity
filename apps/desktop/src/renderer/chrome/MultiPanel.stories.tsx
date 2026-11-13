@@ -12,7 +12,7 @@ import { Inspector } from "./Inspector.tsx"
  * whose shared look is edited at once, with the values they don't share marked as mixed.
  */
 const meta = {
-  title: "Parity/Inspector/Multiple",
+  title: "Parity/Inspector/Layers/Several layers",
   component: DesignTab,
   render: () => <Inspector />,
   decorators: [

@@ -10,7 +10,7 @@ import { tagWrites } from "./writes.ts"
  * is what screen readers and search engines read the text as, so it changes the markup, not the style.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Content",
+  title: "Parity/Inspector/Sections/Content/Text",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
