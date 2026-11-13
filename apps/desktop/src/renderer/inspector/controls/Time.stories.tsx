@@ -27,7 +27,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * spring's settle time, set by Easing.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Time",
+  title: "Parity/Inspector/Fields/Time",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

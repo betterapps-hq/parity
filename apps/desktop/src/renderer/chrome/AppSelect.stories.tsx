@@ -60,7 +60,7 @@ function DialogSelect() {
 
 /** The app's select, open: its items sit in a group that insets them 4px from the popup's edge. */
 const meta = {
-  title: "Parity/Chrome/Select",
+  title: "Parity/Inspector/Fields/Select",
   component: AppSelect
 } satisfies Meta<typeof AppSelect>
 

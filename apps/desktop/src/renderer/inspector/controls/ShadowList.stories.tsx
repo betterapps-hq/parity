@@ -22,7 +22,7 @@ import { mixedWrites } from "./writes.ts"
  * or as one arbitrary value when it doesn't fit them.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Lists/Shadow list",
+  title: "Parity/Inspector/Lists/Shadow list",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

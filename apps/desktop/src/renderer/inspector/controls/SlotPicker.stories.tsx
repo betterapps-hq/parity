@@ -10,7 +10,7 @@ import { SlotPickerField, type SlotLayer } from "./slot-picker.tsx"
  * it. The chip's × clears the slot, so its placeholder shows; clicking the chip selects the layer.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Slot picker",
+  title: "Parity/Inspector/Fields/Slot picker",
   component: SlotPickerField,
   args: { label: "Features", layer: undefined, onClear: fn(), onSelectLayer: fn() },
   render: function Picker(args) {

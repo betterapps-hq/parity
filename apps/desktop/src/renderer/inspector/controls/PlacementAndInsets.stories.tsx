@@ -20,7 +20,7 @@ import type { StoredObject, Writes } from "./writes.ts"
  * Scale, in the header, pin every side at 0, or at its share of the parent.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Placement and insets",
+  title: "Parity/Inspector/Rows/Placement and insets",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

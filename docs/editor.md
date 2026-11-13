@@ -3446,8 +3446,8 @@ Tests:
   Preset, Overriding A Preset and Changes With The Viewport, for review.
 - `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
-- `inspector/controls/SlotPicker.stories.tsx` (Controls › Fields › Slot picker): Filled selects the layer from its chip
-  and clears the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
+- `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
+  the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
 ### Each field's label names its control (PAR-892)
 

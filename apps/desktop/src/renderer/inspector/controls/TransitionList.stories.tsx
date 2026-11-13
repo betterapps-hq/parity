@@ -20,7 +20,7 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
  * the list says, offering Create token.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Lists/Transition list",
+  title: "Parity/Inspector/Lists/Transition list",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

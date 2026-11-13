@@ -10,7 +10,7 @@ import { Playground } from "./playground.tsx"
  * or Tab to add one; paste several at once; Backspace in the empty input takes the last back to edit.
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Fields/Class names",
+  title: "Parity/Inspector/Fields/Class names",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Inspector stories move into Rows, Fields and Lists",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

@@ -15,7 +15,7 @@ import { FourSidesField } from "./sides.tsx"
  * border-y-2`).
  */
 const meta = {
-  title: "Parity/Inspector/Controls/Controls/Stroke width",
+  title: "Parity/Inspector/Rows/Stroke width",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
