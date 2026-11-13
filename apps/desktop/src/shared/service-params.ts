@@ -1,4 +1,4 @@
-import { canvasDocument, detectionCorrections, finiteNumber } from "@parity-app/core"
+import { canvasDocument as canvasDocumentSchema, detectionCorrections, finiteNumber } from "@parity-app/core"
 import { recoveryCopySchema } from "@parity-app/editor"
 import { z } from "zod"
 
@@ -7,6 +7,21 @@ import { z } from "zod"
  * types (PAR-578): `ServiceMethods` takes each method's params from here, so a field can't be in a type and missing from
  * its schema, where the check would strip it on the way in (PAR-992).
  */
+
+// A project file's schema, and a recovery copy's that holds it, are too large for TypeScript to write out where
+// `serviceParams` uses them, which the CLI's declarations need. Named as interfaces, they're written by name.
+type CanvasDocumentType = typeof canvasDocumentSchema
+
+type RecoveryCopyType = typeof recoveryCopySchema
+
+// oxlint-disable-next-line typescript/no-empty-interface -- the name is the point
+interface CanvasDocumentSchema extends CanvasDocumentType {}
+
+// oxlint-disable-next-line typescript/no-empty-interface -- the name is the point
+interface RecoveryCopySchema extends RecoveryCopyType {}
+
+const canvasDocument: CanvasDocumentSchema = canvasDocumentSchema
+const recoveryCopy: RecoveryCopySchema = recoveryCopySchema
 
 const themeVariable = z.object({ name: z.string(), value: z.string() })
 const tokenChange = z.object({ name: z.string(), theme: z.string(), value: z.string() })
@@ -134,7 +149,7 @@ export const serviceParams = {
   "library.add": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
-  "recovery.keep": project.extend({ copy: recoveryCopySchema.optional() }),
+  "recovery.keep": project.extend({ copy: recoveryCopy.optional() }),
   "recovery.read": project,
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
   "images.scan": project,
