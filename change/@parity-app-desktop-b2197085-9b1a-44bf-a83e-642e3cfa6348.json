@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Layer order items in the Object menu show layer icons: one layer for a step, a stack for all the way.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
