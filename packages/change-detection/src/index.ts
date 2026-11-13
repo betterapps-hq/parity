@@ -1,5 +1,7 @@
 export { ChangeBaselines, type FrameId, frameKey } from "./baselines.ts"
 
+export type { ChangeDetector } from "./detector.ts"
+
 export {
   type ChangeStatus,
   combineChanges,
