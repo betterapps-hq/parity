@@ -232,7 +232,7 @@ export const elementTypeIcons = {
   radio: "circle-dot",
   switch: "toggle-right",
   select: "chevrons-up-down",
-  slider: "sliders-horizontal",
+  slider: "settings-2",
   datePicker: "calendar",
   colorPicker: "pipette",
   filePicker: "upload",
