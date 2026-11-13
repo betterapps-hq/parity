@@ -36,6 +36,7 @@ export async function openStorybook(context: ActionContext): Promise<ActionResul
     context,
     stories.map((file) => file.path)
   )
+
   let served = await servers.serve(server)
   let entries = await storyIndex(served.url).catch(() => undefined)
 
