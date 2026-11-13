@@ -718,6 +718,10 @@ function TitleButton({
       }}
       className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
         quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
+      } ${
+        // A page's title is on the canvas's own color, so the line from the page above passes behind it (see
+        // `pageLinkLine`).
+        path === undefined ? "" : "bg-(--tl-color-background)"
       }`}
       style={color ? { color } : undefined}
     >

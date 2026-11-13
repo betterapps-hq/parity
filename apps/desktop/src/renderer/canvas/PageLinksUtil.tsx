@@ -1,3 +1,4 @@
+import { pageLinkLine } from "@parity-app/editor"
 import { HTMLContainer, Rectangle2d, type RecordProps, T, useEditor, useValue } from "tldraw"
 import { designColor } from "./kinds.tsx"
 import { routePageLinks } from "./route-pages.ts"
@@ -13,9 +14,10 @@ declare module "tldraw" {
 export type PageLinksRecord = CanvasRecord<"canvas-page-links">
 
 /**
- * The lines of the app's page tree (PAR-1076): from each page down to each page under it, as elbows that turn halfway,
- * moving along as the app's navigation goes. They're drawn from where the pages' boards are now, so they follow a page
- * that's moved. One shape at the canvas's origin draws them all; it takes no pointer and is never culled.
+ * The lines of the app's page tree (PAR-1076): from each page down to each page under it, curving across above its title
+ * and dropping behind the title to its board (see `pageLinkLine`), moving along as the app's navigation goes. They're
+ * drawn from where the pages' boards are now and at the zoom now, so they follow a page that's moved and turn down above
+ * the titles as they grow on the canvas. One shape at the canvas's origin draws them all; it takes no pointer and is never culled.
  */
 export class PageLinksUtil extends CanvasUtil<PageLinksRecord> {
   static override type = "canvas-page-links" as const
@@ -58,8 +60,6 @@ function PageLines({ project }: { project: string }) {
   const editor = useEditor()
   const zoom = useValue("zoom", () => editor.getZoomLevel(), [editor])
 
-  // Each line curves from the middle of the page's bottom edge to the middle of the top edge of the page under it,
-  // leaving and arriving straight down, so the tree reads as branches. A page's title sits at its left, clear of it.
   const lines = useValue(
     "page lines",
     () =>
@@ -67,24 +67,9 @@ function PageLines({ project }: { project: string }) {
         const above = editor.getShapePageBounds(createCanvasId(encodeURIComponent(from)))
         const below = editor.getShapePageBounds(createCanvasId(encodeURIComponent(to)))
 
-        if (!above || !below) {
-          return []
-        }
-
-        const bend = (below.minY - above.maxY) / 2
-
-        return [
-          {
-            key: to,
-            path: `M ${above.midX} ${above.maxY} C ${above.midX} ${above.maxY + bend}, ${below.midX} ${below.minY - bend}, ${below.midX} ${below.minY}`,
-            ends: [
-              [above.midX, above.maxY],
-              [below.midX, below.minY]
-            ]
-          }
-        ]
+        return above && below ? [{ key: to, ...pageLinkLine(above, below, zoom) }] : []
       }),
-    [editor, project]
+    [editor, project, zoom]
   )
 
   // One and a half screen pixels wide, in dashes of six that flow down from each page to the pages under it, at any zoom.
@@ -93,7 +78,7 @@ function PageLines({ project }: { project: string }) {
 
   return (
     <svg className="absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-      {lines.map(({ key, path, ends }) => (
+      {lines.map(({ key, path, start: [x, y] }) => (
         <g key={key}>
           <path
             d={path}
@@ -106,9 +91,7 @@ function PageLines({ project }: { project: string }) {
           >
             <animate attributeName="stroke-dashoffset" from={0} to={-px(12)} dur="1.5s" repeatCount="indefinite" />
           </path>
-          {ends.map(([x, y]) => (
-            <circle key={`${x},${y}`} cx={x} cy={y} r={px(2.5)} fill={color} />
-          ))}
+          <circle cx={x} cy={y} r={px(2.5)} fill={color} />
         </g>
       ))}
     </svg>

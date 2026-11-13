@@ -459,6 +459,8 @@ export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"
 export {
   pageFrameName,
   type PageLayout,
+  pageLinkLine,
+  type PageLinkLine,
   type PageMode,
   pageName,
   type PageNode,
