@@ -29,7 +29,12 @@ import {
   withLibraryCanvas,
   writeClasses
 } from "@parity-app/core"
-import { type BuilderProcessOptions, builderProcessOptions, type BuilderProcessSession } from "@parity-app/processes"
+import {
+  type BuilderProcessOptions,
+  builderProcessOptions,
+  type BuilderProcessSession,
+  lastLines
+} from "@parity-app/processes"
 import {
   appFiles,
   changesLockfiles,
@@ -265,11 +270,6 @@ async function typescriptVersion(root: string): Promise<string | undefined> {
 /** Milliseconds since `began`, by `performance.now()`, to a tenth. */
 function since(began: number): number {
   return Math.round((performance.now() - began) * 10) / 10
-}
-
-/** The last 50 lines of what a process printed. */
-function lastLines(output: string): string {
-  return output.trimEnd().split(/\r?\n/).slice(-50).join("\n")
 }
 
 /** The projects open in tabs. Each runs its own builder, so tabs never share a module graph. */

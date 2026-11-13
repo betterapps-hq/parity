@@ -1,11 +1,16 @@
 // One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
 // project closes is what gives back the build tool's memory, which closing its server doesn't.
 import { viteBuilder } from "@parity-app/builder-vite"
-import { type BuilderProcessRequest, serveBuilderProcess } from "@parity-app/processes"
+import { nodePort } from "@parity-app/channel"
+import { serveBuilderProcess } from "@parity-app/processes"
 
-const serve = serveBuilderProcess(
+serveBuilderProcess(
   {
-    send: (reply) => process.send?.(reply),
+    // The service's requests come over Node's IPC channel, as `@parity-app/channel` messages.
+    port: nodePort({
+      on: (event, listener) => process.on(event, listener),
+      postMessage: (message) => process.send?.(message)
+    }),
     usage: () => {
       const { user, system } = process.cpuUsage()
 
@@ -15,8 +20,6 @@ const serve = serveBuilderProcess(
   },
   [viteBuilder]
 )
-
-process.on("message", (request: BuilderProcessRequest) => serve(request))
 
 // The service ended, even killed outright: nothing can reach this builder any more.
 process.on("disconnect", () => process.exit(0))

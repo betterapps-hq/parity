@@ -6,6 +6,8 @@ export * from "./cli-command.ts"
 
 export * from "./code-editors.ts"
 
+export * from "./lifecycle.ts"
+
 export * from "./preview-order.ts"
 
 export * from "./service-restarts.ts"

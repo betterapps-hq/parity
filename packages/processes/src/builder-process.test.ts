@@ -1,14 +1,14 @@
+import { memoryPorts } from "@parity-app/channel"
 import type { BuilderAdapter, BuilderStartOptions, CodeChange, RendererAdapter } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 import {
   type BuilderProcessClientOptions,
-  type BuilderProcessReply,
-  type BuilderProcessRequest,
   builderProcessOptions,
   connectBuilderProcess,
   type ProcessTimes,
   serveBuilderProcess
 } from "./builder-process.ts"
+import { type ChildEnd, lifecycle } from "./lifecycle.ts"
 
 const renderer: RendererAdapter = {
   id: "react",
@@ -61,45 +61,30 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
 }
 
 /**
- * A builder's process and the service's side of it, joined as Node's IPC would join them: each message is a copy,
- * delivered a moment later. The process ends when it exits, or when the service kills it.
+ * A builder's process and the service's side of it, joined by a pair of ports in memory as Node's IPC would join them:
+ * each message is a copy, delivered a moment later. The process ends when it exits, when the service kills it, or when
+ * a test ends it.
  */
 function connect(
   builder: BuilderAdapter,
   settings: BuilderProcessClientOptions = {},
   times: () => ProcessTimes = () => ({ cpu: 0, uptime: 1, memory: 0 })
 ) {
-  const later = (deliver: () => void) => setTimeout(deliver, 0)
-  // SAFETY: requests and replies are plain JSON data (strings, numbers, arrays, objects), so a JSON copy has their type.
-  // oxlint-disable-next-line unicorn/prefer-structured-clone -- messages cross the process boundary as JSON
-  const copy = <T>(message: T): T => JSON.parse(JSON.stringify(message)) as T
-  const exit = vi.fn<(reason: string) => void>((reason) => later(() => client.exited(reason)))
-  const kill = vi.fn<() => void>(() => exit("killed"))
+  const [service, child] = memoryPorts()
+  let finish: (end: ChildEnd) => void = () => undefined
+  const end = (ending: ChildEnd) => setTimeout(() => finish(ending), 0)
+  const exit = vi.fn<() => void>(() => end({ code: 0 }))
+  const kill = vi.fn<() => void>(() => end({ signal: "SIGTERM" }))
+  const life = lifecycle({ pid: 7, onOutput: () => undefined, onEnd: (listener) => (finish = listener), kill })
 
-  const serve = serveBuilderProcess(
-    {
-      send: (reply: BuilderProcessReply) => later(() => client.receive(copy(reply))),
-      usage: times,
-      exit: () => exit("exit code 0")
-    },
-    [builder]
-  )
+  serveBuilderProcess({ port: child, usage: times, exit }, [builder])
 
-  const sent: BuilderProcessRequest[] = []
+  const client = connectBuilderProcess({ port: service, life }, builderProcessOptions(builder, startOptions), {
+    name: "Vite",
+    ...settings
+  })
 
-  const client = connectBuilderProcess(
-    {
-      send: (request) => {
-        sent.push(request)
-        later(() => serve(copy(request)))
-      },
-      kill
-    },
-    builderProcessOptions(builder, startOptions),
-    settings
-  )
-
-  return { client, sent, exit, kill }
+  return { client, life, exit, kill, end: (ending: ChildEnd) => finish(ending) }
 }
 
 describe("builderProcessOptions", () => {
@@ -205,7 +190,7 @@ describe("a builder in its own process", () => {
     const session = await client.session
     await session.close()
     expect(close).toHaveBeenCalledTimes(1)
-    expect(exit).toHaveBeenCalledWith("exit code 0")
+    expect(exit).toHaveBeenCalledTimes(1)
   })
 
   it("ends a process whose builder doesn't close in time", async () => {
@@ -225,17 +210,21 @@ describe("a builder in its own process", () => {
 
   it("fails the start with why, when the process ends before the builder starts", async () => {
     const { builder } = fakeBuilder(() => new Promise(() => undefined))
-    const { client } = connect(builder)
-    client.exited("Vite stopped by itself, with exit code 3")
+    const { client, end } = connect(builder)
+    end({ code: 3 })
     await expect(client.session).rejects.toThrow("Vite stopped by itself, with exit code 3")
   })
 
   it("reports a process that ends by itself once started, but not one it closed", async () => {
-    const onCrash = vi.fn<(reason: string) => void>()
+    const onCrash = vi.fn<NonNullable<BuilderProcessClientOptions["onCrash"]>>()
     const crashing = connect(fakeBuilder().builder, { onCrash })
     await crashing.client.session
-    crashing.client.exited("Vite stopped by itself, with exit code 1")
-    expect(onCrash).toHaveBeenCalledWith("Vite stopped by itself, with exit code 1")
+    crashing.end({ code: 1 })
+    await crashing.life.exited
+    expect(onCrash).toHaveBeenCalledWith(
+      "Vite stopped by itself, with exit code 1",
+      expect.objectContaining({ code: 1, stopped: false })
+    )
 
     const closing = connect(fakeBuilder().builder, { onCrash })
     await (await closing.client.session).close()
@@ -257,9 +246,19 @@ describe("a builder in its own process", () => {
   })
 
   it("answers usage with nothing once the process has ended", async () => {
-    const { client } = connect(fakeBuilder().builder)
+    const { client, life, end } = connect(fakeBuilder().builder)
     const session = await client.session
-    client.exited("killed")
+    end({ signal: "SIGKILL" })
+    await life.exited
     expect(await session.usage()).toBeUndefined()
+  })
+
+  it("doesn't count a builder the service stopped as crashed", async () => {
+    const onCrash = vi.fn<NonNullable<BuilderProcessClientOptions["onCrash"]>>()
+    const { client, life } = connect(fakeBuilder().builder, { onCrash })
+    await client.session
+    life.stop()
+    await life.exited
+    expect(onCrash).not.toHaveBeenCalled()
   })
 })
