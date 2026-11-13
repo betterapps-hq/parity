@@ -234,7 +234,8 @@ Electron, with no tests.
 - **The ports, through `@parity-app/channel`** (PAR-565). Each process connects its port with an adapter and answers its
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
-  service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`.
+  service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`. Each service method's
+  params are its zod schema's type, from `shared/service-params.ts`, so the type and the check can't drift (PAR-992).
 - **What a window asks main over IPC** (PAR-965). `shared/host-methods.ts` declares each method with its params' schema,
   its answer and who may ask. `main/host-methods.ts` checks each request against it and `main/host-handlers.ts` answers,
   both without Electron; `main/index.ts` passes them what they need of the app.
