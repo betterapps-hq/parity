@@ -7688,6 +7688,27 @@ desktop.
 input, explicit labels/tabs, defaults, retry patches, invalid requests, success output and images, failed execution and
 desktop errors. It also checks that caller identity travels separately from operation parameters.
 
+### How long a snippet can run (PAR-1037)
+
+A snippet can compute for 5 seconds between `await`s and run for 2 minutes in all, renders and screenshots included
+(`agentLimits` in `packages/agent/src/run.ts`). Past either, it stops and fails like any other failed call, with
+`execution_failed`, an `editId` and nothing changed, and the message says which limit it reached. The tab's next call
+still runs, with the values earlier calls left in its context. The app's own snippets, which export or report a list of
+designs, have no limit on the whole run, only on computing between `await`s (`appLimits`).
+
+Each tab's context runs its own promise jobs (`microtaskMode: "afterEvaluate"`), and only while something is evaluated
+in it, under that evaluation's timeout. So code after an `await` runs under a timeout too: when an API call settles,
+`run` evaluates an empty script in the context, which runs what the snippet does next. The call's result reaches the
+snippet as a promise of the context, so its next step is already queued there. Once the run's time is spent, its API
+calls throw, so a loop of awaited calls stops. A call that settles then leaves the snippet's promise unsettled, since
+settling it would queue the snippet's next step for the tab's next call to run. A worker, which could also stop a loop,
+would make every call asynchronous and lose the tab's values when stopped.
+
+`packages/agent/src/run.test.ts` (6 of its 135, "time limits"): a value kept for the tab's next call; a loop after an
+`await` and a loop of awaited screenshots each stopped, changing nothing, with the next call keeping the tab's values; a
+call that settles once the run's time is spent kept out of the tab's next call; a call awaited after it settled; and
+renders slower than the computing limit finishing within the run's time.
+
 ### Shared desktop operation contracts (PAR-452)
 
 All CLI desktop interactions use the contracts in `packages/cli/src/operations.ts`, alongside PAR-451's execute

@@ -10,7 +10,7 @@ import {
 import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { replies } from "./contracts.ts"
-import { execute } from "./run.ts"
+import { execute, type SnippetLimits } from "./run.ts"
 import type {
   AgentChangeSet,
   AgentEvent,
@@ -2260,5 +2260,119 @@ UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you upâ€
     const title = result.discarded![0]!.replacement
     expect(findNode(after.root, title)?.responsive).toEqual({ mobile: { hidden: true } })
     expect(after.states![1]!.overrides?.[title]).toEqual({ text: "Signing you upâ€¦" })
+  })
+})
+
+// A stretch counts the API's own work the snippet waits on, which takes far longer while the whole suite runs.
+describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
+  // Shorter limits than an agent's, so a stopped snippet stops quickly.
+  const limits: SnippetLimits = { total: 2500, stretch: 1000 }
+
+  it("keeps a value assigned without const or let for the tab's next call", async () => {
+    const read = snapshot()
+
+    await execute({ label: "Keep", code: `kept = Designs().length` }, read, hooks(), limits)
+    const result = await execute({ label: "Read", code: `Print(kept)` }, read, hooks(), limits)
+
+    expect(result.output).toEqual(["1"])
+  })
+
+  it.each([
+    { name: "a loop after an await", code: `await null\nwhile (true) {}`, error: /1 second of computing/ },
+    { name: "a loop of awaited screenshots", code: `while (true) await Screenshot("signup")`, error: /2\.5 seconds/ }
+  ])("stops $name, changes nothing, and leaves the tab's context for the next call", async ({ code, error }) => {
+    const read = snapshot()
+    await execute({ label: "Keep", code: `kept = "before"` }, read, hooks(), limits)
+
+    const stopped = await execute(
+      { label: "Loop", code: `Update("submit", { props: { variant: "outline" } })\n${code}` },
+      read,
+      hooks(),
+      limits
+    )
+
+    expect(stopped.ok).toBe(false)
+    expect(stopped.error).toMatch(error)
+    expect(stopped.details).toEqual({ code: "execution_failed", retryable: false })
+    expect(stopped.editId).toBeTruthy()
+    expect(stopped.changes.designs).toEqual([])
+
+    const next = await execute(
+      { label: "Read", code: `Print(kept)\nawait Screenshot("signup")` },
+      read,
+      hooks(),
+      limits
+    )
+
+    expect(next.error).toBeUndefined()
+    expect(next.output).toEqual(["before"])
+    expect(next.screenshots).toHaveLength(1)
+  })
+
+  it("leaves a stopped snippet's next step out of the tab's next call", async () => {
+    const read = snapshot()
+    const fast = hooks()
+
+    // Each render holds the process, so the call that runs past the deadline settles before the run's timer can fire.
+    const blocking: AgentHooks = {
+      ...fast,
+      render: async (request) => {
+        await Promise.resolve()
+        const end = performance.now() + 400
+
+        while (performance.now() < end) {
+          // Holding the process, as a long synchronous render would.
+        }
+
+        return fast.render(request)
+      }
+    }
+
+    const stopped = await execute({ label: "Loop", code: `while (true) await Screenshot("signup")` }, read, blocking, {
+      total: 1000,
+      stretch: 1000
+    })
+
+    expect(stopped.error).toMatch(/1 second, the most/)
+
+    const next = await execute({ label: "Read", code: `Print("next")` }, read, fast, limits)
+
+    expect(next.output).toEqual(["next"])
+    expect(next.screenshots).toEqual([])
+  })
+
+  it("goes on after a call that settled before the snippet awaited it", async () => {
+    const result = await execute(
+      { label: "Look", code: `const later = Screenshot("signup")\nawait Measure("signup")\nawait later` },
+      snapshot(),
+      hooks(),
+      limits
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toHaveLength(1)
+  })
+
+  it("lets renders that take longer than the computing limit finish within the run's time", async () => {
+    const fast = hooks()
+
+    const slow: AgentHooks = {
+      ...fast,
+      render: async (request) => {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        return fast.render(request)
+      }
+    }
+
+    const result = await execute(
+      { label: "Look", code: `for (let i = 0; i < 3; i++) await Screenshot("signup")` },
+      snapshot(),
+      slow,
+      limits
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toHaveLength(3)
   })
 })
