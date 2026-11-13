@@ -48,7 +48,6 @@ export const viteBuilder: BuilderAdapter = {
     {
       icon: "hammer",
       value: "Vite",
-      words: version && ` ${version}`,
       hint: version ? `Vite ${version}` : "Vite",
       detail: `Builds the project, with ${packageManager}`
     }

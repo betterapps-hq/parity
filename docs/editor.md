@@ -7297,9 +7297,10 @@ components and tokens Parity found. A new adapter adds its items without the app
 - **It's told what Parity found.** The service calls each adapter the project uses with its tool's version (the running
   builder's, otherwise detection's), the package manager, the entities it imported and the app's routes. It then adds
   "Parity doesn't test this version" to an untested tool's tooltip, so adapters don't each repeat it.
-- **What the example shows:** React; Vite 8.3.5; 8 routes from TanStack Router, which opens Layers, where they're listed
-  (the root route isn't counted); and 12 stories from Storybook, which opens Storybook. Storybook's item used to count
-  components with stories (4), which wasn't the number of stories the canvas shows.
+- **What the example shows:** React and Vite, each with its version in its tooltip; 8 routes from TanStack Router, which
+  opens Layers, where they're listed (the root route isn't counted); and 12 stories from Storybook, which opens
+  Storybook. Storybook's item used to count components with stories (4), which wasn't the number of stories the canvas
+  shows.
 - **Not yet.** Tailwind has no item of its own; it's named in the tokens' tooltip. The components and tokens items stay
   the app's, since their counts change while the project is open.
 

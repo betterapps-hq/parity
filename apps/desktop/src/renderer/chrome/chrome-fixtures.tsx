@@ -45,7 +45,6 @@ export function olderProjectAt(folder: string): ProjectInfo {
       return old
         ? {
             ...item,
-            words: item.words && ` ${old.version}`,
             hint: `${item.value} ${old.version}`,
             detail: `${item.detail ?? item.hint}. Parity doesn't test this version`
           }
