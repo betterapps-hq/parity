@@ -1,78 +1,395 @@
-export * from "./adapters.ts"
+export {
+  type BuilderAdapter,
+  type BuilderDetection,
+  type BuilderRenderer,
+  type BuilderSession,
+  type BuilderStartOptions,
+  type ClassPrinter,
+  type CodeChange,
+  type ComponentExport,
+  type DrawnNodes,
+  type ExportsTarget,
+  type FrameViewport,
+  type Guest,
+  type GuestDecorators,
+  type GuestIconSet,
+  type GuestInit,
+  type LayerFailure,
+  type MountHandle,
+  type MountOptions,
+  packageManifest,
+  type PackageManifest,
+  parseManifest,
+  type RendererAdapter,
+  scriptConfigExtensions,
+  type StylesAdapter,
+  type ThemeVariable,
+  type TokenWrite
+} from "./adapters.ts"
 
-export * from "./board.ts"
+export { boardLayoutAt, boardSize, companionScale, gutterScale, shrinkBelow } from "./board.ts"
 
-export * from "./code-changes.ts"
+export { gatherChanges, isStylesheetFile, type StampedChange, stylesheetExtensions } from "./code-changes.ts"
 
-export * from "./css.ts"
+export {
+  bodyAttribute,
+  collectCustomProperties,
+  colorSchemeAttribute,
+  colorSchemeQuery,
+  type CustomPropertyDeclaration,
+  type EnclosingAtRule,
+  prepareCanvasCss,
+  qualifiedRootLayer,
+  remProperty,
+  resetCustomProperties,
+  rewriteFrameUnits,
+  rewriteSheetFrameUnits,
+  rootFontSizeProperty,
+  viewportContainerName,
+  viewportHeightProperty,
+  viewportWidthProperty
+} from "./css.ts"
 
-export * from "./decompose.ts"
+export { extractComponent, findRepeats, type RepeatCandidate } from "./decompose.ts"
 
-export * from "./design-change.ts"
+export { type ChangeConflict, describeConflicts, type DesignChange, type ModesChange } from "./design-change.ts"
 
-export * from "./detection.ts"
+export { type Detection, type PackageManagerDetection, type ProjectDetection } from "./detection.ts"
 
-export * from "./devices.ts"
+export { deviceForWidth, type DeviceKind, devicePresets, lengthToPixels, screenHeightForWidth } from "./devices.ts"
 
-export * from "./document.ts"
+export {
+  canvasDocument,
+  type CanvasDocument,
+  type CanvasObjectKind,
+  type CanvasObjectSpec,
+  type ComponentNode,
+  type ComponentRef,
+  type ContainerKind,
+  containerKinds,
+  containerSpec,
+  type ContainerSpec,
+  type ContainerViewSettings,
+  type DesignNode,
+  designStates,
+  detectionCorrections,
+  type DetectionCorrections,
+  type FrameSize,
+  imageCredit,
+  type ImageCredit,
+  type ImageDetails,
+  type ImageNode,
+  includeComponent,
+  type InstanceNode,
+  isAccessibilityProp,
+  type LayoutNode,
+  type Lens,
+  type LinkEnd,
+  type LinkSpec,
+  type NodePatch,
+  nodeTree,
+  noteSpec,
+  type NoteSpec,
+  type ParamSpec,
+  paramTypes,
+  parseCanvasDocument,
+  parseNodePatch,
+  patchUnset,
+  type PropValues,
+  type ReferenceSpec,
+  type StateSpec,
+  type TextNode,
+  textTags,
+  type VariantOption,
+  type VideoNode,
+  walkNodes
+} from "./document.ts"
 
-export * from "./edit.ts"
+export {
+  addState,
+  addVariant,
+  boardTarget,
+  changeCount,
+  changesField,
+  childEntries,
+  childNodes,
+  deleteNode,
+  dropPatches,
+  duplicateState,
+  editNode,
+  editsDesign,
+  type EditTarget,
+  editTargetName,
+  findNode,
+  findState,
+  generateId,
+  hiddenOnBoard,
+  insertNode,
+  isBaseState,
+  locateNode,
+  mapChildLists,
+  mapNode,
+  mapNodes,
+  moveNode,
+  moveNodes,
+  moveState,
+  type NodeChange,
+  nodeIds,
+  nodeInState,
+  nodeLabel,
+  nodeOnBoard,
+  type PatchField,
+  patchSize,
+  propChange,
+  refuseUnlessComponent,
+  removeParam,
+  removeState,
+  renameState,
+  renameVariantOption,
+  resetOverride,
+  targetPatches,
+  tidyPatch,
+  toEditTarget,
+  toggleHidden,
+  topmostNodes,
+  unwrapNode,
+  withFreshIds,
+  wrapNodes
+} from "./edit.ts"
 
-export * from "./effective.ts"
+export { effectiveNode, effectiveTree, type EffectiveTree, locateEffective } from "./effective.ts"
 
-export * from "./errors.ts"
+export {
+  type ElementSource,
+  elementSourceAttribute,
+  formatElementSource,
+  parseElementSource
+} from "./element-source.ts"
 
-export * from "./fields.ts"
+export {
+  alternativeLimit,
+  closest,
+  CodedError,
+  errorDetails,
+  type ErrorDetails,
+  readErrorDetails,
+  unknownReference
+} from "./errors.ts"
 
-export * from "./frame-rules.ts"
+export {
+  applyFieldInput,
+  type FieldRules,
+  readFieldInput,
+  remPixels,
+  scrubSteps,
+  snapToSpacingGrid,
+  stepFieldValue
+} from "./fields.ts"
 
-export * from "./grouping.ts"
+export {
+  frameRules,
+  type FrameRulesOptions,
+  previewRules,
+  withClasses,
+  writeClasses,
+  type WrittenClasses
+} from "./frame-rules.ts"
 
-export * from "./guest-changes.ts"
+export { componentRole, type ComponentRole, groupComponents, type LeftOutExport, pageRoute } from "./grouping.ts"
 
-export * from "./icon-names.ts"
+export {
+  codeChangeVersions,
+  guestChanges,
+  type GuestChanges,
+  type GuestComponentSource,
+  versionedSources
+} from "./guest-changes.ts"
 
-export * from "./instances.ts"
+export { iconAliases, iconStyleModules, iconVariants, shorterName } from "./icon-names.ts"
 
-export * from "./jsonc.ts"
+export {
+  detachInstance,
+  editInner,
+  innerChanges,
+  type InnerNode,
+  isInnerPath,
+  layerOnBoard,
+  locateInner,
+  overrideCount,
+  pushOverrides,
+  resetInner,
+  resetInstance,
+  swapInstance
+} from "./instances.ts"
 
-export * from "./library.ts"
+export { parseJsonc } from "./jsonc.ts"
 
-export * from "./library-insert.ts"
+export { componentNode, librarySource, withLibraryContext } from "./library-insert.ts"
 
-export * from "./mode-report.ts"
+export {
+  applyLibraryEdits,
+  type ComponentEvidence,
+  type ComponentSample,
+  type DecoratorElement,
+  type IconRenderer,
+  type IconVariants,
+  isSampleText,
+  type LibraryBreakpoint,
+  libraryCanvas,
+  type LibraryComponent,
+  type LibraryComponentEdit,
+  type LibraryComponents,
+  type LibraryDecorator,
+  libraryDesigns,
+  type LibraryEdits,
+  type LibraryIcons,
+  libraryId,
+  libraryImports,
+  libraryManifest,
+  type LibraryManifest,
+  libraryManifestExtension,
+  libraryPackage,
+  type LibraryPackage,
+  type ParentSignal,
+  parseLibraryEdits,
+  parseLibraryManifest,
+  remapLibraryImports,
+  type SampleChild,
+  type SampleElement,
+  type SampleRender,
+  withLibraryCanvas
+} from "./library.ts"
 
-export * from "./modes.ts"
+export { designModes, type DesignModes, modesReport, type ModesReport } from "./mode-report.ts"
 
-export * from "./params.ts"
+export {
+  defaultModeSettings,
+  isTouchMode,
+  modeDevice,
+  modeGlobals,
+  modeSettings,
+  type ModeSettings,
+  type ModeSpec,
+  type ModeVariable,
+  previewMode,
+  type ResolvedMode,
+  resolveMode,
+  resolveModes,
+  shownModes,
+  uniqueId,
+  type VariableOption
+} from "./modes.ts"
 
-export * from "./project.ts"
+export {
+  addParam,
+  type ArgChange,
+  bindingProblem,
+  bindNode,
+  changeArgs,
+  deleteParam,
+  renameParam,
+  updateParam
+} from "./params.ts"
 
-export * from "./prop-binding.ts"
+export {
+  type ComponentSource,
+  type DescribedTokens,
+  type LibraryInfo,
+  type OpenProp,
+  type ProjectConfig,
+  type StorybookInfo,
+  type StoryFile
+} from "./project.ts"
 
-export * from "./props.ts"
+export { addValueProp, bindText, propFromText, propNameProblem, textProps, type ValuePropType } from "./prop-binding.ts"
 
-export * from "./render.ts"
+export {
+  type ComponentInfo,
+  type ComponentProp,
+  nodePropInput,
+  type PropGroup,
+  type PropKind,
+  propsPanel
+} from "./props.ts"
 
-export * from "./render-status.ts"
+export { type ComponentRenderStatus, describeRenderStatus, renderProblem } from "./render-status.ts"
 
-export * from "./schema.ts"
+export {
+  boardRoot,
+  componentLibrary,
+  type ComponentLibrary,
+  drawnNode,
+  type ElementAttributes,
+  emptyLayoutAttribute,
+  type EvalContext,
+  type EvalScope,
+  frameGeometry,
+  type FrameGeometry,
+  frameSize,
+  frameViewport,
+  projectComponentLibrary,
+  reachableLibrary,
+  type RenderComponent,
+  renderedComponents,
+  type RenderElement,
+  type RenderNode,
+  resolveDesign,
+  scopeOf,
+  variantChoices,
+  withoutEmptyLayoutMarks
+} from "./render.ts"
 
-export * from "./scripts.ts"
+export {
+  fileObject,
+  finiteNumber,
+  type InvalidData,
+  jsonText,
+  jsonValue,
+  type JsonValue,
+  nonBlankString,
+  onInvalidData,
+  parseData,
+  parseInput,
+  parserFor,
+  plainObject
+} from "./schema.ts"
 
-export * from "./skeleton.ts"
+export { commandOption, scriptRunning } from "./scripts.ts"
 
-export * from "./slot-names.ts"
+export { type DrawnBox, frameSkeleton, type FrameSkeleton } from "./skeleton.ts"
 
-export * from "./slots.ts"
+export { slotName } from "./slot-names.ts"
 
-export * from "./style-changes.ts"
+export {
+  clearSlot,
+  type DesignSlot,
+  designSlots,
+  freeSlotName,
+  type InstanceSlot,
+  instanceSlots,
+  setSlot,
+  slotAtPath,
+  slotPlaceProblem,
+  slotProblem
+} from "./slots.ts"
 
-export * from "./token-types.ts"
+export { styleChanges } from "./style-changes.ts"
 
-export * from "./values/index.ts"
+export { type DescribedToken, type TokenCategory, type TokenExtension } from "./token-types.ts"
 
-export * from "./element-source.ts"
+export {
+  evaluateValue,
+  exportOf,
+  isMadeValue,
+  isSampleElement,
+  isSampleRender,
+  renderSlotKey,
+  renderSlotOf,
+  type ValueHost,
+  valueImports
+} from "./values/evaluate.ts"
+
+export { type MadeValue } from "./values/grammar.ts"
 
 // The stored style's schema and its CSS are `@parity-app/style-schema`'s. What the rest of Parity reads of them comes through
 // here, so a package that holds documents needs only core.

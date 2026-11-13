@@ -35,6 +35,9 @@ when it's spread through UI code. Today:
   or React, and has 12 test files. Its `values/` module checks and evaluates decorator and sample values (PAR-572); the
   guest imports its evaluator and `icon-names.ts` alone, as `@parity-app/core/values/evaluate` and
   `@parity-app/core/icon-names`, since they import nothing at runtime.
+- **Core and editor name what other packages may use** in `src/index.ts`, one `export { … }` per module, and a name
+  nothing outside uses stays inside (PAR-989). Their `package.json` `exports` allow nothing else, apart from core
+  modules that load on their own: `errors`, `fixtures`, `icon-names`, `props`, `schema` and `values/evaluate`.
 - **Framework-specific code sits behind adapter interfaces:** `@parity-app/renderer-react`, `@parity-app/builder-vite`
   and `@parity-app/styles-tailwind`.
 - **The agent API calls core's edits** (`setContainer`, `insertNode`, `moveNode`, `applyChanges` and the rest) rather
