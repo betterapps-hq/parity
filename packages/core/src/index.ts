@@ -92,6 +92,7 @@ export {
   patchUnset,
   type PropValues,
   type ReferenceSpec,
+  type RouteNode,
   type StateSpec,
   type TextNode,
   textTags,

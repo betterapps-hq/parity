@@ -1,6 +1,7 @@
 import { addDesigns, type CanvasDocument } from "@parity-app/core"
 import { routeScreens } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import { componentBoardsTop } from "./component-boards.ts"
 
 /**
  * Where the app's pages are kept among a project's designs (PAR-1076): a design file of their own that's never saved,
@@ -28,19 +29,17 @@ export interface PageLink {
 const pageLinks = new Map<string, readonly PageLink[]>()
 
 /**
- * The app's pages as a design file, above the project's own designs, or none without routes. Remembers each page's URL
+ * The app's pages as a design file, above the project's components and designs, or none without routes. Remembers each page's URL
  * for its frames to draw.
  */
-export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" | "documents" | "modes">): {
+export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" | "documents" | "modes" | "sources">): {
   path: string
   document: CanvasDocument
 }[] {
-  const ys = info.documents.flatMap((entry) => entry.document.containers.map((container) => container.position.y))
-
   const screens = routeScreens(info.routes, info.modes.settings, {
     origin: new URL(info.guestUrl).origin,
     x: 0,
-    bottom: Math.min(0, ...ys) - 400,
+    bottom: componentBoardsTop(info) - 600,
     width: 1280,
     height: 800,
     gap: 160,

@@ -70,6 +70,7 @@ import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
+import { boardFile, componentBoardsFile } from "./component-boards.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
@@ -202,7 +203,11 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
         return
       }
 
-      store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, { history: false })
+      // A component's board is drawn from the project's code each time, so the width it's drawn at isn't to be saved.
+      store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, {
+        history: false,
+        persist: !key.startsWith(`${componentBoardsFile}#`)
+      })
     }
 
     const observer = new ResizeObserver(fit)
@@ -592,6 +597,10 @@ function TitleButton({
   const { container } = entry
   // A page of the app shows its route under its name (PAR-1076).
   const path = routePagePath(session.id, container.id)
+  // A component's board shows the component's icon, and its file under its name.
+  const file = boardFile(session.id, container.id)
+  const kind = file === undefined ? container.kind : "component"
+  const under = path ?? file
 
   // Edit > Rename, or F2, with the design selected.
   const renameRequest = useRenameRequest(session.selection)
@@ -607,10 +616,10 @@ function TitleButton({
 
   const icon = (
     <DesignIcon
-      kind={container.kind}
+      kind={kind}
       route={path !== undefined}
       className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
-      style={{ color: color ?? (quiet ? undefined : designColor(container.kind)) }}
+      style={{ color: color ?? (quiet && file === undefined ? undefined : designColor(kind)) }}
     />
   )
 
@@ -663,12 +672,12 @@ function TitleButton({
       style={color ? { color } : undefined}
     >
       {icon}
-      {path === undefined ? (
+      {under === undefined ? (
         <Name>{container.name}</Name>
       ) : (
         <span className="flex min-w-0 flex-col items-start leading-tight">
           <Name>{container.name}</Name>
-          <span className="max-w-full truncate text-xs font-normal text-muted-foreground">{path}</span>
+          <span className="max-w-full truncate text-xs font-normal text-muted-foreground">{under}</span>
         </span>
       )}
     </button>

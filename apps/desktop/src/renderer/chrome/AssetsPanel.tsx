@@ -66,6 +66,7 @@ import {
   useSyncExternalStore
 } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
@@ -89,6 +90,7 @@ import { type Preferences, setPreferences, usePreferences } from "./preferences.
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
+import { revealSelection } from "./reveal.ts"
 import { hasStories, openInStorybook } from "./storybook.ts"
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
@@ -442,6 +444,23 @@ export function ComponentsPanel() {
   )
 }
 
+/**
+ * Pressing a component: one of the project's own selects its board on the canvas, which shows what it is, and any
+ * other is added where the selection is.
+ */
+function pick(session: ProjectSession, item: InsertItem, component: string | undefined): void {
+  const board = component === undefined ? undefined : boardKeyOf(session.id, component)
+
+  if (board === undefined) {
+    addAtSelection(session, item)
+
+    return
+  }
+
+  session.selection.set({ design: board })
+  revealSelection(session)
+}
+
 /** The app's exports that aren't listed as components: what the type checker left out, less what the person listed. */
 function notListed(info: ProjectInfo): LeftOutExport[] {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
@@ -669,7 +688,7 @@ function AssetEntry({
     <button
       type="button"
       {...dragItem(item)}
-      onClick={() => addAtSelection(session, item)}
+      onClick={() => pick(session, item, component)}
       {...(component
         ? {
             onPointerEnter: card.enter,

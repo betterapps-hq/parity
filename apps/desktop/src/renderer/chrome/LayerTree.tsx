@@ -68,6 +68,7 @@ import {
   useRef,
   useState
 } from "react"
+import { componentBoardsFile } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
@@ -183,7 +184,8 @@ export function LayerTree() {
       (entry) => entry.path !== routePagesFile && (!entry.container.kind || entry.container.kind === "screen")
     )
 
-    const frames = entries.filter((entry) => entry.container.kind === "frame")
+    // The project's components are listed in the Components panel, so their boards aren't layers here.
+    const frames = entries.filter((entry) => entry.container.kind === "frame" && entry.path !== componentBoardsFile)
     const listed: Group[] = []
 
     // Routes are listed once the app has some, as its router says.

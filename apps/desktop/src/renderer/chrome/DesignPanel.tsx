@@ -3,6 +3,7 @@ import type { ResolvedMode } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
+import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageRoute } from "../canvas/route-pages.ts"
@@ -14,6 +15,7 @@ import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
+import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
@@ -116,6 +118,19 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
     )
   }
 
+  // One of the project's components on its board: its header, what its code says of it, and Export.
+  const component = boardComponent(session.id, entry.container.id)
+
+  if (component !== undefined) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <ComponentSourceSection component={component} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
   return panelParts(can).map((section) => {
     const Section = designSections[section]
 
@@ -152,15 +167,26 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const { primary } = containerModes(settings, container)
   // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
   const page = routePageRoute(session.id, container.id) !== undefined
+  const board = boardComponent(session.id, container.id) !== undefined
+  let kind = kindTitle(container.kind)
+  let detail = `${kind}, saved in ${entry.path}`
+
+  if (page) {
+    kind = "Route"
+    detail = "Route, read from the app's router"
+  } else if (board) {
+    kind = "Component"
+    detail = "Component, drawn from the project's code"
+  }
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={<DesignIcon kind={container.kind} route={page} className={headingIcon} />}
-          color={designColor(container.kind)}
-          kind={page ? "Route" : kindTitle(container.kind)}
-          detail={page ? "Route, read from the app's router" : `${kindTitle(container.kind)}, saved in ${entry.path}`}
+          icon={<DesignIcon kind={board ? "component" : container.kind} route={page} className={headingIcon} />}
+          color={designColor(board ? "component" : container.kind)}
+          kind={kind}
+          detail={detail}
           name={
             <NameInput
               key={container.name}
@@ -182,7 +208,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
             />
           }
         />
-        {container.kind === "frame" && (
+        {container.kind === "frame" && !board && (
           <div className="mt-2 flex flex-col gap-2 pl-1.5">
             <Hint label="Frames are drawn in the project's primary mode" wait>
               <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">

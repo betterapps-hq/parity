@@ -6509,6 +6509,39 @@ URL with its params' samples; a splat's empty sample; a screen for each page, na
 it hangs from, ending above the designs; each viewport's frame as tall as its screen). Gaps: reading routes when the
 project opens, the page frames, the lines and the bundling have no test of their own; all were tried in the app.
 
+### Each of the project's components on a board of its own (read-only viewer, step 8)
+
+The project opens with a board for each of its own components, below the pages and above the designs. Library components
+and pages aren't on boards, and neither are providers or the parts the Components panel hides. There's a row for each
+group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle, and the rest of the app's by folder.
+
+- **Drawn from the code.** The guest draws each component as inserting it would place it. A required prop gets its
+  default or its first option, and a component that takes children gets its own name as text. It starts without samples
+  and takes them once the props have been read from the component's types, a moment after the project opens. The board
+  is at least 320px wide and hugs the component. Its title shows the component's icon, its name, and its file
+  underneath.
+- **Listed in the Components panel, not Layers.** Pressing one of the project's components in the Components panel
+  selects and shows its board. Dragging it still inserts it, and pressing a library's component still adds it where the
+  selection is.
+- **Read-only panel.** A selected board's panel shows its file and the export it's drawn from. Under Props, it lists the
+  props the component declares and its variants, each with its options or type and its default. The attributes and
+  handlers it passes through to its element aren't listed.
+- **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
+  written. Neither a move nor the width a board is drawn at marks the project unsaved. Pages and boards are left out of
+  what Parity keeps to restore after a crash.
+- **Not yet.** A part that needs its parent, as AvatarImage needs Avatar or TabsTrigger needs Tabs, draws its error.
+
+Tried in a development build on the example project. Its own UI kit showed 36 boards in 10 rows under the page tree.
+Pressing CardTitle in the Components panel selected its board, with `src/components/ui/card.tsx` and its export in the
+panel. Button's panel listed its variant and size options and `asChild` = false. Reopening left nothing unsaved.
+
+Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`;
+`apps/desktop/src/renderer/canvas/component-boards.ts`; `sampleBoards` and `ownWork` in `workspace.ts`;
+`ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
+
+Tests: `packages/editor/src/component-boards.test.ts` (3: the panel's groups without pages, libraries or providers; a
+row for each group from the layout's top left; a sample for each required prop and the name as children).
+
 ### Opening in seconds (PAR-179)
 
 Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2

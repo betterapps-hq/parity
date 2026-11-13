@@ -8,13 +8,14 @@ import {
   parseData,
   versionedSources
 } from "@parity-app/core"
-import { openingDesigns } from "@parity-app/editor"
+import { openingDesigns, type RecoveryCopy } from "@parity-app/editor"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
+import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import { routePages, routePagesFile } from "./canvas/route-pages.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
@@ -1273,13 +1274,19 @@ async function createSession(
   const loaded = await loadGuest(info.guestUrl, info.theme)
 
   const store = new DesignStore(
-    [...openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings), ...routePages(info)],
+    [
+      ...openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
+      ...routePages(info),
+      ...componentBoardsDocument(info)
+    ],
     info.modes.settings,
     info.mainDocument,
     {
-      // The app's pages are drawn from its routes each time, so they're never saved (PAR-1076).
+      // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076).
       saveDocument: (path, document) =>
-        path === routePagesFile ? Promise.resolve() : saveDocument(info.id, path, document),
+        path === routePagesFile || path === componentBoardsFile
+          ? Promise.resolve()
+          : saveDocument(info.id, path, document),
       autosave: () => getPreferences().autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
@@ -1287,6 +1294,7 @@ async function createSession(
 
   const components = new ComponentStore()
   inferComponents(info, components)
+  sampleBoards(info, store, components)
 
   const session = new ProjectSession(
     {
@@ -1294,9 +1302,11 @@ async function createSession(
       store,
       components,
       selection: new SelectionStore(),
-      recovery: keepRecovery(store, (copy) =>
-        request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
-      )
+      recovery: keepRecovery(store, (copy) => {
+        const kept = copy && ownWork(copy)
+
+        return request("recovery.keep", kept ? { projectId: info.id, copy: kept } : { projectId: info.id })
+      })
     },
     { info, loaded, tokens: tokenStore(info, loaded, store) }
   )
@@ -1363,6 +1373,36 @@ function followCorrections(session: ProjectSession): void {
 
     request("project.correctComponents", params).catch((cause: unknown) =>
       console.warn("The component list couldn't take the correction", cause)
+    )
+  })
+}
+
+/**
+ * What of a recovery copy is the person's own work: the pages and component boards are drawn from the project's code
+ * each time it opens, so moving one leaves nothing to restore. Undefined when nothing's left.
+ */
+function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
+  const documents = copy.documents.filter(({ path }) => path !== routePagesFile && path !== componentBoardsFile)
+
+  return documents.length > 0 || copy.modes || copy.tokens.length > 0 ? { ...copy, documents } : undefined
+}
+
+/**
+ * Redraws the component boards with a sample for each prop once the service has said what each takes, as a change
+ * that's neither undone nor saved.
+ */
+function sampleBoards(info: ProjectInfo, store: DesignStore, components: ComponentStore): void {
+  components.subscribe(() => {
+    const [boards] = componentBoardsDocument(info, components.get())
+
+    if (!boards) {
+      return
+    }
+
+    store.change(
+      "Draw components",
+      (snapshot) => ({ ...snapshot, documents: new Map(snapshot.documents).set(boards.path, boards.document) }),
+      { history: false, persist: false }
     )
   })
 }

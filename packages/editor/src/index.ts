@@ -472,3 +472,12 @@ export {
   samplePath,
   treeDepth
 } from "./route-boards.ts"
+
+export {
+  type BoardLayout,
+  boardGroups,
+  boardsHeight,
+  type ComponentBoard,
+  componentBoardId,
+  componentBoards
+} from "./component-boards.ts"
