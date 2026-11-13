@@ -232,7 +232,12 @@ const nodeBase = fileObject({
    * Inside a component design: which of this node's values come from the component's params, so each instance can
    * show its own. `text` and `props` name a param.
    */
-  bind: nodeBinding.optional()
+  bind: nodeBinding.optional(),
+  /**
+   * The element a layer was read from: its tag and the attributes that say what it is, as `role` or `href`. Only on what
+   * a component draws inside (`internals`), which is read from its code and never saved; it gives the layer its type.
+   */
+  element: fileObject({ tag: z.string(), attributes: z.record(z.string(), z.string()).optional() }).optional()
 })
 
 /**

@@ -5,6 +5,7 @@ import {
   type LibraryInfo,
   nodeLabel
 } from "@parity-app/core"
+import { describeElement, elementFamilies } from "@parity-app/layer-types"
 import {
   AppWindow,
   Columns3,
@@ -25,6 +26,7 @@ import { useContext } from "react"
 import { isIconLayer, unnamedIconLabel } from "../chrome/layer-kind.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { ProjectContext } from "./context.ts"
+import { elementFamilyColors, elementFamilyTextColors, LayerIcon } from "./element-kinds.tsx"
 
 /**
  * Each kind of thing on the canvas has its own selection color and icon, so a glance tells a screen from a component,
@@ -82,8 +84,9 @@ const textColors: Partial<Record<keyof typeof kindColors, string>> = {
 /** The text color that goes with a selection color from `kindColors`, or the color itself for one without. */
 export function textFor(color: string): string {
   const kind = kindOf(color)
+  const family = elementFamilies.find((each) => elementFamilyColors[each] === color)
 
-  return (kind && textColors[kind]) ?? color
+  return (kind && textColors[kind]) ?? (family && elementFamilyTextColors[family]) ?? color
 }
 
 /** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
@@ -95,8 +98,16 @@ export function designColor(kind: ContainerKind | undefined): string {
   return kind === "component" ? kindColors.component : kindColors.screen
 }
 
-/** Library components and instances of component designs are purple, text is green, and plain layout is a layer. */
+/**
+ * Library components and instances of component designs are purple, text is green, and plain layout is a layer; a
+ * layer read from an element is its family's color.
+ */
 export function nodeColor(node: DesignNode): string {
+  // A layer read from a component's element is in its type's family color (`@parity-app/layer-types`).
+  if (node.element) {
+    return elementFamilyColors[describeElement(node.element).family]
+  }
+
   // What a route draws is its component (PAR-1076).
   if (node.type === "component" || node.type === "instance" || (node.type === "route" && node.component)) {
     return kindColors.component
@@ -157,6 +168,11 @@ export function NodeIcon({
   ...props
 }: LucideProps & { node: DesignNode; libraries?: readonly LibraryInfo[] }) {
   const project = useContext(ProjectContext)
+
+  // A layer read from a component's element shows its type's icon, as Button or Link (`@parity-app/layer-types`).
+  if (node.element) {
+    return <LayerIcon {...props} name={describeElement(node.element).icon} />
+  }
 
   if (node.type === "text") {
     return <Type {...props} />

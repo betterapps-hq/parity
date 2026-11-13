@@ -6535,10 +6535,18 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   inside. A layer is named for its `data-slot`, as shadcn names its parts, else its role, else its tag. Its styles are
   what it's drawn with: its size, a layout's direction, gap, padding and alignment, its fill, border, corners and
   opacity, and a text's type. Selecting one outlines its element on the canvas.
+- **Each layer is its element's type.** A layer read from an element keeps its tag and the attributes that say what it
+  is, and `describeElement` in `@parity-app/layer-types` gives its type: its icon in Layers and in its panel's header,
+  and its family's color, as an orange Button for a `button` or a blue Layout for a `div` (Layers/Element types in
+  Storybook has the whole mapping). The header calls it by its type, with its role, input type or tag beside it, and it
+  has no Make component.
 - **Read-only panel.** A selected board's panel shows its file and the export it's drawn from. Under Props, it lists the
   props the component declares and its variants, each with its options or type and its default. The attributes and
-  handlers it passes through to its element aren't listed. A layer inside it, or a layer of a page, shows the Design
-  tab's sections with its values, and none of them edits it.
+  handlers it passes through to its element aren't listed. A layer inside it shows its type's sections: first the ones
+  its attributes fill (`panelData`), as Link with its `href` and target, a Checkbox with its name and whether it's
+  checked, or a video's Source and Playback, leaving out one with nothing set; then its text, for text; then the style
+  sections its type has, as a Button's Typography, Size, Fill, Stroke and Appearance. A layer of a page shows the Design
+  tab's sections with its values. None of them edits it.
 - **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
   written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and
   boards are left out of what Parity keeps to restore after a crash.
@@ -6548,17 +6556,23 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
 Tried in a development build on the example project. Its own UI kit showed 36 boards in 10 rows under the page tree.
 Pressing CardTitle in the Components panel selected its board, with `src/components/ui/card.tsx` and its export in the
 panel. Button's panel listed its variant and size options and `asChild` = false. Reopening left nothing unsaved. Card's
-row opened to `card` and Text; selecting `card` outlined it and showed its size, padding and fill, greyed.
+row opened to `card` and Text; selecting `card` outlined it and showed its size, padding and fill, greyed. Button's row
+opened to `button` with the orange Button icon, and its panel's header said Button, with Typography, Size, Fill, Stroke
+and Appearance; Input's `input` was a Text field.
 
 Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`; `elementLayers` in
-`packages/editor/src/element-layers.ts`; `opensTo` in `layers-tree.ts`;
+`packages/editor/src/element-layers.ts`; `describeElement` and `panelData` in `packages/layer-types`; `opensTo` in
+`layers-tree.ts`; `NodeIcon` and `nodeColor` in `canvas/kinds.tsx`; `ElementPanel` in `chrome/LayerPanel.tsx`;
 `apps/desktop/src/renderer/canvas/component-boards.ts`; `board-internals.ts`; `setInnerNodes` in `frame.ts`;
 `sampleBoards` and `ownWork` in `workspace.ts`; `ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
 
 Tests: `packages/editor/src/component-boards.test.ts` (3: the panel's groups without pages, libraries, dependencies or
 providers; a row for each group from the layout's top left; the component 2px in on no fill, with a sample for each
-required prop and its name as children); `packages/editor/src/element-layers.test.ts` (15: the layer each element is,
-its name, a card's elements as layers, and computed styles as a valid layer style).
+required prop and its name as children); `packages/editor/src/element-layers.test.ts` (14: the layer each element is,
+its name, a card's elements as layers with their elements, and computed styles as a valid layer style);
+`packages/layer-types/src/layer-types.test.ts` (37: each tag, input type and role in one type, and what an element
+describes as); `packages/layer-types/src/panel-data.test.ts` (6: a link's, a checkbox's, a switch's and a video's
+sections from their attributes, and sections with nothing set left out).
 
 ### Opening in seconds (PAR-179)
 

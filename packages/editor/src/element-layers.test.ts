@@ -36,7 +36,7 @@ describe("layerName", () => {
 })
 
 describe("elementLayers", () => {
-  it("turns a card's elements into layouts and text, leaving out blank text", () => {
+  it("turns a card's elements into layouts and text, each with its element, leaving out blank text", () => {
     const card = element("div", [
       element("div", [text("Title")], { id: "title", tag: "h3", attributes: { "data-slot": "card-title" } }),
       text("  "),
@@ -49,9 +49,26 @@ describe("elementLayers", () => {
         id: "div-3",
         name: "div",
         style: { flexDirection: "column" },
+        element: { tag: "div" },
         children: [
-          { type: "text", id: "title", name: "card-title", text: "Title", tag: "h3", style: {} },
-          { type: "image", id: "photo", name: "img", src: "/a.png", alt: "A", style: {} }
+          {
+            type: "text",
+            id: "title",
+            name: "card-title",
+            text: "Title",
+            tag: "h3",
+            style: {},
+            element: { tag: "h3", attributes: { "data-slot": "card-title" } }
+          },
+          {
+            type: "image",
+            id: "photo",
+            name: "img",
+            src: "/a.png",
+            alt: "A",
+            style: {},
+            element: { tag: "img", attributes: { src: "/a.png", alt: "A" } }
+          }
         ]
       }
     ])

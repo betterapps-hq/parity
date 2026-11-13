@@ -5,6 +5,7 @@ import {
   elementLayers,
   readStyles
 } from "@parity-app/editor"
+import { panelAttributes } from "@parity-app/layer-types"
 import { type RefObject, useEffect } from "react"
 import type { ContainerEntry } from "../design-store.ts"
 import { watchFrame } from "../frame-host.ts"
@@ -12,8 +13,8 @@ import { findNodeElements, setInnerNodes } from "../frame.ts"
 import { componentBoardsFile } from "./component-boards.ts"
 import { useProject } from "./context.ts"
 
-/** Attributes that name an element or say what it shows. */
-const keptAttributes = ["src", "alt", "data-slot", "role", "type", "placeholder"]
+/** Attributes that name an element, say what it shows, or give its type and its panel's fields (`panelData`). */
+const keptAttributes = [...new Set(["data-slot", "popover", ...panelAttributes])]
 
 /**
  * Reads what a component's board draws inside into its component's layers each time the board is drawn (read-only

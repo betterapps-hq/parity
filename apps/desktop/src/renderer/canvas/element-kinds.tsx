@@ -28,7 +28,6 @@ import {
   Upload
 } from "lucide-react"
 import { createElement } from "react"
-import { kindColors } from "./kinds.tsx"
 
 /**
  * The icons layer types name (`elementTypeIcons` in `@parity-app/layer-types`), as Lucide draws them.
@@ -67,11 +66,12 @@ export function LayerIcon({ name, ...props }: LucideProps & { name: LayerIconNam
 
 /**
  * Each element family's color, which every type in it shares: Structure takes a layer's blue and Text text's green, as
- * layouts and text have on the canvas, and Media and Input have their own (see styles.css).
+ * layouts and text have on the canvas (`kindColors`, named here since kinds.tsx draws with these), and Media and Input
+ * have their own (see styles.css).
  */
 export const elementFamilyColors: Record<ElementFamily, string> = {
-  structure: kindColors.layer,
-  text: kindColors.text,
+  structure: "var(--canvas-layer)",
+  text: "var(--canvas-text)",
   media: "var(--canvas-media)",
   input: "var(--canvas-input)"
 }

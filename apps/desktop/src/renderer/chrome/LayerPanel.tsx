@@ -17,6 +17,12 @@ import {
   type VideoNode
 } from "@parity-app/core"
 import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
+import {
+  describeElement,
+  type ElementFacts,
+  type PanelSection as TypeSection,
+  panelData
+} from "@parity-app/layer-types"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
@@ -43,7 +49,7 @@ import { Hint } from "./Hint.tsx"
 import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
-import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
+import { type HeaderAction, layerActions, type LayerKind, layerKind } from "./layer-kind.ts"
 import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -84,6 +90,11 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
   }
 
+  // A layer read from a component's element has its type's panel (`@parity-app/layer-types`).
+  if (layer.node.element) {
+    return <ElementPanel element={layer.node.element} text={layer.node.type === "text"} />
+  }
+
   const KindPanel = kindPanels[layer.node.type]
 
   if (KindPanel) {
@@ -101,6 +112,48 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
 
     return Section && <Section key={section} />
   })
+}
+
+/** The style sections that show each of a layer type's sections that come from its styles. */
+const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
+  landmark: [],
+  link: [],
+  input: [],
+  source: [],
+  playback: [],
+  layout: ["layout", "spacing"],
+  typography: ["text"],
+  size: ["size"],
+  fill: ["fill"],
+  stroke: ["stroke"],
+  appearance: ["appearance", "effects"]
+}
+
+/**
+ * The panel of a layer read from a component's element (read-only viewer): its header, named for its type, the sections
+ * its attributes fill (`panelData`), its text, and the style sections its type has, in that order.
+ */
+function ElementPanel({ element, text }: { element: ElementFacts; text: boolean }) {
+  const order = describeElement(element).sections.flatMap((section) => typeStyleSections[section])
+
+  return (
+    <>
+      <LayerHeader />
+      {panelData(element).map((group) => (
+        <PanelSection key={group.section} title={group.title}>
+          <FieldGrid>
+            {group.fields.map((field) => (
+              <Field key={field.attribute} label={field.label}>
+                <TextInput value={field.value} onCommit={() => undefined} />
+              </Field>
+            ))}
+          </FieldGrid>
+        </PanelSection>
+      ))}
+      {text && <LayerContent />}
+      <LayerStyles order={order} />
+    </>
+  )
 }
 
 /** The kinds of layer with a Design panel of their own (PAR-1056); the others are drawn from `panelParts`. */
@@ -170,7 +223,11 @@ export function LayerHeader() {
 
   const { entry, nodeId, node, override, change, reset, state, target, inner } = layer
   const { container, key } = entry
-  const kind = layerKind(layer.layer, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
+
+  const kind = layer.layer.element
+    ? elementKind(layer.layer.element)
+    : layerKind(layer.layer, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
+
   const label = layerLabel(layer.layer, entries, store.getComponentLibrary(), session.info.libraries)
 
   const heading = (name: ReactNode) => (
@@ -224,8 +281,12 @@ export function LayerHeader() {
         />
       )}
       <ComponentStateSelector entry={entry} state={state} target={target} />
-      {/* A component or an instance is already one, and a route is the app's code, so they have no Make component. */}
+      {/*
+        A component or an instance is already one, and a route or a layer read from an element is the app's code, so
+        they have no Make component.
+      */}
       {layer.depth > 0 &&
+        !layer.layer.element &&
         layer.layer.type !== "instance" &&
         layer.layer.type !== "component" &&
         layer.layer.type !== "route" && (
@@ -246,6 +307,13 @@ export function LayerHeader() {
       )}
     </div>
   )
+}
+
+/** A layer read from an element is called by its type, as Button, with what made it that, as its tag or role. */
+function elementKind(element: ElementFacts): LayerKind {
+  const layer = describeElement(element)
+
+  return { label: layer.name, description: layer.detail }
 }
 
 /** Where the selected layer's edits go, alone: the state or variant being edited, and switching it. */

@@ -86,7 +86,20 @@ export function elementLayers(elements: readonly ElementSnapshot[]): DesignNode[
   return elements.flatMap((element) => (element.tag === "#text" && !element.text?.trim() ? [] : [layerOf(element)]))
 }
 
+/** The layer an element is, with the element it was read from, which gives it its type; text has none. */
 function layerOf(element: ElementSnapshot): DesignNode {
+  const layer = layerFor(element)
+
+  if (element.tag !== "#text") {
+    layer.element = Object.keys(element.attributes).length
+      ? { tag: element.tag, attributes: { ...element.attributes } }
+      : { tag: element.tag }
+  }
+
+  return layer
+}
+
+function layerFor(element: ElementSnapshot): DesignNode {
   const type = elementLayerType(element)
   const name = layerName(element)
   const style = styleOfElement(element, type)
