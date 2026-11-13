@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Mount, read and take apart every frame through one host module (PAR-988)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
