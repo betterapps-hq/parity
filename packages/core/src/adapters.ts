@@ -424,6 +424,45 @@ export interface ThemeVariable {
 }
 
 /**
+ * Lists an app's routes from its router's own files (TanStack Router, React Router…), so the canvas can draw each page
+ * (PAR-1073). The app's own entry draws a page at its URL; the adapter only says which routes there are.
+ */
+export interface RouterAdapter {
+  id: string
+  name: string
+  /** Whether the project uses this router, from its package.json. */
+  detect(pkg: PackageManifest): boolean
+  /**
+   * The project's routes, each parent before its children, read through `read`: a file's text by its path from the
+   * project root, with forward slashes, or undefined when there's no such file. Empty when the router's files aren't
+   * there, as before its tooling first writes them.
+   */
+  readRoutes(read: (path: string) => string | undefined): ProjectRoute[]
+}
+
+/** One route of an app, as its router declares it. */
+export interface ProjectRoute {
+  /** The router's id for it, unique in the app: `/settings/billing`, or `__root__` for the root. */
+  id: string
+  /** The URL it matches, from the root, its params written as the router writes them: `/projects/$projectId`. */
+  path: string
+  /** The id of the route it draws inside, at that route's outlet. The root has none. */
+  parent?: string
+  /** Its file, from the project root, with forward slashes. */
+  file: string
+  /** The names of the params its path takes, without the router's mark: `["projectId"]`. */
+  params: string[]
+  /** Whether it's its parent's index, drawn at its parent's own URL. */
+  index: boolean
+  /** The component it draws, by its name in its file, when it names one. */
+  component?: string
+  /** Whether it loads data before it draws. */
+  loads: boolean
+  /** Whether it can redirect or refuse before it draws. */
+  guards: boolean
+}
+
+/**
  * A token value Save writes in one theme (`default` for the root, otherwise the theme it names, such as `dark`), or
  * `value` undefined to take the token's declaration out of that theme: a value the theme didn't have, undone after it
  * was saved.

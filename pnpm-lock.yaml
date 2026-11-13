@@ -871,6 +871,18 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
 
+  packages/router-tanstack:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
   packages/service:
     dependencies:
       '@parity-app/connectors':
