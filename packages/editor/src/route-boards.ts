@@ -244,34 +244,25 @@ export function routeScreens(
   })
 }
 
-/** A line of the app's page tree on the canvas: an SVG path, and the point it starts at. */
-export interface PageLinkLine {
-  path: string
-  start: [x: number, y: number]
-}
-
 /** The screen pixels above a page's title where a line in the page tree stops curving and drops straight down. */
 const linkClearance = 8
 
 /**
- * The line from a page's board down to the board of a page under it, at a zoom (PAR-1076). It runs from the middle of
+ * The SVG path of the line from a page's board down to the board of a page under it, at a zoom (PAR-1076). It runs from the middle of
  * the upper board's bottom edge to the middle of the lower board's top edge, curving across above the lower board's
  * title, `linkClearance` on screen short of it, and dropping straight down from there, behind the title, to the board.
  * Pages side by side share a level, so their titles' tops line up and a line only passes behind the title of the page
  * it leads to. A title takes more of the canvas the further out it's zoomed (see `titleTop`); once it reaches up to the
  * board above, the line curves all the way down.
  */
-export function pageLinkLine(above: BoardBox, below: BoardBox, zoom: number): PageLinkLine {
+export function pageLinkLine(above: BoardBox, below: BoardBox, zoom: number): string {
   const [x1, y1] = [above.x + above.w / 2, above.y + above.h]
   const x2 = below.x + below.w / 2
   const turn = titleTop(below, zoom) - linkClearance / zoom
   const [curveEnd, drop] = turn > y1 ? [turn, ` L ${x2} ${below.y}`] : [below.y, ""]
   const bend = (curveEnd - y1) / 2
 
-  return {
-    path: `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${curveEnd - bend}, ${x2} ${curveEnd}${drop}`,
-    start: [x1, y1]
-  }
+  return `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${curveEnd - bend}, ${x2} ${curveEnd}${drop}`
 }
 
 /** Each viewport's frame as tall as its screen, so a page's frame is a window onto it rather than its whole length. */

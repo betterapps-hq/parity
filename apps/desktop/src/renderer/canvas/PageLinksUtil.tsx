@@ -67,7 +67,7 @@ function PageLines({ project }: { project: string }) {
         const above = editor.getShapePageBounds(createCanvasId(encodeURIComponent(from)))
         const below = editor.getShapePageBounds(createCanvasId(encodeURIComponent(to)))
 
-        return above && below ? [{ key: to, ...pageLinkLine(above, below, zoom) }] : []
+        return above && below ? [{ key: to, path: pageLinkLine(above, below, zoom) }] : []
       }),
     [editor, project, zoom]
   )
@@ -78,21 +78,19 @@ function PageLines({ project }: { project: string }) {
 
   return (
     <svg className="absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-      {lines.map(({ key, path, start: [x, y] }) => (
-        <g key={key}>
-          <path
-            d={path}
-            fill="none"
-            stroke={color}
-            strokeWidth={px(1.5)}
-            strokeDasharray={`${px(6)} ${px(6)}`}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <animate attributeName="stroke-dashoffset" from={0} to={-px(12)} dur="1.5s" repeatCount="indefinite" />
-          </path>
-          <circle cx={x} cy={y} r={px(2.5)} fill={color} />
-        </g>
+      {lines.map(({ key, path }) => (
+        <path
+          key={key}
+          d={path}
+          fill="none"
+          stroke={color}
+          strokeWidth={px(1.5)}
+          strokeDasharray={`${px(6)} ${px(6)}`}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <animate attributeName="stroke-dashoffset" from={0} to={-px(12)} dur="1.5s" repeatCount="indefinite" />
+        </path>
       ))}
     </svg>
   )

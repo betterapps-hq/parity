@@ -192,19 +192,16 @@ describe("pageLinkLine", () => {
 
   it("curves across above the lower page's title, then drops straight down to the middle of its top edge", () => {
     // Up close a title is 42 screen pixels tall, and the curve ends 8 above it.
-    expect(pageLinkLine(above, below, 1)).toEqual({
-      path: "M 640 800 C 640 1325, 2080 1325, 2080 1850 L 2080 1900",
-      start: [640, 800]
-    })
+    expect(pageLinkLine(above, below, 1)).toBe("M 640 800 C 640 1325, 2080 1325, 2080 1850 L 2080 1900")
   })
 
   it("turns down further above the page zoomed out, where its title takes more of the canvas", () => {
     // At 10% a name draws at 60%, so a title is 25.2 screen pixels tall: 252 pixels of the canvas, and 8 screen
     // pixels are 80. The curve ends at 1568.
-    expect(pageLinkLine(above, below, 0.1).path).toMatch(/2080 1568(\.\d+)? L 2080 1900$/)
+    expect(pageLinkLine(above, below, 0.1)).toMatch(/2080 1568(\.\d+)? L 2080 1900$/)
   })
 
   it("curves all the way to the page once its title reaches up to the page above", () => {
-    expect(pageLinkLine(above, below, 0.02).path).toBe("M 640 800 C 640 1350, 2080 1350, 2080 1900")
+    expect(pageLinkLine(above, below, 0.02)).toBe("M 640 800 C 640 1350, 2080 1350, 2080 1900")
   })
 })

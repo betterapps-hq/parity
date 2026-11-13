@@ -6472,13 +6472,13 @@ for the component its route draws, else its path.
   comes with React's tree (step 4).
 - **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
   part, as the `/settings` index is "Settings", else Home.
-- **Lines.** A dashed line runs from the middle of each page's bottom edge, where a small dot marks it, to the middle of
-  the top edge of each page under it. It curves across above the lower page's title, 8 screen pixels short of it, and
-  drops straight down from there to the board, behind the title, whose name and path sit on the canvas's own color.
-  Pages side by side share a level, so a line only ever passes behind the title of the page it leads to, at any zoom:
-  zoomed out, where a title takes more of the canvas, the curve turns down higher. Once a title reaches up to the page
-  above, the line curves all the way down. Its dashes flow slowly down the tree. The lines are drawn from where the
-  boards are now, so they follow a page that's moved, and they sit behind every board.
+- **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page
+  under it. It curves across above the lower page's title, 8 screen pixels short of it, and drops straight down from
+  there to the board, behind the title, whose name and path sit on the canvas's own color. Pages side by side share a
+  level, so a line only ever passes behind the title of the page it leads to, at any zoom: zoomed out, where a title
+  takes more of the canvas, the curve turns down higher. Once a title reaches up to the page above, the line curves all
+  the way down. Its dashes flow slowly down the tree. The lines are drawn from where the boards are now, so they follow
+  a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
