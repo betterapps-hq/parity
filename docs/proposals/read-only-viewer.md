@@ -121,7 +121,8 @@ Parity didn't make, that takes no `className` or `style`, is wrapped in an adapt
 
 ## What changes in what's built
 
-- **`.par` screens and component designs** go once the canvas draws from disk.
+- **`.par` screens and component designs** stay, read-only, beside the components from disk: they open and draw as they
+  do now, but can't be edited, and no new ones are made. Decided on 2026-11-13.
 - **Editing features** (inserting, Make component, the agent's design-editing calls) pause until writing back.
 - **The Design panels** become read-only views, built from the element table, so PAR-1059 to PAR-1064 wait on this.
 
@@ -139,5 +140,4 @@ Parity didn't make, that takes no `className` or `style`, is wrapped in an adapt
 ## Decisions needed
 
 1. **The hook:** Parity's own, or React DevTools' backend as a dependency. Recommendation: Parity's own.
-2. **`.par` files:** remove them once the canvas draws from disk, or keep them read-only alongside.
-3. **The example project:** move it to TypeScript 7 and add TanStack Router.
+2. **The example project:** move it to TypeScript 7 and add TanStack Router.
