@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Work out what a token comes to in one place, tokenValue, which the editor and the agent's SetTokens checks both read (PAR-1049)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -105,8 +105,8 @@ import {
   nearestTokens,
   previewKind,
   readNearValue,
-  substituteReferences,
   type Token,
+  tokenValue,
   withTokenChanges
 } from "@parity-app/tokens"
 import { z } from "zod"
@@ -1537,38 +1537,14 @@ export class AgentWorkspace {
 
   /**
    * The project's tokens with the canvas's unsaved values and `changes` laid over them, and the token detail's checks
-   * on a change against them. A token comes to its value with every reference filled in; a step of a scale to its
-   * base times its factor. A token the project doesn't have yet takes its kind from its name and value.
+   * on a change against them. A token comes to what `tokenValue` says, as the token detail reads it. A token the project
+   * doesn't have yet takes its kind from its name and value.
    */
   private tokenReading(changes: readonly TokenChange[]) {
     const laid = withTokenChanges(this.snapshot.tokens, [...this.snapshot.tokenOverrides, ...changes])
     const tokens = new Map(laid.map((token) => [token.name, token]))
 
-    const comesTo = (name: string, theme: string, depth = 0): string | undefined => {
-      const token = tokens.get(name)
-
-      if (!token) {
-        return undefined
-      }
-
-      const value = token.values[theme] ?? token.values.default ?? Object.values(token.values)[0] ?? ""
-
-      if (depth > 8) {
-        return value
-      }
-
-      if (token.derived) {
-        const base = comesTo(token.derived.from, theme, depth + 1)
-
-        if (base !== undefined) {
-          return `calc(${base} * ${token.derived.factor})`
-        }
-      }
-
-      return substituteReferences(value, (reference) => comesTo(reference, theme, depth + 1))
-    }
-
-    const lookup = (name: string, theme = "default") => comesTo(name, theme)
+    const lookup = (name: string, theme?: string) => tokenValue(tokens, name, theme)
 
     // A token's kind comes from what the project has, not what the call types, as the detail's does.
     const kindOf = (name: string) => {
@@ -1584,7 +1560,7 @@ export class AgentWorkspace {
           kind: kindOf(change.name),
           values: {},
           drafts: { [change.theme]: change.value },
-          lookup: comesTo,
+          lookup,
           references: (name, theme) => builtOn(tokens.get(name), theme),
           supports
         }).problems[change.theme]

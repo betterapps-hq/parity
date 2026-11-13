@@ -4938,21 +4938,26 @@ to draw, so its row shows the number. Beside the name is what the token comes to
 
 Code: the drawings are `apps/desktop/src/renderer/chrome/token-previews.tsx` (`TokenArt`, `TokenGlyph`, `TokenTile`,
 `valueLabel`, `spacingSlot`, `tokenSections`, `useHoverPlay`); the panel is `chrome/TokensPanel.tsx` (`panelItems`, the
-virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes to and the order
-built from it are `token-values.ts` (`comesTo`, `inTokenOrder`); lengths the browser measures are `lengths.ts` (`px`);
-the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts` (`keyframesNamed`,
-`TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and the value helpers
-are `packages/tokens/src/kinds.ts`, the checks a value must pass to be its kind are `packages/tokens/src/checks.ts`
-(`valueProblem`, PAR-569), and matching the tokens a `.lib.par` describes to the stylesheet's custom properties is
-`matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is `packages/tokens/src/token-order.ts`
-(`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook exploration of the inspector's pickers
-(`explorations/previews/TokenPreviews.stories.tsx`) draws with the same module, from sample tokens.
+virtualized list, `TokenRow`, `TokenTileButton`, `PaletteShade`, `TokenEditor`); what a token comes to is `tokenValue`
+in `packages/tokens/src/values.ts` (PAR-1049), which the agent's `SetTokens` checks read too, and `token-values.ts`
+gives it the browser's measurer (`comesTo`) and builds the order from it (`inTokenOrder`); lengths the browser measures
+are `lengths.ts` (`px`); the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `tokens-store.ts`
+(`keyframesNamed`, `TokenStore.keyframes`, `TokenStore.inOrder`, `useTokenList`); a token's kind, the Copy as forms and
+the value helpers are `packages/tokens/src/kinds.ts`, the checks a value must pass to be its kind are
+`packages/tokens/src/checks.ts` (`valueProblem`, PAR-569), and matching the tokens a `.lib.par` describes to the
+stylesheet's custom properties is `matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is
+`packages/tokens/src/token-order.ts` (`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook
+exploration of the inspector's pickers (`explorations/previews/TokenPreviews.stories.tsx`) draws with the same module,
+from sample tokens.
 
 Tests:
 
 - `packages/tokens/src/kinds.test.ts` (12): kinds over Tailwind's theme, a project's own tokens, and the Chakra, Fluent
   and Mantine registries, where no Chakra or Fluent token is left a bare number; Copy as forms; brackets and quotes left
   open; references listed and filled in; values split at their top-level commas.
+- `packages/tokens/src/values.test.ts` (6, PAR-1049): a plain token in its theme and the root's where the theme sets
+  none, references filled in, a spacing step as rounded pixels, a step whose base only a measurer can read as `calc()`
+  of the base, a token there isn't and a reference to one, and a loop that ends.
 - `packages/tokens/src/matching.test.ts` (2): a described token matched by the custom property its extension names, else
   by its path, with or without its first group, and the ones that match none.
 - `packages/tokens/src/token-order.test.ts` (13, PAR-440): a picker's containers smallest first, as the panel lists

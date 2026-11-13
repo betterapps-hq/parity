@@ -4,40 +4,18 @@ import {
   matchDescribed,
   orderTokens,
   previewKind,
-  substituteReferences,
-  type Token
+  type Token,
+  type TokenMap,
+  tokenValue
 } from "@parity-app/tokens"
 import { px } from "./lengths.ts"
 
-/** Tokens by name, to look up what a reference comes to. */
-export type TokenMap = ReadonlyMap<string, Token>
-
 /**
- * What a token comes to in a theme, with every token it refers to filled in, as the browser would work it out: a step
- * of the spacing scale comes to pixels. Undefined when there's no token of that name.
+ * What a token comes to in a theme, as `tokenValue` in `@parity-app/tokens` works it out, with the browser measuring a
+ * step's base, so a step of a `calc()` base comes to pixels too. Undefined when there's no token of that name.
  */
-export function comesTo(tokens: TokenMap, name: string, theme = "default", depth = 0): string | undefined {
-  const token = tokens.get(name)
-
-  if (!token) {
-    return undefined
-  }
-
-  const value = token.values[theme] ?? token.values.default ?? ""
-
-  if (depth > 8) {
-    return value
-  }
-
-  if (token.derived) {
-    const base = px(comesTo(tokens, token.derived.from, theme, depth + 1) ?? "")
-
-    if (Number.isFinite(base)) {
-      return `${Number((base * token.derived.factor).toFixed(2))}px`
-    }
-  }
-
-  return substituteReferences(value, (reference) => comesTo(tokens, reference, theme, depth + 1))
+export function comesTo(tokens: TokenMap, name: string, theme = "default"): string | undefined {
+  return tokenValue(tokens, name, theme, px)
 }
 
 /**
