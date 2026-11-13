@@ -44,7 +44,7 @@ describe("componentBoards", () => {
     expect(boardsHeight(sources, layout)).toBe(900)
   })
 
-  it("holds the component 2px in, on no fill, with a sample for each required prop, and its name as the children it takes", () => {
+  it("holds the component 2px in, on a light gray, with a sample for each required prop, and its name as the children it takes", () => {
     const button: ComponentInfo = {
       name: "Button",
       path: "src/components/ui/button.tsx",
@@ -62,7 +62,7 @@ describe("componentBoards", () => {
       style: { padding: { step: 0.5 } },
       children: [{ type: "component", component: "Button" }]
     })
-    expect(first?.board.root.style?.fills).toBeUndefined()
+    expect(first?.board.root.style?.fills).toEqual([{ type: "solid", color: { value: "#f5f5f5" } }])
     expect(first?.board.root).toMatchObject({
       children: [{ type: "component", component: "Button", props: { size: "sm", children: "Button" } }]
     })
