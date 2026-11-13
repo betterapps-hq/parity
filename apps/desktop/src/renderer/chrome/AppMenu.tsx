@@ -15,20 +15,21 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   Bug,
-  FolderDown,
+  Check,
   Gauge,
   Grid3x3,
+  type LucideIcon,
+  Magnet,
+  PanelsLeftRight,
+  SquareTerminal,
+  FolderDown,
   History,
   ImageOff,
   Info,
   ListX,
   LogOut,
-  Magnet,
   MessageSquareWarning,
-  PanelsLeftRight,
   RefreshCw,
-  SquareDashed,
-  SquareTerminal,
   Terminal
 } from "lucide-react"
 import { createContext, type ReactNode, useContext } from "react"
@@ -127,6 +128,34 @@ function Item({ command, variant, children }: { command: Command; variant?: "des
   )
 }
 
+/**
+ * A setting that's on or off: its icon where every item's goes, so it lines up with the rest, and a tick on the right,
+ * before its keys, while it's on. The kit's own tick takes the icon's place, which pushes an icon and label right.
+ */
+function Toggle({
+  icon: Icon,
+  checked,
+  onChange,
+  keys,
+  children
+}: {
+  icon: LucideIcon
+  checked: boolean
+  onChange: (checked: boolean) => void
+  keys?: string
+  children: ReactNode
+}) {
+  return (
+    <MenubarCheckboxItem checked={checked} onCheckedChange={onChange} className="ps-1.5 [&>span:first-child]:hidden">
+      <Icon /> {children}
+      <MenubarShortcut className="flex items-center gap-1.5">
+        {checked && <Check className="text-foreground" />}
+        {keys && formatKeys(keys)}
+      </MenubarShortcut>
+    </MenubarCheckboxItem>
+  )
+}
+
 /** Tabs and projects: open, save, export, Settings, then close. New screen and New component are Object's. */
 function FileItems() {
   const session = activeSession()
@@ -216,7 +245,7 @@ function EditItems() {
   )
 }
 
-/** Home, zoom, moving between designs, and what the window shows. */
+/** Home, zoom, and what the window shows. */
 function ViewItems() {
   const layout = useLayout()
   const preferences = usePreferences()
@@ -231,34 +260,38 @@ function ViewItems() {
       <Item command="zoomToFit" />
       <Item command="zoomToSelection" />
       <MenubarSeparator />
-      <Item command="previousDesign" />
-      <Item command="nextDesign" />
-      <MenubarSeparator />
-      <MenubarCheckboxItem
+      <Toggle
+        icon={PanelsLeftRight}
         checked={layout.left || layout.right}
-        onCheckedChange={(open) => setLayout({ left: open, right: open })}
+        onChange={(open) => setLayout({ left: open, right: open })}
+        keys={keymap.panels.keys[0]}
       >
-        <PanelsLeftRight /> Panels <MenubarShortcut>{formatKeys(keymap.panels.keys[0])}</MenubarShortcut>
-      </MenubarCheckboxItem>
-      <MenubarCheckboxItem checked={!!layout.console} onCheckedChange={(open) => setLayout({ console: open })}>
-        <SquareTerminal /> Console <MenubarShortcut>{formatKeys(keymap.console.keys[0])}</MenubarShortcut>
-      </MenubarCheckboxItem>
-      <MenubarCheckboxItem
+        Panels
+      </Toggle>
+      <Toggle
+        icon={SquareTerminal}
+        checked={!!layout.console}
+        onChange={(open) => setLayout({ console: open })}
+        keys={keymap.console.keys[0]}
+      >
+        Console
+      </Toggle>
+      <Toggle
+        icon={Grid3x3}
         checked={preferences.layoutGrid}
-        onCheckedChange={(layoutGrid) => setPreferences({ layoutGrid })}
+        onChange={(layoutGrid) => setPreferences({ layoutGrid })}
+        keys={keymap.layoutGrid.keys[0]}
       >
-        <Grid3x3 /> Layout grid <MenubarShortcut>{formatKeys(keymap.layoutGrid.keys[0])}</MenubarShortcut>
-      </MenubarCheckboxItem>
-      <MenubarCheckboxItem checked={preferences.snapping} onCheckedChange={(snapping) => setPreferences({ snapping })}>
-        <Magnet /> Snap to screens and components
-      </MenubarCheckboxItem>
+        Layout grid
+      </Toggle>
+      <Toggle icon={Magnet} checked={preferences.snapping} onChange={(snapping) => setPreferences({ snapping })}>
+        Snap to screens and components
+      </Toggle>
     </>
   )
 }
 
 function ObjectItems() {
-  const current = activeSession()?.selection.get() ?? {}
-
   return (
     <>
       <Item command="newScreen" />
@@ -280,9 +313,6 @@ function ObjectItems() {
       <MenubarSeparator />
       <Item command="hide" />
       <Item command="lock" />
-      {!current.design && !current.note && (
-        <SelectionHint>Select layers, a screen or a component to act on them</SelectionHint>
-      )}
     </>
   )
 }
@@ -290,8 +320,6 @@ function ObjectItems() {
 const alignCommands: Command[] = ["alignLeft", "alignCenter", "alignRight", "alignTop", "alignMiddle", "alignBottom"]
 
 function ArrangeItems() {
-  const unavailable = !useStates().alignLeft.enabled
-
   return (
     <>
       {alignCommands.map((command) => (
@@ -300,12 +328,11 @@ function ArrangeItems() {
       <MenubarSeparator />
       <Item command="distributeHorizontal" />
       <Item command="distributeVertical" />
-      {unavailable && <SelectionHint>Select layers, screens or components to arrange them</SelectionHint>}
     </>
   )
 }
 
-/** Finding things, reporting a problem, upkeep under Developer, then updates and About. */
+/** Finding things, reporting a problem, upkeep under Developer, then updates, the Parity CLI and About. */
 function HelpItems() {
   const preferences = usePreferences()
 
@@ -323,18 +350,15 @@ function HelpItems() {
         </MenubarSubTrigger>
         <MenubarSubContent className="w-auto">
           <Item command="developerTools" />
-          <MenubarCheckboxItem
+          <Toggle
+            icon={Gauge}
             checked={preferences.performanceStats}
-            onCheckedChange={(performanceStats) => setPreferences({ performanceStats })}
+            onChange={(performanceStats) => setPreferences({ performanceStats })}
           >
-            <Gauge /> Performance stats
-          </MenubarCheckboxItem>
+            Performance stats
+          </Toggle>
           <MenubarItem onClick={() => void clearBitmapCache()}>
             <ImageOff /> Clear bitmap cache
-          </MenubarItem>
-          <MenubarSeparator />
-          <MenubarItem onClick={() => void installCliCommand()}>
-            <Terminal /> Install the Parity CLI…
           </MenubarItem>
         </MenubarSubContent>
       </MenubarSub>
@@ -342,21 +366,13 @@ function HelpItems() {
       <MenubarItem onClick={checkForUpdates}>
         <RefreshCw /> Check for updates
       </MenubarItem>
+      <MenubarItem onClick={() => void installCliCommand()}>
+        <Terminal /> Install the Parity CLI…
+      </MenubarItem>
       <MenubarItem onClick={() => openDialog("about")}>
         <Info /> About Parity
       </MenubarItem>
     </>
-  )
-}
-
-/** Says what to select for a menu whose items all need a selection. */
-function SelectionHint({ children }: { children: ReactNode }) {
-  return (
-    <MenubarGroup>
-      <MenubarLabel className="flex items-center gap-1.5 font-normal text-muted-foreground">
-        <SquareDashed className="size-3.5" /> {children}
-      </MenubarLabel>
-    </MenubarGroup>
   )
 }
 

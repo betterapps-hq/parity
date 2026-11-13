@@ -23,8 +23,8 @@ const meta = {
 export default meta
 
 /**
- * With nothing selected: New screen, New component and Insert are what can be done (PAR-546), the rest is unavailable,
- * and a hint says what to select for it, in the glossary's words.
+ * With nothing selected: New screen, New component and Insert are what can be done (PAR-546), and the rest is
+ * unavailable.
  */
 export const NothingSelected = opened("Object", exampleOpen, async () => {
   const [first, second] = menuItems()

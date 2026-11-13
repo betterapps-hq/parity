@@ -12,7 +12,7 @@ const meta = {
 
 export default meta
 
-/** With nothing selected: everything unavailable, and a hint saying what to select. */
+/** With nothing selected: everything unavailable. */
 export const NothingSelected = opened("Arrange")
 
 /** With three layers of a design selected: aligning them, but not distributing them. */

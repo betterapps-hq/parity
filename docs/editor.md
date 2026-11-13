@@ -457,17 +457,20 @@ menubar's command. A row in the Layers panel has a menu of its own, built the sa
   alike, so a command looks the same in the menubar, the canvas menu, the Layers row menu and a design title's menu.
   Paste here takes Paste's.
 - **The menubar offers each command once** (PAR-1039): New screen and New component are Object's, Settings is File's,
-  and Developer tools, Performance stats, Clear bitmap cache and Install the Parity CLI… are in Help › Developer.
+  Developer tools, Performance stats and Clear bitmap cache are in Help › Developer, and Install the Parity CLI… follows
+  Check for updates. Close project (Ctrl+W) closes the tab. A toggle, such as Panels or Performance stats, keeps its
+  icon where every item's goes and shows a tick on the right, before its keys, while it's on. No menu adds a line saying
+  what to select; its greyed items say enough.
 
 - **The items**, in groups with a line between them: Select layer; Copy, Copy as PNG, Paste here, Paste over selection,
   Paste to replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make
-  component and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component
-  ("Go to Plan card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being
-  edited (the variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component,
-  with a design selected on its own, reads "Convert to component", or "Convert to screen" on a component. Paste here has
-  no keys. Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
+  component and Go to component; Hide. Labels are the menubar's, except that Go to names the component ("Go to Plan
+  card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
+  variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
+  design selected on its own, reads "Convert to component", or "Convert to screen" on a component. Paste here has no
+  keys. Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
-  Go to the main component is there only with an instance selected.
+  Go to component is there only with an instance selected.
 - **Unavailable** items are greyed: the order and Make component with several layers selected, Make component with
   several designs, and, for layers inside an instance, Copy, Duplicate, the order, Wrap in layout and Hide. Paste over
   selection and Paste to replace stay for those, and say why they can't. The menubar's Edit and Object menus grey the
@@ -2129,10 +2132,10 @@ actions, the toolbar, Zoom, and the canvas and Layers menus.
 - **A command that can't run is greyed** in the menus, Search actions and the toolbar, and its keys don't run it: a Ctrl
   shortcut is recorded as cancelled, and a plain key does what it would anyway, as Tab moving focus.
 - **Names follow what's selected:** Undo and Redo name the step, Repeat what it repeats, Make component reads Convert to
-  component or Convert to screen for a design on its own, Go to the main component names it, Hide reads Show when every
-  selected layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could
-  act on, Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name
-  too, so "hide" finds Show.
+  component or Convert to screen for a design on its own, Go to component names it, Hide reads Show when every selected
+  layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could act on,
+  Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name too, so
+  "hide" finds Show.
 - **Layer commands need layers of the design's own:** Cut, Copy, Duplicate, Delete, Wrap in layout, Hide and Lock are
   unavailable for only a design's root or layers inside an instance, and their keys do nothing then. The order and Make
   component take one such layer alone. Rename is unavailable for a layer inside an instance.
@@ -2364,7 +2367,7 @@ menu items.
 ### Next and previous design (CAN-39)
 
 N selects the design after the selected one and zooms to it, and Shift+N the one before, as Figma's Zoom to next frame
-and Zoom to previous frame do. They're in View, after Zoom to selection.
+and Zoom to previous frame do. They're keys only, listed in Keyboard shortcuts; no menu offers them.
 
 - **The order is the Layers panel's:** components, then screens, each in the order the project lists them. It goes round
   from the last to the first.
@@ -6762,11 +6765,11 @@ next.
 
 ### Install the Parity CLI (PAR-906)
 
-Help > Install the Parity CLI puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
-with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
-second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
-and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
-failure says what went wrong.
+Help > Install the Parity CLI, after Check for updates, puts a `parity` command on the person's PATH that runs the CLI
+shipped inside the app, with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and
+a call starts about a second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast
+says it's installed, and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the
+folder to add. A failure says what went wrong.
 
 - **Windows:** `parity.cmd`, for PowerShell and Command Prompt, and a `parity` shell script, for Git Bash, in
   `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH, kept as written so variables in it stay variables.
