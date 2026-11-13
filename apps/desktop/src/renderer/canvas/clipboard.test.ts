@@ -6,7 +6,8 @@ import { ComponentStore } from "../components-store.ts"
 import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
 import { SelectionStore } from "../selection.ts"
-import { pasteOverSelection, pasteToReplace } from "./clipboard.ts"
+import type { ProjectSession } from "../workspace.ts"
+import { pasteClipboard, pasteOverSelection, pasteToReplace } from "./clipboard.ts"
 
 // Which layers Paste over and Paste to replace act on once an image is saved is `@parity-app/editor`'s rule
 // (`selectionToPasteOn`, tested in paste-over.test.ts). These change the selection while the image saves, on the real
@@ -163,6 +164,44 @@ describe("replacing the selection with an image", () => {
     expect(toast.info).toHaveBeenCalledWith("The selection changed, so nothing was replaced")
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "replace", content: "image", reason: "noTarget" }
+    ])
+  })
+})
+
+// What each paste does with what's on the clipboard is `decidePaste`'s, tested as a table in paste-decision.test.ts.
+// This checks the pastes carry out its answer the same way (PAR-985).
+describe("pasting from an empty clipboard", () => {
+  beforeEach(() => {
+    vi.stubGlobal("navigator", { clipboard: { readText: () => Promise.resolve(""), read: () => Promise.resolve([]) } })
+  })
+
+  it.each([
+    { name: "Paste", how: "paste", paste: pasteClipboard, selected: {} },
+    {
+      name: "Paste over layers",
+      how: "over",
+      paste: pasteOverSelection,
+      selected: { design: "app.par#card", node: "title" }
+    },
+    { name: "Paste over designs", how: "over", paste: pasteOverSelection, selected: { designs: ["app.par#card"] } },
+    {
+      name: "Paste to replace",
+      how: "replace",
+      paste: pasteToReplace,
+      selected: { design: "app.par#card", node: "title" }
+    }
+  ])("$name says there's nothing to paste and pastes nothing", async ({ how, paste, selected }) => {
+    const { store, selection, ...rest } = session()
+    selection.set(selected)
+    // SAFETY: an empty clipboard pastes nothing, so the project's root is all Paste reads of its info.
+    const info = { root: "project" } as ProjectSession["info"]
+    await paste({ store, selection, ...rest, editor: undefined, info })
+
+    expect(layers(store)).toEqual(["title", "body", "footer"])
+    expect(store.getHistory().canUndo).toBe(false)
+    expect(toast.info).toHaveBeenCalledWith("There's nothing on the clipboard to paste")
+    expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
+      { how, content: "empty", reason: "empty" }
     ])
   })
 })

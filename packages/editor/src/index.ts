@@ -62,6 +62,8 @@ export * from "./new-screen.ts"
 
 export * from "./overlay-measuring.ts"
 
+export * from "./paste-decision.ts"
+
 export * from "./paste-here.ts"
 
 export * from "./paste-over.ts"

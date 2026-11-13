@@ -2399,20 +2399,30 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 - **Pasted designs keep their ids unless taken,** when they get one from their name. Into the project they came from,
   they go to the right of the originals (see Duplicating a design); elsewhere, in the middle of the view.
 - **Pasted notes get fresh ids** and sit a little below and right of where they were copied, as they sat together.
-- **Text pastes as a text layer** where layers would go, or as a note in the middle of the view. **SVG markup pastes as
-  a picture,** not as its source.
+- **Text pastes as a text layer** where layers would go, or, with no design to go into, as a frame that hugs it in the
+  middle of the view, as the text tool makes one. **SVG markup pastes as a picture,** not as its source.
 - **Copy style copies the look the frame shows,** with its variant options and viewport, and **Paste style gives each
   selected layer the copied style in place of the one shown,** in the state being edited. In a state other than the
   base, the state takes away what the copy doesn't set (PAR-426), so it shows only the copied style there, as the base
   would: pasting a padding of 4 onto a row with a gap of 3 and a padding of 1 leaves a column with a padding of 4. The
   inspector marks each value taken away as changed in that state, with Reset.
-- **Layers naming components the project doesn't have** still paste, with a warning naming them.
+- **Layers naming components the project doesn't have** still paste, with a warning naming them, wherever they land, a
+  new screen included.
+- **The four pastes decide alike** (PAR-985). Paste, Paste over selection, Paste to replace and Paste here each take
+  what's on the clipboard and where they'd paste, and one table says what they do. Whichever paste it is, an empty
+  clipboard says "There's nothing on the clipboard to paste", and a copy that can't be read shows the same error. A
+  paste's undo step is named for what landed: "Paste text", "Paste image", "Paste 2 layers here".
+- **They differ only where they go,** on purpose. Paste over puts layers over layers and designs over designs, and Paste
+  to replace takes only layers; both need something selected to paste on, and do nothing without it, as their menu items
+  show. Paste here puts designs and notes at the pointer wherever it is, and over a design with no layout under the
+  pointer pastes nothing, before an image is saved. Paste puts designs and notes beside where they were copied.
 
-Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`). Copying as shown and fitting bindings
-go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which knows each place a node holds nodes:
-a layout's children, a code component's slots and an instance's filled slots.
-`apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, saves images, places designs by
-their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
+Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`), and what each paste does with each
+kind of content is `decidePaste` in `packages/editor/src/paste-decision.ts`, with `pasteStepName` for the undo step.
+Copying as shown and fitting bindings go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which
+knows each place a node holds nodes: a layout's children, a code component's slots and an instance's filled slots.
+`apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, asks `decidePaste`, saves images,
+places designs by their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
 
 Tests: `packages/editor/src/clipboard.test.ts`: writing and reading the envelope, and text, a cut-off envelope, another
 version, a project that isn't text, an unknown kind, a payload without its list or with an empty one, and invalid
@@ -2438,8 +2448,15 @@ taking style and props away over the design and the viewport's patch, layered pa
 default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in
 one state and refusing an unknown key.
 
-Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
-a value a state takes away has no automated DOM test.
+`packages/editor/src/paste-decision.test.ts` (105) is the table: each paste, where it would paste, each kind of content,
+and what it does, with the rows that differ on purpose saying why, and a check that every combination is in exactly one
+row. It also checks that an empty clipboard and an unreadable copy get the same answer from every paste that's
+available, and names undo steps for layers, text, images, SVG, videos, images and videos together, and Paste here.
+`apps/desktop/src/renderer/canvas/clipboard.test.ts`, on the real stores: Paste, Paste over layers, Paste over designs
+and Paste to replace from an empty clipboard each say there's nothing to paste, record it, and leave no undo step.
+
+Gaps: reading and writing the system clipboard, images and the other messages have no automated test. The inspector's
+mark on a value a state takes away has no automated DOM test.
 
 ### Paste over selection and paste to replace (CAN-39)
 
@@ -2479,7 +2496,8 @@ nothing.
 
 Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt`, `replaceLayers` and `selectionToPasteOn`) and, in
 `apps/desktop/src/renderer/canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard
-(`readClipboard`) and saving an image (`importMedia`) shared with Paste.
+(`readClipboard`) and saving an image (`importMedia`) shared with Paste. Which content each pastes, and the messages for
+the rest, are `decidePaste`'s (Copy, paste and paste style, above).
 
 Tests: `packages/editor/src/paste-over.test.ts`. Paste over selection: after the selected layer with nothing removed,
 once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, at the
@@ -2838,9 +2856,10 @@ hash of its content, so the same file twice reuses one.
 - **Agents** list videos with `get_images`, beside the images, and remove one with `remove_image`.
 
 Code: the types, limits and words in `packages/editor/src/drop-files.ts` (`mediumOfType`, `limitOf`, `sortDrop`,
-`dropHint`, `dropLabel`, `pasteLabel`); `videosFolder`, `mediaFolderOf` and `mediumOf` in `project-images.ts`; saving,
-listing and removing in `apps/desktop/src/utility/images.ts`; `importMedia` in `canvas/import-media.ts`, which measures
-a video before it's saved; `addImageFiles` and drops in `canvas/drop-files.ts`; pasting in `canvas/clipboard.ts` with
+`dropHint`, `dropLabel`), with a paste's undo step named by `pasteStepName` in `paste-decision.ts`; `videosFolder`,
+`mediaFolderOf` and `mediumOf` in `project-images.ts`; saving, listing and removing in
+`apps/desktop/src/utility/images.ts`; `importMedia` in `canvas/import-media.ts`, which measures a video before it's
+saved; `addImageFiles` and drops in `canvas/drop-files.ts`; pasting in `canvas/clipboard.ts` with
 `apps/desktop/src/main/clipboard-files.ts`; the tiles, card and filter in `media/`; `add-stock.ts` and `LargerView.tsx`.
 
 Tests:
