@@ -5,7 +5,7 @@ import { LayerContent, LayerExport, LayerHeader, LayerStyles } from "./LayerPane
  * A text layer's sections, in its panel's order: its type and color first, then how it sizes and where it sits, and how
  * it's drawn. Fill is its background, and folds until one is set.
  */
-export const textSections: readonly StyleSection[] = [
+const textSections: readonly StyleSection[] = [
   "text",
   "size",
   "spacing",

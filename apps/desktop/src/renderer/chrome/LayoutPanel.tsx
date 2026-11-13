@@ -6,7 +6,7 @@ import { LayerExport, LayerHeader, LayerStyles } from "./LayerPanel.tsx"
  * it, where it sits, and how it's drawn. Typography, for the text inside it, folds until it's set. A frame's root starts
  * with the frame's size, and a design's root leaves out where it sits, as the capability table says.
  */
-export const layoutSections: readonly StyleSection[] = [
+const layoutSections: readonly StyleSection[] = [
   "frameSize",
   "layout",
   "size",
