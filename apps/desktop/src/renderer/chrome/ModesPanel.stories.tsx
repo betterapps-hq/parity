@@ -13,7 +13,7 @@ import { ModesPanel } from "./ModesPanel.tsx"
  * variable (viewport, theme, locale), and the variables themselves. The first mode is the primary frame everywhere.
  */
 const meta = {
-  title: "Parity/Inspector/Sections/Modes",
+  title: "Parity/Inspector/Panel/Modes tab",
   component: ModesPanel,
   render: () => <Inspector />,
   decorators: [

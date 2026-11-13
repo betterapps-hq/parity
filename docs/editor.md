@@ -3225,9 +3225,9 @@ Tests:
   taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
   settling for the change, which the frame takes away as it draws it, and nothing shown for no change.
 - `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
-- `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
-  inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
-  whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
+- `inspector/sections/SizeSection.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the
+  narrowest inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show
+  the value whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
 - `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
@@ -3409,9 +3409,10 @@ Tests:
 - `inspector/controls/stand-in-tokens.test.ts` (1): nothing `StyleSections` draws imports the stand-in tokens.
 - `packages/editor/src/design-colors.test.ts` (4): the colors a design writes out, most used first and each once however
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
-- `chrome/StyleSections.stories.tsx`: every section on Pricing's and Sign in's layers, with PickingAColor,
-  PickingASpacing, PickingAWeight and PickingASizing opening their pickers by name. The Layer stories
-  (`chrome/LayerPanel.stories.tsx`, Parity/Inspector/Layer) show the sections each kind of layer gets.
+- `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
+  each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
+  PickingASizing opening their pickers by name. Layers › Kinds (`chrome/LayerPanel.stories.tsx`) shows the sections each
+  kind of layer gets.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -3450,8 +3451,8 @@ Tests:
 
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: pickers set to a token, unset and mixed found by their
   names, and the name following a token picked in the picker. Both fail without the change.
-- `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
-  open their pickers by name: "Fill 1 picker" for the first.
+- `inspector/sections/FillSection.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and
+  NoTokenMatches open their pickers by name: "Fill 1 picker" for the first.
 
 ### One field row (PAR-1029)
 
@@ -3484,16 +3485,18 @@ Fields stories.
 
 | Folder   | Holds                                                                                        |
 | -------- | -------------------------------------------------------------------------------------------- |
-| Panel    | Inspector, Accessibility tab                                                                 |
+| Panel    | Inspector, Accessibility tab, Modes tab                                                      |
 | Layers   | Kinds, Instances, Several layers, Designs                                                    |
-| Sections | Header, State selector, States, Props, Attributes, Slots, Content, Styles, Modes, Export     |
+| Sections | Header, State selector, States, Props, Attributes, Slots, Content, Components, Modes, Export |
+|          | Layout, Position, Size, Appearance, Fill, Stroke, Effects, Text                              |
 | Rows     | Box model, Padding, Margin, Size and aspect ratio, and the rest of a section's labelled rows |
 | Lists    | Paint stack, Shadow list, Filter list, Transition list                                       |
 | Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
 | Parts    | Field row, Chips                                                                             |
 
-Still to split: Sections › Styles into one story file per style section, and Layers › Designs' cases for Props,
-Components and Modes into those sections.
+Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
+(`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's
+props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
 
 Tests: none; the stories are checked in Storybook.
 
@@ -3559,7 +3562,7 @@ the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance
 Tests:
 
 - `chrome/PropsSection.stories.tsx` (Sections › Props › Code component), `chrome/LayerInstances.stories.tsx` and
-  `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
+  `chrome/ComponentProps.stories.tsx`, the sections they draw, unchanged by the move.
 
 ### Each field's label names its control (PAR-892)
 
@@ -3998,10 +4001,10 @@ Tests:
   the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
   slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
 - `apps/desktop/src/renderer/project-part.test.ts`: the slot to focus forgotten when the tab closes.
-- Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and Layout
-  Inside A Slot), Parity/Inspector/Design (Component With Slots, Component With Several Slots, Adding A Slot, which adds
-  one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers › Slots, and
-  Parity/Canvas/Selection › Component Slots.
+- Stories: Parity/Inspector/Sections/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and
+  Layout Inside A Slot), Parity/Inspector/Sections/Props/Component design (With A Slot, With Several Slots, Adding A
+  Slot, which adds one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers ›
+  Slots, and Parity/Canvas/Selection › Component Slots.
 
 Gaps: the slot outlines and the hover from Props have no automated DOM test. They were checked in those stories on
 2026-11-06, with a param's name typed into a slot's name and refused, and the slot chip focusing the name in Props.
@@ -4064,8 +4067,9 @@ Tests:
   prop's or a slot's, and a free one numbered; the text props; using one and going back to its text; a prop that isn't
   text, and a layer that isn't text; and a prop made from a layer's text.
 - `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
-- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop and Making
-  A Prop From Text, which makes `period` from Plan card's period).
+- Stories: Parity/Inspector/Sections/Props/Component design › Adding A Text Prop, and
+  Parity/Inspector/Sections/Content/Text props (Text Using A Prop and Making A Prop From Text, which makes `period` from
+  Plan card's period).
 
 Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
 use one from its field.
@@ -4148,7 +4152,7 @@ Tests:
   fill as a state and a mode draw it, and left out past the depth asked for, an empty layout reading as empty and an
   empty fill as `"…"`.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
-- Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
+- Stories: Parity/Inspector/Sections/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
 
 Gaps: the card's picture is drawn by the offscreen renderer, which Storybook hasn't got, so the stories show it being
 drawn. Dropping onto a slot on the canvas isn't built yet, and renaming a slot leaves instances' fills under its old
@@ -4744,9 +4748,9 @@ Tests:
 - `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
   shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
   nothing, and modes the order doesn't name after it.
-- Stories: Parity/Inspector/Design › Another Mode First, which checks the first mode's switch is on and disabled, then
-  moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode Shown and Mode
-  Selected.
+- Stories: Parity/Inspector/Sections/Modes › Another Mode First, which checks the first mode's switch is on and
+  disabled, then moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode
+  Shown and Mode Selected.
 
 ### Unsaved changes survive a crash (PAR-905)
 
