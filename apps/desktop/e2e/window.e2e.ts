@@ -91,3 +91,11 @@ describe("the window", () => {
     await app.selectLayer("Members", "lin")
   })
 })
+
+// Temporary, to check a failed test's replay reaches Sentry (PAR-1043). Removed before merging.
+describe("a failed test's replay", () => {
+  it("fails on purpose after selecting a layer, so the replay has something to show", async () => {
+    await app.show("Dashboard", 0.5)
+    expect(await app.page.title()).toBe("not the window's title")
+  })
+})
