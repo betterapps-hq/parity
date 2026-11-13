@@ -3452,22 +3452,6 @@ Tests:
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker): Filled selects the layer from its chip and clears
   the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
-### One Props section (PAR-1030)
-
-A component's props are one section, whatever the component is. On a component design, Props defines them: each with its
-default to edit, a menu to rename or remove it, its slots, and + to add one. On an instance, it sets them, under the
-component's name, in the same rows, whether the component is a design or code. A design's own instance adds the menu
-with Swap, Reset overrides, Push to main and Detach, and its slots; a code component's adds Attributes after it.
-
-Code: `PropsSection` in `apps/desktop/src/renderer/inspector/sections/PropsSection.tsx`, given `component` for a
-design's own props, or an instance with its edits; `ComponentProps`, `DesignInstanceProps` and `CodeInstanceProps` in
-the same file. `chrome/BaseDesignNote.tsx` holds the note that heads an instance's or an image's base-only controls.
-
-Tests:
-
-- `chrome/PropsSection.stories.tsx` (Inspector › Props), `chrome/LayerInstances.stories.tsx` and
-  `chrome/DesignPanel.stories.tsx`, the sections they draw, unchanged by the move.
-
 ### Each section takes the selection (PAR-1031)
 
 Each section of a layer's panel reads the selected layer and edits it itself, so the panel is a list of sections and a
