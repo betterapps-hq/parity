@@ -1,8 +1,30 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 13 Nov 2026 02:33:44 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 06:02:24 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.61.0
+
+Fri, 13 Nov 2026 06:02:24 GMT
+
+### Minor changes
+
+- Pick what fills an instance's slot from the design's layers and the project's components, or drop a layer on it from
+  Layers (ajcraswell@gmail.com)
+
+### Patches
+
+- Export and Report draw their frames through the agent API as functions, not as snippets in the vm, so no snippet time
+  limit applies to them (ajcraswell@gmail.com)
+- Agents' viewport patches are written through core's editResponsive, and a state an agent writes keeps an unset key the
+  layer doesn't have (ajcraswell@gmail.com)
+- Agent snippets are stopped once they run for 2 minutes or compute for 5 seconds between awaits, including after their
+  first await, and fail without changing anything (ajcraswell@gmail.com)
+- An agent's Copy now copies layers as Ctrl+V pastes them: as the base shows them, keeping only the bindings the
+  destination has params for. (ajcraswell@gmail.com)
+- Work out what a token comes to in one place, tokenValue, which the editor and the agent's SetTokens checks both read
+  (PAR-1049) (ajcraswell@gmail.com)
 
 ## 0.60.5
 
