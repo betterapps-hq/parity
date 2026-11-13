@@ -7308,19 +7308,20 @@ Shadcn Nova".
   `AdapterIcon`: a `viewBox`, one path, and `evenodd` where one part is cut out of another), which the window fills with
   the text's colour, so it reads like the Lucide icons beside it in either theme. Path data draws nothing but the shape,
   so a logo can't run script or load anything. An item that names a Lucide icon gets it from `DynamicIcon`, and a name
-  Lucide doesn't have draws a plain circle. React's and Vite's logos come from the ones `create-vite` puts in a new
-  project, Storybook's from the favicon it ships; TanStack Router has none yet, so its routes item names `route`.
+  Lucide doesn't have draws a plain circle. React's logo comes from the one `create-vite` puts in a new project,
+  Storybook's from the favicon it ships, Vite's one-colour mark from Simple Icons, and TanStack's from the black logo on
+  tanstack.com.
 - **It's told what Parity found.** The service calls each adapter the project uses with its tool's version (the running
   builder's, otherwise detection's), the package manager, the entities it imported and the app's routes. It then adds
   "Parity doesn't test this version" to an untested tool's tooltip, so adapters don't each repeat it.
 - **What the example shows:** React, Vite and Tailwind CSS, each with its logo and its version in its tooltip,
-  Tailwind's opening the Tokens panel; 8 routes from TanStack Router, which opens Layers, where they're listed (the root
-  route isn't counted); and 12 stories from Storybook, with its logo, which opens Storybook. Storybook's item used to
-  count components with stories (4), which wasn't the number of stories the canvas shows.
+  Tailwind's opening the Tokens panel; 8 routes from TanStack Router, with its logo, which opens Layers, where they're
+  listed (the root route isn't counted); and 12 stories from Storybook, with its logo, which opens Storybook.
+  Storybook's item used to count components with stories (4), which wasn't the number of stories the canvas shows.
 - **The components and tokens items stay the app's,** since their counts change while the project is open.
 
-Tried on 2026-11-13 in the running app on the example, as above: the four logos in dark mode, and Tailwind's tooltip and
-Enter on it opening the Tokens panel.
+Tried on 2026-11-13 in the running app on the example, as above: the five logos in dark mode, at 14px and at 64px, and
+Tailwind's tooltip and Enter on it opening the Tokens panel.
 
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in

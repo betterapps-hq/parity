@@ -1,4 +1,5 @@
 import type { PackageManifest, RouterAdapter } from "@parity-app/core"
+import { tanstackLogo } from "./logo.ts"
 import { readRoutes } from "./routes.ts"
 
 /** Whether a project depends on TanStack Router for React. */
@@ -10,6 +11,7 @@ function detect(pkg: PackageManifest): boolean {
 export const tanstackRouter: RouterAdapter = {
   id: "tanstack-router",
   name: "TanStack Router",
+  icon: tanstackLogo,
   detect,
   readRoutes,
   // The root route only holds the others, so it isn't counted.
@@ -18,7 +20,6 @@ export const tanstackRouter: RouterAdapter = {
 
     return [
       {
-        icon: "route",
         value: count.toLocaleString(),
         words: count === 1 ? " route" : " routes",
         hint: version ? `TanStack Router ${version}` : "TanStack Router",

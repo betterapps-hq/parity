@@ -1,10 +1,10 @@
 # Proposal: what adapters register in the editor (PAR-1071)
 
 Status: draft for discussion. Built on 2026-11-13: each adapter's `status` hook adds its own items to the status bar,
-and step 1 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind and
-Storybook bring their logos, `packages/adapters` is the one list, and Tailwind has a status item. Plugins, and how
-they're packaged and trusted, are in [extensions.md](extensions.md); this page is only about where an adapter's content
-appears in the editor.
+and step 1 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind, TanStack
+Router and Storybook bring their logos, `packages/adapters` is the one list, and Tailwind has a status item. Plugins,
+and how they're packaged and trusted, are in [extensions.md](extensions.md); this page is only about where an adapter's
+content appears in the editor.
 
 ## In one line
 
@@ -179,11 +179,11 @@ since packages will be published to a registry. The workspace lists `adapters/*`
 
 ## Order of work
 
-1. **The base, icons and one list of adapters.** Built: the `Adapter` base, logos for React, Vite, Tailwind and
-   Storybook, one list (`packages/adapters`) the service, the builder process, Storybook's example project and the
-   fixtures share, and a Tailwind status item. Left: TanStack Router's logo, which needs one from its brand kit, and
-   moving React and Vite into `frameworks` and `builders` with every folder dropping `-adapter`. The move waits until no
-   dev app or Storybook is running from this checkout, since they hold the adapters' folders open.
+1. **The base, icons and one list of adapters.** Built: the `Adapter` base, logos for React, Vite, Tailwind, TanStack
+   Router and Storybook, one list (`packages/adapters`) the service, the builder process, Storybook's example project
+   and the fixtures share, and a Tailwind status item. Left: moving React and Vite into `frameworks` and `builders` with
+   every folder dropping `-adapter`. The move waits until no dev app or Storybook is running from this checkout, since
+   they hold the adapters' folders open.
 2. **One detector each, and version facts.** Every `detect` takes a `DetectContext` and returns an `AdapterDetection`,
    detection reads each adapter's `versions`, `watches` takes over from a builder's `configFiles`, and the fixed list in
    `detect.ts` goes.
