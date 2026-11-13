@@ -60,7 +60,9 @@ import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg 
 
 export { componentOptions, findComponents, reactProbe, withReactProbe } from "@parity-app/code"
 
-export { guessParent, relateParts } from "./parts.ts"
+export { guessParent } from "./parts-chains.ts"
+
+export { relateParts } from "./parts.ts"
 
 export { familyOf, fetchExamples, nearestParent, normalizeRepo, readExamples } from "./examples.ts"
 
@@ -417,18 +419,18 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
 
     const listItem = takesItem.size > 0 ? exampleItem(exampleFiles, made) : undefined
 
-    const parts = await relateParts(
-      loader(root, dir),
-      componentImport ?? name,
-      scan.components,
+    const parts = await relateParts({
+      load: loader(root, dir),
+      specifier: componentImport ?? name,
+      components: scan.components,
       providers,
-      options.trialEdits?.components,
-      uses,
-      renderedIn(renders),
+      edits: options.trialEdits?.components,
+      examples: uses,
+      renderedBy: renderedIn(renders),
       calls,
       listItem,
-      options.appErrors
-    )
+      appErrors: options.appErrors
+    })
 
     if (parts.note) {
       notes.push(parts.note)
