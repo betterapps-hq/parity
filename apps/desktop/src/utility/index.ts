@@ -2,6 +2,7 @@ import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/react-adapter"
+import { storybookAdapter } from "@parity-app/storybook-adapter"
 import { tailwindStyles } from "@parity-app/tailwind-adapter"
 import { tanstackRouter } from "@parity-app/tanstack-router-adapter"
 import { errorCode } from "@parity-app/telemetry"
@@ -61,6 +62,7 @@ const projects = openProjects({
   builders: [viteBuilder],
   styles: [tailwindStyles],
   routers: [tanstackRouter],
+  entities: [storybookAdapter],
   startBuilder,
   checker,
   detections: { saved: savedDetection, save: saveDetection },

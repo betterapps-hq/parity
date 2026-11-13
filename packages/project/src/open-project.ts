@@ -11,6 +11,7 @@ import {
   type ModeSettings,
   parseCanvasDocument,
   parseLibraryManifest,
+  type ProjectEntities,
   type ProjectRoute,
   type StorybookInfo,
   type ThemeVariable
@@ -34,6 +35,8 @@ export interface ProjectInfo {
   guestUrl: string
   /** The app's routes, as its router declares them, each parent before its children; empty without a router (PAR-1076). */
   routes: ProjectRoute[]
+  /** Parity's entities as the project's tools describe them, as its stories as screens (`EntitiesAdapter`). */
+  entities: ProjectEntities
   componentCount: number
   /** Where each component comes from: the project's own files, or a library. */
   sources: Record<string, ComponentSource>
@@ -77,6 +80,7 @@ export interface OpenedProject {
   styles: { info?: ProjectInfo["styles"]; theme: ThemeVariable[] }
   guestUrl: string
   routes: ProjectRoute[]
+  entities: ProjectEntities
   config: DiscoveredProject
   detection: ProjectDetection
   documents: DocumentEntry[]
@@ -98,6 +102,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     theme: opened.styles.theme,
     guestUrl: opened.guestUrl,
     routes: opened.routes,
+    entities: opened.entities,
     libraries: config.libraries,
     storybook: config.storybook,
     describedTokens: config.describedTokens,

@@ -152,7 +152,7 @@ function importsOf(source: string): Map<string, { specifier: string; name: strin
   return found
 }
 
-async function componentFor(
+export async function componentFor(
   storyPath: string,
   imported: { specifier: string; name: string },
   components: Record<string, ComponentSource>,

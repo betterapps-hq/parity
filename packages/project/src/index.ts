@@ -4,17 +4,20 @@ import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, re
 import {
   type ComponentSource,
   type DescribedTokens,
+  type EntitiesAdapter,
+  type EntitiesSource,
   type LibraryInfo,
   libraryId,
   libraryManifestExtension,
   type PackageManifest,
   parseLibraryManifest,
   type ProjectConfig,
+  type ProjectEntities,
   type RendererAdapter
 } from "@parity-app/core"
 import { parseJsonc } from "@parity-app/registry"
 import { describedTokens, findLibraries } from "./libraries.ts"
-import { findStorybook } from "./storybook.ts"
+import { componentFor, findStorybook } from "./storybook.ts"
 import { type ShadcnConfig, shadcnConfig, stylesWith } from "./styles.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
@@ -273,6 +276,73 @@ async function findUiKit(
 /** Maps an import alias such as `@/components/ui` to a folder, using the project's tsconfig paths. */
 function resolveAlias(root: string, tsconfig: ProjectTsconfig, alias: string): string | undefined {
   return resolvePathAlias(root, tsconfig, alias) ?? (alias.startsWith("@/") ? `src/${alias.slice(2)}` : undefined)
+}
+
+/**
+ * The entities each adapter that says the project uses its tool reads from the tool's files, together: Storybook's
+ * stories as screens, for one. An adapter that fails is left out, with why in `notes`.
+ */
+export async function importEntities(
+  root: string,
+  pkg: PackageManifest,
+  components: Record<string, ComponentSource>,
+  adapters: readonly EntitiesAdapter[],
+  notes: string[] = []
+): Promise<ProjectEntities> {
+  const tsconfig = readTsconfig(root)
+  const source = entitiesSource(root, components, (specifier) => resolveAlias(root, tsconfig, specifier))
+  const entities: ProjectEntities = {}
+
+  for (const adapter of adapters.filter((each) => each.detect(pkg))) {
+    try {
+      const imported = await adapter.import(source)
+
+      if (imported.screens?.length) {
+        entities.screens = [...(entities.screens ?? []), ...imported.screens]
+        notes.push(`${imported.screens.length} screens from ${adapter.name}`)
+      }
+    } catch (error) {
+      notes.push(`${adapter.name} couldn't be read: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  return entities
+}
+
+/** How an entities adapter reads the project at `root`: its files, leaving out dependencies and builds, and its components. */
+function entitiesSource(
+  root: string,
+  components: Record<string, ComponentSource>,
+  resolve: (specifier: string) => string | undefined
+): EntitiesSource {
+  return {
+    files: async (match) => {
+      const found: string[] = []
+
+      const walk = async (folder: string) => {
+        for (const entry of await readdir(folder, { withFileTypes: true }).catch(() => [])) {
+          if (entry.isDirectory()) {
+            if (!skippedFolders.has(entry.name) && !entry.name.startsWith(".")) {
+              await walk(join(folder, entry.name))
+            }
+          } else {
+            const path = toPosix(relative(root, join(folder, entry.name)))
+
+            if (match.test(path)) {
+              found.push(path)
+            }
+          }
+        }
+      }
+
+      await walk(root)
+
+      return found.sort()
+    },
+    read: async (path) => readFile(join(root, path), "utf8").catch(() => undefined),
+    componentFor: async (file, specifier, name) =>
+      componentFor(file, { specifier, name }, components, async (alias) => resolve(alias))
+  }
 }
 
 const skippedFolders = new Set(["node_modules", ".git", "dist", "build", "out", "coverage", ".next", ".turbo"])

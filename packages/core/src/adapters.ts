@@ -1,5 +1,6 @@
 import type { StylePrinter } from "@parity-app/style-schema"
 import { z } from "zod"
+import type { ContainerSpec } from "./document.ts"
 import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ProjectConfig } from "./project.ts"
@@ -421,6 +422,46 @@ export interface ClassPrinter extends StylePrinter<string[]> {
 export interface ThemeVariable {
   name: string
   value: string
+}
+
+/**
+ * Translates a tool's own files, which Parity doesn't read itself, to Parity's entities, and back: Storybook's stories
+ * to screens, for one. It reads through `source`, so it runs without a disk, and gives back only entities, so nothing
+ * outside it knows the tool's format. A project can have several: each fills in the entities its tool describes.
+ */
+export interface EntitiesAdapter {
+  id: string
+  name: string
+  /** Whether the project uses the tool, from its package.json. */
+  detect(pkg: PackageManifest): boolean
+  /** The entities the tool's files describe. */
+  import(source: EntitiesSource): Promise<ProjectEntities>
+}
+
+/** How an entities adapter reads a project: its files, and which of the project's components an import names. */
+export interface EntitiesSource {
+  /** The project's files whose path matches, from the root, with forward slashes, leaving out dependencies and builds. */
+  files(match: RegExp): Promise<string[]>
+  /** A file's text by its path from the root, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+  /** The key of the project's component that `file` imports as `name` from `specifier`, if it's one. */
+  componentFor(file: string, specifier: string, name: string): Promise<string | undefined>
+}
+
+/** Parity's entities, as far as a tool's files describe them. */
+export interface ProjectEntities {
+  screens?: ImportedScreen[]
+}
+
+/** A screen read from a tool's files, with where it came from. */
+export interface ImportedScreen {
+  /** The adapter that read it. */
+  adapter: string
+  /** Where it is in the tool's files, unique among the adapter's: a story as `src/stories/button.stories.tsx#Outline`. */
+  ref: string
+  /** The group it's listed in, as a story's title: `UI/Button`. */
+  group: string
+  screen: ContainerSpec
 }
 
 /**

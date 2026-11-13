@@ -83,6 +83,7 @@ const info: ProjectInfo = {
   builder: { id: "vite", name: "Vite", toolVersion: "8" },
   theme: [],
   routes: [],
+  entities: {},
   componentCount: 0,
   notes: [],
   detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "" }, tools: [] },

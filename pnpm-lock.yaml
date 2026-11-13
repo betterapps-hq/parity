@@ -447,6 +447,9 @@ importers:
       '@parity-app/service':
         specifier: workspace:*
         version: link:../../packages/service
+      '@parity-app/storybook-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/storybook-adapter
       '@parity-app/style-schema':
         specifier: workspace:*
         version: link:../../packages/style-schema

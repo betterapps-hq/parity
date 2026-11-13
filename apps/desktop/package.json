@@ -54,6 +54,7 @@
     "@parity-app/registry": "workspace:*",
     "@parity-app/react-adapter": "workspace:*",
     "@parity-app/layer-types": "workspace:*",
+    "@parity-app/storybook-adapter": "workspace:*",
     "@parity-app/tanstack-router-adapter": "workspace:*",
     "@parity-app/service": "workspace:*",
     "@parity-app/style-schema": "workspace:*",

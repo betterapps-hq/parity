@@ -20,6 +20,7 @@ import {
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
+  type EntitiesAdapter,
   libraryManifestExtension,
   parseCanvasDocument,
   type PackageManifest,
@@ -47,6 +48,7 @@ import {
   documentTarget,
   findLockfiles,
   findPackage,
+  importEntities,
   importersOf,
   lockfileFolders,
   type OpenedProjectInfo,
@@ -135,6 +137,8 @@ export interface ProjectAdapters {
   styles: StylesAdapter[]
   /** The routers whose routes Parity reads, so the canvas draws each page (PAR-1076). None unless given. */
   routers?: RouterAdapter[]
+  /** The tools whose files Parity reads as its own entities, as Storybook's stories as screens. None unless given. */
+  entities?: EntitiesAdapter[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
     options: BuilderProcessOptions,
@@ -437,6 +441,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       : discovered
 
     opening.cached = !!saved
+    // The entities the project's tools describe, as its stories as screens, naming the components as the list does.
+    const entities = await importEntities(root, pkg, opened.list.sources, adapters.entities ?? [], config.notes)
 
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
@@ -457,6 +463,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       opened,
       renderer,
       routes,
+      entities,
       saved
     }
   }
@@ -534,6 +541,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       opened,
       renderer,
       routes,
+      entities,
       saved
     } = await inSpan("project.detected", { root }, () => detect(root, opening))
 
@@ -579,6 +587,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       styles,
       guestUrl: session.guestUrl,
       routes,
+      entities,
       config,
       detection,
       documents,
