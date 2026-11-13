@@ -2173,11 +2173,12 @@ Code: `keysOf`, `shortcutOf` and `fixedKeys` in `apps/desktop/src/renderer/chrom
 `chrome/keys.ts`. `IconButton` takes the command or fixed keys whose keys its tooltip shows, the canvas and Layers
 menus' items and Search actions' rows carry the keys `shortcutOf` wrote, and the menubar's `Item` and `Toggle`, the
 toolbar's `CommandTip` and the floating bars' menus call it. Only the Keyboard shortcuts dialog and the gesture hints
-(`KeyHints`, `ResizeHandles`) call `formatKeys` themselves, for keys they read from the keymap's `gestures` or `keysOf`.
-The `parity/shortcut-from-keymap` lint rule (`scripts/lint-rules.ts`, on in `vite.config.ts`) refuses `formatKeys` given
-keys written out, outside explorations, stories and tests. Changing a binding (PAR-1042) changes what `keysOf` returns,
-and every place that shows or matches keys follows. Keys still written as text: the inspector's "Alt+Down" picker hint
-and Angle's "Shift snaps to 15°", which belong to those controls, and the media player's own keycaps
+(`KeyHints`, `ResizeHandles`, the Move menu's pan hint) call `formatKeys` themselves, for keys they read from the
+keymap's `gestures` or `keysOf`. The `parity/shortcut-from-keymap` lint rule (`scripts/lint-rules.ts`, on in
+`vite.config.ts`) refuses `formatKeys` given keys written out, outside explorations, stories and tests. Changing a
+binding (PAR-1042) changes what `keysOf` returns, and every place that shows or matches keys reads it there. Keys still
+written as text, which belong to their controls: the inspector's "Alt+Down" picker hint, Angle's "Shift snaps to 15°",
+the grid cell map's arrows, Shift and Delete, and a new prop's "Enter to add"; and the media player's own keycaps
 (`packages/media-player`), which can't read the app's keymap.
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
