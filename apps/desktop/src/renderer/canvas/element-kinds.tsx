@@ -1,4 +1,4 @@
-import type { ElementFamily, ElementType } from "@parity-app/editor"
+import type { ElementFamily, LayerIconName } from "@parity-app/layer-types"
 import {
   AudioLines,
   Film,
@@ -6,6 +6,7 @@ import {
   Link,
   List,
   type LucideIcon,
+  type LucideProps,
   PanelsTopLeft,
   PenTool,
   PictureInPicture2,
@@ -16,24 +17,32 @@ import {
   TextCursorInput,
   Type
 } from "lucide-react"
+import { createElement } from "react"
 import { kindColors } from "./kinds.tsx"
 
-/** Each element type's icon in Layers and its panel's header (read-only viewer). */
-export const elementTypeIcons: Record<ElementType, LucideIcon> = {
-  layout: Rows3,
-  region: PanelsTopLeft,
-  text: Type,
+/**
+ * The icons layer types name (`elementTypeIcons` in `@parity-app/layer-types`), as Lucide draws them.
+ */
+const layerIcons: Record<LayerIconName, LucideIcon> = {
+  "rows-3": Rows3,
+  "panels-top-left": PanelsTopLeft,
+  type: Type,
   link: Link,
-  input: TextCursorInput,
+  "text-cursor-input": TextCursorInput,
   image: Image,
-  vector: PenTool,
-  video: Film,
-  audio: AudioLines,
-  embed: SquareCode,
+  "pen-tool": PenTool,
+  film: Film,
+  "audio-lines": AudioLines,
+  "square-code": SquareCode,
   table: Table,
   list: List,
-  divider: SeparatorHorizontal,
-  overlay: PictureInPicture2
+  "separator-horizontal": SeparatorHorizontal,
+  "picture-in-picture-2": PictureInPicture2
+}
+
+/** The icon a layer type names, in Layers and its panel's header. */
+export function LayerIcon({ name, ...props }: LucideProps & { name: LayerIconName }) {
+  return createElement(layerIcons[name], props)
 }
 
 /**

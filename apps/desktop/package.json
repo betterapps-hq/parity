@@ -53,6 +53,7 @@
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
+    "@parity-app/layer-types": "workspace:*",
     "@parity-app/router-tanstack": "workspace:*",
     "@parity-app/service": "workspace:*",
     "@parity-app/style-schema": "workspace:*",

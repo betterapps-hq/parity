@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
+  describeElement,
   elementFamilies,
   elementType,
   elementTypeFamilies,
   elementTypeRoles,
   elementTypes,
   elementTypeTags
-} from "./element-types.ts"
+} from "./layer-types.ts"
 
 describe("elementType", () => {
   it.each([
@@ -60,5 +61,28 @@ describe("the mapping", () => {
   it("puts every family to use, Video and Audio in one", () => {
     expect(new Set(Object.values(elementTypeFamilies))).toEqual(new Set(elementFamilies))
     expect(elementTypeFamilies.video).toBe(elementTypeFamilies.audio)
+  })
+})
+
+describe("describeElement", () => {
+  it("says how an element shows: its type, family, name, icon and sections", () => {
+    expect(describeElement({ tag: "nav" })).toEqual({
+      type: "region",
+      family: "structure",
+      name: "Region",
+      detail: "nav",
+      icon: "panels-top-left",
+      sections: ["landmark", "layout", "size", "fill", "stroke", "appearance"]
+    })
+  })
+
+  it("says what an input is within its type: its role, else its type, else its tag", () => {
+    expect(describeElement({ tag: "input", attributes: { type: "checkbox" } }).detail).toBe("checkbox")
+    expect(describeElement({ tag: "input" }).detail).toBe("text")
+    expect(describeElement({ tag: "button" }).detail).toBe("button")
+    expect(describeElement({ tag: "div", attributes: { role: "switch" } })).toMatchObject({
+      type: "input",
+      detail: "switch"
+    })
   })
 })

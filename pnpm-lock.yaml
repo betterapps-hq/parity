@@ -352,6 +352,9 @@ importers:
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../../packages/icons
+      '@parity-app/layer-types':
+        specifier: workspace:*
+        version: link:../../packages/layer-types
       '@parity-app/media-player':
         specifier: workspace:*
         version: link:../../packages/media-player
@@ -746,6 +749,8 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/layer-types: {}
 
   packages/libgen:
     dependencies:

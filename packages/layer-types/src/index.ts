@@ -1,0 +1,20 @@
+export {
+  describeElement,
+  type ElementFacts,
+  elementFamilies,
+  type ElementFamily,
+  elementFamilyNames,
+  type ElementType,
+  elementType,
+  elementTypeFamilies,
+  elementTypeIcons,
+  elementTypeNames,
+  elementTypeRoles,
+  elementTypes,
+  elementTypeSections,
+  elementTypeTags,
+  type LayerDefinition,
+  type LayerIconName,
+  type PanelSection,
+  panelSections
+} from "./layer-types.ts"
