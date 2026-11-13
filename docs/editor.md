@@ -7893,14 +7893,17 @@ nowhere and one through a layer that isn't an instance).
 ### Agents' state changes, viewport patches and instance overrides (PAR-882, PAR-884, PAR-887)
 
 What an agent names for a state is what the state stores. `AddState`, `UpdateState` and `Update` with a `state` keep
-every value they're given, even one equal to what's under it, so the state goes on showing it when the base changes. The
-same holds for `Update` on a layer inside an instance in the base state, which writes that copy's override. The editor
-still drops a value equal to what's under it, since typing the base value back there means no change.
+every value they're given, even one equal to what's under it, and every key `unset` takes away, even one the layer
+doesn't have, so the state goes on showing it when the base changes. The same holds for `Update` on a layer inside an
+instance in the base state, which writes that copy's override. The editor still drops a value equal to what's under it,
+since typing the base value back there means no change.
 
 `Responsive` merges with the viewport's earlier patch key by key: `props` and `style` keep the keys the call doesn't
 name, and `unset` adds to the keys the patch takes away. `null` takes one value away, `hidden`, `text` or a prop or
-style key, as it does in `Update`, and `null` for the whole patch removes it. A key set and taken away by different
-calls follows the later one.
+style key, as it does in `Update`; `null` for `unset` gives back every key the patch takes away, and `null` for the
+whole patch removes it. A key set and taken away by different calls follows the later one, and one set and taken away in
+the same call is taken away. A viewport's patch keeps every value and taken-away key it's given, even one equal to the
+layer's own, since its style wins over states and variant options (PAR-902) and still decides what that viewport shows.
 
 An instance an agent inserts can key its `overrides` by each layer's id or name, through nested instances
 (`"Avatar/initials"`), as a state's `changes` can. `Insert`, `Replace` and `CreateDesign` store the ids. A key naming no
@@ -7908,14 +7911,18 @@ layer in the component fails with `unknown_node`, saying which. An instance of a
 its keys.
 
 Implementation: the `keepEqual` option of `editNode`, `editInner` and `patchWith` (`packages/core/src/edit.ts`,
-`packages/core/src/instances.ts`), which `packages/agent/src/workspace.ts` passes as `kept`; `responsive` and
-`mergePatch`, and `prepareNode` with `overridesById` and `innerIds`, in the same file.
+`packages/core/src/instances.ts`), which `packages/agent/src/workspace.ts` passes as `kept`; core's `editResponsive`,
+which writes a viewport's patch through `patchWith` (PAR-1050), and the workspace's `responsive` and `viewportChange`
+that call it; `prepareNode` with `overridesById` and `innerIds` in the workspace.
 
-Tests: `packages/core/src/edit.test.ts` ("keeps an override that matches the base value when asked to");
-`packages/agent/src/workspace.test.ts` ("a state keeping a change equal to what's under it": `AddState` on the design's
-own layers and inside an instance, and `Update` in a state; "Responsive merging with a viewport's earlier patch": style
-and props merged, `null` taking a style key and `hidden` away; "instance overrides keyed by a layer's name": names and
-ids stored as ids through a nested instance, and a name the component doesn't have refused).
+Tests: `packages/core/src/edit.test.ts` ("keeps an override that matches the base value when asked to"; "takes away a
+key the node doesn't have only when asked to keep it"; "a viewport's patch": setting values merged key by key, clearing
+one, taking a key away and giving it back, removing the whole patch and one left empty, and taking away a style a state
+sets); `packages/agent/src/workspace.test.ts` ("a state keeping a change equal to what's under it": `AddState` on the
+design's own layers and inside an instance, and `Update` in a state; "Responsive merging with a viewport's earlier
+patch": style and props merged, `null` taking a style key and `hidden` away, `unset` and `null` for it, and `null` for
+the patch; "instance overrides keyed by a layer's name": names and ids stored as ids through a nested instance, and a
+name the component doesn't have refused).
 
 ### A viewport's patch over states (PAR-902)
 

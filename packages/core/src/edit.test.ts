@@ -7,6 +7,7 @@ import {
   deleteNode,
   duplicateState,
   editNode,
+  editResponsive,
   findNode,
   findState,
   insertNode,
@@ -26,6 +27,7 @@ import {
   withFreshIds
 } from "./edit.ts"
 import { CodedError, errorDetails } from "./errors.ts"
+import { nodePatch } from "./render.ts"
 
 /** The error `run` throws, or undefined when it doesn't throw one. */
 function caught(run: () => void): Error | undefined {
@@ -98,6 +100,13 @@ describe("editing another state", () => {
     expect(style.states![1]?.overrides?.page).toEqual({ style: { gap: { step: 4 } } })
   })
 
+  it("takes away a key the node doesn't have only when asked to keep it", () => {
+    const change = { unset: { style: ["padding" as const] } }
+    expect(editNode(design, "loading", "page", change).states![1]?.overrides?.page).toBeUndefined()
+    const kept = editNode(design, "loading", "page", change, { keepEqual: true })
+    expect(kept.states![1]?.overrides?.page).toEqual({ unset: { style: ["padding"] } })
+  })
+
   it("shows the node as the state sees it", () => {
     const submit = findNode(design.root, "submit")!
     expect(nodeInState(submit, design.states![1])).toMatchObject({ props: { children: "Sign up", disabled: true } })
@@ -110,6 +119,56 @@ describe("editing another state", () => {
       submit: { props: { disabled: true } }
     })
     expect(resetOverride(edited, "loading", "submit").states![1]?.overrides).toEqual({ title: { hidden: true } })
+  })
+})
+
+describe("a viewport's patch (PAR-1050)", () => {
+  const mobile = (container: ContainerSpec, id = "page") => findNode(container.root, id)?.responsive?.mobile
+
+  it("sets values, merged key by key over what the patch has, and keeps one equal to the node's own", () => {
+    const first = editResponsive(design, "page", "mobile", { style: { gap: { step: 2 } }, hidden: true })
+    const next = editResponsive(first, "page", "mobile", { style: { padding: { step: 1 }, gap: { step: 4 } } })
+    expect(mobile(next)).toEqual({ hidden: true, style: { gap: { step: 4 }, padding: { step: 1 } } })
+    const text = editResponsive(design, "title", "mobile", { text: "Create an account", hidden: false })
+    expect(mobile(text, "title")).toEqual({ text: "Create an account", hidden: false })
+    expect(findNode(next.root, "page")?.style).toEqual({ gap: { step: 4 } })
+  })
+
+  it("clears one value, takes a key away, and gives it back when it's set again", () => {
+    const set = editResponsive(design, "page", "mobile", { style: { gap: { step: 2 }, padding: { step: 1 } } })
+    const partly = editResponsive(set, "page", "mobile", { style: { padding: undefined }, unset: { style: ["gap"] } })
+    expect(mobile(partly)).toEqual({ unset: { style: ["gap"] } })
+    expect(mobile(editResponsive(partly, "page", "mobile", { style: { gap: { step: 3 } } }))).toEqual({
+      style: { gap: { step: 3 } }
+    })
+  })
+
+  it("takes the whole patch away, keeping other viewports', and drops one left empty", () => {
+    const both = editResponsive(editResponsive(design, "page", "mobile", { hidden: true }), "page", "tablet", {
+      hidden: true
+    })
+
+    expect(findNode(editResponsive(both, "page", "mobile", undefined).root, "page")?.responsive).toEqual({
+      tablet: { hidden: true }
+    })
+
+    const emptied = editResponsive(editResponsive(design, "page", "mobile", { hidden: true }), "page", "mobile", {
+      hidden: undefined
+    })
+
+    expect(findNode(emptied.root, "page")).toEqual(design.root)
+  })
+
+  it("takes away a style a state sets though the node doesn't have it, since the viewport's style wins", () => {
+    const states = editNode(design, "loading", "title", { style: { opacity: { step: 50 } } })
+    const next = editResponsive(states, "title", "mobile", { unset: { style: ["opacity"] } })
+    expect(mobile(next, "title")).toEqual({ unset: { style: ["opacity"] } })
+    const title = findNode(next.root, "title")!
+    expect(nodePatch([next.states![1]?.overrides], title, "mobile").style).toEqual({})
+  })
+
+  it("refuses a node the design doesn't have", () => {
+    expect(() => editResponsive(design, "missing", "mobile", { hidden: true })).toThrow('No node "missing"')
   })
 })
 
