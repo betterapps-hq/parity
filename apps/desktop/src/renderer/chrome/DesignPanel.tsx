@@ -3,11 +3,10 @@ import type { ResolvedMode } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
-import { boardComponent, componentBoardsFile } from "../canvas/component-boards.ts"
+import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { routePageRoute, routePagesFile } from "../canvas/route-pages.ts"
-import { storyScreensFile } from "../canvas/story-screens.ts"
+import { routePageRoute } from "../canvas/route-pages.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -25,6 +24,7 @@ import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
+import { readFromCode } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
 import { RouteSection } from "./RoutePanel.tsx"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
@@ -98,7 +98,7 @@ function SelectedPanel() {
 
     // A layer of a page, a component's board or a story is read from the project's code: its values show, and nothing
     // edits them.
-    return entry.path === componentBoardsFile || entry.path === routePagesFile || entry.path === storyScreensFile ? (
+    return readFromCode(entry.path) ? (
       <fieldset disabled className="contents">
         {panel}
       </fieldset>

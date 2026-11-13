@@ -89,6 +89,7 @@ import { keymap } from "./keymap.ts"
 import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
+import { readFromCode } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
 
 type Row = TreeRow<ContainerEntry>
@@ -155,7 +156,7 @@ export function LayerTree() {
   if (renameRequest && renameRequest.id !== renameHandled) {
     setRenameHandled(renameRequest.id)
 
-    if (renameRequest.node) {
+    if (renameRequest.node && !readFromCode(renameRequest.design.split("#")[0] ?? "")) {
       setRenaming(layerRowId(renameRequest.design, renameRequest.node))
     }
   }
@@ -613,8 +614,8 @@ export function LayerTree() {
       toggle: (row, branch) => (branch ? toggleBranch(row) : toggle(row.id)),
       select,
       hover: hoverRow,
-      // A layer inside an instance keeps its component's name.
-      rename: (row) => row.within.length === 0 && setRenaming(row.id),
+      // A layer inside an instance keeps its component's name, and one read from the project's code keeps its own.
+      rename: (row) => row.within.length === 0 && !readFromCode(row.design.path) && setRenaming(row.id),
       renamed: (row, name) => {
         setRenaming(undefined)
 

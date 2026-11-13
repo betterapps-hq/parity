@@ -54,6 +54,7 @@ import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
+import { readFromCode } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
 import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
@@ -223,6 +224,8 @@ export function LayerHeader() {
 
   const { entry, nodeId, node, override, change, reset, state, target, inner } = layer
   const { container, key } = entry
+  // A layer read from the project's code shows its name as text and has no eye, since nothing edits it.
+  const fromCode = readFromCode(entry.path)
 
   const kind = layer.layer.element
     ? elementKind(layer.layer.element)
@@ -240,13 +243,13 @@ export function LayerHeader() {
       action={
         <>
           <LayerActions node={layer.layer} />
-          <VisibleToggle node={node} override={override} change={change} reset={reset} />
+          {!fromCode && <VisibleToggle node={node} override={override} change={change} reset={reset} />}
         </>
       }
     />
   )
 
-  if (inner) {
+  if (inner || fromCode) {
     return (
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         {heading(<Name className={`px-1.5 ${headingName}`}>{label}</Name>)}
