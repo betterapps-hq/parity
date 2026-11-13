@@ -8,10 +8,14 @@ import { scrubber } from "./telemetry.ts"
  */
 export const replaySessionRate = 1
 
-/** The rates Sentry reads when replay starts, given to `startTelemetry` by the editor window. */
-export const replaySampling = { replaysSessionSampleRate: replaySessionRate, replaysOnErrorSampleRate: 1 }
+/**
+ * The rates Sentry reads when replay starts, given to `startTelemetry` by the editor window: none, since
+ * `followTelemetry` starts it by hand, recording whole sessions or, in CI, buffering. An error never sends a buffer by
+ * itself, so CI sends a replay only when one is asked for (PAR-1043).
+ */
+export const replaySampling = { replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0 }
 
-/** Whether this window has added the recorder yet, and whether it's recording. */
+/** Whether this window has added the recorder yet, and whether it's recording, whole sessions or a buffer. */
 let added = false
 let recording = false
 
@@ -194,11 +198,13 @@ export const replayPrivacy = {
 
 /**
  * Records the editor window with Session Replay while diagnostics are on, its secrets scrubbed and its canvases
- * included, and stops while they're off (PAR-624). CI never records, since it sends only errors and reports (PAR-777). The recorder is added the first time they're on, so with them off it never loads. Only
- * the editor window calls this, as it learns the setting and each time it changes; the offscreen renderers never record.
+ * included, and stops while they're off (PAR-624). CI, which sends only errors and reports (PAR-777), keeps the last
+ * minute in memory instead and sends it only when `sendReplay` asks, as the end-to-end suite does for a failed test
+ * (PAR-1043). The recorder is added the first time they're on, so with them off it never loads. Only the editor window
+ * calls this, as it learns the setting and each time it changes; the offscreen renderers never record.
  */
 export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "level" | "errorsOnly">): void {
-  if (level === "off" || errorsOnly) {
+  if (level === "off") {
     if (recording) {
       void Sentry.getReplay()?.stop()
     }
@@ -208,25 +214,92 @@ export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "
     return
   }
 
+  // Whether CI's rule applies is fixed for a run, so a window recording already goes on as it started.
   if (recording) {
     return
   }
 
   recording = true
 
-  if (added) {
-    Sentry.getReplay()?.start()
-
-    return
+  if (!added) {
+    added = true
+    // Names, values and pictures are what make a bug findable, as in every other event, so only secrets are hidden. A
+    // project's frames and icons are left out, as boxes their size, and their shadow roots are attached where the
+    // recorder can't see them (shadow.ts): it kept every shadow root it saw, and with a frame's the closed project's
+    // whole canvas. The project's page is the project's, not Parity's; failures carry the frames instead
+    // (canvas/frames-on-screen.ts).
+    // The window's own <canvas> elements, such as the selection overlay, which Replay otherwise leaves out. Added first:
+    // Replay looks for the canvas recorder once, as it's added itself, and records no canvas if it isn't there (PAR-964).
+    Sentry.addIntegration(Sentry.replayCanvasIntegration())
+    Sentry.addIntegration(Sentry.replayIntegration({ ...replayPrivacy, block: ["[data-frame]", "[data-guest-icon]"] }))
   }
 
-  added = true
-  // Names, values and pictures are what make a bug findable, as in every other event, so only secrets are hidden. A project's frames and icons are
-  // left out, as boxes their size, and their shadow roots are attached where the recorder can't see them (shadow.ts): it
-  // kept every shadow root it saw, and with a frame's the closed project's whole canvas. The project's page is the
-  // project's, not Parity's; failures carry the frames instead (canvas/frames-on-screen.ts).
-  // The window's own <canvas> elements, such as the selection overlay, which Replay otherwise leaves out. Added first:
-  // Replay looks for the canvas recorder once, as it's added itself, and records no canvas if it isn't there (PAR-964).
-  Sentry.addIntegration(Sentry.replayCanvasIntegration())
-  Sentry.addIntegration(Sentry.replayIntegration({ ...replayPrivacy, block: ["[data-frame]", "[data-guest-icon]"] }))
+  const replay = Sentry.getReplay()
+
+  if (errorsOnly) {
+    replay?.startBuffering()
+  } else if (Math.random() < replaySessionRate) {
+    replay?.start()
+  }
+}
+
+/**
+ * Sends what Replay has kept and gives the replay's id, or none when it isn't recording (PAR-635). Recording a whole
+ * session, it sends what's waiting. Buffering, as in CI, it sends the buffer as a replay of its own and starts a fresh
+ * buffer, so CI never goes on to record whole sessions after it (PAR-1043). `tags` go on that replay, such as the
+ * end-to-end test that failed.
+ */
+export async function sendReplay(tags: Record<string, string> = {}): Promise<string | undefined> {
+  const replay = Sentry.getReplay()
+  const mode = replay?.getRecordingMode()
+
+  if (!replay || !mode) {
+    return undefined
+  }
+
+  const id = replay.getReplayId()
+
+  try {
+    await Sentry.withScope(async (scope) => {
+      scope.setTags(tags)
+      await replay.flush(mode === "buffer" ? { continueRecording: false } : undefined)
+    })
+  } catch {
+    // A session's earlier parts went already; a buffer that couldn't go names nothing in Sentry.
+    return mode === "session" ? id : undefined
+  } finally {
+    if (mode === "buffer") {
+      await replay.stop()
+      replay.startBuffering()
+    }
+  }
+
+  return id
+}
+
+/** The replay and trace a report is tied to, each when there is one. */
+interface ReportIds {
+  replayId?: string
+  traceId?: string
+}
+
+/**
+ * The replay and trace a report is tied to (PAR-635). The replay is sent first, so the feedback can name it. Neither
+ * is there when the window records no replay.
+ */
+export async function reportIds(): Promise<ReportIds> {
+  const replayId = await sendReplay()
+  const traceId = Sentry.getCurrentScope().getPropagationContext().traceId
+
+  const ids: ReportIds = {}
+
+  if (replayId) {
+    ids.replayId = replayId
+  }
+
+  if (traceId) {
+    ids.traceId = traceId
+  }
+
+  return ids
 }
