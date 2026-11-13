@@ -110,6 +110,7 @@ describe("drawing the boards again", () => {
     const inside = componentBoards(sources, {}, layout, { CardTitle: ["Card"] })
 
     expect(again).toEqual(alone)
+
     const title = (boards: typeof alone) =>
       boardComponentNode(boards.find((each) => each.component === "CardTitle")!.board)?.id
 
