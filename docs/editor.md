@@ -3821,6 +3821,26 @@ layer names an unnamed icon by its icon). The header itself is checked in the In
 › Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
 and dark.
 
+### A layer's own fields (PAR-1051)
+
+A layer's name, a text's tag, a code component's name, and an image's or a video's file, alt text, fit, credit and
+controls are its own fields: only the design sets them, never a state. One core function, `setOwnFields`, writes them
+for a rename in Layers or the header's name field, the Content section and an agent's `Update`, wherever the layer sits,
+a slot an instance fills included. An empty name or alt text, a cleared tag and controls turned off take the field away,
+so an agent's `""` does what clearing the field does. A field the layer's kind doesn't have is refused with the field
+named, and a change that leaves every field as it was gives back the same design, so nothing is saved.
+
+Code: `packages/core/src/own-fields.ts`; `renameAndRecord` in `apps/desktop/src/renderer/chrome/inspector-events.ts`;
+`MediaSection` in `chrome/LayerPanel.tsx`; `update` in `packages/agent/src/workspace.ts`.
+
+Tests:
+
+- `packages/core/src/own-fields.test.ts`: renaming, a tag changed and cleared, an image's file and alt text, a video's
+  controls off, a code component renamed, layers filling an instance's slots, nothing changed giving back the same
+  design, and the refusals.
+- `packages/agent/src/workspace.test.ts`, "A layer's own fields, set by Update": rename, tag, src and alt, on a layer in
+  a slot too; `null` and `""` taking them away; a tag on an image refused.
+
 ### Which sections a layer gets (PAR-892)
 
 The Design tab's style sections follow what the selected layers can do, not each node's type. What they can do is worked

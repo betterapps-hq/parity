@@ -266,6 +266,8 @@ export {
   type VariableOption
 } from "./modes.ts"
 
+export { type OwnFields, setOwnFields } from "./own-fields.ts"
+
 export {
   addParam,
   type ArgChange,

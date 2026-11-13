@@ -772,3 +772,78 @@ Print(JSON.stringify([Get("table/head").props ?? {}, Get("table/body").style]))`
     }
   })
 })
+
+describe("A layer's own fields, set by Update (PAR-1051)", () => {
+  const card: ContainerSpec = {
+    id: "card",
+    name: "Card",
+    kind: "component",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "frame", children: [{ type: "layout", id: "body", slot: "content", children: [] }] }
+  }
+
+  const page: ContainerSpec = {
+    id: "page",
+    name: "Page",
+    position: { x: 600, y: 0 },
+    root: {
+      type: "layout",
+      id: "page",
+      children: [
+        { type: "text", id: "title", text: "Hello" },
+        {
+          type: "instance",
+          id: "copy",
+          design: "card",
+          slots: {
+            content: [
+              { type: "text", id: "lead", text: "Lead" },
+              { type: "image", id: "cover", src: "/images/cover.jpg", alt: "A cover" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+
+  it("renames, retags and repictures layers, including those filling an instance's slot", async () => {
+    const result = await read(
+      [card, page],
+      `Update("page/title", { name: "Heading", tag: "h1" })
+Update("page/lead", { name: "Lead paragraph", tag: "p" })
+Update("page/cover", { src: "/images/sea.jpg", alt: "The sea" })
+Print(JSON.stringify(["page/title", "page/lead", "page/cover"].map((path) => Get(path))))`
+    )
+
+    expect(result).toEqual([
+      { type: "text", id: "title", name: "Heading", text: "Hello", tag: "h1" },
+      { type: "text", id: "lead", name: "Lead paragraph", text: "Lead", tag: "p" },
+      { type: "image", id: "cover", src: "/images/sea.jpg", alt: "The sea" }
+    ])
+  })
+
+  it("takes a name, a tag and alt text away with null or an empty string", async () => {
+    const result = await read(
+      [card, page],
+      `Update("page/title", { name: "Heading", tag: "h2" })
+Update("page/title", { name: "", tag: null })
+Update("page/cover", { alt: "" })
+Print(JSON.stringify([Get("page/title"), Get("page/cover")]))`
+    )
+
+    expect(result).toEqual([
+      { type: "text", id: "title", text: "Hello" },
+      { type: "image", id: "cover", src: "/images/cover.jpg" }
+    ])
+  })
+
+  it("refuses a field the layer doesn't have", async () => {
+    const result = await execute(
+      { label: "Tag", code: `Update("page/cover", { tag: "h2" })` },
+      snapshot([structuredClone(card), structuredClone(page)]),
+      hooks
+    )
+
+    expect(result.error).toContain("Only a text has a tag")
+  })
+})
