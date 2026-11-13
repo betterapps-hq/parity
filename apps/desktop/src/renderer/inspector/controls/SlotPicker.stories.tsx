@@ -139,9 +139,6 @@ function dragBadge(canvasElement: HTMLElement, drop: boolean): void {
   }
 }
 
-/** Empty: the slot shows its placeholder, and the field its prompt and chevron. */
-export const Empty: Story = {}
-
 /** Filled: its layer as a chip. Clicking it selects the layer; the × clears the slot. */
 export const Filled: Story = {
   args: { layer: featureList },

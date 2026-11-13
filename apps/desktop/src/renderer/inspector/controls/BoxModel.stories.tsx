@@ -96,6 +96,9 @@ function StrengthBox() {
   )
 }
 
+/** FillStrengths, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...FillStrengths, parameters: { demo: true } }
+
 /** Padding alone: margin's sides are unset, 0 and faint. */
 export const PaddingOnly: Story = { render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} /> }
 
@@ -119,16 +122,5 @@ export const EditingASide: Story = {
   render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} margin={[px(8), undefined, px(8), undefined]} />,
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: /^Top padding/ }))
-  }
-}
-
-/** `-8` typed into the top padding: padding can't be negative, so it's refused, with the reason under its field. */
-export const InvalidAsTyped: Story = {
-  render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} />,
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: /^Top padding/ }))
-    const field = within(document.body).getByRole("textbox", { name: "Top padding" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "-8{Enter}")
   }
 }

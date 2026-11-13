@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SpacingPreview } from "./box-model.tsx"
 import { Playground } from "./playground.tsx"
@@ -56,43 +55,8 @@ function StrokeWidth({ start, mixed = [] }: { start: Sides; mixed?: boolean[] })
 /** 1 on every side: `border`. */
 export const AllSides: Story = { render: () => <StrokeWidth start={[px(1), px(1), px(1), px(1)]} /> }
 
-/** The bottom alone: Each side opens to show it, writing `border-b`. */
-export const BottomOnly: Story = { render: () => <StrokeWidth start={[undefined, undefined, px(1), undefined]} /> }
-
-/** 2 down and 1 across: Each side opens to show them, writing `border-x border-y-2`, the fewest classes. */
-export const VerticalAndHorizontal: Story = { render: () => <StrokeWidth start={[px(2), px(1), px(2), px(1)]} /> }
+/** AllSides, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...AllSides, parameters: { demo: true } }
 
 /** Each side its own: four fields in CSS's order. */
 export const Custom: Story = { render: () => <StrokeWidth start={[px(1), px(2), px(3), px(4)]} /> }
-
-/** The project's thick border-width token: `border-(length:--border-width-thick)`. */
-export const Token: Story = {
-  render: () => (
-    <StrokeWidth
-      start={[
-        { token: "border-width-thick" },
-        { token: "border-width-thick" },
-        { token: "border-width-thick" },
-        { token: "border-width-thick" }
-      ]}
-    />
-  )
-}
-
-/** 1.5, off the whole pixels: no mark, and Tokens offers the nearest token first, writing `border-[1.5px]`. */
-export const OffTheSteps: Story = { render: () => <StrokeWidth start={[px(1.5), px(1.5), px(1.5), px(1.5)]} /> }
-
-/** The selected layers' left widths differ: Each side opens, and Left shows Mixed. */
-export const MixedLeft: Story = {
-  render: () => <StrokeWidth start={[px(1), px(1), px(1), undefined]} mixed={[false, false, false, true]} />
-}
-
-/** `-1` typed and Enter pressed: a stroke can't be negative, so it's refused, with the reason under the row. */
-export const InvalidAsTyped: Story = {
-  render: () => <StrokeWidth start={[px(1), px(1), px(1), px(1)]} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Width" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "-1{Enter}")
-  }
-}

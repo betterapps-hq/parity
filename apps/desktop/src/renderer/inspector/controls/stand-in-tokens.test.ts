@@ -9,12 +9,15 @@ const here = dirname(fileURLToPath(import.meta.url))
 const standIns = resolve(here, "stand-in-tokens.ts")
 const panel = resolve(here, "../../chrome/StyleSections.tsx")
 
-/** Each file a file imports at runtime, by its own relative path: type-only imports are left out, as they're erased. */
+/**
+ * Each module a file imports at runtime, by its own relative path: type-only imports are left out, as they're erased,
+ * and so are stylesheets and other files read as text (`./scrollbars.css?raw`), which import nothing.
+ */
 function runtimeImports(file: string): string[] {
   const source = readFileSync(file, "utf8")
 
   return [...source.matchAll(/^import\s+(type\s+)?[^;]*?from\s+"(\.[^"]+)"/gm)].flatMap(([, typeOnly, path]) =>
-    typeOnly === undefined && path !== undefined ? [resolve(dirname(file), path)] : []
+    typeOnly === undefined && path !== undefined && /\.tsx?$/.test(path) ? [resolve(dirname(file), path)] : []
   )
 }
 

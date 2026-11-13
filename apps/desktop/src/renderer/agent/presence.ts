@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
+import { signal } from "../store.ts"
 import { heldBoards } from "./held-boards.ts"
 
 /**
@@ -8,18 +9,14 @@ import { heldBoards } from "./held-boards.ts"
  */
 class PresenceQueue {
   private readonly queues = new Map<string, PresenceEvent[]>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
   /** Agents with a cursor in each tab, in the order they arrived. */
   private readonly present = new Map<string, string[]>()
   /** Tabs whose canvas is playing their queue, by how many players. */
   private readonly watched = new Map<string, number>()
   private version = 0
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   getVersion = () => this.version
 
@@ -71,10 +68,7 @@ class PresenceQueue {
     }
 
     this.version++
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 
   /** The agents with a cursor in a tab: from their first step until they retire. */
@@ -97,10 +91,7 @@ class PresenceQueue {
     }
 
     this.version++
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changes.notify()
   }
 
   /** How many of an agent's steps are waiting to play in a tab. */

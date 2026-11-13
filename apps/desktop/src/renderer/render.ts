@@ -5,26 +5,16 @@ import {
   elementSourceAttribute,
   finiteNumber,
   guestChanges,
-  type MountOptions,
   parseElementSource,
   type RenderNode,
   renderedComponents
 } from "@parity-app/core"
-import { frameAttributes } from "@parity-app/tokens"
 import axe, { type CheckResult, type NodeResult, type RunOptions } from "axe-core"
 import { z } from "zod"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { frameBox, frameHeight } from "../shared/render-job.ts"
-import {
-  drawnNodeIds,
-  findNodeElement,
-  nodeBox,
-  nodeOfElement,
-  nodeParent,
-  prepareFrame,
-  setDrawnNodes,
-  showFrameRules
-} from "./frame.ts"
+import { frameBody, frameContent, type MountedFrame, mountFrame } from "./frame-host.ts"
+import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, nodeParent } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 import { contentOutside, inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
 import { isOutOfFlow, squeezedElement } from "./layout-checks.ts"
@@ -46,7 +36,7 @@ declare global {
 // with the frame, at the bottom of a component's preview (PAR-520). The window shows the frame and never scrolls.
 document.documentElement.style.overflow = "hidden"
 
-let current: { unmount(): void } | undefined
+let current: MountedFrame | undefined
 
 /** Puts what the last frame portaled out of it, and a preview drew inside it, back where its library put it. */
 let putBack: (() => void) | undefined
@@ -100,10 +90,6 @@ window.canvasRender = async (job) => {
     const errors: string[] = []
     // The first error's stack, which telemetry records with the messages (PAR-638).
     let stack: string | undefined
-    // The window the frame stands for, resolved with the frame, so it's the live frame's even when the frame grows.
-    const { viewport } = job.mode
-    const attributes = frameAttributes(job.mode, loaded.themeAttributes)
-    const target = prepareFrame(host, loaded.sheet, { ...job.mode, attributes, viewport })
     // SAFETY: jobs are made from the canvas's frames, whose trees are `RenderNode[]` (frame-bitmaps.ts), and main hands
     // them on unchanged.
     const tree = job.tree as RenderNode[]
@@ -121,8 +107,11 @@ window.canvasRender = async (job) => {
       givenComponents.set(job.guestUrl, job.components)
     }
 
-    const options: MountOptions = {
-      viewport,
+    // The frame is mounted as the canvas mounts it, in the mode the job carries, which is the live frame's.
+    const mounted = mountFrame(host, {
+      loaded,
+      mode: job.mode,
+      tree,
       onError: (error) => {
         errors.push(error instanceof Error ? error.message : String(error))
 
@@ -130,34 +119,24 @@ window.canvasRender = async (job) => {
           stack ??= error.stack
         }
       }
-    }
+    })
 
-    if (job.mode.globals) {
-      options.globals = job.mode.globals
-    }
-
-    showFrameRules(host, loaded.rules(tree))
-    const handle = loaded.guest.mount(target, tree, options)
-
-    setDrawnNodes(host, handle.drawnNodes?.bind(handle))
-    current = handle
+    current = mounted
     // Let React commit, components that load on demand arrive, images and fonts load, and layout settle.
     await new Promise((resolve) => setTimeout(resolve, 30))
     await loaded.guest.loaded?.()
 
     if (job.inlinePortals) {
       // A component preview draws what its component portals out of the frame inside it, after the rest (PAR-517).
-      const shadow = host.shadowRoot!
-      shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, inlinePortalSheet()]
-      const root = (tree[0] && "nodeId" in tree[0] && findNodeElement(host, tree[0].nodeId)) || target
+      mounted.adopt(inlinePortalSheet())
+      const root = (tree[0] && "nodeId" in tree[0] && findNodeElement(host, tree[0].nodeId)) || mounted.target
       putBack = inlinePortals(host, root)
     }
 
     await window.canvasSettle()
     await Promise.race([imagesLoaded(host), new Promise((resolve) => setTimeout(resolve, 1500))])
 
-    // SAFETY: `prepareFrame` puts the frame's body first in the host's shadow root.
-    const body = host.shadowRoot!.firstElementChild as HTMLElement
+    const body = frameBody(host)!
     const origin = host.getBoundingClientRect()
     const nodes: MeasuredNode[] = []
 
@@ -372,8 +351,7 @@ function follows(host: HTMLElement, id: string, text: Element): boolean {
 
 /** Each named token's color in the frame, in its theme, as hex: `#rrggbb`, or `#rrggbbaa` when it's see-through. */
 function tokenColors(host: HTMLElement, names: string[]): FrameContrast["tokens"] {
-  // SAFETY: `prepareFrame` puts the frame's body first in the host's shadow root.
-  const body = host.shadowRoot!.firstElementChild as HTMLElement
+  const body = frameBody(host)!
   const probe = document.createElement("span")
   body.append(probe)
   const canvas = document.createElement("canvas")
@@ -605,7 +583,7 @@ window.canvasHeight = () => {
 }
 
 async function imagesLoaded(host: HTMLElement): Promise<void> {
-  const images = [...(host.shadowRoot?.querySelectorAll("img") ?? [])]
+  const images = [...(frameContent(host)?.querySelectorAll("img") ?? [])]
 
   await Promise.all(images.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined))))
 }

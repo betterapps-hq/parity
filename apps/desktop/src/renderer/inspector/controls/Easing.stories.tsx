@@ -74,6 +74,9 @@ export const Unset: Story = { render: () => <EasingStory /> }
 /** Ease out, one of Tailwind's: `ease-out`. */
 export const Preset: Story = { render: () => <EasingStory start={{ keyword: "ease-out" }} /> }
 
+/** Preset, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Preset, parameters: { demo: true } }
+
 /** The project's `ease-snappy`, as a chip with its curve: `ease-snappy`. */
 export const Token: Story = { render: () => <EasingStory start={{ token: "ease-snappy" }} /> }
 
@@ -109,6 +112,7 @@ export const Steps: Story = { render: () => <EasingStory start={{ value: "steps(
  * `steps(16, jump-start)`.
  */
 export const StepsTypedAndStepped: Story = {
+  parameters: { demo: true },
   render: () => <EasingStory start={{ value: "steps(4)" }} open />,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body)

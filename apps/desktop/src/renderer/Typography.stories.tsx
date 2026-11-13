@@ -23,7 +23,7 @@ import { DialogGroupTitle, GroupLabel, PanelSectionTitle } from "./chrome/PanelS
  * shows. A panel's select isn't here, since it's a popup: open one in the inspector's stories.
  */
 const meta = {
-  title: "Parity/Type",
+  title: "Parity/Typography",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

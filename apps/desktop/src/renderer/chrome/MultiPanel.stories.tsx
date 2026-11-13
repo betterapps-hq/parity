@@ -1,10 +1,9 @@
 import { findNode } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
-import { design, example, findTooltip, node } from "../stories/fixtures.tsx"
+import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /**
@@ -40,15 +39,6 @@ export const ManyDesigns: Story = {
       designsSelection(["Pricing", "Dashboard", "Sign in", "Settings", "Plan card"].map(design))
     )
   ]
-}
-
-/** Hovering an align button: its tooltip names it and its shortcut. */
-export const AlignTooltip: Story = {
-  loaders: [inspecting("design", () => designsSelection([design("Pricing"), design("Dashboard")]))],
-  play: async ({ canvasElement }) => {
-    await userEvent.hover(within(canvasElement).getByRole("button", { name: "Align left" }))
-    await findTooltip(slowly)
-  }
 }
 
 /**

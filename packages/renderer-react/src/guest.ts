@@ -1,6 +1,5 @@
 // Compiled by the customer's build tool, so `react` and `react-dom` here are the customer's copies.
 import type {
-  ComponentRenderStatus,
   DrawnNodes,
   ElementAttributes,
   Guest,
@@ -38,6 +37,7 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
+import { componentRegistry } from "./component-registry.ts"
 import {
   currentRootFiber,
   type Fiber,
@@ -47,6 +47,7 @@ import {
   stylePlacement
 } from "./drawn-nodes.ts"
 import { framePortalAttribute, framePortals } from "./portals.ts"
+import { type RenderReport, renderStatuses } from "./render-statuses.ts"
 import { FrameWindowContext, frameWindow } from "./viewport.ts"
 
 /** The props of a project's or a library's component, which can take anything. */
@@ -178,12 +179,6 @@ function isComponent(value: unknown): value is ComponentType<Props> {
 }
 
 /** What a component's boundaries tell the guest: it drew, it failed, or a boundary that failed no longer shows it. */
-interface RenderReport {
-  drawn(name: string): void
-  failed(name: string, error: Error): void
-  cleared(name: string): void
-}
-
 interface BoundaryState {
   error?: Error
   name?: string
@@ -423,83 +418,26 @@ function mergeGiven(given: Props, own: Props) {
 export function createGuest(init: GuestInit): Guest {
   // SAFETY: the builder lists the exports it found to be components; one that isn't fails in its boundary when drawn.
   const components = init.components as Record<string, ComponentType<Props>>
-  const loaders = new Map(Object.entries(init.lazyComponents ?? {}))
-  const names = [...Object.keys(components), ...loaders.keys()]
-  /** What the guest loaded with, for a component added over one of them to go back to once its new source goes. */
-  const loadedWith = { components: { ...components }, loaders: new Map(loaders) }
+  const registry = componentRegistry(components, init.lazyComponents)
   const iconSets = init.iconSets ?? {}
   const drawn = new Map<unknown, ComponentType<Props>>()
   const deferred = new Map<string, ComponentType<Props>>()
 
   /** Modules still loading for components drawn on demand. */
   const inFlight = new Set<Promise<unknown>>()
-
-  /**
-   * Each drawn component's status: failing while any of its boundaries shows an error, with the latest, else drawn.
-   * Listeners hear about changes once per task, as a canvas draws many frames at once.
-   */
-  const drawnOnce = new Set<string>()
   /** Components drawn on demand whose modules have loaded: until then, a boundary drawing one draws nothing. */
   const loadedOnDemand = new Set<string>()
-  const failing = new Map<string, { count: number; error: string }>()
-  const listeners = new Set<() => void>()
-  /** Where each component added since the guest loaded comes from, so adding one again from the same file changes nothing. */
-  const added = new Map<string, string>()
-  /** How many times each component has come from a new file, for its boundaries. */
-  const moves = new Map<string, number>()
+  const statuses = renderStatuses((name) => registry.loader(name) !== undefined && !loadedOnDemand.has(name))
+  const report = statuses.report
   /** Where each component puts the style it's given, once a layer of it has drawn with one, in any frame. */
   const placements = new Map<string, StylePlacement>()
-  let revision = 0
-  const revisionListeners = new Set<() => void>()
-  let statuses: Record<string, ComponentRenderStatus> = {}
-  let pending = false
 
-  const changed = () => {
-    if (pending) {
-      return
-    }
-
-    pending = true
-    queueMicrotask(() => {
-      pending = false
-      statuses = Object.fromEntries([
-        ...[...drawnOnce].map((name) => [name, { drawn: true as const }]),
-        ...[...failing].map(([name, { error }]) => [name, { error }])
-      ])
-
-      for (const listener of listeners) {
-        listener()
-      }
-    })
-  }
-
-  const report: RenderReport = {
-    drawn(name) {
-      if (drawnOnce.has(name) || (loaders.has(name) && !loadedOnDemand.has(name))) {
-        return
-      }
-
-      drawnOnce.add(name)
-      changed()
-    },
-    failed(name, error) {
-      failing.set(name, { count: (failing.get(name)?.count ?? 0) + 1, error: error.message })
-      changed()
-    },
-    cleared(name) {
-      const now = failing.get(name)
-
-      if (!now) {
-        return
-      }
-
-      if (now.count > 1) {
-        failing.set(name, { ...now, count: now.count - 1 })
-      } else {
-        failing.delete(name)
-      }
-
-      changed()
+  /** Forgets what was drawn of components that come from somewhere else now. */
+  const forget = (ids: readonly string[]) => {
+    for (const id of ids) {
+      deferred.delete(id)
+      loadedOnDemand.delete(id)
+      placements.delete(id)
     }
   }
 
@@ -509,7 +447,7 @@ export function createGuest(init: GuestInit): Guest {
    * which an offscreen render waiting on `loaded()` would miss.
    */
   const onDemand = (name: string): ComponentType<Props> | undefined => {
-    const load = loaders.get(name)
+    const load = registry.loader(name)
 
     if (!load) {
       return undefined
@@ -594,11 +532,13 @@ export function createGuest(init: GuestInit): Guest {
    * `heroicons/16/solid/CogIcon` in a style its set keeps in a module of its own.
    */
   const lookup = (name: string): ComponentType<Props> | undefined => {
-    if (components[name]) {
-      return components[name]
+    const component = registry.component(name)
+
+    if (component) {
+      return component
     }
 
-    if (loaders.has(name)) {
+    if (registry.loader(name)) {
       return onDemand(name)
     }
 
@@ -812,7 +752,7 @@ export function createGuest(init: GuestInit): Guest {
           component,
           props,
           children,
-          boundary: { name: node.component, source: moves.get(node.component) ?? 0, nodeId: node.nodeId, report }
+          boundary: { name: node.component, source: registry.moves(node.component), nodeId: node.nodeId, report }
         }
 
         return createElement(ComponentLayer, { key: keyed, layer })
@@ -822,7 +762,7 @@ export function createGuest(init: GuestInit): Guest {
 
   const guest: Guest = {
     renderer: "react",
-    components: names,
+    components: registry.names,
     hasComponent: (name) => lookup(name) !== undefined,
     async loaded() {
       // A component that loads can draw others that load too, so this waits for a pass that starts none.
@@ -839,101 +779,17 @@ export function createGuest(init: GuestInit): Guest {
       }
     },
     addComponents(sources) {
-      let moved = false
+      // The dev server builds any of the project's files when it's asked for one, as it does for the app.
+      const load = (address: string, name: string) => () =>
+        import(/* @vite-ignore */ new URL(address, projectOrigin).href).then((module) => exportOf(module, name))
 
-      for (const [id, source] of Object.entries(sources)) {
-        // A new version is the same file with changed code, which the dev server builds afresh at a new address.
-        const address = `/${source.path.replace(/^\.?\//, "")}${source.version === undefined ? "" : `?t=${source.version}`}`
-        const from = `${address}#${source.export}`
-
-        if (added.get(id) === from) {
-          continue
-        }
-
-        added.set(id, from)
-        moves.set(id, (moves.get(id) ?? 0) + 1)
-        moved = true
-        // The dev server builds any of the project's files when it's asked for one, as it does for the app.
-        loaders.set(id, () =>
-          import(/* @vite-ignore */ new URL(address, projectOrigin).href).then((module) =>
-            exportOf(module, source.export)
-          )
-        )
-        // One it had already has moved to another file, so it's drawn from there from now on.
-        delete components[id]
-        deferred.delete(id)
-        loadedOnDemand.delete(id)
-        placements.delete(id)
-
-        if (!names.includes(id)) {
-          names.push(id)
-        }
-      }
-
-      if (!moved) {
-        return
-      }
-
-      revision++
-
-      for (const listener of revisionListeners) {
-        listener()
-      }
+      forget(registry.add(sources, load))
     },
     removeComponents(ids) {
-      let moved = false
-
-      for (const id of ids) {
-        if (!added.delete(id)) {
-          continue
-        }
-
-        moves.set(id, (moves.get(id) ?? 0) + 1)
-        moved = true
-        loaders.delete(id)
-        delete components[id]
-        deferred.delete(id)
-        loadedOnDemand.delete(id)
-        placements.delete(id)
-        // One the guest loaded with is drawn as it loaded again; one it was only given is gone.
-        const component = loadedWith.components[id]
-        const loader = loadedWith.loaders.get(id)
-
-        if (component) {
-          components[id] = component
-        } else if (loader) {
-          loaders.set(id, loader)
-        } else {
-          names.splice(names.indexOf(id), 1)
-        }
-      }
-
-      if (!moved) {
-        return
-      }
-
-      revision++
-
-      for (const listener of revisionListeners) {
-        listener()
-      }
+      forget(registry.remove(ids))
     },
-    revision: {
-      get: () => revision,
-      subscribe(listener) {
-        revisionListeners.add(listener)
-
-        return () => revisionListeners.delete(listener)
-      }
-    },
-    renderStatus: {
-      get: () => statuses,
-      subscribe(listener) {
-        listeners.add(listener)
-
-        return () => listeners.delete(listener)
-      }
-    },
+    revision: registry.revision,
+    renderStatus: { get: statuses.get, subscribe: statuses.subscribe },
     iconNames: (library, style) => iconList(library, style).names,
     iconAliases: (library, style) => iconList(library, style).aliases,
     css: init.css,

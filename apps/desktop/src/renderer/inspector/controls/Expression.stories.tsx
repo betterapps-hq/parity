@@ -101,6 +101,9 @@ export const Calc: Story = {
   render: () => <Expr label="Width" property="width" prefix="w" start="calc(100% - 2rem)" />
 }
 
+/** Calc, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Calc, parameters: { demo: true } }
+
 /**
  * Font size, `clamp(1rem, 2vw, 2rem)`: clicking it, or the button after it, opens least, preferred and most, each typed
  * with what it comes to.

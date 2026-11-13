@@ -1,17 +1,11 @@
-import {
-  type FrameGeometry,
-  isTouchMode,
-  type MountHandle,
-  modeGlobals,
-  type RenderNode,
-  type ResolvedMode,
-  withClasses
-} from "@parity-app/core"
-import { frameAttributes } from "@parity-app/tokens"
+import { type FrameGeometry, type RenderNode, type ResolvedMode, withClasses } from "@parity-app/core"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { renderJobMode } from "../shared/render-job.ts"
 import { reportFrameFailures } from "./failures-store.ts"
 import { frameClasses } from "./frame-classes.ts"
-import { prepareFrame, registerFrame, setDrawnNodes, setFrameViewport, showFrameRules, whenDrawn } from "./frame.ts"
+import { blurFrame, type MountedFrame, mountFrame } from "./frame-host.ts"
+import type { FrameMode } from "./frame-setup.ts"
+import { registerFrame, setFrameViewport } from "./frame.ts"
 import type { LoadedGuest } from "./guest.ts"
 
 interface ModeViewProps {
@@ -92,14 +86,16 @@ export function ModeView({
 }: ModeViewProps) {
   const frameRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
-  const handleRef = useRef<MountHandle>(undefined)
+  const mountedRef = useRef<MountedFrame>(undefined)
   const { width, height } = frame
   // The window the frame stands for, which the project's viewport units and window size checks measure.
   const { width: viewportWidth, height: viewportHeight } = frame.viewport
   const viewportRef = useRef({ width: viewportWidth, height: viewportHeight })
   // A whole screen's tree, so it's written out only when it's a different one.
   const treeKey = useMemo(() => JSON.stringify(tree), [tree])
-  const environmentKey = JSON.stringify([mode.classNames, mode.attributes, modeGlobals(mode), isTouchMode(mode)])
+  // The mode as the offscreen page gets it too, less its size, which resizes the frame without building it again.
+  const { classNames, attributes, globals, touch } = renderJobMode(mode, frame)
+  const environmentKey = JSON.stringify({ classNames, attributes, globals, touch })
   const renderKey = shows ?? `${environmentKey}|${treeKey}`
   // In a project whose styling framework writes classes, a layer is drawn with them once they're written (PAR-942).
   const classes = useMemo(() => frameClasses(project, loaded), [project, loaded])
@@ -143,11 +139,7 @@ export function ModeView({
         event.key === "Escape" &&
         !event.defaultPrevented
       ) {
-        const focused = host.shadowRoot?.activeElement
-
-        if (focused instanceof HTMLElement) {
-          focused.blur()
-        }
+        blurFrame(host)
       }
     }
 
@@ -164,10 +156,8 @@ export function ModeView({
 
   // A frame that stops taking keys lets go of focus at once, rather than whenever the browser gets round to it.
   useEffect(() => {
-    const focused = hostRef.current!.shadowRoot?.activeElement
-
-    if (!interactive && focused instanceof HTMLElement) {
-      focused.blur()
+    if (!interactive) {
+      blurFrame(hostRef.current!)
     }
   }, [interactive])
 
@@ -176,8 +166,12 @@ export function ModeView({
   useEffect(() => {
     const viewport = { width: viewportWidth, height: viewportHeight }
     viewportRef.current = viewport
-    setFrameViewport(hostRef.current!, viewport)
-    handleRef.current?.resize?.(viewport)
+
+    if (mountedRef.current) {
+      mountedRef.current.resize(viewport)
+    } else {
+      setFrameViewport(hostRef.current!, viewport)
+    }
   }, [viewportWidth, viewportHeight])
 
   // The frame is rebuilt when its environment changes, and after interacting, which leaves components in states the
@@ -187,28 +181,14 @@ export function ModeView({
       return undefined
     }
 
-    // SAFETY: `environmentKey` is this tuple as JSON, made above from the mode.
-    const [classNames, attributes, globals, touch] = JSON.parse(environmentKey) as [
-      string[],
-      Record<string, string>,
-      Record<string, string>,
-      boolean
-    ]
-
-    const viewport = viewportRef.current
+    // SAFETY: `environmentKey` is the mode less its viewport as JSON, made above.
+    const environment = JSON.parse(environmentKey) as Omit<FrameMode, "viewport">
     const host = hostRef.current!
 
-    const target = prepareFrame(host, loaded.sheet, {
-      classNames,
-      attributes: frameAttributes({ classNames, attributes }, loaded.themeAttributes),
-      viewport,
-      touch,
-      sheets: [classes.sheet]
-    })
-
-    const handle = loaded.guest.mount(target, [], {
-      globals,
-      viewport,
+    const mounted = mountFrame(host, {
+      loaded,
+      mode: { ...environment, viewport: viewportRef.current },
+      sheets: [classes.sheet],
       // A component's boundary draws its own error in its place, and the layer is marked, so only an error that stopped
       // the frame drawing is shown over it.
       onError: (reason, layer) => {
@@ -230,11 +210,13 @@ export function ModeView({
       }
     })
 
-    handleRef.current = handle
+    mountedRef.current = mounted
     let undraw: (() => void) | undefined
-    const waiting = onDrawnRef.current ? whenDrawn(target, () => (undraw = onDrawnRef.current?.(target))) : undefined
-    // Selecting, outlining and measuring find the design's nodes through the guest, which reads them from React's tree.
-    setDrawnNodes(host, handle.drawnNodes?.bind(handle))
+
+    const waiting = onDrawnRef.current
+      ? mounted.whenDrawn((target) => (undraw = onDrawnRef.current?.(target)))
+      : undefined
+
     // Until it's drawn again, the frame keeps the height it had, so its board doesn't shrink and grow back. The design
     // draws as it mounts, just after this, so by the next animation frame it has its own height.
     const outer = frameRef.current!
@@ -251,11 +233,9 @@ export function ModeView({
         outer.style.minHeight = `${outer.offsetHeight}px`
       }
 
-      handleRef.current = undefined
-      setDrawnNodes(host, undefined)
-      host.shadowRoot?.replaceChildren()
-      // Just after, as the guest renders, so never inside one of the canvas's commits, should the two share a React.
-      queueMicrotask(() => handle.unmount())
+      mountedRef.current = undefined
+      // The guest lets go just after, so never inside one of the canvas's commits, should the two share a React.
+      mounted.unmount({ soon: true })
     }
   }, [loaded, classes, environmentKey, interactions, asleep, failuresKey])
 
@@ -266,11 +246,8 @@ export function ModeView({
     // Each element with the classes written for its declarations; one still without them keeps its rule.
     const drawn = withClasses(resolved, classes.classesFor)
 
-    if (handleRef.current) {
-      // The frame's rules change in the same task as its elements, which the guest draws just after, before a paint.
-      showFrameRules(hostRef.current!, loaded.rules(drawn))
-      handleRef.current.update(drawn)
-    }
+    // The frame's rules change in the same task as its elements, which the guest draws just after, before a paint.
+    mountedRef.current?.update(drawn)
   }, [loaded, classes, written, environmentKey, treeKey, renderKey, interactions, asleep])
 
   const message = error?.key === renderKey ? error.message : undefined

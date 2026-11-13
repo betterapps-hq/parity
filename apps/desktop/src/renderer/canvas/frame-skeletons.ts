@@ -1,6 +1,7 @@
 import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/core"
 import { type RefObject, useEffect, useState } from "react"
 import { flagsOf } from "../bits.ts"
+import { frameContent, frameDrawsDesign } from "../frame-host.ts"
 import { frameGeometry, frameSize, toFrame } from "./frame-geometry.ts"
 
 /** How long a frame stays the same before it's measured, as long as before its bitmap is taken. */
@@ -96,9 +97,9 @@ export function useFrameSkeleton(
  * box with a background or a border all round. Nothing for a frame that hasn't drawn its design yet.
  */
 export function measureFrame(host: HTMLElement): { height: number; drawn: DrawnBox[] } | undefined {
-  const root = host.shadowRoot
+  const root = frameContent(host)
 
-  if (!root?.querySelector("[data-canvas-node]")) {
+  if (!root || !frameDrawsDesign(host)) {
     return undefined
   }
 

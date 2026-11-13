@@ -18,7 +18,8 @@ import {
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import type { Attributes } from "../chrome/event-attributes.ts"
-import { reportError, track } from "../report-error.ts"
+import { track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { type Hit, pickedIn } from "./hit.ts"
 import { importMedia } from "./import-media.ts"
@@ -105,35 +106,41 @@ async function saveImages(
   taken: readonly TakenFile[]
 ): Promise<SavedImage[]> {
   const words = mediaWords(countMedia(taken.map(({ medium }) => medium)))
-  const progress = toast.loading(`Adding ${words}…`)
   const added: SavedImage[] = []
   const failed: { name: string; error: unknown }[] = []
 
-  for (const { index, type } of taken) {
-    const file = files[index]!
+  await serviceCall({
+    progress: `Adding ${words}…`,
+    async run() {
+      for (const { index, type } of taken) {
+        const file = files[index]!
 
-    try {
-      added.push({ node: await importMedia(projectId, file, fileBaseName(file.name), type), name: file.name })
-    } catch (error) {
-      failed.push({ name: file.name, error })
+        try {
+          added.push({ node: await importMedia(projectId, file, fileBaseName(file.name), type), name: file.name })
+        } catch (error) {
+          failed.push({ name: file.name, error })
+        }
+      }
+    },
+    done() {
+      if (failed.length === 0) {
+        return "dismiss"
+      }
+
+      const reason = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
+
+      return {
+        failure: failed[0]!.error,
+        operation: "images.import",
+        title: failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} files`,
+        context: { images: failed.length },
+        description:
+          failed.length === 1
+            ? reason(failed[0]!.error)
+            : failed.map((file) => `${file.name}: ${reason(file.error)}`).join("\n")
+      }
     }
-  }
-
-  if (failed.length > 0) {
-    const reason = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
-    reportError(failed[0]!.error, {
-      operation: "images.import",
-      title: failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} files`,
-      context: { images: failed.length },
-      id: progress,
-      description:
-        failed.length === 1
-          ? reason(failed[0]!.error)
-          : failed.map((file) => `${file.name}: ${reason(file.error)}`).join("\n")
-    })
-  } else {
-    toast.dismiss(progress)
-  }
+  })
 
   return added
 }

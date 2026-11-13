@@ -98,7 +98,14 @@ export function canvasMenu(
 
   return sections([
     [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries, libraries) }],
-    [item("copy"), item("pasteHere"), item("pasteOver"), ...(layers ? [item("pasteReplace")] : []), item("duplicate")],
+    [
+      item("copy"),
+      item("copyAsPng"),
+      item("pasteHere"),
+      item("pasteOver"),
+      ...(layers ? [item("pasteReplace")] : []),
+      item("duplicate")
+    ],
     layers ? order.map((command) => item(command)) : [],
     [...(layers ? [item("wrap")] : []), item("makeComponent"), ...(states.goToMain.enabled ? [item("goToMain")] : [])],
     [...(layers ? [item("hide")] : []), item("lock")],

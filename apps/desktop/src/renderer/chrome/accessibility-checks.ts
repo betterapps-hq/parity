@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react"
 import type { ContainerEntry } from "../design-store.ts"
 import { projectPart } from "../project-part.ts"
 import { request } from "../service.ts"
+import { signal } from "../store.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /** A check of one design, kept with what it checked so a later change shows it's out of date. */
@@ -38,7 +39,7 @@ class Checks {
   /** Each design's newest check, which is the only one whose reply is shown. */
   private readonly newest = new Map<string, number>()
   private asked = 0
-  private readonly listeners = new Set<() => void>()
+  private readonly changed = signal()
   private disposed = false
 
   constructor(private readonly session: CheckedSession) {}
@@ -47,11 +48,7 @@ class Checks {
     return this.checks.get(design)
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  readonly subscribe = this.changed.subscribe
 
   /**
    * Renders the design offscreen in every state and shown mode, and checks each frame with axe-core. Checking a design
@@ -97,7 +94,7 @@ class Checks {
     this.disposed = true
     this.checks.clear()
     this.newest.clear()
-    this.listeners.clear()
+    this.changed.dispose()
   }
 
   private set(design: string, check: Check): void {
@@ -106,10 +103,7 @@ class Checks {
     }
 
     this.checks.set(design, check)
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.changed.notify()
   }
 }
 

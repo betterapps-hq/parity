@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type Measured, SpacingPreview } from "./box-model.tsx"
 import { MessageLine } from "./field-parts.tsx"
@@ -104,24 +103,11 @@ function Margin({
 /** Auto across, centering Plans: `mx-auto`, a chip in the field, with what each side comes to in its hint. */
 export const AutoAcross: Story = { render: () => <Margin start={[undefined, "auto", undefined, "auto"]} /> }
 
+/** AutoAcross, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...AutoAcross, parameters: { demo: true } }
+
 /** −8 at the top, pulling Plans up over the header: the top side alone, `-mt-2`. */
 export const Negative: Story = { render: () => <Margin start={[px(-8), undefined, undefined, undefined]} /> }
-
-/** 24 down and 0 across: `my-6`, two fields. */
-export const VerticalAndHorizontal: Story = { render: () => <Margin start={[px(24), px(0), px(24), px(0)]} /> }
-
-/** The project's section token at the bottom: `mb-section`. */
-export const Token: Story = {
-  render: () => <Margin start={[undefined, undefined, { token: "spacing-section" }, undefined]} />
-}
-
-/** Unset: 0, muted, and nothing written. */
-export const Unset: Story = { render: () => <Margin start={[undefined, undefined, undefined, undefined]} /> }
-
-/** The selected layers' bottom margins differ: Bottom shows Mixed. */
-export const MixedBottom: Story = {
-  render: () => <Margin start={[px(8), px(8), undefined, px(8)]} mixed={[false, false, true, false]} />
-}
 
 /**
  * Plans is Pricing's first child in a Block layout, with 24 at the top: the margin passes through Pricing's edge,
@@ -134,14 +120,4 @@ export const CollapsesInABlockLayout: Story = {
 /** Auto top and bottom in a Block layout: they come to 0, so the row dims, with why in its label's hint. */
 export const AutoDownDoesNothing: Story = {
   render: () => <Margin start={["auto", undefined, "auto", undefined]} layout="block" />
-}
-
-/** `abc` typed and Enter pressed: it isn't a length, so it stays, outlined, with the reason under the row. */
-export const InvalidAsTyped: Story = {
-  render: () => <Margin start={[px(-8), undefined, undefined, undefined]} />,
-  play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Top margin" })
-    await userEvent.clear(field)
-    await userEvent.type(field, "abc{Enter}")
-  }
 }

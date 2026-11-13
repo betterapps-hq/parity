@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 02:03:37 GMT and should not be manually modified. -->
+<!-- This log was last generated on Fri, 13 Nov 2026 02:33:22 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.80.2
+
+Fri, 13 Nov 2026 02:33:22 GMT
+
+### Patches
+
+- Core and editor name what other packages may use in src/index.ts (ajcraswell@gmail.com)
+- Send a replay of the editor window when an end-to-end test fails in CI (ajcraswell@gmail.com)
 
 ## 0.80.1
 

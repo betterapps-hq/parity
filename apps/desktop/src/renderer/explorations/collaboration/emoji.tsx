@@ -1,6 +1,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Apple, Clock, Hand, Heart, Leaf, Lightbulb, Search, Smile, SmilePlus } from "lucide-react"
-import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react"
+import { useStore, windowStore } from "../../store.ts"
 import {
   emojiCategories,
   type EmojiEntry,
@@ -12,31 +13,15 @@ import {
 } from "./emoji-data.ts"
 
 /** What you've picked lately, most recent first, and your skin tone: shared by every picker. */
-let prefs = { recent: ["👍", "❤️", "😂", "🎉", "👀", "🙏", "🔥", "✅"], tone: "" }
-const listeners = new Set<() => void>()
-
-function update(next: typeof prefs) {
-  prefs = next
-
-  for (const listener of listeners) {
-    listener()
-  }
-}
+const prefs = windowStore(() => ({ recent: ["👍", "❤️", "😂", "🎉", "👀", "🙏", "🔥", "✅"], tone: "" }))
 
 export function useEmojiPrefs() {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => prefs
-  )
+  return useStore(prefs)
 }
 
 /** Moves an emoji to the front of Frequently used. */
 export function rememberEmoji(emoji: string) {
-  update({ ...prefs, recent: [emoji, ...prefs.recent.filter((other) => other !== emoji)].slice(0, 16) })
+  prefs.update((now) => ({ ...now, recent: [emoji, ...now.recent.filter((other) => other !== emoji)].slice(0, 16) }))
 }
 
 /** An emoji as you'd pick it: in your skin tone when it takes one. */
@@ -202,7 +187,7 @@ export function EmojiPicker({
                   title={option.name}
                   aria-pressed={tone === option.modifier}
                   onClick={() => {
-                    update({ ...prefs, tone: option.modifier })
+                    prefs.update((now) => ({ ...now, tone: option.modifier }))
                     setTones(false)
                   }}
                   className={`grid size-8 place-items-center rounded-md text-lg hover:bg-muted ${tone === option.modifier ? "bg-muted" : ""}`}
@@ -357,7 +342,7 @@ export function EmojiSuggest({
 export function pickSuggestion(entry: EmojiEntry): string {
   rememberEmoji(entry.emoji)
 
-  return picked(entry, prefs.tone)
+  return picked(entry, prefs.get().tone)
 }
 
 /** The five you react with most, one click each, beside the reactions smiley. */

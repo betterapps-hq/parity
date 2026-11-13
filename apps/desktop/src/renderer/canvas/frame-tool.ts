@@ -7,8 +7,8 @@ import {
   snapToEdges,
   withFrameSize
 } from "@parity-app/editor"
-import { useSyncExternalStore } from "react"
 import { getPreferences } from "../chrome/preferences.ts"
+import { useStore, windowStore } from "../store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { followPress, gestures } from "./gesture.ts"
@@ -32,27 +32,15 @@ export interface FrameDrawing {
   guides: { x?: number; y?: number }
 }
 
-let drawing: FrameDrawing | undefined
-const listeners = new Set<() => void>()
+const drawing = windowStore<FrameDrawing | undefined>(() => undefined)
 
 function show(next: FrameDrawing | undefined): void {
-  drawing = next
-
-  for (const listener of listeners) {
-    listener()
-  }
+  drawing.set(next)
 }
 
 /** The frame being drawn, for the overlay to draw. */
 export function useFrameDrawing(): FrameDrawing | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => drawing
-  )
+  return useStore(drawing)
 }
 
 /** Adds a frame, selects it, and goes back to the move tool, as one undo step. Returns its key. */

@@ -1,10 +1,21 @@
 import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"
+import { fireEvent, within } from "storybook/test"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import { AppWindow } from "../App.tsx"
 import type { DesignStore } from "../design-store.ts"
-import { blankProjectAt, design, example, ProjectStage } from "../stories/fixtures.tsx"
+import {
+  blankProjectAt,
+  clearNotifications,
+  design,
+  example,
+  frameDesigns,
+  openProjects,
+  ProjectStage
+} from "../stories/fixtures.tsx"
 import { useResolvedTheme } from "../theme.ts"
+import { type AppDialog, openDialog } from "./app-dialogs.ts"
 import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
 
 /** Helpers for the window chrome's stories: older projects, edits that leave a project unsaved, and where it sits. */
@@ -83,3 +94,29 @@ export const Window: Decorator = (Story) => (
     <Story />
   </div>
 )
+
+/** For a dialog's stories: the whole window, which the dialog opens over. Each story opens the project it needs. */
+export const dialogStories = {
+  render: () => <AppWindow />,
+  decorators: [Window],
+  loaders: [clearNotifications]
+}
+
+/** The example, for a story that needs nothing else set up first. */
+export const exampleOpen = () => openProjects("example")
+
+/**
+ * Opens `dialog` over the example, as its menu item or keys do, once the canvas has framed Pricing and Dashboard, and
+ * finds it by its `name`.
+ */
+export async function openOverExample(dialog: AppDialog, name: string): Promise<HTMLElement> {
+  await frameDesigns("Pricing", "Dashboard")
+  openDialog(dialog)
+
+  return within(document.body).findByRole("dialog", { name })
+}
+
+/** Enters text in a field, as typing it would. `userEvent.type` changes the field without React's change handler. */
+export async function enter(field: HTMLElement, text: string): Promise<void> {
+  await fireEvent.input(field, { target: { value: text } })
+}

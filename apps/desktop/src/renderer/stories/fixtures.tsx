@@ -7,14 +7,10 @@ import { Box } from "tldraw"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { ProjectContext } from "../canvas/context.ts"
-import { setTabOrderShown } from "../canvas/tab-order.ts"
-import { forgetRecentPicks } from "../chrome/ActionsSearch.tsx"
-import { setLayout } from "../chrome/layout.ts"
 import { getPreferences, type Preferences, setPreferences } from "../chrome/preferences.ts"
-import { forgetLastAction } from "../chrome/repeat.ts"
 import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
-import { closeLibraryBrowser } from "../library/library-browser.ts"
+import { resetWindowStores } from "../store.ts"
 import { useResolvedTheme } from "../theme.ts"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../workspace.ts"
 import { answering, projectInfo, resetHost, roots } from "./host.ts"
@@ -36,28 +32,6 @@ export type ProjectName = keyof typeof roots
  */
 export async function openProjects(...names: ProjectName[]): Promise<void> {
   toast.dismiss()
-  // Panels and preferences are remembered between runs, so a story that changed them would change the next one.
-  setLayout({
-    left: true,
-    right: true,
-    leftWidth: 256,
-    rightWidth: 320,
-    leftTab: undefined,
-    rightTab: undefined
-  })
-  setPreferences({
-    snapping: true,
-    exportScale: 2,
-    layoutGrid: false,
-    autosave: false,
-    performanceStats: false,
-    componentsView: "list"
-  })
-  setTabOrderShown(false)
-  // Nothing done or picked yet, and no library browser left open, as in a new window.
-  forgetLastAction()
-  forgetRecentPicks()
-  closeLibraryBrowser()
   await workspace.flush().catch(() => undefined)
 
   for (const tab of workspace.getTabs()) {
@@ -359,7 +333,9 @@ export function never<T>(): Promise<T> {
 
 /**
  * Puts back what a story changed when it ends: the service's answers, preferences, links, notifications nobody
- * dismissed, and the dialogs it left open, since whether they're open outlives the story.
+ * dismissed, and the dialogs it left open, since whether they're open outlives the story. Every window-wide store goes
+ * back to its first value, so the next story starts as a new window does: panels and preferences at their defaults,
+ * nothing done or picked yet.
  */
 export function restore(): void {
   for (const step of undo.splice(0).reverse()) {
@@ -367,6 +343,7 @@ export function restore(): void {
   }
 
   resetHost()
+  resetWindowStores()
   clearNotifications()
   // From inside the dialog, as a person would press it, so the canvas's own Escape handling leaves it alone.
   const dialog = document.querySelector("[role=dialog], [role=alertdialog]")

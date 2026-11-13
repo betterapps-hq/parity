@@ -1,5 +1,5 @@
-import { useSyncExternalStore } from "react"
 import { projectPart } from "../project-part.ts"
+import { createStore, useStore } from "../store.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /** The levels the console filters by; debug messages go with info. */
@@ -20,24 +20,14 @@ export interface Filter {
 
 /** One open project's console filter, so each tab keeps its own. */
 class ConsoleFilter {
-  private filter: Filter = { levels: allLevels, query: "" }
+  private readonly filter = createStore<Filter>(() => ({ levels: allLevels, query: "" }))
   private focusCount = 0
-  private readonly listeners = new Set<() => void>()
 
-  get = (): Filter => this.filter
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
+  readonly get = this.filter.get
+  readonly subscribe = this.filter.subscribe
 
   set(change: Partial<Filter>): void {
-    this.filter = { ...this.filter, ...change }
-
-    for (const listener of this.listeners) {
-      listener()
-    }
+    this.filter.update((now) => ({ ...now, ...change }))
   }
 
   /** Opens a design's messages, closing the others', and shows every level; with none, opens them all. */
@@ -46,8 +36,7 @@ class ConsoleFilter {
   }
 
   dispose(): void {
-    this.listeners.clear()
-    this.filter = { levels: allLevels, query: "" }
+    this.filter.dispose()
   }
 }
 
@@ -57,5 +46,5 @@ export const consoleFilterOf = projectPart((_session: Pick<ProjectSession, "unti
 export function useConsoleFilter(session: Pick<ProjectSession, "untilClosed">): Filter {
   const filter = consoleFilterOf(session)
 
-  return useSyncExternalStore(filter.subscribe, filter.get)
+  return useStore(filter)
 }

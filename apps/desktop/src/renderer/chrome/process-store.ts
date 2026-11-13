@@ -2,13 +2,16 @@ import { useEffect, useState, useSyncExternalStore } from "react"
 import type { ProjectProcess } from "../../shared/protocol.ts"
 import { errorMessage, reportError } from "../report-error.ts"
 import { request } from "../service.ts"
+import { resetWithWindow, windowStore } from "../store.ts"
 
 /** How often the list is asked for: often while it's shown, now and then for the status bar. */
 const shownInterval = 1000
 const idleInterval = 4000
 
-let processes: ProjectProcess[] = []
-const listeners = new Set<() => void>()
+const processes = windowStore<ProjectProcess[]>(() => [])
+
+/** How many views follow the list; it's asked for while any do. */
+let listening = 0
 let watching = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -22,7 +25,7 @@ function poll(): void {
   clearTimeout(timer)
   request("processes.list", {}).then(
     (next) => {
-      processes = next.map((process) => {
+      const updated = next.map((process) => {
         const asked = pending.get(process.id)
 
         if (!asked) {
@@ -44,7 +47,7 @@ function poll(): void {
         }
       }
 
-      notify()
+      processes.set(updated)
       schedule()
     },
     () => schedule()
@@ -52,28 +55,24 @@ function poll(): void {
 }
 
 function schedule(): void {
-  if (listeners.size > 0) {
+  if (listening > 0) {
     timer = setTimeout(poll, watching > 0 ? shownInterval : idleInterval)
   }
 }
 
-function notify(): void {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
 function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
+  const unsubscribe = processes.subscribe(listener)
+  listening += 1
 
-  if (listeners.size === 1) {
+  if (listening === 1) {
     poll()
   }
 
   return () => {
-    listeners.delete(listener)
+    unsubscribe()
+    listening -= 1
 
-    if (listeners.size === 0) {
+    if (listening === 0) {
       clearTimeout(timer)
     }
   }
@@ -97,7 +96,7 @@ export function useProcesses(shown: boolean): ProjectProcess[] {
     }
   }, [shown])
 
-  return useSyncExternalStore(subscribe, () => processes)
+  return useSyncExternalStore(subscribe, processes.get)
 }
 
 /** The time now, a second at a time while `ticking`, for uptimes. */
@@ -133,6 +132,11 @@ export async function restartProcess(process: ProjectProcess): Promise<void> {
 /** Finished tasks whose result has been seen in the flyout, each by its run, so the next run shows again. */
 const seen = new Set<string>()
 
+resetWithWindow(() => {
+  pending.clear()
+  seen.clear()
+})
+
 const runOf = (process: ProjectProcess) => `${process.id}@${process.stoppedAt ?? process.startedAt}`
 
 /** Marks finished tasks' results as seen, so the status bar stops showing them. */
@@ -147,8 +151,7 @@ export function isSeen(process: ProjectProcess): boolean {
 }
 
 export async function dismissProcess(process: ProjectProcess): Promise<void> {
-  processes = processes.filter((candidate) => candidate.id !== process.id)
-  notify()
+  processes.update((now) => now.filter((candidate) => candidate.id !== process.id))
   await request("processes.dismiss", { id: process.id }).catch(() => undefined)
 }
 
@@ -159,8 +162,9 @@ async function act(
   failure: string
 ): Promise<void> {
   pending.set(process.id, { status, was: process.status })
-  processes = processes.map((candidate) => (candidate.id === process.id ? { ...candidate, status } : candidate))
-  notify()
+  processes.update((now) =>
+    now.map((candidate) => (candidate.id === process.id ? { ...candidate, status } : candidate))
+  )
 
   try {
     await request(method, { id: process.id })

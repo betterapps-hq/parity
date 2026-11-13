@@ -76,6 +76,7 @@ import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
+import { iconFor } from "./command-icons.ts"
 import { showConsole } from "./ConsolePanel.tsx"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
@@ -1153,6 +1154,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
     }
 
     const { action } = entry
+    const icon = iconFor(action)
 
     return (
       <ContextMenuItem
@@ -1163,6 +1165,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
           void actions[action].run("layersMenu", action === "rename" ? { session, instead: onRename } : { session })
         }
       >
+        {icon}
         {entry.label}
         {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>

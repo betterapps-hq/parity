@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Core and editor name what other packages may use in src/index.ts",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

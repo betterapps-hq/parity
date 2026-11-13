@@ -49,6 +49,13 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   `unknown` data, so the rest of the code takes the parsed types.
 - **`unknown` stays only where a customer's module is read:** what a package exports (`ModuleExports`, `evaluateValue`,
   `exportOf`) can be anything. Each of those lines has a one-line lint disable saying so.
+- **The window's state lives in stores from `renderer/store.ts`,** not in a hand-written listener set. A value is a
+  `createStore`, read in a view with `useStore`; state read some other way, such as from a Map, has a `signal` to notify
+  with. One kept for an open project is made by `projectPart` and disposed of with its session. One that lives as long
+  as the window is a `windowStore`, and a module's other leftovers register with `resetWithWindow`, so
+  `resetWindowStores()` starts each story as a new window does.
+- **A call that takes a while runs through `serviceCall`** from `renderer/service-call.ts`: its progress notification,
+  the outcome that replaces it, the failure it reports as `error.caught` and the telemetry it records of its own.
 - **A channel carries what it doesn't read as `unknown`.** `@parity-app/channel` passes a request's params, a reply's
   result, a failure's details and a request's trace from one port to the other. Its `checks`, `ErrorCodec` and `around`
   read them where they arrive, and the channel itself reads only a message's envelope, in `readMessage`. Those lines

@@ -3,9 +3,11 @@ import { type DesignNode, lengthSteps, type NodeStyle } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
 import { type Browser, chromium, type Locator, type Page } from "playwright-core"
 import { expect, inject } from "vite-plus/test"
+import type { consoleLog } from "../src/renderer/console-store.ts"
 import type * as frameModule from "../src/renderer/frame.ts"
+import type { holdRecording, sendReplay } from "../src/renderer/replay.ts"
 import type { ProjectSession, Workspace } from "../src/renderer/workspace.ts"
-import { pageSize } from "./launch.ts"
+import { appEnvironment, pageSize } from "./launch.ts"
 
 /** A box on screen, in the window's CSS pixels. */
 export interface Box {
@@ -51,7 +53,13 @@ interface PageHelpers {
 declare global {
   interface Window {
     e2e?: PageHelpers
-    e2eModules?: { workspace: Workspace; frames: typeof frameModule }
+    e2eModules?: {
+      workspace: Workspace
+      frames: typeof frameModule
+      consoleLog: typeof consoleLog
+      sendReplay: typeof sendReplay
+      holdRecording: typeof holdRecording
+    }
   }
 }
 
@@ -59,8 +67,19 @@ declare global {
  * The app's own modules, as Vite serves them to the page. It's a string, since the test runner rewrites `import()` in
  * functions, and functions given to `page.evaluate` run in the page as they're written.
  */
-const importModules = `Promise.all([import("/workspace.ts"), import("/frame.ts")]).then(([workspace, frames]) => {
-  window.e2eModules = { workspace: workspace.workspace, frames }
+const importModules = `Promise.all([
+  import("/workspace.ts"),
+  import("/frame.ts"),
+  import("/console-store.ts"),
+  import("/replay.ts")
+]).then(([workspace, frames, store, replay]) => {
+  window.e2eModules = {
+    workspace: workspace.workspace,
+    frames,
+    consoleLog: store.consoleLog,
+    sendReplay: replay.sendReplay,
+    holdRecording: replay.holdRecording
+  }
 })`
 
 export const center = (box: Box): Point => ({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
@@ -79,6 +98,9 @@ export const about = (box: Box) => ({
  * happen, apart from putting a design in view and putting everything back between tests.
  */
 export class App {
+  /** The file's connection while it's open, which `failed-replay.ts` sends a failed test's replay through. */
+  static current: App | undefined
+
   readonly page: Page
   private readonly browser: Browser
 
@@ -157,6 +179,7 @@ export class App {
       report("putting the app back as it opened")
       await withTimeout(app.reset(), 30_000)
       report("ready")
+      App.current = app
 
       return app
     } catch (error) {
@@ -196,8 +219,57 @@ export class App {
   }
 
   async close(): Promise<void> {
+    if (App.current === this) {
+      App.current = undefined
+    }
+
     // Only the connection closes; the app keeps running for the next file.
     await this.browser.close()
+  }
+
+  /**
+   * Sends the editor window's replay, tagged with the test that failed and the run, and writes where to watch it
+   * (PAR-1043). In CI that's what the buffer held as the test failed, as a replay of its own; with nothing recorded, or
+   * a page that can't answer, it says so instead, since the failure is the test's to report.
+   */
+  /**
+   * Pauses Session Replay's recording of the page until the returned function lets go, or `longestMs` passes. Replay
+   * reads each element's attributes as it records, and each of those is a DOM node, so a test that counts the window's
+   * nodes holds it while it counts (PAR-1047): in CI it buffers whenever the tests run.
+   */
+  async holdRecording(longestMs: number): Promise<() => Promise<void>> {
+    const release = await this.page.evaluateHandle(
+      (longestMs) => window.e2eModules!.holdRecording(longestMs),
+      longestMs
+    )
+
+    return async () => {
+      await release.evaluate((letGo) => letGo())
+      await release.dispose()
+    }
+  }
+
+  async sendReplay(test: string): Promise<void> {
+    const run = appEnvironment().PARITY_TEST_RUN
+    const tags = { e2e_test: test, ...(run && { test_run: run }) }
+
+    let said: string
+
+    try {
+      const id = await withTimeout(
+        this.page.evaluate((tags) => window.e2eModules!.sendReplay(tags), tags),
+        30_000
+      )
+
+      said = id
+        ? `Replay of "${test}": https://better-apps.sentry.io/explore/replays/${id}/`
+        : `No replay of "${test}": the window isn't recording one`
+    } catch (error) {
+      const reason = error instanceof Error ? (error.message.split("\n")[0] ?? "") : String(error)
+      said = `No replay of "${test}": ${reason}`
+    }
+
+    process.stderr.write(`${said}\n`)
   }
 
   /**
@@ -246,13 +318,20 @@ export class App {
         document.activeElement.blur()
       }
     })
+
     // What a test's clicks made the designs write stays in main's log and badges their boards, which adds a control to
     // each title (PAR-147), so every test starts with the console empty.
-    await this.page.evaluate(() => window.canvasHost.console.clear(window.e2e!.session().info.guestUrl))
+    const cleared = await this.page.evaluate(async () => {
+      const at = Date.now()
+      await window.canvasHost.console.clear(window.e2e!.session().info.guestUrl)
+
+      return at
+    })
+
     const badges = this.page.getByRole("button", { name: / in the console$/ })
 
     if (!(await until(async () => (await badges.count()) === 0))) {
-      throw new Error("The console's badges stayed")
+      throw new Error(`The console's badges stayed: ${await this.badged(badges, cleared)}`)
     }
 
     await this.page.keyboard.press("Alt+1")
@@ -268,6 +347,32 @@ export class App {
         `The window's page scrolled ${times}, to ${scrolled.left},${scrolled.top}, and should never scroll`
       )
     }
+  }
+
+  /**
+   * What keeps each board's badge after the console was cleared at `cleared`: the badges, then each error and warning
+   * left, with where it was written, how long after the clear it first came, or that it's a layer failing to draw.
+   */
+  private async badged(badges: Locator, cleared: number): Promise<string> {
+    const labels = await badges.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")))
+
+    const left = await this.page.evaluate((cleared) => {
+      const messages = window.e2eModules!.consoleLog(window.e2e!.session().id).get()
+
+      return messages
+        .filter((message) => message.level === "error" || message.level === "warning")
+        .map((message) => {
+          const frames = (message.frames ?? []).map((frame) => `${frame.state}/${frame.mode}`).join(", ")
+
+          const when = message.failure
+            ? "failing to draw"
+            : `${message.where}, ${message.count}x, first ${message.first - cleared}ms after the clear`
+
+          return `${message.level} in ${message.design ?? "no design"}${frames ? ` (${frames})` : ""}, ${when}: ${message.text.slice(0, 400)}`
+        })
+    }, cleared)
+
+    return [labels.join("; "), ...left].join("\n  ")
   }
 
   // Reading what happened.

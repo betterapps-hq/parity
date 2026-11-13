@@ -184,7 +184,7 @@ export function commandStates(context: CommandContext): CommandStates {
     redo: history.redoLabel && `Redo ${history.redoLabel.toLowerCase()}`,
     repeat: repeat && `Repeat ${repeat.label[0]!.toLowerCase()}${repeat.label.slice(1)}`,
     makeComponent: alone && (alone.kind === "component" ? "Convert to screen" : "Convert to component"),
-    goToMain: instance && `Go to ${designName(entries, instance) ?? "the main component"}`,
+    goToMain: instance && `Go to ${designName(entries, instance) ?? "component"}`,
     hide: toggled(canOwn, hidden, "Show", "Hide"),
     lock: toggled(lockable, locked, "Unlock", "Lock")
   }

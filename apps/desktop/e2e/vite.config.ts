@@ -9,6 +9,8 @@ export default defineConfig({
   test: {
     include: ["*.e2e.ts"],
     globalSetup: ["global-setup.ts"],
+    // A failed test sends the window's replay of what led up to it (PAR-1043).
+    setupFiles: ["failed-replay.ts"],
     // One copy of the app takes every file in turn, as one person at one window would.
     fileParallelism: false,
     maxWorkers: 1,

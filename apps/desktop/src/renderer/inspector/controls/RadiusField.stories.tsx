@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AppearanceSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { CardPreview } from "./preview-card.tsx"
 import { inState, mixedWrites, radiusWrites } from "./writes.ts"
@@ -59,6 +58,9 @@ function Radius({
 /** A token, `radius-lg`, as a pill named lg, whose hint says radius-lg and what it comes to. */
 export const Token: Story = { render: () => <Radius start={{ radius: "radius-lg" }} /> }
 
+/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Token, parameters: { demo: true } }
+
 /** Each corner its own, laid out where it is: the top two at 2xl, the bottom two at sm. */
 export const PerCorner: Story = {
   render: () => <Radius start={{ radius: ["radius-2xl", "radius-2xl", "radius-sm", "radius-sm"] }} />
@@ -72,11 +74,6 @@ export const PlainValue: Story = { render: () => <Radius start={{ radius: { px: 
  * an ellipse (a square would be a circle), written `rounded-[50%]`. Unlike radius-full's pill, it rounds the sides too.
  */
 export const Percentage: Story = { render: () => <Radius start={{ radius: { percent: 50 } }} /> }
-
-/** 12px allowed here, with its reason in Tokens, which can stop allowing it. */
-export const AllowedHere: Story = {
-  render: () => <Radius start={{ radius: { px: 12, allow: "Matches the photo frame" } }} />
-}
 
 /**
  * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
@@ -113,13 +110,4 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "-4{Enter}")
   }
-}
-
-/** Changed from what it comes from (PAR-1020): the dot on the box's corner. */
-export const Changed: Story = {
-  render: () => (
-    <MarkChanged>
-      <Radius start={{ radius: { px: 12 } }} />
-    </MarkChanged>
-  )
 }

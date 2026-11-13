@@ -77,6 +77,9 @@ export const Rows: Story = {
   )
 }
 
+/** Rows, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Rows, parameters: { demo: true } }
+
 /** A row turned off: dimmed, kept in the file, and not written. */
 export const OffWithoutDeleting: Story = {
   render: () => (

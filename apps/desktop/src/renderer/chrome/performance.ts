@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react"
 import type { ProcessUsage } from "../../shared/protocol.ts"
+import { windowStore } from "../store.ts"
 
 /** One second of measurements. */
 export interface Sample {
@@ -20,8 +21,10 @@ export interface PerformanceStats {
 
 const historyLength = 60
 const empty: PerformanceStats = { history: [] }
-let stats = empty
-const listeners = new Set<() => void>()
+const stats = windowStore(() => empty)
+
+/** How many views show the stats; the sampler runs while any do. */
+let watchers = 0
 let stop: (() => void) | undefined
 
 /** Chromium's non-standard `performance.memory`. */
@@ -67,11 +70,7 @@ function start(): () => void {
         latest.heap = heap
       }
 
-      stats = { latest, history: [...stats.history, fps].slice(-historyLength) }
-
-      for (const listener of listeners) {
-        listener()
-      }
+      stats.update((now) => ({ latest, history: [...now.history, fps].slice(-historyLength) }))
     }
 
     window.canvasHost.metrics().then((next) => {
@@ -87,25 +86,27 @@ function start(): () => void {
 }
 
 function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
+  const unsubscribe = stats.subscribe(listener)
+  watchers += 1
 
   if (!stop) {
     stop = start()
   }
 
   return () => {
-    listeners.delete(listener)
+    unsubscribe()
+    watchers -= 1
 
-    if (listeners.size > 0) {
+    if (watchers > 0) {
       return
     }
 
     stop?.()
     stop = undefined
-    stats = empty
+    stats.reset()
   }
 }
 
 export function usePerformanceStats(): PerformanceStats {
-  return useSyncExternalStore(subscribe, () => stats)
+  return useSyncExternalStore(subscribe, stats.get)
 }

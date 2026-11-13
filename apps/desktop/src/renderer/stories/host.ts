@@ -39,6 +39,7 @@ import type {
 } from "../../shared/protocol.ts"
 import { receiveAccount, resetAccountView } from "../account/account.ts"
 import { preloadAnswers } from "../service.ts"
+import { resetWithWindow } from "../store.ts"
 
 /**
  * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
@@ -356,7 +357,6 @@ export function resetHost(): void {
   clearOverrides()
   Object.assign(window.canvasHost, cancelled)
   accountNow = signedOut
-  resetAccountView()
 }
 
 /**
@@ -433,6 +433,8 @@ export function installHost(): void {
   }
 
   window.canvasHost = host
+  // Each story starts signed out, with main's answer in, as `resetWindowStores` puts the rest back.
+  resetWithWindow(resetAccountView)
 }
 
 /** A fresh copy of a project, as opening it again reads it again. */

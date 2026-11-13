@@ -1,6 +1,5 @@
-import { toast } from "sonner"
 import type { ProjectInfo } from "../../shared/protocol.ts"
-import { reportError } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 
 /** Whether a component has stories in the project's Storybook. */
@@ -13,20 +12,19 @@ export function hasStories(info: ProjectInfo, component: string): boolean {
  * it isn't running, which can take a minute the first time.
  */
 export async function openInStorybook(projectId: string, component?: string): Promise<void> {
-  const progress = toast.loading("Opening Storybook…", {
-    description: "If it isn't running yet, it starts first; that can take a minute."
-  })
+  await serviceCall({
+    progress: "Opening Storybook…",
+    shown: { description: "If it isn't running yet, it starts first; that can take a minute." },
+    run: () => request("storybook.open", { projectId, component }),
+    done({ url }) {
+      window.open(url, "_blank")
 
-  try {
-    const { url } = await request("storybook.open", { projectId, component })
-    window.open(url, "_blank")
-    toast.success("Opened in your browser", { id: progress, description: url, duration: 3000 })
-  } catch (error) {
-    reportError(error, {
+      return { success: "Opened in your browser", description: url, duration: 3000 }
+    },
+    failed: {
       operation: "storybook.open",
       title: "Couldn't open Storybook",
-      id: progress,
-      description: (error instanceof Error ? error.message : String(error)).slice(0, 600)
-    })
-  }
+      description: (error) => (error instanceof Error ? error.message : String(error)).slice(0, 600)
+    }
+  })
 }

@@ -128,9 +128,13 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   that span ends (PAR-752).
 - **CI's runs send only their errors and reports to Sentry** (PAR-777), as `environment: ci` with `test_run` set to
   `github-<run>-<attempt>`, each error with its breadcrumbs. Spans and logs stay in the local copy, which is written in
-  full, and every line of it carries that `testRun`, which the suite checks. The editor window doesn't start Session
-  Replay. The `parity` command it runs does the same, with the same tags, and writes its log and outbox inside the
-  copy's profile.
+  full, and every line of it carries that `testRun`, which the suite checks. The editor window keeps only a buffer of
+  Session Replay, which a failed test sends (below). The `parity` command it runs sends the same, with the same tags,
+  and writes its log and outbox inside the copy's profile.
+- **A failed test sends a replay of the editor window** (PAR-1043), of what CI's buffer holds as it fails, tagged
+  `e2e_test` with the test's full name and `test_run` with the run. The job's log says where to watch it, in a line
+  starting `Replay of "<test>":` after the failure. `e2e/failed-replay.ts` asks for it once the test's `afterEach` has
+  run, so a reset that fails is in it too. Passing tests send none.
 - **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), named `telemetry-github-<run>-<attempt>`
   after its `test_run` and kept for 7 days, whether the tests passed or not. Before the suite removes the copy's
   profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands' `cli-logs/` and the app's output, `app.log`,
@@ -216,9 +220,10 @@ two minutes, once; opening it again drew none.
 
 Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
 either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. CI is the one
-exception: wherever `CI` is set, only errors and reports go, whatever the level, since its end-to-end runs sent nine in
-ten of `parity-desktop`'s spans (PAR-777). `resolveTelemetry` in `@parity-app/telemetry` decides this with the level, as
-`errorsOnly`. The local copy is written either way. Unit tests leave it off.
+exception: wherever `CI` is set, only errors, reports and a failed end-to-end test's replay go, whatever the level,
+since its end-to-end runs sent nine in ten of `parity-desktop`'s spans (PAR-777, PAR-1043). `resolveTelemetry` in
+`@parity-app/telemetry` decides this with the level, as `errorsOnly`. The local copy is written either way. Unit tests
+leave it off.
 
 - **Settings > Privacy > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
   install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
@@ -239,7 +244,14 @@ every other event (see "Secrets are scrubbed" below). The offscreen render windo
 Storybook or the CLI.
 
 - **While diagnostics are on, every session is recorded.** The share is `replaySessionRate` in
-  `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
+  `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so. Replay is
+  started by hand, `followTelemetry` in the same file, so Sentry's own sample rates are 0.
+- **CI keeps a buffer instead** (PAR-1043), in memory, sent only when `sendReplay` asks, as the end-to-end suite does
+  for a failed test, or as a report does. That sends the buffer as a replay of its own and starts a fresh buffer, so CI
+  never goes on to record whole sessions. An error doesn't send it. The buffer holds a minute at most, and starts again
+  each time recording resumes after a hold below, so a test's replay starts where its zoom settled: for a drag test, the
+  drag and the reset after it. An end-to-end test that counts the window's DOM nodes holds recording while it counts
+  (`App.holdRecording`, PAR-1047), since the attributes Replay reads are nodes too.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
 - **The window's own canvases are recorded,** such as the selection overlay, as pictures twice a second while they

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useStore, windowStore } from "../store.ts"
 
 export type UnsavedChoice = "save" | "discard" | "cancel"
 
@@ -10,48 +10,32 @@ interface Question {
   answer(choice: UnsavedChoice): void
 }
 
-let question: Question | undefined
-const listeners = new Set<() => void>()
+const question = windowStore<Question | undefined>(() => undefined)
 
 /**
  * Asks whether to save changes before they'd be lost, and waits for the answer. The dialog that asks is mounted once,
  * in the app; asking again while it's open answers the earlier question with cancel.
  */
 export function askAboutUnsaved(names: string[], action: Question["action"]): Promise<UnsavedChoice> {
-  question?.answer("cancel")
+  question.get()?.answer("cancel")
 
   return new Promise((resolve) => {
-    question = {
+    question.set({
       names,
       action,
       answer: (choice) => {
-        question = undefined
-        notify()
+        question.set(undefined)
         resolve(choice)
       }
-    }
-    notify()
+    })
   })
 }
 
 /** Answers the open question with cancel, as when its dialog failed and was closed (PAR-667). */
 export function cancelUnsaved(): void {
-  question?.answer("cancel")
+  question.get()?.answer("cancel")
 }
 
 export function useUnsavedQuestion(): Question | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => question
-  )
-}
-
-function notify(): void {
-  for (const listener of listeners) {
-    listener()
-  }
+  return useStore(question)
 }

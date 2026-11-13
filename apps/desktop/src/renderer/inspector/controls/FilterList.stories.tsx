@@ -54,6 +54,9 @@ export const Empty: Story = { render: () => <Filters start={[]} /> }
 /** Layer blur at `blur-sm`: the card and its picture are blurred. */
 export const LayerBlur: Story = { render: () => <Filters start={[{ id: "blur", kind: "blur", value: "blur-sm" }]} /> }
 
+/** LayerBlur, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...LayerBlur, parameters: { demo: true } }
+
 /** Background blur of 6px, a value of its own: what shows through the card is blurred. */
 export const BackgroundBlur: Story = {
   render: () => <Filters start={[{ id: "blur", kind: "backdropBlur", value: { px: 6 } }]} />
@@ -84,28 +87,6 @@ export const BackgroundAdjustments: Story = {
         adjust("behind", { brightness: 10, saturate: 50 }, true)
       ]}
       openId="behind"
-    />
-  )
-}
-
-/** A drop shadow that follows the shape, `drop-shadow-md`, last in the filter. Its editor has no spread. */
-export const DropShadow: Story = {
-  render: () => (
-    <Filters
-      start={[
-        {
-          id: "shadow",
-          kind: "dropShadow",
-          shadow: {
-            id: "drop",
-            kind: "drop",
-            follow: true,
-            token: "drop-shadow-md",
-            layer: { x: 0, y: 4, blur: 6, spread: 0, color: "black", alpha: 15 }
-          }
-        }
-      ]}
-      openId="shadow"
     />
   )
 }

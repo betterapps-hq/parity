@@ -111,6 +111,9 @@ describe("zoomed far out", () => {
       await app.show("Members", 1)
       const sizes = await boards()
       const framed = await frameSizes()
+      // Session Replay records the window in CI too, and the attributes it reads from what the zoom draws are nodes, so
+      // it's held while they're counted (PAR-1047).
+      const letGo = await app.holdRecording(120_000)
       const awake = await nodes()
       const { elements } = await frames()
       expect(elements).toBeGreaterThan(0)
@@ -120,6 +123,7 @@ describe("zoomed far out", () => {
       const out = await frames()
       expect(out.drawn).toBe(out.all - out.asleep)
       expect(await nodes()).toBeLessThan(awake - elements)
+      await letGo()
       expect(await frameSizes()).toEqual(framed)
 
       // Back in view, its frames draw again, and the boards out of view stay asleep.

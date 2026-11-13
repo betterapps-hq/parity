@@ -66,6 +66,9 @@ function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boo
 /** Heading applied, folded: one row, its summary with a lock under it, and nothing it sets shown. */
 export const Folded: Story = { render: () => <PresetStory start={{ preset: "heading", own: {} }} /> }
 
+/** Folded, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Folded, parameters: { demo: true } }
+
 /** The summary open: the five rows Heading sets, each locked to it with Unlock, their values faint and read-only. */
 export const Opened: Story = { render: () => <PresetStory start={{ preset: "heading", own: {} }} open /> }
 

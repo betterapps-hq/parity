@@ -135,11 +135,12 @@ Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side
 props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
 inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
 lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
-`apps/desktop/src/renderer/frame.ts`. `ModeView` and the offscreen renderer (`render.ts`) register each frame's guest.
-Hovering and clicking go through `canvas/hit.ts`, outlines, sizes and resize handles through `canvas/CanvasOverlay.tsx`,
-dragging through `canvas/layer-drag.ts`, inserting through `canvas/insert.ts` (its rules in
-`packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a layer's box. Whether a component takes `style` is
-read in `packages/code/src/props.ts` (`takesStyle`), and the note is in `chrome/LayerPanel.tsx`.
+`apps/desktop/src/renderer/frame.ts`. `mountFrame` in `frame-host.ts` registers each frame's guest, for `ModeView` and
+the offscreen renderer (`render.ts`) alike. Hovering and clicking go through `canvas/hit.ts`, outlines, sizes and resize
+handles through `canvas/CanvasOverlay.tsx`, dragging through `canvas/layer-drag.ts`, inserting through
+`canvas/insert.ts` (its rules in `packages/editor/src/insert.ts`), and `chrome/reveal.ts` scrolls to a layer's box.
+Whether a component takes `style` is read in `packages/code/src/props.ts` (`takesStyle`), and the note is in
+`chrome/LayerPanel.tsx`.
 
 Tests:
 
@@ -453,15 +454,24 @@ A right-click on a design opens Figma's canvas menu, as far as Parity's commands
 shows its keys from the keymap as the menubar shows them (`ContextMenuShortcut`, through `formatKeys`), and runs the
 menubar's command. A row in the Layers panel has a menu of its own, built the same way (below).
 
-- **The items**, in groups with a line between them: Select layer; Copy, Paste here, Paste over selection, Paste to
-  replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make component
-  and Go to the main component; Hide. Labels are the menubar's, except that Go to names the main component ("Go to Plan
+- **Icons** come from `commandIcons` in `apps/desktop/src/renderer/chrome/command-icons.ts`, one per command and no two
+  alike, so a command looks the same in the menubar, the canvas menu, the Layers row menu and a design title's menu.
+  Paste here takes Paste's.
+- **The menubar offers each command once** (PAR-1039): New screen and New component are Object's, Settings is File's,
+  Developer tools, Performance stats and Clear bitmap cache are in Help › Developer, and Install the Parity CLI… follows
+  Check for updates. Close project (Ctrl+W) closes the tab. A toggle, such as Panels or Performance stats, keeps its
+  icon where every item's goes and shows a tick on the right, before its keys, while it's on. No menu adds a line saying
+  what to select; its greyed items say enough.
+
+- **The items**, in groups with a line between them: Select layer; Copy, Copy as PNG, Paste here, Paste over selection,
+  Paste to replace and Duplicate; Bring to front, Bring forward, Send backward and Send to back; Wrap in layout, Make
+  component and Go to component; Hide. Labels are the menubar's, except that Go to names the component ("Go to Plan
   card"), Hide reads Show when every selected layer is hidden as the board shows it in the state being edited (the
   variant shown, the state and the params it binds, as Hide itself reads them, PAR-486), and Make component, with a
   design selected on its own, reads "Convert to component", or "Convert to screen" on a component. Paste here has no
   keys. Lock comes with PAR-192, and Open in editor and Copy as JSX with PAR-166; they have no placeholders.
 - **With designs selected**, what's only for layers is left out: Paste to replace, the order, Wrap in layout and Hide.
-  Go to the main component is there only with an instance selected.
+  Go to component is there only with an instance selected.
 - **Unavailable** items are greyed: the order and Make component with several layers selected, Make component with
   several designs, and, for layers inside an instance, Copy, Duplicate, the order, Wrap in layout and Hide. Paste over
   selection and Paste to replace stay for those, and say why they can't. The menubar's Edit and Object menus grey the
@@ -560,14 +570,17 @@ Tests:
   slot under the pointer, first and last, at the pointer inside an absolutely placed layout's border, and the deepest
   layout; a card component's default slot found through the element its layers are drawn in, by a layer in it and by the
   row around them, and its footer slot; and the layout around the card over the title it draws itself.
-- `chrome/AppMenu.stories.tsx` (EditLayerInInstance and ObjectLayerInInstance, under Parity/Chrome/App menu): with the
-  Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the pastes, and Object greys
-  Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end test below checks the same.
-- `chrome/CanvasMenu.stories.tsx` (8 stories, under Parity/Chrome/Canvas menu), on the real canvas with tldraw: Layer,
-  Instance, SeveralLayers, Design, EmptyCanvas, NewScreenHere, SelectLayer and Interacting. Each right-clicks through
-  tldraw's pointer events and checks the selection, the items, what's unavailable and the keys; SelectLayer checks the
-  list and the outline, and NewScreenHere where the new screen goes. The first seven played without errors in headless
-  Chrome on 2026-10-29, and EmptyCanvas and NewScreenHere again on 2026-11-05.
+- `chrome/AppMenu.edit.stories.tsx` and `AppMenu.object.stories.tsx` (LayerInInstance, under Parity/Chrome/App menu/Edit
+  and /Object): with the Users card's value selected inside its instance, Edit greys Copy and Duplicate but not the
+  pastes, and Object greys Wrap in layout, the order and Hide or show. Not played in headless Chrome; the end-to-end
+  test below checks the same.
+- `chrome/CanvasMenu.items.stories.tsx` (Parity/Chrome/Canvas menu/Items): the menu on its own, open for a selection and
+  the layers under the pointer: OneLayer, Instance, SeveralLayers, Design and AroundTheDesigns, checking the items,
+  what's unavailable and the keys.
+- `chrome/CanvasMenu.right-click.stories.tsx` (Parity/Chrome/Canvas menu/Right-click), on the real canvas with tldraw:
+  SelectsWhatAClickWould, SelectsAnotherInstance, KeepsSeveralLayers, KeepsADesign, NewScreenHere, SelectLayer,
+  Interacting and OpenInEditor. Each right-clicks through tldraw's pointer events and checks what's selected;
+  SelectLayer checks the list and the outline, and NewScreenHere where the new screen goes.
 - `apps/desktop/e2e/menus.e2e.ts` (8), end to end with the system's right button (PAR-202): a right-click on a
   `MemberRow` selects it and lists its items in order, with their keys and the lines between groups, and Duplicate runs
   as one undo step; Ctrl+Z pressed at once after Duplicate, with focus still in the closing menu, undoes it (PAR-424,
@@ -922,13 +935,13 @@ named from the root; a workspace package's file outside the root named from the 
 modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
 (Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
-`chrome/CanvasMenu.stories.tsx`, drawn from Storybook's copy of the example project, which the same transform tags, and
-in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
-`packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
-(`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
-own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps:
-reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the Measure and render-result
-tests pass a source through.
+`chrome/CanvasMenu.right-click.stories.tsx`, drawn from Storybook's copy of the example project, which the same
+transform tags, and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at
+`member-row.tsx`). `packages/agent/src/dispatch.test.ts` (the file each project component is written in),
+`packages/agent/src/run.test.ts` (`Measure` gives each node's source, and none for Parity's own layers),
+`packages/cli/src/client.test.ts` (the project's own components listed by file) and
+`apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps: reading the attribute in the offscreen
+page (`renderer/render.ts`) has no test of its own; the Measure and render-result tests pass a source through.
 
 ### The designs' console (PAR-147)
 
@@ -1902,11 +1915,12 @@ Tests:
   before anything's typed; `chrome/canvas-menu.test.ts`: the menu around the designs with its labels and keys, and
   Select all and Zoom to fit unavailable on an empty canvas.
 - Stories, which replace the exploration Parity / Explorations / Starting on the canvas, deleted with this build: Parity
-  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu (File,
-  ObjectWithNothingSelected, SearchActionsForNew), Parity / Chrome / Canvas menu (EmptyCanvas, NewScreenHere), Parity /
-  Chrome / Quick insert (NothingSelected, NowhereToInsertInto), Parity / Left panel / Components
-  (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All but the two Quick insert ones
-  played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the canvas, for Open's story too.
+  / Left panel / Layers (Designs, EmptyProject, NewScreenHovered, FirstScreenMade), Parity / Chrome / App menu / File
+  (DesignSelected) and / Object (NothingSelected), Parity / Chrome / Search (New), Parity / Chrome / Canvas menu (Items:
+  AroundTheDesigns; Right-click: NewScreenHere), Parity / Chrome / Quick insert (NothingSelected, NowhereToInsertInto),
+  Parity / Left panel / Components (AddingWithNothingSelected) and Parity / Inspector / Design (NothingSelected). All
+  but the two Quick insert ones played without errors in headless Chrome on 2026-11-05; there `/` doesn't reach the
+  canvas, for Open's story too.
 - End to end (PAR-202), `apps/desktop/e2e/menus.e2e.ts`: a right-click on the empty canvas lists New screen, New
   component and Insert… with their keys, and New screen makes an untitled screen at the pointer, selected, as "New
   screen"; `e2e/dropping.e2e.ts`: Badge dragged from the Components panel onto the empty canvas shows the corner and no
@@ -2121,10 +2135,10 @@ actions, the toolbar, Zoom, and the canvas and Layers menus.
 - **A command that can't run is greyed** in the menus, Search actions and the toolbar, and its keys don't run it: a Ctrl
   shortcut is recorded as cancelled, and a plain key does what it would anyway, as Tab moving focus.
 - **Names follow what's selected:** Undo and Redo name the step, Repeat what it repeats, Make component reads Convert to
-  component or Convert to screen for a design on its own, Go to the main component names it, Hide reads Show when every
-  selected layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could
-  act on, Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name
-  too, so "hide" finds Show.
+  component or Convert to screen for a design on its own, Go to component names it, Hide reads Show when every selected
+  layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could act on,
+  Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name too, so
+  "hide" finds Show.
 - **Layer commands need layers of the design's own:** Cut, Copy, Duplicate, Delete, Wrap in layout, Hide and Lock are
   unavailable for only a design's root or layers inside an instance, and their keys do nothing then. The order and Make
   component take one such layer alone. Rename is unavailable for a layer inside an instance.
@@ -2152,10 +2166,10 @@ Tests:
   apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the tab it's given;
   the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once there's
   something to duplicate, recorded both times.
-- Stories, Parity / Chrome / App menu: EditLayerInInstance and ObjectLayerInInstance (greyed items, Cut and Delete among
-  them, and the keymap's names for a layer inside an instance), SearchActionsNamesWhatItDoes (a locked design's Unlock,
-  found by "lock"), and ExportSelectedAsItsShortcutDoes (PAR-976). Parity / Chrome / Zoom controls: NothingToFit, Zoom
-  to fit unavailable in a project with nothing on its canvas.
+- Stories, Parity / Chrome / App menu / Edit and / Object: LayerInInstance (greyed items, Cut and Delete among them, and
+  the keymap's names for a layer inside an instance); / File: ExportSelectedAsItsShortcutDoes (PAR-976); Parity / Chrome
+  / Search: NamesWhatItDoes (a locked design's Unlock, found by "lock"). Parity / Chrome / Zoom controls: NothingToFit,
+  Zoom to fit unavailable in a project with nothing on its canvas.
 - Tried in the app on 2026-11-12 with `scripts/drive.ts`: the menubar, canvas menu and Layers menu with nothing, a
   screen, a component, a layer and every design selected; Hide from Object, then Show in Object and Layers, and Undo
   naming the step; the canvas menu from Shift+F10; and each item's accessible name, its label and its keys.
@@ -2205,9 +2219,9 @@ Tests:
   left for a search; each kind under its heading, best first, a heading with no match left out, a layer found by its
   design, a group capped keeping its best; recent picks first, latest first, not listed again, kept while they match and
   dropped once gone; and at most six picks, the latest first.
-- Stories, Parity / Chrome / App menu: SearchEverything ("card" finds designs, layers, components and tokens),
-  SearchRecent (Zoom to fit and Plan card picked, then listed under Recent), EditAfterWrapping (Repeat wrap in layout
-  with its keys, available), and SearchActionsForNew.
+- Stories, Parity / Chrome / Search: Everything ("card" finds designs, layers, components and tokens), Recent (Zoom to
+  fit and Plan card picked, then listed under Recent) and New; Parity / Chrome / App menu / Edit: AfterWrapping (Repeat
+  wrap in layout with its keys, available).
 
 Gaps: no end-to-end test runs Repeat or picks a layer, component or token from the search.
 
@@ -2356,7 +2370,7 @@ menu items.
 ### Next and previous design (CAN-39)
 
 N selects the design after the selected one and zooms to it, and Shift+N the one before, as Figma's Zoom to next frame
-and Zoom to previous frame do. They're in View, after Zoom to selection.
+and Zoom to previous frame do. They're keys only, listed in Keyboard shortcuts; no menu offers them.
 
 - **The order is the Layers panel's:** components, then screens, each in the order the project lists them. It goes round
   from the last to the first.
@@ -3020,9 +3034,9 @@ a size once, the next size offered, safe names, the short list, a layer's crop a
 reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
 `chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
-`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
-`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
-`chrome/AppMenu.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
+`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; OneLayer and Design
+in `chrome/CanvasMenu.items.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
+`chrome/AppMenu.file.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
 drawing offscreen and writing the files run in the desktop app's service, which no test opens; the e2e suite covers the
 window's export, not this.
 
@@ -3226,10 +3240,12 @@ Tests:
   rule, never inline, a state that sets its own width left alone, a later preview putting back what it doesn't change,
   taking it back exactly, a property taken off an element its classes draw, a component's edit written onto its element,
   settling for the change, which the frame takes away as it draws it, and nothing shown for no change.
-- `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, SnappedToTheScale, CantRead and Stepping.
+- `chrome/fields.stories.tsx`: a Length row in every look, and TypingMaths, KeepsAnyLength and Stepping.
+- `inspector/controls/NumberField.stories.tsx` InvalidAsTyped: what can't be read stays, marked invalid.
 - `inspector/sections/SizeSection.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the
   narrowest inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show
-  the value whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
+  the value whole. OffScaleSize: a 281px width shown as it is; Fields › All fields' KeepsAnyLength checks 281 typed is
+  kept.
 - `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
   the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
@@ -3478,7 +3494,7 @@ Tests:
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker, PAR-1046): Filled selects the layer from its chip
   and clears the slot with its ×, without selecting the layer; Open lists On this screen before Components; Searching
   finds each Button after the layer it's in; Picked, Replaced and Picked Component fill the slot, one layer at a time;
-  Dragging lights the box for a layer from Layers, and Dropped fills it; Empty for review.
+  Dragging lights the box for a layer from Layers, and Dropped fills it.
 
 ### The inspector's stories in seven levels (PAR-1033)
 
@@ -3498,9 +3514,13 @@ Fields stories.
 | Fields   | Number field, Select, Switch, Class names, Slot picker, and the rest of one value's controls |
 | Parts    | Field row, Chips                                                                             |
 
-Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the one it holds
-(`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a component's
-props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components and Modes.
+Panel › Inspector is the panel itself, open, collapsed and resized; it doesn't repeat what a tab shows. A control's
+stories in Fields, Rows and Lists show the control alone; each file's Demo story also shows what it stores and writes as
+CSS and Tailwind, with a preview and other tools' screenshots where it has them (`ShowWrites` in `playground.tsx`,
+PAR-1045). Each style section has its own file beside it in `inspector/sections`, drawing that section alone with the
+one it holds (`StyleSections`' `only`), as Size holds Spacing. Layers › Designs keeps what the whole panel shows; a
+component's props, a screen's repeated parts and a design's modes are Sections › Props › Component design, Components
+and Modes.
 
 Tests: none; the stories are checked in Storybook.
 
@@ -3586,7 +3606,7 @@ Tests:
 
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `chrome/fields.stories.tsx` EveryKind: each kind of field found by its row's label, and the token pickers by their own
-  names. ChoiceOpen and Typing find their controls by name.
+  names. Typing finds its control by name.
 - `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
@@ -3605,9 +3625,9 @@ Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/ins
 `Field` and `SwitchRow` in `inspector/controls/field-row.tsx` mark their control; `changedSides` on `FourSidesField` in
 `inspector/controls/sides.tsx`.
 
-Tests: none; it's checked in each control's Changed story in `inspector/controls`: Number field, Color field, Token
-length, Angle, Time, Keyword sets (Align Changed, Cursor Changed), Switch, Icon segments, Component instance, and
-Padding's One Side Changed.
+Tests: none; it's checked in Parts › Field row's Changed In A State, which every control's box shares, and in the marks
+that differ: Switch's Switch Changed, Chips' Changed, Component instance's Changed (each kind of prop) and Padding's One
+Side Changed.
 
 ### Selects (PAR-1023)
 
@@ -3626,7 +3646,7 @@ Tests:
 
 - `chrome/AppSelect.stories.tsx` InAPanel and InADialog: each opens its select and checks its items sit in a group
   padded 4px, at 12px and 13px.
-- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
+- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/AppSelect.stories.tsx` InAPanel open a panel's select.
 
 ### Chips (PAR-1035)
 
@@ -3657,7 +3677,7 @@ Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the r
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
 Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
-Fields › All fields: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
+Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -4407,10 +4427,10 @@ Every change people or agents make goes into one history per project, and stays 
   Parity's window.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
-  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
-  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
-  on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since frames draw that rule on their body as
-  well, as below.
+  body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by `frameSetup` in
+  `apps/desktop/src/renderer/frame-setup.ts` for the canvas's frames and the offscreen page's). An attribute the mode
+  sets itself wins. A theme's attribute on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since
+  frames draw that rule on their body as well, as below.
 - **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
   `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
   after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
@@ -5457,26 +5477,33 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
 to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/renderer-react/src/guest.ts`,
-declared on `Guest` in `packages/core/src/adapters.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which
-`setSources` in `renderer/workspace.ts` and `renderer/render.ts` call.
+declared on `Guest` in `packages/core/src/adapters.ts`, keep where each component comes from in the guest's registry
+(`componentRegistry` in `component-registry.ts`, PAR-988), with each component's drawn or failing status in
+`render-statuses.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in
+`renderer/workspace.ts` and `renderer/render.ts` call.
 
 Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
 moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
 added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
-given, and adds one given again). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new to the list,
-one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it was, and
-nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2: a
-component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
-and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
-`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
-with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
-its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
-the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
-Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
-That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
-changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
-changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
-`addComponents` on.
+given, and adds one given again). `packages/renderer-react/src/component-registry.test.ts` (6: a file's address on the
+dev server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded
+from there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and
+one only given forgotten; and the revision going up once a change, heard until unsubscribed) and
+`render-statuses.test.ts` (4: drawn once and heard once a task, failing while any boundary shows an error, a component
+still loading not drawn, and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for
+`guestChanges`: one new to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every
+component stays where it was, and nothing when only what else the list says about one changes).
+`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+`apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
+components and the rest kept when it does, and a job built with every field passing the service's check whole; for
+`frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
+draws, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens previewed while
+`drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys follow the
+revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts` give and
+take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by reading them.
+A component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
+share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
 ### Failing components, in the console, and code edits picked up live (PAR-165)
 
@@ -6782,11 +6809,11 @@ next.
 
 ### Install the Parity CLI (PAR-906)
 
-Help > Install the Parity CLI puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
-with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
-second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
-and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
-failure says what went wrong.
+Help > Install the Parity CLI, after Check for updates, puts a `parity` command on the person's PATH that runs the CLI
+shipped inside the app, with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and
+a call starts about a second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast
+says it's installed, and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the
+folder to add. A failure says what went wrong.
 
 - **Windows:** `parity.cmd`, for PowerShell and Command Prompt, and a `parity` shell script, for Git Bash, in
   `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH, kept as written so variables in it stay variables.
@@ -7396,6 +7423,53 @@ Tests:
 Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
+
+### One module mounts every frame (PAR-988)
+
+A frame on the canvas and one the offscreen page draws for an agent, an export, a bitmap or a component preview are
+mounted, read and taken apart the same way, so what one draws the other draws too.
+
+- **One description of the mode.** Both describe a frame's mode as a render job does (`renderJobMode`): its classes and
+  attributes, its options for decorators, its window, and whether it stands for a touch screen. `frameSetup` turns that
+  into what the frame is prepared with (the body's classes, the attributes that switch the project's themes on, the
+  window its styles measure, thin scrollbars) and what the guest mounts with (the options, the window its code asks).
+- **Mounting.** `mountFrame` prepares the frame, gives it the tree's rules, mounts the guest, and has the frame's node
+  lookups go through what the guest says it drew. What it gives back draws an update in place with its rules in the same
+  task, resizes the window, says when the design is in the frame, and adopts a sheet after the frame's own, as a
+  component preview's for its popups.
+- **Taking apart.** Unmounting stops the lookups going through the guest, empties the frame and unmounts the guest. On
+  the canvas the guest lets go a microtask later, outside the canvas's commit; the frame is emptied at once either way,
+  so a frame built again straight after starts clean. A mount taken apart after a newer one started on the same frame
+  leaves the newer one alone.
+- **Reading a frame.** A frame is a shadow root on its host, and only `frame-host.ts` and `frame.ts` reach into it. The
+  rest of the app asks: `watchFrame` hears what a frame draws change (with attributes or resources loading, when asked),
+  and a watch asked for before the frame is mounted starts when it is, so the board that hugs its content no longer
+  polls for the frame each animation frame; `frameBody`, `frameContent`, `frameDrawsDesign`, `frameAnimates` and
+  `blurFrame` read the rest.
+
+Code: `mountFrame`, `watchFrame` and the readers in `apps/desktop/src/renderer/frame-host.ts`, `frameSetup` in
+`frame-setup.ts`, built on `prepareFrame`, the rules and the lookups in `frame.ts`. The canvas's adapter is
+`ModeView.tsx`, the offscreen page's `render.ts`. The overlay (`canvas/CanvasOverlay.tsx`), a board that hugs its
+content (`canvas/ContainerView.tsx`), the style editor (`chrome/style-editor.ts`), the code panel, bitmaps, skeletons,
+the tab order, written elements and inline portals read frames through it.
+
+Tests:
+
+- `apps/desktop/src/renderer/frame-setup.test.ts` (5): the body's classes and theme attributes, the window for styles
+  and code, options and touch passed on, nothing extra for a desktop mode without options, and sheets after the
+  project's.
+- `apps/desktop/src/renderer/frame-host.test.ts` (11), in Chrome with a guest of the test's own: a tree drawn in a body
+  set up for the mode and found through the guest; an update drawn in place and a resize passed on; unmounting empties
+  the frame and lookups stop going through the guest; a microtask's wait for the guest with the frame emptied at once; a
+  newer mount left alone by an older one's unmount; a watch asked for before mounting heard after, none once stopped,
+  and only the attributes asked for; nothing to read before mounting; a design drawn once a node carries its attribute;
+  and focus let go.
+- `ModeView.test.ts`, `render.test.ts` and `frame.test.ts` still cover each adapter's own part, in Chrome.
+
+Gaps: `render.ts`'s wiring runs in the offscreen window, which the end-to-end tests cover in CI. Checked in the running
+app on 2026-11-12: bitmaps at 3% and live frames at 31% and 82%, a mode turned on and off, a layer selected inside a
+frame, one state picked with every state hidden, an export of a screen and a component (through the service call the
+Export button makes once a folder is picked) and a tab closed without saving, which unmounted every frame.
 
 ### Which node overflows what (PAR-456, PAR-886, PAR-904)
 

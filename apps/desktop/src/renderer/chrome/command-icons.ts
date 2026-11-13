@@ -1,0 +1,145 @@
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalSpaceAround,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalSpaceAround,
+  AppWindow,
+  LayerArrowDown,
+  LayersArrowDown,
+  LayerArrowUp,
+  LayersArrowUp,
+  ClipboardPaste,
+  ClipboardPlus,
+  Code,
+  Component,
+  Copy,
+  CopyPlus,
+  Diamond,
+  DiamondPlus,
+  EyeOff,
+  FileInput,
+  FolderOpen,
+  Group,
+  House,
+  Image,
+  ImageDown,
+  Keyboard,
+  type LucideIcon,
+  Lock,
+  Maximize,
+  Paintbrush,
+  PaintRoller,
+  PenLine,
+  Percent,
+  Plus,
+  Redo2,
+  Repeat2,
+  Replace,
+  Save,
+  SaveAll,
+  Scan,
+  Scissors,
+  Search,
+  Settings,
+  SquarePlus,
+  SquareStack,
+  SquaresExclude,
+  StepBack,
+  StepForward,
+  Telescope,
+  TextSelect,
+  Trash2,
+  Undo2,
+  Ungroup,
+  Unlink,
+  X,
+  ZoomIn,
+  ZoomOut
+} from "lucide-react"
+import { createElement, type ReactElement } from "react"
+import type { Command } from "./keymap.ts"
+
+/**
+ * Each command's icon, the same in every menu that offers it: the menubar, the canvas menu, the Layers row menu and a
+ * design title's menu. No two commands share one. Commands that only have keys, as the tools and nudging do, have none.
+ */
+export const commandIcons = {
+  undo: Undo2,
+  redo: Redo2,
+  repeat: Repeat2,
+  cut: Scissors,
+  copy: Copy,
+  paste: ClipboardPaste,
+  pasteOver: ClipboardPlus,
+  pasteReplace: Replace,
+  duplicate: CopyPlus,
+  delete: Trash2,
+  copyAsPng: Image,
+  copyStyle: Paintbrush,
+  pasteStyle: PaintRoller,
+  rename: PenLine,
+
+  selectAll: TextSelect,
+  selectMatching: SquareStack,
+  selectInverse: SquaresExclude,
+  nextDesign: StepForward,
+  previousDesign: StepBack,
+
+  newScreen: AppWindow,
+  newComponent: Component,
+  insert: SquarePlus,
+  findReferences: Telescope,
+  wrap: Group,
+  unwrap: Ungroup,
+  makeComponent: DiamondPlus,
+  goToMain: Diamond,
+  detach: Unlink,
+  bringForward: LayerArrowUp,
+  sendBackward: LayerArrowDown,
+  bringToFront: LayersArrowUp,
+  sendToBack: LayersArrowDown,
+  hide: EyeOff,
+  lock: Lock,
+
+  alignLeft: AlignStartVertical,
+  alignCenter: AlignCenterVertical,
+  alignRight: AlignEndVertical,
+  alignTop: AlignStartHorizontal,
+  alignMiddle: AlignCenterHorizontal,
+  alignBottom: AlignEndHorizontal,
+  distributeHorizontal: AlignHorizontalSpaceAround,
+  distributeVertical: AlignVerticalSpaceAround,
+
+  home: House,
+  zoomIn: ZoomIn,
+  zoomOut: ZoomOut,
+  zoomTo100: Percent,
+  zoomToFit: Maximize,
+  zoomToSelection: Scan,
+
+  newTab: Plus,
+  openFolder: FolderOpen,
+  openFile: FileInput,
+  save: Save,
+  saveCopy: SaveAll,
+  exportSelection: ImageDown,
+  closeTab: X,
+  settings: Settings,
+
+  actions: Search,
+  shortcuts: Keyboard,
+  developerTools: Code
+} satisfies Partial<Record<Command, LucideIcon>>
+
+const byCommand: Partial<Record<Command, LucideIcon>> = commandIcons
+
+/** A menu item's icon: its command's, and the canvas's Paste here takes Paste's. */
+export function iconFor(action: Command | "pasteHere"): ReactElement | undefined {
+  const icon = byCommand[action === "pasteHere" ? "paste" : action]
+
+  return icon && createElement(icon)
+}

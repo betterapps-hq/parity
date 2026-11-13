@@ -3,6 +3,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuShortcut,
   ContextMenuTrigger,
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -54,12 +55,16 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import { stopEventPropagation } from "tldraw"
+import { commandIcons } from "../chrome/command-icons.ts"
 import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../chrome/designs.ts"
 import { Hint } from "../chrome/Hint.tsx"
+import { keymap } from "../chrome/keymap.ts"
+import { formatKeys } from "../chrome/keys.ts"
 import { Name, NameInput } from "../chrome/Name.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
+import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
@@ -216,31 +221,16 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
       }
     }
 
-    // The design is drawn into the frame's shadow root, once the frame has made it, and its root element can be drawn
-    // again as it changes.
-    const drawn = new MutationObserver(() => {
+    // The design is drawn into the frame once it's mounted, and its root element can be drawn again as it changes.
+    const stopDrawn = watchFrame(host, () => {
       watch()
       fit()
     })
 
-    let frame = 0
-
-    const start = () => {
-      if (!host.shadowRoot) {
-        frame = requestAnimationFrame(start)
-
-        return
-      }
-
-      drawn.observe(host.shadowRoot, { childList: true, subtree: true, characterData: true })
-      watch()
-    }
-
-    start()
+    watch()
 
     return () => {
-      cancelAnimationFrame(frame)
-      drawn.disconnect()
+      stopDrawn()
       observer.disconnect()
     }
   }, [board, hugs, key, store])
@@ -619,6 +609,7 @@ function TitleButton({
     />
   )
 
+  const { rename: RenameIcon, duplicate: DuplicateIcon, delete: DeleteIcon } = commandIcons
   const others = convertKinds.filter((kind) => kind !== (container.kind ?? "screen"))
 
   if (renaming) {
@@ -685,8 +676,12 @@ function TitleButton({
         }
       />
       <ContextMenuContent className="w-52" onPointerDown={stopEventPropagation}>
-        <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
-        <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>Duplicate</ContextMenuItem>
+        <ContextMenuItem onClick={() => setRenaming(true)}>
+          <RenameIcon /> Rename <ContextMenuShortcut>{formatKeys(keymap.rename.keys[0])}</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateDesign(session, entry)}>
+          <DuplicateIcon /> Duplicate <ContextMenuShortcut>{formatKeys(keymap.duplicate.keys[0])}</ContextMenuShortcut>
+        </ContextMenuItem>
         <ContextMenuSeparator />
         {others.map((kind) => (
           <ContextMenuItem key={kind} onClick={() => setDesignKind(session, entry, kind)}>
@@ -696,7 +691,7 @@ function TitleButton({
         ))}
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => deleteDesign(session, entry)}>
-          Delete
+          <DeleteIcon /> Delete <ContextMenuShortcut>{formatKeys(keymap.delete.keys[0])}</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

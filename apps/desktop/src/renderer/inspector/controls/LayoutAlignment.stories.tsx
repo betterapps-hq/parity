@@ -46,6 +46,9 @@ function Layout({ start }: { start: Draft }) {
 /** Vertical, children stretched across: `flex flex-col`, the default. */
 export const Vertical: Story = { render: () => <Layout start={{ direction: "column" }} /> }
 
+/** Vertical, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+export const Demo: Story = { ...Vertical, parameters: { demo: true } }
+
 /** Horizontal, centered both ways from the box's middle spot. */
 export const HorizontalCentered: Story = {
   render: () => <Layout start={{ direction: "row", justify: "center", align: "center" }} />
@@ -54,11 +57,6 @@ export const HorizontalCentered: Story = {
 /** Wrap: side by side, running onto new lines 24 pixels apart, the lines packed in the middle. */
 export const Wrapping: Story = {
   render: () => <Layout start={{ direction: "row", wrap: true, rowGap: { number: 24 }, lines: "center" }} />
-}
-
-/** A gap from a spacing token, shown as a chip: `gap-gutter`. */
-export const TokenGap: Story = {
-  render: () => <Layout start={{ direction: "row", gap: { token: "spacing-gutter" }, align: "center" }} />
 }
 
 /** Spread out by an Auto gap, a chip in Gap: space between them, the first and last at the edges, as Figma's does. */
@@ -76,9 +74,6 @@ export const Overlapping: Story = {
  * (`items-baseline`). The box draws them standing on one line, as text of different sizes does.
  */
 export const Baseline: Story = { render: () => <Layout start={{ direction: "row", align: "baseline" }} /> }
-
-/** Lined up by the last line, from More: their last lines line up (`items-baseline-last`). */
-export const LastBaseline: Story = { render: () => <Layout start={{ direction: "row", align: "last baseline" }} /> }
 
 /**
  * Reversed: the Reverse direction toggle beside Type is on, and its hint says the reading order no longer matches

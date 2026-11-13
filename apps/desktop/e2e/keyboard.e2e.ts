@@ -422,9 +422,7 @@ describe("how shortcuts are shown", () => {
         "Select matching layers Ctrl+Alt+A"
       ])
     )
-    expect(await items("View")).toEqual(
-      expect.arrayContaining(["Next screen or component N", "Previous screen or component Shift+N"])
-    )
+    expect(await items("View")).toEqual(expect.arrayContaining(["Zoom to fit Shift+1", "Zoom to selection Shift+2"]))
   })
 
   it("lists the nudges and the new keys in the Keyboard shortcuts dialog, as keycaps", async () => {

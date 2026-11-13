@@ -9,7 +9,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { kindName } from "@parity-app/editor"
 import { CircleMinus } from "lucide-react"
-import { useSyncExternalStore } from "react"
+import { useStore, windowStore } from "../store.ts"
 import { dropLines, type FrameDrops } from "./convert-to-frame.ts"
 
 /** The conversion waiting on an answer: which design, and what it would drop. */
@@ -21,36 +21,20 @@ interface Asking {
   convert: () => void
 }
 
-let asking: Asking | undefined
-const listeners = new Set<() => void>()
-
-function setAsking(next: Asking | undefined): void {
-  asking = next
-
-  for (const listener of listeners) {
-    listener()
-  }
-}
+const asking = windowStore<Asking | undefined>(() => undefined)
 
 /** Asks before a screen or component that would drop something becomes a frame (see `ConvertToFrameDialog`). */
 export function askToConvertToFrame(question: Asking): void {
-  setAsking(question)
+  asking.set(question)
 }
 
 /** Stops asking, as Cancel does, for when the dialog failed and was closed (PAR-667). */
 export function stopAskingToConvert(): void {
-  setAsking(undefined)
+  asking.set(undefined)
 }
 
 function useAsking(): Asking | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-
-      return () => listeners.delete(listener)
-    },
-    () => asking
-  )
+  return useStore(asking)
 }
 
 /**
@@ -62,7 +46,7 @@ export function ConvertToFrameDialog() {
   const lines = question ? dropLines(question.drops) : []
 
   return (
-    <Dialog open={!!question} onOpenChange={(open) => !open && setAsking(undefined)}>
+    <Dialog open={!!question} onOpenChange={(open) => !open && asking.set(undefined)}>
       {question && (
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -82,13 +66,13 @@ export function ConvertToFrameDialog() {
           </ul>
           <p className="text-sm text-muted-foreground">Undo brings them back.</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAsking(undefined)}>
+            <Button variant="outline" onClick={() => asking.set(undefined)}>
               Cancel
             </Button>
             <Button
               onClick={() => {
                 question.convert()
-                setAsking(undefined)
+                asking.set(undefined)
               }}
             >
               Convert to frame

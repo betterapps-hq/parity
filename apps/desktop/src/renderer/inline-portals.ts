@@ -1,3 +1,5 @@
+import { frameBody } from "./frame-host.ts"
+
 /**
  * Content a component portals out of its frame, as a dialog, a popover's popup or a menu do into `document.body`, drawn
  * inside the frame instead, in the flow after what's there, for a component preview (PAR-517). Out in the page it's
@@ -57,9 +59,7 @@ const framePortalAttribute = "data-canvas-portal"
 export function inlinePortals(host: Element, into: Element): () => void {
   const added = addedToPage(host)
 
-  const taken = [...(host.shadowRoot?.firstElementChild?.children ?? [])].filter((element) =>
-    element.hasAttribute(framePortalAttribute)
-  )
+  const taken = [...(frameBody(host)?.children ?? [])].filter((element) => element.hasAttribute(framePortalAttribute))
 
   const moved = [...taken, ...added].map((element) => ({ element, parent: element.parentElement }))
 
