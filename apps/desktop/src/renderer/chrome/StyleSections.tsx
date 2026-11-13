@@ -73,16 +73,23 @@ const noRoot: CapabilityDesign = { root: { id: "" } }
 export function StyleSections({
   editor,
   container,
-  takesStyle
+  takesStyle,
+  only
 }: {
   editor: StyleEditor
   /** The design the layers are in, which says whether one is its root or a frame's. */
   container?: ContainerSpec
   /** Whether a code component takes the layer's style; unknown counts as taking it. */
   takesStyle?: TakesStyle
+  /** One section and the one it holds, as a story draws a section alone; the panel draws every section. */
+  only?: StyleSection
 }) {
   const can = selectionCapabilities(container ?? noRoot, editor.selection.layers, takesStyle)
-  const { sections, controls } = styleParts(can)
+  const parts = styleParts(can)
+  const { controls } = parts
+  const sections = only
+    ? parts.sections.filter((section) => section === only || section === groups[only]?.holds)
+    : parts.sections
   const { edit, live } = useEditSession(editor)
   const tokens = useMemo(() => projectTokenSets(editor.tokens), [editor.tokens])
   const root = container?.root

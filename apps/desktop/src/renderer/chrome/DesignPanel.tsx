@@ -200,7 +200,7 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
  * A screen's or component's modes in its own order, each put in place by its handle. The first is the one it shows
  * first, so it always shows; each other's switch shows it beside the first.
  */
-function ModesSection({ entry }: { entry: ContainerEntry }) {
+export function ModesSection({ entry }: { entry: ContainerEntry }) {
   const { store, selection } = useProject()
   const settings = useModeSettings(store)
   const selected = useSelection(selection)

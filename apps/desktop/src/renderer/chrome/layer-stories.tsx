@@ -2,6 +2,9 @@ import { insertNode, setSlot } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Decorator } from "@storybook/react-vite"
 import type { ComponentType } from "react"
+import { useProject } from "../canvas/context.ts"
+import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
+import { useSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
 import { DesignTabFields } from "./DesignPanel.tsx"
@@ -29,6 +32,15 @@ export const renderSection = (Section: ComponentType) =>
       </PanelColumn>
     )
   }
+
+/** One of the selected design's sections alone, as `renderSection` draws a layer's. */
+export const renderDesignSection = (Section: ComponentType<{ entry: ContainerEntry }>) =>
+  renderSection(function Selected() {
+    const { store, selection } = useProject()
+    const entry = useContainerEntry(store, useSelection(selection).design)
+
+    return entry ? <Section entry={entry} /> : null
+  })
 
 export const inspectorStage: Decorator = (Story) => (
   <InspectorStage>

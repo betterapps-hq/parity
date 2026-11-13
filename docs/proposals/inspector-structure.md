@@ -117,5 +117,5 @@ Each step is its own pull request, and the app looks the same after each.
    new titles, so they moved first, in one pull request (PAR-1033): Controls › Fields, Unique and Lists, and every
    Controls › Controls story but Component instance and Content, which move with Sections. Inspector › Fields is Fields
    › All fields until it's split, and the app's Select is Fields › Select. Sections, Layers and Panel followed steps 2
-   to 4, also in PAR-1033. What's left is splitting Sections › Styles into one file per style section, and Layers ›
-   Designs' cases into Props, Components and Modes.
+   to 4, also in PAR-1033, then Sections › Styles split into one file per style section, and Layers › Designs' cases
+   into Props, Components and Modes.
