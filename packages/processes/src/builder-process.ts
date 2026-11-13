@@ -1,5 +1,12 @@
-import type { BuilderAdapter, BuilderRenderer, BuilderSession, BuilderStartOptions, CodeChange } from "./adapters.ts"
-import type { ComponentSource, ProjectConfig } from "./project.ts"
+import type {
+  BuilderAdapter,
+  BuilderRenderer,
+  BuilderSession,
+  BuilderStartOptions,
+  CodeChange,
+  ComponentSource,
+  ProjectConfig
+} from "@parity-app/core"
 
 /*
  * Each open project's builder runs in a process of its own, which ends when the project closes, so the system takes

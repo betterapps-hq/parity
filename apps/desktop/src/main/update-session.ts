@@ -1,4 +1,4 @@
-import { type UpdateEvent, type UpdateState, updateState } from "@parity-app/core"
+import { type UpdateEvent, type UpdateState, updateState } from "@parity-app/processes"
 import { z } from "zod"
 
 export interface UpdateDriver {

@@ -1,4 +1,4 @@
-import { distanceFromView, type PlaceInView, viewRank } from "@parity-app/core"
+import { distanceFromView, type PlaceInView, viewRank } from "@parity-app/processes"
 import { type RefObject, useEffect, useMemo } from "react"
 import { type Atom, atom } from "tldraw"
 

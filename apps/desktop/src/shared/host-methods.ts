@@ -1,5 +1,5 @@
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
-import type { UpdateState } from "@parity-app/core"
+import type { UpdateState } from "@parity-app/processes"
 import { z } from "zod"
 import { type AccountState, accountEmail, organizationId, signInRequest } from "./account.ts"
 import { type ConnectorState, connectorPlaced, connectorSearch } from "./connectors.ts"

@@ -1,14 +1,14 @@
 import { type ChildProcess, fork } from "node:child_process"
 import { availableParallelism } from "node:os"
 import { fileURLToPath } from "node:url"
+import type { CodeChange } from "@parity-app/core"
 import {
   type BuilderProcessClient,
   type BuilderProcessOptions,
   type BuilderProcessReply,
   type BuilderProcessSession,
-  type CodeChange,
   connectBuilderProcess
-} from "@parity-app/core"
+} from "@parity-app/processes"
 import { killTree } from "../shared/process-tree.ts"
 import type { BuilderReading } from "../shared/service.ts"
 import { inSpan } from "../shared/tracing.ts"

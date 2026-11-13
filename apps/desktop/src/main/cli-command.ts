@@ -4,7 +4,14 @@ import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises
 import { homedir, tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { promisify } from "node:util"
-import { type CliTarget, cliFolder, cliLaunchers, cliMarker, pathHasFolder, pathWithFolder } from "@parity-app/core"
+import {
+  type CliTarget,
+  cliFolder,
+  cliLaunchers,
+  cliMarker,
+  pathHasFolder,
+  pathWithFolder
+} from "@parity-app/processes"
 import type { CliInstall } from "../shared/protocol.ts"
 
 const run = promisify(execFile)

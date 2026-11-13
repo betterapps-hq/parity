@@ -1,11 +1,5 @@
-import {
-  type FrameGeometry,
-  type Guest,
-  offscreenWindows,
-  type RenderNode,
-  type ResolvedMode,
-  turns
-} from "@parity-app/core"
+import type { FrameGeometry, Guest, RenderNode, ResolvedMode } from "@parity-app/core"
+import { offscreenWindows, turns } from "@parity-app/processes"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
 import type { RenderJob, ServiceMethods } from "../../shared/protocol.ts"

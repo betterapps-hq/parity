@@ -9,7 +9,8 @@ models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and
 `@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
 (PAR-618), on 2026-11-05. `@parity-app/style-schema` holds the stored style and its CSS declarations (PAR-939), and the
 ledger of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints
-and reads classes through (PAR-943), on 2026-11-11. The first items are in Linear's Package boundaries stream.
+and reads classes through (PAR-943), on 2026-11-11. `@parity-app/processes` holds what the desktop app's processes
+decide, moved out of core (PAR-989), on 2026-11-12. The first items are in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -112,6 +113,7 @@ when it's spread through UI code. Today:
 | `@parity-app/telemetry`                 | Telemetry's event model without Sentry: the envelope, registered events with zod schemas, spans with W3C trace IDs, sinks, a test sink and the last 500 events.                                                              | New code, from [product-telemetry.md](product-telemetry.md) (PAR-618).                                                |
 | `@parity-app/media-player`              | Playing video with the app's own controls, at the edge since it's React: the player, a tile's preview and its length, and what the player's keys do.                                                                         | New code, approved in Storybook (PAR-891).                                                                            |
 | `@parity-app/style-schema`              | What a layer's style means: the stored style, its CSS declarations both ways, the ledger of CSS properties, validation, and the contract each styling framework's adapter implements ([style-package.md](style-package.md)). | `nodeStyle` in `core/document.ts` and the style-to-CSS in `core/render.ts` (PAR-939); the rest is PAR-940 to PAR-944. |
+| `@parity-app/processes`                 | What the app's processes decide: the builder process's messages, service restarts, the render queue and preview order, turns, the bitmap cache, WebP text, the CLI's launchers, code editors and updates.                    | Nine files from core used only by the app, such as `builder-process.ts` and `service-restarts.ts` (PAR-989).          |
 
 ### `@parity-app/code`: design and code, both ways
 

@@ -19,10 +19,10 @@ import type {
   DesignChange,
   LeftOutExport,
   ModesChange,
-  UpdateState,
   WrittenClasses
 } from "@parity-app/core"
 import type { CodeReference, EditStatus, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
+import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange } from "@parity-app/tokens"

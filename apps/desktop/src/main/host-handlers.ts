@@ -1,5 +1,5 @@
 import type { ConsoleEntry } from "@parity-app/agent"
-import type { UpdateState } from "@parity-app/core"
+import type { UpdateState } from "@parity-app/processes"
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import type { ProblemReport, ThemeSource } from "../shared/ipc-checks.ts"
 import type {

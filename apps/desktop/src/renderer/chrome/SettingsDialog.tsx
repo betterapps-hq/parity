@@ -8,7 +8,7 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type CodeEditorChoice, codeEditors } from "@parity-app/core"
+import { type CodeEditorChoice, codeEditors } from "@parity-app/processes"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { workspace } from "../workspace.ts"

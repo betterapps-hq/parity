@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The desktop app's process logic moves out of core into @parity-app/processes",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

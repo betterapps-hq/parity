@@ -1,6 +1,6 @@
 import { isAbsolute } from "node:path"
-import type { CodeEditorChoice } from "@parity-app/core"
 import { nonBlankString } from "@parity-app/core"
+import type { CodeEditorChoice } from "@parity-app/processes"
 import { z } from "zod"
 
 /**

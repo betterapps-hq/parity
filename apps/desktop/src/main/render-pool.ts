@@ -5,7 +5,7 @@ import {
   previewSizes,
   type RenderPriority,
   renderQueue
-} from "@parity-app/core"
+} from "@parity-app/processes"
 import type { Span } from "@parity-app/telemetry"
 import type { ConsoleContext, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { deviceBox, devicePixels } from "../shared/render-job.ts"
