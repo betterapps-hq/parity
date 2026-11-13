@@ -6186,6 +6186,15 @@ stay beside what they label instead of growing over the boards around it.
   showing every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few
   pixels each and show none, while a screen's rows, hundreds of pixels tall, keep theirs at 60%. The last row is
   measured the same way. A row's height is measured, since a frame that grows with its content sets it.
+- **A frame's name runs past it too.** A frame drawn on its own, as a story drawn from the code is, gets the same reach
+  as a board's title, out to the next design beside it. Before, its name was cut at the frame's edge at any zoom, so
+  "Badge / Default" over a 96-pixel badge read "Badge / …" even at 100%.
+- **A name that runs past its board shows while it has the room it runs into,** not only while the board under it is 24
+  screen pixels wide, so a narrow story keeps its name zoomed out where there's free canvas beside it.
+- **Packed stories leave room for their names.** Each story in a row takes at least its title's room (`titleRoom`): its
+  name's width at screen size, measured in the title's font, over 40%, the zoom below which names shrink with the
+  canvas, so the name takes the same room from there out to 24%, where it's down to its smallest. So every story's name
+  reads in full down to 24%. Further out, names are cut at the next story again.
 
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
@@ -6194,7 +6203,7 @@ state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` 
 `titleReach` in the package, applied by `useTitleReach` in `ContainerView.tsx`, with what else is on the page read from
 the canvas in `ContainerUtil.tsx`.
 
-Tests: `packages/editor/src/canvas-labels.test.ts` (16. `labelLook`, 8: every label at screen size up close; names
+Tests: `packages/editor/src/canvas-labels.test.ts` (17. `labelLook`, 8: every label at screen size up close; names
 shrinking to 60% and showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by
 25%; a label hiding once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail
 hiding with its title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a
@@ -6202,11 +6211,14 @@ tall row; its space measured from its top to the next row's label; and hiding wi
 board too narrow for its title. `titleReach`, 6: to the next board level with it, short of 8 screen pixels; the nearest
 of several; a board lower down whose title is level; boards to its left, above or below ignored; never narrower than the
 board; and the band of the canvas a title covers growing further out. `titleTop`, 2: 42 screen pixels above its board up
-close, and more of the canvas zoomed out). Gaps: applying the look to the DOM (the transform, the width it fits, the
-clipped icon and the row's measured height) has no automated test. It was checked in Storybook on the example's boards
-at 100%, 25%, 5% and 1%, and for PAR-155 on a row of component boards showing every state. For PAR-787 it was checked in
+close, and more of the canvas zoomed out. `titleRoom`, 1: a board that much from the next leaves its title room to read
+in full at 100%, 40%, 30% and 24%). Gaps: applying the look to the DOM (the transform, the width it fits, the clipped
+icon and the row's measured height) has no automated test. It was checked in Storybook on the example's boards at 100%,
+25%, 5% and 1%, and for PAR-155 on a row of component boards showing every state. For PAR-787 it was checked in
 Storybook's zoomed-out boards at 4% and 10%: screen names and "Plan card" and "Stat card" read in full, and a name with
-a board close beside it still truncates. A title running past its board can still cross a state label beside the next
+a board close beside it still truncates. On 2026-11-13 the example's stories were checked in the running app at 100%,
+50% and 25%, where every story's name reads in full, and at 10%, where they're cut again. `storyPositions` and the
+title's measured width have no unit test. A title running past its board can still cross a state label beside the next
 board's rows; that has no test.
 
 ### A board's gutter keeps its screen size up close (PAR-602)

@@ -131,8 +131,8 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   useBoardInternals(board, entry)
 
   const titleBar = (
-    // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
-    <TitleBar active={hovered || isSelected} width={undefined} quiet>
+    // Its name runs past a narrow frame, out to the next design beside it, rather than being cut off at the frame's edge.
+    <TitleBar active={hovered || isSelected} width={title?.width} board={title} quiet>
       <TitleButton
         entry={entry}
         selected={isSelected}

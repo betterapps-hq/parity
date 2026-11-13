@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { labelLook, stateLabelSpace, titleReach, titleTop } from "./canvas-labels.ts"
+import { labelLook, stateLabelSpace, titleReach, titleRoom, titleTop } from "./canvas-labels.ts"
 
 describe("labelLook", () => {
   it("keeps every label at screen size up close", () => {
@@ -120,5 +120,19 @@ describe("titleTop", () => {
   it("takes more of the canvas zoomed out, as the name shrinks less than the canvas", () => {
     // At 10% a name draws at 60%: 25.2 screen pixels, 252 of the canvas.
     expect(titleTop({ y: 1000 }, 0.1)).toBeCloseTo(748)
+  })
+})
+
+describe("titleRoom", () => {
+  it("leaves a narrow board's title room to read in full before the next board, from up close out to 24%", () => {
+    const width = 90
+    const board = { x: 0, y: 0, w: 40, h: 40 }
+    const next = { x: titleRoom(width), y: 0, w: 40, h: 40 }
+
+    for (const zoom of [1, 0.4, 0.3, 0.24]) {
+      const reach = titleReach(board, [next], zoom, labelLook("name", zoom).scale) ?? 0
+
+      expect(reach * zoom).toBeGreaterThanOrEqual(width * labelLook("name", zoom).scale - 1e-9)
+    }
   })
 })

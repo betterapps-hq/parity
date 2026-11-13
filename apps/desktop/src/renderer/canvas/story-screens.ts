@@ -1,5 +1,5 @@
 import { addDesigns, type CanvasDocument, type ImportedScreen } from "@parity-app/core"
-import { moveDesign, type PackedBox, packRows } from "@parity-app/editor"
+import { moveDesign, type PackedBox, packRows, titleRoom } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { Editor } from "tldraw"
 import type { ContainerEntry, DesignStore } from "../design-store.ts"
@@ -77,12 +77,14 @@ export function storyPlaces(info: Pick<ProjectInfo, "entities">): ReadonlyMap<st
 
 /**
  * Where each story goes once the canvas has measured it: its row, as the stories were first laid out, packed left to
- * right by the stories' sizes, so a badge's row is as narrow as its badges. The rows start from the stories' top, and
- * the widest ends `layout.beside` left of the boards and pages.
+ * right by the stories' sizes, so a badge's row is as narrow as its badges. Each takes at least the room its title
+ * needs (`titleWidth`, in screen pixels, through `titleRoom`), so a narrow story's name reads in full zoomed out. The
+ * rows start from the stories' top, and the widest ends `layout.beside` left of the boards and pages.
  */
 export function storyPositions(
   entries: readonly ContainerEntry[],
-  sizeOf: (entry: ContainerEntry) => { width: number; height: number } | undefined
+  sizeOf: (entry: ContainerEntry) => { width: number; height: number } | undefined,
+  titleWidth: (entry: ContainerEntry) => number = () => 0
 ): Map<string, { x: number; y: number }> {
   const stories = entries.filter((entry) => entry.path === storyScreensFile)
 
@@ -95,7 +97,11 @@ export function storyPositions(
     .map(([, row]) =>
       row
         .toSorted((a, b) => a.container.position.x - b.container.position.x)
-        .map((entry): PackedBox => ({ key: entry.key, ...(sizeOf(entry) ?? layout.guess) }))
+        .map((entry): PackedBox => {
+          const size = sizeOf(entry) ?? layout.guess
+
+          return { key: entry.key, ...size, width: Math.max(size.width, titleRoom(titleWidth(entry))) }
+        })
     )
 
   const widest = Math.max(
@@ -108,6 +114,27 @@ export function storyPositions(
   }
 
   return packRows(rows, origin, layout.gaps)
+}
+
+/** What a board's title has besides its name, in screen pixels: its padding, its icon and the gap after it. */
+const titleChrome = 4 + 16 + 6 + 4
+
+let measure: CanvasRenderingContext2D | null | undefined
+
+/**
+ * How wide a board's title is at screen size, in screen pixels: its name in the title's font, a medium 14px, and
+ * `titleChrome`.
+ */
+function titleWidth(name: string): number {
+  measure ??= document.createElement("canvas").getContext("2d")
+
+  if (!measure) {
+    return 0
+  }
+
+  measure.font = `500 14px ${getComputedStyle(document.body).fontFamily}`
+
+  return measure.measureText(name).width + titleChrome
 }
 
 /**
@@ -128,7 +155,7 @@ export function followStoryLayout(editor: Editor, store: DesignStore): () => voi
   const layOut = () => {
     frame = undefined
     const entries = store.getEntries()
-    const placed = storyPositions(entries, sizeOf)
+    const placed = storyPositions(entries, sizeOf, (entry) => titleWidth(entry.container.name))
 
     const moved = entries.filter((entry) => {
       const to = placed.get(entry.key)

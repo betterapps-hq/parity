@@ -16,7 +16,7 @@ export {
   wrapInLayout
 } from "./arrange.ts"
 
-export { type BoardBox, type LabelKind, labelLook, stateLabelSpace, titleReach } from "./canvas-labels.ts"
+export { type BoardBox, type LabelKind, labelLook, stateLabelSpace, titleReach, titleRoom } from "./canvas-labels.ts"
 
 export {
   applyStyle,
