@@ -9,16 +9,44 @@ import { killTree } from "../shared/process-tree.ts"
  * (PAR-987): a spawned command, as Storybook or a package manager, a forked script with an IPC channel, as a builder,
  * and a worker thread, as the type checker. Every child started here ends when the service ends by itself. One that
  * main kills runs no exit handler, so main ends the service's whole process tree (PAR-980), and each builder ends when
- * its link to the service closes.
+ * its link to the service closes. One that crashes runs none either, and its children can't be found from it once it's
+ * gone, so the service tells main which processes it's running, and main ends their trees after a crash (PAR-1019).
  */
 
 const running = new Set<Lifecycle>()
+
+let reportChildren: (pids: number[]) => void = () => undefined
+
+/** The ids of the processes started here that are still running. Worker threads have none. */
+function runningPids(): number[] {
+  return [...running].flatMap((life) => (life.pid === undefined ? [] : [life.pid]))
+}
+
+/**
+ * Calls `report` with the ids of the processes started here that are still running, now and each time one starts or
+ * ends, so main can end them should the service crash (PAR-1019).
+ */
+export function reportRunningChildren(report: (pids: number[]) => void): void {
+  reportChildren = report
+  report(runningPids())
+}
 
 /** Watches a child through the lifecycle until it ends, and ends it with the service. */
 function watch(child: ChildHandle): Lifecycle {
   const life = lifecycle(child)
   running.add(life)
-  void life.exited.then(() => running.delete(life))
+
+  if (life.pid !== undefined) {
+    reportChildren(runningPids())
+  }
+
+  void life.exited.then(() => {
+    running.delete(life)
+
+    if (life.pid !== undefined) {
+      reportChildren(runningPids())
+    }
+  })
 
   return life
 }

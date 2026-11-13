@@ -308,6 +308,7 @@ const projectService = createProjectService({
         }
       })
     ),
+  endTree: killTree,
   handlers: {
     render: ({ job, capture }) => renderPool.render(job, capture),
     preview: ({ job, crop, priority }) => renderPool.preview(job, crop, priority),

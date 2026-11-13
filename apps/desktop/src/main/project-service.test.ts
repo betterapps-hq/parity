@@ -15,17 +15,29 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** A forked service, which a test makes print and exit. */
+/** A forked service, which a test makes print, say which processes it's running, and exit. */
 interface FakeService extends ServiceProcess {
   killed: boolean
   print(text: string): void
+  /** Tells main the processes it's running, as the service's `children` request does. */
+  running(pids: readonly (number | string | null)[]): Promise<void>
   exit(exitCode: number): void
 }
 
 function fakeService(): FakeService {
   const output: ((text: string) => void)[] = []
   const exits: ((exitCode: number) => void)[] = []
-  const messages: NodeEmitter = { on: () => undefined, postMessage: () => undefined }
+  const received: Parameters<NodeEmitter["on"]>[1][] = []
+  let requests = 0
+
+  const messages: NodeEmitter = {
+    on: (event, listener) => {
+      if (event === "message") {
+        received.push(listener)
+      }
+    },
+    postMessage: () => undefined
+  }
 
   const service: FakeService = {
     messages,
@@ -40,6 +52,14 @@ function fakeService(): FakeService {
       for (const listener of output) {
         listener(text)
       }
+    },
+    async running(pids) {
+      for (const listener of received) {
+        listener({ type: "request", id: ++requests, method: "children", params: pids })
+      }
+
+      // The channel answers a request a task later.
+      await vi.advanceTimersByTimeAsync(0)
     },
     exit(exitCode) {
       for (const listener of exits) {
@@ -61,8 +81,9 @@ interface FakeWindow {
 /** Parity's page in a development copy. */
 const parityUrl = "http://localhost:5310/"
 
-// SAFETY: the lifecycle passes handlers to the channel without calling them, and these tests never send it a request.
-const handlers = {} as Handlers<MainMethods>
+// SAFETY: the lifecycle passes handlers to the channel without calling them, and these tests send it no request but
+// `children`, which the lifecycle answers itself.
+const handlers = {} as Handlers<Omit<MainMethods, "children">>
 
 function setup({ missing }: { missing?: string } = {}) {
   const forked: FakeService[] = []
@@ -78,6 +99,8 @@ function setup({ missing }: { missing?: string } = {}) {
     crashed: vi.fn<(exit: Parameters<typeof serviceCrash>[0]) => void>()
   }
 
+  const ended: number[] = []
+
   const service = createProjectService<FakeService, FakeWindow>({
     fork() {
       const fresh = fakeService()
@@ -86,6 +109,7 @@ function setup({ missing }: { missing?: string } = {}) {
       return fresh
     },
     handlers,
+    endTree: (pid) => void ended.push(pid),
     windows: () => windows,
     loading: (window) => window.loading,
     parityPage: (window) => onPage(window.url ?? parityUrl, parityUrl),
@@ -102,6 +126,7 @@ function setup({ missing }: { missing?: string } = {}) {
     windows,
     joined,
     telemetry,
+    ended,
     quit: () => {
       quitting = true
     },
@@ -276,5 +301,36 @@ describe("createProjectService", () => {
     forked[0]?.exit(1)
     expect(telemetry.crashed).not.toHaveBeenCalled()
     expect(console.error).not.toHaveBeenCalled()
+  })
+
+  it("ends the processes a crashed service said it was running, as its Storybook, as of what it said last", async () => {
+    const { service, forked, ended } = setup()
+    service.start()
+    await forked[0]?.running([4100])
+    await forked[0]?.running([4100, 4200])
+    await forked[0]?.running([4200])
+    expect(ended).toEqual([])
+    forked[0]?.exit(1)
+    expect(ended).toEqual([4200])
+  })
+
+  it("leaves the processes of a service it ended to the tree it ended with it", async () => {
+    const { service, forked, ended } = setup()
+    service.start()
+    await forked[0]?.running([4100])
+    service.start()
+    forked[0]?.exit(1)
+    await forked[1]?.running([4200])
+    service.stop()
+    forked[1]?.exit(1)
+    expect(ended).toEqual([])
+  })
+
+  it("takes only process ids from what a service says it's running", async () => {
+    const { service, forked, ended } = setup()
+    service.start()
+    await forked[0]?.running([4100, -1, 0, 1.5, "4300", null])
+    forked[0]?.exit(1)
+    expect(ended).toEqual([4100])
   })
 })

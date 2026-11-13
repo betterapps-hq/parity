@@ -21,6 +21,7 @@ import {
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
 import { cacheUse, reportCacheUse } from "./cache-use.ts"
+import { reportRunningChildren } from "./children.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
@@ -273,6 +274,12 @@ process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain
 mainProcess.serve({ builders: () => builderReadings() })
 
 mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
+
+reportRunningChildren((pids) => {
+  mainProcess.request("children", pids).catch(() => {
+    // Main went away, and ended this service's whole tree as it went.
+  })
+})
 
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()

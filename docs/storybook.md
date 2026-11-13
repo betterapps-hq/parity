@@ -73,8 +73,11 @@ The book buttons in the Components panel and the layer panel, and the Storybook 
   there is one, else the first story. Both open through Storybook's manager (`/?path=/docs/<id>` or
   `/?path=/story/<id>`), never `iframe.html`. With nothing matched, Storybook's home opens.
 - **Where it opens.** The system browser, through Electron's window-open handler.
-- **Stopping it.** When the project's tab closes, or the service exits, Parity stops the Storybook it started: the whole
-  process tree on Windows, and the direct child process elsewhere.
+- **Stopping it.** When the project's tab closes, or the service exits, Parity stops the Storybook it started and every
+  process that Storybook started. When main quits or replaces the service, it ends the service's whole process tree,
+  Storybook included (PAR-980). A service that crashes can't stop anything, and its children can't be found from it once
+  it's gone, so the service tells main the ids of the processes it's running as each starts and ends, and main ends
+  their trees when the service exits by itself (PAR-1019).
 - **Performance stats leave it out,** because it runs outside the app.
 
 ### What reaches the UI

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "End a crashed project service's Storybook and other servers, which it can no longer stop itself",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
