@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Each style section, and a design's Props, Components and Modes, has its own Storybook stories",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
