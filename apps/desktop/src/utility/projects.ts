@@ -49,6 +49,7 @@ import {
   findLockfiles,
   findPackage,
   exportEntities,
+  adapterStatus,
   importEntities,
   importersOf,
   lockfileFolders,
@@ -466,6 +467,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       routes,
       entities,
+      pkg,
       saved
     }
   }
@@ -544,6 +546,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       routes,
       entities,
+      pkg,
       saved
     } = await inSpan("project.detected", { root }, () => detect(root, opening))
 
@@ -590,6 +593,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       guestUrl: session.guestUrl,
       routes,
       entities,
+      status: adapterStatus(
+        [
+          { adapter: renderer },
+          { adapter: builder, version: session.toolVersion },
+          ...(adapters.routers ?? []).filter((adapter) => adapter.detect(pkg)).map((adapter) => ({ adapter })),
+          ...(adapters.entities ?? []).filter((adapter) => adapter.detect(pkg)).map((adapter) => ({ adapter }))
+        ],
+        detection,
+        entities,
+        routes
+      ),
       config,
       detection,
       documents,

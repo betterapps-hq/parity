@@ -44,6 +44,15 @@ export const viteBuilder: BuilderAdapter = {
   name: "Vite",
   configFiles: viteConfigFiles,
   detect: detectVite,
+  status: ({ version, packageManager }) => [
+    {
+      icon: "hammer",
+      value: "Vite",
+      words: version && ` ${version}`,
+      hint: version ? `Vite ${version}` : "Vite",
+      detail: `Builds the project, with ${packageManager}`
+    }
+  ],
   async start(options) {
     // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
     // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.

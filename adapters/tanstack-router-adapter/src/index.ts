@@ -11,5 +11,20 @@ export const tanstackRouter: RouterAdapter = {
   id: "tanstack-router",
   name: "TanStack Router",
   detect,
-  readRoutes
+  readRoutes,
+  // The root route only holds the others, so it isn't counted.
+  status: ({ version, routes = [] }) => {
+    const count = routes.filter((route) => route.parent !== undefined).length
+
+    return [
+      {
+        icon: "route",
+        value: count.toLocaleString(),
+        words: count === 1 ? " route" : " routes",
+        hint: version ? `TanStack Router ${version}` : "TanStack Router",
+        detail: "Click to show them",
+        opens: { tab: "layers" }
+      }
+    ]
+  }
 }

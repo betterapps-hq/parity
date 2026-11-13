@@ -7285,6 +7285,35 @@ Gaps: a design that's hovered but not selected shows its menus, and they're in t
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
 
+### Each tool's status bar item comes from its adapter
+
+The status bar starts with an item for each of the project's tools, which that tool's adapter writes, then the
+components and tokens Parity found. A new adapter adds its items without the app changing.
+
+- **An adapter says what its item is.** Any adapter (renderer, builder, styles, router or entities) can have `status`,
+  which returns `StatusItem`s: a Lucide icon by name, a bold value, the words after it, the tooltip's title and line,
+  and what a click opens, which is a left panel tab or a tool the app runs (only `storybook` so far). The window draws
+  the icon by its name with Lucide's `DynamicIcon`, and draws a plain circle for a name Lucide doesn't have.
+- **It's told what Parity found.** The service calls each adapter the project uses with its tool's version (the running
+  builder's, otherwise detection's), the package manager, the entities it imported and the app's routes. It then adds
+  "Parity doesn't test this version" to an untested tool's tooltip, so adapters don't each repeat it.
+- **What the example shows:** React; Vite 8.3.5; 8 routes from TanStack Router, which opens Layers, where they're listed
+  (the root route isn't counted); and 12 stories from Storybook, which opens Storybook. Storybook's item used to count
+  components with stories (4), which wasn't the number of stories the canvas shows.
+- **Not yet.** Tailwind has no item of its own; it's named in the tokens' tooltip. The components and tokens items stay
+  the app's, since their counts change while the project is open.
+
+Tried on 2026-11-13 in the running app on the example, as above.
+
+Code: `StatusItem`, `StatusFacts` and each adapter interface's `status` in `packages/core/src/adapters.ts`;
+`adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
+`apps/desktop/src/utility/projects.ts`; the items in `adapters/react-adapter`, `vite-adapter`, `tanstack-router-adapter`
+and `storybook-adapter`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+
+Tests: Storybook, `chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the React, Vite and
+Storybook adapters (`.storybook/example-project.ts`). Gaps: no unit test calls `adapterStatus`, and the story play
+functions weren't run.
+
 ### The status bar's process lights stay off the main thread (PAR-524)
 
 Each process in the status bar has a light: a running server's breathes, a starting or stopping one's ring turns, a
@@ -7304,15 +7333,15 @@ breathes almost all the time, and it mustn't cost the window anything while noth
 - **The lights stand alone.** The status bar shows no words beside them. What they used to say (a crash or failed task,
   what's starting, a running task and its progress, or how many run) is now their tooltip and accessible name, and
   clicking them opens the flyout.
-- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer and
-  builder show only their icons; components, tokens and Storybook show their icons and counts (Storybook's is how many
-  components have stories); a failed save is its warning icon; and the performance stats are the gauge and the frame
-  rate. The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width
-  (checked at 375px).
+- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), each tool's item shows
+  its icon and its bold value (React's name, Vite's name, the counts of routes and stories); components and tokens show
+  their icons and counts; a failed save is its warning icon; and the performance stats are the gauge and the frame rate.
+  The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width (checked at
+  375px).
 - **Every tooltip has one shape:** a short title (the item's name and version, or its count), then one short line on
-  what it does or what a click does, such as "Storybook 10.6.5" over "3 components with stories. Click to open it". An
-  untested version adds "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since
-  they can run long: a failed save's reason is in its notification.
+  what it does or what a click does, such as "Storybook 10.6.5" over "Click to open it". An untested version adds
+  "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since they can run long: a
+  failed save's reason is in its notification.
 - **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
   600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
 

@@ -3,10 +3,11 @@ import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { hasElementSources, inferProps } from "@parity-app/code"
 import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
-import { detectProject, discoverProject, readPackage } from "@parity-app/project"
+import { adapterStatus, detectProject, discoverProject, importEntities, readPackage } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/react-adapter"
+import { storybookAdapter } from "@parity-app/storybook-adapter"
 import { tailwindStyles } from "@parity-app/tailwind-adapter"
-import { guestModuleSource, taggedModule } from "@parity-app/vite-adapter"
+import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/vite-adapter"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 
@@ -168,6 +169,10 @@ async function discover(): Promise<{
   const documents = [await readDocument(mainDocument)]
   const main = documents[0]?.document
 
+  const detection = await detectProject(root, pkg)
+  const entities = await importEntities(root, pkg, config.components, [storybookAdapter])
+  const tools = [{ adapter: reactRenderer }, { adapter: viteBuilder, version: "8" }, { adapter: storybookAdapter }]
+
   const info: Omit<ProjectInfo, "guestUrl"> = {
     id: root,
     root,
@@ -177,11 +182,12 @@ async function discover(): Promise<{
     theme,
     routes: [],
     entities: {},
+    status: adapterStatus(tools, detection, entities),
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,
     notes: config.notes,
-    detection: await detectProject(root, pkg),
+    detection,
     documents,
     mainDocument,
     modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }

@@ -38,6 +38,19 @@ export function olderProjectAt(folder: string): ProjectInfo {
   return {
     ...info,
     builder: { ...info.builder, toolVersion: "5" },
+    // As the service tells each adapter's item: at its old version, and saying Parity doesn't test it.
+    status: info.status.map((item) => {
+      const old = dropped.get(item.adapter)
+
+      return old
+        ? {
+            ...item,
+            words: item.words && ` ${old.version}`,
+            hint: `${item.value} ${old.version}`,
+            detail: `${item.detail ?? item.hint}. Parity doesn't test this version`
+          }
+        : item
+    }),
     detection: {
       ...info.detection,
       tools: info.detection.tools.map((tool) => {

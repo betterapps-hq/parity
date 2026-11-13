@@ -207,7 +207,12 @@ export const SmallProjectWithoutStorybook: Story = {
     async () => {
       await openProjects()
       preferring({ performanceStats: false })
-      await openAlso({ ...projectAt("D:/projects/landing-page"), componentCount: 1, storybook: undefined })
+      await openAlso({
+        ...projectAt("D:/projects/landing-page"),
+        componentCount: 1,
+        storybook: undefined,
+        status: projectAt("D:/projects/landing-page").status.filter((item) => item.adapter !== "storybook")
+      })
       workspace.activate("D:/projects/landing-page")
     }
   ]
@@ -284,7 +289,7 @@ export const OpeningStorybook: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
+    await userEvent.click(await body().findByRole("button", { name: /stories$/ }))
     await holdToast("Opening Storybook…")
   }
 }
@@ -299,7 +304,7 @@ export const OpenedStorybook: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
+    await userEvent.click(await body().findByRole("button", { name: /stories$/ }))
     await holdToast("Opened in your browser")
   }
 }
@@ -318,7 +323,7 @@ export const StorybookFailed: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
+    await userEvent.click(await body().findByRole("button", { name: /stories$/ }))
     await holdToast("Couldn't open Storybook")
   }
 }

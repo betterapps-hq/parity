@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { basename, extname, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
+  type AdapterStatusItem,
   type ComponentSource,
   type ContainerSpec,
   type DescribedTokens,
@@ -16,9 +17,13 @@ import {
   parseLibraryManifest,
   type ProjectConfig,
   type ProjectEntities,
-  type RendererAdapter
+  type ProjectRoute,
+  type RendererAdapter,
+  type StatusFacts,
+  type StatusItem
 } from "@parity-app/core"
 import { parseJsonc } from "@parity-app/registry"
+import type { ProjectDetection } from "./detection.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { componentFor, findStorybook } from "./storybook.ts"
 import { type ShadcnConfig, shadcnConfig, stylesWith } from "./styles.ts"
@@ -314,6 +319,43 @@ export async function importEntities(
   }
 
   return entities
+}
+
+/** An adapter that may add items to the status bar, with what Parity found of its tool. */
+export interface StatusSource {
+  adapter: { id: string; status?(facts: StatusFacts): StatusItem[] }
+  /** The tool's version when the running tool says it; otherwise detection's. */
+  version?: string
+}
+
+/**
+ * The status bar's items, as each adapter in `sources` tells them, in order. An entities adapter is told the entities
+ * it imported, and a router the app's routes; an item from a tool at a version Parity doesn't test says so in its tooltip.
+ */
+export function adapterStatus(
+  sources: readonly StatusSource[],
+  detection: ProjectDetection,
+  entities: ProjectEntities,
+  routes: readonly ProjectRoute[] = []
+): AdapterStatusItem[] {
+  return sources.flatMap(({ adapter, version }) => {
+    const detected = detection.tools.find((tool) => tool.id === adapter.id)
+    const untested = detected?.status === "dropped" || detected?.status === "newer"
+    const screens = entities.screens?.filter((screen) => screen.adapter === adapter.id)
+
+    const items = adapter.status?.({
+      version: version ?? detected?.version,
+      packageManager: detection.packageManager.name,
+      entities: { screens, sources: entities.sources },
+      routes
+    })
+
+    return (items ?? []).map((item) => ({
+      ...item,
+      adapter: adapter.id,
+      detail: untested ? `${item.detail ?? item.hint}. Parity doesn't test this version` : item.detail
+    }))
+  })
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { ComponentList } from "@parity-app/code"
 import {
+  type AdapterStatusItem,
   type CanvasDocument,
   type ComponentSource,
   defaultModeSettings,
@@ -44,6 +45,8 @@ export interface ProjectInfo {
   leftOut?: LeftOutExport[]
   /** How the project was discovered. */
   notes: string[]
+  /** What the project's tools add to the status bar, as each one's adapter tells it. */
+  status: AdapterStatusItem[]
   /**
    * What detection found and where: the package manager, and the version and config of each tool Parity runs or
    * renders with. Its `notice` names versions the cutoff drops.
@@ -81,6 +84,7 @@ export interface OpenedProject {
   guestUrl: string
   routes: ProjectRoute[]
   entities: ProjectEntities
+  status: AdapterStatusItem[]
   config: DiscoveredProject
   detection: ProjectDetection
   documents: DocumentEntry[]
@@ -107,6 +111,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     storybook: config.storybook,
     describedTokens: config.describedTokens,
     notes: config.notes,
+    status: opened.status,
     detection: opened.detection,
     documents: opened.documents,
     mainDocument: opened.mainDocument,

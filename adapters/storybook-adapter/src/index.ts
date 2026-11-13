@@ -20,5 +20,19 @@ export const storybookAdapter: EntitiesAdapter = {
   name: "Storybook",
   detect,
   import: importStoryScreens,
-  export: exportStoryScreen
+  export: exportStoryScreen,
+  status: ({ version, entities }) => {
+    const stories = entities?.screens?.length ?? 0
+
+    return [
+      {
+        icon: "book-open",
+        value: stories.toLocaleString(),
+        words: stories === 1 ? " story" : " stories",
+        hint: version ? `Storybook ${version}` : "Storybook",
+        detail: "Click to open it",
+        opens: { tool: "storybook" }
+      }
+    ]
+  }
 }

@@ -15,7 +15,15 @@ export const reactRenderer: RendererAdapter = {
   developmentStandIns: { "/jsx-dev-runtime": 'export { Fragment, jsx as jsxDEV } from "$base/jsx-runtime"' },
   // `.ts` too: a component can be made with `createElement`, or be an alias such as `const Select = Primitive.Root`.
   componentExtensions: [".tsx", ".ts", ".jsx", ".js"],
-  findComponents
+  findComponents,
+  status: ({ version }) => [
+    {
+      icon: "brush",
+      value: "React",
+      hint: version ? `React ${version}` : "React",
+      detail: "Renders the project's components"
+    }
+  ]
 }
 
 /**

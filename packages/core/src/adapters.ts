@@ -73,6 +73,43 @@ export function parseManifest(text: string, file: string): PackageManifest {
 }
 
 /**
+ * What an adapter adds to the status bar about its tool, which the app draws as it's given: an icon, a value in bold,
+ * and words after it, with a tooltip. A project's tools each tell their own, so a new adapter adds its items without
+ * the app changing.
+ */
+export interface StatusItem {
+  /** A Lucide icon's name, as `book-open`. */
+  icon: string
+  /** What's in bold: the tool's name, or a count. */
+  value: string
+  /** The words after it, as ` in Storybook` or ` 8.3.5`, which a narrow status bar leaves to screen readers. */
+  words?: string
+  /** The tooltip's title. */
+  hint: string
+  /** The tooltip's line, saying what it does or what clicking it does. */
+  detail?: string
+  /** What clicking it opens: one of the app's left panel tabs, or a tool the app runs, as `storybook`. */
+  opens?: { tab: string } | { tool: string }
+}
+
+/** What an adapter's status items are made from: what Parity found of its tool in the project. */
+export interface StatusFacts {
+  /** The tool's version, as detection or the running tool says it. */
+  version?: string
+  /** The project's package manager's name. */
+  packageManager: string
+  /** The entities an entities adapter imported. */
+  entities?: ProjectEntities
+  /** The app's routes, which a router read. */
+  routes?: readonly ProjectRoute[]
+}
+
+/** A status item, with the adapter that gave it. */
+export interface AdapterStatusItem extends StatusItem {
+  adapter: string
+}
+
+/**
  * Mounts components of one UI framework (React, Vue, Svelte…).
  *
  * The adapter has two halves. This object runs in the host and describes the framework. Its guest module is compiled by
@@ -102,6 +139,8 @@ export interface RendererAdapter {
    * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export.
    */
   findComponents(source: string, file: string): ComponentExport[]
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** An export a renderer recognises as a component. */
@@ -154,6 +193,8 @@ export interface BuilderAdapter {
   /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
   detect(root: string): Promise<BuilderDetection>
   start(options: BuilderStartOptions): Promise<BuilderSession>
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** What a builder found: the tool's version and config file, or what it looked for when it found nothing. */
@@ -406,6 +447,8 @@ export interface StylesAdapter {
    * custom properties, which `writeTokenChanges` in `@parity-app/tokens` writes.
    */
   writeTokens(source: string, writes: readonly TokenWrite[], theme: readonly ThemeVariable[]): string
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
@@ -441,6 +484,8 @@ export interface EntitiesAdapter {
    * text. None when the edit is one the tool's files can't hold.
    */
   export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** A file an adapter writes, by its path from the project's root, with its whole new text. */
@@ -495,6 +540,8 @@ export interface RouterAdapter {
    * there, as before its tooling first writes them.
    */
   readRoutes(read: (path: string) => string | undefined): ProjectRoute[]
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
 }
 
 /** One route of an app, as its router declares it. */
