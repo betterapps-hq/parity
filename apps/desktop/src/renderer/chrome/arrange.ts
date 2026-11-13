@@ -4,6 +4,7 @@ import {
   alignInLayouts,
   type Alignment,
   copyLayersInPlace,
+  deleteDesign,
   type DesignBox,
   designsLocked,
   distributeBoxes,
@@ -11,7 +12,6 @@ import {
   layersLocked,
   lockableIds,
   type Order,
-  removeDesigns,
   removeLayers,
   reorderLayer,
   repositionDesigns,
@@ -114,13 +114,9 @@ export function deleteDesigns(session: ProjectDesigns): boolean {
     return false
   }
 
-  session.store.change(`Delete ${kindsName(entries.map((entry) => entry.container.kind))}`, (snapshot) => ({
-    ...snapshot,
-    documents: removeDesigns(
-      snapshot.documents,
-      entries.map((entry) => ({ path: entry.path, id: entry.container.id }))
-    )
-  }))
+  session.store.change(`Delete ${kindsName(entries.map((entry) => entry.container.kind))}`, (snapshot) =>
+    deleteDesign(snapshot, ...entries.map((entry) => ({ path: entry.path, id: entry.container.id })))
+  )
   session.selection.set({})
 
   return true

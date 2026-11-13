@@ -1755,12 +1755,12 @@ the canvas and shows the messages. Hide is core's `toggleHidden`.
 
 Tests: `packages/editor/src/arrange.test.ts`: the outermost layers and the root; deleting and what's selected next (in a
 layout, the root and a slot); duplicating in place with fresh ids (in a layout, a slot, a copied layout's children, and
-nothing to copy); deleting designs from their own documents; siblings in a layout and a slot; wrapping in a row, a
-column and another state, with the shared fixture's card in its Inline option and in a viewport, and layers that can't
-be wrapped; unwrapping, and layers that aren't layouts; each order in a layout and a slot, and orders that wouldn't
-move; aligning on the cross and main axes in two states, in a row a variant makes and a column a viewport shows, and in
-a slot; aligning designs by edges and centers, with a box offset from its position; distributing across and down
-whatever the selection's order; and moving designs in whole pixels.
+nothing to copy); siblings in a layout and a slot; wrapping in a row, a column and another state, with the shared
+fixture's card in its Inline option and in a viewport, and layers that can't be wrapped; unwrapping, and layers that
+aren't layouts; each order in a layout and a slot, and orders that wouldn't move; aligning on the cross and main axes in
+two states, in a row a variant makes and a column a viewport shows, and in a slot; aligning designs by edges and
+centers, with a box offset from its position; distributing across and down whatever the selection's order; and moving
+designs in whole pixels.
 
 Gaps: the commands, menus and messages have no automated test. They didn't change when the rules moved into the package.
 
@@ -1859,7 +1859,9 @@ in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fix
 `packages/code/src/props.ts`. The app's `canvas/insert.ts` finds where a drop lands through `placeAtPoint` in
 `canvas/paste-here.ts`, the step drops, Paste here and the text tool share, and applies an insert to the selection and
 the store, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts` adds a new
-design and zooms to it.
+design and zooms to it. Every design added to or deleted from a file, by the editor or an agent, goes through core's
+`addDesigns` and `removeDesigns` in `packages/core/src/designs.ts`, and a new file starts as its `emptyDocument`, so the
+format's version is written only in `formatVersion` (PAR-1052).
 
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
@@ -1869,28 +1871,31 @@ dragged from the Assets panel read back, and a drag that isn't an item read as n
 (PAR-595). Where a drop lands is `slotHere`'s, in `packages/editor/src/paste-here.test.ts`: the slot and its line in a
 row, a grid's second row where one line along every child would pick the first, and the pointer's place in an absolutely
 placed layout; and, under "placing at a point" (2, PAR-570), a new text layer landing where a drop would, before the
-layer under the pointer and at the pointer in an absolutely placed layout. `components.test.ts`: making a component into
-the project file, a taken id and param names, a project file that doesn't exist yet, and the errors; and instances in
-layouts and slots across designs. `create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a
-new design beside everything, one the canvas hasn't drawn, an empty canvas, and a component above everything. A library
-part's parents and samples are core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are
-core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
-a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
-variant option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's
-outside it; each option of two variant params checked in turn, refused for one the board doesn't show; and refused when
-a layer in the part shows a param's default. Which layers inside a part show is part of its structure: rows where one
-layer shows in some and not in others aren't found as repeats, and extracting them is refused (PAR-1025). Under
-"repeated parts whose props are written in another order" (2, PAR-998), `findRepeats` and `extractComponent` pair a
-component's props by name, not by the order each part writes them in. `packages/core/src/library-insert.test.ts`, with
-three for names that fit (PAR-518): none for a component that sets its own size, unless given; none for a part whose
-sample gives no children; and a part without a sample taking the children its library's other samples give it (none for
-an icon's box or one used without any, their text), else its name. `packages/code/src/props.test.ts` has two for
-`fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a
-library's compiled parts, leaving out classes for what's inside or taken from a parent. The extraction and its check are
-core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
-a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
-variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
-in the part shows a param's default.
+layer under the pointer and at the pointer in an absolutely placed layout. `packages/core/src/designs.test.ts`: an empty
+file that reads back, designs added to a file the project doesn't have yet and after a file's own, a component other
+designs place deleted with their instances showing it's gone, and a file without the design left as it was.
+`packages/editor/src/components.test.ts`: making a component into the project file, a taken id and param names, a
+project file that doesn't exist yet, and the errors; and instances in layouts and slots across designs.
+`create.test.ts`: a new screen and component, and a taken id. `placement.test.ts`: a new design beside everything, one
+the canvas hasn't drawn, an empty canvas, and a component above everything. A library part's parents and samples are
+core's, in `packages/core/src/library-insert.test.ts`. The extraction and its check are core's `extractComponent`, in
+`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
+refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
+the part, whether the board shows it or not (PAR-493), but not one that changes what's outside it; each option of two
+variant params checked in turn, refused for one the board doesn't show; and refused when a layer in the part shows a
+param's default. Which layers inside a part show is part of its structure: rows where one layer shows in some and not in
+others aren't found as repeats, and extracting them is refused (PAR-1025). Under "repeated parts whose props are written
+in another order" (2, PAR-998), `findRepeats` and `extractComponent` pair a component's props by name, not by the order
+each part writes them in. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for
+a component that sets its own size, unless given; none for a part whose sample gives no children; and a part without a
+sample taking the children its library's other samples give it (none for an icon's box or one used without any, their
+text), else its name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount,
+CardHeader and Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's
+inside or taken from a parent. The extraction and its check are core's `extractComponent`, in
+`packages/core/src/decompose.test.ts`: occurrences become instances that render the same, a state changing the part
+refused, a single part's texts as params, and the check against the board, refused under a variant option that changes
+the part but not one that changes what's outside it or isn't shown, and refused when a layer in the part shows a param's
+default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -4547,13 +4552,14 @@ Tests:
 - `apps/desktop/src/renderer/agent/file-changed-events.test.ts` (2): a file changed on disk with unsaved changes here
   records `document.conflicted`, and Load from disk records `document.loadedFromDisk`; one with nothing unsaved records
   neither (PAR-809).
-- `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
-  an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
-  a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
-  both"); changing a deleted design, or creating one under an id added here, refused ("refuses changing a design the
-  person deleted"); designs the person deleted or added left so; files created for new designs; a change or deletion
-  already made here taken as applied ("takes a change already made the same way"); and modes set only while unchanged,
-  refused otherwise ("sets the modes only while they're as the call read them").
+- `packages/editor/src/design-changes.test.ts` (16): changing, moving, adding and deleting designs, deleting designs
+  from several files at once, and notes; merging an agent's call: two calls changing different designs in one file both
+  kept, the person's edit to another design kept, a design changed on both sides refused by name with nothing applied,
+  tokens included ("refuses a design changed by both"); changing a deleted design, or creating one under an id added
+  here, refused ("refuses changing a design the person deleted"); designs the person deleted or added left so; files
+  created for new designs; a change or deletion already made here taken as applied ("takes a change already made the
+  same way"); and modes set only while unchanged, refused otherwise ("sets the modes only while they're as the call read
+  them").
 - `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.

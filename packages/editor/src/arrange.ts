@@ -101,29 +101,6 @@ export function copyLayersInPlace(container: ContainerSpec, ids: readonly string
   return { container: copies.length > 0 ? { ...container, root } : container, copies }
 }
 
-/** Takes the designs out of their documents. */
-export function removeDesigns(
-  documents: ReadonlyMap<string, CanvasDocument>,
-  designs: readonly DesignRef[]
-): ReadonlyMap<string, CanvasDocument> {
-  const next = new Map(documents)
-
-  for (const design of designs) {
-    const document = next.get(design.path)
-
-    if (!document) {
-      continue
-    }
-
-    next.set(design.path, {
-      ...document,
-      containers: document.containers.filter((container) => container.id !== design.id)
-    })
-  }
-
-  return next
-}
-
 /** The layer `id` and its siblings, in the layout or slot they share, for selecting all. */
 export function siblingsOf(root: DesignNode, id: string): string[] | undefined {
   const location = locateNode(root, id)

@@ -1,4 +1,4 @@
-import { defaultModeSettings } from "@parity-app/core"
+import { defaultModeSettings, emptyDocument } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
@@ -135,12 +135,10 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
 
   const session = useMemo(() => {
-    const store = new DesignStore(
-      [{ path: "app.par", document: { version: 4, containers: [] } }],
-      defaultModeSettings,
-      "app.par",
-      { saveDocument: async () => undefined, autosave: () => false }
-    )
+    const store = new DesignStore([{ path: "app.par", document: emptyDocument() }], defaultModeSettings, "app.par", {
+      saveDocument: async () => undefined,
+      autosave: () => false
+    })
 
     return new ProjectSession(
       {

@@ -7,7 +7,6 @@ export {
   type DesignRef,
   distributeBoxes,
   type Order,
-  removeDesigns,
   removeLayers,
   reorderLayer,
   repositionDesigns,

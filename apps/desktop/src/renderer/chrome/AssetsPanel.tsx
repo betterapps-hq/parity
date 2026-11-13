@@ -11,13 +11,13 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  type CanvasDocument,
   type ComponentRef,
   type ComponentRenderStatus,
   type ComponentRole,
   type ComponentSource,
   componentRole,
   describeRenderStatus,
+  emptyDocument,
   groupComponents,
   includeComponent,
   type LeftOutExport,
@@ -108,10 +108,7 @@ function useRenderStatus(loaded: LoadedGuest): Record<string, ComponentRenderSta
 function listByHand(store: DesignStore, target: ComponentRef, name: string): void {
   const ref = { path: target.path, export: target.export }
 
-  const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
-    version: 4,
-    containers: []
-  }
+  const main = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? emptyDocument()
 
   const { detection: _, ...rest } = main
   const detection = includeComponent(main.detection, ref)

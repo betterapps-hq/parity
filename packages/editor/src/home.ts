@@ -1,4 +1,5 @@
 import {
+  addDesigns,
   type CanvasDocument,
   type ComponentSource,
   componentRole,
@@ -31,7 +32,7 @@ export function openingDesigns(
   modes: ModeSettings
 ): { path: string; document: CanvasDocument }[] {
   if (files.length === 0) {
-    return [{ path: mainPath, document: { version: 4, containers: [homeScreen(components, modes)] } }]
+    return [{ path: mainPath, document: addDesigns(undefined, [homeScreen(components, modes)]) }]
   }
 
   return [...files]

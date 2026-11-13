@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Every design added to or deleted from a file, by the editor or an agent, goes through core's addDesigns and removeDesigns, and a new file starts as emptyDocument, so the format's version is written in one place.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

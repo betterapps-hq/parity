@@ -679,9 +679,15 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
   context.addIssue({ code: "custom", message, path })
 }
 
+/**
+ * The current format of `.par` and `.lib.par` files. Obsolete formats are rejected rather than migrated, so a bump
+ * changes only this.
+ */
+export const formatVersion = 4
+
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
 export const canvasDocument = fileObject({
-  version: z.literal(4),
+  version: z.literal(formatVersion),
   containers: z.array(containerSpec),
   /** The project's modes. Unset means the defaults. */
   modes: modeSettings.optional(),

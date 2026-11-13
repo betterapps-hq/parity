@@ -50,6 +50,8 @@ export {
 
 export { extractComponent, findRepeats, type RepeatCandidate } from "./decompose.ts"
 
+export { addDesigns, emptyDocument, removeDesigns } from "./designs.ts"
+
 export { type ChangeConflict, describeConflicts, type DesignChange, type ModesChange } from "./design-change.ts"
 
 export { deviceForWidth, type DeviceKind, devicePresets, lengthToPixels, screenHeightForWidth } from "./devices.ts"
@@ -68,6 +70,7 @@ export {
   designStates,
   detectionCorrections,
   type DetectionCorrections,
+  formatVersion,
   type FrameSize,
   imageCredit,
   type ImageCredit,

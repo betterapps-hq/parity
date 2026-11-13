@@ -1,5 +1,6 @@
-import type { CanvasDocument, ContainerSpec, DesignNode, NodeStyle, NoteSpec } from "@parity-app/core"
+import type { ContainerSpec, DesignNode, NodeStyle, NoteSpec } from "@parity-app/core"
 import {
+  addDesign,
   applyStyle,
   type ClipboardEnvelope,
   type ClipboardPayload,
@@ -554,12 +555,7 @@ function layersSelected(session: ProjectDesigns, selection: Selection): boolean 
 function addDesigns(session: ProjectDesigns, copies: ContainerSpec[], label: string): void {
   const { store, selection } = session
   const path = store.mainPath
-  store.change(label, (snapshot) => {
-    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 4, containers: [] }
-    const next = { ...document, containers: [...document.containers, ...copies] }
-
-    return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
-  })
+  store.change(label, (snapshot) => addDesign(snapshot, path, ...copies))
   selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
 }
 
@@ -789,7 +785,7 @@ function pasteDesigns(
   designs: ContainerSpec[],
   sameProject: boolean
 ): void {
-  const { store, selection, editor } = session
+  const { store, editor } = session
   const ids = store.getEntries().map((entry) => entry.container.id)
 
   // Pasted into the project they came from, they sit to the right of the originals, in the first free space along
@@ -803,15 +799,8 @@ function pasteDesigns(
 
   const { shift, shown } = pastedPlacement(placed, viewCenter(session.editor), editor ? takenBounds(editor) : [])
   const copies = copyDesigns(designs, ids, shift)
-  const path = store.mainPath
-  store.change(`Paste ${kindsName(copies.map((copy) => copy.kind))}`, (snapshot) => {
-    const document: CanvasDocument = snapshot.documents.get(path) ?? { version: 4, containers: [] }
-    const next = { ...document, containers: [...document.containers, ...copies] }
-
-    return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }
-  })
-  const keys = copies.map((copy) => containerKey(path, copy.id))
-  selection.set(designsSelection(keys))
+  addDesigns(session, copies, `Paste ${kindsName(copies.map((copy) => copy.kind))}`)
+  const keys = copies.map((copy) => containerKey(store.mainPath, copy.id))
 
   // A copy that lands off screen, as a duplicate beside a wide design does, is brought into view (PAR-204), at the
   // size it's drawn at, which for a copy from elsewhere is known once its board has drawn it.

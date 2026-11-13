@@ -1,4 +1,5 @@
 import {
+  addDesigns,
   type CanvasDocument,
   type ContainerSpec,
   componentLibrary,
@@ -71,8 +72,7 @@ export function makeComponent(
     ...from,
     containers: from.containers.map((container) => (container === original ? design : container))
   })
-  const target = next.get(options.into) ?? { version: 4, containers: [] }
-  next.set(options.into, { ...target, containers: [...target.containers, component] })
+  next.set(options.into, addDesigns(next.get(options.into), [component]))
 
   return { documents: next, id }
 }
