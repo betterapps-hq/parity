@@ -37,6 +37,7 @@ import {
   hugsContent,
   kindName,
   kindTitle,
+  pageFrameName,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
@@ -1110,7 +1111,7 @@ const FrameTile = memo(function FrameTile({
         data-asleep={awake && !waiting ? undefined : ""}
       >
         {page ? (
-          <PageFrame url={page} frame={frame} scale={scale} />
+          <PageFrame url={page} frame={frame} mode={mode} scale={scale} />
         ) : (
           <ModeView
             project={session.id}
@@ -1142,12 +1143,26 @@ const FrameTile = memo(function FrameTile({
  * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
  * selects over it, and it's as tall as the frame's window.
  */
-function PageFrame({ url, frame, scale }: { url: string; frame: FrameGeometry; scale: number }) {
+function PageFrame({
+  url,
+  frame,
+  mode,
+  scale
+}: {
+  url: string
+  frame: FrameGeometry
+  mode: ResolvedMode
+  scale: number
+}) {
   const height = frame.height ?? frame.viewport.height
+  // The app's own page reads its mode from the frame's name, so a frame in another mode is another page.
+  const name = pageFrameName(mode)
 
   return (
     <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
       <iframe
+        key={name}
+        name={name}
         title={url}
         src={url}
         className="pointer-events-none block origin-top-left border-0 bg-white"

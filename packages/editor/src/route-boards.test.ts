@@ -1,6 +1,15 @@
-import { defaultModeSettings, type ProjectRoute } from "@parity-app/core"
+import { defaultModeSettings, type ProjectRoute, resolveMode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { pageName, type PageNode, pageTree, placePages, routeLayers, routeScreens, samplePath } from "./route-boards.ts"
+import {
+  pageFrameName,
+  pageName,
+  type PageNode,
+  pageTree,
+  placePages,
+  routeLayers,
+  routeScreens,
+  samplePath
+} from "./route-boards.ts"
 
 function route(id: string, path: string, parent: string | undefined, index = false): ProjectRoute {
   return { id, path, parent, file: `src/routes/${id}.tsx`, params: [], index, loads: false, guards: false }
@@ -156,5 +165,22 @@ describe("routeLayers", () => {
     const routes = [route("__root__", "/", undefined), route("/settings/", "/settings", "__root__", true)]
 
     expect(routeLayers(routes, routes[1]!).name).toBe("/")
+  })
+})
+
+describe("pageFrameName", () => {
+  const mode = (id: string) =>
+    resolveMode(
+      defaultModeSettings,
+      defaultModeSettings.modes.find((each) => each.id === id)!
+    )
+
+  it("names a frame with its mode's classes, attributes and scheme", () => {
+    expect(JSON.parse(pageFrameName(mode("desktop-dark")).slice("parity:".length))).toEqual({
+      classes: ["dark"],
+      attributes: { lang: "en", dir: "ltr" },
+      scheme: "dark"
+    })
+    expect(JSON.parse(pageFrameName(mode("desktop-light")).slice("parity:".length))).toMatchObject({ scheme: "light" })
   })
 })

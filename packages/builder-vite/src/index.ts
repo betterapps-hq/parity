@@ -23,6 +23,7 @@ import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { commandOption, gatherChanges, scriptRunning } from "@parity-app/project"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
+import { appPageModes } from "./app-page.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
@@ -104,7 +105,8 @@ export const viteBuilder: BuilderAdapter = {
       plugins: [
         guestPlugin(options, vite.normalizePath(options.rendererGuestPath)),
         elementSources(vite.normalizePath(options.root)),
-        dependencySourceMaps()
+        dependencySourceMaps(),
+        appPageModes()
       ]
     })
 

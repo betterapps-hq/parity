@@ -4,6 +4,7 @@ import {
   type FrameSize,
   type ModeSettings,
   type ProjectRoute,
+  type ResolvedMode,
   screenHeightForWidth
 } from "@parity-app/core"
 
@@ -251,4 +252,30 @@ function pageFrames(modes: ModeSettings): Record<string, FrameSize> {
       option.width === undefined ? [] : [[option.id, { height: option.height ?? screenHeightForWidth(option.width) }]]
     )
   )
+}
+
+/** The mode a page's frame draws in, as the app's own page reads it from the frame's name (PAR-1076). */
+export interface PageMode {
+  classes: string[]
+  attributes: Record<string, string>
+  /** What `prefers-color-scheme` answers: the mode's theme's, when it has one that's dark or light. */
+  scheme?: "dark" | "light"
+}
+
+/**
+ * The name a page's frame gives itself so the app's own page draws in its mode: `parity:` and the mode as JSON, its
+ * classes and attributes, and its scheme from its theme option's id or class.
+ */
+export function pageFrameName(mode: Pick<ResolvedMode, "classNames" | "attributes" | "options">): string {
+  const theme = mode.options.find(({ variable }) => variable.kind === "theme")?.option
+  const said = [theme?.id, theme?.className].join(" ")
+  const page: PageMode = { classes: mode.classNames, attributes: mode.attributes }
+
+  if (/\bdark\b/.test(said)) {
+    page.scheme = "dark"
+  } else if (/\blight\b/.test(said)) {
+    page.scheme = "light"
+  }
+
+  return `parity:${JSON.stringify(page)}`
 }

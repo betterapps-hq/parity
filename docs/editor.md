@@ -6483,6 +6483,12 @@ for the component its route draws, else its path.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. Their layers are an empty page, since
   what they show is the app rather than a design. A frame takes no pointer, so the canvas pans and selects over it.
+- **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
+  and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
+  attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
+  follows the system's theme, as the example's theme provider does, follows the mode's: in Desktop Light the page's
+  `<html>` is `light` with a white background. An app that keeps its own choice of theme, in `localStorage`, uses that,
+  and its page frames share it, since they're one origin.
 - **As tall as the screen.** Each viewport's frame is as tall as its screen: Desktop 800, Tablet 1024, Mobile 844.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
