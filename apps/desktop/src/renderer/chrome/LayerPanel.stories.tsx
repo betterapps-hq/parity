@@ -9,7 +9,7 @@ import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /**
  * The Design tab with one layer of each kind selected, one story each, named as its header names the kind: the
- * sections that kind gets. Each section's own cases are in Sections, and a whole design's panel in Layers › Designs.
+ * sections that kind gets. A layout's and a text layer's own panels are Layers › Layout and Text. Each section's own cases are in Sections, and a whole design's panel in Layers › Designs.
  */
 const meta = {
   title: "Parity/Inspector/Layers/Kinds",
@@ -21,12 +21,6 @@ const meta = {
 export default meta
 
 type Story = StoryObj<typeof meta>
-
-/** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
-export const Text: Story = { loaders: [pick("Pricing", "Headline")] }
-
-/** A layout, Pricing's nav: a Layout section first among its styles. */
-export const Layout: Story = { loaders: [pick("Pricing", "Nav")] }
 
 /**
  * A component instance, Plan card's call to action: Button's props under its name, the attributes it passes on, its

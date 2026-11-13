@@ -16,7 +16,7 @@ import {
   type StateSpec,
   type VideoNode
 } from "@parity-app/core"
-import { type InspectorSection, panelParts, selectionCapabilities } from "@parity-app/editor"
+import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
@@ -44,6 +44,7 @@ import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
 import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
+import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
@@ -55,12 +56,14 @@ import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
+import { TextPanel } from "./TextPanel.tsx"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a
- * component's board takes edits the same way. Inside an instance, edits change only that copy. Which sections show, in
- * what order, is `panelParts` in `@parity-app/editor`, from what the layer can do (PAR-1032); each takes the selected
+ * component's board takes edits the same way. Inside an instance, edits change only that copy. A layout and a text
+ * layer each have a panel of their own (`LayoutPanel`, `TextPanel`, PAR-1056). For the other kinds, which sections show,
+ * in what order, is `panelParts` in `@parity-app/editor`, from what the layer can do (PAR-1032); each takes the selected
  * layer itself (`useSelectedLayer`), so a story draws one alone (PAR-1031).
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
@@ -80,6 +83,12 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
   }
 
+  const KindPanel = kindPanels[layer.node.type]
+
+  if (KindPanel) {
+    return <KindPanel />
+  }
+
   const can = selectionCapabilities(
     layer.entry.container,
     [{ id: layer.nodeId, node: layer.node, parent: undefined }],
@@ -91,6 +100,12 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
 
     return Section && <Section key={section} />
   })
+}
+
+/** The kinds of layer with a Design panel of their own (PAR-1056); the others are drawn from `panelParts`. */
+const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
+  layout: LayoutPanel,
+  text: TextPanel
 }
 
 /** What draws each of a layer's sections; a design's own, as States and Modes, aren't a layer's. */
@@ -386,15 +401,26 @@ function LayerNoStyle() {
   )
 }
 
-/** The selected layer's style sections, edited in the state and variant shown. */
-function LayerStyles() {
+/**
+ * The selected layer's style sections, edited in the state and variant shown: in a layer kind's `order` when its panel
+ * gives one (PAR-1056), or the table's.
+ */
+export function LayerStyles({ order }: { order?: readonly StyleSection[] }) {
   const layer = useSelectedLayer()
 
-  return layer ? <LayerStyleSections entry={layer.entry} nodeId={layer.nodeId} /> : null
+  return layer ? <LayerStyleSections entry={layer.entry} nodeId={layer.nodeId} order={order} /> : null
 }
 
 /** The style sections for one layer, edited through its style editor. */
-function LayerStyleSections({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
+function LayerStyleSections({
+  entry,
+  nodeId,
+  order
+}: {
+  entry: ContainerEntry
+  nodeId: string
+  order?: readonly StyleSection[]
+}) {
   const session = useProject()
   const components = useComponents(session.components)
   const styleEditor = useStyleEditor(entry, [nodeId])
@@ -405,13 +431,14 @@ function LayerStyleSections({ entry, nodeId }: { entry: ContainerEntry; nodeId: 
         editor={styleEditor}
         container={entry.container}
         takesStyle={(component) => components[component]?.takesStyle}
+        order={order}
       />
     )
   )
 }
 
 /** Export, for the selected layer. */
-function LayerExport() {
+export function LayerExport() {
   const session = useProject()
   const entries = useContainerEntries(session.store)
   const layer = useSelectedLayer()
