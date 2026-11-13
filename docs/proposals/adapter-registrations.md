@@ -101,28 +101,32 @@ needs a view of its own can ship one later, as [extensions.md](extensions.md) de
 
 ## Where adapters live
 
-Adapters are in two folders under `adapters/`, by whether the app's code is written with the tool or the tool runs
-beside the app:
+Only the kinds that will keep growing get a folder: UI frameworks and builders. Everything else sits in `adapters/`
+itself until there are enough of a kind to group.
 
 ```
 adapters/
-  frameworks/   react-adapter, tanstack-router-adapter, tailwind-adapter
-  tools/        vite-adapter, storybook-adapter
+  frameworks/react
+  builders/vite
+  storybook
+  tailwind
+  tanstack-router
 ```
 
-- **`frameworks`** holds what the app's code is written with, which Parity reads to draw it and writes to edit it: Vue,
-  React Router and Panda would go here, and so would Next.js, though it also builds the app.
-- **`tools`** holds what runs beside the app to build or document it: webpack, Ladle and Histoire would go here.
+- **`frameworks`** holds UI frameworks, which draw the app's components: Vue, Svelte and Solid would go here.
+- **`builders`** holds build tools, which compile the app: webpack, and Next.js, which registers its router from there
+  too.
 
-Each folder is named after its package, and every package keeps the `-adapter` suffix (`@parity-app/react-adapter`),
-since they'll be published to a registry. The folders sort packages for finding them; one package can still register
-several kinds.
+A folder is named after its tool, without `-adapter`, and its package keeps the suffix (`@parity-app/react-adapter`),
+since packages will be published to a registry. The workspace lists `adapters/*`, `adapters/frameworks/*` and
+`adapters/builders/*`. The folders sort packages for finding them; one package can still register several kinds.
 
 ## Order of work
 
 1. **The base, icons and one list of adapters.** The `Adapter` base, logos for React, Vite, Tailwind, TanStack Router
    and Storybook, one list the service, the builder process, Storybook's example project and the fixtures share, and a
-   Tailwind status item. The adapters move into `frameworks` and `tools`, while no other session is changing them.
+   Tailwind status item. React and Vite move into `frameworks` and `builders`, and every folder drops `-adapter`, while
+   no other session is changing them.
 2. **Version facts.** Detection reads each adapter's `versions`, and the fixed list in `detect.ts` goes.
 3. **Actions.** Storybook registers Open in Storybook; `storybook.open` and the `{ tool }` click go.
 4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
