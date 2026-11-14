@@ -12,6 +12,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronRight, Plus } from "lucide-react"
 import type { KeyboardEvent } from "react"
+import { useSettingsProblems } from "../preferences.ts"
 import { type Extension, pages, type Setting, settings } from "./definitions.ts"
 import { Group, Row, SettingRow } from "./rows.tsx"
 import { type Hit, type Place, placeOf, search } from "./search.ts"
@@ -81,22 +82,57 @@ function SettingsPage({ page, store }: { page: string; store: Store }) {
   const sections = grouped(onPage)
   const titled = sections.length > 1
 
-  return sections.map((section, index) => (
-    <Group key={section.title ?? index} title={titled ? section.title : undefined}>
-      {page === "updates" && index === 0 && (
-        <Row label="Version" detail={`Parity ${store.version}`}>
-          {store.checkForUpdates && (
-            <Button variant="outline" size="sm" disabled={store.busy?.betaUpdates} onClick={store.checkForUpdates}>
-              Check for updates
-            </Button>
+  return (
+    <>
+      <SettingsFileNotice />
+      {sections.map((section, index) => (
+        <Group key={section.title ?? index} title={titled ? section.title : undefined}>
+          {page === "updates" && index === 0 && (
+            <Row label="Version" detail={`Parity ${store.version}`}>
+              {store.checkForUpdates && (
+                <Button variant="outline" size="sm" disabled={store.busy?.betaUpdates} onClick={store.checkForUpdates}>
+                  Check for updates
+                </Button>
+              )}
+            </Row>
           )}
-        </Row>
-      )}
-      {section.items.map((setting) => (
-        <SettingRow key={setting.id} setting={setting} store={store} />
+          {section.items.map((setting) => (
+            <SettingRow key={setting.id} setting={setting} store={store} />
+          ))}
+        </Group>
       ))}
-    </Group>
-  ))
+    </>
+  )
+}
+
+/** Above Parity's own pages, when settings.json can't be read or a change couldn't be saved yet. */
+function SettingsFileNotice() {
+  const { problem, unsaved } = useSettingsProblems()
+
+  if (problem) {
+    return (
+      <Group>
+        <Row
+          label="Parity couldn't read settings.json"
+          detail="Parity won't change the file until it can read it."
+          problem={problem}
+        />
+      </Group>
+    )
+  }
+
+  if (unsaved) {
+    return (
+      <Group>
+        <Row
+          label="Couldn't save your settings"
+          detail="Your changes apply until Parity closes. Parity keeps trying to save them."
+        />
+      </Group>
+    )
+  }
+
+  return null
 }
 
 /**

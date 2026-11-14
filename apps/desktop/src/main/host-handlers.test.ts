@@ -1,8 +1,8 @@
 import type { Found, SearchAnswer } from "@parity-app/connectors"
 import type { UpdateState } from "@parity-app/processes"
+import { defaultSettings } from "@parity-app/settings"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { signedOut } from "../shared/account.ts"
-import type { ThemeSource } from "../shared/ipc-checks.ts"
 import type { TelemetryState } from "../shared/protocol.ts"
 import { type CloseReplies, type HostNeeds, hostHandlers, type PickerOptions } from "./host-handlers.ts"
 
@@ -66,7 +66,7 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
     installCli: () => Promise.resolve({ folder: "C:/bin", onPath: true, newTerminal: false }),
     quit: () => undefined,
     toggleDevTools: () => undefined,
-    theme: { get: () => "dark", set: () => undefined, remember: () => undefined },
+    settings: { change: () => Promise.resolve({ values: { ...defaultSettings }, badValues: [] }) },
     keybindings: {
       state: () => ({ entries: [] }),
       replace: () => Promise.resolve({ entries: [] }),
@@ -203,34 +203,18 @@ describe("the system's dialogs", () => {
   })
 })
 
-describe("the theme", () => {
-  it("changes only to another, and stays changed when it can't be remembered", async () => {
-    let now: ThemeSource = "dark"
-    const remember = vi.fn<(theme: ThemeSource) => void>()
+describe("the settings", () => {
+  it("passes a window's change to main's store, for what the settings are after", async () => {
+    const change = vi.fn<HostNeeds<Sender, TestWindow>["settings"]["change"]>(() =>
+      Promise.resolve({ values: { ...defaultSettings, theme: "light" }, badValues: [] })
+    )
 
-    const theme = {
-      get: () => now,
-      set: (next: ThemeSource) => {
-        now = next
-      },
-      remember
-    }
+    const handlers = hostHandlers(app({ settings: { change } }))
 
-    const handlers = hostHandlers(app({ theme }))
-    await handlers.setTheme("dark", window)
-    expect(remember).not.toHaveBeenCalled()
-    await handlers.setTheme("light", window)
-    expect(now).toBe("light")
-    expect(remember).toHaveBeenCalledExactlyOnceWith("light")
-
-    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined)
-    remember.mockImplementation(() => {
-      throw new Error("EPERM")
+    await expect(handlers.settingsChange({ theme: "light" }, window)).resolves.toMatchObject({
+      values: { theme: "light" }
     })
-    await handlers.setTheme("system", window)
-    expect(now).toBe("system")
-    expect(logged).toHaveBeenCalledOnce()
-    logged.mockRestore()
+    expect(change).toHaveBeenCalledExactlyOnceWith({ theme: "light" })
   })
 })
 
