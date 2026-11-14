@@ -1,7 +1,11 @@
-import type { ProjectAction } from "@parity-app/core"
+import { isInnerPath, locateInner, locateNode, type ProjectAction } from "@parity-app/core"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import { boardComponent } from "../canvas/component-boards.ts"
+import { projectLibrary } from "../canvas/layers.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
+import type { ProjectSession } from "../workspace.ts"
+import { layerComponent } from "./layer-kind.ts"
 
 /** One of the project's adapters' actions, by its adapter and id. */
 export function projectAction(info: ProjectInfo, adapter: string, id: string): ProjectAction | undefined {
@@ -11,6 +15,31 @@ export function projectAction(info: ProjectInfo, adapter: string, id: string): P
 /** The adapters' actions for one of the project's components, as its layers offer them. */
 export function componentActions(info: ProjectInfo, component: string | undefined): ProjectAction[] {
   return component ? info.actions.filter((action) => action.components?.includes(component)) : []
+}
+
+/**
+ * The project's component the selection is of, whose adapters' actions it offers: one layer that draws a code
+ * component, or a component's board on its own. Undefined for anything else, or for several things.
+ */
+export function selectionComponent(
+  session: Pick<ProjectSession, "id" | "info" | "selection" | "store">
+): string | undefined {
+  const selected = session.selection.get()
+  const entry = selected.design ? session.store.getEntry(selected.design) : undefined
+
+  if (!entry || (selected.nodes && selected.nodes.length > 1) || (selected.designs && selected.designs.length > 1)) {
+    return undefined
+  }
+
+  if (!selected.node) {
+    return boardComponent(session.id, entry.container.id)
+  }
+
+  const node = isInnerPath(selected.node)
+    ? locateInner(entry.container, selected.node, projectLibrary(session.store))?.node
+    : locateNode(entry.container.root, selected.node)?.node
+
+  return node && layerComponent(node, session.info.libraries)
 }
 
 /**

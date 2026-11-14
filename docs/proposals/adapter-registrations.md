@@ -193,9 +193,9 @@ since packages will be published to a registry. The workspace lists `adapters/*`
 3. **Actions.** Built: an adapter lists its `actions` and does them in `run`, given an `ActionContext` whose `servers`
    find or start its tool's server. Storybook's Open in Storybook is one; `storybook.open`, `utility/storybook.ts` and
    the `{ tool }` click are gone, and a tool's server is listed as kind `tool`. An action names the components it's
-   offered for, and a code component's layer offers them in its header and its right-click menu, with the adapter's
-   logo. The Components panel's book buttons still ask `info.storybook` which components have stories, until component
-   facts in step 5.
+   offered for, and a code component offers them wherever it's picked, with the adapter's logo: its layer's header, its
+   right-click menus in Layers, on the canvas and in the Components panel, its row's button and card, and Search
+   actions. Only the stories count on a component's card still reads `info.storybook`, until component facts in step 5.
 4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
    registers.
 5. **Component facts, panel tabs, inspector rows and servers,** each when an adapter first needs it.

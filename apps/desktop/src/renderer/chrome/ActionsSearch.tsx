@@ -26,6 +26,8 @@ import {
   workspace
 } from "../workspace.ts"
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
+import { runAction, selectionComponent } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap, shortcutOf } from "./keymap.ts"
@@ -289,15 +291,36 @@ function projectItems(
   return items
 }
 
+/**
+ * What the project's adapters can do, under Object: each for the selected component when it's offered for it, as Open
+ * in Storybook on a component with stories, else for the whole project, as opening Storybook's home.
+ */
+function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" | "store">): Item[] {
+  const component = selectionComponent(session)
+
+  return session.info.actions.map((action) => {
+    const offered = component !== undefined && action.components?.includes(component) ? component : undefined
+
+    return {
+      id: `adapter:${action.adapter}:${action.id}`,
+      group: "Object",
+      label: action.name,
+      detail: offered,
+      icon: <AdapterLogo logo={action.icon} />,
+      run: () => void runAction(session.id, action, offered)
+    }
+  })
+}
+
 /** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
 function gatherItems(
-  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">) | undefined,
+  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id" | "info" | "tokens">) | undefined,
   projects: readonly { root: string; name: string }[]
 ): Item[] {
   return [
     ...commandItems(),
     ...extras,
-    ...(session ? projectItems(session) : []),
+    ...(session ? [...adapterItems(session), ...projectItems(session)] : []),
     ...projects.map((project): Item => ({
       id: `project:${project.root}`,
       group: "Projects",

@@ -40,7 +40,6 @@ import {
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
-  BookOpen,
   ChevronRight,
   CircleAlert,
   Component,
@@ -76,9 +75,11 @@ import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
+import { componentActions, runAction } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
-import { ComponentMenu } from "./ComponentMenu.tsx"
+import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
 import type { Attributes } from "./event-attributes.ts"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
@@ -91,7 +92,6 @@ import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { revealSelection } from "./reveal.ts"
-import { hasStories, openInStorybook } from "./storybook.ts"
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
@@ -530,12 +530,13 @@ function SourceSection({
   const session = useProject()
   const statuses = useRenderStatus(session.loaded)
 
-  const storybookRunning = useProcesses(false).some(
-    (process) =>
-      process.kind === "tool" &&
-      process.id === `storybook:${session.id}` &&
-      process.projectId === session.id &&
-      process.status === "running"
+  // The tools' servers running for the project, by process id, so an action that starts one says so.
+  const processes = useProcesses(false)
+
+  const running = new Set(
+    processes
+      .filter((process) => process.kind === "tool" && process.projectId === session.id && process.status === "running")
+      .map((process) => process.id)
   )
 
   const [expanded, setExpanded] = useState<boolean>()
@@ -575,7 +576,7 @@ function SourceSection({
                   view={view}
                   uses={uses.get(entry.key) ?? 0}
                   status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                  storybookRunning={storybookRunning}
+                  running={running}
                 />
               ))}
             </div>
@@ -591,9 +592,9 @@ const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height
 /**
  * An item of a source: a component, whose card opens beside it when the pointer rests on it or the right arrow is
  * pressed on it (PAR-515, PAR-208), or a library's component design, with a hint. In the List and Grid views a
- * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): View in
- * Storybook, and View code in the person's editor, each greyed with why when it can't. A library's design offers its
- * two ways to insert.
+ * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): what the
+ * project's adapters offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
+ * why when it can't. A library's design offers its two ways to insert.
  */
 function AssetEntry({
   entry,
@@ -601,19 +602,20 @@ function AssetEntry({
   view,
   uses,
   status,
-  storybookRunning
+  running
 }: {
   entry: Family["items"][number]
   source: Source
   view: ComponentsView
   uses: number
   status: ComponentRenderStatus | undefined
-  storybookRunning: boolean
+  /** The tools' servers running for the project, by process id. */
+  running: ReadonlySet<string>
 }) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const stories = component !== undefined && hasStories(session.info, component)
+  const offered = componentActions(session.info, component)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
@@ -721,11 +723,7 @@ function AssetEntry({
 
   const menu = (component || instance) && (
     <ComponentMenu
-      storybook={
-        component && session.info.storybook
-          ? { stories, running: storybookRunning, open: () => void openInStorybook(session.info, component) }
-          : undefined
-      }
+      offers={component ? menuOffers(session, component, running) : undefined}
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
@@ -779,20 +777,59 @@ function AssetEntry({
       ) : (
         row
       )}
-      {stories && (
-        <Hint label="Open in Storybook">
-          <button
-            type="button"
-            aria-label={`Open ${entry.label} in Storybook`}
-            onClick={() => void openInStorybook(session.info, entry.key)}
-            className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
-          >
-            <BookOpen className="size-3.5" />
-          </button>
-        </Hint>
+      {offered.length > 0 && (
+        <div
+          className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
+        >
+          {offered.map((action) => (
+            <Hint key={`${action.adapter}:${action.id}`} label={action.name}>
+              <button
+                type="button"
+                aria-label={`${action.name}: ${entry.label}`}
+                onClick={() => void runAction(session.id, action, component)}
+                className="grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
+              >
+                <AdapterLogo logo={action.icon} className="size-3.5" />
+              </button>
+            </Hint>
+          ))}
+        </div>
       )}
     </AssetRow>
   )
+}
+
+/**
+ * What a component's menu offers from the project's adapters: each action offered for components, greyed with why on
+ * one it isn't for, and saying what it starts first while its tool's server isn't running.
+ */
+function menuOffers(session: ProjectSession, component: string, running: ReadonlySet<string>): MenuOffer[] {
+  return session.info.actions.flatMap((action) => {
+    if (!action.components) {
+      return []
+    }
+
+    const offered = action.components.includes(component)
+
+    if (!offered && !action.unavailable) {
+      return []
+    }
+
+    const offer: MenuOffer = {
+      id: `${action.adapter}:${action.id}`,
+      name: action.name,
+      logo: action.icon,
+      run: () => void runAction(session.id, action, component)
+    }
+
+    if (!offered) {
+      offer.unavailable = action.unavailable
+    } else if (action.starts && !running.has(`${action.adapter}:${session.id}`)) {
+      offer.starts = action.starts
+    }
+
+    return [offer]
+  })
 }
 
 /**
@@ -843,8 +880,15 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
-  if (stories > 0) {
-    about.onOpenStorybook = () => void openInStorybook(session.info, component)
+  const offers = componentActions(session.info, component).map((action) => ({
+    id: `${action.adapter}:${action.id}`,
+    name: action.name,
+    logo: action.icon,
+    run: () => void runAction(session.id, action, component)
+  }))
+
+  if (offers.length > 0) {
+    about.offers = offers
   }
 
   return { pictured: previewStatus(preview, missing), about }
@@ -853,10 +897,7 @@ export function useComponentCard(
 /** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
 export interface ComponentCard {
   pictured: PreviewStatus
-  about: Pick<
-    ComponentCardProps,
-    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
-  >
+  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "offers">
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */

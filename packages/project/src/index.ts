@@ -367,11 +367,19 @@ export function adapterActions(
     const { adapter } = source
 
     return (adapter.actions ?? []).map((action) => {
-      const { id, name, progress, failed, note } = action
+      const { id, name, progress, failed, note, unavailable, starts } = action
       const told: ProjectAction = { id, name, progress, failed, adapter: adapter.id }
 
       if (note) {
         told.note = note
+      }
+
+      if (unavailable) {
+        told.unavailable = unavailable
+      }
+
+      if (starts) {
+        told.starts = starts
       }
 
       if (adapter.icon) {

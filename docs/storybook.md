@@ -54,11 +54,12 @@ because it needs them to map stories.
 
 ### Opening stories
 
-The book buttons in the Components panel, Open in Storybook in a code component's layer header and right-click menu, and
-the Storybook item in the status bar, run the Storybook adapter's Open in Storybook action through `adapter.run` on the
-project service. The adapter decides what to open ([open.ts](../adapters/storybook-adapter/src/open.ts)); the app finds
-or starts its server, as any tool's ([utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts)), and lists
-it with the project's processes.
+Open in Storybook, wherever a code component offers it (its layer's header, its right-click menus in Layers, on the
+canvas and in the Components panel, its row's button and card, and Search actions), and the Storybook item in the status
+bar, run the Storybook adapter's Open in Storybook action through `adapter.run` on the project service. The adapter
+decides what to open ([open.ts](../adapters/storybook-adapter/src/open.ts)); the app finds or starts its server, as any
+tool's ([utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts)), and lists it with the project's
+processes.
 
 - **Reusing a server.** Parity fetches `http://localhost:<port>/index.json`, using the script's port or 6006, with a
   3-second timeout. It reuses the server when one of the index's `importPath`s is one of the project's mapped story
@@ -85,9 +86,11 @@ it with the project's processes.
 
 ### What reaches the UI
 
-`ProjectInfo.storybook` carries the detection result to the window. The UI shows Storybook buttons only for components
-with stories, and the status bar item only when the project has a Storybook. The agent API returns the version entry in
-`detection`, but not the story mapping, and none of the MCP tools in [packages/cli](../packages/cli) touch Storybook.
+`ProjectInfo.actions` carries Open in Storybook to the window with the components it's offered for: those a story file's
+meta names, resolved to the project's components. The UI offers it only for those, and the status bar item only when the
+project has a Storybook. `ProjectInfo.storybook` still carries the detection result, for the stories count on a
+component's card. The agent API returns the version entry in `detection`, but not the story mapping, and none of the MCP
+tools in [packages/cli](../packages/cli) touch Storybook.
 
 ### Parity's own Storybook
 

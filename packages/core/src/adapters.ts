@@ -191,6 +191,13 @@ export interface AdapterAction {
   failed: string
   /** A line under that, when it may take a while. */
   note?: string
+  /**
+   * Why it isn't offered for one of the project's components, as `No stories`. A component's menu in the Components
+   * panel shows it greyed with this, so the menu is the same for every component.
+   */
+  unavailable?: string
+  /** What running it does first while its tool's server isn't running, as `Starts Storybook`, beside it in a menu. */
+  starts?: string
 }
 
 /** What an adapter's `run` reads the project through, and how it starts its tool. */

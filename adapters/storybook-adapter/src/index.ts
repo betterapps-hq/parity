@@ -41,7 +41,9 @@ export const storybookAdapter: EntitiesAdapter = {
       ],
       progress: "Opening Storybook…",
       failed: "Couldn't open Storybook",
-      note: "If it isn't running yet, it starts first; that can take a minute."
+      note: "If it isn't running yet, it starts first; that can take a minute.",
+      unavailable: "No stories",
+      starts: "Starts Storybook"
     }
   ],
   run: async (action, context) => {

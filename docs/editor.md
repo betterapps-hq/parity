@@ -894,15 +894,17 @@ press taking 31ms and the frame after it 18ms.
 
 ### A component's stories and code from its menu (PAR-527)
 
-Right-clicking a component in the Components panel opens its menu: **View in Storybook**, then **View code**, which
-opens the component's file in the person's editor at the line of its export. Each is greyed with why when it can't act,
-rather than left out, so the menu is the same for every component: View in Storybook says "No stories" for one without
-any, and View code "Not in the project" for a library component without type declarations, whose declarations are
-otherwise its code. With stories, View in Storybook stays enabled while Storybook isn't running and says "Starts
-Storybook": choosing it starts the project's Storybook, reusing one already serving it, and opens the component's docs
-or first story once it's up, as the row's book button does. Whether it's running is the service's process list, which
-the status bar polls. A project without a Storybook has no View in Storybook. A library's component design offers Insert
-linked instance and Insert detached copy after them.
+Right-clicking a component in the Components panel opens its menu: what the project's adapters offer for components, as
+**Open in Storybook**, each with its adapter's logo, then **View code**, which opens the component's file in the
+person's editor at the line of its export. Each is greyed with why when it can't act, rather than left out, so the menu
+is the same for every component: Open in Storybook says "No stories" for one without any (the action's `unavailable`),
+and View code "Not in the project" for a library component without type declarations, whose declarations are otherwise
+its code. With stories, Open in Storybook stays enabled while Storybook isn't running and says "Starts Storybook" (the
+action's `starts`): choosing it starts the project's Storybook, reusing one already serving it, and opens the
+component's docs or first story once it's up, as the row's Storybook button does. Whether it's running is the service's
+process list, which the status bar polls, by the tool's process id (`storybook:<project>`). A project without a
+Storybook has no Open in Storybook. A library's component design offers Insert linked instance and Insert detached copy
+after them.
 
 Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
 and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
@@ -7344,13 +7346,19 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   port) or start the tool's command line from the project's install, list it with the project's processes as a tool's
   server and stop it with the project. An address the action gives opens in the browser.
 - **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project.
-- **A code component's layer offers the actions for its component** in two places, each with its adapter's logo and the
-  action's name: the end of its header in the Design panel, and the end of its right-click menu in Layers. A component's
-  board offers them too (`componentActions`, `layerComponent`). The book buttons in the Components panel still ask
-  `info.storybook` which components have stories, until adapters give facts about components.
+- **A code component offers the actions for it wherever it's picked,** each with its adapter's logo and the action's
+  name: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on the canvas,
+  after a separator, and its row in the Components panel, as a button beside it, in its right-click menu and on its
+  card. A component's board offers them too (`selectionComponent`, `componentActions`, `layerComponent`). Search actions
+  lists each of the project's actions under Object, for the selected component when it's offered for it, with the
+  component's name beside it, else for the whole project, as opening Storybook's home. Which components an action is for
+  comes only from its adapter: Storybook's are those its story files' metas name. The stories count on a component's
+  card still reads `info.storybook`, until adapters give facts about components.
 - **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
   running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
-  PlanCard board, shows Open in Storybook in its header and its right-click menu, which opens the component's docs page.
+  PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
+  page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
+  the Components panel greys it with "No stories".
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
@@ -7358,7 +7366,9 @@ Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAct
 `adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
 `adapter-status.test.ts`; `runAction`, `projectAction` and `componentActions` in `renderer/chrome/adapter-actions.ts`;
 `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
-`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx` and `AdapterLogo.tsx`.
+`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
+`ActionsSearch.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx`
+and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
 
 Tests: `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else Storybook's
 home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed action reaches
