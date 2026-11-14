@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Move the tool adapters into adapters/, and read Storybook stories as screens",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

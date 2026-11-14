@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import { collectCustomProperties, type MountHandle, type prepareCanvasCss } from "@parity-app/core"
-import type { createGuest } from "@parity-app/renderer-react/guest"
+import type { createGuest } from "@parity-app/react-adapter/guest"
 import { frameAttributes, themeAttributes } from "@parity-app/tokens"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
@@ -21,7 +21,7 @@ const errors: string[] = []
 const entry = `
 export { prepareFrame, setFrameViewport } from "./frame.ts"
 export { prepareCanvasCss } from "@parity-app/core"
-export { createGuest } from "@parity-app/renderer-react/guest"
+export { createGuest } from "@parity-app/react-adapter/guest"
 import { Component, createElement, createRef, useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
@@ -147,7 +147,7 @@ beforeAll(async () => {
     platform: "browser",
     // frame.ts reads scrollbars.css as text, as Vite's `?raw` gives it.
     loader: { ".css": "text" },
-    // React's production build, as frames run it (see builder-vite's productionDependencies).
+    // React's production build, as frames run it (see vite-adapter's productionDependencies).
     define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
 

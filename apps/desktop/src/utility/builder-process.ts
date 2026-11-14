@@ -1,9 +1,9 @@
-// One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
-// project closes is what gives back the build tool's memory, which closing its server doesn't.
-import { viteBuilder } from "@parity-app/builder-vite"
+import { builders } from "@parity-app/adapters/builders"
 import { nodePort } from "@parity-app/channel"
 import { serveBuilderProcess } from "@parity-app/processes"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
+// One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
+// project closes is what gives back the build tool's memory, which closing its server doesn't.
 
 serveBuilderProcess(
   {
@@ -19,7 +19,7 @@ serveBuilderProcess(
     },
     exit: () => process.exit(0)
   },
-  [viteBuilder]
+  builders
 )
 
 keepCompiledCode()

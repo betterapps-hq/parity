@@ -225,7 +225,7 @@ catalogs:
 overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@1.4.0
   shadcn-vite>vite: ^8.3.5
-  '@parity-app/builder-vite>vite': ^8.3.5
+  '@parity-app/vite-adapter>vite': ^8.3.5
 
 importers:
 
@@ -273,6 +273,86 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  adapters/react-adapter:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+      react-dom:
+        specifier: ^19.3.1
+        version: 19.3.1(react@19.3.1)
+
+  adapters/storybook-adapter:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
+  adapters/tailwind-adapter:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../../packages/project
+      '@parity-app/style-schema':
+        specifier: workspace:*
+        version: link:../../packages/style-schema
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
+
+  adapters/tanstack-router-adapter:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
+  adapters/vite-adapter:
+    dependencies:
+      '@parity-app/code':
+        specifier: workspace:*
+        version: link:../../packages/code
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../../packages/project
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
+    devDependencies:
+      vite:
+        specifier: ^8.3.5
+        version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
 
   apps/desktop:
     dependencies:
@@ -325,12 +405,12 @@ importers:
       '@parity-app/account':
         specifier: workspace:*
         version: link:../../packages/account
+      '@parity-app/adapters':
+        specifier: workspace:*
+        version: link:../../packages/adapters
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../../packages/agent
-      '@parity-app/builder-vite':
-        specifier: workspace:*
-        version: link:../../packages/builder-vite
       '@parity-app/change-detection':
         specifier: workspace:*
         version: link:../../packages/change-detection
@@ -352,6 +432,9 @@ importers:
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../../packages/icons
+      '@parity-app/layer-types':
+        specifier: workspace:*
+        version: link:../../packages/layer-types
       '@parity-app/media-player':
         specifier: workspace:*
         version: link:../../packages/media-player
@@ -361,27 +444,27 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../../packages/project
+      '@parity-app/react-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/react-adapter
       '@parity-app/registry':
         specifier: workspace:*
         version: link:../../packages/registry
-      '@parity-app/renderer-react':
-        specifier: workspace:*
-        version: link:../../packages/renderer-react
       '@parity-app/service':
         specifier: workspace:*
         version: link:../../packages/service
       '@parity-app/style-schema':
         specifier: workspace:*
         version: link:../../packages/style-schema
-      '@parity-app/styles-tailwind':
-        specifier: workspace:*
-        version: link:../../packages/styles-tailwind
       '@parity-app/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@parity-app/vite-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/vite-adapter
       '@storybook/react-vite':
         specifier: 10.6.5
         version: 10.6.5(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1)))(supports-color@7.2.0)(typescript@6.0.3)
@@ -583,6 +666,27 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
 
+  packages/adapters:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      '@parity-app/react-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/react-adapter
+      '@parity-app/storybook-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/storybook-adapter
+      '@parity-app/tailwind-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/tailwind-adapter
+      '@parity-app/tanstack-router-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/tanstack-router-adapter
+      '@parity-app/vite-adapter':
+        specifier: workspace:*
+        version: link:../../adapters/vite-adapter
+
   packages/agent:
     dependencies:
       '@parity-app/core':
@@ -610,25 +714,6 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-
-  packages/builder-vite:
-    dependencies:
-      '@parity-app/code':
-        specifier: workspace:*
-        version: link:../code
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../core
-      '@parity-app/project':
-        specifier: workspace:*
-        version: link:../project
-      '@parity-app/tokens':
-        specifier: workspace:*
-        version: link:../tokens
-    devDependencies:
-      vite:
-        specifier: ^8.3.5
-        version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
 
   packages/change-detection:
     dependencies:
@@ -713,21 +798,15 @@ importers:
 
   packages/fixtures:
     dependencies:
-      '@parity-app/builder-vite':
+      '@parity-app/adapters':
         specifier: workspace:*
-        version: link:../builder-vite
+        version: link:../adapters
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
-      '@parity-app/renderer-react':
-        specifier: workspace:*
-        version: link:../renderer-react
-      '@parity-app/styles-tailwind':
-        specifier: workspace:*
-        version: link:../styles-tailwind
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -737,6 +816,8 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/layer-types: {}
 
   packages/libgen:
     dependencies:
@@ -843,40 +924,6 @@ importers:
         specifier: ^7.8.0
         version: 7.8.0
 
-  packages/renderer-react:
-    dependencies:
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../core
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-    devDependencies:
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      react:
-        specifier: ^19.3.1
-        version: 19.3.1
-      react-dom:
-        specifier: ^19.3.1
-        version: 19.3.1(react@19.3.1)
-
-  packages/router-tanstack:
-    dependencies:
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../core
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-
   packages/service:
     dependencies:
       '@parity-app/connectors':
@@ -901,21 +948,6 @@ importers:
       web-features:
         specifier: 'catalog:'
         version: 3.45.0
-
-  packages/styles-tailwind:
-    dependencies:
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../core
-      '@parity-app/project':
-        specifier: workspace:*
-        version: link:../project
-      '@parity-app/style-schema':
-        specifier: workspace:*
-        version: link:../style-schema
-      '@parity-app/tokens':
-        specifier: workspace:*
-        version: link:../tokens
 
   packages/telemetry:
     dependencies:

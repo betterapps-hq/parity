@@ -11,7 +11,7 @@ import { findWorkspace, pnpmPackages } from "./workspace.ts"
 const renderer: RendererAdapter = {
   id: "test",
   name: "Test",
-  detect: () => true,
+  detect: () => Promise.resolve({ found: true, summary: "" }),
   guestModule: "",
   runtimePackages: [],
   runtimeImports: [],

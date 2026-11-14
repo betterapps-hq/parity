@@ -1,0 +1,16 @@
+{
+  "name": "@parity-app/tailwind-adapter",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "@parity-app/style-schema": "workspace:*",
+    "@parity-app/tokens": "workspace:*"
+  }
+}

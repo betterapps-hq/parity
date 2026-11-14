@@ -232,7 +232,12 @@ const nodeBase = fileObject({
    * Inside a component design: which of this node's values come from the component's params, so each instance can
    * show its own. `text` and `props` name a param.
    */
-  bind: nodeBinding.optional()
+  bind: nodeBinding.optional(),
+  /**
+   * The element a layer was read from: its tag and the attributes that say what it is, as `role` or `href`. Only on what
+   * a component draws inside (`internals`), which is read from its code and never saved; it gives the layer its type.
+   */
+  element: fileObject({ tag: z.string(), attributes: z.record(z.string(), z.string()).optional() }).optional()
 })
 
 /**
@@ -273,6 +278,25 @@ const layoutNode = nodeBase.extend({
 /** A flex container. Layout is design-native, so every mode resolves it exactly, without media queries. */
 export type LayoutNode = z.infer<typeof layoutNode>
 
+const routeNode = nodeBase.extend({
+  type: z.literal("route"),
+  /** The route's id, as its router has it: `/settings/billing`, or `__root__` for the root. */
+  route: z.string(),
+  /** The component the route draws, by its name in the route's file, when it names one. */
+  component: z.string().optional(),
+  get children(): z.ZodArray<typeof designNode> {
+    return z.array(designNode)
+  }
+})
+
+/**
+ * What one of the app's routes draws on a page (PAR-1076): its component, with the next route's inside it at its outlet.
+ * A page's layers are the routes that draw it, the root's outermost, each shown as the component it draws. It's read
+ * from the project's router, so it's never designed: the route's path, params, file and component are the project's, by
+ * `route`.
+ */
+export type RouteNode = z.infer<typeof routeNode>
+
 const componentNode = nodeBase.extend({
   type: z.literal("component"),
   component: z.string(),
@@ -281,6 +305,14 @@ const componentNode = nodeBase.extend({
   /** Child nodes by slot. `children` is the default slot; other names become node-valued props. */
   get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
     return z.record(z.string(), z.array(designNode)).optional()
+  },
+  /**
+   * What the component draws inside, read from its elements as they're drawn, each as the layer its element is: only on
+   * a component's own board, which is drawn from the project's code and never saved. They're shown, not drawn: the
+   * component draws itself.
+   */
+  get internals(): z.ZodOptional<z.ZodArray<typeof designNode>> {
+    return z.array(designNode).optional()
   }
 })
 
@@ -381,6 +413,7 @@ export type VideoNode = z.infer<typeof videoNode>
 
 const designNode = z.discriminatedUnion("type", [
   layoutNode,
+  routeNode,
   componentNode,
   textNode,
   instanceNode,
@@ -502,6 +535,16 @@ const containerViewSettings = fileObject({
    * the main one; modes it doesn't name follow in project order. The main frame's mode comes first whatever the order.
    */
   order: z.array(z.string()).optional(),
+  /**
+   * How large each mode's frame beside the main one is drawn, by mode id, from a tenth to its full size. One it doesn't
+   * name is shrunk to fit beside the main frame (see `companionScale`).
+   */
+  scales: z.record(z.string(), z.number().min(0.1).max(1)).optional(),
+  /**
+   * The value a page of the app is drawn with for each of its route's path params, by name. One it doesn't give is
+   * drawn with the param's name.
+   */
+  params: z.record(z.string(), z.string()).optional(),
   /** A component's state the canvas shows. Defaults to the first. */
   state: z.string().optional(),
   /** Show every state of a component, one row each, instead of only the active one. */

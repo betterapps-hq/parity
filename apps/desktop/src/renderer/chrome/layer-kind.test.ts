@@ -1,6 +1,6 @@
 import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { iconName, isIconLayer, layerActions, layerKind, unnamedIconLabel } from "./layer-kind.ts"
+import { iconName, isIconLayer, layerActions, layerComponent, layerKind, unnamedIconLabel } from "./layer-kind.ts"
 
 const designs = new Map([["plan-card", "Plan card"]])
 const designName = (id: string) => designs.get(id)
@@ -73,19 +73,26 @@ describe("layerKind", () => {
   })
 })
 
+describe("layerComponent", () => {
+  it("names the code component a layer draws, for its adapters' actions, but not an icon or any other layer", () => {
+    expect(layerComponent({ type: "component", id: "n", component: "nova/Card" }, libraries)).toBe("nova/Card")
+    expect(layerComponent({ type: "component", id: "l", component: "lucide/Check" }, libraries)).toBeUndefined()
+    expect(layerComponent({ type: "instance", id: "i", design: "plan-card" }, libraries)).toBeUndefined()
+  })
+})
+
 describe("layerActions", () => {
-  const all = { stories: true, design: true }
-  const none = { stories: false, design: false }
-  const actions = (node: DesignNode, has = all) => layerActions(node, has, libraries)
+  const all = { design: true }
+  const none = { design: false }
+  const actions = (node: DesignNode, has = all) => layerActions(node, has)
 
   it("goes to the component from an instance of a design, when the design is the project's", () => {
     expect(actions({ type: "instance", id: "i", design: "plan-card" })).toEqual(["go-to-component"])
     expect(actions({ type: "instance", id: "i", design: "plan-card" }, none)).toEqual([])
   })
 
-  it("opens a code component in Storybook only where the project has its stories, and never offers the editor", () => {
-    expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual(["open-in-storybook"])
-    expect(actions({ type: "component", id: "n", component: "nova/Card" }, none)).toEqual([])
+  it("offers nothing of its own for a code component, whose adapters offer their actions, and never the editor", () => {
+    expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual([])
   })
 
   it("offers nothing for an icon or a layer that isn't a component", () => {

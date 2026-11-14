@@ -1,34 +1,29 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { viteBuilder } from "@parity-app/builder-vite"
+import { adapters } from "@parity-app/adapters"
 import {
-  type BuilderAdapter,
   type BuilderDetection,
   type ComponentSource,
   type JsonValue,
   type LibraryInfo,
   prepareCanvasCss,
-  type RendererAdapter,
   type StorybookInfo,
-  type StylesAdapter,
   type ThemeVariable
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
 import {
   type Detection,
+  detectAdapters,
+  detectContext,
   detectProject,
   discoverProject,
   type PackageManagerDetection,
   readPackage
 } from "@parity-app/project"
-import { reactRenderer } from "@parity-app/renderer-react"
-import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { extractTokens } from "@parity-app/tokens"
 
 // The adapters the desktop app opens projects with.
-const renderers: RendererAdapter[] = [reactRenderer]
-const builders: BuilderAdapter[] = [viteBuilder]
-const stylesAdapters: StylesAdapter[] = [tailwindStyles]
+const { renderers, builders, styles: stylesAdapters } = adapters
 
 /**
  * The version cutoff depends on the date, so snapshots are taken as of a fixed one and don't change by themselves. Move
@@ -84,7 +79,19 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   }
 
   const problems: string[] = []
-  const renderer = renderers.find((adapter) => adapter.detect(pkg))
+  const project = detectContext(root, pkg)
+  const rendererFound = (await detectAdapters(project, renderers)).find(({ detection }) => detection.found)
+  const renderer = rendererFound?.adapter
+
+  const others = (
+    await Promise.all([
+      detectAdapters(project, adapters.styles),
+      detectAdapters(project, adapters.routers),
+      detectAdapters(project, adapters.entities)
+    ])
+  )
+    .flat()
+    .filter(({ detection }) => detection.found)
 
   if (!renderer) {
     problems.push(`No renderer supports ${pkg.name ?? root}`)
@@ -95,7 +102,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
 
   for (const adapter of builders) {
     try {
-      const detection = await adapter.detect(root)
+      const detection = await adapter.detect(project)
 
       if (detection.found) {
         builder = { id: adapter.id, ...detection }
@@ -108,10 +115,16 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     }
   }
 
+  const builderAdapter = builders.find((adapter) => adapter.id === builder?.id)
+
   const detection = await detectProject(
     root,
     pkg,
-    builder ? { id: builder.id, detection: builder } : undefined,
+    [
+      ...(rendererFound ? [rendererFound] : []),
+      ...(builder && builderAdapter ? [{ adapter: builderAdapter, detection: builder }] : []),
+      ...others
+    ],
     checkedOn
   )
 
@@ -134,7 +147,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   let theme: ThemeVariable[] = []
 
   for (const [index, stylesheet] of stylesheets.entries()) {
-    const adapter = stylesAdapters.find((candidate) => candidate.detect(sources[index] ?? ""))
+    const adapter = stylesAdapters.find((candidate) => candidate.handles(sources[index] ?? ""))
 
     if (!adapter) {
       continue

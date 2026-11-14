@@ -103,7 +103,7 @@ export interface OverlayMarks {
   /** Column grids over frames, from View > Layout grid. */
   columns?: { key: string; box: Box }[]
   /** A selected frame's size, under it, as a layer's is: a frame's name is its title above it. */
-  frameSize?: { box: Box; size: string }
+  frameSize?: { box: Box; size: string; color: string }
   /** A selected component design's slots (PAR-83), each outlined and named, so it's clear where instances put layers. */
   slots?: { key: string; box: Box; name: string }[]
 }
@@ -202,7 +202,11 @@ export function overlayMarks(scene: OverlayScene): OverlayMarks {
   const frame = design?.frames[0]
 
   if (design?.kind === "frame" && !scene.node && frame) {
-    marks.frameSize = { box: frame.box, size: sizeOf(frame.box, frame.scale) }
+    marks.frameSize = {
+      box: frame.box,
+      size: sizeOf(frame.box, frame.scale),
+      color: designColor(design.kind, design.key)
+    }
   }
 
   if (picked && !drag && scene.slots.length > 0) {
@@ -215,7 +219,7 @@ export function overlayMarks(scene: OverlayScene): OverlayMarks {
         kind: "frame",
         key: `frame:${mode}:${state}`,
         box,
-        color: designColor(design.kind),
+        color: designColor(design.kind, design.key),
         edges: frameEdges,
         label: design.kind === "frame" ? "Drag to resize the frame" : undefined,
         design: design.key,

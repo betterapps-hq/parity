@@ -17,6 +17,12 @@ import {
   type VideoNode
 } from "@parity-app/core"
 import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
+import {
+  describeElement,
+  type ElementFacts,
+  type PanelSection as TypeSection,
+  panelData
+} from "@parity-app/layer-types"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
@@ -33,6 +39,7 @@ import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
+import { componentOffers, runAction } from "./adapter-actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
 import { BaseDesignNote } from "./BaseDesignNote.tsx"
 import { pushAndRecord } from "./component-events.ts"
@@ -40,19 +47,20 @@ import { extractIntoComponent } from "./components.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
-import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
+import { type LayerChange, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
-import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
+import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
 import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
+import { readFromCode, writesProps } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
+import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
-import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
@@ -83,6 +91,11 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
   }
 
+  // A layer read from a component's element has its type's panel (`@parity-app/layer-types`).
+  if (layer.node.element) {
+    return <ElementPanel element={layer.node.element} text={layer.node.type === "text"} />
+  }
+
   const KindPanel = kindPanels[layer.node.type]
 
   if (KindPanel) {
@@ -95,16 +108,72 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     (component) => components[component]?.takesStyle
   )
 
+  // What a story draws takes its args as props, which are written back to its file; nothing else of it is.
+  const story = writesProps(layer.entry.path, layer.nodeId)
+
   return panelParts(can).map((section) => {
     const Section = layerSections[section]
 
-    return Section && <Section key={section} />
+    if (!Section) {
+      return undefined
+    }
+
+    return story && section !== "props" ? (
+      <fieldset key={section} disabled className="contents">
+        <Section />
+      </fieldset>
+    ) : (
+      <Section key={section} />
+    )
   })
+}
+
+/** The style sections that show each of a layer type's sections that come from its styles. */
+const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
+  landmark: [],
+  link: [],
+  input: [],
+  source: [],
+  playback: [],
+  layout: ["layout", "spacing"],
+  typography: ["text"],
+  size: ["size"],
+  fill: ["fill"],
+  stroke: ["stroke"],
+  appearance: ["appearance", "effects"]
+}
+
+/**
+ * The panel of a layer read from a component's element (read-only viewer): its header, named for its type, the sections
+ * its attributes fill (`panelData`), its text, and the style sections its type has, in that order.
+ */
+function ElementPanel({ element, text }: { element: ElementFacts; text: boolean }) {
+  const order = describeElement(element).sections.flatMap((section) => typeStyleSections[section])
+
+  return (
+    <>
+      <LayerHeader />
+      {panelData(element).map((group) => (
+        <PanelSection key={group.section} title={group.title}>
+          <FieldGrid>
+            {group.fields.map((field) => (
+              <Field key={field.attribute} label={field.label}>
+                <TextInput value={field.value} onCommit={() => undefined} />
+              </Field>
+            ))}
+          </FieldGrid>
+        </PanelSection>
+      ))}
+      {text && <LayerContent />}
+      <LayerStyles order={order} />
+    </>
+  )
 }
 
 /** The kinds of layer with a Design panel of their own (PAR-1056); the others are drawn from `panelParts`. */
 const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
   layout: LayoutPanel,
+  route: RoutePanel,
   text: TextPanel
 }
 
@@ -121,34 +190,30 @@ const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
 }
 
 /**
- * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and opens a code
- * component in Storybook.
+ * What a layer's header does before its eye: goes to the component an instance is of (`layerActions`), then what the
+ * project's adapters offer for a code component, as Open in Storybook.
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
   const entries = useContainerEntries(session.store)
-  const component = node.type === "component" ? node.component : undefined
+  const component = layerComponent(node, session.info.libraries)
   const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
-
-  const actions = layerActions(
-    node,
-    {
-      stories: component !== undefined && hasStories(session.info, component),
-      design: design !== undefined
-    },
-    session.info.libraries
-  )
 
   const act = (action: HeaderAction) => {
     if (action === "go-to-component" && design) {
       session.selection.set({ design: design.key })
       revealSelection(session)
-    } else if (action === "open-in-storybook" && component) {
-      void openInStorybook(session.id, component)
     }
   }
 
-  return <HeaderActions actions={actions} onAction={act} />
+  return (
+    <HeaderActions
+      actions={layerActions(node, { design: design !== undefined })}
+      onAction={act}
+      adapterOffers={componentOffers(session.info, component)}
+      onAdapterAction={({ action }) => void runAction(session.id, action, component)}
+    />
+  )
 }
 
 /**
@@ -167,8 +232,14 @@ export function LayerHeader() {
   }
 
   const { entry, nodeId, node, override, change, reset, state, target, inner } = layer
-  const { container, key } = entry
-  const kind = layerKind(layer.layer, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
+  const { container } = entry
+  // A layer read from the project's code shows its name as text and has no eye, since nothing edits it.
+  const fromCode = readFromCode(entry.path)
+
+  const kind = layer.layer.element
+    ? elementKind(layer.layer.element)
+    : layerKind(layer.layer, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
+
   const label = layerLabel(layer.layer, entries, store.getComponentLibrary(), session.info.libraries)
 
   const heading = (name: ReactNode) => (
@@ -181,13 +252,13 @@ export function LayerHeader() {
       action={
         <>
           <LayerActions node={layer.layer} />
-          <VisibleToggle node={node} override={override} change={change} reset={reset} />
+          {!fromCode && <VisibleToggle node={node} override={override} change={change} reset={reset} />}
         </>
       }
     />
   )
 
-  if (inner) {
+  if (inner || fromCode) {
     return (
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         {heading(<Name className={`px-1.5 ${headingName}`}>{label}</Name>)}
@@ -198,41 +269,26 @@ export function LayerHeader() {
 
   return (
     <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-      {heading(
-        <NameInput
-          key={`${nodeId}:${layer.layer.name ?? ""}`}
-          defaultValue={layer.layer.name ?? ""}
-          placeholder={label}
-          aria-label="Layer name"
-          className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
-          onBlur={(event) => {
-            const name = event.currentTarget.value.trim()
-
-            if (name === (layer.layer.name ?? "")) {
-              return
-            }
-
-            renameAndRecord(store, key, name || undefined, nodeId)
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur()
-            }
-          }}
-        />
-      )}
+      {heading(<Name className={`px-1.5 ${headingName}`}>{layer.layer.name ?? label}</Name>)}
       <ComponentStateSelector entry={entry} state={state} target={target} />
-      {/* A component or an instance is already one, so it has no Make component. */}
-      {layer.depth > 0 && layer.layer.type !== "instance" && layer.layer.type !== "component" && (
-        <MakeComponent
-          entry={entry}
-          nodeId={nodeId}
-          beside={
-            layer.layer.type === "layout" &&
-            container.kind === "component" && <MakeSlot entry={entry} node={layer.layer} />
-          }
-        />
-      )}
+      {/*
+        A component or an instance is already one, and a route or a layer read from an element is the app's code, so
+        they have no Make component.
+      */}
+      {layer.depth > 0 &&
+        !layer.layer.element &&
+        layer.layer.type !== "instance" &&
+        layer.layer.type !== "component" &&
+        layer.layer.type !== "route" && (
+          <MakeComponent
+            entry={entry}
+            nodeId={nodeId}
+            beside={
+              layer.layer.type === "layout" &&
+              container.kind === "component" && <MakeSlot entry={entry} node={layer.layer} />
+            }
+          />
+        )}
       {/* The outermost layout is the design itself, with no Make component, but it can still be a slot. */}
       {layer.depth === 0 && layer.layer.type === "layout" && container.kind === "component" && (
         <div className="mt-2 flex">
@@ -241,6 +297,13 @@ export function LayerHeader() {
       )}
     </div>
   )
+}
+
+/** A layer read from an element is called by its type, as Button, with what made it that, as its tag or role. */
+function elementKind(element: ElementFacts): LayerKind {
+  const layer = describeElement(element)
+
+  return { label: layer.name, description: layer.detail }
 }
 
 /** Where the selected layer's edits go, alone: the state or variant being edited, and switching it. */

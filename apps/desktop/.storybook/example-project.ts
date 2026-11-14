@@ -1,12 +1,20 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { guestModuleSource, taggedModule } from "@parity-app/builder-vite"
+import { adapters } from "@parity-app/adapters"
 import { hasElementSources, inferProps } from "@parity-app/code"
-import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
-import { detectProject, discoverProject, readPackage } from "@parity-app/project"
-import { reactRenderer } from "@parity-app/renderer-react"
-import { tailwindStyles } from "@parity-app/styles-tailwind"
+import { type Adapter, type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
+import {
+  adapterActions,
+  adapterStatus,
+  detectAdapters,
+  detectContext,
+  detectProject,
+  discoverProject,
+  importEntities,
+  readPackage
+} from "@parity-app/project"
+import { guestModuleSource, taggedModule } from "@parity-app/vite-adapter"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 
@@ -67,7 +75,7 @@ export function exampleProject(): Plugin {
 
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
       if (source === rendererId) {
-        return require.resolve("@parity-app/renderer-react/guest")
+        return require.resolve("@parity-app/react-adapter/guest")
       }
 
       if (source.startsWith("/")) {
@@ -160,33 +168,80 @@ async function discover(): Promise<{
     throw new Error(`There's no package.json in ${root}`)
   }
 
-  const config = await discoverProject(root, reactRenderer, pkg)
+  // The adapters the app's service would choose: the example is React, built with Vite and styled with Tailwind.
+  const project = detectContext(root, pkg)
+
+  const found = async <A extends Adapter>(list: A[]) =>
+    (await detectAdapters(project, list)).filter(({ detection }) => detection.found)
+
+  const [rendererFound] = await found(adapters.renderers)
+
+  if (!rendererFound) {
+    throw new Error(`No renderer supports ${root}`)
+  }
+
+  const renderer = rendererFound.adapter
+  // The builder isn't started, so it isn't asked either: stories use the example's Vite as installed.
+  const builder = adapters.builders[0]!
+  const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
+
+  const [styleFound, routers, entitiesFound] = await Promise.all([
+    found(adapters.styles),
+    found(adapters.routers),
+    found(adapters.entities)
+  ])
+
+  const config = await discoverProject(root, renderer, pkg)
   const stylesheet = config.styles[0]
-  const theme = stylesheet ? await tailwindStyles.loadTheme(root, stylesheet).catch(() => []) : []
+  const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
+  const styles = stylesheet ? adapters.styles.find((adapter) => adapter.handles(source)) : undefined
+  const theme = styles && stylesheet ? await styles.loadTheme(root, stylesheet).catch(() => []) : []
   const mainDocument = config.documents.find((path) => !path.includes("/")) ?? "shadcn-vite.par"
   // The example's main designs file is the only one stories open, read from Storybook's own copy.
   const documents = [await readDocument(mainDocument)]
   const main = documents[0]?.document
 
+  const detection = await detectProject(root, pkg, [
+    rendererFound,
+    builderFound,
+    ...styleFound,
+    ...routers,
+    ...entitiesFound
+  ])
+
+  const used = entitiesFound.map(({ adapter }) => adapter)
+  const entities = await importEntities(root, config.components, used)
+
+  const tools = [
+    { adapter: renderer },
+    { adapter: builder, version: "8" },
+    ...(styles ? [{ adapter: styles }] : []),
+    ...used.map((adapter) => ({ adapter }))
+  ]
+
   const info: Omit<ProjectInfo, "guestUrl"> = {
     id: root,
     root,
     name: pkg.name ?? "shadcn-vite",
-    renderer: { id: reactRenderer.id, name: reactRenderer.name },
-    builder: { id: "vite", name: "Vite", toolVersion: "8" },
+    renderer: { id: renderer.id, name: renderer.name },
+    builder: { id: builder.id, name: builder.name, toolVersion: "8" },
     theme,
+    routes: [],
+    entities: {},
+    status: adapterStatus(tools, detection, entities),
+    actions: adapterActions(tools, detection, entities),
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,
     notes: config.notes,
-    detection: await detectProject(root, pkg),
+    detection,
     documents,
     mainDocument,
     modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
   }
 
-  if (stylesheet) {
-    info.styles = { id: tailwindStyles.id, name: tailwindStyles.name, stylesheet }
+  if (styles && stylesheet) {
+    info.styles = { id: styles.id, name: styles.name, stylesheet }
   }
 
   if (config.storybook) {

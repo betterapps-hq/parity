@@ -1,5 +1,7 @@
 import type { ComponentList } from "@parity-app/code"
 import {
+  type AdapterStatusItem,
+  type ProjectAction,
   type CanvasDocument,
   type ComponentSource,
   defaultModeSettings,
@@ -11,6 +13,8 @@ import {
   type ModeSettings,
   parseCanvasDocument,
   parseLibraryManifest,
+  type ProjectEntities,
+  type ProjectRoute,
   type StorybookInfo,
   type ThemeVariable
 } from "@parity-app/core"
@@ -26,11 +30,17 @@ export interface ProjectInfo {
   name: string
   renderer: { id: string; name: string }
   builder: { id: string; name: string; toolVersion: string }
+  /** The router adapter that read `routes`, when the app has one; their owner among the project's nodes. */
+  router?: { id: string; name: string }
   /** The styling framework whose theme the tokens include, when one was recognized. */
   styles?: { id: string; name: string; stylesheet: string; error?: string }
   /** The styling framework's full theme, which compiled CSS trims to what the project's code uses. */
   theme: ThemeVariable[]
   guestUrl: string
+  /** The app's routes, as its router declares them, each parent before its children; empty without a router (PAR-1076). */
+  routes: ProjectRoute[]
+  /** Parity's entities as the project's tools describe them, as its stories as screens (`EntitiesAdapter`). */
+  entities: ProjectEntities
   componentCount: number
   /** Where each component comes from: the project's own files, or a library. */
   sources: Record<string, ComponentSource>
@@ -38,6 +48,10 @@ export interface ProjectInfo {
   leftOut?: LeftOutExport[]
   /** How the project was discovered. */
   notes: string[]
+  /** What the project's tools add to the status bar, as each one's adapter tells it. */
+  status: AdapterStatusItem[]
+  /** What the project's tools' adapters can do, which the windows offer and `adapter.run` does. */
+  actions: ProjectAction[]
   /**
    * What detection found and where: the package manager, and the version and config of each tool Parity runs or
    * renders with. Its `notice` names versions the cutoff drops.
@@ -71,8 +85,13 @@ export interface OpenedProject {
   name: string
   renderer: { id: string; name: string }
   builder: { id: string; name: string; toolVersion: string }
+  router?: { id: string; name: string } | undefined
   styles: { info?: ProjectInfo["styles"]; theme: ThemeVariable[] }
   guestUrl: string
+  routes: ProjectRoute[]
+  entities: ProjectEntities
+  status: AdapterStatusItem[]
+  actions: ProjectAction[]
   config: DiscoveredProject
   detection: ProjectDetection
   documents: DocumentEntry[]
@@ -84,7 +103,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
   const { config } = opened
   const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document.modes
 
-  return {
+  const info: OpenedProjectInfo = {
     id: opened.root,
     root: opened.root,
     name: opened.name,
@@ -93,15 +112,25 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     styles: opened.styles.info,
     theme: opened.styles.theme,
     guestUrl: opened.guestUrl,
+    routes: opened.routes,
+    entities: opened.entities,
     libraries: config.libraries,
     storybook: config.storybook,
     describedTokens: config.describedTokens,
     notes: config.notes,
+    status: opened.status,
+    actions: opened.actions,
     detection: opened.detection,
     documents: opened.documents,
     mainDocument: opened.mainDocument,
     modes: { settings: modes ?? defaultModeSettings, custom: !!modes }
   }
+
+  if (opened.router) {
+    info.router = opened.router
+  }
+
+  return info
 }
 
 /** An open project's info with its component list as it is now. */

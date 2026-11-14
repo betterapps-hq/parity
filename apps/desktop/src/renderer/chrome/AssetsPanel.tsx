@@ -40,7 +40,6 @@ import {
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
-  BookOpen,
   ChevronRight,
   CircleAlert,
   Component,
@@ -66,6 +65,7 @@ import {
   useSyncExternalStore
 } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
@@ -75,9 +75,11 @@ import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
+import { componentOffers, runAction } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
-import { ComponentMenu } from "./ComponentMenu.tsx"
+import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
 import type { Attributes } from "./event-attributes.ts"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
@@ -89,7 +91,7 @@ import { type Preferences, setPreferences, usePreferences } from "./preferences.
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
-import { hasStories, openInStorybook } from "./storybook.ts"
+import { revealSelection } from "./reveal.ts"
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
@@ -442,6 +444,23 @@ export function ComponentsPanel() {
   )
 }
 
+/**
+ * Pressing a component: one of the project's own selects its board on the canvas, which shows what it is, and any
+ * other is added where the selection is.
+ */
+function pick(session: ProjectSession, item: InsertItem, component: string | undefined): void {
+  const board = component === undefined ? undefined : boardKeyOf(session.id, component)
+
+  if (board === undefined) {
+    addAtSelection(session, item)
+
+    return
+  }
+
+  session.selection.set({ design: board })
+  revealSelection(session)
+}
+
 /** The app's exports that aren't listed as components: what the type checker left out, less what the person listed. */
 function notListed(info: ProjectInfo): LeftOutExport[] {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
@@ -511,8 +530,13 @@ function SourceSection({
   const session = useProject()
   const statuses = useRenderStatus(session.loaded)
 
-  const storybookRunning = useProcesses(false).some(
-    (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
+  // The tools' servers running for the project, by process id, so an action that starts one says so.
+  const processes = useProcesses(false)
+
+  const running = new Set(
+    processes
+      .filter((process) => process.kind === "tool" && process.projectId === session.id && process.status === "running")
+      .map((process) => process.id)
   )
 
   const [expanded, setExpanded] = useState<boolean>()
@@ -552,7 +576,7 @@ function SourceSection({
                   view={view}
                   uses={uses.get(entry.key) ?? 0}
                   status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                  storybookRunning={storybookRunning}
+                  running={running}
                 />
               ))}
             </div>
@@ -568,9 +592,9 @@ const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height
 /**
  * An item of a source: a component, whose card opens beside it when the pointer rests on it or the right arrow is
  * pressed on it (PAR-515, PAR-208), or a library's component design, with a hint. In the List and Grid views a
- * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): View in
- * Storybook, and View code in the person's editor, each greyed with why when it can't. A library's design offers its
- * two ways to insert.
+ * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): what the
+ * project's adapters offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
+ * why when it can't. A library's design offers its two ways to insert.
  */
 function AssetEntry({
   entry,
@@ -578,19 +602,20 @@ function AssetEntry({
   view,
   uses,
   status,
-  storybookRunning
+  running
 }: {
   entry: Family["items"][number]
   source: Source
   view: ComponentsView
   uses: number
   status: ComponentRenderStatus | undefined
-  storybookRunning: boolean
+  /** The tools' servers running for the project, by process id. */
+  running: ReadonlySet<string>
 }) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const stories = component !== undefined && hasStories(session.info, component)
+  const offers = componentOffers(session.info, component)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
@@ -669,7 +694,7 @@ function AssetEntry({
     <button
       type="button"
       {...dragItem(item)}
-      onClick={() => addAtSelection(session, item)}
+      onClick={() => pick(session, item, component)}
       {...(component
         ? {
             onPointerEnter: card.enter,
@@ -698,11 +723,7 @@ function AssetEntry({
 
   const menu = (component || instance) && (
     <ComponentMenu
-      storybook={
-        component && session.info.storybook
-          ? { stories, running: storybookRunning, open: () => void openInStorybook(session.id, component) }
-          : undefined
-      }
+      offers={component ? menuOffers(session, component, running) : undefined}
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
@@ -756,20 +777,55 @@ function AssetEntry({
       ) : (
         row
       )}
-      {stories && (
-        <Hint label="Open in Storybook">
-          <button
-            type="button"
-            aria-label={`Open ${entry.label} in Storybook`}
-            onClick={() => void openInStorybook(session.id, entry.key)}
-            className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
-          >
-            <BookOpen className="size-3.5" />
-          </button>
-        </Hint>
+      {offers.length > 0 && (
+        <div
+          className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
+        >
+          {offers.map(({ action, unavailable }) => (
+            // One that can't act stays, faded and focusable, its hint saying why.
+            <Hint key={`${action.adapter}:${action.id}`} label={unavailable ?? action.name}>
+              <button
+                type="button"
+                aria-label={
+                  unavailable === undefined
+                    ? `${action.name}: ${entry.label}`
+                    : `${action.name}: ${entry.label}, unavailable: ${unavailable}`
+                }
+                aria-disabled={unavailable !== undefined || undefined}
+                onClick={unavailable === undefined ? () => void runAction(session.id, action, component) : undefined}
+                className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
+              >
+                <AdapterLogo logo={action.icon} className="size-3.5" />
+              </button>
+            </Hint>
+          ))}
+        </div>
       )}
     </AssetRow>
   )
+}
+
+/**
+ * What a component's menu offers from the project's adapters: each action offered for components, greyed with why on
+ * one it isn't for, and saying what it starts first while its tool's server isn't running.
+ */
+function menuOffers(session: ProjectSession, component: string, running: ReadonlySet<string>): MenuOffer[] {
+  return componentOffers(session.info, component).map(({ action, unavailable }) => {
+    const offer: MenuOffer = {
+      id: `${action.adapter}:${action.id}`,
+      name: action.name,
+      logo: action.icon,
+      run: () => void runAction(session.id, action, component)
+    }
+
+    if (unavailable !== undefined) {
+      offer.unavailable = unavailable
+    } else if (action.starts && !running.has(`${action.adapter}:${session.id}`)) {
+      offer.starts = action.starts
+    }
+
+    return offer
+  })
 }
 
 /**
@@ -820,8 +876,16 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
-  if (stories > 0) {
-    about.onOpenStorybook = () => void openInStorybook(session.id, component)
+  const offers = componentOffers(session.info, component).map(({ action, unavailable }) => ({
+    id: `${action.adapter}:${action.id}`,
+    name: action.name,
+    logo: action.icon,
+    unavailable,
+    run: () => void runAction(session.id, action, component)
+  }))
+
+  if (offers.length > 0) {
+    about.offers = offers
   }
 
   return { pictured: previewStatus(preview, missing), about }
@@ -830,10 +894,7 @@ export function useComponentCard(
 /** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
 export interface ComponentCard {
   pictured: PreviewStatus
-  about: Pick<
-    ComponentCardProps,
-    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
-  >
+  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "offers">
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */

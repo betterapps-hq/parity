@@ -68,7 +68,36 @@ export function reportFrameFailures(
   const next = designFailures([...entry.frames.values()].map((known) => known.failures))
   entry.failures.set(next.length === 0 ? none : next)
 
+  for (const listener of listeners.get(project) ?? []) {
+    listener(design, next)
+  }
+
   consoleLog(project).setFailures(failureMessages(project, Date.now()))
+}
+
+type FailuresListener = (design: string, failures: readonly LayerFailure[]) => void
+
+const listeners = new Map<string, Set<FailuresListener>>()
+
+/**
+ * Calls `listener` with a design's failing layers in any of its frames each time they change, for any of the project's
+ * designs, until the returned function is called.
+ */
+export function onDesignFailures(project: string, listener: FailuresListener): () => void {
+  let set = listeners.get(project)
+
+  if (!set) {
+    listeners.set(project, (set = new Set()))
+  }
+
+  set.add(listener)
+
+  return () => set.delete(listener)
+}
+
+/** The design's failing layers in any of its frames now, one per node. */
+export function designFailuresNow(project: string, design: string): readonly LayerFailure[] {
+  return entryFor(project, design).failures.get()
 }
 
 /** The design's failing layers in any of its frames, one per node. */

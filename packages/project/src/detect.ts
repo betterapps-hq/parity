@@ -1,5 +1,6 @@
+import { readFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
-import type { BuilderDetection, PackageManifest } from "@parity-app/core"
+import type { Adapter, AdapterDetection, DetectContext, PackageManifest, ToolVersions } from "@parity-app/core"
 import type { Agent } from "package-manager-detector"
 import { resolveCommand } from "package-manager-detector/commands"
 import { AGENTS, LOCKS } from "package-manager-detector/constants"
@@ -8,104 +9,58 @@ import semver from "semver"
 import type { Detection, PackageManagerDetection, ProjectDetection } from "./detection.ts"
 import { nearestLockfiles } from "./lockfile.ts"
 import { findPackage, readPackage } from "./packages.ts"
-import { storybookConfig } from "./storybook.ts"
 
-/** A tool Parity runs or renders with, the packages it comes in, and when each of its majors came out. */
-interface Tool {
+/** A tool Parity runs or renders with: its adapter's name, and where its version is installed. */
+interface Tool extends ToolVersions {
   /** Its adapter's id. */
   id: string
   name: string
-  /** Packages that carry its version, the main one first. */
-  packages: string[]
-  /** Whether a dependency means the project uses the tool. */
-  uses(dependency: string): boolean
-  /** Each major's first stable release (x.0.0) from the npm registry, oldest first. */
-  majors: [major: number, released: string][]
-  /** How majors are written, such as Tailwind's `v4`. */
-  prefix?: string
-  /** Packages that ship the tool and may be installed in its place, with their names for people. */
-  distributions?: Record<string, string>
-  /** Where its config file is, relative to the root, for tools whose builder doesn't report one. */
-  config?(root: string, pkg: PackageManifest): Promise<string | undefined>
 }
 
-/** The tools the version cutoff covers. Add a major here when it comes out, so the one before it starts to count down. */
-const tools: Tool[] = [
-  {
-    id: "react",
-    name: "React",
-    packages: ["react"],
-    uses: (dependency) => dependency === "react",
-    majors: [
-      [15, "2016-04-07"],
-      [16, "2017-09-26"],
-      [17, "2020-10-20"],
-      [18, "2022-03-29"],
-      [19, "2024-12-05"]
-    ]
-  },
-  {
-    id: "vite",
-    name: "Vite",
-    packages: ["vite"],
-    uses: (dependency) => dependency === "vite",
-    distributions: { "@voidzero-dev/vite-plus-core": "Vite+" },
-    majors: [
-      [2, "2021-02-16"],
-      [3, "2022-07-13"],
-      [4, "2022-12-09"],
-      [5, "2023-11-16"],
-      [6, "2024-11-26"],
-      [7, "2025-06-24"],
-      [8, "2026-03-12"]
-    ]
-  },
-  {
-    id: "tailwind",
-    name: "Tailwind CSS",
-    packages: ["tailwindcss"],
-    uses: (dependency) => dependency === "tailwindcss",
-    prefix: "v",
-    majors: [
-      [1, "2019-05-13"],
-      [2, "2020-11-18"],
-      [3, "2021-12-09"],
-      [4, "2025-01-21"]
-    ]
-  },
-  {
-    id: "storybook",
-    name: "Storybook",
-    // Storybook 7 and later are versioned by `storybook`; before that, by its framework packages.
-    packages: ["storybook", "@storybook/react", "@storybook/react-vite", "@storybook/core"],
-    uses: (dependency) => dependency === "storybook" || dependency.startsWith("@storybook/"),
-    config: async (root, pkg) => (await storybookConfig(root, pkg))?.main,
-    majors: [
-      [6, "2020-08-11"],
-      [7, "2023-03-31"],
-      [8, "2024-03-11"],
-      [9, "2025-05-28"],
-      [10, "2025-10-28"]
-    ]
-  }
-]
+/** An adapter, and what its `detect` found. */
+export interface AdapterFound<A extends Pick<Adapter, "id" | "name" | "versions"> = Adapter> {
+  adapter: A
+  detection: AdapterDetection
+}
+
+/** How every adapter's `detect` reads the project at `root`. */
+export function detectContext(root: string, pkg: PackageManifest): DetectContext {
+  return { root, pkg, read: async (path) => readFile(join(root, path), "utf8").catch(() => undefined) }
+}
+
+/** What each of `adapters` found, in order, asked all at once. An adapter whose `detect` throws rejects it. */
+export async function detectAdapters<A extends Adapter>(
+  project: DetectContext,
+  adapters: readonly A[]
+): Promise<AdapterFound<A>[]> {
+  const detections = await Promise.all(adapters.map((adapter) => adapter.detect(project)))
+
+  return adapters.map((adapter, index) => ({ adapter, detection: detections[index]! }))
+}
 
 /**
- * What a project uses and where each was found: its package manager, and the installed versions of the tools Parity
- * runs or renders with, checked against the version cutoff. The builder passes what it found, such as its config.
+ * What a project uses and where each was found: its package manager, and the installed version of each tool an adapter
+ * found, checked against the version cutoff its adapter gives. What the adapter found, such as a builder's config and
+ * its build tool's own version, comes first.
  */
 export async function detectProject(
   root: string,
   pkg: PackageManifest,
-  builder?: { id: string; detection: BuilderDetection },
+  found: readonly AdapterFound<Pick<Adapter, "id" | "name" | "versions">>[],
   today = new Date()
 ): Promise<ProjectDetection> {
-  const [packageManager, ...found] = await Promise.all([
+  const tools = found.flatMap(({ adapter, detection }) =>
+    detection.found && adapter.versions
+      ? [{ tool: { id: adapter.id, name: adapter.name, ...adapter.versions }, detection }]
+      : []
+  )
+
+  const [packageManager, ...detected] = await Promise.all([
     detectPackageManager(root),
-    ...tools.map((tool) => detectTool(root, pkg, tool, builder?.id === tool.id ? builder.detection : undefined, today))
+    ...tools.map(({ tool, detection }) => detectTool(root, pkg, tool, detection, today))
   ])
 
-  const used = found.filter((detection) => detection !== undefined)
+  const used = detected
 
   const untested = used
     .filter((detection) => detection.status === "dropped")
@@ -127,18 +82,12 @@ async function detectTool(
   root: string,
   pkg: PackageManifest,
   tool: Tool,
-  builder: BuilderDetection | undefined,
+  found: AdapterDetection,
   today: Date
-): Promise<Detection | undefined> {
+): Promise<Detection> {
   const declared = { ...pkg.dependencies, ...pkg.devDependencies }
-  const dependencies = Object.keys(declared).filter((dependency) => tool.uses(dependency))
-
-  if (!builder && dependencies.length === 0) {
-    return undefined
-  }
-
-  const file = builder?.config ?? (await tool.config?.(root, pkg))
-  const config = file ? { config: file } : {}
+  const dependencies = Object.keys(declared).filter((dependency) => uses(tool, dependency))
+  const config = found.config ? { config: found.config } : {}
 
   let aliased: { from: string; via: Via } | undefined
 
@@ -173,8 +122,8 @@ async function detectTool(
     return toolDetection(tool, version, { from, ...config }, today, via)
   }
 
-  if (builder?.version) {
-    return toolDetection(tool, builder.version, config, today, aliased?.via)
+  if (found.version) {
+    return toolDetection(tool, found.version, config, today, aliased?.via)
   }
 
   if (aliased) {
@@ -196,6 +145,11 @@ async function detectTool(
     status: "missing",
     summary: `${tool.name}${range ? ` ${range}` : ""} is in package.json but isn't installed: install the project's packages first`
   }
+}
+
+/** Whether a dependency is one of the tool's packages, or in its scope. */
+function uses(tool: Tool, dependency: string): boolean {
+  return tool.packages.includes(dependency) || (tool.scope !== undefined && dependency.startsWith(tool.scope))
 }
 
 /** A package installed in a tool's place: its name for people, its package name and its own version. */

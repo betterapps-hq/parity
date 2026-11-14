@@ -17,11 +17,13 @@ function follow(
   reach: LabelReach | undefined
 ) {
   return (style: CSSStyleDeclaration, zoom: number) => {
-    const { scale, opacity } = labelLook(kind, zoom, { width, height })
+    const { scale } = labelLook(kind, zoom)
+    // A label that runs past what it labels shows while that room is enough, not only the room under it.
+    const room = fit && reach && width !== undefined ? reach(zoom, scale) : width
+    const { opacity } = labelLook(kind, zoom, { width: room, height })
     style.transform = `scale(${scale / zoom})`
 
     if (fit) {
-      const room = reach && width !== undefined ? reach(zoom, scale) : width
       const past = room !== width
       const share = width !== undefined && room !== undefined ? room / width : 1
       style.width = `${((100 * zoom) / scale) * share}%`

@@ -130,6 +130,7 @@ export {
   draggedBox,
   drawnFrame,
   fittedFrame,
+  fitsDrawn,
   frameOfText,
   type FramePreset,
   framePresets,
@@ -234,6 +235,17 @@ export {
   type TreeRow,
   treeRows
 } from "./layers-tree.ts"
+
+export { collectNodes, createNodeIndex, type NodeIndex, type NodeSources } from "./node-index.ts"
+
+export {
+  type FolderedRow,
+  folderId,
+  folderIds,
+  type FolderRow,
+  folderTree,
+  type FolderTreeRow
+} from "./layers-folders.ts"
 
 export {
   designsLocked,
@@ -455,3 +467,56 @@ export {
 } from "./token-edits.ts"
 
 export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"
+
+export {
+  pageFrameName,
+  pageGroupBox,
+  pageHeightMessage,
+  pageLandedMessage,
+  landedElsewhere,
+  type PageLayout,
+  pageLinkLine,
+  pageLinksLit,
+  type PageMode,
+  pageName,
+  type PageNode,
+  pageTree,
+  type PlacedPage,
+  placePages,
+  routeLayers,
+  type RouteGroup,
+  type RouteScreen,
+  type RouteTree,
+  routeScreenId,
+  routeScreens,
+  routeTree,
+  samplePath,
+  treeDepth
+} from "./route-boards.ts"
+
+export {
+  type BoardLayout,
+  boardGroups,
+  boardsHeight,
+  type ComponentBoard,
+  componentBoardId,
+  boardComponentLayer,
+  boardComponentNode,
+  boardWithInternals,
+  componentBoards,
+  redrawnBoards
+} from "./component-boards.ts"
+
+export { type BoardParents, nextBoardParents, noBoardParents } from "./board-parents.ts"
+
+export {
+  type ElementLayerType,
+  elementLayers,
+  elementLayerType,
+  type ElementSnapshot,
+  layerName,
+  readStyles,
+  styleOfElement
+} from "./element-layers.ts"
+
+export { hasTriedSize, withoutTriedSize } from "./tried-size.ts"

@@ -6,21 +6,23 @@ import {
   zoomHeldFrom,
   zoomSettled
 } from "@parity-app/editor"
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   type Atom,
   atom,
   type Computed,
   computed,
   type Editor,
+  getUserPreferences,
   react,
   SelectionForegroundOverlayUtil,
+  setUserPreferences,
   type TLComponents,
   Tldraw
 } from "tldraw"
 import { heldBoards } from "../agent/held-boards.ts"
 import { holdWhileZooming } from "../replay.ts"
-import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
+import { useResolvedTheme } from "../theme.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
 import { isFarZoom } from "./frame-bitmaps.ts"
@@ -30,17 +32,19 @@ import { designColor, kindColors } from "./kinds.tsx"
 import { redrawLayer } from "./layer-redraw.ts"
 import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
+import { PageLinksUtil } from "./PageLinksUtil.tsx"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
+import { routePageLinks } from "./route-pages.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
 import { type CanvasId, createCanvasId, IndicatorOverlayUtil } from "./tldraw-names.ts"
 import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
-const canvasUtils = [ContainerUtil, NoteUtil, ReferenceUtil, ...withoutPatternFills]
+const canvasUtils = [ContainerUtil, NoteUtil, ReferenceUtil, PageLinksUtil, ...withoutPatternFills]
 
 /** The kinds of things the store holds that tldraw draws, each as a shape following its entry. */
-type ProjectedType = "canvas-container" | "canvas-note" | "canvas-reference"
+type ProjectedType = "canvas-container" | "canvas-note" | "canvas-reference" | "canvas-page-links"
 
 /** A shape as the store wants it: where it is, and for a reference its size and link. */
 interface Projected {
@@ -340,6 +344,14 @@ export function CanvasEditor({
   const { id: tab, store, selection, editor } = useProject()
   const theme = useResolvedTheme()
 
+  // tldraw draws its first frame in the app's theme, rather than in the light one it starts in until it's mounted. Its
+  // preferences are every canvas's, so a tab opened later finds them set already, and nothing changes as it draws.
+  useState(() => {
+    if (getUserPreferences().colorScheme !== theme) {
+      setUserPreferences({ ...getUserPreferences(), colorScheme: theme })
+    }
+  })
+
   // The canvas follows the app's theme; designs keep the theme their mode picks.
   useEffect(() => {
     editor?.user.updateUserPreferences({ colorScheme: theme })
@@ -367,7 +379,7 @@ export function CanvasEditor({
   const handleMount = useCallback(
     (editor: Editor) => {
       // Snapping on by default, as in Figma: dragged designs lock to the edges and centers of the ones around them.
-      editor.user.updateUserPreferences({ colorScheme: getResolvedTheme(), isSnapMode: true })
+      editor.user.updateUserPreferences({ isSnapMode: true })
       // Out to 1%, past tldraw's 5%, so a project with dozens of screens fits in view at once.
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       hiddenTabs.set(editor, atom("tab hidden", false))
@@ -401,6 +413,13 @@ export function CanvasEditor({
           })
         }
 
+        // The lines of the app's page tree, behind everything (PAR-1076).
+        const pageLines = createCanvasId("page-links")
+
+        if (routePageLinks(tab).length > 0) {
+          wanted.set(pageLines, { type: "canvas-page-links", key: tab, x: 0, y: 0, locked: true })
+        }
+
         editor.run(
           () => {
             const stale = editor.getCurrentPageShapes().filter((item) => !wanted.has(item.id))
@@ -417,6 +436,10 @@ export function CanvasEditor({
                 editor.createShape({ id, type, x, y, isLocked: locked, props: { key, ...size }, meta })
               } else if (Math.abs(placed.x - x) >= 1 || Math.abs(placed.y - y) >= 1 || placed.isLocked !== locked) {
                 editor.updateShape({ id, type: placed.type, x, y, isLocked: locked })
+              }
+
+              if (!placed && type === "canvas-page-links") {
+                editor.sendToBack([id])
               }
 
               if (placed?.type === "canvas-reference" && size) {
@@ -599,7 +622,7 @@ export function CanvasEditor({
         } else if (current.mode) {
           color = kindColors.mode
         } else if (entry) {
-          color = designColor(entry.container.kind)
+          color = designColor(entry.container.kind, entry.key)
         }
 
         setSelectionColor(editor, color)

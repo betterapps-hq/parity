@@ -137,7 +137,7 @@ const roles: Role[] = [
         <strong data-sample className="font-medium text-foreground tabular-nums">
           587
         </strong>{" "}
-        components in code
+        components
       </span>
     )
   },

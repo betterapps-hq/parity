@@ -5,6 +5,7 @@ export const Route = createRootRoute({ component: RootLayout })
 const links = [
   { to: "/", label: "Home" },
   { to: "/pricing", label: "Pricing" },
+  { to: "/dashboard", label: "Dashboard" },
   { to: "/projects", label: "Projects" },
   { to: "/settings", label: "Settings" },
 ] as const

@@ -1,5 +1,6 @@
 import type { StylePrinter } from "@parity-app/style-schema"
 import { z } from "zod"
+import type { ContainerSpec } from "./document.ts"
 import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
 import type { ProjectConfig } from "./project.ts"
@@ -72,16 +73,248 @@ export function parseManifest(text: string, file: string): PackageManifest {
 }
 
 /**
+ * The first of `packages` a package.json declares as a dependency or dev dependency, else the first in `scope` (as
+ * `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
+ */
+export function declares(pkg: PackageManifest, packages: readonly string[], scope?: string): string | undefined {
+  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+
+  return (
+    packages.find((name) => declared.includes(name)) ??
+    (scope ? declared.find((name) => name.startsWith(scope)) : undefined)
+  )
+}
+
+/**
+ * What an adapter adds to the status bar about its tool, which the app draws as it's given: an icon, a value in bold,
+ * and words after it, with a tooltip. A project's tools each tell their own, so a new adapter adds its items without
+ * the app changing.
+ */
+export interface StatusItem {
+  /** A Lucide icon's name, as `route`. Without one, the item shows its adapter's logo. */
+  icon?: string
+  /** What's in bold: the tool's name, or a count. */
+  value: string
+  /** The words after it, as ` in Storybook` or ` 8.3.5`, which a narrow status bar leaves to screen readers. */
+  words?: string
+  /** The tooltip's title. */
+  hint: string
+  /** The tooltip's line, saying what it does or what clicking it does. */
+  detail?: string
+  /** What clicking it does: open one of the app's left panel tabs, or run one of its adapter's actions by id. */
+  opens?: { tab: string } | { action: string }
+}
+
+/** What an adapter's status items are made from: what Parity found of its tool in the project. */
+export interface StatusFacts {
+  /** The tool's version, as detection or the running tool says it. */
+  version?: string
+  /** The project's package manager's name. */
+  packageManager: string
+  /** The entities an entities adapter imported. */
+  entities?: ProjectEntities
+  /** The app's routes, which a router read. */
+  routes?: readonly ProjectRoute[]
+}
+
+/** A status item, with the adapter that gave it, and that adapter's logo when the item names no icon. */
+export interface AdapterStatusItem extends StatusItem {
+  adapter: string
+  logo?: AdapterIcon
+}
+
+/** An action an adapter offers, as the windows are told it: with the adapter that does it, its logo, and its components. */
+export interface ProjectAction extends Omit<AdapterAction, "components" | "routes"> {
+  adapter: string
+  /** The adapter's logo. */
+  icon?: AdapterIcon
+  /** The components it's offered for, by key. */
+  components?: string[]
+  /** The app's routes it's offered for, by id. */
+  routes?: string[]
+}
+
+/**
+ * An adapter's logo, as one shape the app fills with the text's colour, so it reads as an icon beside Lucide's in any
+ * theme. It's path data rather than SVG markup, so it draws nothing but the shape.
+ */
+export interface AdapterIcon {
+  /** The `viewBox` the path is drawn in, as `0 0 24 24`. */
+  viewBox: string
+  /** The path's data, every part of the logo in one. */
+  path: string
+  /** How overlapping parts fill: `evenodd` cuts one out of another, as the S out of Storybook's book. */
+  fillRule?: "nonzero" | "evenodd"
+}
+
+/**
+ * What every adapter has, whatever it integrates: who it is, its logo, whether the project uses its tool, which version
+ * Parity tests, and what it adds to the status bar.
+ */
+export interface Adapter {
+  id: string
+  name: string
+  /** Its tool's logo. */
+  icon?: AdapterIcon
+  /**
+   * Whether the project uses its tool, and what was found: its version, when the tool can say, and its config file.
+   * Every adapter is asked when a project opens, and only those that find their tool are used.
+   */
+  detect(project: DetectContext): Promise<AdapterDetection>
+  /**
+   * Files, relative to the project root, whose coming or going means the project is detected again, as a builder's
+   * config files (PAR-826). A tool follows a change to one's contents itself.
+   */
+  watches?: readonly string[]
+  /** Where its tool's version is installed, and when each major came out, for the version cutoff. */
+  versions?: ToolVersions
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
+  /** What it can do for the project, such as open its tool, which the app offers and `run` does. */
+  actions?: readonly AdapterAction[]
+  /** Does one of its `actions`, by id. */
+  run?(action: string, context: ActionContext): Promise<ActionResult>
+}
+
+/** Something an adapter does for the project, which the app offers where it says. */
+export interface AdapterAction {
+  /** Its id among its adapter's actions, as `open`. */
+  id: string
+  /** Its name in a menu, as `Open in Storybook`. */
+  name: string
+  /**
+   * The project's components it's also offered for, by key, from what Parity found of its tool, as those with stories;
+   * `ActionContext.component` names the one it's run for. Without it, it's offered for the whole project only.
+   */
+  components?(facts: StatusFacts): string[]
+  /**
+   * The app's routes it's also offered for, by id, as a router's pages; `ActionContext.page` is the one it's run for.
+   */
+  routes?(facts: StatusFacts): string[]
+  /** What the app says while it runs, as `Opening Storybook…`. */
+  progress: string
+  /** What the app says when it fails, as `Couldn't open Storybook`. */
+  failed: string
+  /** A line under that, when it may take a while. */
+  note?: string
+  /**
+   * Why it isn't offered for one of the project's components, as `No stories`. A component's menu in the Components
+   * panel shows it greyed with this, so the menu is the same for every component.
+   */
+  unavailable?: string
+  /** What running it does first while its tool's server isn't running, as `Starts Storybook`, beside it in a menu. */
+  starts?: string
+}
+
+/** What an adapter's `run` reads the project through, and how it starts its tool. */
+export interface ActionContext {
+  project: DetectContext
+  /** The project's files and components, as an entities adapter reads them. */
+  source: EntitiesSource
+  /** What the adapter's own `detect` found when the project opened. */
+  detection: AdapterDetection
+  /** The component it's run for, by its key, when it's run for one. */
+  component?: string
+  /** The page it's run for, when it's run for one: its route's id, and the URL the canvas draws it at. */
+  page?: ActionPage
+  servers: ToolServers
+}
+
+/** A page of the app an action is run for: its route's id, and the URL the canvas draws it at, its params filled. */
+export interface ActionPage {
+  route: string
+  url: string
+}
+
+/** Servers a tool runs for the project, which the app starts, lists with its processes and stops with the project. */
+export interface ToolServers {
+  /**
+   * A server for the project: one already serving it, at an address Portless routes to or on its port, else one
+   * started with the tool's command line from the project's own install. `fresh` stops the one there is first, as
+   * when it stopped answering.
+   */
+  serve(server: ToolServer, options?: { fresh?: boolean }): Promise<ServedTool>
+}
+
+/** A tool's server, as an adapter describes it. */
+export interface ToolServer {
+  /** Its name in the app's processes, as `Storybook`. */
+  name: string
+  /** The installed package whose command line starts it, as `storybook`. */
+  package: string
+  /** The command line's arguments, to serve on `port`. */
+  args(port: number): string[]
+  /** The port it asks for, which it's served on when free. */
+  port: number
+  /** Whether a server at `base` is this project's, and ready. */
+  serves(base: string): Promise<boolean>
+}
+
+/** Where a tool's server is: where Parity reaches it, and where a browser opens it, by its Portless name when it has one. */
+export interface ServedTool {
+  url: string
+  address: string
+}
+
+/** What an action did: an address the app opens in the browser. */
+export interface ActionResult {
+  open?: string
+}
+
+/** What every adapter's `detect` reads the project through, so it can look wherever its tool leaves a trace. */
+export interface DetectContext {
+  /** The project's root folder. */
+  root: string
+  pkg: PackageManifest
+  /** A file's text by its path from the root, with forward slashes, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+}
+
+/** What an adapter's `detect` found: its tool's version and config file, or what it looked for when it found nothing. */
+export interface AdapterDetection {
+  found: boolean
+  /** The tool's version, when the tool says it, as a builder asks its build tool. Otherwise the installed package's. */
+  version?: string
+  /** Its config file, relative to the project root. */
+  config?: string
+  /** What was found, or what was looked for, in a sentence. */
+  summary: string
+}
+
+/**
+ * Where a tool's version is installed, and when each of its majors came out: the version cutoff tests a major for two
+ * years from its own x.0.0, and always the newest.
+ */
+export interface ToolVersions {
+  /** Packages that carry its version, the main one first. */
+  packages: string[]
+  /** Each major's first stable release (x.0.0), from the npm registry, oldest first. Add one when it comes out. */
+  majors: [major: number, released: string][]
+  /** A scope every package of which is one of the tool's, as `@storybook/`, beside `packages`. */
+  scope?: string
+  /** How majors are written, such as Tailwind's `v4`. */
+  prefix?: string
+  /** Packages that ship the tool and may be installed in its place, with their names for people. */
+  distributions?: Record<string, string>
+}
+
+/** The adapters Parity opens projects with, by what they integrate. */
+export interface Adapters {
+  renderers: RendererAdapter[]
+  builders: BuilderAdapter[]
+  styles: StylesAdapter[]
+  routers: RouterAdapter[]
+  entities: EntitiesAdapter[]
+}
+
+/**
  * Mounts components of one UI framework (React, Vue, Svelte…).
  *
  * The adapter has two halves. This object runs in the host and describes the framework. Its guest module is compiled by
  * the customer's own toolchain into the customer's module graph, so components render with the customer's copy of the
  * framework rather than the canvas app's.
  */
-export interface RendererAdapter {
-  id: string
-  name: string
-  detect(pkg: PackageManifest): boolean
+export interface RendererAdapter extends Adapter {
   /** Module specifier, resolvable from the host, whose module exports `createGuest(init: GuestInit): Guest`. */
   guestModule: string
   /** Packages that must resolve to exactly one copy, taken from the customer's project. */
@@ -141,29 +374,14 @@ export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] a
  * Compiles a customer's components with the customer's own build setup (Vite, webpack, Next.js…) and serves them to the
  * canvas as a guest module.
  */
-export interface BuilderAdapter {
-  id: string
-  name: string
-  /**
-   * The config files, relative to the project root, that say whether this builder serves the project (PAR-826).
-   * Detection follows them, so adding or taking one away detects an open project again; the build tool follows a
-   * change to one's contents itself.
-   */
-  configFiles: readonly string[]
-  /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
-  detect(root: string): Promise<BuilderDetection>
+export interface BuilderAdapter extends Adapter {
+  /** Its config files, relative to the project root, which say whether it serves the project (PAR-826). */
+  watches: readonly string[]
   start(options: BuilderStartOptions): Promise<BuilderSession>
 }
 
-/** What a builder found: the tool's version and config file, or what it looked for when it found nothing. */
-export interface BuilderDetection {
-  found: boolean
-  version?: string
-  /** The config file, relative to the project root. */
-  config?: string
-  /** What was found, or what was looked for, in a sentence. */
-  summary: string
-}
+/** What a builder found: its build tool's version, asked of the tool itself, and its config file. */
+export type BuilderDetection = AdapterDetection
 
 export interface BuilderSession {
   /** URL of an ES module whose default export is a {@link Guest}. */
@@ -387,11 +605,9 @@ export interface DrawnNodes {
  * Reads a styling framework's theme (Tailwind, Panda, vanilla-extract…) from a project's own installation. Compiled CSS
  * only carries the variables the project's code already uses; the theme has every value a design may pick.
  */
-export interface StylesAdapter {
-  id: string
-  name: string
-  /** Whether a stylesheet of the project uses this framework. */
-  detect(source: string): boolean
+export interface StylesAdapter extends Adapter {
+  /** Whether one of the project's stylesheets uses this framework, from its text. */
+  handles(source: string): boolean
   /** Every theme variable, resolved by the project's own copy of the framework. */
   loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
   /**
@@ -424,14 +640,66 @@ export interface ThemeVariable {
 }
 
 /**
+ * Translates a tool's own files, which Parity doesn't read itself, to Parity's entities, and back: Storybook's stories
+ * to screens, for one. It reads through `source`, so it runs without a disk, and gives back only entities, so nothing
+ * outside it knows the tool's format. A project can have several: each fills in the entities its tool describes.
+ */
+export interface EntitiesAdapter extends Adapter {
+  /** The entities the tool's files describe. */
+  import(source: EntitiesSource): Promise<ProjectEntities>
+  /**
+   * A screen it imported, as edited in Parity, written back to the tool's files: each file it changes, with its new
+   * text. None when the edit is one the tool's files can't hold.
+   */
+  export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
+}
+
+/** A file an adapter writes, by its path from the project's root, with its whole new text. */
+export interface FileWrite {
+  path: string
+  text: string
+}
+
+/** How an entities adapter reads a project: its files, and which of the project's components an import names. */
+export interface EntitiesSource {
+  /** The project's files whose path matches, from the root, with forward slashes, leaving out dependencies and builds. */
+  files(match: RegExp): Promise<string[]>
+  /** A file's text by its path from the root, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+  /** The key of the project's component that `file` imports as `name` from `specifier`, if it's one. */
+  componentFor(file: string, specifier: string, name: string): Promise<string | undefined>
+}
+
+/** Parity's entities, as far as a tool's files describe them. */
+export interface ProjectEntities {
+  screens?: ImportedScreen[]
+  /**
+   * Code the screens draw that isn't one of the project's components, by the id their component layers name, which
+   * the guest loads from its file as it loads a component: a story's `render` function, given its args as props.
+   */
+  sources?: Record<string, GuestComponentSource>
+}
+
+/** A screen read from a tool's files, with where it came from. */
+export interface ImportedScreen {
+  /** The adapter that read it. */
+  adapter: string
+  /** Where it is in the tool's files, unique among the adapter's: a story as `src/stories/button.stories.tsx#Outline`. */
+  ref: string
+  /** The group it's listed in, as a story's title: `UI/Button`. */
+  group: string
+  /** The folders Layers lists it in, outermost first, as `UI` then `Button`; at the top without any. */
+  folders?: string[]
+  /** The project's component it's about, by its key, as the component a story's meta names. */
+  component?: string
+  screen: ContainerSpec
+}
+
+/**
  * Lists an app's routes from its router's own files (TanStack Router, React Router…), so the canvas can draw each page
  * (PAR-1073). The app's own entry draws a page at its URL; the adapter only says which routes there are.
  */
-export interface RouterAdapter {
-  id: string
-  name: string
-  /** Whether the project uses this router, from its package.json. */
-  detect(pkg: PackageManifest): boolean
+export interface RouterAdapter extends Adapter {
   /**
    * The project's routes, each parent before its children, read through `read`: a file's text by its path from the
    * project root, with forward slashes, or undefined when there's no such file. Empty when the router's files aren't
@@ -460,6 +728,11 @@ export interface ProjectRoute {
   loads: boolean
   /** Whether it can redirect or refuse before it draws. */
   guards: boolean
+  /**
+   * Where it always sends the browser instead of drawing, from the root, as a layout's index that only redirects to one
+   * of the layout's pages: `/settings/profile`. Undefined when it draws, or redirects only sometimes, as a guard does.
+   */
+  redirect?: string
 }
 
 /**

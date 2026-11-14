@@ -1,5 +1,5 @@
 import { resolve } from "node:path"
-import { dependencySourceMaps } from "@parity-app/builder-vite/dependency-maps"
+import { dependencySourceMaps } from "@parity-app/vite-adapter/dependency-maps"
 import tailwindcss from "@tailwindcss/vite"
 import reactPlugin from "@vitejs/plugin-react"
 import { defineConfig, lazyPlugins } from "vite-plus"

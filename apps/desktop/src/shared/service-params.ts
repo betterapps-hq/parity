@@ -149,6 +149,7 @@ export const serviceParams = {
   "library.add": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
+  "entities.save": project.extend({ document: canvasDocument }),
   "recovery.keep": project.extend({ copy: recoveryCopy.optional() }),
   "recovery.read": project,
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
@@ -156,7 +157,12 @@ export const serviceParams = {
   "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),
   "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
-  "storybook.open": project.extend({ component: z.string().optional() }),
+  "adapter.run": project.extend({
+    adapter: z.string(),
+    action: z.string(),
+    component: z.string().optional(),
+    page: z.object({ route: z.string(), url: z.url() }).optional()
+  }),
   "document.saveCopy": z.object({ path: z.string(), document: canvasDocument }),
   "designs.export": project.extend({
     folder: z.string(),
