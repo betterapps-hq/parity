@@ -43,7 +43,6 @@ import { createCloseFlow } from "./close-flow.ts"
 import { openInEditor } from "./code-editor.ts"
 import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
-import { copyStorageFolder, leftoverCopyFolders, processRunning, removeFolder } from "./copy-storage.ts"
 import { readEnvironment } from "./environment.ts"
 import { hostHandlers } from "./host-handlers.ts"
 import { answerWindows, fromParityPage } from "./host-methods.ts"
@@ -92,23 +91,6 @@ const environment = readEnvironment(process.env)
 // @parity-app/desktop (PAR-425). Set before Sentry starts, which keeps its queue there, and before the Telemetry setting
 // is read from it.
 app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
-
-// Chromium's storage in the user data folder is one copy's at a time. A copy opened while another has it, as one per
-// session working in the repository, would wait seconds on it the first time its page touches storage, frozen and in
-// tldraw's light theme, then keep nothing anyway. So it keeps that storage in a temporary folder of its own, removed as
-// it quits or, if Chromium still has it open then, by the next such copy. Its tabs, theme, session and bitmaps are
-// main's own files, which stay where they are.
-if (!app.requestSingleInstanceLock()) {
-  const temp = app.getPath("temp")
-  const own = copyStorageFolder(temp, process.pid)
-
-  for (const leftover of leftoverCopyFolders(temp, processRunning)) {
-    removeFolder(leftover)
-  }
-
-  app.setPath("sessionData", own)
-  app.once("quit", () => removeFolder(own))
-}
 
 /** The Telemetry setting and install ID, in a file the CLI reads too (PAR-626). */
 const telemetryFile = join(app.getPath("userData"), telemetryFileName)
@@ -660,9 +642,8 @@ async function receiveLink(link: string): Promise<boolean> {
 }
 
 /**
- * On Windows and Linux, the system starts a new Parity process with the link, since copies don't hand each other
- * launches (the single-instance lock only tells which copy has the user data folder's storage). That process only
- * passes the link on, and quits without opening a window.
+ * On Windows and Linux, the system starts a new Parity process with the link, since Parity holds no single-instance
+ * lock. That process only passes the link on, and quits without opening a window.
  */
 const handedLink = process.platform === "darwin" ? undefined : launchLink(process.argv)
 
