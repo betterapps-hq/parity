@@ -105,18 +105,6 @@ export function titleTop(board: Pick<BoardBox, "y">, zoom: number): number {
 const titleClearance = 8
 
 /**
- * How much of the canvas across a title `width` screen pixels wide needs, in page pixels, to read in full before the
- * next board at every zoom down to where names stop shrinking (see `labelLook`). From `shrinkBelow` out a name shrinks
- * with the canvas, so it takes the same room as it does there, until it's down to its smallest at 24%; past that, the
- * boards themselves are too small to read. `titleClearance` stays its size on screen, so it's taken at 24%, where it's
- * the most canvas. Packed boards leave this much room for their titles, so a narrow board's name isn't cut off at the
- * next board.
- */
-export function titleRoom(width: number): number {
-  return width / shrinkBelow + titleClearance / (shrinkBelow * smallestName)
-}
-
-/**
  * How wide a board's title may be on the canvas, in page pixels, at a zoom, once it draws at `scale` of its screen
  * size (see `labelLook`): to the next board to its right, short of `titleClearance` on screen, where that board or its
  * own title is level with this title. So zoomed out, a narrow board's name runs into the free canvas beside it rather

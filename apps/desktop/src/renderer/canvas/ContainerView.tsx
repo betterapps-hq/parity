@@ -649,10 +649,10 @@ function TitleButton({
   const { container } = entry
   // A page of the app shows its route under its name (PAR-1076).
   const path = routePagePath(session.id, container.id)
-  // A component's board shows the component's icon, and its file under its name.
+  // A component's board shows the component's icon. Its file isn't shown: the name is how it's found.
   const file = boardFile(session.id, container.id)
   const kind = file === undefined ? container.kind : "component"
-  const under = path ?? file
+  const under = path
 
   // Edit > Rename, or F2, with the design selected.
   const renameRequest = useRenameRequest(session.selection)
