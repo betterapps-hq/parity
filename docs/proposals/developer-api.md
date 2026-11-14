@@ -41,10 +41,10 @@ canvas overlay, keep state, be turned off, or fail without taking the project se
   without breaking anyone.
 - **Declare what shows before any code runs.** The manifest says which commands, tabs, settings and node types an
   extension adds, and where. Parity draws them at once and loads the code only when it's needed.
-- **Native by default, custom when needed.** Most extensions describe their UI as data that Parity draws with its own
-  kit. One that needs its own drawing gets a sandboxed web view.
-- **The person stays in charge.** Every change to a design is one undo step. Every extension can be turned off. Every
-  permission is asked for.
+- **Native by default.** Extensions describe their UI as data that Parity draws with its own kit. A sandboxed web view,
+  for one that needs its own drawing, comes in a later release.
+- **The person stays in charge.** Extensions can change designs, and every change is one undo step named after the
+  extension that made it. Every extension can be turned off. Every permission is asked for.
 - **A broken extension never breaks the editor.** Extensions run in their own process, start only when needed, and are
   named when they fail.
 - **Agents get what people get.** Every command, node type and fact an extension adds is open to agents too.
@@ -52,13 +52,17 @@ canvas overlay, keep state, be turned off, or fail without taking the project se
 
 ## Words
 
-- **Extension:** the package a developer publishes. It contributes any of the things below.
-- **Adapter:** what an extension contributes to recognise a tool and translate it, as [extensions.md](extensions.md)
-  defines it: a renderer, builder, styles, router or entities adapter, or a kind added later.
+- **Extension:** the package a developer publishes, and what Parity's own integrations become. It's the only name: an
+  extension that recognises a tool is still an extension.
 - **Contribution:** anything an extension adds: a command, a menu item, a tab, a panel, a setting, a node type, a fact,
   an overlay, a status item, an agent tool.
+- **Provider:** a contribution that does one of a tool's jobs: drawing components (a renderer), starting the dev server
+  (a builder), reading and writing the theme (styles), reading routes (a router) or importing screens such as stories
+  (entities).
 
-Today's code calls everything an adapter. The API would use these words, and the code would follow as it moves over.
+Today's code and [extensions.md](extensions.md) say adapter for both the package and the job. Both would follow as they
+move over: an adapter's `id`, `name`, `icon`, `versions` and `actions` move to the manifest, its `detect` and `run` to
+`activate`, and its kind becomes a provider it registers.
 
 ## Anatomy of an extension
 
@@ -140,9 +144,9 @@ from the manifest alone. The code loads the first time the command runs.
 Settings gains an Extensions page, also reachable from Search actions. Each extension shows its logo, what it adds, what
 detection found ("Storybook 9.1, config in `.storybook`"), whether it's on, and its settings.
 
-- **Two scopes.** An extension can be off everywhere, or off for this project only. The project choice wins.
-- **Saved with the app's state,** per person, the same way as settings (below). A team that needs an extension names it
-  in `parity.config.ts`, which makes it the project's default; each person can still turn it off for themselves.
+- **Two places, as settings have (below).** Off in the app, for every project the person opens, saved with the app's
+  state. Or on or off in the project's settings, for everyone who opens it, kept in `parity.config.ts`. A project that
+  turns an extension on has it on for everyone, even a person who turned it off in the app.
 - **Turning one off takes effect at once.** It deactivates, its contributions disappear from every panel and menu, its
   servers stop, and its canvas files close. Nodes of its types in saved designs stay in the file and show as "From Route
   timings, which is off", so nothing is lost.
@@ -171,15 +175,15 @@ draws the form on the extension's page with the kit's own controls, and Search a
 }
 ```
 
-| Scope     | Whose, and where it's kept                                                                            |
-| --------- | ----------------------------------------------------------------------------------------------------- |
-| `app`     | The person's, for every project, saved with the app's state                                           |
-| `project` | The person's, for this project, saved with the app's state                                            |
-| `team`    | Everyone's on the project, written where the tool keeps it, or in `parity.config.ts` when it has none |
-| `secret`  | The person's, in the system keychain, never in the project or the app's state                         |
+| Scope     | Whose, and where it's kept                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------ |
+| `app`     | The person's, for every project, saved with the app's state                                                  |
+| `project` | Everyone's who opens the project, written where the tool keeps it, or in `parity.config.ts` when it has none |
+| `secret`  | The person's, in the system keychain, never in the project or the app's state                                |
 
-- **The app's state.** How the app saves its state is being worked out separately. Settings need only a place keyed by
-  extension and setting, per scope, that survives updates and can be migrated when a setting is renamed.
+- **No team scope.** A team shares a setting by putting it in the project, where it's committed with the code.
+- **The app's state.** How the app saves its state is being worked out separately. `app` settings need only a place
+  keyed by extension and setting that survives updates and can be migrated when a setting is renamed.
 - **The API:** `parity.settings.get(key)`, `onChange(key, listener)` and `update(key, value, scope)`. A value that
   doesn't fit its schema falls back to the default, with a note on the extension's page.
 - **Defaults come from the tool when they can.** Storybook's port defaults to the one its `storybook dev` script names,
@@ -220,6 +224,8 @@ each major for two years from its release. An extension package can say all of t
 - `parity.servers.serve(server)`: finds or starts a tool's server, listed with the project's processes, as actions use
   today.
 - `parity.processes.run(command)`: runs a tool's command line and streams its output to a Console tab.
+- `parity.providers.register(kind, provider)`: a renderer, builder, styles, router or entities provider, the jobs
+  adapters do today.
 
 ### Nodes, node types and facts
 
@@ -235,10 +241,12 @@ From [adapter-registrations.md](adapter-registrations.md#querying-nodes):
 ### Changing designs
 
 - `parity.edits.transact(label, change)`: changes designs through the same edits people make, as one undo step named
-  `label`. It's allowed from a command the person ran, and otherwise only with the `edits` permission.
+  after the extension and `label` ("Route timings: Add load badges"). An extension that declares the `edits` permission
+  can do it from a command or on its own, as a linter fixing what it finds or a sync bringing in tokens would.
 - **The same verbs as the app:** insert, move, delete, set props, set style, wrap, make component. Extensions never
   write `.par` files directly, so collaboration, recovery and undo keep working.
-- **Code changes go through adapters,** as an entities adapter writes a story's args back to its file today.
+- **Code changes,** such as a story's args or a test, are written to the project's files with the permission to write
+  them, as the Storybook integration writes a story's args back to its file today.
 
 ### Selection, navigation and commands
 
@@ -319,18 +327,20 @@ This is how an extension works with Parity's UX rather than beside it.
    state, with toolbar actions and row actions. The extension sends its data, and updates it (`view.upsert`,
    `view.remove`); Parity draws it with its own kit, so it has the editor's spacing, keyboard use, themes and accessible
    names without the extension doing anything. Routes, stories, test results and settings need nothing more.
-3. **Web views.** When a view needs its own drawing, such as a chart, a flame graph or a timeline, it's a web view: a
-   sandboxed frame in a tab, panel, section, dialog or page, which can be built with React or anything else. It talks to
-   the extension through a typed message channel, gets Parity's theme as CSS variables with a small stylesheet so it
-   looks native, can't reach Node or the network beyond its permissions, and keeps its state while hidden if it asks.
+3. **Web views, in a later release.** When a view needs its own drawing, such as a chart, a flame graph or a timeline,
+   it's a web view: a sandboxed frame in a tab, panel, section, dialog or page, which can be built with React or
+   anything else. It talks to the extension through a typed message channel, gets Parity's theme as CSS variables with a
+   small stylesheet so it looks native, can't reach Node or the network beyond its permissions, and keeps its state
+   while hidden if it asks. The first release has levels 1 and 2, so the declarative views are tried before the escape
+   hatch.
 
 Extensions don't put React components into Parity's window. That would tie them to Parity's React and kit versions, let
 one freeze the editor, and give their code the window's access. A web view gives the same freedom without those.
 
 ## Developer experience
 
-- **Scaffold:** `npm create parity-extension` asks what to start with: an adapter, a command, a tab, a node type or a
-  web view. It writes a working extension with a test.
+- **Scaffold:** `npm create parity-extension` asks what to start with: a tool's provider, a command, a tab or a node
+  type. It writes a working extension with a test.
 - **Run:** `parity dev` opens Parity with a project and the extension loaded, and reloads the extension when a file
   changes. Its logs, activation time and errors show in its own Console tab.
 - **Debug:** the extension host takes a debugger, as Node does, and an error names the extension, the command and the
@@ -348,9 +358,14 @@ one freeze the editor, and give their code the window's access. A web view gives
 
 ## Speed and isolation
 
-- **One extension host to start:** a process for every extension, apart from the project service and the window. When it
-  crashes, Parity restarts it and says which extension was running; a handler that takes too long is stopped and named.
-  One process per extension can follow if one host turns out to be too coarse.
+- **One extension host, as VS Code has:** one process that runs every extension, apart from the project service and the
+  window. VS Code runs one per window, as an Electron utility process, and restarts it when it crashes, until it has
+  crashed a few times in a row; its Running Extensions view shows each extension's activation time and names the one
+  that made the host unresponsive. Parity would do the same, and say which extension was running when it crashed.
+- **Heavy work in processes of the extension's own,** as VS Code's language servers are: an extension starts one with
+  `parity.processes`, which lists it with the project's processes and stops it with the extension. VS Code can also
+  split extensions across hosts (`extensions.experimental.affinity`); Parity can add that if one host turns out to be
+  too coarse.
 - **Nothing loads until it's needed,** thanks to activation events, so many installed extensions cost nothing on open.
 - **Changes cross as differences.** The node index sends the host only what changed, as soon as an edit lands, which
   needs the index to be incremental rather than rebuilt after a pause (adapter-registrations.md, step 4).
@@ -359,9 +374,8 @@ one freeze the editor, and give their code the window's access. A web view gives
 ## Trust
 
 As [extensions.md](extensions.md#trust) sets out, an extension asks for what it needs in its manifest: files to read or
-write, network hosts, processes, secrets, and `edits` for changing designs without a command the person ran. Parity
-shows these before an extension installed into the app first runs. A project's own extensions are trusted with the
-project.
+write, network hosts, processes, secrets, and `edits` for changing designs. Parity shows these before an extension
+installed into the app first runs. A project's own extensions are trusted with the project.
 
 ## Moving Parity's own over
 
@@ -372,8 +386,8 @@ Storybook goes first, because it already uses most of what's here:
 2. `activate` adds stories as nodes and its canvas file, sets the stories-count fact, and registers its command.
 3. `findStorybook` and `info.storybook` go, and Storybook can be turned off.
 
-TanStack Router follows, registering the route node type; then Tailwind, which brings the tokens it reads; then React
-and Vite, whose renderer and builder stay adapter contributions with interfaces of their own.
+TanStack Router follows, registering the route node type and its router provider; then Tailwind, which brings the tokens
+it reads; then React and Vite, which register the renderer and builder providers.
 
 ## Order of work
 
@@ -384,18 +398,25 @@ and Vite, whose renderer and builder stay adapter contributions with interfaces 
 5. **Selection, navigation, running Parity's commands and when clauses.**
 6. **Declarative views** in the left, right and bottom panels and the Design tab, with the bottom panel becoming tabbed.
 7. **Canvas overlays and node types,** with TanStack Router's routes moving onto them.
-8. **Web views.**
-9. **The scaffold, `parity dev`, the test harness and the reference.**
-10. **Third-party extensions** from `parity.config.ts` and installed into the app, then a registry.
+8. **The scaffold, `parity dev`, the test harness and the reference.**
+9. **Third-party extensions** from `parity.config.ts` and installed into the app, then a registry.
+10. **Web views,** in a later release.
+
+## Decided
+
+- **"Extension" is the only word** for what a developer builds. The jobs adapters do today are providers it registers.
+- **Extensions can change designs** with the `edits` permission, from a command or on their own, each change one undo
+  step named after the extension.
+- **Settings are the app's or the project's,** plus secrets. A team shares settings through the project.
+- **Web views come in a later release,** after declarative views.
 
 ## Decisions needed
 
-- **The words.** "Extension" for the package and "adapter" for a tool integration it contributes, as above, with the
-  code renamed as it moves?
-- **Declared in the manifest.** Should commands' placements, tabs, settings and node types' names and icons be declared,
-  as VS Code does, so they show before the code loads? The rest would be registered in code.
-- **One host or one per extension** to start?
-- **Who wins on turning off.** The person's choice for a project over the team's `parity.config.ts`, as above?
-- **Edits without a command.** Should an extension ever change designs on its own, with the `edits` permission, or only
-  from a command the person ran?
-- **Web views in the first release,** or after declarative views have been tried?
+- **Placements in the manifest.** Should an extension list in its `package.json` what it adds and where (its commands
+  and the menus and keys they're in, its tabs, settings, and node types' names and icons), as VS Code's `contributes`
+  does? Parity could then show them all when a project opens and load the extension's code only when one is used. The
+  other way is for `activate` to register everything, which is less to learn but runs every extension on open and shows
+  nothing until each has run. Behaviour (what a command does, a provider, facts, overlays) is code either way.
+- **One host for every extension,** as VS Code does, to start?
+- **Who wins on turning off.** A project that turns an extension on, over a person who turned it off in the app, as
+  above?
