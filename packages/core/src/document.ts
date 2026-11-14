@@ -525,6 +525,20 @@ const paramSpec = fileObject({
 /** One input of a component design. Its default is what the component shows on its own board. */
 export type ParamSpec = z.infer<typeof paramSpec>
 
+/**
+ * What one preview of a design, a state in a mode, sets differently from its mode: a width to try it at, how large it's
+ * drawn on the canvas, and an option of its own for any of the mode's variables other than its viewport, by variable id.
+ * None of it changes the design itself.
+ */
+const previewSettings = fileObject({
+  width: z.number().int().min(1).optional(),
+  scale: z.number().min(0.1).max(4).optional(),
+  options: z.record(z.string(), z.string()).optional()
+})
+
+/** What one preview of a design sets differently from its mode. */
+export type PreviewSettings = z.infer<typeof previewSettings>
+
 const containerViewSettings = fileObject({
   /** The mode of the main frame. Defaults to the project's primary mode. */
   mode: z.string().optional(),
@@ -540,6 +554,11 @@ const containerViewSettings = fileObject({
    * name is shrunk to fit beside the main frame (see `companionScale`).
    */
   scales: z.record(z.string(), z.number().min(0.1).max(1)).optional(),
+  /**
+   * What each preview sets differently from its mode, by `state/mode` (see `previewKey`): its width, its scale, which
+   * wins over `scales`, and its own options.
+   */
+  previews: z.record(z.string(), previewSettings).optional(),
   /**
    * The value a page of the app is drawn with for each of its route's path params, by name. One it doesn't give is
    * drawn with the param's name.

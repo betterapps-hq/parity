@@ -27,21 +27,22 @@ describe("boardParts", () => {
     expect(boardParts.board(0.1).padding).toBe("0 30px 30px")
   })
 
-  it("splits the gap before the first companion around a dashed line, and the gap between rows likewise", () => {
+  it("leaves a gap before the first companion, and between rows, whose last part holds the next row's headers", () => {
     const divided = boardParts.dividedFrame(1)
     expect([length(divided.marginLeft), length(divided.paddingLeft)]).toEqual([12, 1 + 12])
     const row = boardParts.nextRow(1)
     expect([length(row.marginTop), length(row.paddingTop)]).toEqual([36, 1 + 36])
-    // A later row's label starts beside its frames, below the line.
+    // Every row's frames are raised into the band above them, where their headers sit.
+    expect(length(boardParts.rowFrames(1).marginTop)).toBe(-36)
+    // A later row's label starts beside its frames.
     expect(boardParts.nextStateLabel(1).top).toBe(row.paddingTop)
   })
 
-  it("draws dashed lines a screen pixel wide up close, laid out longer and scaled down rather than thinned", () => {
-    // At 400% the line is a quarter of a canvas pixel: four times as long, scaled to a quarter.
-    expect(boardParts.frameLine(4)).toEqual({ height: "400%", transform: "scale(0.25)" })
-    expect(boardParts.rowLine(1)).toEqual({ width: "100%", transform: "scale(1)" })
-    // Past 40% it thins with the canvas, as the gutter does.
-    expect(scaleOf(boardParts.frameLine(0.1).transform) * 0.1).toBeCloseTo(0.25)
+  it("makes a row a header line taller where its headers have a line under their names", () => {
+    expect(length(boardParts.firstTallRow(1).paddingTop)).toBe(2 * length(boardParts.firstRow(1).paddingTop))
+    expect(length(boardParts.nextTallRow(1).paddingTop)).toBe(length(boardParts.nextRow(1).paddingTop) + 36)
+    // Past 40% it shrinks with the canvas, as the band does.
+    expect(length(boardParts.firstTallRow(0.1).paddingTop)).toBeCloseTo(2 * length(boardParts.caption(0.1).height))
   })
 
   it("draws the board's edge a screen pixel wide at any zoom, with its corners", () => {
@@ -59,8 +60,10 @@ describe("boardParts", () => {
       expect(Object.keys(boardParts[part](1)).toSorted()).toEqual(["marginLeft", "paddingLeft"])
     }
 
-    expect(Object.keys(boardParts.firstRow(1)).toSorted()).toEqual(Object.keys(boardParts.nextRow(1)).toSorted())
-    expect(Object.keys(boardParts.firstRowFrames(1))).toEqual(Object.keys(boardParts.nextRowFrames()))
+    for (const part of ["firstRow", "firstTallRow", "nextRow", "nextTallRow"] as const) {
+      expect(Object.keys(boardParts[part](1)).toSorted()).toEqual(["marginTop", "paddingTop"])
+    }
+
     expect(Object.keys(boardParts.firstStateLabel(1)).toSorted()).toEqual(
       Object.keys(boardParts.nextStateLabel(1)).toSorted()
     )

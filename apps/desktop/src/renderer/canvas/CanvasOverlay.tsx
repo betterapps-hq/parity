@@ -105,7 +105,7 @@ export function CanvasOverlay() {
     const interactive = (target: EventTarget | null) =>
       target instanceof Element &&
       !!target.closest(
-        "button, input, textarea, [role=menuitem], [role=option], .design-title, .state-label, .text-editor, .resize-handle, .spacing-handle"
+        "button, input, textarea, [role=menuitem], [role=option], [data-canvas-control], .design-title, .state-label, .text-editor, .resize-handle, .spacing-handle"
       )
 
     const onPointerDown = (event: PointerEvent) => {

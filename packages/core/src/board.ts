@@ -103,7 +103,8 @@ export function besideScale(
 
 /**
  * The size of a design's board when the canvas hasn't drawn it: its frames for the modes it shows (`modes`, the main
- * frame's first), companions shrunk as the canvas shrinks them, in one row per state shown, with the board's gutter,
+ * frame's first), companions shrunk as the canvas shrinks them, each preview at its own width and scale, in one row per
+ * state shown, with the board's gutter,
  * captions and dividers. A frame with a fixed height is that tall; one that grows with its content is estimated as tall
  * as its window, since its content isn't known until it's drawn. The title, drawn above the board, isn't included.
  *
@@ -114,26 +115,33 @@ export function boardSize(
   design: ContainerSpec,
   modes: readonly Pick<ResolvedMode, "id" | "viewport" | "width" | "options">[]
 ) {
-  const frames = modes.map((mode, column) => {
-    const size = frameSize(design, mode)
-    const scale = column === 0 ? 1 : besideScale(design, mode)
+  const states = designStates(design)
+  const shown = design.view?.allStates
+    ? states
+    : [states.find((state) => state.id === design.view?.state) ?? states[0]!]
 
-    return {
-      width: Math.round(size.width * scale),
-      height: Math.round((size.height ?? frameViewport(size, mode).height) * scale)
-    }
-  })
+  // Each preview at its own width and scale where it sets them (see `PreviewSettings`).
+  const rows = shown.map((state) =>
+    modes.map((mode, column) => {
+      const own = design.view?.previews?.[`${state.id}/${mode.id}`]
+      const size = frameSize(design, mode)
+      const sized = own?.width === undefined ? size : { ...size, width: own.width }
+      const scale = own?.scale ?? (column === 0 ? 1 : besideScale(design, mode))
+
+      return {
+        width: Math.round(sized.width * scale),
+        height: Math.round((sized.height ?? frameViewport(sized, mode).height) * scale)
+      }
+    })
+  )
 
   const { side, caption, between, divider, rowDivider } = boardLayoutAt(shrinkBelow)
-
-  const companions =
-    frames.length > 1 ? divider.before + divider.line + divider.after + (frames.length - 2) * between : 0
-
-  const width = frames.reduce((total, frame) => total + frame.width, 0) + companions + 2 * side
-  const rows = design.view?.allStates ? designStates(design).length : 1
-  const row = Math.max(0, ...frames.map((frame) => frame.height))
+  const companions = modes.length > 1 ? divider.before + divider.line + divider.after + (modes.length - 2) * between : 0
+  const widest = Math.max(0, ...rows.map((row) => row.reduce((total, frame) => total + frame.width, 0)))
+  const width = widest + companions + 2 * side
+  const tallest = rows.map((row) => Math.max(0, ...row.map((frame) => frame.height)))
   const rowGap = rowDivider.before + rowDivider.line + rowDivider.after
-  const height = caption + rows * row + (rows - 1) * rowGap + side
+  const height = caption + tallest.reduce((total, row) => total + row, 0) + (rows.length - 1) * rowGap + side
 
   return { width: Math.ceil(width), height: Math.ceil(height) }
 }

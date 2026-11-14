@@ -4,6 +4,7 @@ import {
   type ReviewTool,
   type Selection,
   sameSelection,
+  selectedPreviews,
   startReview,
   stopReview
 } from "@parity-app/editor"
@@ -191,6 +192,21 @@ export function useDesignSelection(store: SelectionStore, design: string): { sel
   })
 
   return part.startsWith("mode:") ? { selected: true, mode: part.slice("mode:".length) } : { selected: part !== "" }
+}
+
+/**
+ * One design's selected previews, by `state/mode`, the last picked at the end: empty unless previews of it are selected
+ * on their own. A mode picked without a state, as the Modes list picks one, is `/mode`, its column in every state.
+ * Read as a plain string, so a board draws again only when its own previews change.
+ */
+export function usePreviewSelection(store: SelectionStore, design: string): string[] {
+  const part = useSyncExternalStore(store.subscribe, () => {
+    const selection = store.get()
+
+    return selection.design === design ? selectedPreviews(selection).join("\n") : ""
+  })
+
+  return part === "" ? [] : part.split("\n")
 }
 
 export function useHover(store: SelectionStore): Hover | undefined {

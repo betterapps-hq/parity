@@ -18,7 +18,8 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
 export const Popular: Story = { args: { popular: true } }
-export const SideBySide: Story = {
+export const TeamAndBusiness: Story = {
+  name: "Team and Business",
   render: (args) => (
     <div className="grid grid-cols-2 gap-4">
       <PlanCard {...args} />
