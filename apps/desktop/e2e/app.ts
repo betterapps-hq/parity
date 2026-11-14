@@ -829,11 +829,23 @@ export class App {
       throw new Error(`${design}'s title isn't drawn`)
     }
 
-    // What's on top where the click lands, for a click that takes the window away from the project.
+    // What's on top where the click lands, for a click that takes the window away from the project, and what around the
+    // canvas is scrolled, which would move it under something else.
     const under = await this.page.evaluate(({ x, y }) => {
       const element = document.elementFromPoint(x, y)
+      const scrolled: string[] = []
 
-      return element ? element.outerHTML.slice(0, 300) : "nothing"
+      for (let around = document.querySelector(".tl-container"); around; around = around.parentElement) {
+        if (around.scrollTop !== 0 || around.scrollLeft !== 0) {
+          scrolled.push(
+            `${around.tagName.toLowerCase()}.${[...around.classList].slice(0, 4).join(".")} at ${around.scrollLeft},${around.scrollTop}`
+          )
+        }
+      }
+
+      const canvas = document.querySelector(".tl-container")?.getBoundingClientRect()
+
+      return `${element ? element.outerHTML.slice(0, 200) : "nothing"}; the canvas at ${canvas?.x},${canvas?.y}; scrolled: ${scrolled.join(", ") || "nothing"}`
     }, center(box))
 
     await this.click(center(box))

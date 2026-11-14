@@ -104,16 +104,24 @@ async function nodes(): Promise<number> {
  */
 async function zoomOut(): Promise<void> {
   await app.page.keyboard.press("Shift+1")
-  await expect
-    .poll(
-      async () => {
-        const { bitmaps, asleep } = await frames()
 
-        return asleep > 0 && asleep === bitmaps
-      },
-      { timeout: 30_000 }
-    )
-    .toBe(true)
+  // The frames with a bitmap still awake, by design, state and mode, with what their tile says of them: none once every
+  // one sleeps.
+  const awake = () =>
+    app.page.evaluate(() => {
+      const hosts = [...document.querySelectorAll<HTMLElement>("[data-frame]")]
+
+      return hosts.flatMap((host) => {
+        const tile = host.closest<HTMLElement>("[data-bitmap]")
+
+        return tile && !tile.hasAttribute("data-asleep")
+          ? [`${host.dataset.design} ${host.dataset.state}/${host.dataset.mode} ${Object.keys(tile.dataset).join(" ")}`]
+          : []
+      })
+    })
+
+  await expect.poll(async () => (await frames()).asleep > 0, { timeout: 30_000 }).toBe(true)
+  await expect.poll(awake, { timeout: 30_000 }).toEqual([])
 }
 
 describe("zoomed far out", () => {
@@ -127,16 +135,22 @@ describe("zoomed far out", () => {
       // Session Replay records the window in CI too, and the attributes it reads from what the zoom draws are nodes, so
       // it's held while they're counted (PAR-1047).
       const letGo = await app.holdRecording(120_000)
-      const awake = await nodes()
-      const { elements } = await frames()
-      expect(elements).toBeGreaterThan(0)
 
-      await zoomOut()
-      // The elements the frames drew are let go of, and nothing keeps them: text and comments are nodes too.
-      const out = await frames()
-      expect(out.drawn).toBe(out.all - out.asleep)
-      expect(await nodes()).toBeLessThan(awake - elements)
-      await letGo()
+      // Let go however it ends, so the files after this one are recorded.
+      try {
+        const awake = await nodes()
+        const { elements } = await frames()
+        expect(elements).toBeGreaterThan(0)
+
+        await zoomOut()
+        // The elements the frames drew are let go of, and nothing keeps them: text and comments are nodes too.
+        const out = await frames()
+        expect(out.drawn).toBe(out.all - out.asleep)
+        expect(await nodes()).toBeLessThan(awake - elements)
+      } finally {
+        await letGo()
+      }
+
       expect(await frameSizes()).toEqual(framed)
 
       // Back in view, its frames draw again, and the boards out of view stay asleep.
