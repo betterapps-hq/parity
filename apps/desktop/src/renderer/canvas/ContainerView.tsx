@@ -38,6 +38,7 @@ import {
   kindName,
   kindTitle,
   pageFrameName,
+  pageHeightMessage,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
@@ -1211,7 +1212,8 @@ const FrameTile = memo(function FrameTile({
 /**
  * A page of the app in a screen's frame (PAR-1076): the app's own entry at the page's URL, in a document of its own, so
  * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
- * selects over it, and it's as tall as the frame's window.
+ * selects over it. It's as tall as the page says it is (see `pageHeightMessage`), and never shorter than the frame's
+ * window, unless the frame has been given a height, which it then clips to.
  */
 function PageFrame({
   url,
@@ -1227,13 +1229,31 @@ function PageFrame({
   /** With the Interact tool, the page takes the pointer and keys, as a design does; otherwise the canvas has them. */
   interactive: boolean
 }) {
-  const height = frame.height ?? frame.viewport.height
   // The app's own page reads its mode from the frame's name, so a frame in another mode is another page.
   const name = pageFrameName(mode)
+  const page = useRef<HTMLIFrameElement>(null)
+  // How tall the page says it is, for the page it was said for, so another page starts from the window again.
+  const [told, setTold] = useState<{ page: string; height: number }>()
+  useEffect(() => {
+    const heard = (event: MessageEvent) => {
+      const said = pageHeightMessage.safeParse(event.data)
+
+      if (said.success && event.source !== null && event.source === page.current?.contentWindow) {
+        setTold({ page: `${name} ${url}`, height: said.data })
+      }
+    }
+
+    window.addEventListener("message", heard)
+
+    return () => window.removeEventListener("message", heard)
+  }, [name, url])
+  const content = told?.page === `${name} ${url}` ? told.height : 0
+  const height = frame.height ?? Math.max(frame.viewport.height, content)
 
   return (
     <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
       <iframe
+        ref={page}
         key={name}
         name={name}
         title={url}

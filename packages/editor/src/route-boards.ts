@@ -1,12 +1,11 @@
 import {
   type ContainerSpec,
   type DesignNode,
-  type FrameSize,
   type ModeSettings,
   type ProjectRoute,
-  type ResolvedMode,
-  screenHeightForWidth
+  type ResolvedMode
 } from "@parity-app/core"
+import { z } from "zod"
 import { type BoardBox, titleTop } from "./canvas-labels.ts"
 
 /**
@@ -208,16 +207,16 @@ export function routeScreenId(route: Pick<ProjectRoute, "id">): string {
 /**
  * The app's pages as screens (PAR-1076), laid out as a tree (see `pageTree`) whose bottom is at `bottom`, each named
  * as `pageName` says. Its layers are the routes that draw it (see `routeLayers`); its frames show the app itself at
- * `url`, as tall as each viewport's screen.
+ * `url`, each as wide as its viewport, with no height of its own, so it's as tall as the page (see `pageHeightMessage`).
+ * `_modes` sized the frames once and goes unused.
  */
 export function routeScreens(
   routes: readonly ProjectRoute[],
-  modes: ModeSettings,
+  _modes: ModeSettings,
   layout: Omit<PageLayout, "y"> & { bottom: number }
 ): RouteScreen[] {
   const tree = pageTree(routes)
   const tall = treeDepth(tree) * (layout.height + layout.levelGap)
-  const frames = pageFrames(modes)
 
   return placePages(tree, { ...layout, y: layout.bottom - tall }).map((page) => {
     const id = routeScreenId(page.route)
@@ -231,7 +230,6 @@ export function routeScreens(
         name: pageName(page.route),
         kind: "screen",
         position: { x: Math.round(page.x), y: Math.round(page.y) },
-        frames,
         root: routeLayers(routes, page.route)
       }
     }
@@ -296,16 +294,14 @@ export function pageLinksLit(
   return lit
 }
 
-/** Each viewport's frame as tall as its screen, so a page's frame is a window onto it rather than its whole length. */
-function pageFrames(modes: ModeSettings): Record<string, FrameSize> {
-  const viewport = modes.variables.find((variable) => variable.kind === "viewport")
-
-  return Object.fromEntries(
-    (viewport?.options ?? []).flatMap((option) =>
-      option.width === undefined ? [] : [[option.id, { height: option.height ?? screenHeightForWidth(option.width) }]]
-    )
-  )
-}
+/**
+ * How tall the app's own page says it is, in a message its frame posts (PAR-1076): the script the builder's server puts
+ * first in `index.html` posts `{ parity: "page-height", height }` with the document's height whenever it changes. The
+ * height is rounded up to a whole pixel.
+ */
+export const pageHeightMessage = z
+  .object({ parity: z.literal("page-height"), height: z.number().positive().finite() })
+  .transform(({ height }) => Math.ceil(height))
 
 /** The mode a page's frame draws in, as the app's own page reads it from the frame's name (PAR-1076). */
 export interface PageMode {

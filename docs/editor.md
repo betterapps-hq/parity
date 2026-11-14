@@ -6511,7 +6511,14 @@ for the component its route draws, else its path.
   follows the system's theme, as the example's theme provider does, follows the mode's: in Desktop Light the page's
   `<html>` is `light` with a white background. An app that keeps its own choice of theme, in `localStorage`, uses that,
   and its page frames share it, since they're one origin.
-- **As tall as the screen.** Each viewport's frame is as tall as its screen: Desktop 800, Tablet 1024, Mobile 844.
+- **As tall as the page.** Each viewport's frame is as wide as its viewport and as tall as its page, with no scrollbar:
+  App, whose page runs 49px past a 1280 × 800 window, is 1280 × 849. The script the builder's server puts first in the
+  app's `index.html` posts the document's height to the canvas, `{ parity: "page-height", height }`, whenever it changes
+  while the frame is still as tall as its screen (Desktop 800, Tablet 1024, Mobile 844), and the frame grows to it but
+  never shrinks below the screen. It measures only at the screen's height because a page with a section as tall as the
+  window grows with the frame, without end; once the frame has grown, what such a section runs past isn't given a
+  scrollbar. So a page that changes after it first draws, as with the Interact tool, keeps the height it first had. A
+  frame given a height of its own keeps it and scrolls, but page frames have no resize handles yet.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
@@ -6523,21 +6530,27 @@ each page toward the pages under it.
 Code: `pageTree`, `placePages`, `routeScreens`, `pageLinkLine` and `pageLinksLit` in
 `packages/editor/src/route-boards.ts`, with `titleTop` in `canvas-labels.ts`; `projectRoutes` in
 `apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`;
-`PageFrame` and the title's backdrop in `ContainerView.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`.
+`PageFrame` and the title's backdrop in `ContainerView.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`, and
+`appPageModeScript` in `app-page.ts`, whose message `pageHeightMessage` in `route-boards.ts` reads.
 
-Tests: `packages/editor/src/route-boards.test.ts` (14: each layout's pages hung from its index, the root's index at the
+Tests: `packages/editor/src/route-boards.test.ts` (16: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout without an index hanging its pages from the page above; a forest
 without a root index, and nothing without routes; each page centered over the pages under it, a level below; each page's
 URL with its params' samples; a splat's empty sample; a screen for each page, named for its component, with the screen
-it hangs from, ending above the designs; each viewport's frame as tall as its screen; a line curving across above the
-lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
+it hangs from, ending above the designs; a page's frames with no size of their own; the page's height read from its
+frame's message, rounded up, and no other message or a height that isn't a positive number; a line curving across above
+the lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
 title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
 under it, for several pages at once, and none for no page or a page outside the tree), and `canvas-labels.test.ts`
-(`titleTop`, up close and zoomed out). Gaps: reading routes when the project opens, the page frames, drawing the lines
-and the titles' backdrop, and the bundling have no test of their own; all were tried in the app. The lines were checked
-on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge.
-Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with
-its own routes) at 5% and 10%, by selecting Settings and Billing and hovering Projects.
+(`titleTop`, up close and zoomed out), and `adapters/vite-adapter/src/app-page.test.ts` (4: the page's height told once
+it loads and again when it grows, nothing told once the frame is taller than its screen, the scrollbar hidden while it
+is and given back otherwise, and nothing told outside a page's frame). Gaps: reading routes when the project opens, the
+page frames, drawing the lines and the titles' backdrop, and the bundling have no test of their own; all were tried in
+the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each
+line meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no
+scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
+(`PageLines.stories.tsx`, the example opened with its own routes) at 5% and 10%, by selecting Settings and Billing and
+hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

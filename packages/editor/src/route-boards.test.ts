@@ -2,6 +2,7 @@ import { defaultModeSettings, type ProjectRoute, resolveMode } from "@parity-app
 import { describe, expect, it } from "vite-plus/test"
 import {
   pageFrameName,
+  pageHeightMessage,
   pageLinkLine,
   pageLinksLit,
   pageName,
@@ -109,12 +110,26 @@ describe("routeScreens", () => {
     ])
   })
 
-  it("makes each viewport's frame as tall as its screen", () => {
-    expect(screens[0]?.screen.frames).toEqual({
-      desktop: { height: 800 },
-      tablet: { height: 1024 },
-      mobile: { height: 844 }
-    })
+  it("gives a page's frames no size of their own, so each is as wide as its viewport and as tall as the page", () => {
+    expect(screens[0]?.screen.frames).toBeUndefined()
+  })
+})
+
+describe("pageHeightMessage", () => {
+  it("reads the height a page's frame posts, rounded up", () => {
+    expect(pageHeightMessage.parse({ parity: "page-height", height: 1240.4 })).toBe(1241)
+  })
+
+  it("takes no other message, nor a height that isn't a positive number", () => {
+    for (const message of [
+      { parity: "other", height: 900 },
+      { parity: "page-height", height: 0 },
+      { parity: "page-height", height: "900" },
+      "page-height",
+      null
+    ]) {
+      expect(pageHeightMessage.safeParse(message).success).toBe(false)
+    }
   })
 })
 
