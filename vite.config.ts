@@ -21,6 +21,7 @@ const edge = [
   "vite-adapter",
   "cli",
   "extension-storybook",
+  "extension-storybook-a11y",
   "fixtures",
   "libgen",
   "media-player",

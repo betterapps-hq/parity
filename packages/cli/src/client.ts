@@ -85,6 +85,10 @@ export type ImagesResponse = z.output<typeof replies.images>
 
 export type RemoveImageResponse = z.output<typeof replies.removeImage>
 
+export type ExtensionsResponse = z.output<typeof replies.extensions>
+
+export type RunExtensionResponse = z.output<typeof replies.runExtension>
+
 let caller = cliCallerName(process.env)
 
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -1012,6 +1016,44 @@ function whereImage(image: ImagesResponse["images"][number]): string {
 /** What removing an image did. */
 export function describeRemovedImage(result: RemoveImageResponse): string {
   return `Removed ${result.path}.`
+}
+
+/** A project's extensions, each with its commands, agent tools, node types and facts about components. */
+export function describeExtensions({ extensions }: ExtensionsResponse): string {
+  if (extensions.length === 0) {
+    return "This project has no extensions."
+  }
+
+  return extensions
+    .map((extension) => {
+      const lines = [
+        `${extension.name} (${extension.id}), ${extension.state}${extension.reason ? `: ${extension.reason}` : ""}`
+      ]
+
+      for (const command of extension.commands) {
+        lines.push(`  command ${command.id}: ${command.title}`)
+      }
+
+      for (const tool of extension.tools) {
+        lines.push(`  tool ${tool.name}: ${tool.description} Input: ${JSON.stringify(tool.input)}`)
+      }
+
+      for (const type of extension.nodeTypes) {
+        lines.push(`  node type ${type.id}: ${type.name}`)
+      }
+
+      for (const { component, facts } of extension.facts) {
+        lines.push(`  ${component}: ${facts.map((fact) => `${fact.value} ${fact.label}`).join(", ")}`)
+      }
+
+      return lines.join("\n")
+    })
+    .join("\n\n")
+}
+
+/** What running an extension's command or tool gave back. */
+export function describeExtensionRun({ name, result }: RunExtensionResponse): string {
+  return result === undefined ? `Ran ${name}.` : `Ran ${name}: ${JSON.stringify(result)}`
 }
 
 function size(bytes: number): string {

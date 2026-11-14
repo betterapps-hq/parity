@@ -1,0 +1,105 @@
+{
+  "name": "@parity-app/extension-storybook-a11y",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Storybook's accessibility checks in Parity, built on the Storybook extension's API.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./accessibility": "./src/accessibility.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parity-app/channel": "workspace:*",
+    "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extension-storybook": "workspace:*",
+    "@parity-app/extensions": "workspace:*",
+    "@parity-app/processes": "workspace:*"
+  },
+  "peerDependencies": {
+    "@storybook/addon-a11y": "^9.0.0 || ^10.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@storybook/addon-a11y": {
+      "optional": true
+    }
+  },
+  "parity": {
+    "displayName": "Storybook accessibility",
+    "prefix": "a11y",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M12 1a11 11 0 1 1 0 22 11 11 0 0 1 0-22Zm0 2a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 1.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5ZM6.6 8.6a.9.9 0 0 1 1.1-.65l3.1.8h2.4l3.1-.8a.9.9 0 1 1 .45 1.75l-2.85.72v2.68l1.55 5.2a.9.9 0 1 1-1.72.52L12.3 14h-.6l-1.43 4.82a.9.9 0 1 1-1.72-.52l1.55-5.2V10.42l-2.85-.72a.9.9 0 0 1-.65-1.1Z",
+      "fillRule": "evenodd"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "extensionDependencies": [
+      "@parity-app/extension-storybook"
+    ],
+    "contributes": {
+      "commands": [
+        {
+          "id": "a11y.open",
+          "title": "Check accessibility in Storybook",
+          "icon": "accessibility",
+          "starts": "Starting Storybook…"
+        }
+      ],
+      "menus": {
+        "componentCard": [
+          {
+            "command": "a11y.open",
+            "enablement": "a11y.hasStories",
+            "disabledReason": "No story found"
+          }
+        ],
+        "selectionHeading": [
+          {
+            "command": "a11y.open",
+            "enablement": "a11y.hasStories",
+            "disabledReason": "No story found"
+          }
+        ],
+        "layers": [
+          {
+            "command": "a11y.open",
+            "enablement": "a11y.hasStories",
+            "disabledReason": "No story found"
+          }
+        ],
+        "search": [
+          {
+            "command": "a11y.open",
+            "enablement": "a11y.hasStories",
+            "disabledReason": "No story found"
+          }
+        ]
+      },
+      "agentTools": [
+        {
+          "name": "a11y.page",
+          "description": "Gives the Storybook page that checks a component's accessibility, with Storybook's accessibility panel open. Starts Storybook first when it isn't running.",
+          "input": {
+            "type": "object",
+            "properties": {
+              "component": {
+                "type": "string",
+                "description": "The component, as get_components names it."
+              }
+            },
+            "required": [
+              "component"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

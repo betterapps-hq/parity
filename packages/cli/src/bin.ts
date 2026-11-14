@@ -11,6 +11,8 @@ import {
   describeComponents,
   describeConsole,
   describeExec,
+  describeExtensionRun,
+  describeExtensions,
   describeModes,
   describeProblems,
   describeProps,
@@ -138,6 +140,12 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             source's link doesn't last;
                                             Parity tells the source it was used. Exits with 1 when it wasn't placed
   parity open <folder>                      open a project in a new tab, or detect an open one again
+  parity extensions [--tab t]               the project's extensions, with their commands, agent tools (and each
+                                            tool's input schema), node types and facts about components
+  parity run <command|tool> [--component c] [--input '{"field":"value"}'] [--tab t]
+                                            run an extension's command, for a component when --component names one,
+                                            or its agent tool with --input as JSON; prints what it gave back. Its
+                                            changes are one undoable step each, named after you and the extension
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
 
@@ -197,6 +205,8 @@ const { positionals, values } = parseArgs({
     color: { type: "string" },
     page: { type: "string" },
     unused: { type: "boolean" },
+    component: { type: "string" },
+    input: { type: "string" },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -364,6 +374,24 @@ async function main(): Promise<void> {
       )
     case "components":
       return show(operations.components, { tab: values.tab }, describeComponents)
+    case "extensions":
+      return show(operations.extensions, { tab: values.tab }, describeExtensions)
+    case "run": {
+      let input: JsonValue | undefined
+
+      try {
+        input = values.input === undefined ? undefined : JSON.parse(values.input)
+      } catch {
+        throw invalidInput("input", 'input must be JSON: an object, as {"component":"Button"}')
+      }
+
+      return show(
+        operations.runExtension,
+        { tab: values.tab, name: rest[0], component: values.component, input },
+        describeExtensionRun
+      )
+    }
+
     case "props":
       return show(operations.props, { tab: values.tab, component: rest[0], all: values.all }, describeProps)
     case "logs": {
