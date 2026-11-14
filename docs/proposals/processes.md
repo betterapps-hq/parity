@@ -87,7 +87,7 @@ Running a process on another machine, as a devcontainer or SSH launcher would, i
 export interface Processes {
   /**
    * Starts a process, or gives the one this extension already has with the same id while it's starting or running.
-   * Settles once it has spawned; `ready()` says when it's ready. Rejects with one of the codes in Errors.
+   * Settles once spawning has been tried; `ready()` says when it's ready. Rejects with one of the codes in Errors.
    */
   start(spec: ProcessSpec): Promise<ProcessHandle>
   /**
@@ -124,7 +124,7 @@ export interface ProcessSpec {
   run: Run
   /** Its arguments. `{port}` becomes the port Parity chose. */
   args?: string[]
-  /** Its folder, relative to the project's root. The root unless said. */
+  /** Its folder, relative to the project's root and inside it. The root unless said. */
   cwd?: string
   /** Variables it gets, after the service's key-free environment and the environment providers'. */
   env?: Record<string, string>
@@ -185,20 +185,26 @@ export type ReadyCheck =
 `{ bin: "sb", package: "@storybook/cli" }` needs `bin:@storybook/cli`. The manifest check (`readExtension`) refuses a
 malformed entry, and `start` refuses a run the manifest doesn't allow.
 
-**How each run starts, on every platform:**
+**How each run starts.** It works the same on macOS, Linux and Windows. No run goes through a shell on macOS or Linux,
+and every program is spawned directly with its arguments as a list. Windows needs more only where a command is a `.cmd`
+or `.bat` script, which starts through `cmd.exe`:
 
 - **`bin`:** Parity resolves `<package>/package.json` from the project, reads its `bin` and runs that script with
   Parity's Node, as the Storybook extension resolves its own command line today (`commandLine` in
   `packages/extension-storybook/src/extension.ts`). No shell and no `.cmd` shim come into it.
 - **`node`:** the module's path inside the extension's package, run with Parity's Node.
-- **`script`:** the project's package manager, picked as Parity's install task picks it (`detectPackageManager` in
-  `utility/libraries.ts`), with `run <script>`. It's found as an `exec` run is, so a standalone or Volta-installed
-  `.exe` is spawned directly and a `.cmd` goes through `cmd.exe` with the command line `batchCommandLine` builds
-  (`packages/processes`), which escapes `%`, `^`, `&` and the rest as it already does for code editors (PAR-982). It's
-  extended to escape `"` in arguments and double the backslashes before one.
-- **`exec`:** looked up on the PATH with `commandPaths` (`packages/processes`), which tries PATHEXT's extensions on
-  Windows. An `.exe` or `.com` is spawned directly, and a `.cmd` or `.bat` goes through `cmd.exe` as a script does. Any
-  other type, as `.ps1`, `.js` or `.vbs`, is refused.
+- **`script`:** the project's package manager, picked as Parity's install task picks it (`detectPackageManager` from
+  `@parity-app/project`, which `utility/libraries.ts` uses), with `run <script>`. It's found as an `exec` run is, so a
+  standalone or Volta-installed `.exe` is spawned directly and a `.cmd` goes through `cmd.exe` with the command line
+  `batchCommandLine` builds (`packages/processes`), which escapes `%`, `^`, `&` and the rest as it already does for code
+  editors (PAR-982). It's extended to escape `"` in arguments and double the backslashes before one.
+- **`exec`:** looked up on the PATH with `commandPaths` (`packages/processes`). On macOS and Linux, any executable file
+  found runs. On Windows it tries PATHEXT's extensions: an `.exe` or `.com` is spawned directly, a `.cmd` or `.bat` goes
+  through `cmd.exe` as a script does, and any other type, as `.ps1`, `.js` or `.vbs`, is refused.
+
+**The PATH.** An app opened from the Dock or Finder gets a short PATH, without Homebrew's or Volta's folders, so `exec`
+and `script` runs look in the usual folders as well, as opening a code editor already does (`usualFolders` in
+`main/code-editor.ts`, which moves to `packages/processes` to be shared).
 
 **Electron's variable.** The service sets `ELECTRON_RUN_AS_NODE` for itself and what it starts (`utility/index.ts`).
 `bin` and `node` runs keep it, since they are Parity's Node. `script` and `exec` runs get the environment without it, as
@@ -265,10 +271,10 @@ rejects, the state is `failed`, and `processes.failed` records it.
 | `process_spec_differs`    | `start` | The id is starting or running with a different spec                                                                                                                             |
 | `process_adopted`         | `start` | The id names a server this extension adopted that's still running                                                                                                               |
 | `process_provider_failed` | `start` | An environment provider or launcher the project turned on failed, named in the error                                                                                            |
-| `process_id_taken`        | `adopt` | The id is starting or running already                                                                                                                                           |
+| `process_id_taken`        | `adopt` | The id is starting, running or stopping                                                                                                                                         |
 | `process_not_local`       | `adopt` | The endpoint isn't on this machine                                                                                                                                              |
 
-A run fails, after `start` settled, when it can't spawn (`spawn`), exits before it's ready (`exited`), or isn't ready
+A run fails, after `start` settled, when spawning fails (`spawn`), exits before it's ready (`exited`), or isn't ready
 within `timeoutMs` (`timeout`).
 
 ### What extensions can see
@@ -281,7 +287,7 @@ export interface ProcessInfo {
   lifetime: "server" | "task"
   state: "starting" | "running" | "stopping" | "stopped" | "failed" | "passed" | "canceled"
   owner:
-    | { kind: "parity"; role: ParityRole }
+    | { kind: "parity"; role: ParityRole; adopted?: boolean }
     | { kind: "extension"; extension: string }
     | { kind: "adopted"; by: string }
   /** Which run this is: 1, then one more each time it starts again. */
@@ -346,7 +352,8 @@ export interface Address {
 
 An extension finds Parity's own processes by `owner.role`, never by their names, which can change. Ids are
 `<extension id>:<spec id>` for an extension's, `parity:<role>` for Parity's own (`parity:builder`, `parity:typecheck`),
-and `parity:tool:<adapter>:<server>` for an adapter's server. A server an adapter adopted keeps `owner.role: "tool"`.
+and `parity:tool:<adapter>:<server>` for an adapter's server. A server an adapter adopted is
+`{ kind: "parity", role: "tool", adopted: true }`, so it's let go, not stopped, as `startedBy: "elsewhere"` says today.
 
 **Today's `ProjectProcess`** (`shared/protocol.ts`) becomes the window's version of `ProcessInfo`. The window keeps a
 few fields the API doesn't give, since a host belongs to one project and controls are the window's:
@@ -394,6 +401,10 @@ export interface AdoptSpec {
 `find` leaves out every port a process Parity lists already answers on, whoever owns it, so a find while Storybook
 starts doesn't offer Parity's own Storybook back. A port check connects to `127.0.0.1` and `[::1]`, rather than binding
 the port as `choosePort` does, so a server listening on only one of them is found.
+
+**What the host keeps.** `adopt`, `list` and `get` answer at once, from a copy of the project's processes the host gets
+before `activate` and keeps current with the same messages as `onDidChange`. `adopt` checks the id and endpoint against
+that copy and returns its handle straight away, and the service lists it a moment later.
 
 `find` doesn't decide which candidate is the right one. That needs the extension's own knowledge, as Storybook asks each
 candidate's `/index.json` for its story files. The extension reaches each `endpoint`, keeps the one it wants and adopts
@@ -456,7 +467,7 @@ Parity asks when a server's endpoint is first known, and again for every server 
 **Only local, unless allowed to publish.** An address's URL is `http` or `https`. Its host is one of:
 
 - **On this machine:** `localhost`, `127.0.0.1`, `[::1]` or under `.localhost`, for any kind but `network` and `tunnel`.
-- **On the local network:** a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fd00::/8`) or a name
+- **On the local network:** a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) or a name
   under `.local`, for `network` only.
 - **Anywhere else:** only with `public: true`, from an extension with `permissions.publish`.
 
@@ -630,6 +641,8 @@ Examples write `activate(parity)` as a plain export. PAR-1102's `defineExtension
 ### Storybook: start, adopt and open
 
 ```ts
+const paths = Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
+
 async function serve(storybook: DetectedStorybook): Promise<ProcessHandle> {
   // Ours already, started or adopted earlier, or before the host started again.
   const known = parity.processes.get("storybook")
@@ -637,14 +650,16 @@ async function serve(storybook: DetectedStorybook): Promise<ProcessHandle> {
   if (known && !["stopped", "failed"].includes(known.info.state)) return known
 
   const wanted = storybook.port ?? 6006
-  const paths = storyPaths(storybook)
 
   // Without stories to check, a discovered Storybook could be any project's, so only the usual port is tried.
   const candidates = await parity.processes.find({ ports: [wanted], discovered: paths.length > 0 })
   const serving: Candidate[] = []
 
   for (const candidate of candidates) {
-    if (servesStories(await storyIndex(candidate.endpoint.url), paths)) serving.push(candidate)
+    // Another server on the port answers with an error, or not at all.
+    const entries = await storyIndex(candidate.endpoint.url).catch(() => undefined)
+
+    if (entries && servesStories(entries, paths)) serving.push(candidate)
   }
 
   // Two worktrees can serve the same stories: the one serving this checkout's files is ours.
@@ -670,18 +685,22 @@ async function serve(storybook: DetectedStorybook): Promise<ProcessHandle> {
   })
 }
 
-const server = await serve(storybook)
+// Two opens at once share one lookup, so they don't both adopt, or one adopt while the other starts.
+running ??= serve(storybook).finally(() => (running = undefined))
+
+const server = await running
 const { opens, endpoint } = await server.ready()
 // The index is read at the endpoint; the page opens at the preferred address, a Portless name when there is one.
 const entries = await storyIndex(endpoint!.url)
-await parity.ui.open(storyPage(opens ?? endpoint!.url, entries, storyPaths(storybook)))
+await parity.ui.open(storyPage(opens ?? endpoint!.url, entries, paths))
 ```
 
 Manifest: `"permissions": { "processes": ["bin:storybook"] }`.
 
 Compared with today's `extension.ts`, its own command-line lookup (`commandLine`), the Portless branch and
 `servers.routed` go: a routed Storybook is a candidate like any other, found by Portless's discovery provider.
-`servesFrom` stays, as above. Its `running ??=` guard goes too, since `start` shares one start between two calls.
+`servesFrom` stays, as above. Its `running ??=` guard stays, now around the whole lookup: `start` shares one start
+between two calls, but two lookups at once could otherwise both adopt.
 
 ### Portless as an extension
 
@@ -705,7 +724,7 @@ Compared with today's `extension.ts`, its own command-line lookup (`commandLine`
 export function activate(parity: Parity) {
   // Portless's folder: PORTLESS_STATE_DIR, as Parity honours today, else its default.
   const folder = process.env.PORTLESS_STATE_DIR ?? join(homedir(), ".portless")
-  let state = readState(folder) // routes.json, proxy.port and proxy.tls, as utility/portless.ts reads them
+  let state = readPortless(folder) // routes.json, proxy.port and proxy.tls, as utility/portless.ts reads them today
 
   const addresses = parity.providers.register("addresses", {
     async addresses(servers) {
@@ -737,7 +756,7 @@ export function activate(parity: Parity) {
   // Routes come and go as servers start and stop.
   parity.subscriptions.push(
     parity.files.watch(join(folder, "routes.json"), () => {
-      state = readState(folder)
+      state = readPortless(folder)
       addresses.changed()
       discovery.changed()
     }),
@@ -751,9 +770,9 @@ Portless's addresses are under `.localhost`, so they're local and need no `publi
 Portless's default folder and `$PORTLESS_STATE_DIR`, since step 3 lets a read path start with a variable.
 
 What leaves the app: `utility/portless.ts`, the Portless lookup in `listProcesses`, `findRoutedServer` (and the rest of
-`utility/tool-servers.ts` once no adapter action uses it), `ProjectProcess.domain`, and `servers.routed()`. `readState`
-and the dead-route check move into the extension, with their tests. When PAR-1090's extension settings land, a
-`portless.stateFolder` setting can sit before the variable.
+`utility/tool-servers.ts` once no adapter action uses it), `ProjectProcess.domain`, and `servers.routed()`.
+`readPortless` and the dead-route check move into the extension, with their tests. When PAR-1090's extension settings
+land, a `portless.stateFolder` setting can sit before the variable.
 
 Without Portless installed, `routes.json` doesn't exist, both providers answer nothing, and the extension costs an idle
 host. A `detect` module (developer-api.md, The manifest) that checks for the folder would keep it from starting, and is
@@ -1046,8 +1065,10 @@ and `kind`.
    name. Steps 2 and 3 can ship together instead.
 3. **Address and discovery providers,** with `parity.providers.register` and its registry, the processes list's
    addresses, and Portless as an extension. Neither `parity.files` nor reading outside the project exists yet, so this
-   step adds `parity.files.watch` and `parity.files.read`, and lets `permissions.read` name a path under `~/`, limited
-   to the paths declared. `utility/portless.ts` and `domain` go.
+   step adds `parity.files.watch` and `parity.files.read`, and lets `permissions.read` name a path outside the project:
+   under `~/`, or starting with an environment variable, as `$PORTLESS_STATE_DIR/**`. A path whose variable isn't set is
+   left out. Reads and watches are limited to the paths declared, and `files.read` and `files.watch` take absolute paths
+   or paths relative to the project. `utility/portless.ts` and `domain` go.
 4. **The `process` menu placement,** its context keys and `permissions.publish`, tried with a tunnel extension kept in
    `examples/`.
 5. **Environment providers and launchers,** with the project's Processes settings (needs PAR-1090) and the permission
