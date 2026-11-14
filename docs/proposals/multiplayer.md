@@ -31,20 +31,22 @@ Parity talks to it through `@parity-app/multiplayer`, and `@parity-app/multiplay
 - **Parity reads plain, immutable values,** the same `CanvasDocument`, `ContainerSpec` and `DesignNode` objects it reads
   now, each the same object until a change touches it. Views, the node index (PAR-1088) and the editing functions in
   `@parity-app/editor` keep working.
-- **Two packages now and room for a third,** as [packages.md](packages.md) asks: data in, data out, tested without
+- **Three packages now and room for a fourth,** as [packages.md](packages.md) asks: data in, data out, tested without
   Electron.
 
-  | Package                              | Holds                                                                                                                                                                                                                                |
-  | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-  | `@parity-app/multiplayer`            | The interface, operations and changes; the bridge from whole values to operations; the diff of two `.par` files; and, under `/testing`, the shared tests, a plain provider they run against, the benchmark and its generated project |
-  | `@parity-app/multiplayer-loro`       | The Loro provider. Depends on `loro-crdt`, which nothing else imports                                                                                                                                                                |
-  | `@parity-app/multiplayer-liveblocks` | Not now. The interface leaves room for it                                                                                                                                                                                            |
+  | Package                              | Holds                                                                                                                                                                  |
+  | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `@parity-app/multiplayer`            | The interface, operations and changes; the bridge from whole values to operations; the diff of two `.par` files; and, under `/testing`, the shared tests and benchmark |
+  | `@parity-app/multiplayer-local`      | A provider for one person, without merging and without Loro, which the editor can ship                                                                                 |
+  | `@parity-app/multiplayer-loro`       | The Loro provider. Depends on `loro-crdt`, agreed as a dependency, which nothing else imports                                                                          |
+  | `@parity-app/multiplayer-liveblocks` | Not now. The interface leaves room for it                                                                                                                              |
 
 - **No library type crosses the interface.** Nothing outside `multiplayer-loro` sees a `LoroDoc`, `LoroMap` or `TreeID`.
   Swapping providers means a new package that passes the shared tests.
 - **`.par` stays the format on disk and in git,** plain JSON as today. A provider loads from it and saves to it, so
   swapping providers loses history, never designs. Git keeps the history between commits.
 - **Undo is per person and made of operations:** it reverses only this person's transactions.
+- **Loro can be turned off with one line,** and the editor keeps working on the local provider (Turning Loro off).
 - **`history.ts`'s snapshot undo goes** once `DesignStore` sits on the document, as [conventions.md](../conventions.md)
   asks: no second path kept beside it.
 
@@ -282,7 +284,10 @@ export interface UndoState {
 }
 
 export interface DocProvider {
+  /** As telemetry records it: `loro`, `local`. */
   readonly name: string
+  /** Whether it can merge other people's changes. Features that need several people don't show without it. */
+  readonly sync: boolean
   /** Opens a project's files. `main` is the file new designs and the modes go into. */
   open(options: OpenOptions): DesignDoc
 }
@@ -413,8 +418,8 @@ export interface ReplicaPair {
   open(options: OpenOptions): { a: DesignDoc; b: DesignDoc; exchange(): void }
 }
 
-/** A plain provider without merging: the reference the shared tests are written against, and the benchmark's baseline. */
-export const plainProvider: DocProvider
+/** The benchmark's scenarios against one provider, as a Vitest bench, for each provider package to run. */
+export function benchDesignDoc(provider: DocProvider): void
 
 /** A project to load: `designs` designs of about `layers` layers each, `depth` deep, with text, instances and slots. */
 export function generateProject(options: {
@@ -425,7 +430,27 @@ export function generateProject(options: {
 }): { path: string; document: CanvasDocument }[]
 ```
 
-`plainProvider` lives only under `/testing`. The editor never uses it.
+## `@parity-app/multiplayer-local`
+
+```ts
+import type { DocProvider } from "@parity-app/multiplayer"
+
+/** One person's document, without merging: `name` is `local`, `sync` is false. */
+export const localProvider: DocProvider
+```
+
+It's a whole provider, shipped and kept working, not a test fixture: what the editor falls back to if Loro has to go,
+and the benchmark's line for the layer without Loro.
+
+- **It holds the plain values and changes them directly.** Each operation makes the node's new value and copies the
+  layers above it up to its design and file, so everything else stays the same object, as with Loro.
+- **Undo is made of inverse operations.** As it applies an operation, it records the one that takes it back: a `set` the
+  value before, an `insert` a `remove`, a `remove` an `insert` of the whole node in its place, a `move` a move back to
+  its parent, slot and sibling, an `editText` the opposite splice, and `addDesign` and `removeDesign` each other. A step
+  is a transaction's or a gesture's inverses, applied in reverse order.
+- **Gestures are simple here.** A checkpoint is a position in the open gesture's inverses, `revert` applies them back to
+  it, and `cancelGesture` applies them all, drops the step and puts Redo back as it was, as the editor does today.
+- **No merging, and no WebAssembly.** It offers no `ReplicaPair`, so it skips the concurrent tests.
 
 ## `@parity-app/multiplayer-loro`
 
@@ -507,6 +532,21 @@ LoroDoc (one per open project)
 - Loro handles no networking. Sync later sends the bytes from `doc.subscribeLocalUpdates` and takes others' with
   `doc.import`.
 
+## Turning Loro off
+
+Loro costs a 3.4 MB download and its compile time, long before several people edit anything. If it has to go at short
+notice, the editor goes back to the local provider without anything else changing:
+
+- **One place picks the provider.** `renderer/design-doc.ts` exports the provider the window opens projects with.
+  Nothing else in the app imports a provider package, and everything else talks to `DesignDoc`.
+- **Loro loads in a chunk of its own,** through a dynamic `import()` in that file, while the window starts. With the
+  local provider picked, the window never downloads it; deleting the import takes it out of the build.
+- **No data moves.** `.par` is the only thing either provider saves, so a project opens the same on both.
+- **The same behaviour, kept by tests.** CI runs `describeDesignDoc` on both providers on every pull request, so the
+  local one can't fall behind while Loro is in use.
+- **What's lost is what needs several people:** merging others' changes, and sync once it's built. Those features check
+  `provider.sync` and don't show without it.
+
 ## How `DesignStore` moves onto it
 
 `DesignStore` keeps its API, so the ~100 callers don't change. Inside, a `DesignDoc` replaces `DesignHistory`:
@@ -534,7 +574,8 @@ The node index from PAR-1088 keeps working, since unchanged designs and layers s
 
 ## The shared tests
 
-`describeDesignDoc` runs against `plainProvider` and `loroProvider`. Each case is a test:
+`describeDesignDoc` runs against `localProvider` and `loroProvider`, the concurrent cases only where a provider offers a
+`ReplicaPair`. Each case is a test:
 
 **Reading and writing**
 
@@ -572,8 +613,33 @@ The node index from PAR-1088 keeps working, since unchanged designs and layers s
 
 ## The benchmark
 
-Under `/testing`, run as a Vitest bench against `plainProvider` and `loroProvider`. The script that runs it needs
-agreeing before it's added to `package.json`.
+It answers three questions: what the layer costs over today's store, what Loro costs over the layer without it, and what
+Loro costs to download and start.
+
+### Today, the layer, and Loro
+
+The same scenarios run through `DesignStore`'s API, which is what the editor calls, in
+`apps/desktop/src/renderer/design-store.bench.ts`, on three stores:
+
+| Run   | Store                                                                                                        |
+| ----- | ------------------------------------------------------------------------------------------------------------ |
+| Today | `DesignStore` on `history.ts`'s snapshots, run before the store moves, its numbers kept here with the commit |
+| Local | `DesignStore` on `localProvider`                                                                             |
+| Loro  | `DesignStore` on `loroProvider`                                                                              |
+
+Today's store is removed when the store moves onto the document, so its numbers are recorded first, and checking out
+that commit runs them again. Each provider package also runs `benchDesignDoc`, which measures the providers on their
+own: the bridge against sending operations, and exchanging changes with a replica.
+
+They run as one-off commands, not `package.json` scripts:
+
+```bash
+pnpm exec vp test bench apps/desktop/src/renderer/design-store.bench.ts
+```
+
+```bash
+pnpm exec vp test bench packages/multiplayer-local packages/multiplayer-loro
+```
 
 | Project    | Designs | Layers each | Depth |
 | ---------- | ------: | ----------: | ----: |
@@ -592,10 +658,19 @@ agreeing before it's added to `package.json`.
 | The bridge on a one-field change           | Time, against sending the operation       |
 | Save one file                              | Time to produce its `.par`                |
 | 10,000 edits in a session                  | Memory growth                             |
-| Exchange 1,000 transactions with a replica | Bytes, time to apply                      |
+| Exchange 1,000 transactions with a replica | Bytes, time to apply (Loro only)          |
 
-The numbers go on this page when it runs, to decide the hot paths and whether memory needs Loro's shallow snapshots in
-long sessions.
+### What Loro costs to load
+
+| Measure                    | How                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| The window's download      | The size of its built assets with each provider                                          |
+| Loading Loro's WebAssembly | `designDoc.opened`'s `wasmMs`, in the bench and from testers                             |
+| Opening a project          | `project.drawn`'s time with each provider, on the example project and the Very large one |
+| Memory                     | The window's memory after opening the Very large project, with each provider             |
+
+The numbers go on this page, to decide whether the window keeps Loro before sync arrives, which paths send operations
+without the bridge, and whether long sessions need Loro's shallow snapshots.
 
 ## Telemetry
 
@@ -607,7 +682,7 @@ summary.
 ### Added with the document
 
 ```ts
-const provider = z.string().describe("The document's provider: `loro`")
+const provider = z.string().describe("The document's provider: `loro` or `local`")
 const files = z.array(z.string()).describe("The project files in the document, by path")
 
 defineEvent(
@@ -618,6 +693,10 @@ defineEvent(
     designs: z.int().min(0).describe("Designs in the document"),
     layers: z.int().min(0).describe("Layers in the document"),
     durationMs: z.number().describe("From reading the files to the document being ready, in milliseconds"),
+    wasmMs: z
+      .number()
+      .optional()
+      .describe("Time to download and compile the provider's WebAssembly, in milliseconds, when it has any"),
     bytes: z.int().min(0).optional().describe("The provider's state, in bytes, when it can say")
   }),
   { level: "info", sentBy: ["renderer"], when: "A project's designs are loaded into the document." }
@@ -743,14 +822,20 @@ defineEvent(
 
 ## Order of work
 
+The store moves onto the document with the local provider first, so the biggest change lands without the new dependency.
+Loro then comes in where the provider is picked, which is also how it would go back out.
+
 1. **Ids with a random suffix:** `uniqueId` in `@parity-app/core`, and the tests that expect `title-2`.
-2. **`@parity-app/multiplayer`:** the types, the bridge, `diffFiles`, and under `/testing` the plain provider, the
-   shared tests (apart from the concurrent ones), the generated project and the benchmark.
-3. **`@parity-app/multiplayer-loro`:** the provider, passing every shared test, the concurrent ones with a replica pair.
-4. **The benchmark,** run on both providers, with its numbers here and a decision on hot paths.
-5. **`DesignStore` on the document,** with the snapshot undo removed from `history.ts`, the events above, and
-   [editor.md](../editor.md) updated.
-6. **Later, each its own piece:** sync through a relay in the cloud, presence, review links with `diffFiles`, and
+2. **Today's numbers:** `design-store.bench.ts` against today's `DesignStore`, with its numbers and commit on this page.
+3. **`@parity-app/multiplayer`:** the types, the bridge, `diffFiles`, and under `/testing` the shared tests,
+   `benchDesignDoc` and the generated project.
+4. **`@parity-app/multiplayer-local`,** passing the shared tests.
+5. **`DesignStore` on the document, with the local provider:** `renderer/design-doc.ts`, the snapshot undo removed from
+   `history.ts`, the events above, [editor.md](../editor.md) updated, and the bench run again against today's numbers.
+6. **`@parity-app/multiplayer-loro`,** passing every shared test, the concurrent ones with a replica pair.
+7. **The window on Loro:** `renderer/design-doc.ts` picks `loroProvider`, and the bench and load costs run on all three,
+   with the numbers here and a decision on hot paths.
+8. **Later, each its own piece:** sync through a relay in the cloud, presence, review links with `diffFiles`, and
    comments.
 
 ## Open questions
