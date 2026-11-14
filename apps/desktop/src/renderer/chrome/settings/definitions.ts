@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   Sun
 } from "lucide-react"
-import { reactLogo, storybookLogo, tailwindLogo, viteLogo } from "./logos.ts"
+import { reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
 import { type Mark, markOf, projectMark } from "./marks.tsx"
 
 /**
@@ -62,8 +62,8 @@ export interface Page {
 }
 
 /**
- * A built-in extension as Settings shows it: what it adds, which its adapter says, and, in an open project, what
- * detection found and whether it runs there.
+ * A built-in extension as Settings shows it: in an open project, what detection found, whether it runs there, and what
+ * it adds, from what its adapter and extension tell the window.
  */
 export interface Extension {
   id: string
@@ -76,22 +76,13 @@ export interface Extension {
   adds: string[]
 }
 
-/** The built-in extensions and what each adds, before detection says whether it runs in a project. */
-export const builtInExtensions: Omit<Extension, "running" | "found">[] = [
-  {
-    id: "storybook",
-    name: "Storybook",
-    icon: markOf(storybookLogo, "Storybook"),
-    adds: ["Stories as screens", "Storybook server", "Open in Storybook"]
-  },
-  { id: "vite", name: "Vite", icon: markOf(viteLogo, "Vite"), adds: ["Build server"] },
-  { id: "react", name: "React", icon: markOf(reactLogo, "React"), adds: ["Finds components", "Draws components"] },
-  {
-    id: "tailwind",
-    name: "Tailwind CSS",
-    icon: markOf(tailwindLogo, "Tailwind"),
-    adds: ["Tokens from the theme", "Styles as classes"]
-  }
+/** The built-in extensions, before detection says whether each runs in a project. */
+export const builtInExtensions: Omit<Extension, "running" | "found" | "adds">[] = [
+  { id: "storybook", name: "Storybook", icon: markOf(storybookLogo, "Storybook") },
+  { id: "vite", name: "Vite", icon: markOf(viteLogo, "Vite") },
+  { id: "react", name: "React", icon: markOf(reactLogo, "React") },
+  { id: "tailwind", name: "Tailwind CSS", icon: markOf(tailwindLogo, "Tailwind") },
+  { id: "tanstack-router", name: "TanStack Router", icon: markOf(tanstackLogo, "TanStack") }
 ]
 
 /** What detection found of a tool: its id and, in a sentence, what and where. */
@@ -104,17 +95,21 @@ interface Found {
  * The built-in extensions as Settings lists them: each runs in the open project when detection found its tool, and
  * says what it found. With no project open, each says what it runs in.
  */
-export function extensionsFrom(found: readonly Found[] | undefined): Extension[] {
+export function extensionsFrom(
+  found: readonly Found[] | undefined,
+  addsOf: (id: string) => string[] = () => []
+): Extension[] {
   return builtInExtensions.map((extension) => {
     const tool = found?.find((entry) => entry.id === extension.id)
 
     if (tool) {
-      return { ...extension, running: true, found: tool.summary }
+      return { ...extension, running: true, found: tool.summary, adds: addsOf(extension.id) }
     }
 
     return {
       ...extension,
       running: false,
+      adds: [],
       found: found ? `No ${extension.name} in this project` : `Runs in projects that use ${extension.name}`
     }
   })
