@@ -293,7 +293,10 @@ function PreviewSettingsPanel({
       <FieldGrid>
         <Field
           label="Width"
-          overrides={resetTo("width", (each) => `${frameGeometry(design, each.mode).width}px`)}
+          overrides={resetTo(
+            "width",
+            (each) => `${frameGeometry(design, each.mode, previewOf(each.key).state).width}px`
+          )}
           onReset={() => resetValue("width", "Reset preview width")}
         >
           <PixelField
@@ -305,7 +308,7 @@ function PreviewSettingsPanel({
             onChange={(next) =>
               onChange(next === undefined ? "Reset preview width" : `Try previews at ${next}px`, (view) =>
                 previews.reduce((each, preview) => {
-                  const base = frameGeometry(design, preview.mode).width
+                  const base = frameGeometry(design, preview.mode, previewOf(preview.key).state).width
 
                   return withPreviewValues(each, preview.key, {
                     width: next === undefined || next === base ? undefined : next
