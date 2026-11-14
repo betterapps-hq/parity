@@ -173,7 +173,19 @@ const host: CanvasHost = {
   installCli: () => ask("installCli"),
   quit: () => ask("quit"),
   toggleDevTools: () => ask("toggleDevTools"),
-  setTheme: (theme) => ask("setTheme", theme),
+  settings: {
+    // SAFETY: main answers this channel with its settings state, and main and this script ship together.
+    now: () => ipcRenderer.sendSync(ipc.settingsNow) as ReturnType<CanvasHost["settings"]["now"]>,
+    change: (change) => ask("settingsChange", change),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
+      ipcRenderer.on(ipc.settingsChanged, changed)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.settingsChanged, changed)
+      }
+    }
+  },
   keybindings: {
     get: () => ask("keybindingsState"),
     replace: (replacements) => ask("keybindingsReplace", replacements),

@@ -1,13 +1,6 @@
 import { codeEditors } from "@parity-app/processes"
 import { describe, expect, it } from "vite-plus/test"
-import {
-  consoleAnnouncement,
-  consoleOrigin,
-  openInEditorRequest,
-  problemReport,
-  shownItem,
-  themeSource
-} from "./ipc-checks.ts"
+import { consoleAnnouncement, consoleOrigin, openInEditorRequest, problemReport, shownItem } from "./ipc-checks.ts"
 
 const file = process.platform === "win32" ? "C:\\work\\app\\src\\Button.tsx" : "/work/app/src/Button.tsx"
 
@@ -32,8 +25,7 @@ describe("open-in-editor's request", () => {
 })
 
 describe("the other arguments", () => {
-  it("refuses a theme or path the window doesn't send", () => {
-    expect(themeSource.safeParse("sepia").success).toBe(false)
+  it("refuses a path the window doesn't send", () => {
     expect(shownItem.safeParse("relative/folder").success).toBe(false)
     expect(shownItem.safeParse(file).success).toBe(true)
   })

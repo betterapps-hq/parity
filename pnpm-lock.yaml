@@ -459,6 +459,9 @@ importers:
       '@parity-app/service':
         specifier: workspace:*
         version: link:../../packages/service
+      '@parity-app/settings':
+        specifier: workspace:*
+        version: link:../../packages/settings
       '@parity-app/style-schema':
         specifier: workspace:*
         version: link:../../packages/style-schema
@@ -968,6 +971,12 @@ importers:
       '@parity-app/connectors':
         specifier: workspace:*
         version: link:../connectors
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
+  packages/settings:
+    dependencies:
       zod:
         specifier: 'catalog:'
         version: 4.6.7

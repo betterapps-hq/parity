@@ -26,14 +26,16 @@ import type { CodeReference, EditStatus, ImageFile, RecoveryCopy, ReferenceAdded
 import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
+import type { SettingsChange } from "@parity-app/settings"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
-import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+import type { openInEditorRequest, saveDialogOptions } from "./ipc-checks.ts"
 import type { KeybindingsState, Replacement } from "./keybindings.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
+import type { SettingsState } from "./settings.ts"
 
 /**
  * What a project's styling framework wrote for the declarations its frames draw layers with (PAR-942): each one's
@@ -603,8 +605,14 @@ export interface CanvasHost {
   quit(): Promise<void>
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
-  /** The app's theme, so the window's title bar buttons and system dialogs match it. */
-  setTheme(theme: ThemeSource): Promise<void>
+  /** `settings.json`, the app's settings every copy shares, which main keeps. */
+  settings: {
+    /** The settings now, from main's memory; the preload waits for them, so the first frame has them. */
+    now: () => SettingsState
+    /** Makes one change, setting each key given or putting it back to its default with `null`. */
+    change: (change: SettingsChange) => Promise<SettingsState>
+    subscribe: (listener: (state: SettingsState) => void) => () => void
+  }
   /** `keybindings.json`, the shortcuts the person changed, which main keeps (PAR-1085). */
   keybindings: {
     get: () => Promise<KeybindingsState>

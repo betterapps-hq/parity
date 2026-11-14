@@ -13,10 +13,6 @@ import { z } from "zod"
 /** An absolute path, which is never read as a command's option, as `-x` would be. */
 const absolutePath = nonBlankString.refine((path) => isAbsolute(path), "expected an absolute path")
 
-export const themeSource = z.enum(["light", "dark", "system"])
-
-export type ThemeSource = z.infer<typeof themeSource>
-
 const codeEditorChoice = z.enum([
   "auto",
   "system",

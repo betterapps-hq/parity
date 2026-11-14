@@ -1,7 +1,8 @@
 import type { ConsoleEntry } from "@parity-app/agent"
 import type { UpdateState } from "@parity-app/processes"
+import type { SettingsChange } from "@parity-app/settings"
 import type { TelemetryLevel } from "@parity-app/telemetry"
-import type { ProblemReport, ThemeSource } from "../shared/ipc-checks.ts"
+import type { ProblemReport } from "../shared/ipc-checks.ts"
 import type { KeybindingsState, Replacement } from "../shared/keybindings.ts"
 import type {
   BuildInfo,
@@ -15,6 +16,7 @@ import type {
   SaveDialogOptions,
   TelemetryState
 } from "../shared/protocol.ts"
+import type { SettingsState } from "../shared/settings.ts"
 import type { Account } from "./account.ts"
 import type { ConnectorHub } from "./connectors.ts"
 import type { HostHandlers } from "./host-methods.ts"
@@ -74,11 +76,9 @@ export interface HostNeeds<Event, Window> {
   installCli(): Promise<CliInstall>
   quit(): void
   toggleDevTools(window: Window): void
-  theme: {
-    get(): ThemeSource
-    set(theme: ThemeSource): void
-    /** Keeps the theme for the next start. May throw, as when the file can't be written. */
-    remember(theme: ThemeSource): void
+  /** `settings.json`, which main keeps for every window and copy. */
+  settings: {
+    change(change: SettingsChange): Promise<SettingsState>
   }
   /** `keybindings.json`, which main keeps for every window (PAR-1085). */
   keybindings: {
@@ -103,7 +103,7 @@ export interface HostNeeds<Event, Window> {
  * asked. Who may ask and what they may send is `answerWindows`' to check, so nothing here does.
  */
 export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): HostHandlers<Event, Window> {
-  const { account, connectors, telemetry, reports, updates, theme } = needs
+  const { account, connectors, telemetry, reports, updates } = needs
 
   return {
     buildInfo: () => needs.buildInfo(),
@@ -172,19 +172,7 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
 
     quit: () => needs.quit(),
     toggleDevTools: (_nothing, window) => needs.toggleDevTools(window),
-    setTheme: (next) => {
-      if (theme.get() === next) {
-        return
-      }
-
-      theme.set(next)
-
-      try {
-        theme.remember(next)
-      } catch (error) {
-        console.error("The theme couldn't be remembered", error)
-      }
-    },
+    settingsChange: (change) => needs.settings.change(change),
     keybindingsState: () => needs.keybindings.state(),
     keybindingsReplace: (replacements) => needs.keybindings.replace(replacements),
     keybindingsOpen: () => needs.keybindings.open(),
