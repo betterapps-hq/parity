@@ -39,7 +39,7 @@ writes them back. Connectors (`packages/connectors`) find screens, photos and vi
 Mobbin, Unsplash and Pixabay.
 
 It can't read designs, select or reveal anything, add a tab, a setting, an inspector section, a node type or a canvas
-overlay, keep state, be turned off, or fail without taking the project service down with it.
+overlay, keep state, or fail without taking the project service down with it.
 
 ## Principles
 
@@ -53,8 +53,7 @@ overlay, keep state, be turned off, or fail without taking the project service d
 - **Native by default.** Extensions describe their UI as data that Parity draws with its own kit. A sandboxed web view,
   for one that needs its own drawing, comes in a later release.
 - **The person stays in charge.** Extensions can change designs, and every change is one undo step named after the
-  extension that made it. Every extension can be turned off. Every permission is shown, and asked for unless it comes
-  with a project the person trusted.
+  extension that made it. Every permission is shown, and asked for unless it comes with a project the person trusted.
 - **A broken extension never breaks the editor.** Each extension runs in a process of its own, starts only when needed,
   and is named when it fails.
 - **Agents get what people get.** Every command, node type and fact an extension adds is open to agents too.
@@ -145,16 +144,16 @@ from the manifest alone. The code loads the first time the command runs.
 
 ### The manifest
 
-| Field                   | What it holds                                                                                 |
-| ----------------------- | --------------------------------------------------------------------------------------------- |
-| `displayName`           | The name people see, also used when the extension is off ("From Route timings, which is off") |
-| `prefix`                | What every contributed id starts with: `timings.measure`, `timings.runs`                      |
-| `icon`                  | Its logo (below)                                                                              |
-| `activates`             | Activation events (Lifecycle)                                                                 |
-| `detect`, `watches`     | A small module that says whether its tool is there, and the files that mean detecting again   |
-| `permissions`           | What it may read, write, reach and change (Trust)                                             |
-| `extensionDependencies` | Other extensions whose API it uses                                                            |
-| `contributes`           | Every contribution, in the keys below                                                         |
+| Field                   | What it holds                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| `displayName`           | The name people see, also on its nodes when it isn't running ("From Route timings")         |
+| `prefix`                | What every contributed id starts with: `timings.measure`, `timings.runs`                    |
+| `icon`                  | Its logo (below)                                                                            |
+| `activates`             | Activation events (Lifecycle)                                                               |
+| `detect`, `watches`     | A small module that says whether its tool is there, and the files that mean detecting again |
+| `permissions`           | What it may read, write, reach and change (Trust)                                           |
+| `extensionDependencies` | Other extensions whose API it uses                                                          |
+| `contributes`           | Every contribution, in the keys below                                                       |
 
 | `contributes` key | What it adds, and where                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------ |
@@ -175,8 +174,8 @@ from the manifest alone. The code loads the first time the command runs.
   panel, its menu and buttons), `media` (a tile in Media), `search` (Search actions), and `appMenu/<menu>/<group>`.
 - **Ids are the extension's.** Every contributed id, setting key and context key starts with the manifest's `prefix`.
   Parity refuses a manifest that breaks the rule, and when two extensions claim one prefix, the Extensions page names
-  both and runs neither until one is turned off. Node types are scoped by their owner, as adapter-registrations.md sets
-  out.
+  both and runs only the one that wins by where it was found (Lifecycle). Node types are scoped by their owner, as
+  adapter-registrations.md sets out.
 - **Icons:** an extension's logo is path data with a view box and a fill rule, as `AdapterIcon` is today, so it can't
   run script and takes the text's color in both themes. The build converts `icon.svg` to that and refuses one that won't
   convert. A contribution's icon is a name from the kit's icon set.
@@ -189,10 +188,10 @@ from the manifest alone. The code loads the first time the command runs.
   package the project depends on or a folder in it. When one id is found in several places, the project's copy wins over
   the app's, which wins over the built-in one, and the Extensions page says which is running. One whose `engines.parity`
   doesn't fit this Parity is listed with the reason and doesn't run.
-- **Detected.** Parity reads the main project file's `extensions` field first, then runs the `detect` of each extension
-  it leaves on, before choosing the renderer and builder. Without a `detect`, an extension is found when one of its peer
-  dependencies is installed (below). Detection runs again when a file its `watches` names changes, or when the
-  `extensions` field changes from outside, as after a git pull.
+- **Detected.** Parity reads the main project file's `extensions` field first, for the settings detection uses, then
+  runs each extension's `detect`, before choosing the renderer and builder. Without a `detect`, an extension is found
+  when one of its peer dependencies is installed (below). Detection runs again when a file its `watches` names changes,
+  or when the `extensions` field changes from outside, as after a git pull.
 - **Activated** on what its manifest names:
   - `onDetect`: its tool is in the project.
   - `onCommand:id`: one of its commands runs.
@@ -201,27 +200,22 @@ from the manifest alone. The code loads the first time the command runs.
   - `onStartup`: always. It's discouraged, and the Extensions page says when one uses it.
 - **Running.** Everything it registers or subscribes to returns a `Disposable`. Those it adds to `parity.subscriptions`
   go when it does.
-- **Deactivated** when it's turned off, its tool is no longer detected, the project closes, or it's reloaded during
-  development. Its contributions, facts, nodes, overlays, servers and processes go with it.
+- **Deactivated** when its tool is no longer detected, the project closes, or it's reloaded during development. Its
+  contributions, facts, nodes, overlays, servers and processes go with it.
 
-## Turning extensions on and off
+## The Extensions page
 
 Settings becomes paged, with Parity's own sections as pages and an Extensions page beside them, also reachable from
 Search actions. Each extension shows its logo, what it adds, what detection found ("Storybook 9.1, config in
-`.storybook`"), whether it's on, its permissions, its activation time and memory, and its settings.
+`.storybook`"), whether it's running, its permissions, its activation time and memory, and its settings.
 
-- **Two places, as settings have (below).** Off in the app, for every project the person opens, saved with the app's
-  state. Or on or off in the project's `.par` file, for everyone who opens it. A project that turns an extension on has
-  it on for everyone, even a person who turned it off in the app.
-- **Turning one off takes effect at once.** It deactivates, its contributions disappear from every panel and menu, its
-  servers and processes stop, and its canvas files close. Nodes of its types in saved designs stay in the file and show
-  as "From Route timings, which is off", so nothing is lost.
-- **Not installed.** A project whose `.par` turns on an extension the person doesn't have says so once, with Install.
-  Its nodes show the package name the `.par` saved with them.
-- **Some can't be turned off.** A project needs one renderer and one builder, so the only one that fits says "Needed to
-  draw this project" instead of a switch.
-- **Found but off is quiet.** A project that uses Storybook, with the Storybook extension off, says so once in the
-  status bar's tooltip, with a way to turn it on.
+- **No switch.** Every extension today is Parity's own and gives the basic support for a language, framework or builder,
+  so each runs whenever its tool is detected and can't be turned off. A switch comes with third-party extensions.
+- **When one stops running,** because its tool is no longer detected or it crashed, its contributions disappear from
+  every panel and menu, its servers and processes stop, and its canvas files close. Nodes of its types in saved designs
+  stay in the file and show "From Route timings", so nothing is lost.
+- **Not installed.** A project whose `.par` names an extension the person doesn't have says so once, with Install. Its
+  nodes show the package name the `.par` saved with them.
 - **Uninstalling** removes the extension's app state, app settings and secrets, and leaves what it saved in projects.
 
 ## Settings
@@ -255,11 +249,11 @@ project's, and Search actions finds each setting by its title.
 - **Project settings live in the main project file,** the `.par` that already keeps what the person chose for the whole
   project: its modes, where they corrected detection, and which source each lens reads (inside `canvas` when that file
   is a `.lib.par`). An `extensions` field in other `.par` files, and in a dependency's `.lib.par`, is ignored. A project
-  with no `.par` yet gets its main file when an extension is first turned on or a setting changed, as with a first edit.
-- **The field.** `extensions` is one new optional field, keyed by extension id, holding whether each is on and its
-  settings as an unchecked record that the extension's own schema checks when it loads. So settings of an extension that
-  isn't installed are kept as they are, and after this one change to the file format, a new setting never changes it.
-  Whether adding the field raises `formatVersion`, which today rejects every older file, is decided when it's built.
+  with no `.par` yet gets its main file when a project setting is first changed, as with a first edit.
+- **The field.** `extensions` is one new optional field, keyed by extension id, holding each one's settings as an
+  unchecked record that the extension's own schema checks when it loads. So settings of an extension that isn't
+  installed are kept as they are, and after this one change to the file format, a new setting never changes it. Whether
+  adding the field raises `formatVersion`, which today rejects every older file, is decided when it's built.
 - **Saving and undo.** Changing a project setting is one undo step and marks the file unsaved, as a modes change does,
   and Save writes it. The window sends the field to the project service whenever it changes, so extensions see values
   before they're saved.
@@ -418,8 +412,8 @@ This is how an extension works with Parity's UX rather than beside it.
 - **An extension's API for others.** What `activate` returns is its API, which another extension gets with
   `parity.extensions.get(id).api` after naming it in `extensionDependencies`. A Storybook accessibility extension builds
   on the Storybook extension's this way.
-- **Agents.** Every command, node type and fact is open to agents through the agent API while its extension is on, and
-  an extension can add agent tools with a schema for their input, so the same feature works by hand or by asking. An
+- **Agents.** Every command, node type and fact is open to agents through the agent API while its extension is running,
+  and an extension can add agent tools with a schema for their input, so the same feature works by hand or by asking. An
   agent's change through an extension is one undo step named after both.
 - **Nobody to ask.** When an agent runs a command, `ui.pick`, `input` and `confirm` take their answers from the
   command's input schema when it has one, and otherwise fail with an error the extension can handle.
@@ -504,9 +498,9 @@ one freeze the editor, and give their code the window's access. A web view gives
   instead runs all of a window's extensions in one host, so one that blocks or crashes stalls the rest until the host
   restarts; here a stuck or crashed extension is the only one affected.
 - **Stuck and crashed.** A host that doesn't answer a ping in time is named, with Restart. A crashed one is restarted,
-  and after a few crashes in a row left off with the reason. A renderer or builder the project needs isn't turned off:
-  the canvas shows its error with Restart. Using a contribution whose host is down or still starting shows a toast that
-  names the extension, with Restart.
+  and after a few crashes in a row left stopped with the reason and Restart. For a renderer or builder, the canvas shows
+  its error with Restart. Using a contribution whose host is down or still starting shows a toast that names the
+  extension, with Restart.
 - **The cost is memory and start time,** a Node process for each, which activation events keep down: only extensions
   something has used are running. The Extensions page shows each one's activation time and memory.
 - **Heavy work in processes of the extension's own,** as VS Code's language servers are, started through
@@ -527,8 +521,8 @@ write, network hosts, processes, secrets, and `edits` for changing designs.
 
 - **Asked once, for an extension installed into the app,** before it first runs, and again when an update asks for more.
   A project's own extensions are trusted with the project, and built-in ones run with what they declare.
-- **Taken back one at a time.** The Extensions page can withdraw a permission, such as `edits` or `network`, without
-  turning the extension off; calls that need it then fail with an error the extension can handle.
+- **Taken back one at a time.** The Extensions page can withdraw a permission, such as `edits` or `network`, while the
+  extension keeps running; calls that need it then fail with an error the extension can handle.
 - **Held to in the host.** Each host runs under Node's permission model, with file reads and writes limited to the
   declared paths, no child processes outside `parity.processes`, and network limited to the declared hosts. Until that
   holds, the Extensions page says plainly that permissions are shown but not enforced, and that installing an extension
@@ -540,7 +534,7 @@ Storybook goes first, because it already uses most of what's here:
 
 1. A manifest with Open in Storybook and its placements, greyed with "No story found" by `enablement`, and its
    stories-count fact.
-2. Its settings (config folder, where stories open), peer-dependency detection and turning it off, as those land.
+2. Its settings (config folder, where stories open) and peer-dependency detection, as those land.
 3. An entities provider whose import gives the stories canvas file and story nodes, and whose export writes edited
    stories back on Save. Then `findStorybook` and `info.storybook` go.
 
@@ -553,8 +547,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
 1. **An incremental node index,** sending differences as edits settle rather than rebuilding after a pause.
 2. **The extension host, `@parity-app/extension-api` and the manifest,** with `parity.ui`, state, secrets and the bottom
    panel's tabs, and Storybook's command and fact moved onto them.
-3. **Turning extensions off and settings,** with Settings paged, the `extensions` field in the main project file, and
-   the app's state once it has a place for them.
+3. **Settings,** with Settings paged, the `extensions` field in the main project file, and the app's state once it has a
+   place for them.
 4. **Versions from peer dependencies.**
 5. **Selection of any node, navigation, running Parity's commands, when and enablement, and keys.**
 6. **Changing designs and files,** with `parity.edits` and `parity.files.edit` and their undo labels.
@@ -578,12 +572,12 @@ entry modules; then the connectors. Then `packages/adapters` goes.
   before the code loads. Behaviour (what a command does, a provider, facts, overlays) is code.
 - **A host for each extension,** so one that blocks or crashes affects only itself.
 - **Web views come in a later release,** after declarative views.
+- **Extensions can't be turned off, for now.** Every extension today is Parity's own and gives the basic support for a
+  language, framework or builder, so each runs whenever its tool is detected. A switch comes when third-party ones do.
 - **No `parity.config.ts`.** [extensions.md](extensions.md) planned it for a project's extensions and settings, and both
   are in the `.par` now. Code a project needs, such as decorators, stays in its preview file.
 
 ## Decisions needed
 
-- **Who wins on turning off.** A project that turns an extension on, over a person who turned it off in the app, as
-  above?
 - **Raising `formatVersion` for `extensions`.** Raising it lets an older Parity say the file is newer rather than
   failing on an unknown field, but rejects every file saved before it.
