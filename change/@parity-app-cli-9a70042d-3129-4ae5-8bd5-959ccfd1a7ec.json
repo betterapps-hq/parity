@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Previews on a board can be selected, zoomed, set to their own width, theme and language, and resized by a handle that lands on the app's breakpoints",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

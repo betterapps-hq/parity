@@ -5,6 +5,7 @@ import {
   type FieldHint,
   type LiveEdits,
   LiveEditsContext,
+  type MenuKeywords,
   type OwnValue,
   type ScrubBy,
   type ScrubKeys,
@@ -269,6 +270,7 @@ export function PercentField({
   rowClassName,
   keywords,
   tokens,
+  options,
   status,
   own,
   onChange
@@ -296,6 +298,8 @@ export function PercentField({
    * token's name (`muted`, `opacity-muted`) picks it, and Up and Down step through them in order.
    */
   tokens?: { list: readonly OpacityToken[]; current?: string; onPick: (name: string | undefined) => void }
+  /** Values it offers from its chevron, as a list of rows under a heading, as a preview's Zoom offers Fit and 100%. */
+  options?: MenuKeywords & { name: string }
   /** Slot 5's marks. */
   status?: StatusMarks
   /** A value of its own, which its token list offers the nearest token and Create token for. */
@@ -330,7 +334,17 @@ export function PercentField({
       comesTo={held?.detail}
       status={status}
       own={own}
-      tokens={tokens && { list: tokens.list, current: tokens.current, onPick: tokens.onPick }}
+      tokens={
+        tokens || options
+          ? {
+              list: tokens?.list ?? [],
+              current: tokens?.current,
+              onPick: (name: string | undefined) => tokens?.onPick(name),
+              keywords: options,
+              name: options?.name
+            }
+          : undefined
+      }
       other={{
         read: (text) => {
           const token = tokenNamed(tokens?.list, text.trim().toLowerCase(), "opacity-")

@@ -131,6 +131,7 @@ export {
   noteSpec,
   type NoteSpec,
   type ParamSpec,
+  type PreviewSettings,
   paramTypes,
   parseCanvasDocument,
   patchUnset,
@@ -328,6 +329,23 @@ export {
 } from "./modes.ts"
 
 export { type OwnFields, setOwnFields } from "./own-fields.ts"
+
+export {
+  breakpointAt,
+  type PreviewAt,
+  type PreviewBreakpoint,
+  previewGeometry,
+  previewKey,
+  previewOf,
+  previewOptionsMode,
+  previewScale,
+  previewSettingsOf,
+  type PreviewValue,
+  previewValues,
+  snapToBreakpoint,
+  withoutPreviewValues,
+  withPreviewValues
+} from "./preview.ts"
 
 export {
   addParam,

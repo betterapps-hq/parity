@@ -36,6 +36,10 @@ export function tidyView(
     delete next.scales
   }
 
+  if (next.previews && Object.keys(next.previews).length === 0) {
+    delete next.previews
+  }
+
   if (next.variants && Object.keys(next.variants).length === 0) {
     delete next.variants
   }

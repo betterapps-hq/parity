@@ -379,9 +379,12 @@ export {
 export {
   designsSelection,
   layersSelection,
+  pickPreviews,
+  previewsSelection,
   sameSelection,
   selectedDesigns,
   selectedNodes,
+  selectedPreviews,
   type Selection,
   selectionKey,
   toggleLayer
