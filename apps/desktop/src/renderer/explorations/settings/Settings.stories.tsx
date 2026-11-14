@@ -12,15 +12,16 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Settings } from "lucide-react"
 import { useState } from "react"
 import { expect, screen, userEvent, within } from "storybook/test"
-import { pageOf, settings } from "./data.ts"
+import { extensions, manyExtensions, shownIn, type View } from "./data.ts"
 import { SettingsModal, type SettingsModalProps } from "./modal.tsx"
-import { search } from "./search.ts"
+import { type Hit, placeOf, search } from "./search.ts"
 
 /**
- * One Settings view for every setting, from the person's own for every project to this project's and each
- * extension's (PAR-1081). Pages sit in a sidebar with a search above them; each setting says whose it is. Main owns the
- * view and it loads no project code, so it's the only place app settings and permission grants change. A change to a
- * project setting goes to the editor window as an undo step. Not in the app yet.
+ * One Settings view for every setting, Parity's own and each extension's (PAR-1081). The switch beside the title picks
+ * whose settings it shows: yours, for every project, or Kestrel's only. Some settings are only yours (the theme), some
+ * only the project's (Storybook's config folder), and some are yours with a value Kestrel can change for itself (snap,
+ * export sizes): those show in both, and Kestrel's value wins in Kestrel. Main owns the view and it loads no project
+ * code, so it's the only place app settings and permission grants change. Not in the app yet.
  */
 const meta = {
   title: "Parity/Explorations/Settings/Settings",
@@ -53,74 +54,170 @@ function Demo(props: SettingsModalProps) {
   )
 }
 
-/** Parity's own settings for every project: theme, saving and the code editor, with a way to the shortcuts. */
-export const AppPage: Story = {
-  render: () => <Demo initialPage="general" initialValues={{ autosave: true }} />,
+/** Your settings for every project. Kestrel turns snapping off for itself, which the row says. */
+export const EveryProject: Story = {
+  render: () => <Demo initialPage="canvas" initialValues={{ layoutGrid: true }} initialProject={{ snapping: false }} />,
   play: async () => {
     const dialog = await screen.findByRole("dialog", { name: "Settings" })
-    await expect(within(dialog).getByRole("button", { name: "General" })).toHaveAttribute("aria-current", "page")
-    await expect(within(dialog).getByRole("switch", { name: "Save automatically" })).toBeChecked()
-  }
-}
 
-/** This project's settings in one place, grouped by the extension that declares each. Changes are undo steps. */
-export const ProjectPage: Story = {
-  render: () => <Demo initialPage="project" initialValues={{ "storybook.port": 6007 }} />,
-  play: async () => {
-    const dialog = await screen.findByRole("dialog", { name: "Settings" })
-    await expect(within(dialog).getByRole("textbox", { name: "Routes folder" })).toHaveValue("src/routes")
+    await expect(within(dialog).getByRole("switch", { name: "Snap to screens and components" })).toBeChecked()
+    await expect(within(dialog).getByRole("button", { name: "Different in Kestrel" })).toBeInTheDocument()
   }
 }
 
 /**
- * An extension's page: what it adds, what detection found, whether it's running, what it may do and what it costs, and
- * its settings, each marked as this project's or every project's. There's no switch: built-in extensions run whenever
- * their tool is found.
+ * Kestrel's settings: only those a project can have. Snapping is off here though it's on for every project; its reset
+ * goes back to every project's value. Pages with nothing a project can change aren't listed.
  */
-export const ExtensionPage: Story = {
-  render: () => <Demo initialPage="ext:storybook" />,
+export const ProjectOnly: Story = {
+  render: () => <Demo initialView="project" initialPage="canvas" initialProject={{ snapping: false }} />,
   play: async () => {
     const dialog = await screen.findByRole("dialog", { name: "Settings" })
-    await expect(within(dialog).getByRole("switch", { name: "Change designs, for Storybook" })).toBeChecked()
+
+    await expect(within(dialog).getByRole("switch", { name: "Snap to screens and components" })).not.toBeChecked()
+    await expect(
+      within(dialog).getByRole("button", { name: "Use every project's snap to screens and components" })
+    ).toBeInTheDocument()
+    await expect(within(dialog).queryByRole("button", { name: "Diagnostics" })).not.toBeInTheDocument()
   }
 }
 
-/** An extension whose tool isn't in the project: listed, not running, with nothing to set. */
-export const ExtensionNotRunning: Story = {
-  render: () => <Demo initialPage="ext:next" />
+/** Parity's own settings for every project, with dropdowns for every choice. */
+export const General: Story = {
+  render: () => <Demo initialPage="general" initialValues={{ autosave: true }} />
 }
 
-/** Every extension at a glance, from the Extensions page. */
-export const Extensions: Story = {
-  render: () => <Demo initialPage="extensions" />
+/** One setting for export sizes, which Export images and each new layer's Export section both use. */
+export const Export: Story = {
+  render: () => <Demo initialPage="export" />
 }
 
-/**
- * Typing in the sidebar's search shows matching settings from every page, live, with their pages above them. Enter
- * goes to the first; Escape clears the search before it closes Settings.
- */
-export const SearchResults: Story = {
-  render: () => <Demo initialQuery="theme" />,
-  play: async () => {
-    const dialog = await screen.findByRole("dialog", { name: "Settings" })
-    await expect(within(dialog).getByRole("heading", { name: "Results for “theme”" })).toBeInTheDocument()
-    await expect(within(dialog).getByRole("textbox", { name: "Theme stylesheet" })).toBeInTheDocument()
-  }
+/** Feature flags, to try what isn't finished yet. */
+export const Experiments: Story = {
+  render: () => <Demo initialPage="experiments" />
+}
+
+/** The install ID is Parity's, so it shows as text to copy. */
+export const Diagnostics: Story = {
+  render: () => <Demo initialPage="diagnostics" />
 }
 
 /** Diagnostics when `PARITY_TELEMETRY` decides it, which wins over the setting. */
 export const DiagnosticsSetByEnvironment: Story = {
   render: () => (
-    <Demo initialPage="privacy" initialValues={{ telemetry: "off" }} locked={{ telemetry: "PARITY_TELEMETRY" }} />
+    <Demo initialPage="diagnostics" initialValues={{ telemetry: "off" }} locked={{ telemetry: "PARITY_TELEMETRY" }} />
+  )
+}
+
+/** Shortcuts, with the file that changes them until they can be changed here. */
+export const KeyboardShortcuts: Story = {
+  render: () => <Demo initialPage="shortcuts" />
+}
+
+/**
+ * An extension's page, in Extensions: what detection found, whether it's running, when it started, what it costs, its
+ * settings, what it adds and what it may do. There's no switch: built-in extensions run whenever their tool is found.
+ */
+export const ExtensionPage: Story = {
+  render: () => <Demo initialPage="ext:storybook" />,
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "Settings" })
+
+    await expect(within(dialog).getByRole("switch", { name: "Change designs, for Storybook" })).toBeChecked()
+  }
+}
+
+/** The same extension's page for Kestrel: its project settings, and none of the person's. */
+export const ExtensionInProject: Story = {
+  render: () => <Demo initialView="project" initialPage="ext:storybook" initialProject={{ "storybook.port": 6007 }} />
+}
+
+/** An extension whose tool isn't in the project. */
+export const ExtensionNotRunning: Story = {
+  render: () => <Demo initialPage="ext:next" />
+}
+
+/** The Extensions page with the six Parity has today. */
+export const Extensions: Story = {
+  render: () => <Demo initialPage="extensions" />
+}
+
+/**
+ * Forty extensions installed. The sidebar keeps one Extensions page however many there are; the page lists those
+ * running in Kestrel first, and the filter finds the rest.
+ */
+export const FortyExtensions: Story = {
+  render: () => <Demo initialPage="extensions" extensions={manyExtensions} />,
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "Settings" })
+    const filter = within(dialog).getByRole("textbox", { name: "Filter extensions" })
+
+    await userEvent.type(filter, "pre")
+    await expect(within(dialog).getByRole("button", { name: /Prettier/ })).toBeInTheDocument()
+    await userEvent.clear(filter)
+  }
+}
+
+/**
+ * Search results: pages and extensions by name as links, then each matching setting with where it is, whose value it
+ * changes and its control. A setting found by another word for it says which. Down from the search moves through the
+ * results; Enter goes to the first in its page. Escape clears the search before it closes Settings.
+ */
+export const SearchResults: Story = {
+  render: () => <Demo initialQuery="story" />,
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "Settings" })
+
+    await expect(within(dialog).getByRole("heading", { name: "Results for “story”" })).toBeInTheDocument()
+    await expect(within(dialog).getByRole("textbox", { name: "Config folder" })).toHaveValue(".storybook")
+  }
+}
+
+/** A search that finds a setting by another word for it: "dark" finds Theme. */
+export const SearchByKeyword: Story = {
+  render: () => <Demo initialQuery="dark" />
+}
+
+interface Picked {
+  page: string
+  setting?: string
+  view?: View
+}
+
+/** Where picking a hit in Search actions opens Settings. */
+function pickOf(hit: Hit): Picked {
+  if (hit.kind === "setting") {
+    return { page: hit.setting.page, setting: hit.setting.id, view: shownIn(hit.setting, "app") ? "app" : "project" }
+  }
+
+  return { page: hit.kind === "page" ? hit.page.id : `ext:${hit.extension.id}` }
+}
+
+function HitItem({ hit, onPick }: { hit: Hit; onPick: () => void }) {
+  if (hit.kind === "setting") {
+    return (
+      <CommandItem value={hit.setting.id} onSelect={onPick}>
+        <Settings className="text-muted-foreground" aria-hidden />
+        <span className="truncate">{hit.setting.label}</span>
+        <CommandShortcut>{placeOf(hit.setting, extensions).join(" › ")}</CommandShortcut>
+      </CommandItem>
+    )
+  }
+
+  const { label, icon: Icon } = hit.kind === "page" ? hit.page : { label: hit.extension.name, icon: hit.extension.icon }
+
+  return (
+    <CommandItem value={label} onSelect={onPick}>
+      <Icon className="text-muted-foreground" />
+      <span className="truncate">{label}</span>
+      <CommandShortcut>{hit.kind === "page" ? "Settings" : "Extensions"}</CommandShortcut>
+    </CommandItem>
   )
 }
 
 function SearchActionsDemo() {
   const [query, setQuery] = useState("story")
-  const [picked, setPicked] = useState<{ page: string; setting?: string }>()
-  const hits = search(query)
-  const pageHits = hits.filter((hit) => !hit.setting)
-  const settingHits = hits.filter((hit) => hit.setting)
+  const [picked, setPicked] = useState<Picked>()
 
   return (
     <div className="min-h-screen bg-[#0c0c0f]">
@@ -128,37 +225,11 @@ function SearchActionsDemo() {
         <Command shouldFilter={false}>
           <CommandInput value={query} onValueChange={setQuery} placeholder="Search actions, layers, components…" />
           <CommandList className="mt-1 max-h-96">
-            {pageHits.length > 0 && (
-              <CommandGroup heading="Settings pages">
-                {pageHits.map((hit) => {
-                  const page = pageOf(hit.page)
-
-                  return (
-                    <CommandItem key={hit.page} value={hit.page} onSelect={() => setPicked(hit)}>
-                      <page.icon className="text-muted-foreground" aria-hidden />
-                      <span className="truncate">{page.label}</span>
-                      <CommandShortcut>Settings</CommandShortcut>
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            )}
-            {settingHits.length > 0 && (
-              <CommandGroup heading="Settings">
-                {settingHits.map((hit) => {
-                  const setting = settings.find((entry) => entry.id === hit.setting)!
-                  const page = pageOf(hit.page)
-
-                  return (
-                    <CommandItem key={setting.id} value={setting.id} onSelect={() => setPicked(hit)}>
-                      <Settings className="text-muted-foreground" aria-hidden />
-                      <span className="truncate">{setting.label}</span>
-                      <CommandShortcut>{page.label}</CommandShortcut>
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            )}
+            <CommandGroup heading="Settings">
+              {search(query, extensions).map((hit, index) => (
+                <HitItem key={index} hit={hit} onPick={() => setPicked(pickOf(hit))} />
+              ))}
+            </CommandGroup>
           </CommandList>
         </Command>
       </CommandDialog>
@@ -166,6 +237,7 @@ function SearchActionsDemo() {
         <SettingsModal
           initialPage={picked.page}
           initialSetting={picked.setting}
+          initialView={picked.view}
           onOpenChange={() => setPicked(undefined)}
         />
       )}
@@ -173,20 +245,21 @@ function SearchActionsDemo() {
   )
 }
 
+/** Search actions with Settings pages, extensions and settings among its results. */
+export const SearchActions: Story = {
+  render: () => <SearchActionsDemo />
+}
+
 /**
- * Search actions finds Settings pages by name and settings by label. Picking one opens Settings on its page, with the
- * setting marked and its control focused. Closing Settings comes back to the search.
+ * Picking a setting in Search actions opens Settings on its page, in whichever view has it, with the setting marked and
+ * its control focused. Closing Settings comes back to the search.
  */
 export const FromSearchActions: Story = {
   render: () => <SearchActionsDemo />,
   play: async () => {
-    await userEvent.click(await screen.findByRole("option", { name: /Open stories in/ }))
+    await userEvent.click(await screen.findByRole("option", { name: /Config folder/ }))
     const dialog = await screen.findByRole("dialog", { name: "Settings" })
+
     await expect(within(dialog).getByRole("heading", { name: "Storybook" })).toBeInTheDocument()
   }
-}
-
-/** Search actions with Settings pages and settings among its results, before one is picked. */
-export const SearchActions: Story = {
-  render: () => <SearchActionsDemo />
 }

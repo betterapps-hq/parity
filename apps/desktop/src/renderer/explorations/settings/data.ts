@@ -1,11 +1,11 @@
 import {
   Download,
+  FlaskConical,
   Frame,
   Keyboard,
   type LucideIcon,
   Monitor,
   Moon,
-  Folder,
   Puzzle,
   RefreshCw,
   ShieldCheck,
@@ -15,8 +15,14 @@ import {
 import { nextLogo, reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
 import { type Mark, markOf } from "./marks.tsx"
 
-/** Whose a setting is: the person's, for every project, or everyone's who opens this project. */
-export type Scope = "app" | "project"
+/**
+ * Whose a setting is. `app`: the person's, the same in every project. `project`: the project's, saved in its file, so
+ * everyone who opens it gets it. `either`: the person's for every project, which a project can change for itself.
+ */
+export type Scope = "app" | "project" | "either"
+
+/** Which settings Settings shows and changes: the person's for every project, or this project's. */
+export type View = "app" | "project"
 
 export interface Option {
   value: string
@@ -26,12 +32,15 @@ export interface Option {
 
 export type Control =
   | { kind: "switch" }
-  | { kind: "segmented"; options: Option[] }
   | { kind: "select"; options: Option[] }
-  | { kind: "text"; mono?: boolean }
-  | { kind: "number"; unit?: string }
-  | { kind: "jump"; page: string; label: string }
-  | { kind: "sizes" }
+  | { kind: "text" }
+  | { kind: "number" }
+  /** Several choices from a list, as export sizes are. */
+  | { kind: "multi"; options: Option[] }
+  /** A value Parity sets, shown to copy. */
+  | { kind: "fixed" }
+  /** A file that holds what Settings can't change yet. */
+  | { kind: "file"; file: string }
 
 export type Value = string | number | boolean | string[]
 
@@ -41,24 +50,18 @@ export interface Setting {
   label: string
   /** One line on what it changes, when the label alone doesn't say. */
   detail?: string
+  /** Other words people search for it by. */
+  keywords?: string[]
   scope: Scope
   control: Control
   default: Value
-  /** The extension that declares it, for project settings shown on the project's page. */
-  extension?: string
-  /** Something outside Settings decides it for now, as `PARITY_TELEMETRY` does for diagnostics. */
-  lockedBy?: string
 }
-
-export type PageGroup = "app" | "system" | "project" | "extensions"
 
 export interface Page {
   id: string
   label: string
   icon: Mark
-  group: PageGroup
-  /** An extension's page, listed under Extensions. */
-  extension?: string
+  group: number
 }
 
 export interface Permission {
@@ -73,7 +76,7 @@ export interface Extension {
   name: string
   icon: Mark
   running: boolean
-  /** What detection found, or why it didn't run. */
+  /** What detection found, or why it isn't running. */
   found: string
   adds: string[]
   permissions: Permission[]
@@ -99,7 +102,7 @@ export const extensions: Extension[] = [
       { label: "Connect to", detail: "localhost" },
       { label: "Change designs", detail: "Writes stories back when a screen changes", grant: true }
     ],
-    activation: { event: "When Storybook was detected", ms: 38 },
+    activation: { event: "When Storybook was found", ms: 38 },
     memoryMb: 21
   },
   {
@@ -114,7 +117,7 @@ export const extensions: Extension[] = [
       { label: "Run processes", detail: "vite" },
       { label: "Connect to", detail: "localhost" }
     ],
-    activation: { event: "When Vite was detected", ms: 12 },
+    activation: { event: "When Vite was found", ms: 12 },
     memoryMb: 34
   },
   {
@@ -125,7 +128,7 @@ export const extensions: Extension[] = [
     found: "React 19.2",
     adds: ["Draws components", "Props from TypeScript"],
     permissions: [{ label: "Read files", detail: "src/**" }],
-    activation: { event: "When React was detected", ms: 9 },
+    activation: { event: "When React was found", ms: 9 },
     memoryMb: 16
   },
   {
@@ -140,7 +143,7 @@ export const extensions: Extension[] = [
       { label: "Write files", detail: "src/styles.css" },
       { label: "Change designs", detail: "Writes classes when a style changes", grant: true }
     ],
-    activation: { event: "When Tailwind CSS was detected", ms: 17 },
+    activation: { event: "When Tailwind CSS was found", ms: 17 },
     memoryMb: 12
   },
   {
@@ -169,27 +172,83 @@ export const extensions: Extension[] = [
   }
 ]
 
+/** Names for a long list of installed extensions, to see how the Extensions page holds up with 40. */
+const moreNames = [
+  "Angular",
+  "Astro",
+  "Chakra UI",
+  "Chromatic",
+  "Electron",
+  "Emotion",
+  "ESLint",
+  "Expo",
+  "Framer Motion",
+  "Heroicons",
+  "i18next",
+  "Jotai",
+  "Lingui",
+  "Lucide",
+  "Mobbin",
+  "MUI",
+  "Nuxt",
+  "Phosphor",
+  "Playwright",
+  "PostCSS",
+  "Prettier",
+  "Qwik",
+  "React Native",
+  "React Router",
+  "Redux",
+  "Remix",
+  "Sass",
+  "Solid",
+  "styled-components",
+  "SvelteKit",
+  "TanStack Query",
+  "Tauri",
+  "Unsplash",
+  "Vitest"
+]
+
+/** Which of the extra extensions run in the project, as tools a project like Kestrel also has. */
+const runningMore = new Set(["ESLint", "Lucide", "Prettier", "TanStack Query", "Vitest", "Playwright", "Unsplash"])
+
+export const manyExtensions: Extension[] = [
+  ...extensions,
+  ...moreNames.map((name) => {
+    const extension: Extension = {
+      id: name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"),
+      name,
+      icon: Puzzle,
+      running: runningMore.has(name),
+      found: runningMore.has(name) ? `${name} in package.json` : "Not in this project",
+      adds: [],
+      permissions: [{ label: "Read files", detail: "src/**" }]
+    }
+
+    if (extension.running) {
+      extension.activation = { event: `When ${name} was found`, ms: 8 }
+      extension.memoryMb = 6
+    }
+
+    return extension
+  })
+]
+
 export const pages: Page[] = [
-  { id: "general", label: "General", icon: SlidersHorizontal, group: "app" },
-  { id: "canvas", label: "Canvas", icon: Frame, group: "app" },
-  { id: "export", label: "Export", icon: Download, group: "app" },
-  { id: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard, group: "app" },
-  { id: "privacy", label: "Diagnostics", icon: ShieldCheck, group: "system" },
-  { id: "updates", label: "Updates", icon: RefreshCw, group: "system" },
-  { id: "project", label: project.name, icon: Folder, group: "project" },
-  { id: "extensions", label: "Extensions", icon: Puzzle, group: "extensions" },
-  ...extensions.map((extension): Page => ({
-    id: `ext:${extension.id}`,
-    label: extension.name,
-    icon: extension.icon,
-    group: "extensions",
-    extension: extension.id
-  }))
+  { id: "general", label: "General", icon: SlidersHorizontal, group: 0 },
+  { id: "canvas", label: "Canvas", icon: Frame, group: 0 },
+  { id: "export", label: "Export", icon: Download, group: 0 },
+  { id: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard, group: 0 },
+  { id: "extensions", label: "Extensions", icon: Puzzle, group: 1 },
+  { id: "experiments", label: "Experiments", icon: FlaskConical, group: 2 },
+  { id: "diagnostics", label: "Diagnostics", icon: ShieldCheck, group: 2 },
+  { id: "updates", label: "Updates", icon: RefreshCw, group: 2 }
 ]
 
 const themes: Option[] = [
-  { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
+  { value: "light", label: "Light", icon: Sun },
   { value: "system", label: "System", icon: Monitor }
 ]
 
@@ -202,15 +261,19 @@ const editors: Option[] = [
   { value: "system", label: "System default" }
 ]
 
+const sizes: Option[] = ["png", "jpg"].flatMap((format) =>
+  [1, 2, 3].map((scale) => ({ value: `${format} ${scale}x`, label: `${format.toUpperCase()} ${scale}x` }))
+)
+
 export const settings: Setting[] = [
-  // General
   {
     id: "theme",
     page: "general",
     label: "Theme",
     detail: "Previews show whichever theme their mode picks.",
+    keywords: ["dark", "light", "appearance", "color scheme"],
     scope: "app",
-    control: { kind: "segmented", options: themes },
+    control: { kind: "select", options: themes },
     default: "dark"
   },
   {
@@ -218,7 +281,8 @@ export const settings: Setting[] = [
     page: "general",
     label: "Save automatically",
     detail: "Saves each change a moment after it's made.",
-    scope: "app",
+    keywords: ["autosave"],
+    scope: "either",
     control: { kind: "switch" },
     default: false
   },
@@ -227,25 +291,18 @@ export const settings: Setting[] = [
     page: "general",
     label: "Code editor",
     detail: "Where View code opens a component's file. Automatic uses the first one installed.",
+    keywords: ["vscode", "cursor", "ide", "view code"],
     scope: "app",
     control: { kind: "select", options: editors },
     default: "auto"
   },
   {
-    id: "shortcuts",
-    page: "general",
-    label: "Keyboard shortcuts",
-    scope: "app",
-    control: { kind: "jump", page: "shortcuts", label: "Show shortcuts" },
-    default: ""
-  },
-  // Canvas
-  {
     id: "snapping",
     page: "canvas",
     label: "Snap to screens and components",
     detail: "Screens and components line up with the edges and centers of those around them while dragged.",
-    scope: "app",
+    keywords: ["align", "guides", "smart guides"],
+    scope: "either",
     control: { kind: "switch" },
     default: true
   },
@@ -254,7 +311,8 @@ export const settings: Setting[] = [
     page: "canvas",
     label: "Layout grid",
     detail: "Column grids over every preview, sized for its viewport.",
-    scope: "app",
+    keywords: ["columns"],
+    scope: "either",
     control: { kind: "switch" },
     default: false
   },
@@ -264,7 +322,7 @@ export const settings: Setting[] = [
     label: "Components view",
     scope: "app",
     control: {
-      kind: "segmented",
+      kind: "select",
       options: [
         { value: "names", label: "Names" },
         { value: "list", label: "List" },
@@ -278,41 +336,66 @@ export const settings: Setting[] = [
     page: "canvas",
     label: "Performance stats",
     detail: "Frame rate, memory and CPU in the status bar.",
+    keywords: ["fps", "frame rate"],
     scope: "app",
     control: { kind: "switch" },
     default: false
-  },
-  // Export
-  {
-    id: "exportScale",
-    page: "export",
-    label: "Image scale",
-    detail: "How many pixels each CSS pixel becomes in exported PNGs.",
-    scope: "app",
-    control: {
-      kind: "segmented",
-      options: [
-        { value: "1", label: "1x" },
-        { value: "2", label: "2x" },
-        { value: "3", label: "3x" }
-      ]
-    },
-    default: "2"
   },
   {
     id: "exportSizes",
     page: "export",
     label: "Export sizes",
-    detail: "What the Export section writes for each new layer.",
-    scope: "app",
-    control: { kind: "sizes" },
-    default: ["PNG 1x", "PNG 2x"]
+    detail: "What Export images and each new layer's Export section write.",
+    keywords: ["png", "jpg", "scale", "2x", "image"],
+    scope: "either",
+    control: { kind: "multi", options: sizes },
+    default: ["png 1x", "png 2x"]
   },
-  // Diagnostics
+  {
+    id: "keybindings",
+    page: "shortcuts",
+    label: "Your shortcuts",
+    detail: "Change a shortcut by editing this file.",
+    keywords: ["keys", "keybindings", "hotkeys"],
+    scope: "app",
+    control: { kind: "file", file: "keybindings.json" },
+    default: ""
+  },
+  {
+    id: "flag.npmExtensions",
+    page: "experiments",
+    label: "Install extensions from npm",
+    detail: "Adds Install to the Extensions page.",
+    keywords: ["feature flag", "extensions"],
+    scope: "app",
+    control: { kind: "switch" },
+    default: false
+  },
+  {
+    id: "flag.comments",
+    page: "experiments",
+    label: "Comments",
+    detail: "Comment on designs and reply to others in the project.",
+    keywords: ["feature flag", "collaboration"],
+    scope: "app",
+    control: { kind: "switch" },
+    default: false
+  },
+  {
+    id: "flag.agentEdits",
+    page: "experiments",
+    label: "Agent edits on the canvas",
+    detail: "Shows where an agent is working and what it changed.",
+    keywords: ["feature flag", "ai", "claude"],
+    scope: "app",
+    control: { kind: "switch" },
+    default: false
+  },
   {
     id: "telemetry",
-    page: "privacy",
+    page: "diagnostics",
     label: "Send diagnostics",
+    keywords: ["telemetry", "sentry", "crash reports", "privacy"],
     scope: "app",
     control: {
       kind: "select",
@@ -326,19 +409,19 @@ export const settings: Setting[] = [
   },
   {
     id: "installId",
-    page: "privacy",
+    page: "diagnostics",
     label: "Install ID",
     detail: "Groups this install's reports.",
     scope: "app",
-    control: { kind: "text", mono: true },
+    control: { kind: "fixed" },
     default: "3f9c2a71-6b0e-4d8a-9e15-c4a7d2b08f63"
   },
-  // Updates
   {
     id: "betaUpdates",
     page: "updates",
     label: "Get beta updates",
     detail: "Include early releases. They may be less stable.",
+    keywords: ["prerelease", "channel"],
     scope: "app",
     control: { kind: "switch" },
     default: false
@@ -348,9 +431,8 @@ export const settings: Setting[] = [
     page: "ext:storybook",
     label: "Config folder",
     scope: "project",
-    control: { kind: "text", mono: true },
-    default: ".storybook",
-    extension: "storybook"
+    control: { kind: "text" },
+    default: ".storybook"
   },
   {
     id: "storybook.port",
@@ -359,50 +441,48 @@ export const settings: Setting[] = [
     detail: "Kept in the storybook script in package.json.",
     scope: "project",
     control: { kind: "number" },
-    default: 6006,
-    extension: "storybook"
+    default: 6006
   },
   {
     id: "storybook.openIn",
     page: "ext:storybook",
     label: "Open stories in",
+    keywords: ["browser"],
     scope: "app",
     control: {
-      kind: "segmented",
+      kind: "select",
       options: [
         { value: "browser", label: "Your browser" },
         { value: "parity", label: "Parity" }
       ]
     },
-    default: "browser",
-    extension: "storybook"
+    default: "browser"
   },
   {
     id: "vite.config",
     page: "ext:vite",
     label: "Config file",
     scope: "project",
-    control: { kind: "text", mono: true },
-    default: "vite.config.ts",
-    extension: "vite"
+    control: { kind: "text" },
+    default: "vite.config.ts"
   },
   {
     id: "vite.openOnStart",
     page: "ext:vite",
     label: "Open the build server's page when it starts",
+    keywords: ["browser"],
     scope: "app",
     control: { kind: "switch" },
-    default: false,
-    extension: "vite"
+    default: false
   },
   {
     id: "tailwind.stylesheet",
     page: "ext:tailwind",
     label: "Theme stylesheet",
+    keywords: ["css", "tokens"],
     scope: "project",
-    control: { kind: "text", mono: true },
-    default: "src/styles.css",
-    extension: "tailwind"
+    control: { kind: "text" },
+    default: "src/styles.css"
   },
   {
     id: "tailwind.classOrder",
@@ -411,45 +491,30 @@ export const settings: Setting[] = [
     detail: "Writes classes in the order Prettier's Tailwind plugin uses.",
     scope: "project",
     control: { kind: "switch" },
-    default: true,
-    extension: "tailwind"
+    default: true
   },
   {
     id: "router.routesDir",
     page: "ext:tanstack-router",
     label: "Routes folder",
     scope: "project",
-    control: { kind: "text", mono: true },
-    default: "src/routes",
-    extension: "tanstack-router"
+    control: { kind: "text" },
+    default: "src/routes"
   },
   {
     id: "router.lines",
     page: "ext:tanstack-router",
     label: "Route lines",
     detail: "Lines between pages that link to each other.",
-    scope: "app",
+    scope: "either",
     control: { kind: "switch" },
-    default: true,
-    extension: "tanstack-router"
+    default: true
   }
 ]
 
-/** Project settings, on the project's own page, grouped by the extension that declares each. */
-export function projectSettings(): Setting[] {
-  return settings.filter((setting) => setting.scope === "project" && setting.extension)
-}
-
-export function settingsOn(page: string): Setting[] {
-  return settings.filter((setting) => setting.page === page)
-}
-
-export function pageOf(id: string): Page {
-  return pages.find((page) => page.id === id) ?? pages[0]!
-}
-
-export function extensionOf(id: string): Extension | undefined {
-  return extensions.find((extension) => extension.id === id)
+/** Whether a setting shows, and changes, in a view. */
+export function shownIn(setting: Setting, view: View): boolean {
+  return setting.scope === "either" || setting.scope === view
 }
 
 export function defaults(): Record<string, Value> {
