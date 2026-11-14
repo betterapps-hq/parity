@@ -380,7 +380,7 @@ const summaryFields = {
     .describe("How many references are on the canvas for it, which get_references shows. Missing when none.")
 }
 
-/** One design on the canvas. Only a component has states, so only a component lists them. */
+/** One design on the canvas. Only a component and a story have states, so only they list them. */
 const designSummary = z.discriminatedUnion("kind", [
   z.looseObject({
     ...summaryFields,
@@ -389,8 +389,8 @@ const designSummary = z.discriminatedUnion("kind", [
   }),
   z.looseObject({
     ...summaryFields,
-    kind: z.literal("component"),
-    states: z.array(ref).describe("The component's states, the base first."),
+    kind: z.enum(["component", "story"]),
+    states: z.array(ref).describe("The component's states, the base first, or a story file's stories."),
     showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings })
   })
 ])

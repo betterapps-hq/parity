@@ -1,5 +1,5 @@
 import { type ActionPage, isInnerPath, locateInner, locateNode, type ProjectAction } from "@parity-app/core"
-import type { MenuPlacement } from "@parity-app/extension-api"
+import type { CommandTarget, LayerTarget, MenuPlacement } from "@parity-app/extension-api"
 import type { ExtensionStatus, ProjectInfo } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
@@ -24,7 +24,7 @@ export interface ComponentOffer {
 
 /** An extension's command, offered as an adapter's action is, with what running it needs (PAR-1089). */
 interface ExtensionAction extends ProjectAction {
-  extension: { session: ProjectSession; placed: PlacedCommand }
+  extension: { session: ProjectSession; placed: PlacedCommand; target: CommandTarget }
 }
 
 /** Whether an offered action is an extension's command. */
@@ -66,12 +66,20 @@ export function componentOffers(
     return action.unavailable ? [{ action, unavailable: action.unavailable }] : []
   })
 
-  return placed ? [...adapters, ...extensionOffers(placed, component)] : adapters
+  return placed ? [...adapters, ...extensionOffers(placed, { type: "component", key: component })] : adapters
 }
 
-/** The extensions' commands placed where an offer shows, for a component, as offers. */
-function extensionOffers({ session, extensions, placement }: PlacedExtensions, component: string): ComponentOffer[] {
-  return commandsAt(extensions, placement, { type: "component", key: component }).map((placed) => {
+/** What the project's extensions offer for a layer that isn't a component's, as a command that renames it (PAR-1093). */
+export function layerOffers(placed: PlacedExtensions, target: LayerTarget): ComponentOffer[] {
+  return extensionOffers(placed, target)
+}
+
+/** The extensions' commands placed where an offer shows, for what it's shown for, as offers. */
+function extensionOffers(
+  { session, extensions, placement }: PlacedExtensions,
+  target: CommandTarget
+): ComponentOffer[] {
+  return commandsAt(extensions, placement, target).map((placed) => {
     const action: ExtensionAction = {
       adapter: placed.extension.id,
       id: placed.command.id,
@@ -79,7 +87,7 @@ function extensionOffers({ session, extensions, placement }: PlacedExtensions, c
       icon: placed.extension.icon,
       progress: placed.command.starts ?? placed.command.title,
       failed: `${placed.command.title} didn't work`,
-      extension: { session, placed }
+      extension: { session, placed, target }
     }
 
     return placed.enabled ? { action } : { action, unavailable: placed.disabledReason ?? "Unavailable" }
@@ -147,9 +155,9 @@ export async function runAction(
 ): Promise<void> {
   // An extension's command runs in its host, which shows its own progress and failure.
   if (isExtensionAction(action)) {
-    const { session, placed } = action.extension
+    const { session, placed, target } = action.extension
 
-    return runCommand(session, placed, component === undefined ? undefined : { type: "component", key: component })
+    return runCommand(session, placed, target)
   }
 
   await serviceCall({

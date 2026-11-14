@@ -94,7 +94,7 @@ function selectedOf(
       saved: savedOwn,
       unsaved: unsavedPreviewValues(own, savedOwn),
       scale: previewScale(design, target.mode, target.first, own),
-      width: own?.width ?? frameGeometry(design, target.mode).width,
+      width: own?.width ?? frameGeometry(design, target.mode, at.state).width,
       options: { ...options, ...own?.options }
     }
   })

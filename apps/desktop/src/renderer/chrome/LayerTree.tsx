@@ -56,7 +56,6 @@ import {
   ChevronsDownUp,
   Eye,
   EyeOff,
-  Grid2x2,
   LayoutTemplate,
   Lock,
   LockOpen,
@@ -91,14 +90,15 @@ import {
   routePageTarget,
   selectedPageGroup
 } from "../canvas/route-pages.ts"
-import { storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
+import { isStoryBounds, storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
+import { stateNouns } from "../canvas/view-lists.tsx"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentOffers, pageOffers } from "./adapter-actions.ts"
+import { componentOffers, layerOffers, pageOffers } from "./adapter-actions.ts"
 import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
@@ -206,7 +206,6 @@ function routeLines(
         type: "folder",
         id,
         label: item.group.name,
-        kind: "group",
         level: item.level,
         expanded: open,
         position,
@@ -294,8 +293,8 @@ export function LayerTree() {
     }
   }
 
-  // The project's stories are listed in folders, as Storybook's sidebar lists them: a group's for each part of a
-  // story's title, and its component's last.
+  // The project's story files are listed in folders, as Storybook's sidebar lists them: a group's for each part of a
+  // file's title but its last, which is the file's own name.
   const places = useMemo(() => storyPlaces(session.info), [session.info])
   // A folder picked with the keys or a click, which the keys move from until a row is picked instead.
   const [activeFolder, setActiveFolder] = useState<string>()
@@ -971,13 +970,13 @@ export function LayerTree() {
                     <LayerRow
                       row={line.row}
                       level={line.level}
-                      story={!line.row.node && line.row.design.path === storyScreensFile}
+                      story={
+                        line.row.design.path === storyScreensFile && !!line.row.node && isStoryBounds(line.row.node.id)
+                      }
                       label={
                         line.row.node
                           ? layerLabel(line.row.node, entries, library, session.info.libraries)
-                          : // In its component's folder, a story goes by its own name, as Outline.
-                            ((line.level > 0 ? places.get(line.row.design.container.id)?.name : undefined) ??
-                            line.row.design.container.name)
+                          : line.row.design.container.name
                       }
                       searching={!!search}
                       selected={selectedRows.has(line.row.id)}
@@ -1077,7 +1076,7 @@ function FolderLine({
   onClick: () => void
   onToggle: () => void
 }) {
-  const iconStyle = { color: layout || folder.kind === "component" ? kindColors.screen : "var(--muted-foreground)" }
+  const iconStyle = { color: layout ? kindColors.screen : "var(--muted-foreground)" }
 
   return (
     <div
@@ -1123,8 +1122,7 @@ function FolderLine({
         <ChevronRight className={`size-3.5 transition-transform ${folder.expanded ? "rotate-90" : ""}`} />
       </span>
       {layout && <LayoutTemplate className="size-3.5 shrink-0" style={iconStyle} />}
-      {!layout && folder.kind === "component" && <Grid2x2 className="size-3.5 shrink-0" style={iconStyle} />}
-      {!layout && folder.kind !== "component" && <Folder className="size-3.5 shrink-0" style={iconStyle} />}
+      {!layout && <Folder className="size-3.5 shrink-0" style={iconStyle} />}
       <Name className="min-w-0 flex-1">{folder.label}</Name>
       {layout?.redirect && (
         <Hint label={`Redirects to ${layout.redirect.name}`} wait>
@@ -1183,7 +1181,7 @@ interface LayerRowProps {
   row: Row
   /** How many folders it's in, which indent it as far again as its depth. */
   level: number
-  /** A story's own row, which shows Storybook's story icon. */
+  /** A story's row, the layer around it in its file's design, which shows Storybook's story icon. */
   story: boolean
   /** Its name as Layers shows it. */
   label: string
@@ -1358,11 +1356,11 @@ const LayerRow = memo(function LayerRow({
             >
               <ChevronRight className={`size-3.5 transition-transform ${row.expanded ? "rotate-90" : ""}`} />
             </button>
-            {row.node && <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />}
-            {!row.node && (
+            {row.node && !story && <NodeIcon node={row.node} className="size-3.5 shrink-0" style={{ color }} />}
+            {(!row.node || story) && (
               <DesignIcon
                 kind={board ? "component" : container.kind}
-                route={row.design.path === routePagesFile}
+                route={!row.node && row.design.path === routePagesFile}
                 story={story}
                 className="size-3.5 shrink-0"
                 style={{ color }}
@@ -1492,10 +1490,10 @@ const LayerRow = memo(function LayerRow({
                   }
                 />
               )}
-              {/* A design with one state says nothing; with more, how many, in words. */}
+              {/* A design with one state says nothing; with more, how many, in words: a story file's are stories. */}
               {row.depth === 0 && container.states && container.states.length > 1 && (
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {container.states.length} states
+                  {container.states.length} {stateNouns(row.design).many}
                 </span>
               )}
             </span>
@@ -1596,9 +1594,13 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const page = row.node ? undefined : routePageTarget(session.id, row.design.container)
   const { extensions } = useExtensions(session)
 
-  const offers = page
-    ? pageOffers(session.info, page.route)
-    : componentOffers(session.info, component, { session, extensions, placement: "layers" })
+  const placed = { session, extensions, placement: "layers" as const }
+  let offers = page ? pageOffers(session.info, page.route) : componentOffers(session.info, component, placed)
+
+  // Any other layer offers the extensions' commands placed in Layers, run for the layer (PAR-1093).
+  if (!page && !component && row.node && row.path === row.node.id) {
+    offers = layerOffers(placed, { type: "layer", design: row.design.key, node: row.node.id })
+  }
 
   const items = layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {

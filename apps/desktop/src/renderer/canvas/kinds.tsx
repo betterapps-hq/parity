@@ -14,14 +14,15 @@ import {
   Diamond,
   Film,
   Frame,
+  Grid2x2,
   Grid3x3,
   Image as ImageIcon,
-  type LucideProps,
   Route,
   Rows3,
   Smile,
   SquareDashed,
-  Type
+  Type,
+  type LucideProps
 } from "lucide-react"
 import { useContext } from "react"
 import { isIconLayer, unnamedIconLabel } from "../chrome/layer-kind.ts"
@@ -149,7 +150,8 @@ export function designNamer(
 
 /**
  * Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. A page of
- * the app shows its route, and a story Storybook's teal bookmark.
+ * the app shows its route, a story file Storybook's teal grid, as its sidebar shows a component's stories, and one of
+ * its stories the teal bookmark.
  */
 export function DesignIcon({
   kind,
@@ -164,6 +166,10 @@ export function DesignIcon({
 
   if (story) {
     return <Bookmark {...props} style={{ ...props.style, color: "var(--canvas-story)" }} />
+  }
+
+  if (kind === "story") {
+    return <Grid2x2 {...props} style={{ ...props.style, color: "var(--canvas-story)" }} />
   }
 
   if (kind === "frame") {

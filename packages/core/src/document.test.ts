@@ -44,7 +44,10 @@ describe("a frame in a project file", () => {
   it("has a layout at its root, and no states, params, view or sizes per viewport", () => {
     const cases: [Partial<ContainerSpec>, string][] = [
       [{ root: { type: "text", id: "root", text: "Idea" } }, "/containers/0/root: a frame's root is a layout"],
-      [{ states: [{ id: "default", name: "Default" }] }, "/containers/0/states: only a component has states"],
+      [
+        { states: [{ id: "default", name: "Default" }] },
+        "/containers/0/states: only a component or a story has states"
+      ],
       [{ params: { title: { type: "text" } } }, "/containers/0/params: a frame has no params"],
       [{ view: { modes: ["desktop-dark"] } }, "/containers/0/view"],
       [{ frames: { mobile: { width: 390 } } }, "/containers/0/frames"]
@@ -78,15 +81,30 @@ describe("states in a project file (PAR-1002)", () => {
     expect(designStates(read.containers[0]!)).toEqual(states)
   })
 
+  it("are a story file's stories, which a story design keeps and shows", () => {
+    const states = [
+      { id: "Default", name: "Default" },
+      { id: "Outline", name: "Outline" }
+    ]
+
+    const read = parseCanvasDocument(file({ kind: "story", states, view: { allStates: true } }))
+
+    expect(designStates(read.containers[0]!)).toEqual(states)
+    expect(read.containers[0]!.view).toEqual({ allStates: true })
+  })
+
   it("leave a component that lists none with its base state alone", () => {
     expect(designStates(parseCanvasDocument(file({ kind: "component" })).containers[0]!)).toEqual([baseState])
   })
 
   it("are refused on a screen, which shows other data through its components' props instead", () => {
     const cases: [Partial<ContainerSpec>, string][] = [
-      [{ states: [{ id: "default", name: "Default" }, hover] }, "/containers/0/states: only a component has states"],
-      [{ view: { state: "hover" } }, "/containers/0/view/state: only a component has states"],
-      [{ view: { allStates: true } }, "/containers/0/view/allStates: only a component has states"]
+      [
+        { states: [{ id: "default", name: "Default" }, hover] },
+        "/containers/0/states: only a component or a story has states"
+      ],
+      [{ view: { state: "hover" } }, "/containers/0/view/state: only a component or a story has states"],
+      [{ view: { allStates: true } }, "/containers/0/view/allStates: only a component or a story has states"]
     ]
 
     for (const [change, message] of cases) {

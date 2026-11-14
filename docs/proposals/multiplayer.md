@@ -1,4 +1,4 @@
-# Proposal: a design document that several people can edit (PAR-1104)
+# Proposal: a project document that several people can edit (PAR-1104)
 
 Status: draft for discussion, 2026-11-14. Nothing here is built. This page sets out the data structures and patterns
 that let the designs in `.par` files be edited by several people at once later, behind an interface whose library can be
@@ -45,6 +45,11 @@ Parity talks to it through `@parity-app/multiplayer`, and `@parity-app/multiplay
   Swapping providers means a new package that passes the shared tests.
 - **`.par` stays the format on disk and in git,** plain JSON as today. A provider loads from it and saves to it, so
   swapping providers loses history, never designs. Git keeps the history between commits.
+- **Nodes are what Parity reads; the document is what it owns.** The node index (`ProjectNodes`, `NodeRef`) lists every
+  node from every owner, read only: layers, and the components, routes and stories that code owns. The project's
+  document holds what Parity saves itself, the `.par` files with modes and token edits, and is the only thing with undo,
+  gestures and saving. Code Parity writes from designs later is output, and what's read back from it is code's nodes. So
+  the document is `ProjectDoc`, not a node store, and `DesignStore` is folded away when the session moves onto it.
 - **Undo is per person and made of operations:** it reverses only this person's transactions.
 - **Loro can be turned off with one line,** and the editor keeps working on the local provider (Turning Loro off).
 - **`history.ts`'s snapshot undo goes** once `DesignStore` sits on the document, as [conventions.md](../conventions.md)
@@ -82,7 +87,7 @@ write wins.
   references get theirs the same way. Ids already in files stay as they are.
 - **Ids an agent chooses are checked as today,** and refused when taken.
 - **After a merge, two nodes with one id in one design are repaired:** the one created later gets a new suffix, and the
-  repair is recorded (`designDoc.repaired`). This can only happen once changes arrive from other people.
+  repair is recorded (`projectDoc.repaired`). This can only happen once changes arrive from other people.
 
 ### Order
 
@@ -151,7 +156,7 @@ export type TextEdit =
   | { kind: "replace"; text: string }
   | { kind: "splice"; at: number; remove: number; insert: string }
 
-export type DesignOp =
+export type DocOp =
   // designs
   | { op: "addDesign"; file: string; design: ContainerSpec; before?: DesignKey }
   | { op: "removeDesign"; design: DesignKey }
@@ -232,7 +237,7 @@ export interface Checkpoint {
 ### The document
 
 ```ts
-export interface DesignDoc {
+export interface ProjectDoc {
   /** The provider's name, as telemetry records it: `loro`. */
   readonly provider: string
 
@@ -249,7 +254,7 @@ export interface DesignDoc {
   version(): DocVersion
 
   // Writing.
-  transact(label: string, ops: readonly DesignOp[], options: TransactOptions): TransactResult
+  transact(label: string, ops: readonly DocOp[], options: TransactOptions): TransactResult
   /** A file changed outside Parity: becomes one undoable step that makes the file what it now holds, and isn't written back. */
   replaceFile(path: string, document: CanvasDocument): TransactResult
 
@@ -289,7 +294,7 @@ export interface DocProvider {
   /** Whether it can merge other people's changes. Features that need several people don't show without it. */
   readonly sync: boolean
   /** Opens a project's files. `main` is the file new designs and the modes go into. */
-  open(options: OpenOptions): DesignDoc
+  open(options: OpenOptions): ProjectDoc
 }
 
 export interface OpenOptions {
@@ -342,10 +347,10 @@ into operations:
 
 ```ts
 /** The operations that make `before` into `after`, comparing only what isn't the same object. */
-export function containerOps(key: DesignKey, before: ContainerSpec, after: ContainerSpec): DesignOp[]
+export function containerOps(key: DesignKey, before: ContainerSpec, after: ContainerSpec): DocOp[]
 
 /** The same for a whole file, including its designs, notes, references and other fields. */
-export function fileOps(path: string, before: CanvasDocument, after: CanvasDocument): DesignOp[]
+export function fileOps(path: string, before: CanvasDocument, after: CanvasDocument): DocOp[]
 ```
 
 - **It compares by object first,** as PAR-1088's collector does: a layer that's the same object, with everything inside
@@ -411,15 +416,15 @@ export interface CommentAnchor {
 
 ```ts
 /** The tests every provider passes, as a Vitest suite. */
-export function describeDesignDoc(provider: DocProvider, options?: { replicas?: ReplicaPair }): void
+export function describeProjectDoc(provider: DocProvider, options?: { replicas?: ReplicaPair }): void
 
 /** Two documents that exchange changes, for the concurrent tests. A provider that syncs offers one. */
 export interface ReplicaPair {
-  open(options: OpenOptions): { a: DesignDoc; b: DesignDoc; exchange(): void }
+  open(options: OpenOptions): { a: ProjectDoc; b: ProjectDoc; exchange(): void }
 }
 
 /** The benchmark's scenarios against one provider, as a Vitest bench, for each provider package to run. */
-export function benchDesignDoc(provider: DocProvider): void
+export function benchProjectDoc(provider: DocProvider): void
 
 /** A project to load: `designs` designs of about `layers` layers each, `depth` deep, with text, instances and slots. */
 export function generateProject(options: {
@@ -537,19 +542,19 @@ LoroDoc (one per open project)
 Loro costs a 3.4 MB download and its compile time, long before several people edit anything. If it has to go at short
 notice, the editor goes back to the local provider without anything else changing:
 
-- **One place picks the provider.** `renderer/design-doc.ts` exports the provider the window opens projects with.
-  Nothing else in the app imports a provider package, and everything else talks to `DesignDoc`.
+- **One place picks the provider.** `renderer/project-doc.ts` exports the provider the window opens projects with.
+  Nothing else in the app imports a provider package, and everything else talks to `ProjectDoc`.
 - **Loro loads in a chunk of its own,** through a dynamic `import()` in that file, while the window starts. With the
   local provider picked, the window never downloads it; deleting the import takes it out of the build.
 - **No data moves.** `.par` is the only thing either provider saves, so a project opens the same on both.
-- **The same behaviour, kept by tests.** CI runs `describeDesignDoc` on both providers on every pull request, so the
+- **The same behaviour, kept by tests.** CI runs `describeProjectDoc` on both providers on every pull request, so the
   local one can't fall behind while Loro is in use.
 - **What's lost is what needs several people:** merging others' changes, and sync once it's built. Those features check
   `provider.sync` and don't show without it.
 
 ## How `DesignStore` moves onto it
 
-`DesignStore` keeps its API, so the ~100 callers don't change. Inside, a `DesignDoc` replaces `DesignHistory`:
+`DesignStore` keeps its API, so the ~100 callers don't change. Inside, a `ProjectDoc` replaces `DesignHistory`:
 
 | Today                                                 | On the document                                                                                            |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -572,10 +577,33 @@ and the snapshot undo.
 The node index from PAR-1088 keeps working, since unchanged designs and layers stay the same objects. Later,
 `DocChange.designs` can name the parts to gather again instead of comparing objects.
 
+### `DesignStore` is folded away
+
+Once the document holds the state, undo, gestures and changes, `DesignStore` is left with three jobs, which split up:
+
+| Job                    | What it does now                                                                                      | Where it goes                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Saving                 | Timers per file, writes to the service, the save state, failures, writes in flight, the recovery copy | `ProjectSaver`, which listens to `DocChange.writes` and reads `doc.file(path)`                       |
+| Lookups built from it  | `getEntries`, `getEntry`, `getLibrary`, `getComponentLibrary`, notes and references with their keys   | Functions of `doc.files()`, memoized by object, as now                                               |
+| The bridge for callers | `updateContainer`, `addContainer`, `setModes` and the rest, turning whole values into a transaction   | Free functions over `ProjectDoc`, such as `updateContainer(doc, key, label, update)`, in the package |
+
+Step 5 ends with `ProjectDoc` and `ProjectSaver` in the session, and no `DesignStore`:
+
+- **Each piece has one job.** The saver is tested against a document of its own, and the functions for callers are data
+  in, data out, in the package, tested without Electron.
+- **The window, agents and extensions edit the same `ProjectDoc`,** with no store in front of it whose methods only the
+  window has.
+- **The ~100 callers change their receiver,** from `store.updateContainer(…)` to `updateContainer(doc, …)`. It's
+  mechanical, and step 5 rewrites those files anyway.
+- **Agents' status and revision** (`status`, `getRevision`) read the document's version and the saver's state.
+
+Renaming it `ProjectDocStore` and keeping the three jobs together would have made a smaller diff, at the cost of a
+store-shaped layer that only the window has.
+
 ## The shared tests
 
-`describeDesignDoc` runs against `localProvider` and `loroProvider`, the concurrent cases only where a provider offers a
-`ReplicaPair`. Each case is a test:
+`describeProjectDoc` runs against `localProvider` and `loroProvider`, the concurrent cases only where a provider offers
+a `ReplicaPair`. Each case is a test:
 
 **Reading and writing**
 
@@ -628,7 +656,7 @@ The same scenarios run through `DesignStore`'s API, which is what the editor cal
 | Loro  | `DesignStore` on `loroProvider`                                                                              |
 
 Today's store is removed when the store moves onto the document, so its numbers are recorded first, and checking out
-that commit runs them again. Each provider package also runs `benchDesignDoc`, which measures the providers on their
+that commit runs them again. Each provider package also runs `benchProjectDoc`, which measures the providers on their
 own: the bridge against sending operations, and exchanging changes with a replica.
 
 They run as one-off commands, not `package.json` scripts:
@@ -665,7 +693,7 @@ pnpm exec vp test bench packages/multiplayer-local packages/multiplayer-loro
 | Measure                    | How                                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | The window's download      | The size of its built assets with each provider                                          |
-| Loading Loro's WebAssembly | `designDoc.opened`'s `wasmMs`, in the bench and from testers                             |
+| Loading Loro's WebAssembly | `projectDoc.opened`'s `wasmMs`, in the bench and from testers                            |
 | Opening a project          | `project.drawn`'s time with each provider, on the example project and the Very large one |
 | Memory                     | The window's memory after opening the Very large project, with each provider             |
 
@@ -686,7 +714,7 @@ const provider = z.string().describe("The document's provider: `loro` or `local`
 const files = z.array(z.string()).describe("The project files in the document, by path")
 
 defineEvent(
-  "designDoc.opened",
+  "projectDoc.opened",
   z.object({
     provider,
     files,
@@ -703,7 +731,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designDoc.openFailed",
+  "projectDoc.openFailed",
   z.object({
     provider,
     files,
@@ -714,7 +742,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designDoc.refused",
+  "projectDoc.refused",
   z.object({
     provider,
     label: z.string().describe("The transaction's label: `Move layer`"),
@@ -729,7 +757,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designDoc.closed",
+  "projectDoc.closed",
   z.object({
     provider,
     durationMs: z.number().describe("How long the document was open, in milliseconds"),
@@ -752,7 +780,7 @@ Defined when sync is built, and listed here so the document's events are planned
 
 ```ts
 defineEvent(
-  "designDoc.repaired",
+  "projectDoc.repaired",
   z.object({
     provider,
     repair: z
@@ -765,7 +793,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designSync.connected",
+  "projectSync.connected",
   z.object({
     provider,
     peers: z.int().min(0).describe("Other people in the session when it connected"),
@@ -776,7 +804,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designSync.disconnected",
+  "projectSync.disconnected",
   z.object({
     provider,
     reason: z
@@ -789,7 +817,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designSync.caughtUp",
+  "projectSync.caughtUp",
   z.object({
     provider,
     sent: z.int().min(0).describe("Local transactions sent after reconnecting"),
@@ -801,7 +829,7 @@ defineEvent(
 )
 
 defineEvent(
-  "designSync.failed",
+  "projectSync.failed",
   z.object({
     provider,
     direction: z.enum(["send", "receive"]).describe("Whether sending or receiving failed"),
@@ -828,13 +856,14 @@ Loro then comes in where the provider is picked, which is also how it would go b
 1. **Ids with a random suffix:** `uniqueId` in `@parity-app/core`, and the tests that expect `title-2`.
 2. **Today's numbers:** `design-store.bench.ts` against today's `DesignStore`, with its numbers and commit on this page.
 3. **`@parity-app/multiplayer`:** the types, the bridge, `diffFiles`, and under `/testing` the shared tests,
-   `benchDesignDoc` and the generated project.
+   `benchProjectDoc` and the generated project.
 4. **`@parity-app/multiplayer-local`,** passing the shared tests.
-5. **`DesignStore` on the document, with the local provider:** `renderer/design-doc.ts`, the snapshot undo removed from
-   `history.ts`, the events above, [editor.md](../editor.md) updated, and the bench run again against today's numbers.
+5. **The session on the document, with the local provider:** `renderer/project-doc.ts`, `ProjectSaver`, `DesignStore`
+   folded away, the snapshot undo removed from `history.ts`, the events above, [editor.md](../editor.md) updated, and
+   the bench run again against today's numbers.
 6. **`@parity-app/multiplayer-loro`,** passing every shared test, the concurrent ones with a replica pair.
-7. **The window on Loro:** `renderer/design-doc.ts` picks `loroProvider`, and the bench and load costs run on all three,
-   with the numbers here and a decision on hot paths.
+7. **The window on Loro:** `renderer/project-doc.ts` picks `loroProvider`, and the bench and load costs run on all
+   three, with the numbers here and a decision on hot paths.
 8. **Later, each its own piece:** sync through a relay in the cloud, presence, review links with `diffFiles`, and
    comments.
 

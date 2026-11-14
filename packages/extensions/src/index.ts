@@ -4,4 +4,6 @@ export * from "./hosts.ts"
 
 export * from "./manifest.ts"
 
+export * from "./permissions.ts"
+
 export * from "./protocol.ts"

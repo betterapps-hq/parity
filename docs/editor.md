@@ -1101,6 +1101,32 @@ Tests: `packages/extensions/src/hosts.test.ts` and `manifest.test.ts` ([extensio
 `chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no tests of their own. They were tried in
 the running app on 2026-11-14 with the mouse and keyboard ([extensions.md](extensions.md) says how).
 
+### Extensions' changes to designs and files (PAR-1093)
+
+An extension with the `edits` permission changes designs through `parity.edits.transact`, and project files through
+`parity.files.edit` ([extensions.md](extensions.md)).
+
+- **One undo step each,** named after the extension and its label: Edit > Undo says "Undo Tidy: Rename layer". The
+  window applies the operations to the designs as they are when they arrive, so a layer someone deleted meanwhile is
+  refused, changing nothing, rather than brought back. Operations that cancel out make no step.
+- **Saved with the project,** as the person's own edits are. With automatic saving on, the files are written a moment
+  later.
+- **File changes** show in the same toast as the project's other edits, "Changed src/Button.stories.tsx", with the
+  extension's label, the diff and Undo.
+- **Commands for any layer.** A row's menu in Layers shows the commands an extension places at `layers` with
+  `"when": "layer"`, run for that layer. Commands placed for components, as Open in Storybook, still show only on a
+  component's layer.
+
+Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `DesignStore.applyOperations`,
+`extensions.transact` and `extensions.edited` in `renderer/agent/handlers.ts`, `layerOffers` in
+`chrome/adapter-actions.ts`, and `commandsAt` in `renderer/extensions.ts`.
+
+Tests: `packages/editor/src/design-operations.test.ts` (renaming, taking a field away, inserting, moving and removing,
+and what's refused), `renderer/design-store.test.ts` "an extension's operations" (one step under the extension's name
+that Undo takes back, and refusing the whole change), `renderer/extensions.test.ts` "commandsAt for a layer", and
+`packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par` files). Gaps: no extension
+built into Parity changes designs yet, so the layer menu and the undo label weren't tried in the running app.
+
 ### Previews in the Components panel and the insert picker (PAR-208)
 
 The Components tab shows each component's picture (see Component previews, made offscreen and kept on disk), in one of
@@ -6929,62 +6955,62 @@ valid layer style); `packages/layer-types/src/layer-types.test.ts` (37: each tag
 what an element describes as); `packages/layer-types/src/panel-data.test.ts` (6: a link's, a checkbox's, a switch's and
 a video's sections from their attributes, and sections with nothing set left out).
 
-### Each story as a screen (read-only viewer)
+### Each story file as a story design (read-only viewer)
 
-The project opens with a screen for each of its Storybook stories, listed in Layers under Stories, after Screens, and
-laid out in a row for each story file, left of everything else on the canvas, on a grid 440 apart each way, as component
-boards are. A story wider or taller than that overlaps the one beside or below it.
+The project opens with a design for each of its Storybook story files, listed in Layers under Stories, after Screens,
+and laid out down a column left of everything else on the canvas, each as far below the last as its stories need. A
+story file is a design of its own kind, a story (core's `containerKinds`), which nothing places as an instance and
+nothing converts to another kind. Its stories are its states, a row each on its board, every one shown at first.
 
-- **Listed as Storybook lists them.** Under Stories, each part of a story's title is a folder, as Storybook's sidebar
-  nests them: a group is a folder, a component holds its stories under a square split in four, in blue, and each story
-  is a teal bookmark named for itself, as `Outline` in UI, Button. Folders start closed; selecting a story on the canvas
-  opens the folders it's in. A click opens or closes a folder. The arrow keys move through folders and stories alike:
-  Right opens a folder or goes into it, Left closes it or goes up to the folder above, and Enter or Space opens or
-  closes it. A search opens every folder with something found in it and leaves out the rest. The adapter says which
-  folders each screen is in (`ImportedScreen.folders`); Layers draws any adapter's that way.
-
+- **Listed as Storybook lists them.** Under Stories, each part of a file's title but its last is a folder, as
+  Storybook's sidebar nests them, and the file is listed by its last part, as `Button` in UI, under Storybook's teal
+  square split in four, with how many stories it has. Its stories are the layers inside it, each a teal bookmark named
+  for itself, as `Outline`. Folders start closed; selecting a story file on the canvas opens the folders it's in. A
+  click opens or closes a folder. The arrow keys move through folders and rows alike: Right opens a folder or goes into
+  it, Left closes it or goes up to the folder above, and Enter or Space opens or closes it. A search opens every folder
+  with something found in it and leaves out the rest. The adapter says which folders each file is in
+  (`ImportedScreen.folders`); Layers draws any adapter's that way.
 - **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
   meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
-  the project depends on when it opens, and the screens come in the project's info.
-- **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
-  args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
-  layout draws it, inside a layer named Bounds. It's a screen whose root hugs the story (core's `fitsContent`): each
-  mode's frame is as wide as the story draws in that mode, which the canvas measures and doesn't save (`frames`), while
-  the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as in
-  Storybook's canvas. The frame shows only its own width of that window. Layers and the Design panel show it as a story,
-  with its bookmark. Each is named for its title's last part and its own name, as `Button / Outline`.
-- **Its props, modes and sizes in the Design panel.** Selecting a story shows its header, then Props, the args of what
-  it draws, which edit and are written back as below, then Modes, as a screen's: its board draws a frame for each mode
-  it shows, across, in the order the section sets, and the board's modes menu adds and takes away modes, as on any
-  screen. A story's modes, order and frame scales are kept in the project's file, as a page's are.
-- **Resized to test.** Dragging the Bounds layer's handles, or any layer's that takes a size, sets a width or height on
-  it, and the frame fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset
-  size, then shows at the end of the Design panel, for the story or any of its layers, and puts every layer back at the
-  size the story's file draws it (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never
-  written to the story's file; it's kept in the project's file until it's reset. A component that doesn't take a style,
-  as PlanCard, can't be sized itself, so Bounds is there to drag.
+  the project depends on when it opens, and the files come in the project's info, one `ImportedScreen` each.
+- **Each story its own layers, shown alone in its state.** Each story is its meta's component, a library's or the
+  project's own, with the meta's args and its own over them as props, inside bounds of its own named for the story
+  (`bounds:Outline` around `story:Outline`). Each state hides every other story's bounds, so a row draws its own story
+  only, and a story with its own `render` keeps its own tree. The file's root is padded and on the page's background, as
+  Storybook's default layout draws a story, and hugs it (core's `fitsContent`): each story's preview is as wide as it
+  draws in that mode, measured for each story apart (`frames`, by `Outline/desktop`, see `fittedKey`) and not saved,
+  while the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as
+  in Storybook's canvas.
+- **Its props, modes and sizes in the Design panel.** Selecting a story file shows its header, then Props, the args of
+  the story picked, the row of the preview picked last, else the first (`pickedStory`), which edit and are written back
+  as below, then Modes: its board draws each story's preview in each mode it shows, across. A story file's view, its
+  modes, scales, previews and which stories show, is kept in the project's file (see Kept in the project file).
+- **Resized to test.** Dragging a story's bounds, or any layer's that takes a size, sets a width or height on it, and
+  the preview fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset size,
+  then shows at the end of the Design panel, and puts every layer back at the size the story's file draws it
+  (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never written to the story's file; it's
+  kept in the project's file until it's reset. A component that doesn't take a style, as PlanCard, can't be sized
+  itself, so its bounds are there to drag.
 - **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
   name.
 - **Args written back.** The props of what a story draws are its args, and they edit as any component's do. Saving sends
-  the stories' design file to the service (`entities.save`), which hands each screen whose layers changed to the adapter
-  that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes the args that differ from the meta's into the
-  story's `args` in its file, keeping code there, such as a function, as it's written.
-- **Otherwise read-only.** The rest of a story's screen is Storybook's to lay out: its other layers and sections show
-  their values without editing them, and nothing else of it is saved.
+  the stories' design file to the service (`entities.save`), which hands each file whose layers or states changed to the
+  adapter that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes each story's props, with what its
+  state sets over them, as the args that differ from the meta's into the story's `args` in its file, keeping code there,
+  such as a function, as it's written.
+- **Otherwise read-only.** The rest of a story file's design is Storybook's to lay out: its other layers and sections
+  show their values without editing them, and nothing else of it is saved.
 - **Not yet.** A story's decorators, loaders and the `context` its `render` is given aren't applied. A story file added
   while the project is open shows once it's opened again. A story that's a function, or whose args are a constant, isn't
   written to, nor can a story take away an arg its meta gives. A screen can't yet be saved as a new story.
 
-Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
-two under Stories. Plan card / Default's frame fitted to 181 with its host 1280 wide, Desktop Dark shown beside it from
-Modes drew its own 181-wide frame, and its header's Zoom field set it to 50%. Dragging Bounds 90 pixels narrower made
-the frame 128 wide in a window still 1280 wide, and Reset size put it back at 181. Plan card / Popular drew the app's
-own PlanCard with the Popular badge, and Button / Outline its outline button at its own size. Card / Invite and Plan
-card / Team and Business drew their own `render` functions: the invite card, and two plan cards side by side. Setting
-Plan card / Popular's Price to $32 and saving wrote `price: "$32"` into the story's args, beside `popular: true`, and
-the screen drew $32.
+Tried in a development build on the example project: Layers listed Badge, Button, Card and Plan card under Stories, Plan
+card in App. Plan card's board drew Default, Popular and Team and Business a row each, each preview as wide as its own
+story, Team and Business's two cards wider than the others. Props showed the picked story's args, and setting Popular's
+Price to $32 and saving wrote `price: "$32"` into the Popular story's args alone, beside `popular: true`. Not tried this
+time: dragging a story's bounds and Reset size, and a story file shown in several modes.
 
 Code: `fitsContent`, `frameSize` and `frameGeometry` in `packages/core/src/render.ts`; `fittedFrame` and `fitsDrawn` in
 `packages/editor/src/frames.ts`, which `useFitToContent` in `apps/desktop/src/renderer/canvas/ContainerView.tsx` runs
@@ -6992,7 +7018,8 @@ for each mode's frame; `ModeView.tsx` and `render.ts` (a frame narrower than its
 `withoutTriedSize` in `packages/editor/src/tried-size.ts`, `TriedSize.tsx` and the story branch of `DesignPanel.tsx` in
 `apps/desktop/src/renderer/chrome`; `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and
 `importStoryScreens` in `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`;
-`storyScreensDocument` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in
+`storyScreensDocument` and `pickedStory` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `storyFileDesign` in
+`adapters/storybook-adapter/src/screens.ts`; `hasStates` in `packages/core/src/document.ts`; `drawImported` in
 `apps/desktop/src/renderer/workspace.ts`; `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`;
 `exportEntities` in `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts`
 writes; `writesProps` in `apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in
@@ -7005,12 +7032,34 @@ mode's whole window" (as wide as measured, as wide as the window before, not for
 others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its args kept, and
 a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're
 closed, an open folder's folders and a component's designs in order, a design without folders at the top, and a search
-opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and
-stories with args over the meta's, where a story's render function is, a file without a default export, a story's name
-in words, each story in a folder for each part of its title, stories imported as screens of their component, grouped by
-title, a story that renders itself drawing its function from its file, a story's own args written over the meta's with
-code kept, args added to a story without any and none for the meta's, a story that's a function left alone, and a
-screen's props written back to its file).
+opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (a file's meta and stories
+with args over the meta's, where a story's render function is, a file without a default export, a story's name in words,
+each file in a folder for each part of its title, each file a story design with a state for each story and every one
+shown, each story in bounds of its own and alone in its state, a story that renders itself drawing its function from its
+file, args written over the meta's with code kept, args added to a story without any, a story that's a function left
+alone, each story's props written back, what a story's state sets written back, and nothing written while nothing
+changed).
+
+### Stale views are pruned
+
+A design's view names modes, states and route params, and what it names can go: a mode taken out of the project, a story
+taken out of its file, a route's param renamed. Nothing stale is left to show in a menu or pile up in the file.
+
+- **When a mode is taken away in Parity,** the same step takes it out of every design's view: the modes it shows, its
+  order, its scales and the previews in it (`prunedDocument`, from `DesignStore.setModes`). Undo puts both back.
+- **When the project opens,** every design's view is pruned against the project's modes, its own states and, for a page
+  of the app, its route's params (`withPrunedView`), so what changed outside Parity, in the project file or the app's
+  code, goes too. What's kept for designs drawn from code (`codeDesigns`) loses the entry of a design its file no longer
+  draws, as a story file deleted, unless nothing of that file was drawn this time, as when its tool couldn't be read
+  (`openCodeDesigns`). The file loses what was pruned at its next save.
+- **A layer that's gone** loses its tried size the same way, since what's kept is read again from the design as it is.
+
+Code: `prunedView`, `withPrunedView` and `prunedDocument` in `packages/editor/src/prune-view.ts`; `setModes` in
+`apps/desktop/src/renderer/design-store.ts`; `openCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts` and
+`routeParams` in `route-pages.ts`, run from `createSession` in `workspace.ts`. Tests:
+`packages/editor/src/prune-view.test.ts` (modes gone wherever named, states gone as a story taken out, a screen's
+previews kept, a page's params gone and a design's kept, and a view naming nothing gone left as it is). Gaps: neither
+step was tried in the app, and `openCodeDesigns` has no unit test.
 
 ### Opening in seconds (PAR-179)
 
@@ -7849,17 +7898,28 @@ so Storybook was detected in two places and TanStack Router not at all.
   `@storybook/`, other packages that ship it, such as Vite+, and each major's release date. Detection reads the
   installed version of each tool an adapter found and checks it against that adapter's cutoff, so `detect.ts` has no
   list of tools.
+- **Storybook and TanStack Router take theirs from their extensions' peer dependencies** (PAR-1091). The packages are
+  the peer dependencies in order, the main one first, and the main one's range is what's supported: a version inside it
+  is supported, above it newer and below it dropped, with no release dates. The manifest's `versions` adds what peer
+  dependencies can't say, as Storybook's `scope`. The adapters list gives Storybook's adapter its versions, since the
+  adapter is a pure package and its extension isn't. TanStack Router is found by the default detector, `detectPeers`:
+  the project declares one of its peer dependencies. Parity's own extensions mark every peer optional, since they come
+  with the app rather than beside their tool.
 - **What the example shows:** the service's log lists React 19.3.1, Vite 8.3.5 with `vite.config.ts`, Tailwind CSS
   4.3.3, TanStack Router 1.170.46, which wasn't listed before, and Storybook 10.6.5 with `.storybook/main.ts`.
 
 Tried on 2026-11-13 in the running app on the example: the log above, and the status bar's items as before.
 
-Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions` and `declares` in
-`packages/core/src/adapters.ts`; each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
+Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
+`detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
+and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
+each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
 `adapters/storybook-adapter/src/detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
 `packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
 
-Tests: `packages/project/src/detect.test.ts` (versions, cutoff and summaries from the tools adapters give),
+Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
+adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
+`packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
 `adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
 `adapters/tanstack-router-adapter/src/routes.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit test
 runs the service's open path with several adapters of one kind.

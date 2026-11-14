@@ -95,9 +95,10 @@ export function previewOptionsMode(
 export function previewGeometry(
   design: ContainerSpec,
   mode: Pick<ResolvedMode, "viewport" | "width" | "options">,
-  settings: PreviewSettings | undefined
+  settings: PreviewSettings | undefined,
+  state?: string
 ): FrameGeometry {
-  const frame = frameGeometry(design, mode)
+  const frame = frameGeometry(design, mode, state)
 
   if (settings?.width === undefined) {
     return frame

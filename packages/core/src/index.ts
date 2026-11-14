@@ -49,7 +49,10 @@ export {
   type TokenWrite,
   type ToolServer,
   type ToolServers,
-  type ToolVersions
+  type ToolVersions,
+  type ToolVersionsExtra,
+  peerVersions,
+  detectPeers
 } from "./adapters.ts"
 
 export { type AdapterFacts, type ContributingExtension, extensionAdds } from "./extension-adds.ts"
@@ -113,6 +116,7 @@ export {
   type ComponentNode,
   type ComponentRef,
   type ContainerKind,
+  type MadeKind,
   containerKinds,
   containerSpec,
   type ContainerSpec,
@@ -122,6 +126,7 @@ export {
   detectionCorrections,
   type DetectionCorrections,
   formatVersion,
+  hasStates,
   type FrameSize,
   imageCredit,
   type ImageCredit,
@@ -400,6 +405,7 @@ export {
   type EvalContext,
   type EvalScope,
   fitsContent,
+  fittedKey,
   frameGeometry,
   type FrameGeometry,
   frameSize,

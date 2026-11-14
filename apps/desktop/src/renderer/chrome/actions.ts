@@ -1,4 +1,4 @@
-import { type ContainerKind, findNode } from "@parity-app/core"
+import { type MadeKind, findNode } from "@parity-app/core"
 import { type Alignment, arrowOf, type Order, reviewToolFor, selectedDesigns, selectedNodes } from "@parity-app/editor"
 import { toast } from "sonner"
 import type { ServiceMethods } from "../../shared/protocol.ts"
@@ -781,7 +781,7 @@ function join(folder: string, name: string): string {
 
 /** Makes an empty screen or component in the tab, right of everything (see `createDesign`). */
 const newDesign =
-  (kind: ContainerKind) =>
+  (kind: MadeKind) =>
   (session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined): void => {
     if (session) {
       createDesign(session, kind)
