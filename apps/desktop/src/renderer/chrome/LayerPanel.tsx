@@ -39,7 +39,7 @@ import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
-import { componentActions, runAction } from "./adapter-actions.ts"
+import { componentOffers, runAction } from "./adapter-actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
 import { BaseDesignNote } from "./BaseDesignNote.tsx"
 import { pushAndRecord } from "./component-events.ts"
@@ -210,8 +210,8 @@ function LayerActions({ node }: { node: DesignNode }) {
     <HeaderActions
       actions={layerActions(node, { design: design !== undefined })}
       onAction={act}
-      adapterActions={componentActions(session.info, component)}
-      onAdapterAction={(action) => void runAction(session.id, action, component)}
+      adapterOffers={componentOffers(session.info, component)}
+      onAdapterAction={({ action }) => void runAction(session.id, action, component)}
     />
   )
 }

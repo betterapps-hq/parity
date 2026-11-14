@@ -84,8 +84,8 @@ import { type ContainerEntry, useContainerEntries, useNotes } from "../design-st
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentActions, runAction } from "./adapter-actions.ts"
-import { AdapterLogo } from "./AdapterLogo.tsx"
+import { componentOffers } from "./adapter-actions.ts"
+import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
 import { showConsole } from "./ConsolePanel.tsx"
@@ -1414,7 +1414,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   // A component's board offers what its component's layer does.
   const node = row.node ?? boardOpensTo(row.design)
   const component = node && layerComponent(node, session.info.libraries)
-  const offered = componentActions(session.info, component)
+  const offers = componentOffers(session.info, component)
 
   const items = layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {
@@ -1445,19 +1445,10 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   })
 
   // What the project's adapters offer for a code component, as Open in Storybook, after the editor's own commands.
-  return offered.length === 0
-    ? items
-    : [
-        ...items,
-        <ContextMenuSeparator key="adapters-line" />,
-        ...offered.map((action) => (
-          <ContextMenuItem
-            key={`${action.adapter}:${action.id}`}
-            onClick={() => void runAction(session.id, action, component)}
-          >
-            <AdapterLogo logo={action.icon} />
-            {action.name}
-          </ContextMenuItem>
-        ))
-      ]
+  return (
+    <>
+      {items}
+      <AdapterMenuItems offers={offers} projectId={session.id} component={component} />
+    </>
+  )
 }

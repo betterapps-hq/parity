@@ -12,9 +12,34 @@ export function projectAction(info: ProjectInfo, adapter: string, id: string): P
   return info.actions.find((action) => action.adapter === adapter && action.id === id)
 }
 
-/** The adapters' actions for one of the project's components, as its layers offer them. */
-export function componentActions(info: ProjectInfo, component: string | undefined): ProjectAction[] {
-  return component ? info.actions.filter((action) => action.components?.includes(component)) : []
+/** One of the project's adapters' actions as a component offers it: to run, or greyed with why it can't. */
+export interface ComponentOffer {
+  action: ProjectAction
+  /** Why it can't act on this component, as `No story found`; none when it can. */
+  unavailable?: string
+}
+
+/**
+ * What the project's adapters offer for one of its components: every action that's for components, those it isn't for
+ * greyed with the action's reason rather than left out, so a component with no story still shows Open in Storybook.
+ * An action that gives no reason is left out where it isn't for the component.
+ */
+export function componentOffers(info: ProjectInfo, component: string | undefined): ComponentOffer[] {
+  if (!component) {
+    return []
+  }
+
+  return info.actions.flatMap((action): ComponentOffer[] => {
+    if (!action.components) {
+      return []
+    }
+
+    if (action.components.includes(component)) {
+      return [{ action }]
+    }
+
+    return action.unavailable ? [{ action, unavailable: action.unavailable }] : []
+  })
 }
 
 /**

@@ -93,12 +93,12 @@ export const StorybookNotRunning: Story = {
 
 /** A component without stories: Open in Storybook is greyed, saying why, rather than left out. */
 export const WithoutStories: Story = {
-  args: { offers: openInStorybook({ unavailable: "No stories" }) },
+  args: { offers: openInStorybook({ unavailable: "No story found" }) },
   play: async (context) => {
     await meta.play(context)
     const item = await within(document.body).findByRole("menuitem", { name: /Open in Storybook/ })
     await expect(item).toHaveAttribute("aria-disabled", "true")
-    await expect(item).toHaveTextContent("No stories")
+    await expect(item).toHaveTextContent("No story found")
   }
 }
 

@@ -897,14 +897,14 @@ press taking 31ms and the frame after it 18ms.
 Right-clicking a component in the Components panel opens its menu: what the project's adapters offer for components, as
 **Open in Storybook**, each with its adapter's logo, then **View code**, which opens the component's file in the
 person's editor at the line of its export. Each is greyed with why when it can't act, rather than left out, so the menu
-is the same for every component: Open in Storybook says "No stories" for one without any (the action's `unavailable`),
-and View code "Not in the project" for a library component without type declarations, whose declarations are otherwise
-its code. With stories, Open in Storybook stays enabled while Storybook isn't running and says "Starts Storybook" (the
-action's `starts`): choosing it starts the project's Storybook, reusing one already serving it, and opens the
-component's docs or first story once it's up, as the row's Storybook button does. Whether it's running is the service's
-process list, which the status bar polls, by the tool's process id (`storybook:<project>`). A project without a
-Storybook has no Open in Storybook. A library's component design offers Insert linked instance and Insert detached copy
-after them.
+is the same for every component: Open in Storybook says "No story found" for one without any (the action's
+`unavailable`), and View code "Not in the project" for a library component without type declarations, whose declarations
+are otherwise its code. With stories, Open in Storybook stays enabled while Storybook isn't running and says "Starts
+Storybook" (the action's `starts`): choosing it starts the project's Storybook, reusing one already serving it, and
+opens the component's docs or first story once it's up, as the row's Storybook button does. Whether it's running is the
+service's process list, which the status bar polls, by the tool's process id (`storybook:<project>`). A project without
+a Storybook has no Open in Storybook. A library's component design offers Insert linked instance and Insert detached
+copy after them.
 
 Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
 and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
@@ -3796,9 +3796,10 @@ The actions at the end of the row are icon buttons named by their hints, without
 
 - **Go to component** on an instance of one of the project's component designs, which selects the design and shows it
   (`layerActions`).
-- **What the project's adapters offer for a code component,** each with its adapter's logo, as Open in Storybook on one
-  that has stories. A component's board offers the same in its header. The same actions end the layer's right-click menu
-  in Layers, after a separator. See [Adapters' actions](#adapters-actions).
+- **What the project's adapters offer for a code component,** each with its adapter's logo, as Open in Storybook. On a
+  component no story links to it stays, faded and focusable, its hint saying "No story found". A component's board
+  offers the same in its header. The same actions end the layer's right-click menu in Layers, after a separator. See
+  [Adapters' actions](#adapters-actions).
 
 An icon and a layer that isn't a component have only the eye. Other designs' headers have no actions. Open in editor,
 which opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
@@ -7340,6 +7341,9 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   (`components`, from the same facts its status items get), and what the app says while it runs and when it fails. The
   windows get them with the project (`info.actions`, from `adapterActions`), by adapter, with its logo and the
   components' keys. Storybook offers Open in Storybook for each component a story's meta names.
+- **The adapter decides what a component it isn't for shows** (`unavailable`): with a reason, the action stays there,
+  disabled, with the reason as its hint or beside it in a menu; without one, it's left out. Storybook's reason is "No
+  story found", so a component no story's meta names still shows Open in Storybook, disabled, in every place below.
 - **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
   adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, the
   component, and `servers`, which find a server already serving the project (one Portless routes to, else one on its
@@ -7349,26 +7353,30 @@ Before, the service had a `storybook.open` call and the status bar matched Story
 - **A code component offers the actions for it wherever it's picked,** each with its adapter's logo and the action's
   name: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on the canvas,
   after a separator, and its row in the Components panel, as a button beside it, in its right-click menu and on its
-  card. A component's board offers them too (`selectionComponent`, `componentActions`, `layerComponent`). Search actions
-  lists each of the project's actions under Object, for the selected component when it's offered for it, with the
-  component's name beside it, else for the whole project, as opening Storybook's home. Which components an action is for
-  comes only from its adapter: Storybook's are those its story files' metas name. The stories count on a component's
-  card still reads `info.storybook`, until adapters give facts about components.
+  card. A component's board offers them too (`selectionComponent`, `componentOffers`, `layerComponent`). A button for
+  one that can't act stays faded and focusable, its hint the reason, and a menu item is greyed with the reason beside it
+  (`AdapterMenuItems`). Search actions lists each of the project's actions under Object, for the selected component when
+  it's offered for it, with the component's name beside it; greyed with the reason on a selected component it isn't for;
+  else for the whole project, as opening Storybook's home. Which components an action is for comes only from its
+  adapter: Storybook's are those its story files' metas name. The stories count on a component's card still reads
+  `info.storybook`, until adapters give facts about components.
 - **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
   running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
   PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
   page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
-  the Components panel greys it with "No stories".
+  the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
+  header, with the hint "No story found", and greyed in its right-click menus and in Search actions.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
 `runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
 `adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
-`adapter-status.test.ts`; `runAction`, `projectAction` and `componentActions` in `renderer/chrome/adapter-actions.ts`;
-`layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
-`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
-`ActionsSearch.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx`
-and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
+`adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
+`renderer/chrome/adapter-actions.ts`; `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in
+`layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`,
+`CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and
+`useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left
+panel › Component menu and Component card.
 
 Tests: `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else Storybook's
 home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed action reaches

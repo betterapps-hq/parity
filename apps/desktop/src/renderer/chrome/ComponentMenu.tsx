@@ -10,7 +10,7 @@ export interface MenuOffer {
   id: string
   name: string
   logo?: AdapterIcon
-  /** Why it can't act on this component, as `No stories`; it's greyed with this. */
+  /** Why it can't act on this component, as `No story found`; it's greyed with this. */
   unavailable?: string
   /** What it does first, as `Starts Storybook` while Storybook isn't running. */
   starts?: string

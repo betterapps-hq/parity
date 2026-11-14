@@ -16,7 +16,7 @@ import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { componentActions, runAction } from "./adapter-actions.ts"
+import { componentOffers, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
@@ -216,8 +216,8 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
             board && (
               // What the project's adapters offer for a board's component, as Open in Storybook.
               <HeaderActions
-                adapterActions={componentActions(session.info, component)}
-                onAdapterAction={(action) => void runAction(session.id, action, component)}
+                adapterOffers={componentOffers(session.info, component)}
+                onAdapterAction={({ action }) => void runAction(session.id, action, component)}
               />
             )
           }

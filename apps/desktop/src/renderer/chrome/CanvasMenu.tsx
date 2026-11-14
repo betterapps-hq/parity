@@ -25,8 +25,8 @@ import { allFrames } from "../frame.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentActions, runAction, selectionComponent } from "./adapter-actions.ts"
-import { AdapterLogo } from "./AdapterLogo.tsx"
+import { componentOffers, selectionComponent } from "./adapter-actions.ts"
+import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
 import { iconFor } from "./command-icons.ts"
@@ -217,7 +217,7 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
   useNotes(session.store)
   // Over a code component's layer or board, what the project's adapters offer for it ends the menu, as in Layers.
   const component = opened.target && selectionComponent(session)
-  const offered = componentActions(session.info, component)
+  const offers = componentOffers(session.info, component)
 
   const items = canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(
     (entry, index) => {
@@ -257,21 +257,12 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
     }
   )
 
-  return offered.length === 0
-    ? items
-    : [
-        ...items,
-        <ContextMenuSeparator key="adapters-line" />,
-        ...offered.map((action) => (
-          <ContextMenuItem
-            key={`${action.adapter}:${action.id}`}
-            onClick={() => void runAction(session.id, action, component)}
-          >
-            <AdapterLogo logo={action.icon} />
-            {action.name}
-          </ContextMenuItem>
-        ))
-      ]
+  return (
+    <>
+      {items}
+      <AdapterMenuItems offers={offers} projectId={session.id} component={component} />
+    </>
+  )
 }
 
 /**

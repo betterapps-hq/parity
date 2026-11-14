@@ -42,7 +42,7 @@ export const storybookAdapter: EntitiesAdapter = {
       progress: "Opening Storybook…",
       failed: "Couldn't open Storybook",
       note: "If it isn't running yet, it starts first; that can take a minute.",
-      unavailable: "No stories",
+      unavailable: "No story found",
       starts: "Starts Storybook"
     }
   ],

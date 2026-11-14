@@ -75,7 +75,7 @@ import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
-import { componentActions, runAction } from "./adapter-actions.ts"
+import { componentOffers, runAction } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
@@ -615,7 +615,7 @@ function AssetEntry({
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const offered = componentActions(session.info, component)
+  const offers = componentOffers(session.info, component)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
@@ -777,17 +777,23 @@ function AssetEntry({
       ) : (
         row
       )}
-      {offered.length > 0 && (
+      {offers.length > 0 && (
         <div
           className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
         >
-          {offered.map((action) => (
-            <Hint key={`${action.adapter}:${action.id}`} label={action.name}>
+          {offers.map(({ action, unavailable }) => (
+            // One that can't act stays, faded and focusable, its hint saying why.
+            <Hint key={`${action.adapter}:${action.id}`} label={unavailable ?? action.name}>
               <button
                 type="button"
-                aria-label={`${action.name}: ${entry.label}`}
-                onClick={() => void runAction(session.id, action, component)}
-                className="grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100"
+                aria-label={
+                  unavailable === undefined
+                    ? `${action.name}: ${entry.label}`
+                    : `${action.name}: ${entry.label}, unavailable: ${unavailable}`
+                }
+                aria-disabled={unavailable !== undefined || undefined}
+                onClick={unavailable === undefined ? () => void runAction(session.id, action, component) : undefined}
+                className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
               >
                 <AdapterLogo logo={action.icon} className="size-3.5" />
               </button>
@@ -804,17 +810,7 @@ function AssetEntry({
  * one it isn't for, and saying what it starts first while its tool's server isn't running.
  */
 function menuOffers(session: ProjectSession, component: string, running: ReadonlySet<string>): MenuOffer[] {
-  return session.info.actions.flatMap((action) => {
-    if (!action.components) {
-      return []
-    }
-
-    const offered = action.components.includes(component)
-
-    if (!offered && !action.unavailable) {
-      return []
-    }
-
+  return componentOffers(session.info, component).map(({ action, unavailable }) => {
     const offer: MenuOffer = {
       id: `${action.adapter}:${action.id}`,
       name: action.name,
@@ -822,13 +818,13 @@ function menuOffers(session: ProjectSession, component: string, running: Readonl
       run: () => void runAction(session.id, action, component)
     }
 
-    if (!offered) {
-      offer.unavailable = action.unavailable
+    if (unavailable !== undefined) {
+      offer.unavailable = unavailable
     } else if (action.starts && !running.has(`${action.adapter}:${session.id}`)) {
       offer.starts = action.starts
     }
 
-    return [offer]
+    return offer
   })
 }
 
@@ -880,10 +876,11 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
-  const offers = componentActions(session.info, component).map((action) => ({
+  const offers = componentOffers(session.info, component).map(({ action, unavailable }) => ({
     id: `${action.adapter}:${action.id}`,
     name: action.name,
     logo: action.icon,
+    unavailable,
     run: () => void runAction(session.id, action, component)
   }))
 

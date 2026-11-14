@@ -2,6 +2,7 @@ import type { ProjectAction } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../../canvas/kinds.tsx"
+import type { ComponentOffer } from "../../chrome/adapter-actions.ts"
 import { PanelColumn } from "../../chrome/inspector-stories.tsx"
 import type { HeaderAction } from "../../chrome/layer-kind.ts"
 import { panelEnd } from "../../chrome/PanelSection.tsx"
@@ -38,14 +39,14 @@ function Header({
   kind,
   name,
   actions,
-  adapterActions
+  adapterOffers
 }: {
   icon: ReactNode
   color: string
   kind: string
   name: string
   actions: HeaderAction[]
-  adapterActions?: ProjectAction[]
+  adapterOffers?: ComponentOffer[]
 }) {
   return (
     <PanelColumn>
@@ -55,7 +56,7 @@ function Header({
           color={color}
           kind={kind}
           name={<span className={`truncate px-1.5 ${headingName}`}>{name}</span>}
-          action={<HeaderActions actions={actions} onAction={() => undefined} adapterActions={adapterActions} />}
+          action={<HeaderActions actions={actions} onAction={() => undefined} adapterOffers={adapterOffers} />}
         />
       </div>
     </PanelColumn>
@@ -73,7 +74,7 @@ export const CodeComponentInstance: Story = {
       kind="Component instance"
       name="Sign in card"
       actions={["open-in-editor"]}
-      adapterActions={[openInStorybook]}
+      adapterOffers={[{ action: openInStorybook }]}
     />
   )
 }

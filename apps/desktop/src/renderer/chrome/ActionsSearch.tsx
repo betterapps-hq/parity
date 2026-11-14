@@ -293,20 +293,24 @@ function projectItems(
 
 /**
  * What the project's adapters can do, under Object: each for the selected component when it's offered for it, as Open
- * in Storybook on a component with stories, else for the whole project, as opening Storybook's home.
+ * in Storybook on a component with stories, with the component's name beside it; greyed with why on a selected
+ * component it isn't for, as No story found; and for the whole project with no component selected, as opening
+ * Storybook's home.
  */
 function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" | "store">): Item[] {
   const component = selectionComponent(session)
 
   return session.info.actions.map((action) => {
     const offered = component !== undefined && action.components?.includes(component) ? component : undefined
+    const unavailable = component !== undefined && !offered && action.components ? action.unavailable : undefined
 
     return {
       id: `adapter:${action.adapter}:${action.id}`,
       group: "Object",
       label: action.name,
-      detail: offered,
+      detail: unavailable ?? offered,
       icon: <AdapterLogo logo={action.icon} />,
+      available: () => unavailable === undefined,
       run: () => void runAction(session.id, action, offered)
     }
   })

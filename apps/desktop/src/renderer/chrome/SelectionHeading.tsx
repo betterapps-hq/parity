@@ -1,8 +1,8 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import type { ProjectAction } from "@parity-app/core"
 import { ArrowUpRight, Code } from "lucide-react"
 import type { ReactNode } from "react"
 import { textFor } from "../canvas/kinds.tsx"
+import type { ComponentOffer } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import type { HeaderAction } from "./layer-kind.ts"
@@ -73,18 +73,19 @@ const actionLooks: Record<HeaderAction, { label: string; icon: ReactNode }> = {
 
 /**
  * What a selection's header does, as icon buttons named by their hints, in the order given: the editor's own, then the
- * adapters' actions, each with its adapter's logo.
+ * adapters' actions, each with its adapter's logo. One that can't act on the selection stays, faded and focusable, its
+ * hint saying why, as No story found.
  */
 export function HeaderActions({
   actions = [],
   onAction,
-  adapterActions = [],
+  adapterOffers = [],
   onAdapterAction
 }: {
   actions?: readonly HeaderAction[]
   onAction?: (action: HeaderAction) => void
-  adapterActions?: readonly ProjectAction[]
-  onAdapterAction?: (action: ProjectAction) => void
+  adapterOffers?: readonly ComponentOffer[]
+  onAdapterAction?: (offer: ComponentOffer) => void
 }) {
   return [
     ...actions.map((action) => (
@@ -92,19 +93,47 @@ export function HeaderActions({
         {actionLooks[action].icon}
       </HeaderButton>
     )),
-    ...adapterActions.map((action) => (
+    ...adapterOffers.map((offer) => (
       <HeaderButton
-        key={`${action.adapter}:${action.id}`}
-        label={action.name}
-        onClick={() => onAdapterAction?.(action)}
+        key={`${offer.action.adapter}:${offer.action.id}`}
+        label={offer.action.name}
+        unavailable={offer.unavailable}
+        onClick={() => onAdapterAction?.(offer)}
       >
-        <AdapterLogo logo={action.icon} />
+        <AdapterLogo logo={offer.action.icon} />
       </HeaderButton>
     ))
   ]
 }
 
-function HeaderButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function HeaderButton({
+  label,
+  unavailable,
+  onClick,
+  children
+}: {
+  label: string
+  /** Why it can't act, as its hint; it stays focusable rather than going quietly grey. */
+  unavailable?: string | undefined
+  onClick: () => void
+  children: ReactNode
+}) {
+  if (unavailable !== undefined) {
+    return (
+      <Hint label={unavailable}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-6 shrink-0 text-muted-foreground opacity-50"
+          aria-disabled
+          aria-label={`${label}, unavailable: ${unavailable}`}
+        >
+          {children}
+        </Button>
+      </Hint>
+    )
+  }
+
   return (
     <Hint label={label}>
       <Button

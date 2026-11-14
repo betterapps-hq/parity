@@ -46,6 +46,8 @@ export interface CardOffer {
   id: string
   name: string
   logo?: AdapterIcon
+  /** Why it can't act on this component, as `No story found`; its button stays, faded, its hint saying why. */
+  unavailable?: string | undefined
   run: () => void
 }
 
@@ -193,13 +195,27 @@ export function ComponentCard({
               </Button>
             </Hint>
           )}
-          {offers.map((offer) => (
-            <Hint key={offer.id} label={offer.name}>
-              <Button size="icon" variant="ghost" className="size-7" aria-label={offer.name} onClick={offer.run}>
-                <AdapterLogo logo={offer.logo} />
-              </Button>
-            </Hint>
-          ))}
+          {offers.map((offer) =>
+            offer.unavailable === undefined ? (
+              <Hint key={offer.id} label={offer.name}>
+                <Button size="icon" variant="ghost" className="size-7" aria-label={offer.name} onClick={offer.run}>
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            ) : (
+              <Hint key={offer.id} label={offer.unavailable}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 opacity-50"
+                  aria-disabled
+                  aria-label={`${offer.name}, unavailable: ${offer.unavailable}`}
+                >
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            )
+          )}
         </div>
       )}
     </div>
