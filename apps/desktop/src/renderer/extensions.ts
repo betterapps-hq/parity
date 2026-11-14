@@ -111,10 +111,20 @@ export function holds(extension: ExtensionStatus, key: string | undefined, targe
   }
 
   const negated = key.startsWith("!")
-  const value = extension.context[negated ? key.slice(1) : key]
-  const found = value === true || (Array.isArray(value) && target !== undefined && value.includes(target.key))
+  const name = negated ? key.slice(1) : key
+  // `layer` is Parity's own key, which holds for a layer that isn't a component's (extensions' keys have a prefix).
+  const value = name === "layer" ? target?.type === "layer" : extension.context[name]
+  const found = value === true || (Array.isArray(value) && target !== undefined && value.includes(targetKey(target)))
 
   return negated ? !found : found
+}
+
+/**
+ * What a context key's list holds for a target: a component's key, a layer's as `app.par#home/title`, or a view's
+ * item's key.
+ */
+function targetKey(target: CommandTarget): string {
+  return target.type === "layer" ? `${target.design}/${target.node}` : target.key
 }
 
 /** The commands extensions place at `placement`, for `target`, in the order their manifests list them. */
@@ -127,7 +137,11 @@ export function commandsAt(
     (extension.contributes.menus?.[placement] ?? []).flatMap((item): PlacedCommand[] => {
       const command = extension.contributes.commands?.find((declared) => declared.id === item.command)
 
-      if (!command || !holds(extension, item.when, target)) {
+      // A layer that isn't a component's shows only what's placed for it with a `when`, as `layer`, so commands for
+      // components, as Open in Storybook, don't show greyed on every layer.
+      const unplaced = target?.type === "layer" && item.when === undefined
+
+      if (!command || unplaced || !holds(extension, item.when, target)) {
         return []
       }
 

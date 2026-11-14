@@ -58,6 +58,7 @@ function setUp(module: ExtensionModule) {
       ui: () => Promise.resolve(undefined),
       reveal: (_projectId, _extension, view) => revealed.push(view)
     },
+    edits: { transact: () => Promise.resolve(), files: () => Promise.resolve([]) },
     servers: {
       serve: () => Promise.resolve({ url: "" }),
       adopt: vi.fn<() => void>(),

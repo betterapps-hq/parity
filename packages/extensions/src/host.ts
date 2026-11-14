@@ -244,6 +244,16 @@ async function activate(
       stop: (id) => quietly("servers.stop", { id }),
       routed: () => send("servers.routed", undefined)
     },
+    edits: {
+      transact: (label, operations) => send("edits.transact", { label, operations })
+    },
+    files: {
+      async edit(label, files) {
+        const { paths } = await send("files.edit", { label, files })
+
+        return paths
+      }
+    },
     ui: {
       async notify(message, options = {}) {
         const { action } = await send("ui.notify", { message, ...options })

@@ -2,7 +2,10 @@ import type { Checks } from "@parity-app/channel"
 import { parseData } from "@parity-app/core"
 import type {
   CommandTarget,
+  ComponentTarget,
+  DesignOperation,
   Fact,
+  FileEdit,
   JsonValue,
   PickItem,
   ServerRequest,
@@ -77,7 +80,7 @@ export interface HostServiceMethods {
   "status.set": { params: { id: string } & StatusValue; result: undefined }
   "status.remove": { params: { id: string }; result: undefined }
   "context.set": { params: { key: string; value: boolean | string[] }; result: undefined }
-  "facts.set": { params: { target: CommandTarget; facts: Fact[] }; result: undefined }
+  "facts.set": { params: { target: ComponentTarget; facts: Fact[] }; result: undefined }
   "ui.notify": {
     params: { message: string; detail?: string; tone?: Tone; actions?: string[] }
     result: { action?: string }
@@ -98,6 +101,10 @@ export interface HostServiceMethods {
   "servers.adopt": { params: { id: string; name: string; url: string }; result: undefined }
   "servers.stop": { params: { id: string }; result: undefined }
   "servers.routed": { params: undefined; result: { url: string; address: string }[] }
+  /** Changes designs as one undo step, with the `edits` permission. */
+  "edits.transact": { params: { label: string; operations: DesignOperation[] }; result: undefined }
+  /** Writes project files the `write` permission names, never a `.par`. Answers with the paths it changed. */
+  "files.edit": { params: { label: string; files: FileEdit[] }; result: { paths: string[] } }
 }
 
 const text = z.string().max(20_000)
@@ -112,14 +119,14 @@ const checkOf =
 
 const url = z.url({ protocol: /^https?$/ })
 
-const label = z.string().max(200)
+const viewLabel = z.string().max(200)
 const iconName = z.string().max(64)
 const tone = z.enum(["info", "success", "warning", "error"])
 const viewAction = z.strictObject({ command: z.string().max(200), when: z.string().max(200).optional() })
 
 const viewItem = z.strictObject({
   key: z.string().max(500),
-  label,
+  label: viewLabel,
   detail: z.string().max(2000).optional(),
   value: z.string().max(2000).optional(),
   icon: iconName.optional(),
@@ -129,14 +136,14 @@ const viewItem = z.strictObject({
   target: z.strictObject({ type: z.literal("component"), key: z.string() }).optional()
 })
 
-const field = { key: z.string().max(200), label, detail: z.string().max(2000).optional() }
+const field = { key: z.string().max(200), label: viewLabel, detail: z.string().max(2000).optional() }
 
 const formField = z.discriminatedUnion("type", [
   z.strictObject({
     ...field,
     type: z.literal("text"),
     value: z.string().max(20_000),
-    placeholder: label.optional()
+    placeholder: viewLabel.optional()
   }),
   z.strictObject({ ...field, type: z.literal("number"), value: z.number() }),
   z.strictObject({ ...field, type: z.literal("boolean"), value: z.boolean() }),
@@ -144,16 +151,16 @@ const formField = z.discriminatedUnion("type", [
     ...field,
     type: z.literal("select"),
     value: z.string().max(500),
-    options: z.array(z.strictObject({ value: z.string().max(500), label })).max(200)
+    options: z.array(z.strictObject({ value: z.string().max(500), label: viewLabel })).max(200)
   })
 ])
 
 const viewOptions = z.strictObject({
   description: z.string().max(5000).optional(),
-  empty: z.strictObject({ title: label, detail: z.string().max(2000).optional() }).optional(),
+  empty: z.strictObject({ title: viewLabel, detail: z.string().max(2000).optional() }).optional(),
   toolbar: z.array(viewAction).max(10).optional(),
   itemActions: z.array(viewAction).max(10).optional(),
-  columns: z.array(label).max(20).optional()
+  columns: z.array(viewLabel).max(20).optional()
 })
 
 /** A view's data as a host sends it: a form holds fields, and the other kinds hold items. */
@@ -164,6 +171,50 @@ const viewData: z.ZodType<ViewData> = z.union([
     options: viewOptions,
     items: z.array(viewItem).max(10_000)
   })
+])
+
+const designKey = z.string().max(2000)
+
+const nodeId = z.string().max(500)
+
+const label = z.string().min(1).max(200)
+
+const designOperation: z.ZodType<DesignOperation> = z.discriminatedUnion("op", [
+  z.strictObject({
+    op: z.literal("insert"),
+    design: designKey,
+    parent: nodeId,
+    slot: nodeId.optional(),
+    before: nodeId.optional(),
+    node: jsonValue
+  }),
+  z.strictObject({ op: z.literal("remove"), design: designKey, node: nodeId }),
+  z.strictObject({
+    op: z.literal("move"),
+    design: designKey,
+    node: nodeId,
+    parent: nodeId,
+    slot: nodeId.optional(),
+    before: nodeId.optional()
+  }),
+  z.strictObject({
+    op: z.literal("set"),
+    design: designKey,
+    node: nodeId,
+    path: z.array(z.string().max(200)).min(1).max(10),
+    value: jsonValue.optional()
+  })
+])
+
+const filePath = z.string().min(1).max(1000)
+
+const fileText = z.string().max(10_000_000)
+
+const fileEdit: z.ZodType<FileEdit> = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("create"), path: filePath, content: fileText }),
+  z.strictObject({ kind: z.literal("replace"), path: filePath, expected: fileText, content: fileText }),
+  z.strictObject({ kind: z.literal("patch"), path: filePath, find: fileText.min(1), replace: fileText }),
+  z.strictObject({ kind: z.literal("delete"), path: filePath, expected: fileText })
 ])
 
 /** Reads each of a host's requests before the service handles it. */
@@ -241,5 +292,7 @@ export const hostChecks: Checks<HostServiceMethods> = {
   ),
   "servers.adopt": checkOf(z.strictObject({ id: z.string().max(100), name: z.string().max(100), url })),
   "servers.stop": checkOf(z.strictObject({ id: z.string().max(100) })),
-  "servers.routed": checkOf(z.undefined())
+  "servers.routed": checkOf(z.undefined()),
+  "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000) })),
+  "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000) }))
 }

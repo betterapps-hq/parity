@@ -22,7 +22,14 @@ import type {
   ModesChange,
   WrittenClasses
 } from "@parity-app/core"
-import type { CodeReference, EditStatus, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
+import type {
+  CodeReference,
+  DesignOperation,
+  EditStatus,
+  ImageFile,
+  RecoveryCopy,
+  ReferenceAdded
+} from "@parity-app/editor"
 import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
@@ -381,6 +388,16 @@ export interface WindowMethods {
   "extensions.logged": { params: { projectId: string; extension: string; line: LogLine }; result: undefined }
   /** An extension asks the person something through `parity.ui`, or shows them something. */
   "extensions.ui": { params: ExtensionUiRequest; result: ExtensionUiAnswer }
+  /**
+   * An extension changes designs (PAR-1093): applied as an agent's call is, as one undo step under `label`, which names
+   * the extension. Fails, changing nothing, when an operation can't apply.
+   */
+  "extensions.transact": {
+    params: { projectId: string; label: string; operations: DesignOperation[] }
+    result: undefined
+  }
+  /** An extension changed the project's files, shown with Undo. */
+  "extensions.edited": { params: { projectId: string; edit: ProjectEditResult }; result: undefined }
   /** An extension asks to open the tab or page that holds one of its views. */
   "extensions.reveal": { params: { projectId: string; extension: string; view: string }; result: undefined }
 }
@@ -431,6 +448,8 @@ export const windowMethods = Object.keys({
   "extensions.changed": true,
   "extensions.logged": true,
   "extensions.ui": true,
+  "extensions.transact": true,
+  "extensions.edited": true,
   "extensions.reveal": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 

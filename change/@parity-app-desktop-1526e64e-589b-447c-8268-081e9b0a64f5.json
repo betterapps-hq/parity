@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Extensions with the edits permission change designs as one undo step named after them, and write project files through Parity, never .par files",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

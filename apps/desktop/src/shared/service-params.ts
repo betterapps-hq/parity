@@ -163,6 +163,7 @@ export const serviceParams = {
     target: z
       .discriminatedUnion("type", [
         z.object({ type: z.literal("component"), key: z.string() }),
+        z.object({ type: z.literal("layer"), design: z.string(), node: z.string() }),
         z.object({ type: z.literal("item"), view: z.string(), key: z.string() })
       ])
       .optional()
