@@ -30,10 +30,11 @@ import type {
   RecoveryCopy,
   ReferenceAdded
 } from "@parity-app/editor"
+import type { SettingValue } from "@parity-app/extension-api"
 import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
-import type { SettingsChange } from "@parity-app/settings"
+import type { ExtensionSettingsChange, SettingsChange } from "@parity-app/settings"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange } from "@parity-app/tokens"
 import type { z } from "zod"
@@ -42,6 +43,7 @@ import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connect
 import type { openInEditorRequest, saveDialogOptions } from "./ipc-checks.ts"
 import type { KeybindingsState, Replacement } from "./keybindings.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
+import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "./settings-view.ts"
 import type { SettingsState } from "./settings.ts"
 
 /**
@@ -148,6 +150,11 @@ export interface ServiceMethods {
   "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
   /** The person cancelled an extension's task shown with `parity.ui.progress`. */
   "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
+  /**
+   * The project's settings for its extensions, from its main `.par`'s `extensions` field, sent each time they change,
+   * before they're saved, so extensions see them at once (PAR-1090).
+   */
+  "extensions.projectSettings": { params: ServiceParams["extensions.projectSettings"]; result: undefined }
   /**
    * Does one of an adapter's actions for the project, or for one of its components, as opening a component's stories in
    * Storybook, which starts it first if needed. Returns an address to open in the browser when it gives one.
@@ -394,6 +401,14 @@ export interface WindowMethods {
   }
   /** An extension changed the project's files, shown with Undo. */
   "extensions.edited": { params: { projectId: string; edit: ProjectEditResult }; result: undefined }
+  /**
+   * An extension sets one of its `project` settings with `parity.settings.update`, which the window makes one undo step
+   * on the project's main file, or puts back to its default without `value` (PAR-1090).
+   */
+  "extensions.setting": {
+    params: { projectId: string; extension: string; key: string; value?: SettingValue }
+    result: undefined
+  }
 }
 
 /** What an extension asks through `parity.ui`, by method, with what the host sent. */
@@ -443,7 +458,8 @@ export const windowMethods = Object.keys({
   "extensions.logged": true,
   "extensions.ui": true,
   "extensions.transact": true,
-  "extensions.edited": true
+  "extensions.edited": true,
+  "extensions.setting": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
@@ -632,6 +648,13 @@ export interface CanvasHost {
     change: (change: SettingsChange) => Promise<SettingsState>
     subscribe: (listener: (state: SettingsState) => void) => () => void
   }
+  /**
+   * Settings, its own web contents over the editor window, which loads no project code (PAR-1090). The editor window
+   * opens it and sends what it shows of the open project; Settings changes extensions' app settings and the project.
+   */
+  settingsView: SettingsViewHost
+  /** Opens a dev server's page or a web page in a window of Parity's own, as "Open stories in" can choose. */
+  openInParity(url: string): Promise<void>
   /** `keybindings.json`, the shortcuts the person changed, which main keeps (PAR-1085). */
   keybindings: {
     get: () => Promise<KeybindingsState>
@@ -650,6 +673,28 @@ export interface CanvasHost {
   metrics(): Promise<ProcessUsage[]>
   /** The log of what projects' code writes to the console, which agents read with `parity console` (PAR-147). */
   console: ConsoleHost
+}
+
+/** Settings as its own web contents (PAR-1090): what the editor window asks of it, and what Settings asks of main. */
+export interface SettingsViewHost {
+  /** Whether this page is Settings, rather than the editor window. */
+  readonly isSettings: boolean
+  /** Opens Settings over the editor window, on a page and with a setting on it marked when asked. */
+  open(opening: SettingsOpening): Promise<void>
+  /** Sends what Settings shows of the editor window's open project, each time it changes. */
+  publish(project: SettingsProject): void
+  /** In the editor window: hears each change Settings makes to the open project, to make it an undo step. */
+  onProjectChange(listener: (change: SettingsProjectChange) => void): () => void
+  /** In Settings: hears where to open, at once with the last when there's been one. */
+  onOpening(listener: (opening: SettingsOpening) => void): () => void
+  /** In Settings: hears what the window sent of its open project, at once with the last when there's been one. */
+  onProject(listener: (project: SettingsProject) => void): () => void
+  /** In Settings: changes the open project, as one undo step in its window. */
+  changeProject(change: SettingsProjectChange): Promise<void>
+  /** In Settings: changes extensions' app settings in `settings.json`. */
+  changeExtensions(change: ExtensionSettingsChange): Promise<SettingsState>
+  /** In Settings: closes it. */
+  close(): Promise<void>
 }
 
 /**

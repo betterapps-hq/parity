@@ -5,9 +5,11 @@ import {
   changedSettings,
   defaultSettings,
   changeSettings,
+  type ExtensionSettings,
+  type FileChange,
   readSettings,
-  type SettingsChange,
-  settingKeys
+  settingKeys,
+  withExtensionChange
 } from "@parity-app/settings"
 import { z } from "zod"
 import type { SettingsState } from "../shared/settings.ts"
@@ -17,8 +19,11 @@ import { writeWhole } from "./json-file.ts"
 export interface SettingsStore {
   /** What every window is shown now, from memory: the file as last read, with changes not yet saved on top. */
   state(): SettingsState
-  /** Makes one change, in the file as it is now. Never fails: a change that can't be saved yet waits and is tried again. */
-  change(change: SettingsChange): Promise<SettingsState>
+  /**
+   * Makes one change, in the file as it is now: to Parity's own settings, or to extensions' under `extensions`. Never
+   * fails: a change that can't be saved yet waits and is tried again.
+   */
+  change(change: FileChange): Promise<SettingsState>
   /** Reads the file again, as when a window gains focus, in case a change from another copy was missed. */
   check(): void
   /** Stops watching and trying again. */
@@ -72,10 +77,11 @@ function readText(file: string): FileRead {
 export function settingsStore(file: string, options: SettingsStoreOptions): SettingsStore {
   const { changed, problem = () => undefined, settleMs = 150, retryMs = 1000, retryMaxMs = 30_000 } = options
   let fileValues: AppSettings = { ...defaultSettings }
+  let fileExtensions: ExtensionSettings = {}
   let fileProblem: string | undefined
   let badValues: SettingsState["badValues"] = []
   /** Changes made in this copy that aren't in the file yet, in order. */
-  let unsaved: SettingsChange[] = []
+  let unsaved: FileChange[] = []
   let shown: SettingsState
   let queue: Promise<unknown> = Promise.resolve()
   let retry: ReturnType<typeof setTimeout> | undefined
@@ -105,8 +111,12 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
     return Object.fromEntries(entries) as AppSettings
   }
 
+  /** Extensions' settings in the file, with this copy's unsaved changes to them on top, in order. */
+  const extensionsWithUnsaved = (): ExtensionSettings =>
+    unsaved.reduce((settings, change) => withExtensionChange(settings, change.extensions), fileExtensions)
+
   const stateNow = (): SettingsState => {
-    const state: SettingsState = { values: withUnsaved(), badValues }
+    const state: SettingsState = { values: withUnsaved(), extensions: extensionsWithUnsaved(), badValues }
 
     if (fileProblem !== undefined) {
       state.problem = fileProblem
@@ -126,6 +136,7 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
 
     if (
       Object.keys(keys).length > 0 ||
+      JSON.stringify(before.extensions) !== JSON.stringify(shown.extensions) ||
       before.problem !== shown.problem ||
       before.unsaved !== shown.unsaved ||
       before.badValues.join() !== shown.badValues.join()
@@ -148,6 +159,7 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
 
     if (settings.problem === undefined) {
       fileValues = settings.values
+      fileExtensions = settings.extensions
       badValues = settings.badValues
     }
 
@@ -176,6 +188,7 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
         unsaved = unsaved.slice(writing.length)
         const settings = readSettings(text)
         fileValues = settings.values
+        fileExtensions = settings.extensions
         badValues = settings.badValues
         fileProblem = undefined
       },

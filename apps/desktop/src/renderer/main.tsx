@@ -12,6 +12,7 @@ import { watchLongTasks } from "./long-tasks.ts"
 import { preloadOpenProject } from "./ProjectView.tsx"
 import { replaySampling } from "./replay.ts"
 import { setWindowTelemetry } from "./report-error.ts"
+import { watchExtensionSettings } from "./settings-project.ts"
 import { caughtEventId, reactErrorHandlers, startTelemetry } from "./telemetry.ts"
 import { startTheme } from "./theme.ts"
 import { currentTraceHeaders, traceWith } from "./tracing.ts"
@@ -55,6 +56,9 @@ startTheme()
 
 // The shortcuts the person changed, from keybindings.json, which main sends as they change (PAR-1085).
 startKeybindings()
+
+// Each open project's settings for its extensions go to the service as they change, saved or not (PAR-1090).
+watchExtensionSettings()
 
 // The kit's components merge classes knowing the app's type roles (docs/typography.md).
 installClassMerger()

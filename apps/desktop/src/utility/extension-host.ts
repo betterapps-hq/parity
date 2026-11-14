@@ -16,7 +16,8 @@ const host = serveExtensionHost({
     { closedBy: { disconnect: () => new Error("The project service went away") } }
   ),
   load: (main) => import(pathToFileURL(main).href),
-  exit: () => process.exit(0)
+  exit: () => process.exit(0),
+  memory: () => process.memoryUsage.rss()
 })
 
 // What the extension's code prints goes to its log in the bottom panel, as well as to the process's own output.

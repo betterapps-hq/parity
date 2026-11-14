@@ -151,11 +151,15 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
 /** The open projects hosts were told of, by id, for their servers' folders and names. */
 const projects = new Map<string, { root: string; name: string }>()
 
-/** Tells the hosts a project opened, which starts the extensions that activate when detected. */
+/**
+ * Tells the hosts a project opened, which starts the extensions that activate when detected, with the project's
+ * settings for them as its main `.par` saved them. The window sends them again as they change.
+ */
 export function openExtensions(hosts: ExtensionHosts<ExtensionProject>, open: OpenProject): void {
-  const { id, root, name } = open.info
+  const { id, root, name, mainDocument, documents } = open.info
   projects.set(id, { root, name })
-  hosts.open({ id, root, name, open })
+  const main = documents.find((entry) => entry.path === mainDocument)?.document
+  hosts.open({ id, root, name, open }, main?.extensions ?? {})
 }
 
 /** Ends a project's hosts as it closes. */

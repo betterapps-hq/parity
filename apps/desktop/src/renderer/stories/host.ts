@@ -427,10 +427,23 @@ export function installHost(): void {
       Promise.resolve({ folder: "C:\\Users\\ana\\AppData\\Local\\Parity\\bin", onPath: true, newTerminal: true }),
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
+    // Stories draw Settings in the page itself, so nothing opens it as a view of its own.
+    settingsView: {
+      isSettings: false,
+      open: () => Promise.resolve(),
+      publish: () => undefined,
+      onProjectChange: () => () => undefined,
+      onOpening: () => () => undefined,
+      onProject: () => () => undefined,
+      changeProject: () => Promise.resolve(),
+      changeExtensions: () => Promise.resolve({ values: { ...defaultSettings }, extensions: {}, badValues: [] }),
+      close: () => Promise.resolve()
+    },
+    openInParity: () => Promise.resolve(),
     // Stories keep settings in memory: `preferences.ts` changes them for the story and puts them back after.
     settings: {
-      now: () => ({ values: { ...defaultSettings }, badValues: [] }),
-      change: () => Promise.resolve({ values: { ...defaultSettings }, badValues: [] }),
+      now: () => ({ values: { ...defaultSettings }, extensions: {}, badValues: [] }),
+      change: () => Promise.resolve({ values: { ...defaultSettings }, extensions: {}, badValues: [] }),
       subscribe: () => () => undefined
     },
     // Stories start with the keymap's keys and keep what's changed in the story.
@@ -494,8 +507,14 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
     {
       id: storybookExtension.id,
       displayName: manifest.displayName,
+      prefix: manifest.prefix,
       icon: manifest.icon,
       contributes: manifest.contributes,
+      permissions: {},
+      activates: manifest.activates,
+      settingProblems: [],
+      activatedIn: 140,
+      memory: 48 * 1_048_576,
       state: "running",
       status: {
         "storybook.stories": {
