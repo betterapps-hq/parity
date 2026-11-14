@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Import the shadcn example's components from Buildkit's Nova package",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

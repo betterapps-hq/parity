@@ -6,6 +6,7 @@ import { errorCode } from "@parity-app/telemetry"
 import { portFree } from "@parity-app/vite-adapter"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
+import { keepCompiledCode } from "../shared/compile-cache.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { changedFrames, storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
@@ -18,7 +19,7 @@ import {
   startAgentServer
 } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
-import { builderReadings, startBuilder } from "./builders.ts"
+import { builderReadings, prepareBuilder, startBuilder } from "./builders.ts"
 import { cacheUse, reportCacheUse } from "./cache-use.ts"
 import { ProjectChangeDetectors } from "./change-detectors.ts"
 import { reportRunningChildren } from "./children.ts"
@@ -306,10 +307,15 @@ reportRunningChildren((pids) => {
   })
 })
 
+// A project opening as Parity starts takes a builder process already loaded (PAR-1079).
+prepareBuilder()
+
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()
 
 reportCacheUse()
+
+keepCompiledCode()
 
 const agentImages: AgentImages = {
   scanImages: (projectId) => scanImages(projects.get(projectId)),

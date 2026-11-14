@@ -6800,6 +6800,42 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   app data, and opens them as it starts, while the window loads its UI; the window's open of the same project joins the
   one under way. One the window doesn't ask for within a minute, as when its tabs and the list disagree, is closed
   again.
+- **The builder starts before detection confirms it (PAR-1078).** Confirming the builder loads the project's config, as
+  `vite` does, which took 0.75 seconds on the example and 1.3 to 1.8 while Parity starts, even with the last detection
+  kept. So the service reads the project's files and components first, starts the builder whose config file is there in
+  its own process, and confirms it meanwhile. Doing both at once in the service only made them take turns on its thread.
+  A builder that detection doesn't confirm is closed, and the one it finds is started instead.
+  `apps/desktop/src/utility/projects.test.ts` (2: the builder starts before detection confirms it and serves from there,
+  and one detection can't confirm is closed).
+- **A builder process waits ready before a project opens (PAR-1079).** Starting a builder's process and loading the
+  builders' code took about 0.4 seconds before the builder itself began. The service starts one process as it starts,
+  and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
+  A waiting process that ended is replaced by a new one. `packages/processes/src/spare.test.ts` (3: the waiting child is
+  handed over and the next starts only when asked, and one that ended is replaced when taken or prepared).
+- **The window's compiled code is kept between launches (PAR-1082).** The installed window loads from `parity://`, and
+  Chromium keeps compiled code only for http(s) unless a scheme asks for it. So the window compiled its few megabytes of
+  JavaScript again every launch, in a long task before it first painted. With the scheme's `codeCache` privilege, the
+  window painted about 0.2 seconds sooner after it was created, and the long task was mostly gone. A development build
+  loads over http, so `pnpm perf` doesn't show this. No test: it's one privilege, measured in the built app.
+- **Main, the service and builders keep their compiled code too (PAR-1083).** The built app starts at `start.mjs`, which
+  turns on Node's compile cache before importing main's bundle and passes it to the service and builders through
+  `NODE_COMPILE_CACHE`. A builder's cache covers the project's Vite and plugins as well. Each process writes its cache
+  15 seconds after it starts, since a builder or the service can be ended outright. Across 8 alternating launches of the
+  built app, main was ready in 750 ms rather than 890, the builder in 1.83 seconds rather than 2.06, and the project
+  opened in 2.90 seconds rather than 3.12. A development build doesn't start at `start.mjs`, so it's unchanged. No test:
+  it's measured in the built app.
+- **An open project's canvas and panels load in a chunk of their own (PAR-1084).** None of them is drawn until a project
+  has opened, seconds after the window paints, so `OpenProject.tsx` is loaded lazily. The window loads that chunk once
+  it's idle after its first paint, so a project opening finds it ready, and shows the opening state while it loads.
+  That's 600 KB out of the 3.6 MB the window runs before it paints. tldraw stays in the main chunk: agent handlers, the
+  project picture and quick insert import it eagerly. No test: the end-to-end tests open projects through it.
+- **A project's library files are found by an index (PAR-1086).** As a project opens, each of its dependencies is looked
+  up in Parity's library registry. That read and checked all 23 files, 27 MB with Chakra's 19.6, just to find the
+  package each describes. The app's build now writes `libraries/index.json` beside them, and only the files for the
+  project's own packages are parsed. In the built app, detection took 507 ms rather than 795, and the project opened in
+  0.96 seconds rather than 1.25. A development checkout has no index and reads every file as before. The catalog and the
+  CLI still read every file when asked. `packages/registry/src/index.test.ts` (3: the index names each file's package, a
+  package's file is found without parsing the others, and an unreadable index reads every file).
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's
@@ -7672,9 +7708,10 @@ client ID and never its API key, and the window never sees a token.
   access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
   minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
   after 5 seconds, doubling to 5 minutes. The file is written whole, beside it then renamed over it, so a write cut
-  short leaves the accounts it held; one that can't be decrypted, or from a build that kept one account, isn't read, so
-  you sign in once more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit
-  Parity", the accounts panel keeps saying so, and both explain why.
+  short leaves the accounts it held. A copy that can't decrypt or read it, such as a build from another branch, starts
+  signed out and leaves the file for the copies that can; signing out there leaves it too, and signing in replaces it.
+  On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts panel
+  keeps saying so, and both explain why.
 - **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
   `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
   in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.

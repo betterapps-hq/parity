@@ -1,8 +1,51 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 10:50:18 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 10:41:18 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.5
+
+Sat, 14 Nov 2026 10:41:18 GMT
+
+### Patches
+
+- Load an open project's canvas and panels in a chunk of their own, so the window paints sooner (ajcraswell@gmail.com)
+
+## 0.82.4
+
+Sat, 14 Nov 2026 10:25:05 GMT
+
+### Patches
+
+- Keep compiled code for main, the service and builders between launches, so the app and projects open sooner
+  (ajcraswell@gmail.com)
+
+## 0.82.3
+
+Sat, 14 Nov 2026 09:46:47 GMT
+
+### Patches
+
+- Keep the window's compiled code between launches, so it paints sooner (ajcraswell@gmail.com)
+
+## 0.82.2
+
+Sat, 14 Nov 2026 08:53:51 GMT
+
+### Patches
+
+- Keep a builder process loaded before a project opens, so a project's builder starts sooner (ajcraswell@gmail.com)
+
+## 0.82.1
+
+Sat, 14 Nov 2026 06:02:52 GMT
+
+### Patches
+
+- A copy of Parity that can't read the kept accounts no longer deletes the file and signs every copy out.
+  (ajcraswell@gmail.com)
+- Start a project's builder before detection confirms it, so a project opens sooner (ajcraswell@gmail.com)
 
 ## 0.82.0
 

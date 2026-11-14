@@ -124,23 +124,43 @@ describe("sessionStore", () => {
     expect(await sessionStore(file, keychain(undefined, false), "darwin").update((kept) => kept)).toBe(false)
   })
 
-  it("forgets a file it can't read, as after the keychain changed or from a build that kept one account", async () => {
+  it("keeps a file it can't read for the copies that can, as from another build or keychain", async () => {
     const problems: StoreProblem[] = []
     const store = sessionStore(file, keychain(), "win32", (problem) => problems.push(problem))
-    writeFileSync(file, "not what the keychain wrote")
-    expect(await store.read()).toBeUndefined()
-    expect(existsSync(file)).toBe(false)
-    writeFileSync(file, Buffer.from(Buffer.from(JSON.stringify(ada)).toString("base64")))
-    expect(await store.read()).toBeUndefined()
-    expect(existsSync(file)).toBe(false)
-    writeFileSync(file, Buffer.from(Buffer.from("{ not json").toString("base64")))
-    expect(await store.read()).toBeUndefined()
+
+    const unreadable = [
+      Buffer.from("not what the keychain wrote"),
+      Buffer.from(Buffer.from(JSON.stringify(ada)).toString("base64")),
+      Buffer.from(Buffer.from("{ not json").toString("base64"))
+    ]
+
+    for (const content of unreadable) {
+      writeFileSync(file, content)
+      expect(await store.read()).toBeUndefined()
+      expect(readFileSync(file)).toEqual(content)
+    }
+
     // Each says where reading failed and the error's name, never what was decrypted.
     expect(problems).toEqual([
       { action: "read", stage: "decrypt", error: "Error" },
       { action: "read", stage: "schema", error: "ZodError" },
       { action: "read", stage: "json", error: "SyntaxError" }
     ])
+  })
+
+  it("leaves a file it can't read when a change there leaves no account", async () => {
+    const content = Buffer.from("written by another keychain")
+    writeFileSync(file, content)
+    const store = sessionStore(file, keychain(), "win32")
+    expect(await store.update((kept) => withoutAccount(kept, ada.person.email))).toBe(true)
+    expect(readFileSync(file)).toEqual(content)
+  })
+
+  it("writes over a file it can't read when an account is signed in there", async () => {
+    writeFileSync(file, "written by another keychain")
+    const store = sessionStore(file, keychain(), "win32")
+    expect(await store.update((kept) => withAccount(kept, ada))).toBe(true)
+    expect(await store.read()).toEqual({ accounts: [ada] })
   })
 
   it("says nothing when there's no file, and keeps one it can't open, saying why", async () => {

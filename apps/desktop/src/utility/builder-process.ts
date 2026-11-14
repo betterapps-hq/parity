@@ -1,6 +1,7 @@
 import { builders } from "@parity-app/adapters/builders"
 import { nodePort } from "@parity-app/channel"
 import { serveBuilderProcess } from "@parity-app/processes"
+import { keepCompiledCode } from "../shared/compile-cache.ts"
 // One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
 // project closes is what gives back the build tool's memory, which closing its server doesn't.
 
@@ -20,6 +21,8 @@ serveBuilderProcess(
   },
   builders
 )
+
+keepCompiledCode()
 
 // The service ended, even killed outright: nothing can reach this builder any more.
 process.on("disconnect", () => process.exit(0))

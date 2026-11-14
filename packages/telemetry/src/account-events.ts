@@ -95,7 +95,7 @@ export const accountStoreFailed = defineEvent(
       .enum(["file", "decrypt", "json", "schema", "reencrypt"])
       .optional()
       .describe(
-        "Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file is cleared, signing every account out"
+        "Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file stays; only this copy starts signed out"
       ),
     error: z.string().describe("The error's name, never its message, which can hold what was decrypted"),
     code: z.string().optional().describe("The system error code, as `EPERM`, when there is one")

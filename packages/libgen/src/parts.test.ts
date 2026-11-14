@@ -23,7 +23,7 @@ import {
 import { foundComponent, loadFrom, testReact } from "./react-for-tests.ts"
 
 // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-const load = loadFrom(join(import.meta.dirname, "../../react-adapter/package.json"))
+const load = loadFrom(join(import.meta.dirname, "../../../adapters/react-adapter/package.json"))
 const React = await testReact(load)
 
 interface TrialSetup {

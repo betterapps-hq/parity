@@ -15,6 +15,7 @@ import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
 import { parseManifest } from "@parity-app/core"
+import { buildRegistryIndex, registryIndexFile } from "@parity-app/registry"
 import { build, type BuildOptions } from "esbuild"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
@@ -98,6 +99,13 @@ cpSync(join(appDir, "resources"), join(out, "resources"), { recursive: true })
 const registry = dirname(require.resolve("@parity-app/registry/package.json"))
 
 cpSync(join(registry, "libraries"), join(out, "libraries"), { recursive: true })
+
+// Which package each library file describes, so opening a project parses only the files for its own packages, not
+// the tens of megabytes of the rest (PAR-1085).
+writeFileSync(
+  join(out, "libraries", registryIndexFile),
+  JSON.stringify(await buildRegistryIndex(join(out, "libraries")))
+)
 
 cpSync(join(registry, "in-app.json"), join(out, "in-app.json"))
 
@@ -263,6 +271,19 @@ function shipOtherMacBinaries(): void {
 
 const { name, version, license, description, author, homepage } = readManifest(appDir)
 
+// The app starts here, so Node keeps V8's compiled code for main between launches, and for the service and builders
+// through the variable they inherit (PAR-1083). Main's bundle is compiled before any of its code runs, so turning the
+// cache on has to come before it's imported.
+writeFileSync(
+  join(out, "start.mjs"),
+  `import { enableCompileCache, flushCompileCache } from "node:module"
+const { directory } = enableCompileCache()
+if (directory) process.env.NODE_COMPILE_CACHE = directory
+await import("./main.mjs")
+flushCompileCache()
+`
+)
+
 writeFileSync(
   join(out, "package.json"),
   JSON.stringify(
@@ -274,7 +295,7 @@ writeFileSync(
       author,
       homepage,
       type: "module",
-      main: "main.mjs",
+      main: "start.mjs",
       // Names a CI build's Sentry release; an installed build's is its version (PAR-625).
       commit: currentCommit(appDir),
       releaseChannel: process.env.PARITY_RELEASE_CHANNEL === "beta" ? "beta" : undefined

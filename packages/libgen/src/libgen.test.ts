@@ -139,7 +139,7 @@ describe("toDtcg", () => {
 
 describe("parts", () => {
   // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-  const load = loadFrom(join(import.meta.dirname, "../../react-adapter/package.json"))
+  const load = loadFrom(join(import.meta.dirname, "../../../adapters/react-adapter/package.json"))
 
   it("places each part inside what its error names, nearest last, and keeps samples that make it render", async () => {
     const React = await testReact(load)
@@ -620,7 +620,7 @@ describe("regenerating", () => {
 
 describe("errors from the app", () => {
   // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-  const load = loadFrom(join(import.meta.dirname, "../../react-adapter/package.json"))
+  const load = loadFrom(join(import.meta.dirname, "../../../adapters/react-adapter/package.json"))
 
   it("puts the parent an app error names in the part's chain, and takes an input's label off", async () => {
     const React = await testReact(load)
