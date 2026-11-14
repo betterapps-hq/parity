@@ -86,6 +86,7 @@ describe("states in a project file (PAR-1002)", () => {
       { id: "Default", name: "Default" },
       { id: "Outline", name: "Outline" }
     ]
+
     const read = parseCanvasDocument(file({ kind: "story", states, view: { allStates: true } }))
 
     expect(designStates(read.containers[0]!)).toEqual(states)
