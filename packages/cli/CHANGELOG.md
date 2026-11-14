@@ -1,8 +1,25 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 14 Nov 2026 21:19:27 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 22:45:30 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.65.0
+
+Sat, 14 Nov 2026 22:45:30 GMT
+
+### Minor changes
+
+- Extensions with the edits permission change designs as one undo step named after them, and write project files through
+  Parity, never .par files (ajcraswell@gmail.com)
+- Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands
+  only where a when expression holds, and add keys, which Parity's own win (PAR-1092) (ajcraswell@gmail.com)
+- Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no
+  longer exist (ajcraswell@gmail.com)
+- Storybook and TanStack Router take their supported versions from their extensions' peer dependencies
+  (ajcraswell@gmail.com)
+- Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying
+  that fades and selects, and a screen-sized preview ring (ajcraswell@gmail.com)
 
 ## 0.64.0
 
