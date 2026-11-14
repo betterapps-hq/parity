@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Extensions start, adopt and watch a project's processes with parity.processes, which outlive their host; Storybook runs on it",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

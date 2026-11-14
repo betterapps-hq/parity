@@ -3,12 +3,7 @@ import type { ExtensionModule, FormView, View, ViewItem } from "@parity-app/exte
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
-import {
-  type ExtensionProcesses,
-  type ExtensionStatus,
-  extensionHosts,
-  type OpenedProject
-} from "./hosts.ts"
+import { type ExtensionProcesses, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
 import { readExtension } from "./manifest.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
