@@ -121,6 +121,13 @@ describe("running", () => {
   it("compares specs by what they say, whatever their keys' order", () => {
     expect(sameSpec(storybook, { ...storybook, ready: { http: "/index.json" } })).toBe(true)
     expect(sameSpec(storybook, { ...storybook, args: ["dev"] })).toBe(false)
+    // Allowed by one permission, but not the same command line.
+    expect(
+      sameSpec(
+        { ...storybook, run: { bin: "sb", package: "@storybook/cli" } },
+        { ...storybook, run: { bin: "storybook", package: "@storybook/cli" } }
+      )
+    ).toBe(false)
   })
 })
 

@@ -159,6 +159,8 @@ interface Entry {
   reported: boolean
   /** While its first run is being launched, so a second start shares it. */
   starting?: Promise<ManagedProcess>
+  /** Stopped while a run was being launched, so it isn't spawned. */
+  canceled?: boolean
 }
 
 const entries = new Map<string, Entry>()
@@ -442,7 +444,13 @@ function common(spec: ManagedSpec) {
 /** Launches one run, and settles once spawning has been tried. */
 async function runOnce(entry: Entry): Promise<void> {
   const spec = entry.spec!
+  entry.canceled = false
   const launch = await spec.launch()
+
+  // Stopped, or its project closed, while its port was chosen and its command found.
+  if (entry.canceled || entries.get(spec.id) !== entry) {
+    throw new Error(`${spec.name} was stopped before it started`)
+  }
 
   entry.run += 1
   entry.live = true
@@ -893,6 +901,11 @@ async function stopEntry(entry: Entry, by: StoppedBy): Promise<void> {
   }
 
   if (!entry.live || !entry.life) {
+    // A run still being launched isn't spawned.
+    if (entry.starting || entry.restarting) {
+      entry.canceled = true
+    }
+
     return
   }
 

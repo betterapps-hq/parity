@@ -556,6 +556,18 @@ describe("extension hosts", () => {
       "storybook",
       "Local: http://localhost:6006/"
     )
+
+    // Once its run is ready, the line again says nothing; its next run is said ready again.
+    listener?.changed([{ ...storybookServer, state: "running" }])
+    listener?.lines("storybook", ["Local: http://localhost:6006/"])
+    listener?.changed([{ ...storybookServer, state: "starting", run: 2 }])
+    listener?.lines("storybook", ["Local: http://localhost:6007/"])
+    await settle()
+
+    expect(markReady.mock.calls.map(([, , match]) => match)).toEqual([
+      "Local: http://localhost:6006/",
+      "Local: http://localhost:6007/"
+    ])
   })
 
   it("names an extension that fails to activate, with the reason", async () => {

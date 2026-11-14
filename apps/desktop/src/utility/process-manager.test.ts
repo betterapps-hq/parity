@@ -136,6 +136,23 @@ describe("starting a server", { timeout: 60_000 }, () => {
     await one.stop("extension")
   })
 
+  it("doesn't spawn a run whose project closed while it was being launched", async () => {
+    let launched: () => void = () => undefined
+    const spec = await storybook()
+
+    const starting = startProcess({
+      ...spec,
+      launch: () => new Promise<void>((resolve) => (launched = resolve)).then(() => spec.launch())
+    })
+
+    stopProject("D:/projects/shop")
+    launched()
+
+    await expect(starting).rejects.toThrow("Storybook was stopped before it started")
+    expect(managedProcess("storybook:shop")).toBeUndefined()
+    expect(sink.named("processes.started")).toEqual([])
+  })
+
   it("stops everything it started for a project when the project closes", async () => {
     const server = await startProcess(await storybook())
     await server.ready()

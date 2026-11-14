@@ -177,7 +177,8 @@ export function specFingerprint(spec: ProcessSpec): string {
     spec.id,
     spec.name,
     spec.lifetime,
-    permissionFor(spec.run),
+    // The run itself, not its permission: two command lines of one package are allowed alike but aren't the same.
+    Object.entries(spec.run).sort(([one], [other]) => (one < other ? -1 : 1)),
     spec.args ?? [],
     spec.cwd,
     env,

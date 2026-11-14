@@ -83,11 +83,16 @@ export function hostProcesses(): HostProcesses {
 
   const merge = (info: ProcessInfo) => take([...list.filter((each) => each.id !== info.id), info])
 
-  /** Calls `markReady` once a line matches the process's `output` check. */
+  /** The run each process was last said to be ready in, so a run is said ready once, and every run can be. */
+  const readyRuns = new Map<string, number>()
+
+  /** Calls `markReady` when a line matches the process's `output` check, once for each run. */
   const match = (id: string, lines: string[]) => {
     const pattern = patterns.get(id)
+    const info = own(id)
 
-    if (!pattern) {
+    // The copy may not know of a run that started again yet; the service ignores a run that's ready already.
+    if (!pattern || (info?.state === "running" && readyRuns.get(id) === info.run)) {
       return
     }
 
@@ -95,7 +100,7 @@ export function hostProcesses(): HostProcesses {
       const found = pattern.exec(line.slice(0, matchedLineLength))
 
       if (found) {
-        patterns.delete(id)
+        readyRuns.set(id, info?.run ?? 0)
         markReady(id, found[0])
 
         return
