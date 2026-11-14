@@ -19,7 +19,7 @@ import {
   startAgentServer
 } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
-import { builderReadings, startBuilder } from "./builders.ts"
+import { builderReadings, prepareBuilder, startBuilder } from "./builders.ts"
 import { cacheUse, reportCacheUse } from "./cache-use.ts"
 import { ProjectChangeDetectors } from "./change-detectors.ts"
 import { reportRunningChildren } from "./children.ts"
@@ -308,6 +308,9 @@ reportRunningChildren((pids) => {
     // Main went away, and ended this service's whole tree as it went.
   })
 })
+
+// A project opening as Parity starts takes a builder process already loaded (PAR-1079).
+prepareBuilder()
 
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()

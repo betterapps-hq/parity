@@ -7,6 +7,7 @@ import {
   type BuilderProcessSession,
   type ChildExit,
   connectBuilderProcess,
+  keepSpare,
   type Lifecycle
 } from "@parity-app/processes"
 import type { BuilderReading } from "../shared/service.ts"
@@ -23,6 +24,17 @@ import { reportBuilderCrash } from "./telemetry.ts"
  */
 
 const script = fileURLToPath(new URL("./builder-process.mjs", import.meta.url))
+
+/**
+ * A builder process started and loaded before a project needs it (PAR-1079): forking one and loading the builders'
+ * code takes about 0.4 s, which a project would otherwise wait for as it opens.
+ */
+const spare = keepSpare(() => forkChild(script, { echo: true }))
+
+/** Starts a builder process for the next project to take, unless one is waiting already. */
+export function prepareBuilder(): void {
+  spare.prepare()
+}
 
 interface Running {
   life: Lifecycle
@@ -82,7 +94,7 @@ export function startBuilder(
     onCodeChange?: (change: CodeChange) => void
   }
 ): StartedBuilder {
-  const { life, port } = forkChild(script, { echo: true })
+  const { life, port } = spare.take()
 
   const client = connectBuilderProcess({ port, life }, options, {
     name: builder,
@@ -104,6 +116,8 @@ export function startBuilder(
   void inSpan("builder.started", { builder }, () => client.session).catch(() => {
     // Its crash or exit is reported on its own.
   })
+  // The next spare starts once this builder is up, so the two don't share the CPU while this one starts.
+  void client.session.catch(() => undefined).then(prepareBuilder)
   const item: Running = { life, name: `${builder} for ${project}`, client }
   running.add(item)
   void life.exited.then(() => running.delete(item))
