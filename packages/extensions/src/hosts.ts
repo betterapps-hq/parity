@@ -558,9 +558,10 @@ export function extensionHosts<Project extends OpenedProject>(
       "selection.highlight": ui("selection.highlight"),
       navigate: ui("navigate"),
       // An extension's command runs in its host; anything else is one of Parity's, which the window runs.
-      async "commands.execute"(params: HostServiceMethods["commands.execute"]["params"]) {
+      // An extension's command run during an agent's call is the agent's too.
+      async "commands.execute"({ call, ...params }: HostServiceMethods["commands.execute"]["params"]) {
         if (declarer(open, params.command)) {
-          await runCommand(open, params.command, params.target)
+          await runCommand(open, params.command, params.target, agentOf(call))
         } else {
           await options.window.ui(projectId, id, "commands.execute", params)
         }

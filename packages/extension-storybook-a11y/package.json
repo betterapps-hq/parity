@@ -76,7 +76,9 @@
         ],
         "search": [
           {
-            "command": "a11y.open"
+            "command": "a11y.open",
+            "enablement": "a11y.hasStories",
+            "disabledReason": "No story found"
           }
         ]
       },

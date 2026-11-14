@@ -171,7 +171,7 @@ export interface HostServiceMethods {
   /** Moves around the window; `pageUrl` answers with the URL. */
   navigate: { params: NavigateTo; result: { url?: string } }
   /** Runs one of Parity's own commands, or an extension's. */
-  "commands.execute": { params: { command: string; target?: CommandTarget }; result: undefined }
+  "commands.execute": { params: { command: string; target?: CommandTarget } & Called; result: undefined }
   /** Calls a function of the API of an extension its manifest names in `extensionDependencies`. */
   "extensions.call": { params: { extension: string; method: string; args: JsonValue[] } & Called; result: Returned }
 }
@@ -400,7 +400,7 @@ export const hostChecks: Checks<HostServiceMethods> = {
       z.strictObject({ kind: z.literal("openSettings"), id: name })
     ])
   ),
-  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional() })),
+  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional(), call })),
   "extensions.call": checkOf(z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call }))
 }
 

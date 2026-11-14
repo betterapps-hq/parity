@@ -53,6 +53,7 @@ const noCalls: CallContext = { run: (_call, task) => task(), current: () => unde
 
 /** What the host sends with the id of the agent's call it's part of. */
 const called = new Set<keyof HostServiceMethods>([
+  "commands.execute",
   "edits.transact",
   "files.edit",
   "ui.pick",

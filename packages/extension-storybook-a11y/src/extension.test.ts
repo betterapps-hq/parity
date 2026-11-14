@@ -91,6 +91,12 @@ describe("the accessibility extension", () => {
 
     expect(found.manifest.extensionDependencies).toEqual(["@parity-app/extension-storybook"])
     expect(found.manifest.contributes.agentTools?.map((tool) => tool.name)).toEqual(["a11y.page"])
+    // Every placement, Search's among them, is greyed where there's no component with stories to check.
+    expect(
+      Object.values(found.manifest.contributes.menus ?? {})
+        .flat()
+        .map((item) => item?.enablement)
+    ).toEqual(["a11y.hasStories", "a11y.hasStories", "a11y.hasStories", "a11y.hasStories"])
   })
 
   it("opens a component's first story with the accessibility panel, through the Storybook extension's API", async () => {

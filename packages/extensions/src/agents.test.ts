@@ -232,6 +232,27 @@ describe("extensions for agents", () => {
     ])
   })
 
+  it("names a change after the agent when its command runs another of the extension's commands", async () => {
+    const { hosts, transact, asked } = setUp({
+      "parity-stories": { activate: () => undefined },
+      "parity-checks": {
+        activate(parity) {
+          parity.commands.register("checks.run", async () => {
+            await parity.edits.transact("Check", [{ op: "remove", design: "app.par#home", node: "a" }])
+            await parity.ui.confirm("Go on?").catch(() => false)
+          })
+          parity.agentTools.register("checks.page", () => parity.commands.execute("checks.run"))
+        }
+      }
+    })
+
+    hosts.open(project)
+    await hosts.runForAgent("shop", { name: "checks.page", input: { component: "Button" } }, "Claude Code")
+
+    expect(transact).toHaveBeenCalledWith("shop", "parity-checks", "Claude Code via Checks: Check", expect.any(Array))
+    expect(asked).toEqual([])
+  })
+
   it("starts an extension for an agent as the agent's, so its activation's changes are named and it can't ask", async () => {
     const { hosts, transact, asked } = setUp({
       "parity-stories": { activate: () => undefined },
