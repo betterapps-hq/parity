@@ -50,6 +50,24 @@ describe("commandsAt", () => {
   })
 })
 
+describe("commandsAt for a layer", () => {
+  const title = { type: "layer", design: "app.par#home", node: "title" } as const
+
+  const tidy = storybook({
+    id: "parity-tidy",
+    contributes: {
+      commands: [{ id: "tidy.rename", title: "Rename layer" }],
+      menus: { layers: [{ command: "tidy.rename", when: "layer" }] }
+    },
+    context: {}
+  })
+
+  it("places what a when names for layers, as `layer`, and nothing placed for components", () => {
+    expect(commandsAt([storybook(), tidy], "layers", title)).toMatchObject([{ command: { id: "tidy.rename" } }])
+    expect(commandsAt([tidy], "layers", button)).toEqual([])
+  })
+})
+
 describe("statusItems", () => {
   it("gives each declared item with the value its code set last", () => {
     const status = { "storybook.stories": { value: "3", tooltip: "3 components have stories" } }

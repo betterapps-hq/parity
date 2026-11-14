@@ -12,6 +12,7 @@ import type {
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { askChangesAgain } from "../canvas/frame-changes.ts"
+import { announceEdit } from "../chrome/project-edits.tsx"
 import { answerExtension } from "../extension-ui.ts"
 import { extensionsOf } from "../extensions.ts"
 import { reportIds } from "../replay.ts"
@@ -161,6 +162,22 @@ const handlers: Handlers = {
       asked.extension
 
     return answerExtension(name, asked)
+  },
+  "extensions.transact": ({ projectId, label, operations }) => {
+    const session = sessionOf(projectId)
+
+    if (!session) {
+      throw new Error("The project isn't open in this window")
+    }
+
+    session.store.applyOperations(label, operations)
+
+    return undefined
+  },
+  "extensions.edited": ({ projectId, edit }) => {
+    announceEdit(projectId, edit)
+
+    return undefined
   },
   "project.guestMoved": async ({ projectId, guestUrl }) => {
     // A tab that couldn't load it says so, and the service tries again when the builder is started again.

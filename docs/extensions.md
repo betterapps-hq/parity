@@ -63,12 +63,47 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   status bar's process list.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page in the browser (`open`).
+- **`edits.transact(label, operations)`:** changes designs, with the `edits` permission (below).
+- **`files.edit(label, files)`:** writes project files the `write` permission names (below).
 - **`state.app` and `state.project`:** values that persist, for every project or for this one.
 - **`log`:** lines in the extension's log, as `console` writes are too.
 - **`subscriptions`:** disposables Parity disposes as the host stops.
 
 The host checks each call against the manifest: a command, status item or context key the manifest doesn't declare is
 refused.
+
+## Changing designs and files
+
+Extensions change designs and files through Parity, never by writing them, so undo, saving and recovery keep working
+(PAR-1093). Each change is one undo step named after the extension and the label it gives, as "Tidy: Rename layer".
+
+- **Designs:** `parity.edits.transact(label, operations)` takes operations on layers, by the design's key
+  (`app.par#home`) and the layer's id: `insert` a layer before a sibling or last, `remove` one, `move` one within its
+  design, and `set` a field (`["name"]`) or one key of `props`, `style` or `args` (`["props", "variant"]`), or take it
+  away by leaving out `value`. The project service sends them to the window that has the project open, waiting for one,
+  and the window applies them as it applies an agent's call: all of them or none. It refuses them when one names a
+  design or layer that isn't there, as one someone deleted meanwhile, or when what they leave isn't a valid design. The
+  operations are a subset of those in [proposals/multiplayer.md](proposals/multiplayer.md).
+- **Files:** `parity.files.edit(label, files)` creates, replaces, patches or deletes files, each saying what it expects
+  to find, through the project service's one queued write ([`utility/edits.ts`](../apps/desktop/src/utility/edits.ts)).
+  A file that changed meanwhile is left alone and nothing is written. The window shows the change with its diff and
+  Undo, and the watcher takes it as Parity's own.
+- **Permissions.** The service refuses `edits.transact` unless the manifest's `permissions` has `"edits": true`, and a
+  file write unless `permissions.write` has a glob matching its path (`**` for any folders, `*` for any name, `?` for
+  one character). It refuses `.par` files whatever the globs say, and paths outside the project. Permissions keep what
+  an extension does through Parity to what it declared. They aren't a sandbox: its code runs in Node of its own.
+- **Commands for a layer.** A command placed at `layers` with `"when": "layer"` shows in the menu of any layer in
+  Layers, and its handler gets `{ type: "layer", design, node }`. So an extension can rename the layer it was run on:
+
+  ```ts
+  parity.commands.register("tidy.rename", async (target) => {
+    if (target?.type === "layer") {
+      await parity.edits.transact("Rename layer", [
+        { op: "set", design: target.design, node: target.node, path: ["name"], value: "Heading" }
+      ])
+    }
+  })
+  ```
 
 ## Tests
 
@@ -80,6 +115,10 @@ refused.
   `parity.ui`, restarting after a crash and stopping after 3, one extension's crash leaving another running, a failed
   activation, a stuck host, and stopping everything with the project. Hosts talk over in-memory ports there, and load
   modules without a prototype, as Node's are.
+- [hosts.test.ts](../packages/extensions/src/hosts.test.ts) also: renaming a layer from a command as one labelled
+  change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`.
+- [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
+  files and paths outside the project.
 - [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts): Storybook's manifest passes the checks.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their

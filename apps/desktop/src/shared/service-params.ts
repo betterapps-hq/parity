@@ -160,7 +160,12 @@ export const serviceParams = {
   "extensions.list": project,
   "extensions.run": project.extend({
     command: z.string(),
-    target: z.object({ type: z.literal("component"), key: z.string() }).optional()
+    target: z
+      .discriminatedUnion("type", [
+        z.object({ type: z.literal("component"), key: z.string() }),
+        z.object({ type: z.literal("layer"), design: z.string(), node: z.string() })
+      ])
+      .optional()
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
