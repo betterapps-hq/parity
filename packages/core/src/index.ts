@@ -57,6 +57,8 @@ export {
   besideScales,
   boardLayoutAt,
   boardSize,
+  rowWrapWidth,
+  wrapRow,
   companionScale,
   gutterScale,
   shrinkBelow
@@ -330,6 +332,8 @@ export {
 } from "./modes.ts"
 
 export { type OwnFields, setOwnFields } from "./own-fields.ts"
+
+export { orderedStates, reorderShown, shownStates, withShownStates, withStateOrder } from "./rows.ts"
 
 export {
   breakpointAt,

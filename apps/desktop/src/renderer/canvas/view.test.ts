@@ -1,46 +1,43 @@
 import { type ContainerSpec, defaultModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { containerModes, toggleShownMode, withModeOrder, withShownModes } from "./view.ts"
+import { containerModes, withModes } from "./view.ts"
 
 const all = resolveModes(defaultModeSettings)
 
 // SAFETY: the example project has these four modes.
 const [desktop, desktopDark, tablet, mobile] = all.map((mode) => mode.id) as [string, string, string, string]
 
+const home = (view: ContainerSpec["view"]): ContainerSpec => ({
+  id: "home",
+  kind: "screen",
+  position: { x: 0, y: 0 },
+  name: "Home",
+  root: { type: "layout", id: "root", children: [] },
+  view
+})
+
 describe("shown modes", () => {
-  it("shows a checked mode beside the main frame", () => {
-    expect(toggleShownMode(desktop, [desktop], mobile, all)).toEqual({ main: desktop, shown: [desktop, mobile] })
+  const order = [desktop, desktopDark, tablet, mobile]
+
+  it("shows a mode beside the first one shown, in the design's order", () => {
+    expect(withModes({}, order, [desktop, mobile], all)).toEqual({ modes: [mobile] })
   })
 
-  it("makes the first of the rest main when the main frame is hidden", () => {
-    expect(toggleShownMode(tablet, [desktopDark, tablet, mobile], tablet, all)).toEqual({
-      main: desktopDark,
-      shown: [desktopDark, mobile]
-    })
+  it("draws the first one shown at full size when the first in the list is off, keeping the list's order", () => {
+    const view = withModes({}, order, [desktopDark, mobile], all)
+
+    expect(view).toEqual({ mode: desktopDark, modes: [mobile], order })
+    expect(containerModes(defaultModeSettings, home(view)).ordered.map((mode) => mode.id)).toEqual(order)
   })
 
-  it("keeps the last frame", () => {
-    expect(toggleShownMode(mobile, [mobile], mobile, all)).toEqual({ main: mobile, shown: [mobile] })
-  })
-
-  it("writes the main mode down only when it isn't the project's primary one", () => {
-    expect(withShownModes({ mode: mobile }, desktop, [mobile, desktop], all)).toEqual({ modes: [mobile] })
-    expect(withShownModes({}, tablet, [desktop, tablet], all)).toEqual({ mode: tablet, modes: [desktop] })
+  it("keeps a mode showing, never none", () => {
+    expect(withModes({ modes: [mobile] }, order, [], all)).toEqual({ modes: [mobile] })
   })
 })
 
 describe("a design's mode order", () => {
-  const screen = (view: ContainerSpec["view"]): ContainerSpec => ({
-    id: "home",
-    kind: "screen",
-    position: { x: 0, y: 0 },
-    name: "Home",
-    root: { type: "layout", id: "root", children: [] },
-    view
-  })
-
   const names = (view: ContainerSpec["view"]) => {
-    const { primary, companions, ordered } = containerModes(defaultModeSettings, screen(view))
+    const { primary, companions, ordered } = containerModes(defaultModeSettings, home(view))
 
     return {
       first: primary.name,
@@ -50,7 +47,7 @@ describe("a design's mode order", () => {
   }
 
   it("lists its modes in its order, the first shown first and the shown ones beside it in that order", () => {
-    const view = withModeOrder({ modes: [tablet] }, [mobile, tablet, desktop, desktopDark], all)
+    const view = withModes({}, [mobile, tablet, desktop, desktopDark], [tablet, mobile, desktop], all)
 
     expect(view).toEqual({ mode: mobile, modes: [tablet, desktop], order: [mobile, tablet, desktop, desktopDark] })
     expect(names(view)).toEqual({
@@ -60,20 +57,15 @@ describe("a design's mode order", () => {
     })
   })
 
-  it("shows the mode that was first beside the one moved first, which always shows", () => {
-    expect(withModeOrder({ modes: [tablet, mobile] }, [tablet, desktop, desktopDark, mobile], all).modes).toEqual([
-      mobile,
-      desktop
-    ])
-  })
-
   it("writes nothing down for the project's own order", () => {
-    expect(withModeOrder({ mode: tablet, order: [tablet] }, [desktop, desktopDark, tablet, mobile], all)).toEqual({
+    expect(
+      withModes({ mode: tablet, order: [tablet] }, [desktop, desktopDark, tablet, mobile], [tablet, desktop], all)
+    ).toEqual({
       modes: [tablet]
     })
   })
 
   it("puts modes the order doesn't name after it, in project order", () => {
-    expect(names({ order: [mobile] }).list).toEqual(["Desktop Light", "Mobile Light", "Desktop Dark", "Tablet Light"])
+    expect(names({ order: [mobile] }).list).toEqual(["Mobile Light", "Desktop Light", "Desktop Dark", "Tablet Light"])
   })
 })

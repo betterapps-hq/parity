@@ -29,6 +29,7 @@ import { PixelField } from "../inspector/controls/controls.tsx"
 import { ChangeMark, Changed } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { PercentField } from "../inspector/controls/number-field.tsx"
+import { useCarry } from "./board-carry.tsx"
 import { useProject } from "./context.ts"
 import { kindColors } from "./kinds.tsx"
 
@@ -410,7 +411,10 @@ export function PreviewHeader({
   variables,
   narrowest,
   stacked,
-  onStack
+  onStack,
+  column,
+  color,
+  onMoveColumn
 }: {
   design: ContainerSpec
   designKey: string
@@ -429,6 +433,12 @@ export function PreviewHeader({
   stacked: boolean
   /** Says whether what follows its name fits beside it over the preview, by the preview's key. */
   onStack: (key: string, stacked: boolean) => void
+  /** Its mode's place among the columns shown. */
+  column: number
+  /** Its design's color, for the marker where its column would land. */
+  color: string
+  /** Moves its mode's column from one place among those shown to another. */
+  onMoveColumn: (from: number, to: number) => void
 }) {
   const { store, selection } = useProject()
   const key = previewKey(state.id, mode.id)
@@ -439,6 +449,16 @@ export function PreviewHeader({
   const nameButton = useRef<HTMLButtonElement>(null)
   const rest = useRef<HTMLDivElement>(null)
   const holds = targets !== undefined
+
+  // Its header carries its column along its line of the row, among the previews on that line.
+  const carry = useCarry({
+    axis: "x",
+    items: () => lineTiles(nameButton.current),
+    from: () => lineTiles(nameButton.current).findIndex((tile) => tile.contains(nameButton.current)),
+    color,
+    onDrop: (to) => onMoveColumn(column, Number(lineTiles(nameButton.current)[0]?.dataset.column ?? 0) + to)
+  })
+
   const onChange: ChangeView = (label, update) => store.updateView(designKey, label, update)
 
   // Holding the selected previews' settings, it resets every one of them; otherwise its own.
@@ -527,15 +547,28 @@ export function PreviewHeader({
       className={`flex gap-1.5 whitespace-nowrap ${stacked ? "flex-col items-start" : "h-7 items-center"}`}
       data-canvas-control
     >
-      <Hint label={`Select ${mode.name}`} detail="Shift+click to add it" wait>
+      <Hint label={`Select ${mode.name}`} detail="Shift+click to add it, drag to move it" wait>
         <button
           ref={nameButton}
           type="button"
           tabIndex={tabbable ? 0 : -1}
           aria-label={named ? name : undefined}
           aria-pressed={selected}
-          onPointerDown={stopEventPropagation}
-          onClick={(event) => selection.set(pickPreviews(selection.get(), designKey, [key], event.shiftKey))}
+          aria-keyshortcuts="ArrowLeft ArrowRight"
+          onPointerDown={carry.onPointerDown}
+          onPointerUp={stopEventPropagation}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              event.preventDefault()
+              event.stopPropagation()
+              onMoveColumn(column, column + (event.key === "ArrowLeft" ? -1 : 1))
+            }
+          }}
+          onClick={(event) => {
+            if (!carry.carried()) {
+              selection.set(pickPreviews(selection.get(), designKey, [key], event.shiftKey))
+            }
+          }}
           // As wide as it reads, so what follows it goes under it rather than cutting it off.
           className="pointer-events-auto flex h-7 w-max shrink-0 items-center gap-1.5 rounded px-0.5 font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
           style={selected ? { color: kindColors.mode } : undefined}
@@ -545,6 +578,12 @@ export function PreviewHeader({
         </button>
       </Hint>
       {after}
+      {carry.marker}
     </div>
   )
+}
+
+/** The previews on the same line of a row as this element's, in order (see `useCarry`). */
+function lineTiles(element: Element | null): HTMLElement[] {
+  return [...(element?.closest(".row-line")?.querySelectorAll<HTMLElement>(":scope > .mode-tile") ?? [])]
 }

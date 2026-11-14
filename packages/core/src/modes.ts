@@ -191,7 +191,9 @@ export function shownModes(settings: ModeSettings, design: Pick<ContainerSpec, "
   const { view } = design
   const main = all.find((mode) => mode.id === view?.mode) ?? all[0]!
   const beside = new Set(view?.modes ?? [])
-  const ordered = [main, ...inOrder(all, view?.order ?? []).filter((mode) => mode !== main)]
+  // A design's own order keeps its modes where it puts them, the main one too, which is the first it shows; without one,
+  // the main mode comes first.
+  const ordered = view?.order ? inOrder(all, view.order) : [main, ...all.filter((mode) => mode !== main)]
 
   return { main, beside: ordered.filter((mode) => mode !== main && beside.has(mode.id)), all, ordered }
 }

@@ -6,7 +6,6 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -23,19 +22,24 @@ import {
   fitsContent,
   type FrameGeometry,
   type ModeVariable,
+  orderedStates,
   type ParamSpec,
   previewGeometry,
   previewKey,
   previewOptionsMode,
   previewScale,
   previewSettingsOf,
+  reorderShown,
   resolveDesign,
   type ResolvedMode,
+  rowWrapWidth,
+  shownStates,
   type StateSpec,
-  variantChoices
+  variantChoices,
+  withStateOrder,
+  wrapRow
 } from "@parity-app/core"
 import {
-  activeState,
   type BoardBox,
   fittedFrame,
   fitsDrawn,
@@ -43,13 +47,14 @@ import {
   kindName,
   kindTitle,
   pageFrameName,
+  pickPreviews,
   landedElsewhere,
   pageHeightMessage,
   pageLandedMessage,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
-import { ChevronDown, Rows3, TriangleAlert } from "lucide-react"
+import { ChevronDown, TriangleAlert } from "lucide-react"
 import {
   type CSSProperties,
   memo,
@@ -83,8 +88,10 @@ import {
   useRenameRequest
 } from "../selection.ts"
 import { useStore } from "../store.ts"
+import { useCarry } from "./board-carry.tsx"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { useBoardInternals } from "./board-internals.ts"
+import { BoardMenus } from "./BoardMenus.tsx"
 import { boardFile, componentBoardsFile } from "./component-boards.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
@@ -97,13 +104,12 @@ import { useFrameOnScreen } from "./frames-on-screen.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
-import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 import { PreviewHeader, type PreviewTarget } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
 import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
 import { storyScreensFile } from "./story-screens.ts"
-import { containerModes, modeNames, withShownModes } from "./view.ts"
+import { containerModes, withModes } from "./view.ts"
 
 interface ContainerViewProps {
   /** The board's element, which the canvas sizes its shape by. */
@@ -366,12 +372,14 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
+
   // Kept while the modes and the design are, so frames that show nothing new aren't drawn again.
-  const { primary, companions, all } = useMemo(() => containerModes(settings, container), [settings, container])
-  const active = activeState(container)
-  const allStates = container.view?.allStates ?? false
-  const states = designStates(container)
-  const rows = allStates ? states : [active]
+  const { primary, companions, all, ordered } = useMemo(
+    () => containerModes(settings, container),
+    [settings, container]
+  )
+
+  const rows = shownStates(container)
   const columns = useMemo(() => [primary, ...companions], [primary, companions])
   const { variables } = settings
 
@@ -423,13 +431,61 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
 
-  const stateName = (id: string) => states.find((state) => state.id === id)?.name ?? id
+  // A Storybook file's board names each story over its row; another design names its states beside them.
+  const story = entry.path === storyScreensFile
+  const shownColumns = columns.map((mode) => mode.id)
 
-  const selectState = (state: string) =>
-    store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
+  // Each row's previews on lines, wrapping past two and a half of the widest preview, or 1600 (see `wrapRow`).
+  const drawnWidths = rows.map((state) =>
+    columns.map((mode, column) => {
+      const own = previewSettingsOf(container, state.id, mode.id)
 
-  const showModes = (main: string, shown: string[]) =>
-    store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
+      return previewGeometry(container, mode, own).width * previewScale(container, mode, column === 0, own)
+    })
+  )
+
+  const most = rowWrapWidth(drawnWidths.flat())
+
+  // A row's name selects every preview in it, or with Shift adds them or takes them away.
+  const selectRow = (state: StateSpec, add: boolean) =>
+    selection.set(
+      pickPreviews(
+        selection.get(),
+        key,
+        columns.map((mode) => previewKey(state.id, mode.id)),
+        add
+      )
+    )
+
+  const moveRow = (from: number, to: number) =>
+    store.updateView(key, `Move ${rows[from]?.name ?? "row"}`, (view) =>
+      withStateOrder(
+        view,
+        container,
+        reorderShown(
+          orderedStates(container).map((state) => state.id),
+          rows.map((state) => state.id),
+          from,
+          to
+        )
+      )
+    )
+
+  // A header carried along its line moves its mode's column; the first shown is drawn at full size.
+  const moveColumn = (from: number, to: number) =>
+    store.updateView(key, `Move ${columns[from]?.name ?? "column"}`, (view) =>
+      withModes(
+        view,
+        reorderShown(
+          ordered.map((mode) => mode.id),
+          shownColumns,
+          from,
+          to
+        ),
+        shownColumns,
+        all
+      )
+    )
 
   const titleBar = (
     <TitleBar active={hovered || isSelected} width={width} board={title}>
@@ -454,21 +510,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             }
           />
         )}
-        {container.kind === "component" && (
-          <StateMenu
-            states={states}
-            active={active.id}
-            allStates={allStates}
-            onSelect={selectState}
-            onShowAll={(on) =>
-              store.updateView(key, on ? "Show every state" : `Show ${active.name}`, (view) => ({
-                ...view,
-                allStates: on
-              }))
-            }
-          />
-        )}
-        <ModesMenu modes={all} main={primary} beside={companions} triggerClassName={menuTrigger} onChange={showModes} />
+        <BoardMenus entry={entry} triggerClassName={menuTrigger} />
       </TitleControls>
     </TitleBar>
   )
@@ -491,98 +533,158 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
           )
         : titleBar}
 
-      <div className="flex flex-col">
-        {rows.map((state, index) => (
-          <StateRow
-            key={state.id}
-            state={state.id}
-            first={index === 0}
-            tall={columns.some((mode) => stacks.has(previewKey(state.id, mode.id)))}
-            label={
-              rows.length > 1 && (
-                <StateLabel
-                  state={state}
-                  base={index === 0}
-                  boardWidth={width}
-                  tabbable={isSelected}
-                  onSelect={() => selectState(state.id)}
-                />
-              )
-            }
-          >
-            {columns.map((mode, column) => {
-              const preview = previewKey(state.id, mode.id)
-              const own = previewSettingsOf(container, state.id, mode.id)
-              const scale = previewScale(container, mode, column === 0, own)
-              const self = { key: preview, mode, first: column === 0 }
+      <div className="board-rows flex flex-col">
+        {rows.map((state, index) => {
+          const lines = wrapRow(drawnWidths[index]!, most)
 
-              return (
-                <FrameTile
-                  key={mode.id}
-                  entry={entry}
-                  state={state}
-                  mode={mode}
-                  primary={column === 0}
-                  scale={scale}
-                  caption={index === 0}
-                  header={
-                    <PreviewHeader
+          const lineTall = lines.map((line) =>
+            line.some((column) => stacks.has(previewKey(state.id, columns[column]!.id)))
+          )
+
+          const tile = (column: number, place: FrameTileProps["place"]) => {
+            const mode = columns[column]!
+            const preview = previewKey(state.id, mode.id)
+            const own = previewSettingsOf(container, state.id, mode.id)
+            const scale = previewScale(container, mode, column === 0, own)
+            const self = { key: preview, mode, first: column === 0 }
+
+            return (
+              <FrameTile
+                key={mode.id}
+                entry={entry}
+                state={state}
+                mode={mode}
+                column={column}
+                primary={column === 0}
+                scale={scale}
+                caption={index === 0}
+                header={
+                  <PreviewHeader
+                    design={container}
+                    designKey={key}
+                    state={state}
+                    mode={mode}
+                    first={column === 0}
+                    targets={holder === preview ? targets : undefined}
+                    selected={picked.includes(preview)}
+                    named={rows.length > 1}
+                    tabbable={isSelected}
+                    variables={variables}
+                    narrowest={narrowest}
+                    stacked={stacks.has(preview)}
+                    onStack={onStack}
+                    column={column}
+                    color={color}
+                    onMoveColumn={moveColumn}
+                  />
+                }
+                resize={
+                  (hovered || isSelected || resizing === preview) && (
+                    <PreviewResize
                       design={container}
                       designKey={key}
-                      state={state}
-                      mode={mode}
-                      first={column === 0}
-                      targets={holder === preview ? targets : undefined}
-                      selected={picked.includes(preview)}
-                      named={rows.length > 1}
-                      tabbable={isSelected}
-                      variables={variables}
+                      self={self}
+                      changing={picked.includes(preview) ? targets : [self]}
+                      width={previewGeometry(container, mode, own).width}
+                      scale={scale}
                       narrowest={narrowest}
-                      stacked={stacks.has(preview)}
-                      onStack={onStack}
+                      breakpoints={page ? breakpoints : undefined}
+                      tabbable={isSelected}
+                      resizing={resizing === preview}
+                      onResizing={(now) => setResizing(now ? preview : undefined)}
                     />
-                  }
-                  resize={
-                    (hovered || isSelected || resizing === preview) && (
-                      <PreviewResize
-                        design={container}
-                        designKey={key}
-                        self={self}
-                        changing={picked.includes(preview) ? targets : [self]}
-                        width={previewGeometry(container, mode, own).width}
-                        scale={scale}
-                        narrowest={narrowest}
-                        breakpoints={page ? breakpoints : undefined}
-                        tabbable={isSelected}
-                        resizing={resizing === preview}
-                        onResizing={(now) => setResizing(now ? preview : undefined)}
-                      />
-                    )
-                  }
-                  variables={variables}
-                  selected={picked.includes(preview)}
-                  place={framePlace(column)}
-                  loaded={loaded}
-                  library={library}
-                  rest={rest}
-                />
-              )
-            })}
-          </StateRow>
-        ))}
+                  )
+                }
+                variables={variables}
+                selected={picked.includes(preview)}
+                place={place}
+                loaded={loaded}
+                library={library}
+                rest={rest}
+              />
+            )
+          }
+
+          const rowControls = {
+            index,
+            color,
+            tabbable: isSelected,
+            selected: columns.every((mode) => picked.includes(previewKey(state.id, mode.id))),
+            onSelect: (add: boolean) => selectRow(state, add),
+            onMove: moveRow
+          }
+
+          return (
+            <StateRow
+              key={state.id}
+              state={state.id}
+              first={index === 0}
+              tall={lineTall[0]!}
+              named={story && rows.length > 1}
+              label={
+                rows.length > 1 &&
+                (story ? (
+                  <RowName state={state} first={index === 0} boardWidth={width} {...rowControls} />
+                ) : (
+                  <StateLabel
+                    state={state}
+                    first={index === 0}
+                    base={state.id === designStates(container)[0]?.id}
+                    boardWidth={width}
+                    {...rowControls}
+                  />
+                ))
+              }
+            >
+              {lines.map((line, at) => (
+                <RowLine key={line[0]} first={at === 0} tall={lineTall[at]!}>
+                  {line.map((column, place) => tile(column, linePlace(column, at, place)))}
+                </RowLine>
+              ))}
+            </StateRow>
+          )
+        })}
       </div>
       {landed !== undefined && <LandedElsewhere path={landed} width={width} />}
     </div>
   )
 }
 
-/** A row's gutter: the first or a later one, a header line taller where its headers need it. */
-function rowPart(first: boolean, tall: boolean): BoardPart {
-  if (first) {
-    return tall ? "firstTallRow" : "firstRow"
+/**
+ * A row's gutter: the first or a later one, a header line taller where its headers need it, and a line taller again
+ * for its name where the board names its rows over them.
+ */
+function rowPart(first: boolean, tall: boolean, named: boolean): BoardPart {
+  const parts = {
+    first: { plain: "firstRow", tall: "firstTallRow", named: "firstNamedRow", namedTall: "firstNamedTallRow" },
+    next: { plain: "nextRow", tall: "nextTallRow", named: "nextNamedRow", namedTall: "nextNamedTallRow" }
+  } as const
+
+  const which = parts[first ? "first" : "next"]
+
+  if (named) {
+    return tall ? which.namedTall : which.named
   }
 
-  return tall ? "nextTallRow" : "nextRow"
+  return tall ? which.tall : which.plain
+}
+
+/** A row's line's gutter: the first raised into the band above it, a later one a gap below the last. */
+function linePart(first: boolean, tall: boolean): BoardPart {
+  if (first) {
+    return "rowFrames"
+  }
+
+  return tall ? "nextTallLine" : "nextLine"
+}
+
+/** Where a frame is on its line of a row: on the first, by its column; on a later one, first on it or after another. */
+function linePlace(column: number, line: number, place: number): FrameTileProps["place"] {
+  if (line === 0) {
+    return framePlace(column)
+  }
+
+  return place === 0 ? "firstFrame" : "nextFrame"
 }
 
 /** Where a frame is in its row, by its column: the main frame, then the first companion, a little further off. */
@@ -621,27 +723,127 @@ function StateRow({
   state,
   first,
   tall,
+  named,
   label,
   children
 }: {
   state: string
   first: boolean
+  /** Its first line's headers need a line under their names. */
   tall: boolean
+  /** Its name goes over it, in a band of its own. */
+  named: boolean
   label: ReactNode
   children: ReactNode
 }) {
   const row = useRef<HTMLElement>(null)
-  const frames = useRef<HTMLDivElement>(null)
-  useGutterStyle(row, rowPart(first, tall))
-  useGutterStyle(frames, "rowFrames")
+  useGutterStyle(row, rowPart(first, tall, named))
 
   return (
     <section ref={row} className="state-row relative" data-state={state}>
       {label}
-      <div ref={frames} className="flex items-start">
-        {children}
-      </div>
+      {children}
     </section>
+  )
+}
+
+/**
+ * One line of a row's previews. The first is raised into the band above it, with its headers; a row that wraps puts the
+ * rest each a gap below the last, a header line further where their headers need a line under their names.
+ */
+function RowLine({ first, tall, children }: { first: boolean; tall: boolean; children: ReactNode }) {
+  const line = useRef<HTMLDivElement>(null)
+  useGutterStyle(line, linePart(first, tall))
+
+  return (
+    <div ref={line} className="row-line flex items-start">
+      {children}
+    </div>
+  )
+}
+
+/** What a row's name or label needs to select its row, carry it to another place, and move it with Up and Down. */
+interface RowControls {
+  /** Its place among the rows shown. */
+  index: number
+  /** Its design's color, for the marker where it would land. */
+  color: string
+  tabbable: boolean
+  /** Every preview in it is selected. */
+  selected: boolean
+  onSelect: (add: boolean) => void
+  onMove: (from: number, to: number) => void
+}
+
+/** A row's name or label as a control: clicking selects its row, Shift adds it, and carrying it moves it. */
+function useRowControls(ref: RefObject<HTMLElement | null>, { index, color, onSelect, onMove }: RowControls) {
+  const carry = useCarry({
+    axis: "y",
+    items: () => [
+      ...(ref.current?.closest(".container-view")?.querySelectorAll<HTMLElement>(".board-rows > .state-row") ?? [])
+    ],
+    from: () => index,
+    color,
+    onDrop: (to) => onMove(index, to)
+  })
+
+  return {
+    marker: carry.marker,
+    props: {
+      "aria-keyshortcuts": "ArrowUp ArrowDown",
+      onPointerDown: carry.onPointerDown,
+      onPointerUp: stopEventPropagation,
+      onKeyDown: (event: React.KeyboardEvent) => {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.preventDefault()
+          event.stopPropagation()
+          onMove(index, index + (event.key === "ArrowUp" ? -1 : 1))
+        }
+      },
+      onClick: (event: React.MouseEvent) => {
+        if (!carry.carried()) {
+          onSelect(event.shiftKey)
+        }
+      }
+    }
+  }
+}
+
+/**
+ * A story's name over its row, on a Storybook file's board (PAR-1071), in the band at the top of the row. It's a name
+ * (see `labelLook`): at screen size up close, then shrinking down to 60%. Clicking it selects the row's previews,
+ * Shift+click adds them, and carrying it up or down moves the row, as Up and Down on it do.
+ */
+function RowName({
+  state,
+  first,
+  boardWidth,
+  ...controls
+}: RowControls & { state: StateSpec; first: boolean; boardWidth: number | undefined }) {
+  const band = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLButtonElement>(null)
+  useGutterStyle(band, first ? "firstRowName" : "nextRowName")
+  useCanvasLabel(ref, "name", { fit: true, width: boardWidth })
+  const { marker, props } = useRowControls(ref, controls)
+
+  return (
+    <div ref={band} className="absolute inset-x-0">
+      <Hint label={`Select ${state.name}`} detail="Shift+click to add it, drag to move it" wait>
+        <button
+          ref={ref}
+          type="button"
+          tabIndex={controls.tabbable ? 0 : -1}
+          data-canvas-control
+          aria-pressed={controls.selected}
+          {...props}
+          className="pointer-events-auto absolute bottom-1 left-0 flex origin-bottom-left items-center text-sm font-medium whitespace-nowrap outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+          style={controls.selected ? { color: kindColors.mode } : undefined}
+        >
+          <Name>{state.name}</Name>
+        </button>
+      </Hint>
+      {marker}
+    </div>
   )
 }
 
@@ -950,58 +1152,6 @@ function VariantMenu({
   )
 }
 
-/** Which state the board shows: one of them, or every state in rows. */
-function StateMenu({
-  states,
-  active,
-  allStates,
-  onSelect,
-  onShowAll
-}: {
-  states: readonly StateSpec[]
-  active: string
-  allStates: boolean
-  onSelect: (state: string) => void
-  onShowAll: (on: boolean) => void
-}) {
-  const current = states.find((state) => state.id === active)
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className={menuTrigger} aria-label="State">
-        {allStates && <Rows3 className="size-3.5 opacity-70" />}
-        {current && !allStates ? (
-          <Name className="max-w-40">{current.name}</Name>
-        ) : (
-          <span className="max-w-40 truncate">{allStates ? "Every state" : "State"}</span>
-        )}
-        <ChevronDown className="size-3.5 opacity-60" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuRadioGroup value={allStates ? "" : active} onValueChange={onSelect}>
-          <DropdownMenuLabel>State</DropdownMenuLabel>
-          {states.map((state, index) => {
-            const changes = changeCount(state)
-
-            return (
-              <DropdownMenuRadioItem key={state.id} value={state.id}>
-                <Name className="flex-1">{state.name}</Name>
-                {index > 0 && (
-                  <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
-                )}
-              </DropdownMenuRadioItem>
-            )
-          })}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuCheckboxItem checked={allStates} onCheckedChange={(on) => onShowAll(on)}>
-          Show every state
-        </DropdownMenuCheckboxItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /**
  * Names a row in the every-state grid, to the left of the board. It's a name (see `labelLook`), so zoomed out it
  * shrinks as the board's title does and stays, while there's space on screen below it before the next row's label: a
@@ -1010,41 +1160,43 @@ function StateMenu({
  */
 function StateLabel({
   state,
+  first,
   base,
   boardWidth,
-  tabbable,
-  onSelect
-}: {
+  ...controls
+}: RowControls & {
   state: StateSpec
-  /** The first state's, beside the first row. */
+  /** Beside the first row. */
+  first: boolean
+  /** The design's first state, which the others change, so it has no count of changes. */
   base: boolean
   /** How wide the board is on the canvas. */
   boardWidth: number | undefined
-  /** In the tab order, as it is while its design is selected (see TitleButton). */
-  tabbable: boolean
-  onSelect: () => void
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
-  const height = useLabelSpace(ref, base)
+  const height = useLabelSpace(ref, first)
   useCanvasLabel(ref, "name", { width: boardWidth, height })
-  useGutterStyle(ref, base ? "firstStateLabel" : "nextStateLabel")
+  useGutterStyle(ref, first ? "firstStateLabel" : "nextStateLabel")
+  const { marker, props } = useRowControls(ref, controls)
 
   return (
-    <Hint label={`Show only ${state.name}`} wait>
+    <Hint label={`Select ${state.name}`} detail="Shift+click to add it, drag to move it" wait>
       <button
         ref={ref}
         type="button"
-        tabIndex={tabbable ? 0 : -1}
+        tabIndex={controls.tabbable ? 0 : -1}
         data-canvas-control
-        onPointerDown={stopEventPropagation}
-        onClick={onSelect}
+        aria-pressed={controls.selected}
+        {...props}
         className="state-label pointer-events-auto absolute right-full flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
+        style={controls.selected ? { color: kindColors.mode } : undefined}
       >
         <Name className="text-sm font-medium text-foreground">{state.name}</Name>
         {!base && (
           <span className="text-xs text-muted-foreground">{`${changes} change${changes === 1 ? "" : "s"}`}</span>
         )}
+        {marker}
       </button>
     </Hint>
   )
@@ -1109,6 +1261,8 @@ interface FrameTileProps {
   scale: number
   /** In the first row, whose frames are what the project's picture shows. */
   caption: boolean
+  /** Its mode's place among the columns shown, which carrying a header reads. */
+  column?: number
   /** Its header, in the band above it (see `PreviewHeader`). A frame on its own has none. */
   header?: ReactNode
   /** The handle in the gutter after it, which resizes it (see `PreviewResize`). */
@@ -1134,6 +1288,7 @@ const FrameTile = memo(function FrameTile({
   primary,
   scale,
   caption,
+  column,
   header,
   resize,
   variables,
@@ -1272,7 +1427,13 @@ const FrameTile = memo(function FrameTile({
   }
 
   return (
-    <figure ref={figure} className="mode-tile relative m-0" data-mode={mode.id} data-primary={primary}>
+    <figure
+      ref={figure}
+      className="mode-tile relative m-0"
+      data-mode={mode.id}
+      data-primary={primary}
+      data-column={column}
+    >
       {header && <FrameCaption width={frame.width * scale}>{header}</FrameCaption>}
       <div
         ref={tile}

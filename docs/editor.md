@@ -4880,7 +4880,7 @@ not in Monthly; and 12 typed in a number param with no default gave the number 1
 ### Only a component has states (PAR-1002)
 
 States such as Default, Hover or Loading belong to a component design. A screen or a frame is drawn as its layers are,
-so the project file refuses `states` on one, and a screen's board has no state menu and its layers no Editing control.
+so the project file refuses `states` on one, and a screen's board has no States menu and its layers no Editing control.
 An instance has no State picker either: a copy always shows its component's base state, under its own overrides. A
 screen that needs a component to look another way sets the component's params in the instance.
 
@@ -4905,7 +4905,7 @@ Code: `packages/core/src/document.ts` (`checkNoStates`, `baseState`, `designStat
 `packages/editor/src/kinds.ts` (`withoutStates`) and `document-equality.ts` (a screen's view keeps no state);
 `packages/agent/src/workspace.ts` (`listDesigns`, `namedState`) and `snippet-api.ts` (`ScreenSummary`,
 `ComponentSummary`); in the app, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx` (`ComponentStateSelector`),
-`canvas/ContainerView.tsx` (the state menu) and `chrome/designs.ts` with `convert-to-frame.ts` (`droppedStatesLine`).
+`canvas/BoardMenus.tsx` (the States menu) and `chrome/designs.ts` with `convert-to-frame.ts` (`droppedStatesLine`).
 
 Tests:
 
@@ -4926,35 +4926,37 @@ Tests:
 
 ### A design's modes in its own order (PAR-923)
 
-A screen's or component's Modes section lists every mode of the project in the design's own order. The first is the one
-its board shows first, and the rest are drawn beside it in that order where they're shown.
+A screen's or component's Modes section lists every mode of the project in the design's own order. The first one shown
+is drawn first on its board, and the other shown modes beside it in that order. The board's modes menu lists them alike
+(see "A board's rows and columns, in order").
 
 - **Each row has a handle** on the left, which drags it into place with the motion lists use, and Up and Down on it move
-  it a place. Moving a mode first makes it the one shown first, and the mode that was first still shows, beside it. A
-  project with one mode has no handle.
-- **The first mode always shows,** so its switch is on and disabled, with the hint "The first mode always shows". Each
-  other's switch shows it beside the first.
-- **No crown, radio, Show all or Only.** The project's primary mode is no longer marked in the section or on a board's
-  mode captions. The board's modes menu still offers Show first, Show all and Only.
+  it a place. A project with one mode has no handle.
+- **Any mode can be off** while another shows. The one left showing can't be switched off, and its switch's hint says
+  "At least one mode always shows". Turning off the first mode in the list makes the next one shown the first, and the
+  list keeps its order.
+- **No crown, radio, Show all or Only.** The project's primary mode isn't marked in the section or on a board's mode
+  captions.
 - **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
-  order, and the first frame's mode as `mode`, as before. An order that is the project's, and a first mode that is the
-  project's primary mode, aren't written down.
+  order, and the first frame's mode as `mode`, as before. An order that is the project's, with its first mode shown
+  first, and a first mode that is the project's primary mode, aren't written down.
 - **Each frame beside the first fits to at most 640 wide** (`companionScale`) unless its header's Zoom field sets it
   otherwise (see "A preview's header, settings and width"). A view's `scales`, by mode id, still applies where a preview
   sets no zoom of its own (`besideScale`), and the board's size follows them (`boardSize`).
 
 Code: `packages/core/src/document.ts` (the view's `order` and `scales`), `modes.ts` (`shownModes`'s `ordered`) and
 `board.ts` (`besideScale`); `packages/editor/src/document-equality.ts` (an empty order is dropped); in the app,
-`canvas/view.ts` (`withModeOrder`), `ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and
-`canvas/ContainerView.tsx` (the headers).
+`canvas/view.ts` (`withModes`), `ModesList` in `canvas/view-lists.tsx`, `ShowList` in `chrome/ShowList.tsx`,
+`ModesSection` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the headers).
 
 Tests:
 
 - `packages/core/src/board.test.ts`, "draws a companion at the scale its view sets for its mode, and others shrunk to
   fit".
-- `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
-  shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
-  nothing, and modes the order doesn't name after it.
+- `apps/desktop/src/renderer/canvas/view.test.ts`, "shown modes" (3): a mode shown beside the first in the design's
+  order, the next shown drawn first when the first in the list is off with the list's order kept, and never none; and "a
+  design's mode order" (3): the list in the design's order with the shown modes beside the first, the project's order
+  written as nothing, and modes the order doesn't name after it.
 - Stories: Parity/Inspector/Sections/Modes › Another Mode First, which checks the first mode's switch is on and
   disabled, then moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode
   Shown and Mode Selected.
@@ -6401,6 +6403,42 @@ dragged Desktop Light from 181 to 195 at 332%, Shift+Left took it to 185 and a d
 page reflowed as it was dragged from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than
 the window.
 
+### A board's rows and columns, in order (PAR-1071)
+
+A board shows a row for each state it shows and a column for each mode, in the design's own order. Both can be shown,
+hidden and put in order on the canvas.
+
+- **The title has a menu for each,** while the board's hovered or selected: States (Stories on a Storybook file's board)
+  with how many show, and Modes, with Edit modes beside its heading, which opens the inspector's Modes tab. A design
+  with one state has no States menu, and a project with one mode no Modes menu. Each menu lists every one with a handle
+  and a switch, as the Modes section does, and the one left showing can't be switched off.
+- **A row's label selects it.** Clicking it selects every preview in the row; Shift+click adds the row or takes it away.
+  A component's label names its state, and every state but the base one says how many changes it makes. A Storybook
+  file's board names each story over its row instead.
+- **A row's label or a column's header moves it.** Dragging it shows a line where it would land, and letting go puts it
+  there. Up and Down on a label, or Left and Right on a header, move it a place. A press that doesn't move is a click.
+- **A long row wraps.** Its previews go onto another line once it's wider than two and a half times its widest preview,
+  or 1600, whichever is more.
+- **The file keeps them** in the view: `states`, the states shown, where not every one is, and `stateOrder`, where it
+  isn't the design's own; and the modes as "A design's modes in its own order" says. They're view changes, so they
+  aren't undoable.
+
+Code: `packages/core/src/rows.ts` (`orderedStates`, `shownStates`, `withShownStates`, `withStateOrder`, `reorderShown`),
+`rowWrapWidth` and `wrapRow` in `board.ts`, and the view's `states` and `stateOrder` in `document.ts`; in the app,
+`BoardMenus` in `canvas/BoardMenus.tsx`, `StatesList` and `ModesList` in `canvas/view-lists.tsx`, `ShowList` in
+`chrome/ShowList.tsx`, `useCarry` in `canvas/board-carry.tsx`, `PreviewHeader` in `canvas/preview-parts.tsx`, and
+`BoardView`, `StateLabel` and `RowName` in `canvas/ContainerView.tsx`.
+
+Tests: `packages/core/src/rows.test.ts` (9: the states shown by default, by the view's state, every state or a list, in
+the design's order; the fewest words written, never none, and what a file can hold; an order of its own kept and the
+design's dropped; a row wrapped past two and a half of its widest preview or 1600, judged by the gap up close; and an
+entry moved among those shown with hidden ones left in place); `apps/desktop/src/renderer/canvas/view.test.ts` (see "A
+design's modes in its own order"). Gaps: the menus, the labels and carrying have no automated test. They were tried in
+Storybook's Parity/Canvas/Boards Every state on Button: switching off Outline, Destructive and Default left Disabled
+alone with its switch locked, Down on Default's handle moved its row second, Shift+click selected the Destructive and
+Disabled rows, Up on Disabled's label moved it above Destructive, dragging Destructive's label put it second, Right on
+Desktop Light's header drew Desktop Dark first, and turning on Tablet Light wrapped each row onto two lines.
+
 ## What the editor itself loads
 
 What Parity's own UI costs the window, apart from the projects it shows.
@@ -7326,13 +7364,12 @@ The editor's labels, menus, hints, toasts and undo labels use one glossary (PAR-
   screen", "Delete 2 components", "Move 3 screens and components"); one that can't says both ("Select a screen or
   component on the canvas or in Layers", "Next screen or component"). The inspector's Design tab keeps its name. A menu
   item that acts on any selection stays short: Export selected…, Export all….
-- **A mode's tile on a board is a preview:** "Drag to resize this preview", "Resize preview", "Show beside the first
-  preview", the modes menu's Previews, "Some previews had problems" after an export, and "12 previews checked" in the
-  Accessibility tab. Frames a second, and the accessibility rule about HTML frames, are still frames.
-- **Main is only a main component.** The preview a board shows first is "Shown first", and the modes menu offers Show
-  first and Only Desktop Light (the mode's own name), as the inspector's Modes section does. The project's first mode is
-  still Primary.
-- **The first state is named, never Base.** The state menu, the state labels beside the every-state grid and the States
+- **A mode's tile on a board is a preview:** "Drag to resize this preview", "Resize preview", "Some previews had
+  problems" after an export, and "12 previews checked" in the Accessibility tab. Frames a second, and the accessibility
+  rule about HTML frames, are still frames.
+- **Main is only a main component.** The preview a board shows first is the first mode shown in its list. The project's
+  first mode is still Primary.
+- **The first state is named, never Base.** The States menu, the state labels beside the every-state grid and the States
   section show its name alone, without a count of changes; a field's reset says "Reset to Default", or the first state's
   own name; and the Editing control says "changes every state".
 - **Undoing a view change has no step, but its label says what changed** ("Show Dark", "Show every state"), for anything

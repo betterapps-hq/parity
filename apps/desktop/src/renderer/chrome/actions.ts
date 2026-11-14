@@ -565,7 +565,7 @@ function toggleDeveloperTools(): void {
 
 /**
  * Escape: stops editing text, then puts a review tool down, back on the tool before it, then goes back to the select
- * tool, then selects the parent, then nothing, one step a press.
+ * tool, then selects the parent, or the design of the previews selected, then nothing, one step a press.
  */
 function stepBack(session: ProjectDesigns | undefined): void {
   if (!session) {
@@ -582,6 +582,8 @@ function stepBack(session: ProjectDesigns | undefined): void {
     selection.setTool("select")
   } else if (selection.get().node) {
     selectParent(session)
+  } else if (selection.get().mode && selection.get().design) {
+    selection.set({ design: selection.get().design })
   } else {
     selection.set({})
   }

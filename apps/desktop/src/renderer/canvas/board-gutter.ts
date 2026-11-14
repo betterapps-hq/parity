@@ -43,6 +43,40 @@ export const boardParts = {
 
     return { marginTop: px(before), paddingTop: px(line + after + caption) }
   },
+  /** The first row, a line taller for its name over it, as a Storybook file's board names its stories. */
+  firstNamedRow: (zoom: number) => ({ marginTop: "", paddingTop: px(2 * boardLayoutAt(zoom).caption) }),
+  /** The first row with its name over it and its headers a line taller. */
+  firstNamedTallRow: (zoom: number) => ({ marginTop: "", paddingTop: px(3 * boardLayoutAt(zoom).caption) }),
+  /** A later row with its name over it. */
+  nextNamedRow: (zoom: number) => {
+    const { caption, rowDivider } = boardLayoutAt(zoom)
+    const { before, line, after } = rowDivider
+
+    return { marginTop: px(before), paddingTop: px(line + after + caption) }
+  },
+  /** A later row with its name over it and its headers a line taller. */
+  nextNamedTallRow: (zoom: number) => {
+    const { caption, rowDivider } = boardLayoutAt(zoom)
+    const { before, line, after } = rowDivider
+
+    return { marginTop: px(before), paddingTop: px(line + after + 2 * caption) }
+  },
+  /** The band at the top of the first row that its name sits in. */
+  firstRowName: (zoom: number) => ({ top: "0px", height: px(boardLayoutAt(zoom).caption) }),
+  /** The band at the top of a later row, below the gap, that its name sits in. */
+  nextRowName: (zoom: number) => {
+    const { caption, rowDivider } = boardLayoutAt(zoom)
+
+    return { top: px(rowDivider.line), height: px(caption) }
+  },
+  /** A line of a row that wraps, a gap below the last; its previews' headers sit in their own bands. */
+  nextLine: (zoom: number) => ({ marginTop: px(boardLayoutAt(zoom).between) }),
+  /** A later line whose headers need a line under their names. */
+  nextTallLine: (zoom: number) => {
+    const { between, caption } = boardLayoutAt(zoom)
+
+    return { marginTop: px(between + caption) }
+  },
   /**
    * A row's frames, raised into the band above them with their headers, so the row is as tall as its frames alone.
    */
