@@ -10,6 +10,8 @@ export * from "./lifecycle.ts"
 
 export * from "./preview-order.ts"
 
+export * from "./process-specs.ts"
+
 export * from "./service-restarts.ts"
 
 export * from "./spare.ts"

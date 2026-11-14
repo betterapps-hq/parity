@@ -41,12 +41,12 @@ export async function addLibrary(
   const task = trackProcess(
     {
       id: `install:${project.info.id}`,
-      kind: "install",
+      owner: { kind: "parity", role: "install" },
       lifetime: "task",
       name: `Install ${definition.name}`,
       projectId: project.info.id,
       project: project.info.name,
-      status: "running",
+      state: "running",
       detail: [command, ...args].join(" ")
     },
     { stop: () => life?.stop() }

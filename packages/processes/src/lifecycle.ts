@@ -55,6 +55,8 @@ export interface Lifecycle {
   readonly stopping: boolean
   /** The end of what it printed, at most `tailLength` characters. */
   tail(): string
+  /** Calls `listener` with what it prints from now on, as it prints it. */
+  onOutput(listener: (text: string) => void): void
   /** Ends it and every process it started. Its exit then counts as stopped. */
   stop(): void
   /**
@@ -71,9 +73,14 @@ export function lifecycle(child: ChildHandle): Lifecycle {
   let timedOut = false
   let running = true
   const deadlines = new Set<ReturnType<typeof setTimeout>>()
+  const listeners: ((text: string) => void)[] = []
 
   child.onOutput((text) => {
     output = (output + text).slice(-tailLength)
+
+    for (const listener of listeners) {
+      listener(text)
+    }
   })
 
   const exited = new Promise<ChildExit>((resolve) => {
@@ -111,6 +118,9 @@ export function lifecycle(child: ChildHandle): Lifecycle {
       return stopping
     },
     tail: () => output,
+    onOutput(listener) {
+      listeners.push(listener)
+    },
     stop() {
       if (stopping) {
         return

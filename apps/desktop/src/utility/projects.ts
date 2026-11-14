@@ -858,12 +858,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const tracking = trackProcess(
       {
         id,
-        kind: "builder",
+        owner: { kind: "parity", role: "builder" },
         lifetime: "server",
         name: builder.name,
         projectId: root,
         project: name,
-        status: "starting"
+        state: "starting"
       },
       { restart: () => restartBuilder(root) }
     )
@@ -914,7 +914,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       const url = new URL(session.guestUrl)
       lastPorts.set(root, Number(url.port))
       guestPorts.add(Number(url.port))
-      tracking.set("running", { url: url.origin })
+      tracking.set("running", {
+        endpoint: {
+          url: url.origin,
+          port: Number(url.port || 80),
+          protocol: url.protocol === "https:" ? "https" : "http"
+        }
+      })
       track("builder.ready", { builder: builder.name, durationMs: since(began), restart: again })
 
       return session
@@ -1388,18 +1394,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const task = trackProcess(
       {
         id: `typecheck:${root}`,
-        kind: "typecheck",
+        owner: { kind: "parity", role: "typecheck" },
         lifetime: "task",
         name: "Type check",
         projectId: id,
         project: project.info.name,
-        status: "running",
+        state: "running",
         detail: files.length === 1 ? "Reading 1 component file" : `Reading ${files.length} component files`
       },
       {
         restart: async () => {
           await checkTypes(project, files)
-        }
+        },
+        report: "changes"
       }
     )
 

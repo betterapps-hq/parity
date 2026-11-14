@@ -937,6 +937,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
 
   packages/project:
     dependencies:
