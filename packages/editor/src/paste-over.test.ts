@@ -129,14 +129,15 @@ describe("paste over selection", () => {
   it("puts copied designs at the selected designs' corner, as they sat together", () => {
     const copies = designsAt([design("a", 100, 50), design("b", 1600, 0)], ["home"], { x: 4000, y: 2000 })
     expect(copies.map((copy) => [copy.id, copy.position])).toEqual([
-      ["a", { x: 4000, y: 2050 }],
-      ["b", { x: 5500, y: 2000 }]
+      [expect.stringMatching(/^a-/), { x: 4000, y: 2050 }],
+      [expect.stringMatching(/^b-/), { x: 5500, y: 2000 }]
     ])
   })
 
-  it("gives copied designs new ids when theirs are taken", () => {
+  it("gives copied designs new ids, different from each other", () => {
     const copies = designsAt([design("form", 0, 0), design("form", 10, 0)], ["form"], { x: 0, y: 0 })
-    expect(copies.map((copy) => copy.id)).toEqual(["form-2", "form-3"])
+    expect(copies.map((copy) => copy.id)).toEqual([expect.stringMatching(/^form-/), expect.stringMatching(/^form-/)])
+    expect(copies[0]!.id).not.toBe(copies[1]!.id)
   })
 })
 

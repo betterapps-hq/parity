@@ -4,7 +4,7 @@ import {
   type DesignNode,
   type FrameSize,
   generateId,
-  uniqueId
+  designId
 } from "@parity-app/core"
 
 export interface NewDesignOptions {
@@ -72,7 +72,7 @@ export function newDesign(
   }
 
   const design: ContainerSpec = {
-    id: uniqueId(name, taken),
+    id: designId(name, taken),
     name,
     kind,
     position,

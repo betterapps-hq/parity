@@ -1,6 +1,7 @@
 // Starts an isolated copy of Parity for the end-to-end tests, the way scripts/perf.ts starts one: its own UI and
 // DevTools ports, profile, agent file and detection cache, with the code frozen at start, on a copy of the example
-// project made for the run. A copy of Parity a person already has open, and the example itself, are left alone.
+// project made for the run, holding the designs in e2e/fixtures rather than the example's own. A copy of Parity a person
+// already has open, and the example itself, are left alone.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { createWriteStream } from "node:fs"
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises"
@@ -14,6 +15,12 @@ import { print } from "../../../scripts/output.ts"
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
 const example = join(repoDir, "examples/shadcn-vite")
+
+/**
+ * The designs the tests run on, kept apart from the example's own file, so editing the example in Parity doesn't
+ * change what the tests find.
+ */
+const designs = join(appDir, "e2e/fixtures/shadcn-vite.par")
 
 /** The suite's own ports, beside the app's usual 5310 and 9333. */
 const suitePorts = { ui: 5385, debug: 9385 }
@@ -240,8 +247,8 @@ function systemPort(): Promise<number> {
 }
 
 /**
- * Copies the example into the run's folder, adding what the tests need: components that ignore their props, and a
- * Members design that draws them. Installed packages are linked one by one rather than copied, so the copy's own
+ * Copies the example's code into the run's folder with the tests' own designs, adding what the tests need: components
+ * that ignore their props, and a Members design that draws them. Installed packages are linked one by one rather than copied, so the copy's own
  * builder caches go in its own folder.
  */
 async function copyExample(dir: string): Promise<string> {
@@ -275,7 +282,7 @@ async function copyExample(dir: string): Promise<string> {
 
   await writeFile(join(root, "src/components/member-row.tsx"), memberRow)
   const file = join(root, "shadcn-vite.par")
-  const document = parseData(exampleDocument, JSON.parse(await readFile(file, "utf8")))
+  const document = parseData(exampleDocument, JSON.parse(await readFile(designs, "utf8")))
   document.containers.push(membersDesign)
   await writeFile(file, `${JSON.stringify(document, null, 2)}\n`)
 
@@ -369,7 +376,7 @@ export function isWindow(url: string, uiPort: number): boolean {
 /** The pages and workers the DevTools protocol lists at `/json/list`, by their URLs. */
 const devtoolsTargets = parserFor(z.array(z.object({ url: z.string() })))
 
-/** The example's design file, as far as the copy reads it: its designs, kept as they are, and the rest left alone. */
+/** The tests' design file, as far as the copy reads it: its designs, kept as they are, and the rest left alone. */
 const exampleDocument = z.looseObject({ containers: z.array(z.json()) })
 
 /** Stops the runner and everything it started: Electron, its service and the servers. */

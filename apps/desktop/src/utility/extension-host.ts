@@ -1,10 +1,14 @@
 // One extension's host, for one open project, in a process of its own that the project service starts (see
 // extensions.ts). Its crash or a loop in its code affects only that extension.
 
+import { AsyncLocalStorage } from "node:async_hooks"
 import { pathToFileURL } from "node:url"
 import { format } from "node:util"
 import { nodePort } from "@parity-app/channel"
 import { serveExtensionHost } from "@parity-app/extensions"
+
+// Which agent's call the extension's code is running for, carried across its awaits (PAR-1096).
+const calls = new AsyncLocalStorage<number | undefined>()
 
 const host = serveExtensionHost({
   // The service's requests come over Node's IPC channel, as `@parity-app/channel` messages.
@@ -17,7 +21,8 @@ const host = serveExtensionHost({
   ),
   load: (main) => import(pathToFileURL(main).href),
   exit: () => process.exit(0),
-  memory: () => process.memoryUsage.rss()
+  memory: () => process.memoryUsage.rss(),
+  calls: { run: (call, task) => calls.run(call, task), current: () => calls.getStore() }
 })
 
 // What the extension's code prints goes to its log in the bottom panel, as well as to the process's own output.

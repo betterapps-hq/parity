@@ -1,16 +1,20 @@
 import { createChannel, type Port } from "@parity-app/channel"
 import type {
+  AgentToolInput,
   CommandTarget,
   Disposable,
+  ExtensionApi,
   ExtensionModule,
+  JsonValue,
   NodeRef,
   Parity,
   PickItem,
+  RemoteApi,
   SettingValue,
   State,
   StatusItem
 } from "@parity-app/extension-api"
-import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo } from "./protocol.ts"
+import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo, Returned } from "./protocol.ts"
 import { type Form, viewsOf } from "./views.ts"
 
 /*
@@ -31,14 +35,41 @@ export interface HostSide {
   exit(): void
   /** The memory the process holds, in bytes, which the Extensions page shows. */
   memory?(): number
+  /**
+   * Carries the id of the agent's call that ran the extension's code through that code, across its awaits, as Node's
+   * `AsyncLocalStorage` does. Without it, nothing the code asks says which agent's call it's part of.
+   */
+  calls?: CallContext
 }
+
+/** Carries a value through code and everything it awaits. */
+export interface CallContext {
+  run<T>(call: number | undefined, task: () => T): T
+  current(): number | undefined
+}
+
+/** For a host that can't carry calls through code: none is ever current. */
+const noCalls: CallContext = { run: (_call, task) => task(), current: () => undefined }
+
+/** What the host sends with the id of the agent's call it's part of. */
+const called = new Set<keyof HostServiceMethods>([
+  "commands.execute",
+  "edits.transact",
+  "files.edit",
+  "ui.pick",
+  "ui.input",
+  "ui.confirm",
+  "extensions.call"
+])
 
 /** The host's link to the service, which its script uses to send what the extension's code prints to the log. */
 export interface ExtensionHost {
   log(level: "info" | "warning" | "error", text: string, stack?: string): void
 }
 
-type CommandHandler = (target: CommandTarget | undefined) => void | Promise<void>
+type CommandHandler = (target: CommandTarget | undefined) => void | JsonValue | Promise<void | JsonValue>
+
+type ToolHandler = (input: AgentToolInput) => void | JsonValue | Promise<void | JsonValue>
 
 /** What's selected in the window, as the host keeps it for `parity.selection`, and who's told when it changes. */
 interface Selected {
@@ -55,8 +86,11 @@ interface HostSettings {
 interface Activated {
   handlers: Map<string, CommandHandler>
   forms: Map<string, Form>
+  tools: Map<string, ToolHandler>
   subscriptions: Disposable[]
   module: ExtensionModule
+  /** What its `activate` returned, for extensions that build on it. */
+  api: ExtensionApi
 }
 
 /** Serves the project service from an extension's host, until it's told to stop. */
@@ -65,6 +99,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const progress = new Map<number, AbortController>()
   const selected: Selected = { refs: [], listeners: new Set() }
   const settings: HostSettings = { values: new Map(), listeners: new Map() }
+  const calls = side.calls ?? noCalls
   let activated: Promise<Activated> | undefined
   let stopping = false
 
@@ -86,10 +121,12 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
 
       selected.refs = params.selection
       settings.values = new Map(Object.entries(params.settings.values))
-      activated = activate(params, channel, progress, selected, settings, side)
-      await activated
+      activated = calls.run(params.call, () => activate(params, channel, progress, selected, settings, side, calls))
+      const { api } = await activated
+
+      return { api: Object.keys(api) }
     },
-    async run({ command, target }) {
+    async run({ command, target, call }) {
       if (!activated) {
         throw new Error("The extension hasn't activated")
       }
@@ -100,7 +137,37 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error(`Nothing handles ${command}. Its extension registers it with parity.commands.register.`)
       }
 
-      await handler(target)
+      return returned(await calls.run(call, () => handler(target)))
+    },
+    async tool({ name, input, call }) {
+      if (!activated) {
+        throw new Error("The extension hasn't activated")
+      }
+
+      const handler = (await activated).tools.get(name)
+
+      if (!handler) {
+        throw new Error(`Nothing handles ${name}. Its extension registers it with parity.agentTools.register.`)
+      }
+
+      return returned(await calls.run(call, () => handler(input)))
+    },
+    async "api.call"({ method, args, call }) {
+      if (!activated) {
+        throw new Error("The extension hasn't activated")
+      }
+
+      const { api } = await activated
+      const found = Object.hasOwn(api, method) ? api[method] : undefined
+
+      if (!found) {
+        throw new Error(`Its API has no ${method}`)
+      }
+
+      // SAFETY: an API's functions take JSON, as `ExtensionApi` says; `never` only lets each name the types it takes.
+      const run = found as (...given: JsonValue[]) => void | JsonValue | Promise<void | JsonValue>
+
+      return returned(await calls.run(call, () => run(...args)))
     },
     async "view.changed"({ view, key, value }) {
       if (!activated) {
@@ -178,7 +245,8 @@ async function activate(
   progress: Map<number, AbortController>,
   selected: Selected,
   settings: HostSettings,
-  side: HostSide
+  side: HostSide,
+  calls: CallContext
 ): Promise<Activated> {
   const exports = await side.load(params.main)
 
@@ -187,14 +255,21 @@ async function activate(
   }
 
   const handlers = new Map<string, CommandHandler>()
+  const tools = new Map<string, ToolHandler>()
+  const declaredTools = new Set(params.agentTools ?? [])
+  const dependencies = new Map((params.dependencies ?? []).map((dependency) => [dependency.id, dependency]))
   const subscriptions: Disposable[] = []
   const { prefix } = params.extension
   const declaredCommands = new Set(params.commands)
   const declaredItems = new Set(params.statusItems)
   const forms = new Map<string, Form>()
 
-  const send = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) =>
-    channel.request(method, value)
+  // What the code asks during an agent's call says which call, for the service to name or refuse.
+  const send = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) => {
+    const call = called.has(method) ? calls.current() : undefined
+
+    return channel.request(method, call === undefined ? value : { ...value, call })
+  }
 
   const quietly = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) =>
     void send(method, value).catch(() => undefined)
@@ -407,6 +482,48 @@ async function activate(
       }
     },
     state: { app: state("app"), project: state("project") },
+    extensions: {
+      get<Api extends object>(id: string) {
+        const dependency = dependencies.get(id)
+
+        if (!dependency) {
+          throw new Error(`${id} isn't in the manifest's extensionDependencies`)
+        }
+
+        const api = Object.fromEntries(
+          dependency.api.map((method) => [
+            method,
+            async (...args: JsonValue[]) => {
+              const { result } = await send("extensions.call", { extension: id, method, args })
+
+              return result
+            }
+          ])
+        )
+
+        // SAFETY: `Api` is the caller's word for the dependency's API, whose methods are these, each a call to it.
+        return { id, version: dependency.version, displayName: dependency.displayName, api: api as RemoteApi<Api> }
+      }
+    },
+    agentTools: {
+      register(name, handler) {
+        if (!declaredTools.has(name)) {
+          throw new Error(`${name} isn't an agent tool the manifest declares`)
+        }
+
+        if (tools.has(name)) {
+          throw new Error(`${name} has a handler already`)
+        }
+
+        tools.set(name, handler)
+
+        return once(() => {
+          if (tools.get(name) === handler) {
+            tools.delete(name)
+          }
+        })
+      }
+    },
     log: {
       info: (message) => quietly("log", { level: "info", text: message }),
       warn: (message) => quietly("log", { level: "warning", text: message }),
@@ -426,9 +543,9 @@ async function activate(
     }
   }
 
-  await exports.activate(parity)
+  const api = apiOf(await exports.activate(parity))
 
-  return { handlers, forms, subscriptions, module: exports }
+  return { handlers, forms, tools, subscriptions, module: exports, api }
 }
 
 /** Disposes of what the extension added to `parity.subscriptions`, newest first, then calls its `deactivate`. */
@@ -449,6 +566,16 @@ async function deactivate(
   } catch (error) {
     log("error", `deactivate failed: ${message(error)}`, stackOf(error))
   }
+}
+
+/** What an extension's code returned, as the service is sent it. */
+function returned(value: void | JsonValue): Returned {
+  return value === undefined ? {} : { result: value }
+}
+
+/** An extension's API: the functions of what its `activate` returned, if it returned an object. */
+function apiOf(value: void | ExtensionApi): ExtensionApi {
+  return Object.fromEntries(Object.entries(value ?? {}).filter(([, method]) => method instanceof Function))
 }
 
 /** A disposable that runs `dispose` the first time only. */

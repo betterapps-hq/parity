@@ -9,7 +9,7 @@ import {
   type StateSpec
 } from "./document.ts"
 import { alternativeLimit, closest, CodedError } from "./errors.ts"
-import { uniqueId } from "./modes.ts"
+import { idStem, uniqueId } from "./modes.ts"
 import {
   applyPatch,
   boardArgs,
@@ -329,6 +329,23 @@ export function generateId(taken: ReadonlySet<string>, length = 5): string {
     }
 
     if (!taken.has(id)) {
+      return id
+    }
+  }
+}
+
+/**
+ * An id for a new design: a readable stem from its name and five random characters (`pricing-k3f9q`), not one of
+ * `taken`. The random part keeps two people who each add a design with the same name from making the same id.
+ */
+export function designId(name: string, taken: Iterable<string>): string {
+  const stem = idStem(name, "design")
+  const used = new Set(taken)
+
+  for (;;) {
+    const id = `${stem}-${generateId(new Set())}`
+
+    if (!used.has(id)) {
       return id
     }
   }

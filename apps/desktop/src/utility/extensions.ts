@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
+import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
@@ -8,13 +12,14 @@ import {
   type InstalledExtension,
   readExtension
 } from "@parity-app/extensions"
+import { fillPort, runEnvironment } from "@parity-app/processes"
 import { z } from "zod"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
 import { extensionStateStore } from "./extension-state.ts"
 import { local, readPortless } from "./portless.ts"
-import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
+import { adoptProcess, choosePort, startProcess, stopManaged, stopManagedPrefixed } from "./process-manager.ts"
 import type { OpenProject } from "./projects.ts"
 
 /*
@@ -57,8 +62,22 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
     // would keep.
     // oxlint-disable-next-line unicorn/prefer-structured-clone
     return found ? { detected: z.json().parse(JSON.parse(JSON.stringify(found))) } : undefined
-  })
+  }),
+  // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
+  builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
+    open.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
+  )
 ]
+
+/** A project's package.json, as JSON parsed it, or nothing when it can't be read. */
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- a package.json can hold anything; its reader checks it
+function readPackageJson(root: string): unknown {
+  try {
+    return JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
+  } catch {
+    return undefined
+  }
+}
 
 /**
  * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes
@@ -77,72 +96,76 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
     window,
     servers: {
       async serve(projectId, extension, server) {
-        const id = serverId(projectId, extension, server.id)
-        const known = knownServers(projectId).find((candidate) => candidate.id === id)
-
-        if (known) {
-          return { url: known.url }
-        }
-
         const project = projects.get(projectId)
 
         if (!project) {
           throw new Error(`No project ${projectId} is open`)
         }
 
-        const port = await choosePort(server.port)
-        const url = `http://localhost:${port}`
-
-        const ready = (base: string) =>
-          fetch(`${base}${server.readyPath}`, { signal: AbortSignal.timeout(3000) }).then((response) => response.ok)
-
-        logNote(`[service] starting ${server.name} for ${project.name} at ${url}`)
-
-        const started = startServer({
-          id,
-          kind: "tool",
+        const started = await startProcess({
+          id: serverId(projectId, extension, server.id),
           name: server.name,
+          lifetime: "server",
+          owner: { kind: "extension", extension },
           projectId,
           project: project.name,
-          // On Parity's own Node, in the project's folder: Electron runs as plain Node here.
-          command: process.execPath,
-          args: [server.script, ...server.args.map((arg) => arg.replaceAll("{port}", String(port)))],
-          cwd: project.root,
-          env: { ...process.env, ...server.env, ELECTRON_RUN_AS_NODE: "1" },
-          url,
-          ready
+          runKind: "bin",
+          command: server.id,
+          fingerprint: JSON.stringify(server),
+          ready: { http: server.readyPath },
+          async launch() {
+            const port = await choosePort(server.port)
+            logNote(`[service] starting ${server.name} for ${project.name} at http://localhost:${port}`)
+
+            // On Parity's own Node, in the project's folder: Electron runs as plain Node here.
+            return {
+              command: process.execPath,
+              args: [server.script, ...fillPort(server.args, port)],
+              cwd: project.root,
+              env: runEnvironment({ bin: server.id }, process.env, server.env),
+              port,
+              portMoved: port !== server.port
+            }
+          }
         })
 
-        await started.ready
+        const { endpoint } = await started.ready()
 
-        return { url }
+        return { url: endpoint?.url ?? "" }
       },
       adopt(projectId, extension, server) {
         const project = projects.get(projectId)
 
-        if (project) {
-          adoptServer({
-            id: serverId(projectId, extension, server.id),
-            kind: "tool",
-            name: server.name,
-            projectId,
-            project: project.name,
-            url: server.url
-          })
+        if (!project) {
+          return
         }
+
+        const id = serverId(projectId, extension, server.id)
+        const url = new URL(server.url)
+
+        // One it started or adopted before under this id goes first.
+        void stopManaged(id, "extension")
+          .then(() =>
+            adoptProcess({
+              id,
+              name: server.name,
+              owner: { kind: "adopted", by: extension },
+              projectId,
+              project: project.name,
+              endpoint: { url: url.origin, port: Number(url.port || 80), protocol: "http" },
+              foundBy: "endpoint"
+            })
+          )
+          .catch((cause: unknown) => logNote(`[service] couldn't adopt ${server.name}: ${String(cause)}`))
       },
-      stop: (projectId, extension, id) => stopServer(serverId(projectId, extension, id)),
+      stop: (projectId, extension, id) => void stopManaged(serverId(projectId, extension, id), "extension"),
       async routed() {
         const portless = await readPortless()
 
         return portless.routes.map((route) => ({ url: local(route.port), address: portless.address(route.hostname) }))
       },
       stopAll(projectId, extension) {
-        for (const server of knownServers(projectId)) {
-          if (server.id.startsWith(serverId(projectId, extension, ""))) {
-            stopServer(server.id)
-          }
-        }
+        void stopManagedPrefixed(serverId(projectId, extension, ""), "extension")
       }
     }
   })

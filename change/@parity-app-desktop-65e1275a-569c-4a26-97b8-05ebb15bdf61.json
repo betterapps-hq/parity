@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Extensions draw declarative views in panel tabs, Design tab sections and pages; Storybook adds a Stories tab, a Stories section and a setup guide",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

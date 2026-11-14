@@ -5,7 +5,7 @@ import { parseManifest, type ServedTool, type ToolServer, type ToolServers } fro
 import { isText } from "@parity-app/core/values/evaluate"
 import { logNote } from "../shared/log.ts"
 import { findRoutedServer, readPortless } from "./portless.ts"
-import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
+import { adoptProcess, choosePort, managedProcess, startProcess, stopManaged } from "./process-manager.ts"
 
 /** The project a tool's servers run for. */
 export interface ServedProject {
@@ -40,14 +40,14 @@ function processId(projectId: string, adapter: string): string {
 /** Stops the server Parity started for a tool, or lets go of one it found running. */
 function stopTool(id: string): void {
   serving.delete(id)
-  stopServer(id)
+  void stopManaged(id, "extension")
 }
 
 function ensure(project: ServedProject, adapter: string, server: ToolServer): Promise<ServedTool> {
   const id = processId(project.id, adapter)
   const existing = serving.get(id)
   // One the process manager no longer knows has stopped since, or crashed, or its project closed.
-  const known = knownServers(project.id).some((each) => each.id === id)
+  const known = managedProcess(id) !== undefined
 
   if (existing && known) {
     return existing
@@ -68,7 +68,7 @@ function ensure(project: ServedProject, adapter: string, server: ToolServer): Pr
 
 async function start(project: ServedProject, adapter: string, server: ToolServer): Promise<ServedTool> {
   const id = processId(project.id, adapter)
-  const listing = { id, kind: "tool", name: server.name, projectId: project.id, project: project.name } as const
+  const listing = { id, name: server.name, projectId: project.id, project: project.name }
 
   // A server already serving this project is used as it is: one Portless routes to, which opens at its name, or else
   // one on its usual port.
@@ -82,13 +82,18 @@ async function start(project: ServedProject, adapter: string, server: ToolServer
     )) ?? ((await server.serves(usual)) ? { url: usual, address: usual } : undefined)
 
   if (existing) {
-    adoptServer({ ...listing, url: existing.url })
+    const port = Number(new URL(existing.url).port)
+    adoptProcess({
+      ...listing,
+      owner: { kind: "parity", role: "tool", adopted: true },
+      endpoint: { url: existing.url, port, protocol: "http" },
+      foundBy: existing.url === usual ? "port" : "provider",
+      provider: "parity"
+    })
 
     return existing
   }
 
-  const port = await choosePort(server.port)
-  const url = `http://localhost:${port}`
   const require = createRequire(join(project.root, "package.json"))
   let manifestPath: string
 
@@ -106,26 +111,47 @@ async function start(project: ServedProject, adapter: string, server: ToolServer
     throw new Error(`${server.name}'s command line couldn't be found`)
   }
 
-  logNote(`[service] starting ${server.name} for ${project.name} at ${url}`)
+  const script = join(dirname(manifestPath), bin)
+  let url = ""
 
   // The tool's command line runs on Parity's own Node, in the project's folder: Electron runs as plain Node here.
-  const started = startServer({
+  const started = await startProcess({
     ...listing,
-    command: process.execPath,
-    args: [join(dirname(manifestPath), bin), ...server.args(port)],
-    cwd: project.root,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", BROWSER: "none" },
-    url,
-    ready: (base) => server.serves(base),
-    restart: async () => {
+    lifetime: "server",
+    owner: { kind: "parity", role: "tool" },
+    runKind: "bin",
+    command: server.package,
+    // Asked until it answers as the tool's server, the way the adapter tells one.
+    answers: (base) => server.serves(base),
+    fingerprint: `${adapter}:${server.package}`,
+    async launch() {
+      const port = await choosePort(server.port)
+      url = `http://localhost:${port}`
+      logNote(`[service] starting ${server.name} for ${project.name} at ${url}`)
+
+      return {
+        command: process.execPath,
+        args: [script, ...server.args(port)],
+        cwd: project.root,
+        env: { ...withoutUndefined(process.env), ELECTRON_RUN_AS_NODE: "1", BROWSER: "none" },
+        port,
+        portMoved: port !== server.port
+      }
+    },
+    restartFromList: async () => {
       stopTool(id)
       await ensure(project, adapter, server)
     }
   })
 
-  await started.ready
+  await started.ready()
 
   return { url, address: url }
+}
+
+/** The service's environment, without the variables it doesn't set. */
+function withoutUndefined(env: NodeJS.ProcessEnv): Record<string, string> {
+  return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined))
 }
 
 /**

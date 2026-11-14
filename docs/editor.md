@@ -1106,6 +1106,10 @@ and runs its code in a host of its own ([extensions.md](extensions.md)). Storybo
   which command has its keys.
 - **A node selected by ref** that has no panel of its own, as a story or an extension's node, shows its name, its type
   as its extension names it, and the facts extensions set about it (`NodePanel`).
+- **Check accessibility in Storybook (PAR-1096)** shows beside Open in Storybook in projects with
+  `@storybook/addon-a11y`, from an extension that builds on the Storybook extension's API, and opens a component's first
+  story with Storybook's accessibility panel open. Agents run either through `run_extension`
+  ([extensions.md](extensions.md#working-with-other-extensions-and-agents)).
 
 Code: `renderer/extensions.ts` (the store, `commandsAt`, `holdsFor`, `extensionKeys`, `statusItems`, `runCommand`),
 `renderer/extension-editor.ts` (what extensions ask of the tab, and the selection they're told),
@@ -2024,6 +2028,32 @@ on the empty canvas, which makes a screen called Badge there (PAR-546, below).
 
 Gaps: clicking in the panels, the messages, and a drop into an absolutely placed layout have no end-to-end test.
 
+### A new design's id (PAR-1108)
+
+A new design's id is a stem made from its name and five random characters, `pricing-k3f9q` for Pricing: lowercased, each
+run of other characters one hyphen, `design` when nothing is left, then `generateId`'s characters, as a layer's id has.
+Two people who each add a design called Pricing get different ids, so a project document several people edit doesn't
+collide when their changes meet (docs/proposals/multiplayer.md, Ids).
+
+- **Every new design takes one:** New screen, New component and New frame, a frame from the frame tool, layers or an
+  item with nothing to go into, dropped images, Make component, Duplicate, and an agent's `CreateDesign` and
+  `ExtractComponent`.
+- **A pasted design always gets a new id,** even when the one it was copied with is free, so two people pasting one copy
+  don't make the same id. An instance among the pasted designs follows its component to the component's new id.
+- **Ids already in files stay as they are.** A design keeps its id when it's renamed, and states, variant options, modes
+  and viewports still take ids from their names alone (`uniqueId`), since they're only unique inside one design or
+  project setting.
+
+Code: `designId` in `packages/core/src/edit.ts` (`@parity-app/core`), with the stem from `idStem` in `modes.ts`; used by
+`create.ts`, `new-screen.ts`, `frames.ts`, `components.ts`, `drop-files.ts` and `clipboard.ts` (`copyDesigns`) in
+`packages/editor`, `chrome/designs.ts` (`duplicateDesign`) in the desktop app, and `packages/agent/src/workspace.ts`.
+
+Tests: `packages/core/src/edit.test.ts` ("designId", 2): the stem and five characters, `design` for a name with no
+letters or digits, and two designs with one name apart. `packages/editor/src/clipboard.test.ts` ("pasting designs", 4)
+and `paste-over.test.ts`: a new id even when the copied one is free, two copies of one design apart, and an instance
+following a copied component but not one outside the paste. The tests for each way of making a design check its id has
+the name's stem and five characters.
+
 ### New screen, New component and the empty canvas (PAR-546)
 
 Making a screen or component is one visible step, as PAR-541's approved designs show, without the start in the middle of
@@ -2679,21 +2709,22 @@ lone selected layout, after the last selected layer, in a slot, the root, and a 
 order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and viewport, the
 bound title as it shows, and pasting it into a design with and without the param, and bindings fitted all the way down;
 an instance whose slot is filled (3, PAR-966), copied as a state shows its fill, its fill's bindings fitted to a design
-with and without the param, and pasted showing what it showed, unbound; designs' ids, kept when free even when not made
-from the name, and whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a
-variant and viewport, and pasting it in the base and in another state, where the state shows only the copied style,
-taking away the design's values and keeping nothing for what the design doesn't set; and missing components at any
-depth, and none while the project's aren't known. `mapNodes` and `mapChildLists` are tested in
-`packages/core/src/edit.test.ts` ("mapping every node", 6): every place a node holds nodes reached in order, a
-replacement's own layers gone into, the same tree back when nothing changes, each list mapped by its slot, one node
-replaced and one removed inside a filled slot, and fresh ids for a copy's filled slots. The new screen layers make, its
-name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What a state takes
-away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state, a value the
-state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a state
-taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to its
-default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in
-one state and refusing an unknown key. `workspace.test.ts` also has an agent's `Copy` (PAR-1048): the copy shows the
-param's default, keeps the binding within its design, and loses it in a design without the param.
+with and without the param, and pasted showing what it showed, unbound; designs' ids, new from the name even when the
+copied one is free, two copies of one design apart, and instances among the copies following a copied component; and
+whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a variant and viewport,
+and pasting it in the base and in another state, where the state shows only the copied style, taking away the design's
+values and keeping nothing for what the design doesn't set; and missing components at any depth, and none while the
+project's aren't known. `mapNodes` and `mapChildLists` are tested in `packages/core/src/edit.test.ts` ("mapping every
+node", 6): every place a node holds nodes reached in order, a replacement's own layers gone into, the same tree back
+when nothing changes, each list mapped by its slot, one node replaced and one removed inside a filled slot, and fresh
+ids for a copy's filled slots. The new screen layers make, its name and the bindings it keeps none of, are in
+`packages/editor/src/new-screen.test.ts` (PAR-546). What a state takes away is tested in `packages/core`: `edit.test.ts`
+("taking a value away"), a prop taken away in one state, a value the state set taken away with nothing kept, setting it
+again and Reset, and removal in the base; `render.test.ts`, a state taking style and props away over the design and the
+viewport's patch, layered patches, an instance's param back to its default, and reading `unset` from a file;
+`packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in one state and refusing an unknown key.
+`workspace.test.ts` also has an agent's `Copy` (PAR-1048): the copy shows the param's default, keeps the binding within
+its design, and loses it in a design without the param.
 
 `packages/editor/src/paste-decision.test.ts` (105) is the table: each paste, where it would paste, each kind of content,
 and what it does, with the rows that differ on purpose saying why, and a check that every combination is in exactly one
@@ -2720,8 +2751,8 @@ nothing.
   of it, at its insets as the state being edited shows them, in place of their own. A selected layout or component gets
   them beside it, not inside it, which is where Paste differs.
 - **Over designs,** copied designs go at the selected designs' position: the copies' top left corner at the selected
-  designs' top left, sitting as they sat together, on top of them, as new designs are. Each keeps its id unless that's
-  taken, as a paste does.
+  designs' top left, sitting as they sat together, on top of them, as new designs are. Each gets a new id, as a paste
+  gives one (see A new design's id).
 - **Layers go over layers and designs over designs.** Otherwise a message says what to copy. It needs layers or designs
   selected; otherwise it's unavailable in the menu and the keys do nothing. Layers inside an instance can't be pasted
   over, and a message says so.

@@ -28,7 +28,7 @@ import {
   Zap
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
-import type { ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
+import type { ProcessRole, ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { Hint } from "./Hint.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
@@ -48,7 +48,7 @@ import {
  * least 25 degrees from any other, so tiles side by side don't read as the same kind: the build server is the canvas's
  * blue, Format its component purple, and a tool's server, as Storybook, keeps Storybook's pink.
  */
-const kinds: Record<ProjectProcess["kind"], { icon: typeof Hammer; tint: string; role: string }> = {
+const kinds: Record<ProcessRole, { icon: typeof Hammer; tint: string; role: string }> = {
   builder: { icon: Zap, tint: "var(--canvas-screen)", role: "Renders the canvas" },
   tool: { icon: Server, tint: "oklch(0.68 0.2 2)", role: "Serves a tool" },
   install: { icon: Package, tint: "oklch(0.76 0.15 65)", role: "Installs packages" },
@@ -61,6 +61,28 @@ const kinds: Record<ProjectProcess["kind"], { icon: typeof Hammer; tint: string;
   build: { icon: Hammer, tint: "oklch(0.68 0.03 260)", role: "Builds the project" },
   export: { icon: ImageDown, tint: "oklch(0.74 0.12 205)", role: "Exports images" },
   accessibility: { icon: Accessibility, tint: "oklch(0.72 0.17 330)", role: "Checks accessibility" }
+}
+
+/** What one of Parity's own processes does; an extension's server shows as a tool's. */
+function kindOf(process: ProjectProcess): ProcessRole {
+  return process.owner.kind === "parity" ? process.owner.role : "tool"
+}
+
+/** Where the browser opens a server: its preferred address, else its endpoint. */
+function opensAt(process: ProjectProcess): string | undefined {
+  return process.opens ?? process.endpoint?.url
+}
+
+/** Its name, as Portless gives one, when the browser opens it there rather than at its endpoint. */
+function domainOf(process: ProjectProcess): string | undefined {
+  const named = process.addresses.find((address) => !address.public)
+
+  return named?.url
+}
+
+/** Whether it was running already when Parity needed it, as a Storybook on its usual port, so Parity never stops it. */
+function isAdopted(process: ProjectProcess): boolean {
+  return process.owner.kind === "adopted" || (process.owner.kind === "parity" && process.owner.adopted === true)
 }
 
 const serverWords: Partial<Record<ProcessStatus, string>> = {
@@ -92,12 +114,12 @@ export function Processes() {
   // Results that finish while the flyout is open are seen as they arrive.
   useEffect(() => {
     if (open) {
-      markSeen(processes.filter((process) => process.lifetime === "task" && ended.has(process.status)))
+      markSeen(processes.filter((process) => process.lifetime === "task" && ended.has(process.state)))
     }
   })
 
   const finished = processes
-    .filter((process) => process.lifetime === "task" && ended.has(process.status))
+    .filter((process) => process.lifetime === "task" && ended.has(process.state))
     .sort((a, b) => (b.stoppedAt ?? 0) - (a.stoppedAt ?? 0))
 
   const groups = groupProcesses(
@@ -111,10 +133,10 @@ export function Processes() {
     return null
   }
 
-  const crashed = active.find((process) => process.lifetime === "server" && process.status === "failed")
+  const crashed = active.find((process) => process.lifetime === "server" && process.state === "failed")
   const unseen = finished.filter((process) => !isSeen(process))
-  const unseenFailure = unseen.find((process) => process.status === "failed")
-  const starting = active.find((process) => process.status === "starting")
+  const unseenFailure = unseen.find((process) => process.state === "failed")
+  const starting = active.find((process) => process.state === "starting")
   const task = active.find((process) => process.lifetime === "task")
   const stoppable = active.filter((process) => process.lifetime === "server" && process.canStop)
   const manyProjects = new Set(processes.map((process) => process.projectId)).size > 1
@@ -124,7 +146,7 @@ export function Processes() {
     failed: unseenFailure,
     starting,
     task,
-    running: active.filter((process) => !ended.has(process.status)).length
+    running: active.filter((process) => !ended.has(process.state)).length
   })
 
   return (
@@ -250,9 +272,13 @@ interface Group {
 
 /** A group for each open project, the active one first: its servers, then its tasks running, oldest first. */
 function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] {
-  const order: ProjectProcess["kind"][] = ["builder", "tool"]
-  const rank = (process: ProjectProcess) => (process.lifetime === "task" ? order.length : order.indexOf(process.kind))
+  const order: ProcessRole[] = ["builder", "tool"]
+
+  const rank = (process: ProjectProcess) =>
+    process.lifetime === "task" ? order.length : order.indexOf(kindOf(process))
+
   const sorted = [...processes].sort((a, b) => rank(a) - rank(b) || a.startedAt - b.startedAt)
+
   const groups = new Map<string, Group>()
 
   for (const process of sorted) {
@@ -267,11 +293,11 @@ function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] 
 /** "2 servers and 1 task running for 1 open project", with any crash. */
 function summary(processes: ProjectProcess[]): string {
   const count = (lifetime: ProjectProcess["lifetime"]) =>
-    processes.filter((process) => process.lifetime === lifetime && !ended.has(process.status)).length
+    processes.filter((process) => process.lifetime === lifetime && !ended.has(process.state)).length
 
   const servers = count("server")
   const tasks = count("task")
-  const crashed = processes.filter((process) => process.status === "failed").length
+  const crashed = processes.filter((process) => process.state === "failed").length
 
   const running = [
     servers > 0 && (servers === 1 ? "1 server" : `${servers} servers`),
@@ -297,7 +323,7 @@ function summary(processes: ProjectProcess[]): string {
  * passed task shows a check, a failed one or a crashed server pings red, and a stopped or canceled one is hollow.
  */
 export function Light({ process, size = 7, delay = 0 }: { process: ProjectProcess; size?: number; delay?: number }) {
-  const { status } = process
+  const { state: status } = process
   const box: CSSProperties = { width: size, height: size }
 
   const working =
@@ -373,8 +399,8 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
 
 /** The kind's icon on a tile tinted its color, with the status light on its corner. */
 export function KindTile({ process }: { process: ProjectProcess }) {
-  const { icon: Icon, tint } = kinds[process.kind]
-  const faded = process.status === "stopped" || process.status === "canceled"
+  const { icon: Icon, tint } = kinds[kindOf(process)]
+  const faded = process.state === "stopped" || process.state === "canceled"
 
   return (
     <span
@@ -405,9 +431,9 @@ function ProcessRow({
   showProject?: boolean
 }) {
   const [confirming, setConfirming] = useState(false)
-  const done = ended.has(process.status)
+  const done = ended.has(process.state)
   const task = process.lifetime === "task"
-  const word = (task ? taskWords : serverWords)[process.status]
+  const word = (task ? taskWords : serverWords)[process.state]
 
   const time =
     task && done ? ago(now - (process.stoppedAt ?? now)) : formatUptime((process.stoppedAt ?? now) - process.startedAt)
@@ -429,11 +455,11 @@ function ProcessRow({
           <Hint label={describe(process)} wait>
             <div className="flex items-baseline gap-2">
               <span
-                className={`truncate text-xs ${done && process.status !== "failed" && !task ? "text-muted-foreground" : "text-foreground"}`}
+                className={`truncate text-xs ${done && process.state !== "failed" && !task ? "text-muted-foreground" : "text-foreground"}`}
               >
                 {process.name}
               </span>
-              {word && <StatusWord status={process.status}>{word}</StatusWord>}
+              {word && <StatusWord status={process.state}>{word}</StatusWord>}
               {showProject && <span className="truncate text-2xs text-muted-foreground">{process.project}</span>}
             </div>
           </Hint>
@@ -462,10 +488,7 @@ function ProcessRow({
               ) : (
                 <>
                   {canOpen(process) && (
-                    <Action
-                      label="Open in your browser"
-                      onClick={() => window.open(process.domain ?? process.url, "_blank")}
-                    >
+                    <Action label="Open in your browser" onClick={() => window.open(opensAt(process), "_blank")}>
                       <ExternalLink />
                     </Action>
                   )}
@@ -496,7 +519,7 @@ function ProcessRow({
 
 /** A server's address, or why it crashed. */
 function ServerLine({ process }: { process: ProjectProcess }) {
-  if (process.status === "failed" && process.error) {
+  if (process.state === "failed" && process.error) {
     const [first, ...rest] = process.error.split("\n")
 
     return (
@@ -513,14 +536,14 @@ function ServerLine({ process }: { process: ProjectProcess }) {
 
 /** What a running task is doing, with how far it has got, or what a finished one found. */
 function TaskLine({ process }: { process: ProjectProcess }) {
-  if (process.status === "running" || process.status === "stopping") {
+  if (process.state === "running" || process.state === "stopping") {
     const { progress } = process
     const share = progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : undefined
 
     return (
       <div className="mt-0.5 flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2 text-2xs text-muted-foreground">
-          <span className="truncate">{process.detail ?? kinds[process.kind].role}</span>
+          <span className="truncate">{process.detail ?? kinds[kindOf(process)].role}</span>
           {progress && (
             <span className="ml-auto shrink-0 tabular-nums">
               {progress.done} of {progress.total}
@@ -536,7 +559,7 @@ function TaskLine({ process }: { process: ProjectProcess }) {
               className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500"
               style={{
                 width: `${share * 100}%`,
-                background: `linear-gradient(90deg, color-mix(in oklch, ${kinds[process.kind].tint} 55%, transparent), ${kinds[process.kind].tint})`
+                background: `linear-gradient(90deg, color-mix(in oklch, ${kinds[kindOf(process)].tint} 55%, transparent), ${kinds[kindOf(process)].tint})`
               }}
             />
           </span>
@@ -545,7 +568,7 @@ function TaskLine({ process }: { process: ProjectProcess }) {
     )
   }
 
-  const color = process.status === "failed" ? "var(--process-failed)" : undefined
+  const color = process.state === "failed" ? "var(--process-failed)" : undefined
 
   return (
     <Hint
@@ -557,7 +580,7 @@ function TaskLine({ process }: { process: ProjectProcess }) {
         className={`mt-0.5 truncate text-2xs ${color ? "" : "text-muted-foreground"}`}
         style={color ? { color } : undefined}
       >
-        {process.summary ?? kinds[process.kind].role}
+        {process.summary ?? kinds[kindOf(process)].role}
       </div>
     </Hint>
   )
@@ -598,15 +621,17 @@ function StatusWord({ status, children }: { status: ProcessStatus; children: Rea
 
 /** Where it serves: its Portless name when it has one, its subdomain bright, or its local port. */
 function Address({ process }: { process: ProjectProcess }) {
-  if (!process.domain && !process.url) {
+  if (!opensAt(process)) {
     return (
       <div className="mt-0.5 text-2xs text-muted-foreground">
-        {process.kind === "tool" ? process.name : kinds[process.kind].role}
+        {kindOf(process) === "tool" ? process.name : kinds[kindOf(process)].role}
       </div>
     )
   }
 
-  const content = process.domain ? <Domain domain={process.domain} url={process.url} /> : <Port url={process.url!} />
+  const domain = domainOf(process)
+  const url = process.endpoint?.url
+  const content = domain ? <Domain domain={domain} url={url} /> : <Port url={url ?? opensAt(process)!} />
 
   if (!canOpen(process)) {
     return <div className="mt-0.5 flex min-w-0 items-center font-mono text-2xs">{content}</div>
@@ -616,7 +641,7 @@ function Address({ process }: { process: ProjectProcess }) {
     <button
       type="button"
       className="mt-0.5 flex max-w-full min-w-0 items-center rounded font-mono text-2xs decoration-muted-foreground/40 underline-offset-2 hover:underline"
-      onClick={() => window.open(process.domain ?? process.url, "_blank")}
+      onClick={() => window.open(opensAt(process), "_blank")}
     >
       {content}
     </button>
@@ -782,19 +807,19 @@ function ago(milliseconds: number): string {
 
 /** Whether it serves something worth opening: the build server only serves the canvas its modules. */
 function canOpen(process: ProjectProcess): boolean {
-  return process.kind === "tool" && !!(process.domain ?? process.url) && process.status === "running"
+  return kindOf(process) === "tool" && !!opensAt(process) && process.state === "running"
 }
 
 function describe(process: ProjectProcess): string {
-  if (process.kind === "builder") {
+  if (kindOf(process) === "builder") {
     return `${process.name} builds ${process.project} for the canvas, inside Parity's project service. It stops when the project's tab closes.`
   }
 
   if (process.lifetime === "task") {
-    return `${kinds[process.kind].role} for ${process.project}.`
+    return `${kinds[kindOf(process)].role} for ${process.project}.`
   }
 
-  if (process.startedBy === "elsewhere") {
+  if (isAdopted(process)) {
     return `${process.project}'s ${process.name}, already running when Parity needed it, so Parity uses it and leaves it running.`
   }
 
