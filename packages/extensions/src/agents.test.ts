@@ -168,6 +168,33 @@ describe("an extension's API for others", () => {
     )
   })
 
+  it("starts an extension once when one listed before it builds on it and both start on detection", async () => {
+    const eager = readExtension({
+      name: "parity-eager",
+      version: "1.0.0",
+      main: "dist/extension.js",
+      parity: {
+        displayName: "Eager",
+        prefix: "eager",
+        icon,
+        activates: ["onDetect"],
+        extensionDependencies: ["parity-stories"],
+        contributes: {}
+      }
+    })
+
+    const { hosts, started, changes } = setUp(
+      { "parity-eager": { activate: () => undefined }, "parity-stories": storiesApi },
+      [eager, stories]
+    )
+
+    hosts.open(project)
+    await vi.waitFor(() => expect(changes.at(-1)?.every((each) => each.state === "running")).toBe(true))
+
+    // The one listed first starts its process, then its dependency's, and the dependency isn't started a second time.
+    expect(started).toEqual(["parity-eager", "parity-stories"])
+  })
+
   it("leaves out an extension whose dependency isn't in the project", () => {
     const { hosts, changes } = setUp({ "parity-checks": { activate: () => undefined } })
 

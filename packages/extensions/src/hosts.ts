@@ -985,7 +985,8 @@ export function extensionHosts<Project extends OpenedProject>(
       for (const host of open.hosts.values()) {
         const { activates } = host.extension.package.manifest
 
-        if (activates.includes("onDetect") || activates.includes("onStartup")) {
+        // One an earlier extension built on is running already.
+        if (!host.running && (activates.includes("onDetect") || activates.includes("onStartup"))) {
           start(open, host)
         }
       }
