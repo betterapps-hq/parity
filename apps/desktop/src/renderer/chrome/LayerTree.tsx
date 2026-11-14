@@ -43,6 +43,7 @@ import {
   toggleRows,
   type LockSource,
   lockSource,
+  refsSelection,
   setDesignLocked,
   toggleLockedLayers,
   type TreeRow,
@@ -88,6 +89,7 @@ import {
   routeListing,
   routePagesFile,
   routePageTarget,
+  routeRef,
   selectedPageGroup
 } from "../canvas/route-pages.ts"
 import { isStoryBounds, storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
@@ -478,7 +480,7 @@ export function LayerTree() {
       ? toggle(closedRouteFolder(id), open === undefined ? undefined : !open)
       : toggle(id, open)
 
-  const pickedGroup = useStore(selectedPageGroup)
+  const pickedGroup = selectedPageGroup(session.id, selected)
 
   // Alt+click on an arrow opens or closes the row with everything inside it, as Finder does.
   const toggleBranch = (row: Row) =>
@@ -953,10 +955,11 @@ export function LayerTree() {
                       onClick={() => {
                         setActiveFolder(line.folder.id)
 
-                        // A layout's folder selects its group, on the canvas too; its arrow opens or closes it.
+                        // A layout's folder selects its route, and so its group on the canvas, which it brings into
+                        // view; its arrow opens or closes it.
                         if (line.layout) {
-                          selection.set({})
-                          selectedPageGroup.set(line.layout.key)
+                          selection.set(refsSelection([routeRef(session.info, line.layout.route)]))
+                          revealSelection(session)
                         } else {
                           toggle(line.folder.id)
                         }

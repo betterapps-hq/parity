@@ -13,7 +13,6 @@ import { useExtensions } from "../extensions.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { useStore } from "../store.ts"
 import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
@@ -22,6 +21,7 @@ import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name } from "./Name.tsx"
+import { NodePanel } from "./NodePanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
@@ -65,9 +65,9 @@ function SelectedPanel() {
   const { id, store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
-  const pickedGroup = useStore(selectedPageGroup)
-  // A layout group isn't a design, so the selection holds nothing while one is picked.
-  const group = entry ? undefined : routePageGroups(id).find(({ key }) => key === pickedGroup)
+  const pickedGroup = selectedPageGroup(id, selected)
+  // A layout group isn't a design: the selection holds its route by ref.
+  const group = routePageGroups(id).find(({ key }) => key === pickedGroup)
 
   if (selected.note) {
     return <NotePanel noteKey={selected.note} />
@@ -79,6 +79,12 @@ function SelectedPanel() {
 
   if (group) {
     return <PageGroupPanel group={group} />
+  }
+
+  const node = selected.refs?.at(-1)
+
+  if (node) {
+    return <NodePanel node={node} />
   }
 
   if (!entry) {
