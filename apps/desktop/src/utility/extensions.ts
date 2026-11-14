@@ -8,14 +8,12 @@ import {
   type InstalledExtension,
   readExtension
 } from "@parity-app/extensions"
-import { fillPort, runEnvironment } from "@parity-app/processes"
 import { z } from "zod"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
+import { extensionProcesses } from "./extension-processes.ts"
 import { extensionStateStore } from "./extension-state.ts"
-import { local, readPortless } from "./portless.ts"
-import { adoptProcess, choosePort, startProcess, stopManaged, stopManagedPrefixed } from "./process-manager.ts"
 import type { OpenProject } from "./projects.ts"
 
 /*
@@ -76,80 +74,7 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
     },
     state: extensionStateStore(environment().PARITY_EXTENSION_STATE_FILE),
     window,
-    servers: {
-      async serve(projectId, extension, server) {
-        const project = projects.get(projectId)
-
-        if (!project) {
-          throw new Error(`No project ${projectId} is open`)
-        }
-
-        const started = await startProcess({
-          id: serverId(projectId, extension, server.id),
-          name: server.name,
-          lifetime: "server",
-          owner: { kind: "extension", extension },
-          projectId,
-          project: project.name,
-          runKind: "bin",
-          command: server.id,
-          fingerprint: JSON.stringify(server),
-          ready: { http: server.readyPath },
-          async launch() {
-            const port = await choosePort(server.port)
-            logNote(`[service] starting ${server.name} for ${project.name} at http://localhost:${port}`)
-
-            // On Parity's own Node, in the project's folder: Electron runs as plain Node here.
-            return {
-              command: process.execPath,
-              args: [server.script, ...fillPort(server.args, port)],
-              cwd: project.root,
-              env: runEnvironment({ bin: server.id }, process.env, server.env),
-              port,
-              portMoved: port !== server.port
-            }
-          }
-        })
-
-        const { endpoint } = await started.ready()
-
-        return { url: endpoint?.url ?? "" }
-      },
-      adopt(projectId, extension, server) {
-        const project = projects.get(projectId)
-
-        if (!project) {
-          return
-        }
-
-        const id = serverId(projectId, extension, server.id)
-        const url = new URL(server.url)
-
-        // One it started or adopted before under this id goes first.
-        void stopManaged(id, "extension")
-          .then(() =>
-            adoptProcess({
-              id,
-              name: server.name,
-              owner: { kind: "adopted", by: extension },
-              projectId,
-              project: project.name,
-              endpoint: { url: url.origin, port: Number(url.port || 80), protocol: "http" },
-              foundBy: "endpoint"
-            })
-          )
-          .catch((cause: unknown) => logNote(`[service] couldn't adopt ${server.name}: ${String(cause)}`))
-      },
-      stop: (projectId, extension, id) => void stopManaged(serverId(projectId, extension, id), "extension"),
-      async routed() {
-        const portless = await readPortless()
-
-        return portless.routes.map((route) => ({ url: local(route.port), address: portless.address(route.hostname) }))
-      },
-      stopAll(projectId, extension) {
-        void stopManagedPrefixed(serverId(projectId, extension, ""), "extension")
-      }
-    }
+    processes: extensionProcesses((projectId) => projects.get(projectId))
   })
 }
 
@@ -171,9 +96,4 @@ export function openExtensions(hosts: ExtensionHosts<ExtensionProject>, open: Op
 export async function closeExtensions(hosts: ExtensionHosts<ExtensionProject>, projectId: string): Promise<void> {
   projects.delete(projectId)
   await hosts.close(projectId)
-}
-
-/** A server's id in the process manager: one per extension, server and project. */
-function serverId(projectId: string, extension: string, id: string): string {
-  return `extension:${extension}:${projectId}:${id}`
 }

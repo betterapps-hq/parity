@@ -44,6 +44,34 @@ export interface ProcessHandle {
 
 const tracked = new Map<string, Tracked>()
 
+/** Who hears that the list changed, as extensions' hosts do. */
+const listeners = new Set<(projectId: string) => void>()
+
+/** Calls `listener` with a project's id whenever its processes change, until the function it returns is called. */
+export function onProcessesChanged(listener: (projectId: string) => void): () => void {
+  listeners.add(listener)
+
+  return () => listeners.delete(listener)
+}
+
+/** Tells the listeners a project's processes changed, once this turn of the event loop has made its changes. */
+const pending = new Set<string>()
+
+function changed(projectId: string): void {
+  if (pending.has(projectId)) {
+    return
+  }
+
+  pending.add(projectId)
+  queueMicrotask(() => {
+    pending.delete(projectId)
+
+    for (const listener of listeners) {
+      listener(projectId)
+    }
+  })
+}
+
 /** Each task's last outcome, for one that reports only changes. */
 const lastOutcomes = new Map<string, ProcessStatus>()
 
@@ -79,6 +107,7 @@ export function trackProcess(entry: ProcessEntry, controls: Controls = {}): Proc
 
   const item: Tracked = { process, controls }
   tracked.set(entry.id, item)
+  changed(entry.projectId)
 
   return {
     get stopping() {
@@ -88,6 +117,7 @@ export function trackProcess(entry: ProcessEntry, controls: Controls = {}): Proc
     update(details) {
       if (tracked.get(entry.id) === item) {
         Object.assign(item.process, details)
+        changed(entry.projectId)
       }
     },
     set(state, details = {}) {
@@ -97,6 +127,7 @@ export function trackProcess(entry: ProcessEntry, controls: Controls = {}): Proc
 
       Object.assign(item.process, details)
       item.process.state = state
+      changed(entry.projectId)
 
       if (!ended.has(state)) {
         return
@@ -112,7 +143,12 @@ export function trackProcess(entry: ProcessEntry, controls: Controls = {}): Proc
       }
 
       if (state === "stopped") {
-        setTimeout(() => tracked.get(entry.id) === item && tracked.delete(entry.id), stoppedLinger)
+        setTimeout(() => {
+          if (tracked.get(entry.id) === item) {
+            tracked.delete(entry.id)
+            changed(entry.projectId)
+          }
+        }, stoppedLinger)
       }
     }
   }
@@ -151,7 +187,12 @@ function reportTask({ process, controls }: Tracked): void {
 
 /** Takes a process off the list, as when its project closes. */
 export function forgetProcess(id: string): void {
-  tracked.delete(id)
+  const item = tracked.get(id)
+
+  if (item) {
+    tracked.delete(id)
+    changed(item.process.projectId)
+  }
 }
 
 /** Takes every process of a project off the list, when it closes. */
@@ -162,6 +203,8 @@ export function forgetProject(projectId: string): void {
       lastOutcomes.delete(id)
     }
   }
+
+  changed(projectId)
 }
 
 /** The processes listed for a project, or for every project, as they are now. */
@@ -230,6 +273,7 @@ export function dismissProcess({ id }: { id: string }): Promise<undefined> {
 
   if (item && ended.has(item.process.state)) {
     tracked.delete(id)
+    changed(item.process.projectId)
   }
 
   return Promise.resolve(undefined)

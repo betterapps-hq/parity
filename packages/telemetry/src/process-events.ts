@@ -159,6 +159,35 @@ export const processRefused = defineEvent(
   { level: "warn", sentBy: ["service"], when: "`start` or `adopt` is refused, before anything runs." }
 )
 
+export const processReattached = defineEvent(
+  "processes.reattached",
+  z.object({
+    owner,
+    processes: z.number().int().nonnegative().describe("How many of its processes it got back"),
+    hostStopped: z
+      .enum(["crash", "stuck", "reload"])
+      .describe("Why its host stopped: it crashed, it wasn't answering, or it was reloaded")
+  }),
+  {
+    level: "info",
+    sentBy: ["service"],
+    when: "An extension's host that started again gets back the processes it owns."
+  }
+)
+
+export const processFound = defineEvent(
+  "processes.found",
+  z.object({
+    owner,
+    ports: z.number().int().nonnegative().describe("How many ports it asked about"),
+    candidates: z.number().int().nonnegative().describe("How many servers it found"),
+    providers: z.number().int().nonnegative().describe("How many discovery providers were asked"),
+    cached: z.number().int().nonnegative().describe("How many providers answered from their last answer"),
+    durationMs
+  }),
+  { level: "info", sample: 0.1, sentBy: ["service"], when: "An extension's `find` returns." }
+)
+
 export const processEvents = [
   processStarted,
   processFailed,
@@ -168,5 +197,7 @@ export const processEvents = [
   processTaskFinished,
   processAdopted,
   processLost,
-  processRefused
+  processRefused,
+  processReattached,
+  processFound
 ] as const

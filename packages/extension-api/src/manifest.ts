@@ -43,8 +43,13 @@ export interface Permissions {
   write?: string[]
   /** Network hosts it reaches. They're shown, not enforced. */
   network?: string[]
-  /** Commands it may run through `parity.processes`. */
+  /**
+   * What it may run through `parity.processes`, one entry per run: `bin:<package>`, `script:<name>`, `exec:<name>` or
+   * `node:<path>`.
+   */
   processes?: string[]
+  /** Whether it may read what other extensions' and Parity's processes print, and their public addresses. */
+  observe?: boolean
   /** Whether it may change designs. */
   edits?: boolean
 }

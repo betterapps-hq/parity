@@ -5,6 +5,7 @@ import {
   type ChildEnd,
   type ChildExit,
   endedByItself,
+  isLocalHost,
   lastLines,
   type Lifecycle,
   matchedLineLength,
@@ -1022,18 +1023,16 @@ function alive(pid: number): boolean {
   }
 }
 
-/** Whether a host is this machine. */
-export function isLocalHost(host: string): boolean {
-  const bare = host.replace(/^\[|\]$/g, "").toLowerCase()
-
-  return bare === "localhost" || bare === "127.0.0.1" || bare === "::1" || bare.endsWith(".localhost")
-}
-
 /** A process the manager runs or adopted, while it's starting, running or stopping. */
 export function managedProcess(id: string): ManagedProcess | undefined {
   const entry = entries.get(id)
 
   return entry?.live ? entry.handle : undefined
+}
+
+/** A process the manager ran or adopted, live or not, as its owner asks how its latest run ended. */
+export function knownProcess(id: string): ManagedProcess | undefined {
+  return entries.get(id)?.handle
 }
 
 /** Stops a process Parity started, or lets go of one it adopted. */

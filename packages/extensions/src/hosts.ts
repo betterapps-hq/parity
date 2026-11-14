@@ -1,15 +1,19 @@
 import { type Channel, createChannel, type Port } from "@parity-app/channel"
 import type {
+  Candidate,
   CommandTarget,
   Contributions,
   DesignOperation,
   Fact,
   FileEdit,
+  FindQuery,
   JsonValue,
   NodeRef,
   PathIcon,
   Permissions,
-  ServerRequest,
+  ProcessEnd,
+  ProcessInfo,
+  ProcessSpec,
   SettingValue,
   ViewData,
   ViewKind
@@ -129,14 +133,50 @@ export interface ExtensionWindow {
   reveal(projectId: string, extension: string, view: string): void
 }
 
-/** The project service's process manager, as extensions' servers use it. */
-export interface ExtensionServers {
-  serve(projectId: string, extension: string, server: ServerRequest): Promise<{ url: string }>
-  adopt(projectId: string, extension: string, server: { id: string; name: string; url: string }): void
-  stop(projectId: string, extension: string, id: string): void
-  /** Stops every server an extension started, as its host stops or crashes. */
+/** Which extension asks the process manager for something, for which project, and what its manifest allows it. */
+export interface ProcessCaller {
+  projectId: string
+  extension: string
+  /** Its manifest's `permissions.processes`, and whether it may `observe` others' output. */
+  permissions: { processes: string[]; observe: boolean }
+  /** Its code's entry module, which a `node` run's path is inside the folder of. */
+  main: string
+}
+
+/** What a host hears of the project's processes while it runs. */
+export interface ProcessListener {
+  /** The project's processes changed: all of them, as the extension may see them. */
+  changed(processes: ProcessInfo[]): void
+  /** One of its own processes printed lines. */
+  lines(id: string, lines: string[]): void
+  /** One of its own processes' runs ended. */
+  ended(id: string, end: ProcessEnd): void
+}
+
+/**
+ * The project service's process manager, as `parity.processes` uses it. Ids are the extension's own, as its spec names
+ * them; what it may see of others' processes is decided here.
+ */
+export interface ExtensionProcesses {
+  start(caller: ProcessCaller, spec: ProcessSpec): Promise<ProcessInfo>
+  adopt(caller: ProcessCaller, server: HostServiceMethods["processes.adopt"]["params"]): ProcessInfo
+  find(caller: ProcessCaller, query: FindQuery): Promise<Candidate[]>
+  stop(caller: ProcessCaller, id: string): Promise<void>
+  restart(caller: ProcessCaller, id: string): Promise<ProcessInfo>
+  ready(caller: ProcessCaller, id: string): Promise<ProcessInfo>
+  ended(caller: ProcessCaller, id: string): Promise<ProcessEnd>
+  report(caller: ProcessCaller, id: string, progress: { detail?: string; done?: number; total?: number }): void
+  summarize(caller: ProcessCaller, id: string, summary: string): void
+  markReady(caller: ProcessCaller, id: string, match: string): void
+  /** The project's processes as the caller may see them, and what its own printed lately, by id. */
+  snapshot(caller: ProcessCaller): { list: ProcessInfo[]; output: Record<string, string[]> }
+  /** Tells `listener` of the project's processes until the function it returns is called. */
+  watch(caller: ProcessCaller, listener: ProcessListener): () => void
+  /** A host started again after it stopped, and gets back the processes it owns. */
+  reattached(caller: ProcessCaller, hostStopped: "crash" | "stuck" | "reload"): void
+  /** Stops every process an extension started, as the project closes. */
   stopAll(projectId: string, extension: string): void
-  /** The local servers Portless names, and their addresses. */
+  /** The local servers Portless names, and their addresses, until Portless is an extension (step 3). */
   routed(): Promise<{ url: string; address: string }[]>
 }
 
@@ -185,7 +225,7 @@ export interface ExtensionHostsOptions<Project extends OpenedProject> {
   start(extension: InstalledExtension<Project>, project: Project): HostLink
   state: ExtensionStateStore
   window: ExtensionWindow
-  servers: ExtensionServers
+  processes: ExtensionProcesses
   edits: ExtensionEdits
   timing?: Partial<HostTiming>
 }
@@ -251,6 +291,8 @@ interface Running {
   channel: Channel<HostServiceMethods, HostMethods>
   activated: Promise<void>
   stopPinging(): void
+  /** Stops telling it of the project's processes. */
+  unwatch(): void
 }
 
 interface OpenProject<Project> {
@@ -358,7 +400,7 @@ export function extensionHosts<Project extends OpenedProject>(
   }
 
   /** Lets go of a host's process without counting its exit as a crash, and asks it to stop. */
-  const detach = (open: OpenProject<Project>, host: Host<Project>): Running | undefined => {
+  const detach = (host: Host<Project>): Running | undefined => {
     const running = host.running
 
     if (!running) {
@@ -367,13 +409,14 @@ export function extensionHosts<Project extends OpenedProject>(
 
     delete host.running
     running.stopPinging()
-    options.servers.stopAll(open.project.id, host.extension.package.id)
+    // Its processes keep running: when it starts again, it gets them back (docs/proposals/processes.md, Lifecycle).
+    running.unwatch()
 
     return running
   }
 
-  const stop = async (open: OpenProject<Project>, host: Host<Project>) => {
-    const running = detach(open, host)
+  const stop = async (host: Host<Project>) => {
+    const running = detach(host)
 
     if (!running) {
       return
@@ -385,11 +428,24 @@ export function extensionHosts<Project extends OpenedProject>(
     running.channel.close(new Error("The extension stopped"))
   }
 
+  /** Who a host's extension is, as the process manager checks what it may run and see. */
+  const callerOf = (open: OpenProject<Project>, host: Host<Project>): ProcessCaller => {
+    const { permissions } = host.extension.package.manifest
+
+    return {
+      projectId: open.project.id,
+      extension: host.extension.package.id,
+      permissions: { processes: permissions?.processes ?? [], observe: permissions?.observe ?? false },
+      main: host.extension.main
+    }
+  }
+
   const handlersFor = (open: OpenProject<Project>, host: Host<Project>) => {
     const projectId = open.project.id
     const id = host.extension.package.id
     const { root } = open.project
     const { displayName, permissions } = host.extension.package.manifest
+    const caller = callerOf(open, host)
 
     const ui =
       <M extends WindowAsk>(method: M) =>
@@ -483,14 +539,24 @@ export function extensionHosts<Project extends OpenedProject>(
 
         await options.window.updateSetting(projectId, prefix, storedKey(prefix, key), value)
       },
-      "servers.serve": (server: ServerRequest) => options.servers.serve(projectId, id, server),
-      "servers.adopt"(server: HostServiceMethods["servers.adopt"]["params"]) {
-        options.servers.adopt(projectId, id, server)
+      "processes.start": (spec: ProcessSpec) => options.processes.start(caller, spec),
+      "processes.adopt": (server: HostServiceMethods["processes.adopt"]["params"]) =>
+        options.processes.adopt(caller, server),
+      "processes.find": (query: FindQuery) => options.processes.find(caller, query),
+      "processes.stop": ({ id: process }: { id: string }) => options.processes.stop(caller, process),
+      "processes.restart": ({ id: process }: { id: string }) => options.processes.restart(caller, process),
+      "processes.ready": ({ id: process }: { id: string }) => options.processes.ready(caller, process),
+      "processes.ended": ({ id: process }: { id: string }) => options.processes.ended(caller, process),
+      "processes.report"({ id: process, ...progress }: HostServiceMethods["processes.report"]["params"]) {
+        options.processes.report(caller, process, progress)
       },
-      "servers.stop"({ id: server }: HostServiceMethods["servers.stop"]["params"]) {
-        options.servers.stop(projectId, id, server)
+      "processes.summarize"({ id: process, summary }: HostServiceMethods["processes.summarize"]["params"]) {
+        options.processes.summarize(caller, process, summary)
       },
-      "servers.routed": () => options.servers.routed(),
+      "processes.markReady"({ id: process, match }: HostServiceMethods["processes.markReady"]["params"]) {
+        options.processes.markReady(caller, process, match)
+      },
+      "servers.routed": () => options.processes.routed(),
       async "edits.transact"({ label, operations }: HostServiceMethods["edits.transact"]["params"]) {
         const refused = editsRefusal(displayName, permissions)
 
@@ -523,7 +589,11 @@ export function extensionHosts<Project extends OpenedProject>(
     }
   }
 
-  const start = (open: OpenProject<Project>, host: Host<Project>) => {
+  /**
+   * Starts a host's process and activates its extension. `again` says why it stopped before, when it ran already, so it
+   * gets back the processes it owns.
+   */
+  const start = (open: OpenProject<Project>, host: Host<Project>, again?: "crash" | "stuck") => {
     const { extension } = host
     const { package: found } = extension
     const link = options.start(extension, open.project)
@@ -535,6 +605,15 @@ export function extensionHosts<Project extends OpenedProject>(
     })
 
     channel.connect(link.port)
+    const caller = callerOf(open, host)
+
+    // What it hears of the project's processes, from now until it stops.
+    const unwatch = options.processes.watch(caller, {
+      changed: (processes) => void channel.request("processes.changed", { processes }).catch(() => undefined),
+      lines: (process, lines) => void channel.request("processes.lines", { id: process, lines }).catch(() => undefined),
+      ended: (process, end) => void channel.request("processes.ended", { id: process, end }).catch(() => undefined)
+    })
+
     host.context = {}
     host.facts = {}
     host.views = {}
@@ -556,6 +635,7 @@ export function extensionHosts<Project extends OpenedProject>(
       views: declaredViews(found.manifest.contributes),
       state: { app: stored.app, project: stored.project },
       selection: open.selection,
+      processes: options.processes.snapshot(caller),
       settings: {
         values: { ...host.settings.values },
         scopes: Object.fromEntries(
@@ -574,7 +654,12 @@ export function extensionHosts<Project extends OpenedProject>(
       () => `activate didn't finish within ${timing.activateTimeout / 1000} seconds`
     )
 
-    const running: Running = { link, channel, activated, stopPinging: () => undefined }
+    const running: Running = { link, channel, activated, stopPinging: () => undefined, unwatch }
+
+    if (again) {
+      options.processes.reattached(caller, again)
+    }
+
     host.running = running
     setState(open, host, "starting")
 
@@ -595,7 +680,7 @@ export function extensionHosts<Project extends OpenedProject>(
 
         const reason = `Couldn't activate: ${messageOf(cause)}`
         log(open, host, withStack({ level: "error", text: reason }, cause))
-        detach(open, host)
+        detach(host)
         link.life.stop()
         setState(open, host, "crashed", reason)
       }
@@ -611,7 +696,7 @@ export function extensionHosts<Project extends OpenedProject>(
   }
 
   const crashed = (open: OpenProject<Project>, host: Host<Project>, exit: ChildExit) => {
-    detach(open, host)
+    detach(host)
     const now = Date.now()
     host.crashes = [...host.crashes.filter((at) => now - at < timing.crashWindow), now]
     const name = host.extension.package.manifest.displayName
@@ -619,7 +704,7 @@ export function extensionHosts<Project extends OpenedProject>(
 
     if (host.crashes.length < timing.crashLimit) {
       log(open, host, { level: "info", text: "Starting it again" })
-      start(open, host)
+      start(open, host, "crash")
 
       return
     }
@@ -791,7 +876,11 @@ export function extensionHosts<Project extends OpenedProject>(
       }
 
       projects.delete(projectId)
-      await Promise.all([...open.hosts.values()].map((host) => stop(open, host)))
+      await Promise.all([...open.hosts.values()].map((host) => stop(host)))
+
+      for (const host of open.hosts.values()) {
+        options.processes.stopAll(projectId, host.extension.package.id)
+      }
     },
     run: (projectId, command, target) => runCommand(projectOf(projectId), command, target),
     viewOpened(projectId, view) {
@@ -819,11 +908,14 @@ export function extensionHosts<Project extends OpenedProject>(
     restart(projectId, id) {
       const open = projectOf(projectId)
       const host = hostOf(open, id)
-      const running = detach(open, host)
+      // One that ran before gets back the processes it owns, as after a crash.
+      const ran = host.running !== undefined || host.state === "crashed" || host.state === "stuck"
+      const again = host.state === "stuck" ? "stuck" : "crash"
+      const running = detach(host)
       running?.link.life.stop()
       host.crashes = []
       log(open, host, { level: "info", text: "Restarting" })
-      start(open, host)
+      start(open, host, ran ? again : undefined)
     },
     cancel(projectId, id, progress) {
       const running = hostOf(projectOf(projectId), id).running

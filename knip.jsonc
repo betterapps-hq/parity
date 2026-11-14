@@ -68,9 +68,7 @@
     },
     "packages/extension-storybook": {
       "entry": ["src/**/*.test.ts"],
-      "project": ["src/**/*.ts"],
-      // Resolved from the project's own node_modules, to start the Storybook it has installed.
-      "ignoreDependencies": ["storybook"]
+      "project": ["src/**/*.ts"]
     },
     "packages/extension-api": {
       // Types only: its exports come from package.json, and it has no tests.

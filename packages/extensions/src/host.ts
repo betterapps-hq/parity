@@ -10,6 +10,7 @@ import type {
   State,
   StatusItem
 } from "@parity-app/extension-api"
+import { type HostProcesses, hostProcesses } from "./host-processes.ts"
 import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo } from "./protocol.ts"
 import { type Form, viewsOf } from "./views.ts"
 
@@ -65,6 +66,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const progress = new Map<number, AbortController>()
   const selected: Selected = { refs: [], listeners: new Set() }
   const settings: HostSettings = { values: new Map(), listeners: new Map() }
+  const processes = hostProcesses()
   let activated: Promise<Activated> | undefined
   let stopping = false
 
@@ -86,7 +88,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
 
       selected.refs = params.selection
       settings.values = new Map(Object.entries(params.settings.values))
-      activated = activate(params, channel, progress, selected, settings, side)
+      processes.begin(params.extension.id, params.processes.list, params.processes.output)
+      activated = activate(params, channel, progress, selected, settings, side, processes)
       await activated
     },
     async run({ command, target }) {
@@ -147,6 +150,9 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         }
       }
     },
+    "processes.changed": ({ processes: changed }) => processes.changed(changed),
+    "processes.lines": ({ id, lines }) => processes.lines(id, lines),
+    "processes.ended": ({ id, end }) => processes.ended(id, end),
     async stop() {
       if (stopping) {
         return
@@ -178,7 +184,8 @@ async function activate(
   progress: Map<number, AbortController>,
   selected: Selected,
   settings: HostSettings,
-  side: HostSide
+  side: HostSide,
+  processes: HostProcesses
 ): Promise<Activated> {
   const exports = await side.load(params.main)
 
@@ -325,10 +332,8 @@ async function activate(
         }
       }
     },
+    processes: processes.api(send, (text) => quietly("log", { level: "error", text })),
     servers: {
-      serve: (server) => send("servers.serve", server),
-      adopt: (server) => quietly("servers.adopt", server),
-      stop: (id) => quietly("servers.stop", { id }),
       routed: () => send("servers.routed", undefined)
     },
     edits: {

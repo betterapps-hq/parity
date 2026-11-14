@@ -1,16 +1,21 @@
 import type { Checks } from "@parity-app/channel"
 import { parseData } from "@parity-app/core"
 import type {
+  Candidate,
   CommandTarget,
   ComponentTarget,
   DesignOperation,
+  Endpoint,
   Fact,
   FileEdit,
+  FindQuery,
   JsonValue,
   NodeRef,
   OpenWhere,
   PickItem,
-  ServerRequest,
+  ProcessEnd,
+  ProcessInfo,
+  ProcessSpec,
   SettingValue,
   Tone,
   ViewData,
@@ -46,6 +51,11 @@ export interface ActivateParams {
   selection: NodeRef[]
   /** Its settings' values now, by key, and whose each one is: the person's (`app`) or the project's (`project`). */
   settings: { values: Record<string, SettingValue>; scopes: Record<string, "app" | "project"> }
+  /**
+   * The project's processes as it may see them, and what its own printed lately, by their ids among its processes, so
+   * a host that starts again gets its processes back with their output.
+   */
+  processes: { list: ProcessInfo[]; output: Record<string, string[]> }
 }
 
 /** Where `parity.navigate` goes, by method. */
@@ -73,6 +83,12 @@ export interface HostMethods {
   "view.changed": { params: { view: string; key: string; value: string | number | boolean }; result: undefined }
   /** What's selected in the window changed. */
   "selection.changed": { params: { refs: NodeRef[] }; result: undefined }
+  /** The project's processes changed: all of them, as it may see them. */
+  "processes.changed": { params: { processes: ProcessInfo[] }; result: undefined }
+  /** One of its own processes printed these lines. */
+  "processes.lines": { params: { id: string; lines: string[] }; result: undefined }
+  /** One of its own processes' runs ended. */
+  "processes.ended": { params: { id: string; end: ProcessEnd }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
   stop: { params: undefined; result: undefined }
 }
@@ -119,9 +135,23 @@ export interface HostServiceMethods {
   "view.clear": { params: { id: string }; result: undefined }
   /** Opens one of its views' tab or page. */
   "view.reveal": { params: { id: string }; result: undefined }
-  "servers.serve": { params: ServerRequest; result: { url: string } }
-  "servers.adopt": { params: { id: string; name: string; url: string }; result: undefined }
-  "servers.stop": { params: { id: string }; result: undefined }
+  /** Starts a process, or gives the one starting or running with its id and spec. Answers once spawning was tried. */
+  "processes.start": { params: ProcessSpec; result: ProcessInfo }
+  "processes.adopt": {
+    params: { id: string; name: string; endpoint: Endpoint; foundBy: "port" | "provider" | "endpoint"; pid?: number }
+    result: ProcessInfo
+  }
+  "processes.find": { params: FindQuery; result: Candidate[] }
+  "processes.stop": { params: { id: string }; result: undefined }
+  "processes.restart": { params: { id: string }; result: ProcessInfo }
+  /** Answers once the process's current run is ready. */
+  "processes.ready": { params: { id: string }; result: ProcessInfo }
+  /** Answers once the process's current run has ended. */
+  "processes.ended": { params: { id: string }; result: ProcessEnd }
+  "processes.report": { params: { id: string; detail?: string; done?: number; total?: number }; result: undefined }
+  "processes.summarize": { params: { id: string; summary: string }; result: undefined }
+  /** For a server whose ready check is `output`: the host saw a line matching it. */
+  "processes.markReady": { params: { id: string; match: string }; result: undefined }
   "servers.routed": { params: undefined; result: { url: string; address: string }[] }
   /** Changes designs as one undo step, with the `edits` permission. */
   "edits.transact": { params: { label: string; operations: DesignOperation[] }; result: undefined }
@@ -234,6 +264,46 @@ const designOperation: z.ZodType<DesignOperation> = z.discriminatedUnion("op", [
   })
 ])
 
+const processId = z.string().min(1).max(100)
+
+const run: z.ZodType<ProcessSpec["run"]> = z.union([
+  z.strictObject({ bin: z.string().min(1).max(200), package: z.string().min(1).max(200).optional() }),
+  z.strictObject({ script: z.string().min(1).max(200) }),
+  z.strictObject({ exec: z.string().min(1).max(200) }),
+  z.strictObject({ node: z.string().min(1).max(500) })
+])
+
+const readyCheck: z.ZodType<NonNullable<ProcessSpec["ready"]>> = z.union([
+  z.strictObject({ http: z.string().startsWith("/").max(500) }),
+  z.strictObject({ tcp: z.literal(true) }),
+  z.strictObject({ output: z.string().min(1).max(200) })
+])
+
+const port = z.int().min(1).max(65_535)
+
+const processSpec: z.ZodType<ProcessSpec> = z.strictObject({
+  id: processId,
+  name: z.string().min(1).max(100),
+  lifetime: z.enum(["server", "task"]),
+  run,
+  args: z.array(z.string().max(10_000)).max(500).optional(),
+  cwd: z.string().max(1000).optional(),
+  env: z.record(z.string().min(1).max(200), z.string().max(20_000)).optional(),
+  port: z.strictObject({ prefer: port, env: z.string().min(1).max(100).optional() }).optional(),
+  ready: readyCheck.optional(),
+  timeoutMs: z.int().positive().max(86_400_000).optional(),
+  restart: z.enum(["never", "onCrash"]).optional(),
+  quiet: z.boolean().optional(),
+  icon: z.string().max(100).optional(),
+  role: z.string().max(100).optional()
+})
+
+const endpoint: z.ZodType<Endpoint> = z.strictObject({
+  url: z.url({ protocol: /^https?$/ }).max(500),
+  port,
+  protocol: z.enum(["http", "https", "tcp"])
+})
+
 const filePath = z.string().min(1).max(1000)
 
 const fileText = z.string().max(10_000_000)
@@ -326,19 +396,33 @@ export const hostChecks: Checks<HostServiceMethods> = {
   "view.set": checkOf(z.strictObject({ id: z.string().max(200), data: viewData })),
   "view.clear": checkOf(z.strictObject({ id: z.string().max(200) })),
   "view.reveal": checkOf(z.strictObject({ id: z.string().max(200) })),
-  "servers.serve": checkOf(
+  "processes.start": checkOf(processSpec),
+  "processes.adopt": checkOf(
     z.strictObject({
-      id: z.string().max(100),
-      name: z.string().max(100),
-      script: z.string(),
-      args: z.array(z.string()),
-      port: z.int().min(1).max(65_535),
-      readyPath: z.string().startsWith("/"),
-      env: z.record(z.string(), z.string()).optional()
+      id: processId,
+      name: z.string().min(1).max(100),
+      endpoint,
+      foundBy: z.enum(["port", "provider", "endpoint"]),
+      pid: z.int().positive().optional()
     })
   ),
-  "servers.adopt": checkOf(z.strictObject({ id: z.string().max(100), name: z.string().max(100), url })),
-  "servers.stop": checkOf(z.strictObject({ id: z.string().max(100) })),
+  "processes.find": checkOf(
+    z.strictObject({ ports: z.array(port).max(20).optional(), discovered: z.boolean().optional() })
+  ),
+  "processes.stop": checkOf(z.strictObject({ id: processId })),
+  "processes.restart": checkOf(z.strictObject({ id: processId })),
+  "processes.ready": checkOf(z.strictObject({ id: processId })),
+  "processes.ended": checkOf(z.strictObject({ id: processId })),
+  "processes.report": checkOf(
+    z.strictObject({
+      id: processId,
+      detail: z.string().max(500).optional(),
+      done: z.number().nonnegative().optional(),
+      total: z.number().nonnegative().optional()
+    })
+  ),
+  "processes.summarize": checkOf(z.strictObject({ id: processId, summary: z.string().max(500) })),
+  "processes.markReady": checkOf(z.strictObject({ id: processId, match: z.string().max(4000) })),
   "servers.routed": checkOf(z.undefined()),
   "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000) })),
   "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000) })),
