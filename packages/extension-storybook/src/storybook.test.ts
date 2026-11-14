@@ -21,6 +21,14 @@ describe("the Storybook extension", () => {
     expect(found.manifest.contributes.statusItems?.map((item) => item.id)).toEqual(["storybook.stories"])
   })
 
+  it("gives Storybook's supported versions by its peer dependencies, storybook first", () => {
+    expect(readExtension(packageJson).versions).toEqual({
+      packages: ["storybook", "@storybook/react", "@storybook/react-vite"],
+      range: "^9.0.0 || ^10.0.0",
+      scope: "@storybook/"
+    })
+  })
+
   it("reads what detection found, and which components have stories", () => {
     const detected = readDetected({
       configDir: ".storybook",

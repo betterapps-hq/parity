@@ -11,7 +11,8 @@ export { writeStoryArgs } from "./write.ts"
 
 /**
  * Storybook: its stories, read from their CSF files as screens, and their args written back. Open in Storybook and its
- * status item come from its extension, `@parity-app/extension-storybook` (PAR-1089).
+ * status item come from its extension, `@parity-app/extension-storybook` (PAR-1089), and so do its supported versions,
+ * which the adapters list reads from the extension's peer dependencies (PAR-1091).
  */
 export const storybookAdapter: EntitiesAdapter = {
   id: storybookId,
@@ -19,18 +20,6 @@ export const storybookAdapter: EntitiesAdapter = {
   icon: storybookLogo,
   detect: detectStorybook,
   watches: storybookConfigFiles,
-  // Storybook 7 and later are versioned by `storybook`; before that, by its framework packages.
-  versions: {
-    packages: ["storybook", "@storybook/react", "@storybook/react-vite", "@storybook/core"],
-    scope: "@storybook/",
-    majors: [
-      [6, "2020-08-11"],
-      [7, "2023-03-31"],
-      [8, "2024-03-11"],
-      [9, "2025-05-28"],
-      [10, "2025-10-28"]
-    ]
-  },
   import: importStoryScreens,
   export: exportStoryScreen
 }

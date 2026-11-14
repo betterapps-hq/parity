@@ -39,6 +39,21 @@ describe("readExtension", () => {
     expect(found.manifest.contributes.commands?.[0]?.title).toBe("Measure route timings")
   })
 
+  it("reads its tool's versions from its peer dependencies, the main one first, with what the manifest adds", () => {
+    const found = readExtension({
+      ...packageJson({ versions: { scope: "@tanstack/" } }),
+      peerDependencies: { "@tanstack/react-router": "^1.0.0", "@tanstack/router-plugin": "^1.0.0" }
+    })
+
+    expect(found.versions).toEqual({
+      packages: ["@tanstack/react-router", "@tanstack/router-plugin"],
+      range: "^1.0.0",
+      scope: "@tanstack/"
+    })
+    expect(readExtension(packageJson()).versions).toBeUndefined()
+    expect(() => readExtension(packageJson({ versions: { majors: [] } }))).toThrow("/parity/versions")
+  })
+
   it("refuses a package without a manifest", () => {
     const { parity: _, ...plain } = packageJson()
 

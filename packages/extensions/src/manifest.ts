@@ -1,4 +1,4 @@
-import { parseData } from "@parity-app/core"
+import { parseData, peerVersions, type ToolVersions } from "@parity-app/core"
 import type {
   ActivationEvent,
   AgentToolContribution,
@@ -11,7 +11,8 @@ import type {
   MenuPlacement,
   PathIcon,
   Providers,
-  SettingContribution
+  SettingContribution,
+  ToolVersionFacts
 } from "@parity-app/extension-api"
 import { z } from "zod"
 
@@ -176,6 +177,12 @@ const contributions = z.strictObject({
   settings: z.record(z.string(), setting).optional()
 }) satisfies z.ZodType<Contributions>
 
+const toolVersions = z.strictObject({
+  scope: z.string().min(1, "can't be blank").optional(),
+  prefix: z.string().min(1, "can't be blank").optional(),
+  distributions: z.record(z.string(), title).optional()
+}) satisfies z.ZodType<ToolVersionFacts>
+
 const manifest = z
   .strictObject({
     displayName: title,
@@ -184,6 +191,7 @@ const manifest = z
     activates: z.array(activationEvent),
     detect: z.string().optional(),
     watches: z.array(z.string()).optional(),
+    versions: toolVersions.optional(),
     permissions: z
       .strictObject({
         read: z.array(z.string()).optional(),
@@ -208,6 +216,7 @@ const extensionPackage = z.looseObject({
   version: z.string().min(1, "can't be blank"),
   main: z.string().min(1, "can't be blank"),
   engines: z.looseObject({ parity: z.string().optional() }).optional(),
+  peerDependencies: z.record(z.string(), z.string()).optional(),
   parity: manifest
 })
 
@@ -220,6 +229,11 @@ export interface ExtensionPackage {
   main: string
   /** The range of Parity versions it works with, from `engines.parity`. */
   engine?: string
+  /**
+   * Its tool's versions, from its peer dependencies: the packages that carry the version, the main one first, and the
+   * range it supports. Unset when it has none.
+   */
+  versions?: ToolVersions
   manifest: Manifest
 }
 
@@ -234,6 +248,12 @@ export function readExtension(packageJson: unknown): ExtensionPackage {
 
   if (read.engines?.parity) {
     found.engine = read.engines.parity
+  }
+
+  const versions = peerVersions(read.peerDependencies, read.parity.versions)
+
+  if (versions) {
+    found.versions = versions
   }
 
   return found

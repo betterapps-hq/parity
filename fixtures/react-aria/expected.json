@@ -50,8 +50,7 @@
       "from": "node_modules/storybook",
       "config": ".storybook/main.ts",
       "status": "supported",
-      "drops": "2027-05-28",
-      "summary": "Storybook 9.1.21 from node_modules/storybook, config .storybook/main.ts; tested until May 2027"
+      "summary": "Storybook 9.1.21 from node_modules/storybook, config .storybook/main.ts"
     }
   ],
   "styles": {

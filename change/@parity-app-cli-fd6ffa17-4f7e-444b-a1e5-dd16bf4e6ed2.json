@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Storybook and TanStack Router take their supported versions from their extensions' peer dependencies",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

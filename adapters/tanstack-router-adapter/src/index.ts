@@ -1,21 +1,18 @@
-import { declares, type RouterAdapter } from "@parity-app/core"
+import { detectPeers, peerVersions, type RouterAdapter } from "@parity-app/core"
+import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import { tanstackLogo } from "./logo.ts"
 import { readRoutes } from "./routes.ts"
+
+const versions = peerVersions(routerExtension.peerDependencies)!
 
 /** TanStack Router (PAR-1073): its routes, read from the route tree its tooling generates and each route's file. */
 export const tanstackRouter: RouterAdapter = {
   id: "tanstack-router",
   name: "TanStack Router",
   icon: tanstackLogo,
-  async detect({ pkg }) {
-    const found = declares(pkg, ["@tanstack/react-router"]) !== undefined
-
-    return {
-      found,
-      summary: found ? "@tanstack/react-router in package.json" : "No @tanstack/react-router in package.json"
-    }
-  },
-  versions: { packages: ["@tanstack/react-router"], majors: [[1, "2023-12-23"]] },
+  // Found by its extension's peer dependency, which also says which versions are supported.
+  detect: async ({ pkg }) => detectPeers(pkg, versions),
+  versions,
   readRoutes,
   actions: [
     {

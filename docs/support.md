@@ -223,7 +223,7 @@ go.
 | Version                 | Status | Notes                                                                   |
 | ----------------------- | ------ | ----------------------------------------------------------------------- |
 | Storybook 10            | ✅     | Detected, mapped to components, opened in your browser.                 |
-| Storybook 9             | ❔     | Same `index.json`; untested. Drops in May 2027.                         |
+| Storybook 9             | ❔     | Same `index.json`; untested. In the extension's range until May 2027.   |
 | Storybook 8 and earlier | ❌     | Dropped: Storybook 8 came out in March 2024. Untested, but not blocked. |
 | Ladle, Histoire         | ❌     | Not planned.                                                            |
 
@@ -364,7 +364,10 @@ support, I didn't mean prevent others from using those versions, just that we do
 project on a dropped version opens and works as far as it can. Parity reads the installed version of each tool an
 adapter finds (React, Vite, Tailwind CSS, TanStack Router and Storybook) and notes an untested one quietly, in the
 status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each major
-(`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out.
+(`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
+extension exists, Storybook and TanStack Router so far, takes its versions from the extension's peer dependencies
+instead: inside the range is supported, above it newer and below it dropped, and the range is widened or narrowed in the
+extension's `package.json` as this policy says.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.

@@ -48,11 +48,12 @@ because it needs them to map stories.
 [detect.ts](../packages/project/src/detect.ts) lists Storybook with the other tools.
 
 - **Using Storybook** means any dependency named `storybook` or `@storybook/*`.
-- **The version** comes from the installed `storybook` package, or before Storybook 7 from `@storybook/react`,
-  `@storybook/react-vite` or `@storybook/core`.
-- **The support policy applies,** as for every tool (see [support.md](support.md)). Storybook 10 is supported, 9 drops
-  in May 2027, and 8 and earlier are dropped. Dropped means untested, never blocked: it's one quiet line in the status
-  bar's tooltips and `detection` in the agent API, and every Storybook feature stays on.
+- **The version** comes from the installed `storybook` package, or before Storybook 7 from `@storybook/react` or
+  `@storybook/react-vite`: the extension's peer dependencies, in that order.
+- **The support policy applies,** as for every tool (see [support.md](support.md)), through the range in the extension's
+  `peerDependencies`, `^9.0.0 || ^10.0.0`: Storybook 10 and 9 are supported, and 8 and earlier are dropped. 9 leaves the
+  range in May 2027. Dropped means untested, never blocked: it's one quiet line in the status bar's tooltips and
+  `detection` in the agent API, and every Storybook feature stays on.
 
 ### Opening stories
 
@@ -272,8 +273,9 @@ the canvas.
 
 - Mapping stories to components in [project/src/index.test.ts](../packages/project/src/index.test.ts): a custom port and
   config folder, aliased and renamed imports, a stray story file, a story with only a title, and no config at all.
-- Version detection in [detect.test.ts](../packages/project/src/detect.test.ts): Storybook 8 and 6 dropped, 9 supported
-  until May 2027.
+- Version detection in [detect.test.ts](../packages/project/src/detect.test.ts): Storybook 8 and 6 dropped, 9 and 10
+  supported by the range, 11 newer. The range itself in
+  [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts).
 - Snapshot detection of the fixtures in [packages/fixtures](../packages/fixtures): `react-aria` on Storybook 9,
   `too-old` on 8, and `vite7-js` and `mantine` without one. The fixtures must be installed first.
 

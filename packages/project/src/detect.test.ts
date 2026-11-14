@@ -25,7 +25,10 @@ const today = new Date("2026-10-28T12:00:00Z")
 
 type Tool = Pick<Adapter, "id" | "name" | "versions">
 
-/** Tools as their adapters give them, with the majors released by `today`. */
+/**
+ * Tools as their adapters give them: with the majors released by `today`, or, for Storybook, the range its extension's
+ * peer dependencies give.
+ */
 const tools: Tool[] = [
   {
     id: "react",
@@ -70,13 +73,7 @@ const tools: Tool[] = [
     versions: {
       packages: ["storybook", "@storybook/react"],
       scope: "@storybook/",
-      majors: [
-        [6, "2020-08-11"],
-        [7, "2023-03-31"],
-        [8, "2024-03-11"],
-        [9, "2025-05-28"],
-        [10, "2025-10-28"]
-      ]
+      range: "^9.0.0 || ^10.0.0"
     }
   }
 ]
@@ -225,6 +222,22 @@ describe("cutoff", () => {
   })
 })
 
+describe("cutoff with an extension's range", () => {
+  const storybook = { range: "^9.0.0 || ^10.0.0" }
+
+  it("supports a version in the range, whenever it came out", () => {
+    expect(cutoff(storybook, "9.1.2", new Date("2031-01-01T00:00:00Z"))).toEqual({ status: "supported" })
+    expect(cutoff(storybook, "10.6.5", today)).toEqual({ status: "supported" })
+    expect(cutoff(storybook, "10.0.0-beta.3", today)).toEqual({ status: "supported" })
+  })
+
+  it("says a version above the range is newer and one below it is dropped", () => {
+    expect(cutoff(storybook, "11.0.0", today)).toEqual({ status: "newer" })
+    expect(cutoff(storybook, "8.6.14", today)).toEqual({ status: "dropped" })
+    expect(cutoff({ range: "^1.0.0" }, "1.170.46", today)).toEqual({ status: "supported" })
+  })
+})
+
 describe("detectProject", () => {
   it("reads installed versions from each package's own package.json, with the builder's config", async () => {
     const pkg = { dependencies: { react: "^19.1.0" }, devDependencies: { vite: "^8.0.0", tailwindcss: "^4.0.0" } }
@@ -280,7 +293,7 @@ describe("detectProject", () => {
     )
   })
 
-  it("says until when a tested version stays tested", async () => {
+  it("says until when a version the cutoff tests stays tested, and gives no date for a range", async () => {
     const pkg = { devDependencies: { vite: "^6.0.0", storybook: "^9.0.0" } }
     await fixture({ "package.json": pkg, ...installed("vite", "6.4.1"), ...installed("storybook", "9.1.2") })
     const detection = await detectProject(root, pkg, found(pkg), today)
@@ -291,8 +304,9 @@ describe("detectProject", () => {
         drops: "2026-11-26",
         summary: expect.stringContaining("tested until November 2026")
       },
-      { id: "storybook", status: "supported", drops: "2027-05-28" }
+      { id: "storybook", status: "supported", summary: "Storybook 9.1.2 from node_modules/storybook" }
     ])
+    expect(detection.tools[1]?.drops).toBeUndefined()
   })
 
   it("reads Storybook 6 from its framework package", async () => {
