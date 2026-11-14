@@ -1,4 +1,4 @@
-import { type ContainerKind, uniqueId } from "@parity-app/core"
+import { type MadeKind, uniqueId } from "@parity-app/core"
 import { designGap, detachInstancesOf, freeSpotBeside, instanceCount, kindName, turnInto } from "@parity-app/editor"
 import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
@@ -61,7 +61,7 @@ export function duplicateDesign(
 }
 
 /** What the toast after converting a frame to a heavier kind says next. */
-const convertedHints: Record<Exclude<ContainerKind, "frame">, string> = {
+const convertedHints: Record<Exclude<MadeKind, "frame">, string> = {
   component: "Place it in screens from Components.",
   screen: "Show it in more modes from its board's menu."
 }
@@ -72,11 +72,12 @@ const convertedHints: Record<Exclude<ContainerKind, "frame">, string> = {
  * toast whose Undo makes it a frame again. Becoming a frame asks first when the design would drop anything (see
  * `ConvertToFrameDialog`). Each is one undo step.
  */
-export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, kind: ContainerKind): void {
+export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, kind: MadeKind): void {
   const { store } = session
   const from = entry.container.kind ?? "screen"
 
-  if (kind === from) {
+  // A story is its tool's file of stories, so it isn't made into anything else.
+  if (kind === from || from === "story") {
     return
   }
 

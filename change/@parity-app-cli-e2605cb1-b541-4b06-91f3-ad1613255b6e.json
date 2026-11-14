@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no longer exist",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

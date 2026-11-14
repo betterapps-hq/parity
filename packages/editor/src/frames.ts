@@ -4,6 +4,7 @@ import {
   detachInstance,
   type FrameSize,
   fitsContent,
+  fittedKey,
   generateId,
   isHug,
   lengthSteps,
@@ -157,20 +158,26 @@ export function fitsDrawn(design: ContainerSpec): boolean {
 /**
  * A frame that hugs its content (see `hugsContent`), at the width its root is drawn at, in whole pixels. The canvas
  * measures the root as it's drawn, so the frame's own size, which its bitmap, agents and exports go by, stays the size
- * it shows at. A screen that fits its content, as a story, is fitted in the `viewport` it was drawn in, since it draws
- * differently in each. Undefined when it's already that wide, or doesn't hug.
+ * it shows at. A screen that fits its content is fitted in the `viewport` it was drawn in, since it draws differently in
+ * each, and a story file's story in its `state` too, since each story draws at its own width. Undefined when it's already that wide, or doesn't hug.
  */
-export function fittedFrame(design: ContainerSpec, drawnWidth: number, viewport?: string): ContainerSpec | undefined {
+export function fittedFrame(
+  design: ContainerSpec,
+  drawnWidth: number,
+  viewport?: string,
+  state?: string
+): ContainerSpec | undefined {
   const width = Math.max(1, Math.round(drawnWidth))
 
   if (viewport !== undefined && fitsContent(design)) {
-    const frame = design.frames?.[viewport]
+    const key = fittedKey(design, viewport, state)
+    const frame = design.frames?.[key]
 
     if (frame?.width === width && frame.height === undefined) {
       return undefined
     }
 
-    return { ...design, frames: { ...design.frames, [viewport]: { width } } }
+    return { ...design, frames: { ...design.frames, [key]: { width } } }
   }
 
   if (!hugsContent(design)) {

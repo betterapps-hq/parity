@@ -70,7 +70,8 @@ import {
   withTokenEdits,
   writeFailed,
   writeStarted,
-  writeSucceeded
+  writeSucceeded,
+  prunedDocument
 } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
 import { track } from "./report-error.ts"
@@ -403,7 +404,12 @@ export class DesignStore {
   }
 
   setModes(modes: ModeSettings, label = "Edit modes"): void {
-    this.change(label, (snapshot) => ({ ...snapshot, modes }))
+    // A mode taken away goes from every design's view in the same step, so none shows it or keeps it in its file.
+    this.change(label, (snapshot) => ({
+      ...snapshot,
+      modes,
+      documents: new Map([...snapshot.documents].map(([path, document]) => [path, prunedDocument(document, modes)]))
+    }))
   }
 
   /** Adds a design to a file, creating the file when it doesn't exist yet. Returns the design's key. */

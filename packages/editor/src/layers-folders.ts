@@ -3,16 +3,12 @@ import type { TreeDesign, TreeRow } from "./layers-tree.ts"
 // Designs a tool groups into folders, as Storybook groups its stories by title, listed as a tree of those folders in the
 // Layers panel: a folder for each part of the title, each design inside the last.
 
-/**
- * A folder's row. A folder that holds designs is a component's, as `Button` holds Button's stories; one that holds
- * only folders is a group, as `UI` does.
- */
+/** A folder's row: a group, as `UI` holds the story files titled `UI/…`. */
 export interface FolderRow {
   type: "folder"
   /** `folderId` of its path. */
   id: string
   label: string
-  kind: "group" | "component"
   /** How many folders it's inside. */
   level: number
   expanded: boolean
@@ -126,13 +122,10 @@ function linesOf<D extends TreeDesign>(
       return first?.type === "row" ? [{ ...first, row: { ...first.row, ...place } }, ...rest] : each.lines
     }
 
-    const holdsDesigns = each.folder.items.some((item) => "design" in item)
-
     const row: FolderRow = {
       type: "folder",
       id: each.id,
       label: each.folder.path.at(-1) ?? "",
-      kind: holdsDesigns ? "component" : "group",
       level,
       expanded: !!options.searching || options.expanded.has(each.id),
       ...place

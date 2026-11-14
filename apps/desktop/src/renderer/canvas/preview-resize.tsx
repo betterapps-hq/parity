@@ -3,6 +3,7 @@ import {
   type ContainerSpec,
   type PreviewBreakpoint,
   previewGeometry,
+  previewOf,
   snapToBreakpoint,
   withoutPreviewValues,
   withPreviewValues
@@ -117,7 +118,10 @@ export function PreviewResize({
         (each, preview) =>
           withPreviewValues(each, preview.key, {
             // At its mode's own width, it sets none of its own.
-            width: landed === previewGeometry(design, preview.mode, undefined).width ? undefined : landed
+            width:
+              landed === previewGeometry(design, preview.mode, undefined, previewOf(preview.key).state).width
+                ? undefined
+                : landed
           }),
         view
       )

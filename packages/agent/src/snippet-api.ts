@@ -283,7 +283,7 @@ export interface SnippetApi {
   Print: (...values: unknown[]) => void
 }
 
-/** A design as `Designs()` lists it. Only a component has states, so only a component lists them. */
+/** A design as `Designs()` lists it. Only a component and a story have states, so only they list them. */
 export type DesignSummary = ScreenSummary | ComponentSummary
 
 /** What `Designs()` says about every design. */
@@ -311,8 +311,8 @@ export interface ScreenSummary extends SummaryFields {
 
 /** A component, with the states it's shown in. */
 export interface ComponentSummary extends SummaryFields {
-  kind: "component"
-  /** Each state, the base first, by the id other functions take and the name it shows. */
+  kind: "component" | "story"
+  /** Each state, the base first, by the id other functions take and the name it shows: a story file's stories. */
   states: { id: string; name: string }[]
   /** The state its board shows, its main frame's mode and the modes beside it. */
   showing: { state: string; mode: string; beside: string[] }
