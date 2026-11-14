@@ -366,15 +366,20 @@ export function adapterActions(
   return sources.flatMap((source) => {
     const { adapter } = source
 
-    return (adapter.actions ?? []).map(({ components, ...action }) => {
-      const told: ProjectAction = { ...action, adapter: adapter.id }
+    return (adapter.actions ?? []).map((action) => {
+      const { id, name, progress, failed, note } = action
+      const told: ProjectAction = { id, name, progress, failed, adapter: adapter.id }
+
+      if (note) {
+        told.note = note
+      }
 
       if (adapter.icon) {
         told.icon = adapter.icon
       }
 
-      if (components) {
-        told.components = components(factsFor(source, detection, entities, routes))
+      if (action.components) {
+        told.components = action.components(factsFor(source, detection, entities, routes))
       }
 
       return told
