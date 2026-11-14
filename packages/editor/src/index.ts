@@ -75,7 +75,7 @@ export { designColors } from "./design-colors.ts"
 
 export { createEditSettler, type EditSettler, type SettleOptions } from "./edit-settler.ts"
 
-export { withTidyView } from "./document-equality.ts"
+export { sameValue, withTidyView } from "./document-equality.ts"
 
 export {
   countMedia,
@@ -389,9 +389,12 @@ export {
 export {
   designsSelection,
   layersSelection,
+  pickPreviews,
+  previewsSelection,
   sameSelection,
   selectedDesigns,
   selectedNodes,
+  selectedPreviews,
   type Selection,
   selectionKey,
   toggleLayer
@@ -539,4 +542,4 @@ export {
   styleOfElement
 } from "./element-layers.ts"
 
-export { hasTriedSize, withoutTriedSize } from "./tried-size.ts"
+export { codeDesignSettings, hasTriedSize, withCodeDesignSettings, withoutTriedSize } from "./tried-size.ts"

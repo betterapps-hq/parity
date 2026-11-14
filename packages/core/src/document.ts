@@ -526,6 +526,20 @@ const paramSpec = fileObject({
 /** One input of a component design. Its default is what the component shows on its own board. */
 export type ParamSpec = z.infer<typeof paramSpec>
 
+/**
+ * What one preview of a design, a state in a mode, sets differently from its mode: a width to try it at, how large it's
+ * drawn on the canvas, and an option of its own for any of the mode's variables other than its viewport, by variable id.
+ * None of it changes the design itself.
+ */
+const previewSettings = fileObject({
+  width: z.number().int().min(1).optional(),
+  scale: z.number().min(0.1).max(4).optional(),
+  options: z.record(z.string(), z.string()).optional()
+})
+
+/** What one preview of a design sets differently from its mode. */
+export type PreviewSettings = z.infer<typeof previewSettings>
+
 const containerViewSettings = fileObject({
   /** The mode of the main frame. Defaults to the project's primary mode. */
   mode: z.string().optional(),
@@ -541,6 +555,11 @@ const containerViewSettings = fileObject({
    * name is shrunk to fit beside the main frame (see `companionScale`).
    */
   scales: z.record(z.string(), z.number().min(0.1).max(1)).optional(),
+  /**
+   * What each preview sets differently from its mode, by `state/mode` (see `previewKey`): its width, its scale, which
+   * wins over `scales`, and its own options.
+   */
+  previews: z.record(z.string(), previewSettings).optional(),
   /**
    * The value a page of the app is drawn with for each of its route's path params, by name. One it doesn't give is
    * drawn with the param's name.
@@ -730,6 +749,18 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
 export const formatVersion = 4
 
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
+/**
+ * What the person set on a design drawn from code: what it shows, and the width and height tried on its layers, by
+ * layer id, which are never written to its code.
+ */
+const codeDesignSettings = fileObject({
+  view: containerViewSettings.optional(),
+  sizes: z.record(z.string(), nodeStyle).optional()
+})
+
+/** What the person set on a design drawn from code. */
+export type CodeDesignSettings = z.infer<typeof codeDesignSettings>
+
 export const canvasDocument = fileObject({
   version: z.literal(formatVersion),
   containers: z.array(containerSpec),
@@ -759,7 +790,13 @@ export const canvasDocument = fileObject({
    */
   preferences: projectPreferences.optional(),
   /** Extensions' project settings, by extension id and then key, as `storybook` → `configDir`. Unset while there are none. */
-  extensions: projectExtensions.optional()
+  extensions: projectExtensions.optional(),
+  /**
+   * What the person set on the designs drawn from the project's code (its pages, component boards and stories), by
+   * each design's key, as `(stories)#button-outline`: those designs are drawn again each time the project opens, so
+   * what they show and the sizes tried on their layers are kept here.
+   */
+  codeDesigns: z.record(z.string().min(1), codeDesignSettings).optional()
 })
 
 /**

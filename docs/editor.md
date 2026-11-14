@@ -4939,14 +4939,14 @@ its board shows first, and the rest are drawn beside it in that order where they
 - **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
   order, and the first frame's mode as `mode`, as before. An order that is the project's, and a first mode that is the
   project's primary mode, aren't written down.
-- **Each frame beside the first has its scale on its caption,** a menu of Fit, 25%, 50%, 75% and 100%. Fit, the default,
-  shrinks it to at most 640 wide (`companionScale`); the others are kept in the view's `scales`, by mode id
-  (`besideScale`), and the board's size follows them (`boardSize`).
+- **Each frame beside the first fits to at most 640 wide** (`companionScale`) unless its header's Zoom field sets it
+  otherwise (see "A preview's header, settings and width"). A view's `scales`, by mode id, still applies where a preview
+  sets no zoom of its own (`besideScale`), and the board's size follows them (`boardSize`).
 
 Code: `packages/core/src/document.ts` (the view's `order` and `scales`), `modes.ts` (`shownModes`'s `ordered`) and
 `board.ts` (`besideScale`); `packages/editor/src/document-equality.ts` (an empty order is dropped); in the app,
 `canvas/view.ts` (`withModeOrder`), `ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and
-`canvas/ContainerView.tsx` (the captions).
+`canvas/ContainerView.tsx` (the headers).
 
 Tests:
 
@@ -6275,10 +6275,10 @@ stay beside what they label instead of growing over the boards around it.
   above 25%, before a caption would have faded, so a board's state labels and captions never show once its title has
   gone. A hidden label doesn't take the pointer.
 - **A state's label needs space before the next row's (PAR-155).** It hides once the space from its top to where the
-  next row's label starts, past the dashed line between rows, is under 24 screen pixels, so a row of component boards
-  showing every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few
-  pixels each and show none, while a screen's rows, hundreds of pixels tall, keep theirs at 60%. The last row is
-  measured the same way. A row's height is measured, since a frame that grows with its content sets it.
+  next row's label starts, past the gap between rows, is under 24 screen pixels, so a row of component boards showing
+  every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few pixels each
+  and show none, while a screen's rows, hundreds of pixels tall, keep theirs at 60%. The last row is measured the same
+  way. A row's height is measured, since a frame that grows with its content sets it.
 - **A frame's name runs past it too.** A frame drawn on its own, as a story drawn from the code is, gets the same reach
   as a board's title, out to the next design beside it. Before, its name was cut at the frame's edge at any zoom, so
   "Badge / Default" over a 96-pixel badge read "Badge / …" even at 100%.
@@ -6313,14 +6313,15 @@ board can still cross a state label beside the next board's rows; that has no te
 A board's gutter is the band around and between its frames. Up close it's the same on screen at every zoom, as the
 Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
 
-- **12 at the sides and bottom, a 36 band above the frames for their captions, and 24 between frames,** in screen
-  pixels. The dashed line before the first companion sits halfway across its gap: 12, the line, 12. Between rows of
-  states there are 36, the line and 36. Each caption is centred in its band.
+- **12 at the sides and bottom, a 36 band above each row of frames for their headers, and 24 between frames,** in screen
+  pixels. The first companion is 25 off: 12, a pixel, 12. Between rows of states there are 36, a pixel and 36, the last
+  36 of which is the next row's header band. A header sits at the foot of its band; a row whose headers need a line
+  under their names is a band taller (`firstTallRow`, `nextTallRow`). There are no dashed lines.
 - **Past 40% it shrinks with the canvas,** as the labels do, so on the canvas a board is never larger than at 40% and
   boards zoomed far out keep their distance. At 25% the sides are 7.5 on screen, at 5% 1.5.
-- **Lines stay a screen pixel wide.** The board's edge is a pixel at any zoom and takes no room. The dashed lines are a
-  pixel up close and thin with the gutter past 40%. Its corners round 10 pixels, shrinking with the gutter, and tldraw's
-  outline of the board rounds with them.
+- **The board has no card of its own.** Its edge shows while it's hovered or selected, a screen pixel at any zoom, in
+  the design's color while it's selected on its own, and takes no room. Its corners round 10 pixels, shrinking with the
+  gutter, and tldraw's outline of the board rounds with them.
 - **A board grows and shrinks from its top left corner,** where the design's position is, so its frames move a little on
   the canvas as the zoom changes the gutter. The canvas takes the board's new size, for its outline, snapping and hit
   testing, once the zoom settles, rather than on every frame of a zoom: once it has held for 3 frames and 150 ms, the
@@ -6339,16 +6340,66 @@ Tests: `packages/core/src/board.test.ts` (9: the gutter keeping its screen size 
 canvas past that; the estimate's main frame, its own size for a viewport, a fixed height, companions with the divider
 and gaps, rows of states, a frame's own size, and never being smaller than the board drawn at any zoom);
 `apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
-canvas past 40%, the divider's and the row line's split gaps, dashed lines and the edge a screen pixel wide, each place
-clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
-`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%);
-`packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
-not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
-`zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
-`getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting for the
-zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign in
-showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
-frame of a zoom wasn't timed.
+canvas past 40%, the gaps before the first companion and between rows with every row's frames raised into their header
+band, a tall row a band taller, the edge a screen pixel wide, each place clearing what another set, and a board laid out
+from the parts matching the estimate at 40% and 5% and smaller at 100%); `packages/editor/src/canvas-labels.test.ts` (a
+state label's space, from its frames and the gutter at 40%); `packages/editor/src/zoom-settle.test.ts` (4: settling
+after 3 frames and 150 ms, starting again when the zoom changes, not settling between slow frames that each zoom, nor
+between a mouse wheel's notches at 60 frames a second). The `zoom at 100%` run of `pnpm perf --profile` shows whether
+boards measure themselves mid-zoom, as `getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to
+the DOM, and the shape waiting for the zoom to settle, have no automated test. They were checked in Storybook on the
+example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of
+laying boards out again on each frame of a zoom wasn't timed.
+
+### A preview's header, settings and width (PAR-1071)
+
+Each preview on a board, a state in a mode, has a header in the band above it and a handle in the gap after it. Its
+settings change how the canvas draws it, never the design.
+
+- **The header names its mode,** and its state too in its accessible name where the board shows every state, as "Popular
+  in Desktop Light". Clicking the name selects the preview alone; Shift+click adds it to the previews selected, or takes
+  it away. Selected previews have a ring in the mode color, and their names take it. Picking a mode in the Modes list
+  still selects its column in every row shown.
+- **The last preview picked holds the settings** of every one selected: a Zoom field and a settings button. Zoom is a
+  percentage from 10 to 400, typed or scrubbed, with Fit, 100%, 75%, 50% and 25% in its menu; Fit is there only for a
+  preview beside the first, which fits it to at most 640 wide. The settings button opens Preview settings above the
+  preview: Width, in pixels, and a select for each of the project's variables other than its viewport, such as Theme and
+  Locale. Values that differ across the previews selected read Mixed.
+- **A preview that sets anything** shows the settings button with a change dot beside its name, and a reset ("Reset
+  preview settings", with the hint "Reset to Desktop Light"), whether or not it's selected. There are no chips for its
+  values. Preview settings has the same reset beside its title, which keeps its place whether or not the reset shows.
+- **Nothing is cut off.** Where the name and what follows it don't fit over the preview, what follows goes on a line
+  under the name, and its row makes room for it.
+- **The handle resizes the preview,** while the board's hovered or selected: dragging it sets the preview's width, and
+  every selected preview's where it's one of them. Double-clicking it puts the width back to the mode's, and Left and
+  Right nudge it, by 10 with Shift. A page is between 320 and 1920 wide and a story or a component between 80 and 1920.
+  A page lands on the app's breakpoints within 6 screen pixels, unless Alt is held, and shows them under it while it's
+  resized, the one it's at lit up to the next. The breakpoints are the project's breakpoint tokens, such as Tailwind
+  CSS's `--breakpoint-sm`, and its libraries' breakpoints. A story keeps its own size: more width shows the canvas
+  behind it.
+- **The file keeps them** in the view's `previews`, by `state/mode`: `width`, `scale` and `options`, by variable id. A
+  value set back to its mode's is dropped, and an empty entry with it. They're view changes, so they aren't undoable.
+  The board's size follows each row's own previews (`boardSize`).
+
+Code: `packages/core/src/preview.ts` (`previewKey`, `previewSettingsOf`, `previewOptionsMode`, `previewGeometry`,
+`previewScale`, `withPreviewValues`, `withoutPreviewValues`, `breakpointAt`, `snapToBreakpoint`), the view's `previews`
+in `document.ts`, and `boardSize` in `board.ts`; `pickPreviews` and `selectedPreviews` in
+`packages/editor/src/selection.ts`; in the app, `PreviewHeader`, `ZoomField` and `SettingsMenu` in
+`canvas/preview-parts.tsx`, `PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView` and
+`FrameTile` in `canvas/ContainerView.tsx`. The canvas leaves presses on a `data-canvas-control` to the control
+(`CanvasOverlay`).
+
+Tests: `packages/core/src/preview.test.ts` (11: a preview's key read back, its options drawn over its mode's viewport,
+its width with the window it stands for, its scale, setting and dropping values, what a design file holds, a board sized
+by each row's previews, the breakpoint a width is at, and landing on a breakpoint);
+`packages/editor/src/selection.test.ts`, "selecting previews" (6: one preview as a mode and state, a click selecting it
+alone, Shift adding and removing it, a row added and removed, the design left once the last is removed, and selections
+told apart). Gaps: the header's stacking, the popover and the handle have no automated test. They were tried in a
+development build on the example project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan card
+/ Default, Preview settings set Desktop Dark to 900 wide and its header then showed the change dot and reset, the handle
+dragged Desktop Light from 181 to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and Pricing's
+page reflowed as it was dragged from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than
+the window.
 
 ## What the editor itself loads
 
@@ -6619,11 +6670,23 @@ A screen is named for the component its route draws, else its path.
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
   view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, so
   `/projects/$projectId` opens on `/projects/projectId` until it's given one. The values are how the canvas shows the
-  page, never the app's code, and aren't saved yet, since a page isn't. Tried in a development build: Project detail
-  opened on `/projects/projectId`, which the example says it can't find, and setting ProjectId to `atlas` drew the Atlas
-  project at `/projects/atlas`. Code: `samplePath` in `packages/editor/src/route-boards.ts`, the view's `params` in
-  `packages/core/src/document.ts`, and `RouteProps` in `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests:
-  `packages/editor/src/route-boards.test.ts`, "fills a param with the value given for it, written as a URL writes it".
+  page, never the app's code, and are kept with what else is set on it (see Kept in the project file, below). Tried in a
+  development build: Project detail opened on `/projects/projectId`, which the example says it can't find, and setting
+  ProjectId to `atlas` drew the Atlas project at `/projects/atlas`. Code: `samplePath` in
+  `packages/editor/src/route-boards.ts`, the view's `params` in `packages/core/src/document.ts`, and `RouteProps` in
+  `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests: `packages/editor/src/route-boards.test.ts`, "fills a param
+  with the value given for it, written as a URL writes it".
+- **Kept in the project file.** What's set on a design drawn from code, a page's, a component board's or a story's, is
+  kept in the project's file under `codeDesigns`, by the design's key, and set on it again when its code draws it next
+  time the project opens: what it shows (its view: modes, their order and scales, and a page's params) and, for a story,
+  the sizes tried on its layers. Nothing else of it is saved, and nothing is written to the app's code. A design missing
+  for now, such as a story whose file fails, keeps what it had. Tried in a development build: setting Project detail's
+  ProjectId to `atlas` and saving wrote it under `codeDesigns`, and after reloading the window the page opened on
+  `/projects/atlas` again, with nothing unsaved. Code: `codeDesignSettings` and `withCodeDesignSettings` in
+  `packages/editor/src/tried-size.ts`, `codeDesigns` in `packages/core/src/document.ts`, and `withCodeDesigns` and
+  `keepCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts`. Tests:
+  `packages/editor/src/tried-size.test.ts`, "what's set on a design drawn from code". Gaps: a story's kept modes and
+  tried sizes weren't tried in the app, and `code-designs.ts` has no unit test.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
@@ -6798,14 +6861,13 @@ boards are. A story wider or taller than that overlaps the one beside or below i
 - **Its props, modes and sizes in the Design panel.** Selecting a story shows its header, then Props, the args of what
   it draws, which edit and are written back as below, then Modes, as a screen's: its board draws a frame for each mode
   it shows, across, in the order the section sets, and the board's modes menu adds and takes away modes, as on any
-  screen. A story's modes, order and frame scales aren't saved yet: they're the canvas's view of a design read from
-  code.
+  screen. A story's modes, order and frame scales are kept in the project's file, as a page's are.
 - **Resized to test.** Dragging the Bounds layer's handles, or any layer's that takes a size, sets a width or height on
   it, and the frame fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset
   size, then shows at the end of the Design panel, for the story or any of its layers, and puts every layer back at the
   size the story's file draws it (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never
-  written to the story's file. A component that doesn't take a style, as PlanCard, can't be sized itself, so Bounds is
-  there to drag.
+  written to the story's file; it's kept in the project's file until it's reset. A component that doesn't take a style,
+  as PlanCard, can't be sized itself, so Bounds is there to drag.
 - **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
@@ -6822,12 +6884,12 @@ boards are. A story wider or taller than that overlaps the one beside or below i
 
 Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
 two under Stories. Plan card / Default's frame fitted to 181 with its host 1280 wide, Desktop Dark shown beside it from
-Modes drew its own 181-wide frame, and its caption's menu set it to 50%. Dragging Bounds 90 pixels narrower made the
-frame 128 wide in a window still 1280 wide, and Reset size put it back at 181. Plan card / Popular drew the app's own
-PlanCard with the Popular badge, and Button / Outline its outline button at its own size. Card / Invite and Plan card /
-Side By Side drew their own `render` functions: the invite card, and two plan cards side by side. Setting Plan card /
-Popular's Price to $32 and saving wrote `price: "$32"` into the story's args, beside `popular: true`, and the screen
-drew $32.
+Modes drew its own 181-wide frame, and its header's Zoom field set it to 50%. Dragging Bounds 90 pixels narrower made
+the frame 128 wide in a window still 1280 wide, and Reset size put it back at 181. Plan card / Popular drew the app's
+own PlanCard with the Popular badge, and Button / Outline its outline button at its own size. Card / Invite and Plan
+card / Team and Business drew their own `render` functions: the invite card, and two plan cards side by side. Setting
+Plan card / Popular's Price to $32 and saving wrote `price: "$32"` into the story's args, beside `popular: true`, and
+the screen drew $32.
 
 Code: `fitsContent`, `frameSize` and `frameGeometry` in `packages/core/src/render.ts`; `fittedFrame` and `fitsDrawn` in
 `packages/editor/src/frames.ts`, which `useFitToContent` in `apps/desktop/src/renderer/canvas/ContainerView.tsx` runs
@@ -7621,29 +7683,31 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   adapter: Storybook's are those its story files' metas name. The stories count on a component's card still reads
   `info.storybook`, until adapters give facts about components.
 - **A page of the app offers the actions for its route** (`routes`, from the app's routes): the end of its header in the
-  Design panel and of its right-click menu in Layers (`routePageTarget`, `pageOffers`). The action is run with the page
-  (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its Props. TanStack
-  Router offers Open in browser for each page but the root, which opens that URL in the browser.
+  Design panel, of its right-click menu in Layers and on the canvas, and in Search actions under Object, with the page's
+  path beside it, only while that page is selected (`routePageTarget`, `selectionPage`, `pageOffers`). The action is run
+  with the page (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its
+  Props. TanStack Router offers Open in browser for each page but the root, which opens that URL in the browser.
 - **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
   running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
   PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
   page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
   the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
   header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
-  detail shows Open in browser in its header and at the end of its right-click menu in Layers, with an external link
-  icon in both, since it opens the page outside Parity.
+  detail shows Open in browser in its header and at the end of its right-click menus in Layers and on the canvas, with
+  an external link icon, since it opens the page outside Parity, and searching "open in" lists it with `/projects/atlas`
+  beside it once its ProjectId is `atlas`.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
 `runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
 `adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
 `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
-`renderer/chrome/adapter-actions.ts`, with `pageOffers`; `routePageTarget` in `renderer/canvas/route-pages.ts`; Open in
-browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent` in `renderer/chrome/layer-kind.ts`, tested
-in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`,
-`CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and
-`useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left
-panel › Component menu and Component card.
+`renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
+`renderer/canvas/route-pages.ts`; Open in browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent`
+in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`,
+`RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`,
+`AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`,
+`ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
 
 Tests: `adapters/tanstack-router-adapter/src/routes.test.ts`, "tanstackRouter's Open in browser" (offered for each page
 but the root; opens the URL the page is drawn at); `packages/project/src/adapter-status.test.ts`, "tells the windows the

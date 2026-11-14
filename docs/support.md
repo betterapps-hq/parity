@@ -237,7 +237,7 @@ itself draws its `render` function, loaded from its file, with its args as props
 meta's; nothing else of a story's screen is. Layers lists the stories in folders for each part of their titles, with
 Storybook's kinds of icon for a group, a component and a story. Each story draws a frame for each mode it shows, as wide
 as the story, in the mode's whole window, and its args show as Props in the Design panel. Sizes dragged on a story to
-test it, its modes and their scales aren't saved.
+test it, its modes and their scales are kept in the project's file, never in the story's.
 
 ### Language
 

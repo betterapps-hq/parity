@@ -2,9 +2,12 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   designsSelection,
   layersSelection,
+  pickPreviews,
+  previewsSelection,
   sameSelection,
   selectedDesigns,
   selectedNodes,
+  selectedPreviews,
   selectionKey,
   toggleLayer
 } from "./selection.ts"
@@ -59,5 +62,58 @@ describe("the selection", () => {
     expect(selectionKey(layersSelection("main/sign-in", ["title", "email"], { state: "loading" }))).not.toBe(
       selectionKey(one)
     )
+  })
+})
+
+describe("selecting previews", () => {
+  const design = "(stories)#plan-card"
+
+  it("selects one preview as a mode and state of the design", () => {
+    const one = previewsSelection(design, ["default/desktop-light"])
+
+    expect(one).toEqual({ design, mode: "desktop-light", state: "default" })
+    expect(selectedPreviews(one)).toEqual(["default/desktop-light"])
+    expect(selectedDesigns(one)).toEqual([])
+  })
+
+  it("selects a preview alone with a click, never the same mode in other states", () => {
+    const both = previewsSelection(design, ["default/desktop-light", "popular/desktop-light"])
+    const clicked = pickPreviews(both, design, ["popular/desktop-light"], false)
+
+    expect(selectedPreviews(clicked)).toEqual(["popular/desktop-light"])
+  })
+
+  it("adds a preview with Shift, the last picked holding the settings, and takes it away again", () => {
+    const one = previewsSelection(design, ["default/desktop-light"])
+    const two = pickPreviews(one, design, ["popular/desktop-dark"], true)
+
+    expect(selectedPreviews(two)).toEqual(["default/desktop-light", "popular/desktop-dark"])
+    expect(two).toMatchObject({ mode: "desktop-dark", state: "popular" })
+    expect(selectedPreviews(pickPreviews(two, design, ["popular/desktop-dark"], true))).toEqual([
+      "default/desktop-light"
+    ])
+  })
+
+  it("adds a state's row with Shift, or takes it away when it's all selected", () => {
+    const row = ["popular/desktop-light", "popular/desktop-dark"]
+    const one = previewsSelection(design, ["default/desktop-light"])
+    const added = pickPreviews(one, design, row, true)
+
+    expect(selectedPreviews(added)).toEqual(["default/desktop-light", ...row])
+    expect(selectedPreviews(pickPreviews(added, design, row, true))).toEqual(["default/desktop-light"])
+  })
+
+  it("selects the design alone once Shift takes its last preview away", () => {
+    const one = previewsSelection(design, ["default/desktop-light"])
+
+    expect(pickPreviews(one, design, ["default/desktop-light"], true)).toEqual({ design })
+  })
+
+  it("tells selections of different previews apart", () => {
+    const a = previewsSelection(design, ["default/desktop-light", "popular/desktop-light"])
+    const b = previewsSelection(design, ["default/desktop-dark", "popular/desktop-light"])
+
+    expect(sameSelection(a, b)).toBe(false)
+    expect(selectionKey(a)).not.toBe(selectionKey(b))
   })
 })

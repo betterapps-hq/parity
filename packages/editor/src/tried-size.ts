@@ -1,9 +1,44 @@
-import { type ContainerSpec, type DesignNode, findNode, mapNodes } from "@parity-app/core"
-import { sameValue } from "./document-equality.ts"
+import { type CodeDesignSettings, type ContainerSpec, type DesignNode, findNode, mapNodes } from "@parity-app/core"
+import { sameValue, tidyView } from "./document-equality.ts"
 
-/** A layer's width and height, the sides dragged on the canvas. */
-function sides(node: DesignNode | undefined) {
-  return { width: node?.style?.width, height: node?.style?.height }
+/** Each layer's width and height tried on it, by layer id. */
+type Sizes = NonNullable<CodeDesignSettings["sizes"]>
+
+type Sides = Sizes[string]
+
+/** A layer's width and height, the sides dragged on the canvas, leaving out one it doesn't set. */
+function sides(node: DesignNode | undefined): Sides {
+  const { width, height } = node?.style ?? {}
+
+  return { ...(width !== undefined && { width }), ...(height !== undefined && { height }) }
+}
+
+/** A layer with its width and height as `size` says, the one it doesn't give unset. */
+function withSides(node: DesignNode, size: Sides): DesignNode {
+  if (sameValue(sides(node), sides({ ...node, style: size }))) {
+    return node
+  }
+
+  const style = { ...node.style }
+  delete style.width
+  delete style.height
+
+  return { ...node, style: { ...style, ...sides({ ...node, style: size }) } }
+}
+
+/** Each layer's width and height that's not as `drawn` has it, by layer id. */
+function triedSizes(design: ContainerSpec, drawn: ContainerSpec): Sizes {
+  const sizes: Sizes = {}
+
+  mapNodes(design.root, (node) => {
+    if (!sameValue(sides(node), sides(findNode(drawn.root, node.id)))) {
+      sizes[node.id] = sides(node)
+    }
+
+    return node
+  })
+
+  return sizes
 }
 
 /**
@@ -11,15 +46,7 @@ function sides(node: DesignNode | undefined) {
  * it responds, unlike `drawn`, the design as its code draws it. The size is never written to its code.
  */
 export function hasTriedSize(design: ContainerSpec, drawn: ContainerSpec): boolean {
-  let tried = false
-
-  mapNodes(design.root, (node) => {
-    tried ||= !sameValue(sides(node), sides(findNode(drawn.root, node.id)))
-
-    return node
-  })
-
-  return tried
+  return Object.keys(triedSizes(design, drawn)).length > 0
 }
 
 /**
@@ -31,27 +58,40 @@ export function withoutTriedSize(design: ContainerSpec, drawn: ContainerSpec): C
     return design
   }
 
-  const root = mapNodes(design.root, (node) => {
-    const was = sides(findNode(drawn.root, node.id))
+  return { ...design, root: mapNodes(design.root, (node) => withSides(node, sides(findNode(drawn.root, node.id)))) }
+}
 
-    if (sameValue(sides(node), was)) {
-      return node
-    }
+/**
+ * What the person has set on a design drawn from code, to keep while its code draws it again: what it shows, and the
+ * sizes tried on its layers, unlike `drawn`, as its code draws it. Undefined when there's nothing.
+ */
+export function codeDesignSettings(design: ContainerSpec, drawn: ContainerSpec): CodeDesignSettings | undefined {
+  const settings: CodeDesignSettings = {}
+  const view = tidyView(design, design.view)
+  const sizes = triedSizes(design, drawn)
 
-    const style = { ...node.style }
-    delete style.width
-    delete style.height
+  if (view && !sameValue(view, tidyView(drawn, drawn.view))) {
+    settings.view = view
+  }
 
-    if (was.width !== undefined) {
-      style.width = was.width
-    }
+  if (Object.keys(sizes).length > 0) {
+    settings.sizes = sizes
+  }
 
-    if (was.height !== undefined) {
-      style.height = was.height
-    }
+  return Object.keys(settings).length > 0 ? settings : undefined
+}
 
-    return { ...node, style }
-  })
+/** A design drawn from code again, with what the person had set on it (see `codeDesignSettings`). */
+export function withCodeDesignSettings(design: ContainerSpec, settings: CodeDesignSettings | undefined): ContainerSpec {
+  if (!settings) {
+    return design
+  }
 
-  return { ...design, root }
+  const { view, sizes = {} } = settings
+
+  return {
+    ...design,
+    ...(view && { view }),
+    root: mapNodes(design.root, (node) => (sizes[node.id] ? withSides(node, sizes[node.id]) : node))
+  }
 }
