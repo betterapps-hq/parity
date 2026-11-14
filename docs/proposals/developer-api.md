@@ -316,10 +316,9 @@ they're synchronous; anything that changes something is asynchronous (Speed and 
 - `parity.files.edit(label, changes)`: writes project files through the project service's one queued write, which checks
   nothing changed underneath, can be undone under the extension's name, and isn't read back as an outside edit. Limited
   to the write paths its permissions name. Parity refuses writes to `.par` files whatever they name.
-- `parity.servers.serve(server)` and `parity.processes.run(command)`: ask the project service's process manager to find
-  or start a tool's server or run a command. Each is listed with the project's processes under the extension, its output
-  goes to the extension's tab in the bottom panel, and the service stops it when the extension stops or its host
-  crashes.
+- `parity.processes`: starts, adopts, finds and watches the project's processes through the project service's process
+  manager, and providers change where servers are reached and how commands run. [processes.md](processes.md) sets it
+  out.
 
 ### Providers
 
