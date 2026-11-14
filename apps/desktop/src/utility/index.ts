@@ -30,7 +30,7 @@ import { applyProjectEdit, undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { closeExtensions, openExtensions, providedRoutes, startExtensions } from "./extensions.ts"
+import { closeExtensions, openExtensions, projectProviders, startExtensions } from "./extensions.ts"
 import { frameTraces } from "./frame-traces.ts"
 import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
@@ -69,7 +69,9 @@ const projects = openProjects({
   ...adapters,
   tools: extensionTools,
   // The extensions' hosts start below, before any project opens.
-  routes: (project) => providedRoutes(extensions, project),
+  get providers() {
+    return projectProviders(extensions)
+  },
   startBuilder,
   checker,
   detections: { saved: savedDetection, save: saveDetection },

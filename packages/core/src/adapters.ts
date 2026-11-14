@@ -345,7 +345,6 @@ export function detectPeers(
 export interface Adapters {
   renderers: RendererAdapter[]
   builders: BuilderAdapter[]
-  styles: StylesAdapter[]
   entities: EntitiesAdapter[]
 }
 
@@ -641,28 +640,6 @@ export interface DrawnNodes {
   parent(id: string): string | undefined
   /** The node an element in the frame belongs to: the innermost one that draws it or an element around it. */
   nodeOf(element: Element): string | undefined
-}
-
-/**
- * Reads a styling framework's theme (Tailwind, Panda, vanilla-extract…) from a project's own installation. Compiled CSS
- * only carries the variables the project's code already uses; the theme has every value a design may pick.
- */
-export interface StylesAdapter extends Adapter {
-  /** Whether one of the project's stylesheets uses this framework, from its text. */
-  handles(source: string): boolean
-  /** Every theme variable, resolved by the project's own copy of the framework. */
-  loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
-  /**
-   * The framework's way of writing a layer's declarations, and of reading its code back, as the project's own copy
-   * means it. Its code is a list of classes.
-   */
-  loadPrinter(root: string, stylesheet: string): Promise<ClassPrinter>
-  /**
-   * Writes token values into the stylesheet's source where the framework keeps them, and takes out those without a
-   * value, keeping everything else as written. `theme` is what `loadTheme` read. A project no adapter reads has plain
-   * custom properties, which `writeTokenChanges` in `@parity-app/tokens` writes.
-   */
-  writeTokens(source: string, writes: readonly TokenWrite[], theme: readonly ThemeVariable[]): string
 }
 
 /** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */

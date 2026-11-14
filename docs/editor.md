@@ -1179,14 +1179,38 @@ bar.
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
 `packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
-`protocol.ts` and `providers.register` in `host.ts`; `providedRoutes` and `byPeers` in `utility/extensions.ts`; `routes`
-and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-actions.ts` and `pageItems` in
+`protocol.ts` and `providers.register` in `host.ts`; `projectProviders` and `byPeers` in `utility/extensions.ts`;
+`routes` and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-actions.ts` and `pageItems` in
 `ActionsSearch.tsx`.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
 `packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a
 route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
 router, and Open in browser's placements in the window, have no unit test of their own.
+
+### Tailwind CSS as an extension, through its styles provider (PAR-1095)
+
+Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does
+changed: the theme in the Tokens tab, frames drawn with the classes Parity writes, token values saved into `@theme`, and
+"Tailwind CSS" in the status bar, which opens the Tokens tab.
+
+- **Its styles provider answers four calls, with plain data.** `handles` says whether a stylesheet uses Tailwind,
+  `theme` reads every theme variable with the project's own Tailwind, `classes` writes a frame's declarations as classes
+  and compiles them, and `writeTokens` writes token values into the stylesheet's source. It keeps the printer for the
+  stylesheet as it is, and loads it again once the stylesheet changes.
+- **Its host starts as soon as package.json is read,** as the router's does, since it's found by its peer dependency, so
+  the theme is read while the builder starts and is in the project when it opens.
+- **A project no styles provider handles** has plain custom properties, which `writeTokenChanges` writes, as before.
+- **Its version** shows in the project's detection, from its peer dependency and its manifest's `versions`.
+
+Code: `packages/extension-tailwind` (its manifest, `extension.ts`, `printer.ts`, `design-system.ts` and `tokens.ts`);
+`StylesProvider` in `packages/extension-api/src/api.ts`; `callProvider` in `packages/extensions/src/host.ts`;
+`loadStyles`, `saveTokens` and `frameClasses` in `utility/projects.ts`.
+
+Tests: `packages/extension-tailwind/src/extension.test.ts` (its manifest and `handles`), `printer.test.ts`,
+`design-system.test.ts` and `tokens.test.ts`. Gaps: the styles provider's calls over the host channel have no unit test
+of their own. Tried in the running app on 2026-11-14 on the example: the status bar item opening the Tokens tab with the
+theme's tokens, and Pricing's frames drawn with classes.
 
 ### Extensions' changes to designs and files (PAR-1093)
 
@@ -5507,11 +5531,11 @@ the same one; nothing between knows the framework.
   project's own (`source: "semantic"`). The rest of the call lists it in `GetTokens` and takes it in a style without a
   warning. It's an ordinary token edit: every frame draws it at once, the Tokens tab lists it before it's saved, Save
   writes it and Undo takes it back, out of the stylesheet too once it was saved.
-- **Where Save writes it is the adapter's call.** `StylesAdapter.writeTokens(source, writes, theme)` writes values into
-  a stylesheet's source where its framework keeps them. A project no adapter reads has plain custom properties, which
-  `writeTokenChanges` writes: a default value in the first `:root` under no condition, a theme's in the block the
+- **Where Save writes it is the styles provider's call.** Its `writeTokens({ source, writes, theme })` writes values
+  into a stylesheet's source where its framework keeps them. A project no provider handles has plain custom properties,
+  which `writeTokenChanges` writes: a default value in the first `:root` under no condition, a theme's in the block the
   stylesheet gives that theme (`.dark`, `[data-theme="dark"]` or a `prefers-color-scheme` root), each made at the end of
-  the file when there's none. Tailwind's adapter puts a default value in `@theme` when the variable is in Tailwind's
+  the file when there's none. Tailwind's extension puts a default value in `@theme` when the variable is in Tailwind's
   theme already or its name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the
   rest), so the class exists, and hands every other value to the plain writer. A declaration that exists is edited where
   it is, whichever block that is.
@@ -5528,13 +5552,13 @@ the same one; nothing between knows the framework.
     `Use a name from GetTokens().`
 
 Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
-`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `adapters/tailwind-adapter/src/tokens.ts`; `StylesAdapter` in
-`packages/core/src/adapters.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
+`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/extension-tailwind/src/tokens.ts`; `StylesProvider`
+in `packages/extension-api/src/api.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
 `packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
 `packages/editor/src/token-edits.ts`.
 
-Tests: `adapters/tailwind-adapter/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
-new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
+Tests: `packages/extension-tailwind/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one,
+a new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
 where the root declares it, a value taken back out); `packages/tokens/src/stylesheet.test.ts` (a token the stylesheet
 doesn't declare added to the root, whatever its name, and read back in its category);
 `packages/tokens/src/tokens.test.ts` (`withTokenChanges`, 2); `packages/editor/src/token-edits.test.ts` (the token list
@@ -8172,13 +8196,13 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
-`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`,
-`tailwind-adapter` and `storybook-adapter`, and TanStack Router's from its extension (below); the one list of adapters
+`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`
+and `storybook-adapter`, and Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters
 in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
 an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
-its own id), and `adapters/tailwind-adapter/src/index.test.ts` (Tailwind's item). Storybook,
+its own id), and `packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook,
 `chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
 (`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
 
@@ -8426,10 +8450,10 @@ container query, a `group-hover:` rule.
 
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
-  The classes are the Tailwind printer's (`adapters/tailwind-adapter`), which writes a class only when it compiles back
-  to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
-  a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
-  Tailwind's `utilities` layer and in Tailwind's order.
+  The classes are the Tailwind printer's (`packages/extension-tailwind`), which writes a class only when it compiles
+  back to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`,
+  PAR-1001), so a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's
+  frames, in Tailwind's `utilities` layer and in Tailwind's order.
 - **Otherwise, and until the classes are written, a layer is drawn from a rule for its node:** one rule set for each
   element, found by its id (`[data-canvas-node="…"]`), holding its declarations in order. The window asks the project
   service for classes, since the service holds the project's Tailwind; a layer shows from its rule at once and from its
@@ -8460,9 +8484,10 @@ project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` t
 project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
 the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
 again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
-(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles adapter's
-`loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen
-one from the rules. The React guest (`adapters/react-adapter/src/guest.ts`) gives an element its classes and no style.
+(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles provider's
+`classes`, whose printer's `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
+offscreen one from the rules. The React guest (`adapters/react-adapter/src/guest.ts`) gives an element its classes and
+no style.
 
 Tests:
 
@@ -8473,7 +8498,7 @@ Tests:
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
 - `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
   child is placed in is `relative`; an Absolute one stays Absolute.
-- `adapters/tailwind-adapter/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
+- `packages/extension-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
 - `apps/desktop/src/renderer/frame-classes.test.ts`: classes asked for while an ask is unanswered wait for it, so the

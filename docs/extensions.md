@@ -98,8 +98,10 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `update(key, value)`, which sets only a `project` setting.
 - **`providers.register(kind, provider)`** (PAR-1095): gives behaviour to a provider the manifest's `providers`
   declares. Parity calls it with plain data and reads its answer through a schema, so an answer that isn't what the
-  provider gives is refused and logged. So far there's `router`, whose `routes()` gives the app's routes, each parent
-  before its children; Parity asks once as the project opens.
+  provider gives is refused and logged. There's `router`, whose `routes()` gives the app's routes, each parent before
+  its children, asked once as the project opens; and `styles`, whose `handles({ source })`, `theme({ stylesheet })`,
+  `classes({ stylesheet, version, written, declarations })` and `writeTokens({ source, writes, theme })` read a styling
+  framework's theme, write a frame's declarations as classes and write token values into a stylesheet.
 - **`edits.transact(label, operations)`:** changes designs, with the `edits` permission (below).
 - **`files.edit(label, files)`:** writes project files the `write` permission names (below).
 - **`state.app` and `state.project`:** values that persist, for every project or for this one.
@@ -272,6 +274,8 @@ An extension can offer an API to other extensions, and its commands and tools to
   [routes.test.ts](../packages/extension-tanstack-router/src/routes.test.ts): TanStack Router's manifest, with its
   router provider, route node type and Open in browser placed only for routes; its pages counted without the root; the
   page a command was run for, or from Search, the page selected; and the routes it reads.
+- [extension.test.ts](../packages/extension-tailwind/src/extension.test.ts): Tailwind CSS's manifest, with its styles
+  provider and status item, and the stylesheets it handles.
 - [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
   files and paths outside the project.
 - [views.test.ts](../packages/extensions/src/views.test.ts): a view drawing nothing until the code fills it, a run of

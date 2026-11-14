@@ -129,6 +129,7 @@ const builds: BuildContext[] = [
       // Parity's own extensions, which a host loads only when one activates.
       "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts"),
       "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts"),
+      "extensions/tailwind": join(appDir, "../../packages/extension-tailwind/src/extension.ts"),
       "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts")
     },
     format: "esm",

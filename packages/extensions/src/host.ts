@@ -11,12 +11,22 @@ import type {
   PickItem,
   RemoteApi,
   RouterProvider,
+  StylesProvider,
   SettingValue,
   State,
   StatusItem
 } from "@parity-app/extension-api"
 import { type HostProcesses, hostProcesses } from "./host-processes.ts"
-import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo, ProviderKind, Returned } from "./protocol.ts"
+import type {
+  ActivateParams,
+  HostMethods,
+  HostServiceMethods,
+  NavigateTo,
+  ProviderAnswer,
+  ProviderCall,
+  ProviderKind,
+  Returned
+} from "./protocol.ts"
 import { type Form, viewsOf } from "./views.ts"
 
 /*
@@ -88,6 +98,7 @@ interface HostSettings {
 /** The providers an extension's code registered, by kind. */
 interface Registered {
   router?: RouterProvider
+  styles?: StylesProvider
 }
 
 interface Activated {
@@ -186,14 +197,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension hasn't activated")
       }
 
-      // A router is the only provider so far, and `routes` its only method.
-      const router = (await activated).providers[call.kind]
-
-      if (!router) {
-        throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
-      }
-
-      return await router.routes()
+      return await callProvider((await activated).providers, call)
     },
     async "view.changed"({ view, key, value }) {
       if (!activated) {
@@ -447,7 +451,7 @@ async function activate(
       }
     },
     providers: {
-      register(kind, provider) {
+      register(kind: ProviderKind, provider: RouterProvider | StylesProvider) {
         if (!declaredProviders.has(kind)) {
           throw new Error(`The manifest's providers don't name ${kind}`)
         }
@@ -456,7 +460,8 @@ async function activate(
           throw new Error(`A ${kind} is registered already`)
         }
 
-        providers[kind] = provider
+        // SAFETY: `register`'s overloads pair each kind with its provider's interface.
+        Object.assign(providers, { [kind]: provider })
 
         return once(() => {
           if (providers[kind] === provider) {
@@ -595,6 +600,39 @@ async function activate(
   const api = apiOf(await exports.activate(parity))
 
   return { handlers, providers, forms, tools, subscriptions, module: exports, api }
+}
+
+/** Calls the method a provider call names on the provider the extension registered of its kind. */
+async function callProvider(providers: Registered, call: ProviderCall): Promise<ProviderAnswer> {
+  const missing = () =>
+    new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
+
+  if (call.kind === "router") {
+    const router = providers.router
+
+    if (!router) {
+      throw missing()
+    }
+
+    return router.routes()
+  }
+
+  const styles = providers.styles
+
+  if (!styles) {
+    throw missing()
+  }
+
+  switch (call.method) {
+    case "handles":
+      return styles.handles(call.params)
+    case "theme":
+      return styles.theme(call.params)
+    case "classes":
+      return styles.classes(call.params)
+    case "writeTokens":
+      return styles.writeTokens(call.params)
+  }
 }
 
 /** Disposes of what the extension added to `parity.subscriptions`, newest first, then calls its `deactivate`. */

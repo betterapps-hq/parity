@@ -5,6 +5,7 @@ import { detectPeers, type PackageManifest } from "@parity-app/core"
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
@@ -20,7 +21,7 @@ import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
 import { extensionProcesses } from "./extension-processes.ts"
 import { extensionStateStore } from "./extension-state.ts"
-import type { OpenProject, ProvidedRoutes } from "./projects.ts"
+import type { OpenProject, ProjectProviders } from "./projects.ts"
 
 /*
  * The extensions Parity runs, each in a host of its own for each open project (see `@parity-app/extensions`). Each host
@@ -66,6 +67,7 @@ function byPeers(found: InstalledExtension<ExtensionProject>): InstalledExtensio
 
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
+  byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
   builtIn(storybookPackage, "storybook", ({ open }) => {
     const found = open?.info.storybook
@@ -111,20 +113,27 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
 }
 
 /**
- * The app's routes, from the router an extension of the project's provides: its host starts as soon as the project's
- * package is read, so it reads them while the builder starts. Nothing when none provides one.
+ * What the project's extensions provide, as the project service asks while a project opens: the extensions found by
+ * their peer dependencies start as soon as its package is read, so a router reads the routes and a styling framework
+ * the theme while the builder starts. Nothing when no extension of the project's provides what's asked.
  */
-export async function providedRoutes(
-  hosts: ExtensionHosts<ExtensionProject>,
-  project: { root: string; name: string; pkg: PackageManifest }
-): Promise<ProvidedRoutes | undefined> {
-  const id = project.root
-  projects.set(id, { root: project.root, name: project.name })
-  hosts.open({ id, ...project })
-  const routes = await hosts.provide(id, "router", "routes")
-  const router = hosts.provider(id, "router")
+export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): ProjectProviders {
+  /** Tells the hosts of the project, as early as its package is read; once it has opened, that's known already. */
+  const told = (project: { root: string; name: string; pkg: PackageManifest }) => {
+    const id = project.root
 
-  return routes && router ? { router, routes } : undefined
+    if (!projects.has(id)) {
+      projects.set(id, { root: project.root, name: project.name })
+      hosts.open({ id, ...project })
+    }
+
+    return id
+  }
+
+  return {
+    call: (project, call) => hosts.provide(told(project), call),
+    owner: (project, kind) => hosts.provider(told(project), kind)
+  }
 }
 
 /** The open projects hosts were told of, by id, for their servers' folders and names. */

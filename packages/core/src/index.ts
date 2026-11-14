@@ -42,7 +42,6 @@ export {
   type ImportedScreen,
   type ProjectEntities,
   scriptConfigExtensions,
-  type StylesAdapter,
   type ThemeVariable,
   type ServedTool,
   type TokenWrite,

@@ -13,10 +13,14 @@ import type {
   NodeRef,
   OpenWhere,
   PickItem,
+  CssDeclaration,
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
   Route,
+  ThemeVariable,
+  TokenWrite,
+  WrittenClasses,
   SettingValue,
   Tone,
   ViewData,
@@ -91,16 +95,31 @@ export interface Returned {
 }
 
 /** The kinds of provider an extension's code can register so far. */
-export type ProviderKind = "router"
+export type ProviderKind = "router" | "styles"
 
 /** What the project service asks a provider, by kind and method, and what it answers. */
 export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
+  styles: {
+    handles: { params: { source: string }; result: boolean }
+    theme: { params: { stylesheet: string }; result: ThemeVariable[] }
+    classes: {
+      params: { stylesheet: string; version: number; written: string[]; declarations: CssDeclaration[] }
+      result: WrittenClasses
+    }
+    writeTokens: { params: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }; result: string }
+  }
 }
 
-/** One call to a provider. */
+/** One call to a provider: its kind, its method, and what the method takes. */
 export type ProviderCall = {
-  [K in ProviderKind]: { [M in keyof ProviderCalls[K]]: { kind: K; method: M } }[keyof ProviderCalls[K]]
+  [K in ProviderKind]: {
+    [M in keyof ProviderCalls[K]]: ProviderCalls[K][M] extends { params: infer P }
+      ? P extends undefined
+        ? { kind: K; method: M }
+        : { kind: K; method: M; params: P }
+      : never
+  }[keyof ProviderCalls[K]]
 }[ProviderKind]
 
 /** What a provider answers, whichever was called. */
@@ -426,8 +445,21 @@ const route: z.ZodType<Route> = z.strictObject({
 })
 
 /** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
+const themeVariables = z.array(z.strictObject({ name: z.string().max(500), value: text })).max(100_000)
+
 const providerResults = {
-  router: { routes: checkOf(z.array(route).max(10_000)) }
+  router: { routes: checkOf(z.array(route).max(10_000)) },
+  styles: {
+    handles: checkOf(z.boolean()),
+    theme: checkOf(themeVariables),
+    classes: checkOf(
+      z.strictObject({
+        classes: z.array(z.array(z.string().max(500)).max(100).nullable()).max(10_000),
+        css: z.string().max(10_000_000)
+      })
+    ),
+    writeTokens: checkOf(fileText)
+  }
 } satisfies {
   [K in ProviderKind]: {
     // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the host answered, read here
@@ -437,7 +469,12 @@ const providerResults = {
 
 /** Reads what a provider answered to `call`, which came from the extension's code, before the service uses it. */
 export function readAnswer(call: ProviderCall, answer: ProviderAnswer): ProviderAnswer {
-  return providerResults[call.kind][call.method](answer)
+  switch (call.kind) {
+    case "router":
+      return providerResults.router[call.method](answer)
+    case "styles":
+      return providerResults.styles[call.method](answer)
+  }
 }
 
 /** Reads each of a host's requests before the service handles it. */
