@@ -4959,16 +4959,16 @@ Tests:
 
 ### A design's modes in its own order (PAR-923)
 
-A screen's or component's Modes section lists every mode of the project in the design's own order. The first one shown
-is drawn first on its board, and the other shown modes beside it in that order. The board's modes menu lists them alike
-(see "A board's rows and columns, in order").
+A screen's or component's board lists every mode of the project in the design's own order, in its title's Modes menu
+(see "A board's rows and columns, in order"). The first one shown is drawn first on its board, and the other shown modes
+beside it in that order. The Design tab has no Modes section: modes are set on the canvas (PAR-1071).
 
 - **Each row has a handle** on the left, which drags it into place with the motion lists use, and Up and Down on it move
   it a place. A project with one mode has no handle.
 - **Any mode can be off** while another shows. The one left showing can't be switched off, and its switch's hint says
   "At least one mode always shows". Turning off the first mode in the list makes the next one shown the first, and the
   list keeps its order.
-- **No crown, radio, Show all or Only.** The project's primary mode isn't marked in the section or on a board's mode
+- **No crown, radio, Show all or Only.** The project's primary mode isn't marked in the list or on a board's mode
   captions.
 - **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
   order, and the first frame's mode as `mode`, as before. An order that is the project's, with its first mode shown
@@ -4979,8 +4979,9 @@ is drawn first on its board, and the other shown modes beside it in that order. 
 
 Code: `packages/core/src/document.ts` (the view's `order` and `scales`), `modes.ts` (`shownModes`'s `ordered`) and
 `board.ts` (`besideScale`); `packages/editor/src/document-equality.ts` (an empty order is dropped); in the app,
-`canvas/view.ts` (`withModes`), `ModesList` in `canvas/view-lists.tsx`, `ShowList` in `chrome/ShowList.tsx`,
-`ModesSection` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the headers).
+`canvas/view.ts` (`withModes`), `ModesList` in `canvas/view-lists.tsx`, `ShowList` in `chrome/ShowList.tsx`, the
+`panelTable` in `packages/editor/src/layer-capabilities.ts` (no Modes section), and `canvas/ContainerView.tsx` (the
+headers).
 
 Tests:
 
@@ -4990,9 +4991,9 @@ Tests:
   order, the next shown drawn first when the first in the list is off with the list's order kept, and never none; and "a
   design's mode order" (3): the list in the design's order with the shown modes beside the first, the project's order
   written as nothing, and modes the order doesn't name after it.
-- Stories: Parity/Inspector/Sections/Modes › Another Mode First, which checks the first mode's switch is on and
-  disabled, then moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode
-  Shown and Mode Selected.
+- `packages/editor/src/layer-capabilities.test.ts`: a screen's and a component's sections, with no Modes section.
+- Stories: Parity/Canvas/Board menus › Another Mode First, which opens the Modes menu and moves Desktop Light first with
+  Up on its handle, with Mobile Light still shown; Modes Menu, Every Mode Shown and States Menu.
 
 ### Unsaved changes survive a crash (PAR-905)
 
@@ -6394,8 +6395,8 @@ settings change how the canvas draws it, never the design.
 - **The header names its mode,** and its state too in its accessible name where the board shows every state, as "Popular
   in Desktop Light". Clicking the name selects the preview alone; Shift+click adds it to the previews selected, or takes
   it away. Selected previews have a 2-pixel ring in the mode color at any zoom, and their names take it; pointing at a
-  header outlines its preview faintly. While any are selected, the board has no edge of its own, as a frame has none
-  while a layer in it is selected.
+  header outlines its preview faintly. The mode color (green) marks only selected previews: while any are selected, the
+  board has neither its edge nor the canvas's selection outline, as a frame has none while a layer in it is selected.
 - **The last preview picked holds the settings** of every one selected: a Zoom field and a settings button. Zoom is a
   percentage from 10 to 400, typed or scrubbed, with Fit, 100%, 75%, 50% and 25% in its menu; Fit is there only for a
   preview beside the first, which fits it to at most 640 wide. The settings button opens Preview settings above the
@@ -6428,7 +6429,8 @@ Code: `packages/core/src/preview.ts` (`previewKey`, `previewSettingsOf`, `previe
 design's file, or the project file's `codeDesigns` for a design drawn from code); in the app, `getSavedView` in
 `design-store.ts`, `useSavedView`, `PreviewHeader`, `ZoomField` and `SettingsMenu` in `canvas/preview-parts.tsx`,
 `PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView`, `FrameTile` and `PreviewRing` in
-`canvas/ContainerView.tsx`. The canvas leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
+`canvas/ContainerView.tsx`; `HoverOutlines` in `canvas/CanvasEditor.tsx` leaves out the board's outline. The canvas
+leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
 
 Tests: `packages/core/src/preview.test.ts` (13: a preview's key read back, its options drawn over its mode's viewport,
 its width with the window it stands for, its scale, setting and dropping values, what a design file holds, what changed
@@ -6455,12 +6457,12 @@ hidden and put in order on the canvas.
   icon, how many show and a chevron, named "States, 4 shown" (Stories on a Storybook file's board). Its heading counts
   them all, and the Modes menu has Edit modes beside its heading, which opens the inspector's Modes tab. A design with
   one state has no States menu; the Modes menu is there with one mode, for Edit modes. Each menu lists every one with a
-  handle and a switch, as the Modes section does, a mode with its width and its variables' values as chips, and the one
-  left showing can't be switched off. A long list scrolls.
+  handle and a switch, a mode with its width and its variables' values as chips, and the one left showing can't be
+  switched off. A long list scrolls.
 - **A page's title adds Open in browser,** what the project's adapters offer for it, as the Design tab's heading does.
 - **On a narrow board the controls follow the name,** out over the canvas beside it where the name runs past the board,
   rather than hiding; zoomed so far out that there's no room for them, they hide.
-- **A page's and a story's Design tab has no Modes section:** their modes are set on the canvas, from the title.
+- **The Design tab has no Modes section** for any design: modes are set on the canvas, from the title.
 - **A row's label selects it.** Clicking it selects every preview in the row; Shift+click adds the row or takes it away.
   A component's label names its state, and every state but the base one says how many changes it makes. A Storybook
   file's board names each story over its row instead.

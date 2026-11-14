@@ -13,7 +13,7 @@ export function stateNouns(entry: Pick<ContainerEntry, "path">): { one: string; 
 }
 
 /**
- * A design's modes in its own order, as its Modes section and its board's modes menu list them: each one's switch
+ * A design's modes in its own order, as its board's Modes menu lists them: each one's switch
  * shows it, and the first shown is drawn at full size, the rest beside it (PAR-1071).
  */
 export function ModesList({ entry, group }: { entry: ContainerEntry; group: string }) {

@@ -13,13 +13,17 @@ import { routePageTarget } from "./route-pages.ts"
 import { ModesList, StatesList, stateNouns } from "./view-lists.tsx"
 import { containerModes } from "./view.ts"
 
+/** A button in a board's title that opens a menu: its variant's, its states' or its modes'. */
+export const boardMenuTrigger =
+  "flex h-6 items-center gap-1 rounded-md bg-muted/50 px-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-accent aria-expanded:text-foreground dark:bg-input/40"
+
 /**
  * A board's stories or states menu and its modes menu, in its title (PAR-1071): each an icon with how many show, which
- * opens the design's list to show, hide and put them in order, as its Modes section does. A design with one state has
+ * opens the design's list to show, hide and put them in order. A design with one state has
  * no states menu. A page's title then has what the project's adapters offer for it, as the Design tab's heading does:
  * Open in browser.
  */
-export function BoardMenus({ entry, triggerClassName }: { entry: ContainerEntry; triggerClassName: string }) {
+export function BoardMenus({ entry }: { entry: ContainerEntry }) {
   const { store } = useProject()
   const settings = useModeSettings(store)
   const { container, key } = entry
@@ -35,7 +39,6 @@ export function BoardMenus({ entry, triggerClassName }: { entry: ContainerEntry;
           icon={<SquareStack aria-hidden className="size-3.5" />}
           count={designStates(container).length}
           shown={shownStates(container).length}
-          triggerClassName={triggerClassName}
         >
           <StatesList entry={entry} group={`states:${key}`} />
         </ListMenu>
@@ -45,7 +48,6 @@ export function BoardMenus({ entry, triggerClassName }: { entry: ContainerEntry;
         icon={<MonitorSmartphone aria-hidden className="size-3.5" />}
         count={ordered.length}
         shown={companions.length + 1}
-        triggerClassName={triggerClassName}
         action={<EditModesButton />}
       >
         <ModesList entry={entry} group={`modes:${key}`} />
@@ -103,7 +105,6 @@ function ListMenu({
   icon,
   count,
   shown,
-  triggerClassName,
   action,
   children
 }: {
@@ -113,7 +114,6 @@ function ListMenu({
   count: number
   /** How many of them show, which its button counts. */
   shown: number
-  triggerClassName: string
   action?: ReactNode
   children: ReactNode
 }) {
@@ -124,7 +124,7 @@ function ListMenu({
       <PopoverTrigger
         render={
           <Hint label={title} hidden={open}>
-            <button type="button" className={triggerClassName} aria-label={`${title}, ${shown} shown`}>
+            <button type="button" className={boardMenuTrigger} aria-label={`${title}, ${shown} shown`}>
               {icon}
               <span className="tabular-nums">{shown}</span>
               <ChevronDown aria-hidden className="-ml-0.5 size-3.5 opacity-60" />

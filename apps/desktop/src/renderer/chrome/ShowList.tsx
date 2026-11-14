@@ -15,7 +15,7 @@ export interface ShowEntry {
 
 /**
  * A design's modes or states in its own order, a row each: its handle, its name, and a switch that shows it (PAR-1071).
- * The Modes section and the canvas's menus list them alike. A row is put in place by its handle, Up and Down on it, or
+ * A board's States and Modes menus list them alike. A row is put in place by its handle, Up and Down on it, or
  * by dragging the row. Any can be off while another shows; the one left showing can't be switched off. `group` keeps
  * each list's rows to themselves.
  */

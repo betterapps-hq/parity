@@ -91,7 +91,7 @@ import { useStore } from "../store.ts"
 import { useCarry } from "./board-carry.tsx"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { useBoardInternals } from "./board-internals.ts"
-import { BoardMenus } from "./BoardMenus.tsx"
+import { BoardMenus, boardMenuTrigger } from "./BoardMenus.tsx"
 import { boardFile, componentBoardsFile } from "./component-boards.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
@@ -512,7 +512,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             }
           />
         )}
-        <BoardMenus entry={entry} triggerClassName={menuTrigger} />
+        <BoardMenus entry={entry} />
       </TitleControls>
     </TitleBar>
   )
@@ -1120,9 +1120,6 @@ function focusAndSelect(element: HTMLInputElement | null): void {
   element?.select()
 }
 
-const menuTrigger =
-  "flex h-6 items-center gap-1 rounded-md bg-muted/50 px-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-accent aria-expanded:text-foreground dark:bg-input/40"
-
 /**
  * Which option of each variant the board shows. Edits on the board in its base state go to the options picked here,
  * other than the defaults.
@@ -1144,7 +1141,7 @@ function VariantMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={menuTrigger} aria-label="Variant">
+      <DropdownMenuTrigger className={boardMenuTrigger} aria-label="Variant">
         <span className="max-w-48 truncate">{label}</span>
         <ChevronDown className="-ml-0.5 size-3 opacity-60" />
       </DropdownMenuTrigger>
