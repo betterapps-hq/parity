@@ -239,3 +239,35 @@ describe("tanstackRouter.detect", () => {
     expect(await found({ dependencies: { "react-router": "^7.0.0", "@tanstack/react-query": "^5.0.0" } })).toBe(false)
   })
 })
+
+describe("tanstackRouter's Open in browser", () => {
+  const [open] = tanstackRouter.actions ?? []
+  const route = { file: "src/routes/x.tsx", params: [], index: false, loads: false, guards: false }
+  const nothing = () => Promise.resolve(undefined)
+
+  it("is offered for each page, not the root", () => {
+    expect(
+      open?.routes?.({
+        packageManager: "pnpm",
+        routes: [
+          { ...route, id: "__root__", path: "/" },
+          { ...route, id: "/projects/$projectId", path: "/projects/$projectId", parent: "__root__" }
+        ]
+      })
+    ).toEqual(["/projects/$projectId"])
+  })
+
+  it("opens the URL the page is drawn at", async () => {
+    const page = { route: "/projects/$projectId", url: "http://127.0.0.1:5173/projects/atlas" }
+
+    const opened = await tanstackRouter.run?.("open", {
+      project: { root: "", pkg: {}, read: nothing },
+      source: { files: () => Promise.resolve([]), read: nothing, componentFor: nothing },
+      detection: { found: true, summary: "" },
+      page,
+      servers: { serve: () => Promise.reject(new Error("Opening a page starts no server")) }
+    })
+
+    expect(opened).toEqual({ open: page.url })
+  })
+})

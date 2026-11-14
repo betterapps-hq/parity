@@ -7446,28 +7446,36 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   else for the whole project, as opening Storybook's home. Which components an action is for comes only from its
   adapter: Storybook's are those its story files' metas name. The stories count on a component's card still reads
   `info.storybook`, until adapters give facts about components.
+- **A page of the app offers the actions for its route** (`routes`, from the app's routes): the end of its header in the
+  Design panel and of its right-click menu in Layers (`routePageTarget`, `pageOffers`). The action is run with the page
+  (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its Props. TanStack
+  Router offers Open in browser for each page but the root, which opens that URL in the browser.
 - **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
   running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
   PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
   page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
   the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
-  header, with the hint "No story found", and greyed in its right-click menus and in Search actions.
+  header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
+  detail shows Open in browser, with TanStack's logo, in its header and at the end of its right-click menu in Layers.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
 `runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
 `adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
 `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
-`renderer/chrome/adapter-actions.ts`; `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in
-`layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`,
+`renderer/chrome/adapter-actions.ts`, with `pageOffers`; `routePageTarget` in `renderer/canvas/route-pages.ts`; Open in
+browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent` in `renderer/chrome/layer-kind.ts`, tested
+in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`,
 `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and
 `useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left
 panel › Component menu and Component card.
 
-Tests: `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else Storybook's
-home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed action reaches
-the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed). Gaps:
-`tool-servers.ts` has no unit test, and the story play functions weren't run.
+Tests: `adapters/tanstack-router-adapter/src/routes.test.ts`, "tanstackRouter's Open in browser" (offered for each page
+but the root; opens the URL the page is drawn at); `packages/project/src/adapter-status.test.ts`, "tells the windows the
+routes an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story,
+else Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
+action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
+Gaps: `tool-servers.ts` has no unit test, and the story play functions weren't run.
 
 ### Each adapter detects its own tool
 

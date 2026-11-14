@@ -29,6 +29,7 @@ export {
   type EntitiesAdapter,
   type FileWrite,
   type ActionContext,
+  type ActionPage,
   type ActionResult,
   type Adapter,
   type AdapterAction,

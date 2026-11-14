@@ -1,4 +1,4 @@
-import { isInnerPath, locateInner, locateNode, type ProjectAction } from "@parity-app/core"
+import { type ActionPage, isInnerPath, locateInner, locateNode, type ProjectAction } from "@parity-app/core"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
@@ -42,6 +42,15 @@ export function componentOffers(info: ProjectInfo, component: string | undefined
   })
 }
 
+/** What the project's adapters offer for one of the app's pages, by its route's id, as Open in browser. */
+export function pageOffers(info: ProjectInfo, route: string | undefined): ComponentOffer[] {
+  if (route === undefined) {
+    return []
+  }
+
+  return info.actions.flatMap((action) => (action.routes?.includes(route) ? [{ action }] : []))
+}
+
 /**
  * The project's component the selection is of, whose adapters' actions it offers: one layer that draws a code
  * component, or a component's board on its own. Undefined for anything else, or for several things.
@@ -71,11 +80,16 @@ export function selectionComponent(
  * Does an adapter's action for the project, or for one of its components, saying so while it runs, and opens in the
  * browser the address it gives.
  */
-export async function runAction(projectId: string, action: ProjectAction, component?: string): Promise<void> {
+export async function runAction(
+  projectId: string,
+  action: ProjectAction,
+  component?: string,
+  page?: ActionPage
+): Promise<void> {
   await serviceCall({
     progress: action.progress,
     shown: { description: action.note },
-    run: () => request("adapter.run", { projectId, adapter: action.adapter, action: action.id, component }),
+    run: () => request("adapter.run", { projectId, adapter: action.adapter, action: action.id, component, page }),
     done({ open }) {
       if (!open) {
         return "dismiss"

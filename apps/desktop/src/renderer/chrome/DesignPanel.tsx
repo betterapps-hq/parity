@@ -6,7 +6,7 @@ import type { ComponentType, ReactNode } from "react"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { routePageRoute } from "../canvas/route-pages.ts"
+import { routePageRoute, routePageTarget } from "../canvas/route-pages.ts"
 import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
@@ -16,7 +16,7 @@ import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { componentOffers, runAction } from "./adapter-actions.ts"
+import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
@@ -211,7 +211,8 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const { container } = entry
   const { primary } = containerModes(settings, container)
   // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
-  const page = routePageRoute(session.id, container.id) !== undefined
+  const target = routePageTarget(session.id, container)
+  const page = target !== undefined
   const component = boardComponent(session.id, container.id)
   const board = component !== undefined
   const story = entry.path === storyScreensFile
@@ -245,11 +246,14 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
           kind={kind}
           detail={detail}
           action={
-            board && (
-              // What the project's adapters offer for a board's component, as Open in Storybook.
+            // What the project's adapters offer for a board's component, as Open in Storybook, or for a page, as Open
+            // in browser.
+            (board || target) && (
               <HeaderActions
-                adapterOffers={componentOffers(session.info, component)}
-                onAdapterAction={({ action }) => void runAction(session.id, action, component)}
+                adapterOffers={
+                  target ? pageOffers(session.info, target.route) : componentOffers(session.info, component)
+                }
+                onAdapterAction={({ action }) => void runAction(session.id, action, component, target)}
               />
             )
           }

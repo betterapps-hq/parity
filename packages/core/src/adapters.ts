@@ -124,12 +124,14 @@ export interface AdapterStatusItem extends StatusItem {
 }
 
 /** An action an adapter offers, as the windows are told it: with the adapter that does it, its logo, and its components. */
-export interface ProjectAction extends Omit<AdapterAction, "components"> {
+export interface ProjectAction extends Omit<AdapterAction, "components" | "routes"> {
   adapter: string
   /** The adapter's logo. */
   icon?: AdapterIcon
   /** The components it's offered for, by key. */
   components?: string[]
+  /** The app's routes it's offered for, by id. */
+  routes?: string[]
 }
 
 /**
@@ -185,6 +187,10 @@ export interface AdapterAction {
    * `ActionContext.component` names the one it's run for. Without it, it's offered for the whole project only.
    */
   components?(facts: StatusFacts): string[]
+  /**
+   * The app's routes it's also offered for, by id, as a router's pages; `ActionContext.page` is the one it's run for.
+   */
+  routes?(facts: StatusFacts): string[]
   /** What the app says while it runs, as `Opening Storybook…`. */
   progress: string
   /** What the app says when it fails, as `Couldn't open Storybook`. */
@@ -209,7 +215,15 @@ export interface ActionContext {
   detection: AdapterDetection
   /** The component it's run for, by its key, when it's run for one. */
   component?: string
+  /** The page it's run for, when it's run for one: its route's id, and the URL the canvas draws it at. */
+  page?: ActionPage
   servers: ToolServers
+}
+
+/** A page of the app an action is run for: its route's id, and the URL the canvas draws it at, its params filled. */
+export interface ActionPage {
+  route: string
+  url: string
 }
 
 /** Servers a tool runs for the project, which the app starts, lists with its processes and stops with the project. */

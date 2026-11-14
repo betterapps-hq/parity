@@ -1649,7 +1649,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     loadedFiles: (projectId, files) =>
       projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined),
 
-    async runAction({ projectId, adapter: id, action, component }) {
+    async runAction({ projectId, adapter: id, action, component, page }) {
       const project = getProject(projectId)
       const found = project.used.find(({ adapter }) => adapter.id === id)
 
@@ -1664,6 +1664,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         source: projectSource(info.root, project.list.sources),
         detection: found.detection,
         component,
+        page,
         servers: toolServers({ id: info.id, name: info.name, root: info.root }, id)
       })
     }

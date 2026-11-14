@@ -1,4 +1,4 @@
-import { addDesigns, type CanvasDocument } from "@parity-app/core"
+import { type ActionPage, addDesigns, type CanvasDocument, type ContainerSpec } from "@parity-app/core"
 import { routeTree, samplePath } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import { windowStore } from "../store.ts"
@@ -149,6 +149,17 @@ export function routePageUrl(
   const place = pagePlaces.get(project)?.get(design)
 
   return place && new URL(samplePath(place, params), place.url).href
+}
+
+/**
+ * A page screen as an adapter's action is run for it: its route, and the URL its frames draw, with the values its view
+ * gives its params. Undefined for a design.
+ */
+export function routePageTarget(project: string, design: ContainerSpec): ActionPage | undefined {
+  const route = routePageRoute(project, design.id)
+  const url = routePageUrl(project, design.id, design.view?.params)
+
+  return route === undefined || url === undefined ? undefined : { route, url }
 }
 
 /** The id of the route a page screen draws, or undefined for a design. */

@@ -119,4 +119,46 @@ describe("adapterActions", () => {
       { ...open, adapter: "plain" }
     ])
   })
+
+  it("tells the windows the routes an action is for, from the app's routes", () => {
+    const routes = [
+      {
+        id: "__root__",
+        path: "/",
+        file: "src/routes/__root.tsx",
+        params: [],
+        index: false,
+        loads: false,
+        guards: false
+      },
+      {
+        id: "/pricing",
+        path: "/pricing",
+        parent: "__root__",
+        file: "src/routes/pricing.tsx",
+        params: [],
+        index: false,
+        loads: false,
+        guards: false
+      }
+    ]
+
+    const [action] = adapterActions(
+      [
+        {
+          adapter: {
+            id: "router",
+            actions: [
+              { ...open, routes: (facts) => (facts.routes ?? []).flatMap((route) => (route.parent ? [route.id] : [])) }
+            ]
+          }
+        }
+      ],
+      detection,
+      {},
+      routes
+    )
+
+    expect(action).toEqual({ ...open, adapter: "router", routes: ["/pricing"] })
+  })
 })

@@ -88,6 +88,7 @@ import {
   type RouteListing,
   routeListing,
   routePagesFile,
+  routePageTarget,
   selectedPageGroup
 } from "../canvas/route-pages.ts"
 import { storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
@@ -96,7 +97,7 @@ import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentOffers } from "./adapter-actions.ts"
+import { componentOffers, pageOffers } from "./adapter-actions.ts"
 import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
@@ -1590,7 +1591,9 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   // A component's board offers what its component's layer does.
   const node = row.node ?? boardOpensTo(row.design)
   const component = node && layerComponent(node, session.info.libraries)
-  const offers = componentOffers(session.info, component)
+  // A page of the app offers what the router does for it, as Open in browser.
+  const page = row.node ? undefined : routePageTarget(session.id, row.design.container)
+  const offers = page ? pageOffers(session.info, page.route) : componentOffers(session.info, component)
 
   const items = layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {
@@ -1624,7 +1627,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   return (
     <>
       {items}
-      <AdapterMenuItems offers={offers} projectId={session.id} component={component} />
+      <AdapterMenuItems offers={offers} projectId={session.id} component={component} page={page} />
     </>
   )
 }

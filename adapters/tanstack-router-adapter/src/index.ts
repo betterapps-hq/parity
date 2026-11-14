@@ -17,6 +17,23 @@ export const tanstackRouter: RouterAdapter = {
   },
   versions: { packages: ["@tanstack/react-router"], majors: [[1, "2023-12-23"]] },
   readRoutes,
+  actions: [
+    {
+      id: "open",
+      name: "Open in browser",
+      // Each page, which a browser can open; the root only holds the others.
+      routes: ({ routes = [] }) => routes.filter((route) => route.parent !== undefined).map((route) => route.id),
+      progress: "Opening the page…",
+      failed: "Couldn't open the page"
+    }
+  ],
+  run: async (action, { page }) => {
+    if (action !== "open" || !page) {
+      throw new Error(`TanStack Router has no action ${action} for this`)
+    }
+
+    return { open: page.url }
+  },
   // The root route only holds the others, so it isn't counted.
   status: ({ version, routes = [] }) => {
     const count = routes.filter((route) => route.parent !== undefined).length

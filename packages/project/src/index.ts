@@ -390,6 +390,10 @@ export function adapterActions(
         told.components = action.components(factsFor(source, detection, entities, routes))
       }
 
+      if (action.routes) {
+        told.routes = action.routes(factsFor(source, detection, entities, routes))
+      }
+
       return told
     })
   })
