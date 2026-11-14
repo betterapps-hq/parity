@@ -18,7 +18,7 @@
         // workers.
         "src/main/index.ts",
         "src/preload/{index,render}.ts",
-        "src/utility/{index,props-worker,builder-process}.ts",
+        "src/utility/{index,props-worker,builder-process,extension-host}.ts",
         // The renderer's pages, index.html and render.html, load these.
         "src/renderer/{main.tsx,render.ts}",
         // What the package's scripts and the docs run: dev, inspect, perf, drive, snap and icons.
@@ -65,6 +65,17 @@
       "project": ["src/**/*.ts"],
       // A demo library's type declarations, which libgen.test.ts reads by path.
       "ignore": ["src/fixtures/**"]
+    },
+    "packages/extension-storybook": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"],
+      // Resolved from the project's own node_modules, to start the Storybook it has installed.
+      "ignoreDependencies": ["storybook"]
+    },
+    "packages/extension-api": {
+      // Types only: its exports come from package.json, and it has no tests.
+      "entry": [],
+      "project": ["src/**/*.ts"]
     },
     "packages/*": {
       // Each package's exports and scripts come from its package.json.

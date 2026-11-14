@@ -70,12 +70,13 @@ import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, type DesignStore, useContainerEntries } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import type { LoadedGuest } from "../guest.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
-import { componentOffers, runAction } from "./adapter-actions.ts"
+import { componentOffers, type PlacedExtensions, runAction } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
@@ -615,7 +616,14 @@ function AssetEntry({
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const offers = componentOffers(session.info, component)
+
+  const placed: PlacedExtensions = {
+    session,
+    extensions: useExtensions(session).extensions,
+    placement: "componentCard"
+  }
+
+  const offers = componentOffers(session.info, component, placed)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
@@ -723,7 +731,7 @@ function AssetEntry({
 
   const menu = (component || instance) && (
     <ComponentMenu
-      offers={component ? menuOffers(session, component, running) : undefined}
+      offers={component ? menuOffers(session, component, running, placed) : undefined}
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
@@ -809,8 +817,13 @@ function AssetEntry({
  * What a component's menu offers from the project's adapters: each action offered for components, greyed with why on
  * one it isn't for, and saying what it starts first while its tool's server isn't running.
  */
-function menuOffers(session: ProjectSession, component: string, running: ReadonlySet<string>): MenuOffer[] {
-  return componentOffers(session.info, component).map(({ action, unavailable }) => {
+function menuOffers(
+  session: ProjectSession,
+  component: string,
+  running: ReadonlySet<string>,
+  placed: PlacedExtensions
+): MenuOffer[] {
+  return componentOffers(session.info, component, placed).map(({ action, unavailable }) => {
     const offer: MenuOffer = {
       id: `${action.adapter}:${action.id}`,
       name: action.name,
@@ -830,7 +843,7 @@ function menuOffers(session: ProjectSession, component: string, running: Readonl
 
 /**
  * What a component's card shows, beyond its name (PAR-208): its file, its preview and why it has none, its variants'
- * previews, made only while `shown`, how many stories it has, and opening its file or its stories. `pictured` is its
+ * previews, made only while `shown`, what extensions know of it, as its stories, and opening its file or its stories. `pictured` is its
  * preview's status, for its row.
  */
 export function useComponentCard(
@@ -839,6 +852,7 @@ export function useComponentCard(
   shown: boolean
 ): ComponentCard {
   const preview = useComponentPreview(session, component ?? "")
+  const { extensions } = useExtensions(session)
   const info = component ? session.components.get()[component] : undefined
   // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
   const lacking = preview?.state === "failed" || preview?.state === "empty"
@@ -861,9 +875,9 @@ export function useComponentCard(
     return { pictured: previewStatus(undefined), about: { preview: undefined } }
   }
 
-  const stories = session.info.storybook?.stories[component]?.length ?? 0
+  const facts = extensions.flatMap((extension) => extension.facts[component] ?? [])
 
-  const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, stories }
+  const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, facts }
 
   if (variants) {
     about.variants = {
@@ -876,7 +890,9 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
-  const offers = componentOffers(session.info, component).map(({ action, unavailable }) => ({
+  const placed: PlacedExtensions = { session, extensions, placement: "componentCard" }
+
+  const offers = componentOffers(session.info, component, placed).map(({ action, unavailable }) => ({
     id: `${action.adapter}:${action.id}`,
     name: action.name,
     logo: action.icon,
@@ -894,7 +910,7 @@ export function useComponentCard(
 /** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
 export interface ComponentCard {
   pictured: PreviewStatus
-  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "offers">
+  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "facts" | "onOpenFile" | "offers">
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */

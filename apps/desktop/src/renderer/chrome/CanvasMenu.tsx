@@ -21,6 +21,7 @@ import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
 import { useContainerEntries, useNotes } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { allFrames } from "../frame.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -218,8 +219,12 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
   // Over a code component's layer or board, or over a page, what the project's adapters offer for it ends the menu, as
   // in Layers.
   const component = opened.target && selectionComponent(session)
+  const { extensions } = useExtensions(session)
   const page = opened.target ? selectionPage(session) : undefined
-  const offers = page ? pageOffers(session.info, page.route) : componentOffers(session.info, component)
+
+  const offers = page
+    ? pageOffers(session.info, page.route)
+    : componentOffers(session.info, component, { session, extensions, placement: "canvas" })
 
   const items = canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(
     (entry, index) => {

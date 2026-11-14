@@ -15,6 +15,7 @@ import { ExternalLink, FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { commandsAt, extensionsOf, runCommand } from "../extensions.ts"
 import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { resetWithWindow } from "../store.ts"
@@ -31,6 +32,7 @@ import { runAction, selectionComponent, selectionPage } from "./adapter-actions.
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { type Command as KeyCommand, type Group, groups, keymap, shortcutOf } from "./keymap.ts"
 import { setLayout } from "./layout.ts"
 import { Name } from "./Name.tsx"
@@ -351,12 +353,38 @@ function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" 
   })
 }
 
+/**
+ * What the project's extensions place in Search, under Object, from their manifests (PAR-1089): each run on the selected
+ * component, with its name beside it where the command acts on it, as Open in Storybook on one with stories, and
+ * otherwise on the whole project, as opening Storybook's home.
+ */
+function extensionItems(session: ProjectSession): Item[] {
+  const component = selectionComponent(session)
+  const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
+  const { extensions } = extensionsOf(session).store.get()
+  const forComponent = target ? commandsAt(extensions, "componentCard", target) : []
+
+  return commandsAt(extensions, "search", target).map((placed) => {
+    const acts = forComponent.some((each) => each.command.id === placed.command.id && each.enabled)
+
+    return {
+      id: `extension:${placed.command.id}`,
+      group: "Object",
+      label: placed.command.title,
+      detail: acts ? component : placed.command.note,
+      icon: <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />,
+      available: () => placed.enabled,
+      run: () => void runCommand(session, placed, acts ? target : undefined)
+    }
+  })
+}
+
 /** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
 function gatherItems(session: ProjectSession | undefined, projects: readonly { root: string; name: string }[]): Item[] {
   return [
     ...commandItems(),
     ...extras,
-    ...(session ? [...adapterItems(session), ...projectItems(session)] : []),
+    ...(session ? [...adapterItems(session), ...extensionItems(session), ...projectItems(session)] : []),
     ...projects.map((project): Item => ({
       id: `project:${project.root}`,
       group: "Projects",

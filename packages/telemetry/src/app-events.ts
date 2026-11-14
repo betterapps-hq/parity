@@ -181,7 +181,8 @@ export const degradedFeatures = [
   "component_preview",
   "preview_index",
   "reopening",
-  "recovery"
+  "recovery",
+  "extension_state"
 ] as const
 
 export type DegradedFeature = (typeof degradedFeatures)[number]
@@ -200,7 +201,8 @@ const degradedMeaning: Record<DegradedFeature, string> = {
   component_preview: "A component preview can't be kept",
   preview_index: "The component preview index can't be kept",
   reopening: "The open projects can't be kept, so they don't reopen next time",
-  recovery: "A project's unsaved changes can't be kept, so a crash or forced quit would lose them"
+  recovery: "A project's unsaved changes can't be kept, so a crash or forced quit would lose them",
+  extension_state: "Extensions' state can't be kept, so what they saved and their status items' values are lost"
 }
 
 export const serviceDegraded = defineEvent(

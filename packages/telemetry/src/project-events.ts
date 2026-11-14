@@ -147,7 +147,9 @@ export const builderRestarted = defineEvent(
 )
 
 const server = {
-  kind: z.string().describe("The kind of server, as `storybook`"),
+  kind: z
+    .string()
+    .describe("The kind of server, as `builder`, or `extension` for one an extension started, as Storybook"),
   name: z.string().describe("Its name, as the processes list shows it"),
   durationMs
 }

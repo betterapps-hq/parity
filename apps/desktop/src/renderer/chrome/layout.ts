@@ -24,7 +24,9 @@ const savedLayout = z.object({
   leftTab: z.string().optional().catch(undefined),
   rightTab: z.string().optional().catch(undefined),
   console: z.boolean().catch(false),
-  consoleHeight: width("console", 240)
+  consoleHeight: width("console", 240),
+  /** The bottom panel's tab: the console, or an extension's log by the extension's id (PAR-1089). */
+  bottomTab: z.string().catch("console")
 })
 
 export type PanelLayout = z.infer<typeof savedLayout>

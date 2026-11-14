@@ -7,7 +7,7 @@ import { portFree } from "@parity-app/vite-adapter"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
-import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import type { ExtensionUiRequest, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { changedFrames, storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import {
@@ -28,6 +28,7 @@ import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
+import { closeExtensions, openExtensions, startExtensions } from "./extensions.ts"
 import { frameTraces } from "./frame-traces.ts"
 import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
@@ -53,6 +54,14 @@ import { windowChannel, windowClosed } from "./window-channel.ts"
 process.env.ELECTRON_RUN_AS_NODE = "1"
 
 let editor: Channel<ServiceMethods, WindowMethods> | undefined
+
+/** Who waits for a window to connect, as an extension asking the person something with none open does. */
+const awaitingWindow = new Set<(channel: Channel<ServiceMethods, WindowMethods>) => void>()
+
+/** The connected window, once there is one. */
+function whenWindow(): Promise<Channel<ServiceMethods, WindowMethods>> {
+  return editor ? Promise.resolve(editor) : new Promise((resolve) => awaitingWindow.add(resolve))
+}
 
 const projects = openProjects({
   ...adapters,
@@ -84,6 +93,40 @@ const projects = openProjects({
   }
 })
 
+// Each open project's extensions, each in a host of its own (PAR-1089).
+const extensions = startExtensions({
+  changed: (projectId, list) => {
+    editor?.request("extensions.changed", { projectId, extensions: list }).catch(() => undefined)
+  },
+  logged: (projectId, extension, line) => {
+    editor?.request("extensions.logged", { projectId, extension, line }).catch(() => undefined)
+  },
+  async ui(projectId, extension, method, params) {
+    const window = await whenWindow()
+    // SAFETY: the window answers each of parity.ui's methods with that method's result (see `ExtensionUiAnswer`); the
+    // channel's one method can't say which from the request.
+    const request = { projectId, extension, method, params } as ExtensionUiRequest
+
+    // SAFETY: as above, the answer is this method's result.
+    return (await window.request("extensions.ui", request)) as never
+  }
+})
+
+/** Opens a project and tells its extensions, which start the ones that activate when detected. */
+async function openProject(root: string, how?: { reopen?: boolean }) {
+  const info = await projects.open(root, how)
+  openExtensions(extensions, projects.get(info.id))
+
+  return info
+}
+
+/** Ends a project's extensions' hosts, then closes it. */
+async function closeProject(projectId: string): Promise<undefined> {
+  await closeExtensions(extensions, projectId)
+
+  return projects.close(projectId)
+}
+
 const previews = componentPreviews(projects)
 const traces = frameTraces(projects)
 
@@ -100,10 +143,10 @@ const detectors = new ProjectChangeDetectors([gitDetector], (projectId) => {
 const reopening = startReopening({
   file: environment().PARITY_REOPEN_FILE,
   open: async (root) => {
-    await projects.open(root, { reopen: true }).finally(rememberOpen)
+    await openProject(root, { reopen: true }).finally(rememberOpen)
   },
   close: (root) =>
-    projects.close(root).finally(() => {
+    closeProject(root).finally(() => {
       baselines.forget(root)
       void detectors.forget(root)
       rememberOpen()
@@ -133,10 +176,10 @@ const handlers: Handlers<ServiceMethods> = {
     const projectRoot = projects.rootFor(root)
     reopening.claim(projectRoot)
 
-    return projects.open(projectRoot).finally(rememberOpen)
+    return openProject(projectRoot).finally(rememberOpen)
   },
   "project.close": ({ projectId }) =>
-    projects.close(projectId).finally(() => {
+    closeProject(projectId).finally(() => {
       baselines.forget(projectId)
       void detectors.forget(projectId)
       rememberOpen()
@@ -152,6 +195,10 @@ const handlers: Handlers<ServiceMethods> = {
   "images.saveFrom": ({ projectId, url, name }) => saveImageFrom(projects.get(projectId), { url, name }, fetch),
   "images.remove": ({ projectId, path }) => removeImage(projects.get(projectId), path),
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
+  "extensions.list": ({ projectId }) => extensions.list(projectId),
+  "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
+  "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
+  "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
   "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
@@ -280,6 +327,12 @@ function connect(port: MessagePortMain): void {
     channel.close(windowClosed())
   })
   editor = channel
+
+  for (const resolve of awaitingWindow) {
+    resolve(channel)
+  }
+
+  awaitingWindow.clear()
 }
 
 /** Main's message handing the service the editor window's port. */

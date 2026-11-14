@@ -6,10 +6,12 @@ import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
+import { runCommand, statusItems, useExtensions } from "../extensions.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
 import { projectAction, runAction } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { Hint } from "./Hint.tsx"
 import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
@@ -27,6 +29,7 @@ export function StatusBar() {
   const semantic = tokens.filter((token) => token.source === "semantic").length
   const { performanceStats } = usePreferences()
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
+  const { extensions } = useExtensions(session)
 
   // What an adapter's item does: open a left panel tab, or run one of its adapter's actions.
   const open = (item: AdapterStatusItem) => {
@@ -56,6 +59,23 @@ export function StatusBar() {
           {item.words && <Words>{item.words}</Words>}
         </Item>
       ))}
+      {/* Extensions' items, from their manifests, with the value each last set (PAR-1089). */}
+      {statusItems(extensions).map(({ extension, item, value, tooltip }) => {
+        const command = extension.contributes.commands?.find((declared) => declared.id === item.command)
+
+        return (
+          <Item
+            key={`${extension.id}:${item.id}`}
+            icon={<ContributionIcon name={item.icon} logo={extension.icon} className="size-3.5" />}
+            hint={item.title}
+            detail={tooltip}
+            onClick={command ? () => void runCommand(session, { extension, command }) : undefined}
+          >
+            {value !== undefined && <strong className="font-medium text-foreground">{value}</strong>}
+            {item.label && <Words> {item.label}</Words>}
+          </Item>
+        )
+      })}
       <Item
         icon={<Blocks className="size-3.5" />}
         hint={plural(info.componentCount, "component")}

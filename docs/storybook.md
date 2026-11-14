@@ -56,24 +56,26 @@ because it needs them to map stories.
 
 ### Opening stories
 
-Open in Storybook, wherever a code component offers it (its layer's header, its right-click menus in Layers, on the
-canvas and in the Components panel, its row's button and card, and Search actions), and the Storybook item in the status
-bar, run the Storybook adapter's Open in Storybook action through `adapter.run` on the project service. The adapter
-decides what to open ([open.ts](../adapters/storybook-adapter/src/open.ts)); the app finds or starts its server, as any
-tool's ([utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts)), and lists it with the project's
-processes.
+Storybook is Parity's first extension ([extensions.md](extensions.md)):
+[packages/extension-storybook](../packages/extension-storybook), which runs in a host of its own for each open project.
+Its manifest declares `storybook.open`, Open in Storybook, which shows wherever a code component offers what adapters
+and extensions do (its layer's header, its right-click menus in Layers, on the canvas and in the Components panel, its
+row's button and card, and Search actions), and which the Storybook item in the status bar runs. Its code
+([extension.ts](../packages/extension-storybook/src/extension.ts)) sets which components have stories, each one's story
+count on its card, and the status item's count. The Storybook adapter still detects Storybook and imports its stories as
+screens.
 
 - **Reusing a server.** Parity fetches `http://localhost:<port>/index.json`, using the script's port or 6006, with a
   3-second timeout. It reuses the server when one of the index's `importPath`s is one of the project's mapped story
   files, or when no stories are mapped at all. A reused server isn't Parity's, so Parity never stops it.
-- **Starting one.** Otherwise Parity starts the project's own Storybook:
+- **Starting one.** Otherwise the extension asks Parity to serve the project's own Storybook (`parity.servers.serve`):
   - on the wanted port when it's free, else on one the system picks;
   - by resolving `storybook/package.json` from the project and running its `bin`, with Electron's Node
     (`ELECTRON_RUN_AS_NODE`), in the project's folder;
   - with `dev --port <n> --no-open --ci --config-dir <dir>`.
 
-  It doesn't run the project's npm script or its package manager. It polls `index.json` every 750 ms for up to 3 minutes
-  and shows the end of Storybook's output when starting fails.
+  It doesn't run the project's npm script or its package manager. Parity waits until `index.json` answers, and shows the
+  end of Storybook's output when starting fails.
 
 - **Which page opens.** The index entries for the component's story files are found, and Parity opens the docs page if
   there is one, else the first story. Both open through Storybook's manager (`/?path=/docs/<id>` or
@@ -88,18 +90,19 @@ processes.
 
 ### What reaches the UI
 
-`ProjectInfo.actions` carries Open in Storybook to the window with the components it's offered for: those a story file's
-meta names, resolved to the project's components. The UI offers it only for those, and the status bar item only when the
-project has a Storybook. `ProjectInfo.storybook` still carries the detection result, for the stories count on a
-component's card. The agent API returns the version entry in `detection`, but not the story mapping, and none of the MCP
-tools in [packages/cli](../packages/cli) touch Storybook.
+`ProjectInfo.storybook` carries the detection result to the service, which gives it to the extension's host as what
+detection found. The extension starts only for a project with a Storybook, and sets the context key
+`storybook.hasStories` to the components with stories, so the UI offers Open in Storybook only for them and greys it
+with "No story found" elsewhere. The agent API returns the version entry in `detection`, but not the story mapping, and
+none of the MCP tools in [packages/cli](../packages/cli) touch Storybook.
 
 ### Parity's own Storybook
 
 [apps/desktop/.storybook](../apps/desktop/.storybook) is a separate development tool for Parity's own interface, on port
 6007, with about 60 story files. It isn't part of the product:
 
-- Its stories use `storybook/test` for play functions, and a stand-in `adapter.run` that returns a fixed URL.
+- Its stories use `storybook/test` for play functions, and a stand-in Storybook extension whose Open in Storybook
+  returns a fixed URL.
 - Its `example-project` plugin runs the real project discovery on `examples/shadcn-vite`, Storybook info included, but
   opens its own designs file, `.storybook/example.par`, in place of the example's: only the fourteen designs stories
   use, so stories stay quick while the example grows as a stress test.
@@ -278,8 +281,10 @@ Parity's own Storybook has play functions for the UI's Storybook states (opening
 status bar and the Components panel. They run against the stand-in service and aren't part of `vp run test`. The layer
 panel's button has no story.
 
-**Covered:** matching index entries and building URLs, the server the adapter asks for (its config folder and port), and
-refusing a component without stories, in [open.test.ts](../adapters/storybook-adapter/src/open.test.ts). **Not
-covered:** [utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts). Reusing a server, starting one,
+Covered too, in [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts): the manifest passes Parity's
+checks, reading what detection found, leaving out index entries of unknown kinds, telling the project's Storybook from
+another's, and which page opens.
+
+**Not covered:** in [extension.ts](../packages/extension-storybook/src/extension.ts), reusing a server, starting one,
 choosing a port, restarting a stopped one and stopping it have no tests. A fake `index.json` server and a fake `bin`
 would cover most of it in unit tests, and one fixture test could start `react-aria`'s real Storybook 9.

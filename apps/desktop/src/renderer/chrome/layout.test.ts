@@ -10,7 +10,8 @@ describe("the saved panel layout", () => {
       rightWidth: 400,
       leftTab: "assets",
       console: true,
-      consoleHeight: 320
+      consoleHeight: 320,
+      bottomTab: "@parity-app/extension-storybook"
     }
 
     expect(readLayout(JSON.stringify(saved))).toEqual(saved)
@@ -24,14 +25,24 @@ describe("the saved panel layout", () => {
         leftWidth: 256,
         rightWidth: 320,
         console: false,
-        consoleHeight: 240
+        consoleHeight: 240,
+        bottomTab: "console"
       }
     )
   })
 
   it("is the default layout when nothing was saved or it isn't a layout", () => {
     // The console starts closed (PAR-147).
-    const defaults = { left: true, right: true, leftWidth: 256, rightWidth: 320, console: false, consoleHeight: 240 }
+    const defaults = {
+      left: true,
+      right: true,
+      leftWidth: 256,
+      rightWidth: 320,
+      console: false,
+      consoleHeight: 240,
+      bottomTab: "console"
+    }
+
     expect(readLayout(null)).toEqual(defaults)
     expect(readLayout("null")).toEqual(defaults)
   })

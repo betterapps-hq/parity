@@ -304,9 +304,6 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
 
   adapters/tailwind-adapter:
     dependencies:
@@ -429,6 +426,15 @@ importers:
       '@parity-app/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../../packages/extension-api
+      '@parity-app/extension-storybook':
+        specifier: workspace:*
+        version: link:../../packages/extension-storybook
+      '@parity-app/extensions':
+        specifier: workspace:*
+        version: link:../../packages/extensions
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../../packages/icons
@@ -792,6 +798,39 @@ importers:
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
+  packages/extension-api: {}
+
+  packages/extension-storybook:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      '@parity-app/extensions':
+        specifier: workspace:*
+        version: link:../extensions
+
+  packages/extensions:
+    dependencies:
+      '@parity-app/channel':
+        specifier: workspace:*
+        version: link:../channel
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      '@parity-app/processes':
+        specifier: workspace:*
+        version: link:../processes
       zod:
         specifier: 'catalog:'
         version: 4.6.7

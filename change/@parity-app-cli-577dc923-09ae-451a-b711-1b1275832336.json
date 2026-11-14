@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from its host",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

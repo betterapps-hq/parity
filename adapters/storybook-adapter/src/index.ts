@@ -1,7 +1,6 @@
 import type { EntitiesAdapter } from "@parity-app/core"
 import { detectStorybook, storybookConfigFiles } from "./detect.ts"
 import { storybookLogo } from "./logo.ts"
-import { openStorybook } from "./open.ts"
 import { exportStoryScreen, importStoryScreens, storybookId } from "./screens.ts"
 
 export { type ArgValue, readStoryFile, type Story, type StoryArgs, type StoryFile, storyName } from "./csf.ts"
@@ -10,7 +9,10 @@ export { exportStoryScreen, importStoryScreens, storyFilePattern, storyScreen, t
 
 export { writeStoryArgs } from "./write.ts"
 
-/** Storybook: its stories, read from their CSF files as screens, and their args written back. */
+/**
+ * Storybook: its stories, read from their CSF files as screens, and their args written back. Open in Storybook and its
+ * status item come from its extension, `@parity-app/extension-storybook` (PAR-1089).
+ */
 export const storybookAdapter: EntitiesAdapter = {
   id: storybookId,
   name: "Storybook",
@@ -30,40 +32,5 @@ export const storybookAdapter: EntitiesAdapter = {
     ]
   },
   import: importStoryScreens,
-  export: exportStoryScreen,
-  actions: [
-    {
-      id: "open",
-      name: "Open in Storybook",
-      // A component's stories, as its story files' metas name it.
-      components: ({ entities }) => [
-        ...new Set((entities?.screens ?? []).flatMap((screen) => (screen.component ? [screen.component] : [])))
-      ],
-      progress: "Opening Storybook…",
-      failed: "Couldn't open Storybook",
-      note: "If it isn't running yet, it starts first; that can take a minute.",
-      unavailable: "No story found",
-      starts: "Starts Storybook"
-    }
-  ],
-  run: async (action, context) => {
-    if (action !== "open") {
-      throw new Error(`Storybook has no action ${action}`)
-    }
-
-    return openStorybook(context)
-  },
-  status: ({ version, entities }) => {
-    const stories = entities?.screens?.length ?? 0
-
-    return [
-      {
-        value: stories.toLocaleString(),
-        words: stories === 1 ? " story" : " stories",
-        hint: version ? `Storybook ${version}` : "Storybook",
-        detail: "Click to open it",
-        opens: { action: "open" }
-      }
-    ]
-  }
+  export: exportStoryScreen
 }

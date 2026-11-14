@@ -23,6 +23,7 @@ import type {
   WrittenClasses
 } from "@parity-app/core"
 import type { CodeReference, EditStatus, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
+import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
@@ -127,6 +128,17 @@ export interface ServiceMethods {
    * latest 50 edits can be undone.
    */
   "project.undoEdit": { params: ServiceParams["project.undoEdit"]; result: ProjectEditResult }
+  /** The project's extensions, drawn from their manifests with their hosts' state, and each one's log. */
+  "extensions.list": {
+    params: ServiceParams["extensions.list"]
+    result: { extensions: ExtensionStatus[]; logs: Record<string, LogLine[]> }
+  }
+  /** Runs an extension's command, starting its host first when it isn't running. */
+  "extensions.run": { params: ServiceParams["extensions.run"]; result: undefined }
+  /** Ends an extension's host and starts it again, as after it crashed or got stuck. */
+  "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
+  /** The person cancelled an extension's task shown with `parity.ui.progress`. */
+  "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
   /**
    * Does one of an adapter's actions for the project, or for one of its components, as opening a component's stories in
    * Storybook, which starts it first if needed. Returns an address to open in the browser when it gives one.
@@ -357,7 +369,21 @@ export interface WindowMethods {
    * canvas asks again what changed since the commit (PAR-1074).
    */
   "project.committed": { params: { projectId: string }; result: undefined }
+  /** A project's extensions changed: one started, stopped, crashed, or set a status item or context key. */
+  "extensions.changed": { params: { projectId: string; extensions: ExtensionStatus[] }; result: undefined }
+  /** An extension wrote a line to its log. */
+  "extensions.logged": { params: { projectId: string; extension: string; line: LogLine }; result: undefined }
+  /** An extension asks the person something through `parity.ui`, or shows them something. */
+  "extensions.ui": { params: ExtensionUiRequest; result: ExtensionUiAnswer }
 }
+
+/** What an extension asks through `parity.ui`, by method, with what the host sent. */
+export type ExtensionUiRequest = {
+  [M in UiMethod]: { projectId: string; extension: string; method: M; params: HostServiceMethods[M]["params"] }
+}[UiMethod]
+
+/** The window's answer to any of `parity.ui`'s methods. */
+export type ExtensionUiAnswer = HostServiceMethods[UiMethod]["result"]
 
 /**
  * An answer as data, across the bridge between the page and the preload script: a failure thrown across it keeps only
@@ -393,10 +419,15 @@ export const windowMethods = Object.keys({
   "project.guestMoved": true,
   "project.codeChanged": true,
   "project.detectionChanged": true,
-  "project.committed": true
+  "project.committed": true,
+  "extensions.changed": true,
+  "extensions.logged": true,
+  "extensions.ui": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
+
+export type { ExtensionStatus, LogLine }
 
 export type { PictureFrame, PictureScreen, PreviewJob, ProjectPicture, RenderJob } from "./service-params.ts"
 

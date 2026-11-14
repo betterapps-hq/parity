@@ -157,6 +157,13 @@ export const serviceParams = {
   "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),
   "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
+  "extensions.list": project,
+  "extensions.run": project.extend({
+    command: z.string(),
+    target: z.object({ type: z.literal("component"), key: z.string() }).optional()
+  }),
+  "extensions.restart": project.extend({ extension: z.string() }),
+  "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
   "adapter.run": project.extend({
     adapter: z.string(),
     action: z.string(),

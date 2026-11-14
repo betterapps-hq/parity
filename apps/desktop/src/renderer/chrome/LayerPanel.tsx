@@ -33,6 +33,7 @@ import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon 
 import { projectLibrary } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
@@ -197,6 +198,7 @@ function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
   const entries = useContainerEntries(session.store)
   const component = layerComponent(node, session.info.libraries)
+  const { extensions } = useExtensions(session)
   const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
 
   const act = (action: HeaderAction) => {
@@ -210,7 +212,7 @@ function LayerActions({ node }: { node: DesignNode }) {
     <HeaderActions
       actions={layerActions(node, { design: design !== undefined })}
       onAction={act}
-      adapterOffers={componentOffers(session.info, component)}
+      adapterOffers={componentOffers(session.info, component, { session, extensions, placement: "selectionHeading" })}
       onAdapterAction={({ action }) => void runAction(session.id, action, component)}
     />
   )

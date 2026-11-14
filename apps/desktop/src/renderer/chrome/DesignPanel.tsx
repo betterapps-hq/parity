@@ -10,6 +10,7 @@ import { ModesList } from "../canvas/view-lists.tsx"
 import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
@@ -211,6 +212,7 @@ function DesignExport({ entry }: { entry: ContainerEntry }) {
 /** A design's name and kind, and for a frame, the mode it's drawn in and that it isn't written to code. */
 function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
+  const { extensions } = useExtensions(session)
   const { store } = session
   const settings = useModeSettings(store)
   const { container } = entry
@@ -256,7 +258,9 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
             (board || target) && (
               <HeaderActions
                 adapterOffers={
-                  target ? pageOffers(session.info, target.route) : componentOffers(session.info, component)
+                  target
+                    ? pageOffers(session.info, target.route)
+                    : componentOffers(session.info, component, { session, extensions, placement: "selectionHeading" })
                 }
                 page={target !== undefined}
                 onAdapterAction={({ action }) => void runAction(session.id, action, component, target)}

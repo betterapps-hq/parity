@@ -230,7 +230,7 @@ export const VariantsAndActions: Story = {
             ]
           }}
           uses={153}
-          stories={1}
+          facts={[{ value: "1", label: "story" }]}
           onInsert={() => undefined}
           onOpenFile={() => undefined}
           offers={[{ id: "storybook:open", name: "Open in Storybook", logo: storybookLogo, run: () => undefined }]}

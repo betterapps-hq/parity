@@ -93,6 +93,7 @@ import {
 } from "../canvas/route-pages.ts"
 import { storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
@@ -1593,7 +1594,11 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const component = node && layerComponent(node, session.info.libraries)
   // A page of the app offers what the router does for it, as Open in browser.
   const page = row.node ? undefined : routePageTarget(session.id, row.design.container)
-  const offers = page ? pageOffers(session.info, page.route) : componentOffers(session.info, component)
+  const { extensions } = useExtensions(session)
+
+  const offers = page
+    ? pageOffers(session.info, page.route)
+    : componentOffers(session.info, component, { session, extensions, placement: "layers" })
 
   const items = layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {

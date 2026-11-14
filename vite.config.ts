@@ -13,13 +13,14 @@ const readers = ["code", "project", "registry"]
 
 /**
  * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and their list,
- * the media player and fixtures.
+ * Parity's own extensions, which run in Node hosts of their own, the media player and fixtures.
  */
 const edge = [
   "adapters",
   "agent",
   "vite-adapter",
   "cli",
+  "extension-storybook",
   "fixtures",
   "libgen",
   "media-player",

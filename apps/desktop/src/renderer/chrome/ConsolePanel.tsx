@@ -39,6 +39,7 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource } from "./code-editor.ts"
 import { allLevels, consoleFilterOf, type Shown, useConsoleFilter } from "./console-filter.ts"
+import { BottomTabs, ExtensionLog, useBottomTab } from "./ExtensionLog.tsx"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
@@ -69,13 +70,29 @@ function levelShown(level: Level, levels: readonly Shown[]): boolean {
 export function ConsolePanel() {
   const layout = useLayout()
   const session = useProject()
-  const messages = useConsole(session.id)
-  const shown = useConsoleFilter(session)
+  // An extension's log takes the panel while its tab is chosen (PAR-1089).
+  const extension = useBottomTab(session)
 
   if (!layout.console) {
     return null
   }
 
+  return (
+    <section
+      aria-label={extension ? `${extension.displayName} log` : "Console"}
+      className="relative flex shrink-0 flex-col border-t bg-background"
+      style={{ height: layout.consoleHeight }}
+    >
+      <ResizeTop height={layout.consoleHeight} />
+      {extension ? <ExtensionLog session={session} extension={extension} /> : <ConsoleView session={session} />}
+    </section>
+  )
+}
+
+/** The console's header and messages. */
+function ConsoleView({ session }: { session: ProjectSession }) {
+  const messages = useConsole(session.id)
+  const shown = useConsoleFilter(session)
   const designs = byDesign(messages)
   const wanted = shown.query.trim().toLowerCase()
 
@@ -89,12 +106,7 @@ export function ConsolePanel() {
     .filter((group) => group.shown.length > 0)
 
   return (
-    <section
-      aria-label="Console"
-      className="relative flex shrink-0 flex-col border-t bg-background"
-      style={{ height: layout.consoleHeight }}
-    >
-      <ResizeTop height={layout.consoleHeight} />
+    <>
       <ConsoleHeader session={session} messages={messages} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {messages.length === 0 && <NothingLogged />}
@@ -111,7 +123,7 @@ export function ConsolePanel() {
           />
         ))}
       </div>
-    </section>
+    </>
   )
 }
 
@@ -138,7 +150,7 @@ function ConsoleHeader({ session, messages }: { session: ProjectSession; message
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
       {/* The title sits in the header's row, so it drops the margin a section title keeps over its fields. */}
-      <PanelSectionTitle title="Console" as="h2" spacing="" />
+      <BottomTabs session={session} title={<PanelSectionTitle title="Console" as="h2" spacing="" />} />
       <LevelsMenu session={session} counts={counts} levels={shown.levels} />
       <InputGroup className="h-7 w-56">
         <InputGroupAddon>

@@ -1,0 +1,11 @@
+{
+  "name": "@parity-app/extension-api",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "The types an extension's code and manifest are written against. It holds types and nothing else.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

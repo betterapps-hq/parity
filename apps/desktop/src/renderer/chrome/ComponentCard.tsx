@@ -70,8 +70,8 @@ export interface ComponentCardProps {
   variants?: { prop: string; options: CardVariant[] }
   /** How many times the project's designs place it. */
   uses?: number
-  /** How many stories the project's Storybook has of it. */
-  stories?: number
+  /** What the project's extensions know of it, as `1 story` from Storybook's (PAR-1089). */
+  facts?: readonly { value: string; label: string }[]
   /** Inserts it where the selection is; none where something else inserts, as Enter in the insert picker does. */
   onInsert?: () => void
   /** Opens its file in the person's editor; none for a component without one. */
@@ -84,7 +84,7 @@ export interface ComponentCardProps {
 
 /**
  * A component's card: its preview, large, on the project's own background, small previews of its variants, then its
- * name, where it's from, how often it's used and its stories, and a bar with what to do with it (PAR-208). It's the
+ * name, where it's from, how often it's used and what extensions know of it, and a bar with what to do with it (PAR-208). It's the
  * panel's surface, a step up from the panel in either theme, so the pictures are the only things on it in the project's
  * colors (PAR-515).
  */
@@ -98,7 +98,7 @@ export function ComponentCard({
   status,
   variants,
   uses,
-  stories,
+  facts: told = [],
   onInsert,
   onOpenFile,
   offers = [],
@@ -117,7 +117,7 @@ export function ComponentCard({
 
   const facts = [
     uses !== undefined && (uses === 0 ? "Not used yet" : `Used ${uses} ${uses === 1 ? "time" : "times"}`),
-    stories !== undefined && stories > 0 && `${stories} ${stories === 1 ? "story" : "stories"}`
+    ...told.map((fact) => `${fact.value} ${fact.label}`)
   ].filter(Boolean)
 
   const bar = onInsert || onOpenFile || offers.length > 0

@@ -1,8 +1,10 @@
 import { type ActionPage, isInnerPath, locateInner, locateNode, type ProjectAction } from "@parity-app/core"
-import type { ProjectInfo } from "../../shared/protocol.ts"
+import type { MenuPlacement } from "@parity-app/extension-api"
+import type { ExtensionStatus, ProjectInfo } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { routePageTarget } from "../canvas/route-pages.ts"
+import { commandsAt, type PlacedCommand, runCommand } from "../extensions.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -20,17 +22,39 @@ export interface ComponentOffer {
   unavailable?: string
 }
 
+/** An extension's command, offered as an adapter's action is, with what running it needs (PAR-1089). */
+interface ExtensionAction extends ProjectAction {
+  extension: { session: ProjectSession; placed: PlacedCommand }
+}
+
+/** Whether an offered action is an extension's command. */
+function isExtensionAction(action: ProjectAction): action is ExtensionAction {
+  return "extension" in action
+}
+
+/** The project's extensions, and where an offer shows, for the commands their manifests place there. */
+export interface PlacedExtensions {
+  session: ProjectSession
+  extensions: readonly ExtensionStatus[]
+  placement: MenuPlacement
+}
+
 /**
- * What the project's adapters offer for one of its components: every action that's for components, those it isn't for
- * greyed with the action's reason rather than left out, so a component with no story still shows Open in Storybook.
- * An action that gives no reason is left out where it isn't for the component.
+ * What the project's adapters and extensions offer for one of its components: every adapter action that's for
+ * components, those it isn't for greyed with the action's reason rather than left out, and an action that gives no
+ * reason left out where it isn't for the component; then the extensions' commands placed here, as Open in Storybook,
+ * greyed with why where their `enablement` doesn't hold.
  */
-export function componentOffers(info: ProjectInfo, component: string | undefined): ComponentOffer[] {
+export function componentOffers(
+  info: ProjectInfo,
+  component: string | undefined,
+  placed?: PlacedExtensions
+): ComponentOffer[] {
   if (!component) {
     return []
   }
 
-  return info.actions.flatMap((action): ComponentOffer[] => {
+  const adapters = info.actions.flatMap((action): ComponentOffer[] => {
     if (!action.components) {
       return []
     }
@@ -40,6 +64,25 @@ export function componentOffers(info: ProjectInfo, component: string | undefined
     }
 
     return action.unavailable ? [{ action, unavailable: action.unavailable }] : []
+  })
+
+  return placed ? [...adapters, ...extensionOffers(placed, component)] : adapters
+}
+
+/** The extensions' commands placed where an offer shows, for a component, as offers. */
+function extensionOffers({ session, extensions, placement }: PlacedExtensions, component: string): ComponentOffer[] {
+  return commandsAt(extensions, placement, { type: "component", key: component }).map((placed) => {
+    const action: ExtensionAction = {
+      adapter: placed.extension.id,
+      id: placed.command.id,
+      name: placed.command.title,
+      icon: placed.extension.icon,
+      progress: placed.command.starts ?? placed.command.title,
+      failed: `${placed.command.title} didn't work`,
+      extension: { session, placed }
+    }
+
+    return placed.enabled ? { action } : { action, unavailable: placed.disabledReason ?? "Unavailable" }
   })
 }
 
@@ -102,6 +145,13 @@ export async function runAction(
   component?: string,
   page?: ActionPage
 ): Promise<void> {
+  // An extension's command runs in its host, which shows its own progress and failure.
+  if (isExtensionAction(action)) {
+    const { session, placed } = action.extension
+
+    return runCommand(session, placed, component === undefined ? undefined : { type: "component", key: component })
+  }
+
   await serviceCall({
     progress: action.progress,
     shown: { description: action.note },
