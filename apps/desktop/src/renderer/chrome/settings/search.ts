@@ -1,6 +1,6 @@
 import { matchesWords, rankSettings } from "@parity-app/editor"
 import { keymap } from "../keymap.ts"
-import { type Extension, type Page, pagesFor, type Setting, settings } from "./definitions.ts"
+import { allSettings, type Extension, type Page, pagesFor, type Setting } from "./definitions.ts"
 import type { Mark } from "./marks.tsx"
 import type { SettingsData } from "./store.ts"
 
@@ -30,7 +30,7 @@ export function search(query: string, data: Pick<SettingsData, "project" | "exte
     )
   ]
 
-  const searchable = settings.filter((setting) => shown(setting, data))
+  const searchable = allSettings(data.extensions).filter((setting) => shown(setting, data))
   const byId = new Map(searchable.map((setting) => [setting.id, setting]))
 
   const ranked = rankSettings(

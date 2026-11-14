@@ -8,7 +8,9 @@ import type {
   JsonValue,
   NodeRef,
   PathIcon,
-  ServerRequest
+  Permissions,
+  ServerRequest,
+  SettingValue
 } from "@parity-app/extension-api"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import type { ExtensionPackage } from "./manifest.ts"
@@ -22,6 +24,7 @@ import {
   type StateValues,
   type StatusValue
 } from "./protocol.ts"
+import { changedValues, fits, readExtensionSettings, type StoredSettings, storedKey } from "./settings.ts"
 
 /*
  * The project service's side of extensions' hosts. Each extension whose tool is in an open project gets a host of its
@@ -47,10 +50,14 @@ export type HostState =
 export interface ExtensionStatus {
   id: string
   displayName: string
-  /** What its ids start with, which also names its page in Settings. */
+  /** What its ids and setting keys start with, which also keys its settings in settings.json and the `.par`. */
   prefix: string
   icon: PathIcon
   contributes: Contributions
+  /** What its manifest says it may read, write, reach and change. */
+  permissions: Permissions
+  /** The activation events its code starts on. */
+  activates: string[]
   state: HostState
   /** Why it's stuck or crashed. */
   reason?: string
@@ -60,6 +67,12 @@ export interface ExtensionStatus {
   context: Record<string, boolean | string[]>
   /** The facts it set, by what they're about: a component's key. */
   facts: Record<string, Fact[]>
+  /** Settings whose values didn't fit their schema, and so read as their defaults, one sentence each. */
+  settingProblems: string[]
+  /** How long its code took to activate the last time it did, in milliseconds. */
+  activatedIn?: number
+  /** The memory its host's process held at its last ping, in bytes. */
+  memory?: number
 }
 
 /** An extension Parity can run: its package, its code's entry module, and how it detects its tool. */
@@ -94,6 +107,11 @@ export type WindowAsk = UiMethod | EditorMethod
 
 /** What hosts tell the window that has a project open, and ask of the person through it. */
 export interface ExtensionWindow {
+  /**
+   * Sets one of an extension's `project` settings in the project's main `.par`, as one undo step in its window, or puts
+   * it back to its default without `value`. The window then sends the project's settings again.
+   */
+  updateSetting(projectId: string, extension: string, key: string, value?: SettingValue): Promise<void>
   /** A project's extensions changed: one started, crashed or set a status item or context key. */
   changed(projectId: string, extensions: ExtensionStatus[]): void
   logged(projectId: string, extension: string, line: LogLine): void
@@ -175,8 +193,11 @@ export interface OpenedProject {
 
 /** Every open project's extensions and their hosts. */
 export interface ExtensionHosts<Project extends OpenedProject> {
-  /** Finds the project's extensions, and starts those that activate when they're detected. */
-  open(project: Project): void
+  /**
+   * Finds the project's extensions, and starts those that activate when they're detected, with the project's settings
+   * for them from its main `.par`.
+   */
+  open(project: Project, settings?: StoredSettings): void
   /** Ends the project's hosts. */
   close(projectId: string): Promise<void>
   /** Runs a command, starting its extension's host first when it isn't running. */
@@ -191,6 +212,10 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   list(projectId: string): { extensions: ExtensionStatus[]; logs: Record<string, LogLine[]> }
   /** What's selected in the window with the project open changed, which every running host is told. */
   selectionChanged(projectId: string, refs: NodeRef[]): void
+  /** The person's `app` settings for every extension, from settings.json, as they are now. */
+  setAppSettings(settings: StoredSettings): void
+  /** A project's settings for its extensions, from its main `.par`'s `extensions` field, saved or not. */
+  setProjectSettings(projectId: string, settings: StoredSettings): void
 }
 
 interface Host<Project> {
@@ -204,6 +229,10 @@ interface Host<Project> {
   logs: LogLine[]
   /** When it crashed lately, in milliseconds since 1970. */
   crashes: number[]
+  /** Its settings as last read, which its running code was last sent. */
+  settings: { values: Record<string, SettingValue>; problems: string[] }
+  activatedIn?: number
+  memory?: number
   running?: Running
 }
 
@@ -220,6 +249,8 @@ interface OpenProject<Project> {
   hosts: Map<string, Host<Project>>
   /** What's selected in its window, which hosts start with. */
   selection: NodeRef[]
+  /** The project's settings for its extensions, from its main `.par`. */
+  settings: StoredSettings
 }
 
 /** Every open project's extensions, each in a host of its own. */
@@ -228,6 +259,38 @@ export function extensionHosts<Project extends OpenedProject>(
 ): ExtensionHosts<Project> {
   const timing = { ...defaultTiming, ...options.timing }
   const projects = new Map<string, OpenProject<Project>>()
+  let appSettings: StoredSettings = {}
+
+  /** An extension's settings, from the person's values and the project's. */
+  const settingsOf = (open: OpenProject<Project>, extension: InstalledExtension<Project>) => {
+    const { prefix, contributes } = extension.package.manifest
+
+    return readExtensionSettings(prefix, contributes.settings, {
+      app: appSettings[prefix],
+      project: open.settings[prefix]
+    })
+  }
+
+  /** Reads each host's settings again, sending its running code the values that changed. */
+  const settingsChanged = (open: OpenProject<Project>) => {
+    let problems = false
+
+    for (const host of open.hosts.values()) {
+      const before = host.settings
+      host.settings = settingsOf(open, host.extension)
+      problems ||= before.problems.join() !== host.settings.problems.join()
+      const values = changedValues(before.values, host.settings.values)
+
+      if (host.running && Object.keys(values).length > 0) {
+        const { channel, activated } = host.running
+        void activated.then(() => channel.request("settings.changed", { values })).catch(() => undefined)
+      }
+    }
+
+    if (problems) {
+      changed(open)
+    }
+  }
 
   const statusOf = (host: Host<Project>): ExtensionStatus => {
     const { package: found } = host.extension
@@ -238,14 +301,25 @@ export function extensionHosts<Project extends OpenedProject>(
       prefix: found.manifest.prefix,
       icon: found.manifest.icon,
       contributes: found.manifest.contributes,
+      permissions: found.manifest.permissions ?? {},
+      activates: found.manifest.activates,
       state: host.state,
       status: { ...host.status },
       context: { ...host.context },
-      facts: { ...host.facts }
+      facts: { ...host.facts },
+      settingProblems: host.settings.problems
     }
 
     if (host.reason !== undefined) {
       status.reason = host.reason
+    }
+
+    if (host.activatedIn !== undefined) {
+      status.activatedIn = host.activatedIn
+    }
+
+    if (host.memory !== undefined) {
+      status.memory = host.memory
     }
 
     return status
@@ -360,6 +434,24 @@ export function extensionHosts<Project extends OpenedProject>(
       "ui.confirm": ui("ui.confirm"),
       "ui.open": ui("ui.open"),
       "ui.progress": ui("ui.progress"),
+      async "settings.update"({ key, value }: HostServiceMethods["settings.update"]["params"]) {
+        const { prefix, contributes } = host.extension.package.manifest
+        const setting = contributes.settings?.[key]
+
+        if (!setting) {
+          throw new Error(`${key} isn't a setting the manifest declares`)
+        }
+
+        if (setting.scope !== "project") {
+          throw new Error(`${key} is the person's, for every project, so only Settings changes it`)
+        }
+
+        if (value !== undefined && !fits(setting, value)) {
+          throw new Error(`${key} can't be set to ${JSON.stringify(value)}`)
+        }
+
+        await options.window.updateSetting(projectId, prefix, storedKey(prefix, key), value)
+      },
       "servers.serve": (server: ServerRequest) => options.servers.serve(projectId, id, server),
       "servers.adopt"(server: HostServiceMethods["servers.adopt"]["params"]) {
         options.servers.adopt(projectId, id, server)
@@ -415,6 +507,8 @@ export function extensionHosts<Project extends OpenedProject>(
     host.context = {}
     host.facts = {}
     const stored = options.state.read(found.id, open.project.root)
+    host.settings = settingsOf(open, extension)
+    const began = Date.now()
 
     const params: ActivateParams = {
       extension: {
@@ -428,7 +522,13 @@ export function extensionHosts<Project extends OpenedProject>(
       commands: (found.manifest.contributes.commands ?? []).map((command) => command.id),
       statusItems: (found.manifest.contributes.statusItems ?? []).map((item) => item.id),
       state: { app: stored.app, project: stored.project },
-      selection: open.selection
+      selection: open.selection,
+      settings: {
+        values: { ...host.settings.values },
+        scopes: Object.fromEntries(
+          Object.entries(found.manifest.contributes.settings ?? {}).map(([key, setting]) => [key, setting.scope])
+        )
+      }
     }
 
     if (host.detected !== undefined) {
@@ -451,6 +551,7 @@ export function extensionHosts<Project extends OpenedProject>(
           return
         }
 
+        host.activatedIn = Date.now() - began
         running.stopPinging = ping(open, host, running)
         setState(open, host, "running")
       },
@@ -514,9 +615,18 @@ export function extensionHosts<Project extends OpenedProject>(
       void running.channel
         .request("ping", undefined)
         .then(
-          () => {
-            if (host.running === running && host.state === "stuck") {
+          (answer) => {
+            if (host.running !== running) {
+              return
+            }
+
+            if (host.state === "stuck") {
               setState(open, host, "running")
+            }
+
+            if (answer?.memory !== undefined && movedMuch(host.memory, answer.memory)) {
+              host.memory = answer.memory
+              changed(open)
             }
           },
           () => undefined
@@ -596,12 +706,12 @@ export function extensionHosts<Project extends OpenedProject>(
   }
 
   return {
-    open(project) {
+    open(project, settings = {}) {
       if (projects.has(project.id)) {
         return
       }
 
-      const open: OpenProject<Project> = { project, hosts: new Map(), selection: [] }
+      const open: OpenProject<Project> = { project, hosts: new Map(), selection: [], settings }
       projects.set(project.id, open)
 
       for (const extension of options.extensions) {
@@ -618,7 +728,8 @@ export function extensionHosts<Project extends OpenedProject>(
           context: {},
           facts: {},
           logs: [],
-          crashes: []
+          crashes: [],
+          settings: settingsOf(open, extension)
         }
 
         if (found.detected !== undefined) {
@@ -689,6 +800,21 @@ export function extensionHosts<Project extends OpenedProject>(
         void host.running?.channel.request("selection.changed", { refs }).catch(() => undefined)
       }
     },
+    setAppSettings(settings) {
+      appSettings = settings
+
+      for (const open of projects.values()) {
+        settingsChanged(open)
+      }
+    },
+    setProjectSettings(projectId, settings) {
+      const open = projects.get(projectId)
+
+      if (open) {
+        open.settings = settings
+        settingsChanged(open)
+      }
+    },
     list(projectId) {
       const open = projects.get(projectId)
 
@@ -702,6 +828,11 @@ export function extensionHosts<Project extends OpenedProject>(
       }
     }
   }
+}
+
+/** Whether memory moved by a tenth or more since it was last shown, so a window hears of it only then. */
+function movedMuch(before: number | undefined, after: number): boolean {
+  return before === undefined || Math.abs(after - before) >= before / 10
 }
 
 /** A promise that fails with `reason` when `promise` hasn't settled within `ms`. */

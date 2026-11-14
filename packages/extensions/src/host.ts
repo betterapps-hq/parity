@@ -6,6 +6,7 @@ import type {
   NodeRef,
   Parity,
   PickItem,
+  SettingValue,
   State,
   StatusItem
 } from "@parity-app/extension-api"
@@ -27,6 +28,8 @@ export interface HostSide {
   load(main: string): Promise<unknown>
   /** Ends the process. */
   exit(): void
+  /** The memory the process holds, in bytes, which the Extensions page shows. */
+  memory?(): number
 }
 
 /** The host's link to the service, which its script uses to send what the extension's code prints to the log. */
@@ -42,6 +45,12 @@ interface Selected {
   listeners: Set<(refs: NodeRef[]) => void>
 }
 
+/** The extension's settings as the host keeps them, and who listens for each to change. */
+interface HostSettings {
+  values: Map<string, SettingValue>
+  listeners: Map<string, Set<(value: SettingValue) => void>>
+}
+
 interface Activated {
   handlers: Map<string, CommandHandler>
   subscriptions: Disposable[]
@@ -53,6 +62,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const channel = createChannel<HostMethods, HostServiceMethods>()
   const progress = new Map<number, AbortController>()
   const selected: Selected = { refs: [], listeners: new Set() }
+  const settings: HostSettings = { values: new Map(), listeners: new Map() }
   let activated: Promise<Activated> | undefined
   let stopping = false
 
@@ -73,7 +83,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       }
 
       selected.refs = params.selection
-      activated = activate(params, channel, progress, selected, side)
+      settings.values = new Map(Object.entries(params.settings.values))
+      activated = activate(params, channel, progress, selected, settings, side)
       await activated
     },
     async run({ command, target }) {
@@ -89,7 +100,24 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
 
       await handler(target)
     },
-    ping: () => undefined,
+    ping: () => (side.memory ? { memory: side.memory() } : undefined),
+    "settings.changed"({ values }) {
+      for (const [key, value] of Object.entries(values)) {
+        if (settings.values.get(key) === value) {
+          continue
+        }
+
+        settings.values.set(key, value)
+
+        for (const listener of settings.listeners.get(key) ?? []) {
+          try {
+            listener(value)
+          } catch (error) {
+            log("error", `A listener for ${key} failed: ${message(error)}`, stackOf(error))
+          }
+        }
+      }
+    },
     cancel({ progress: id }) {
       progress.get(id)?.abort()
     },
@@ -134,6 +162,7 @@ async function activate(
   channel: ReturnType<typeof createChannel<HostMethods, HostServiceMethods>>,
   progress: Map<number, AbortController>,
   selected: Selected,
+  settings: HostSettings,
   side: HostSide
 ): Promise<Activated> {
   const exports = await side.load(params.main)
@@ -176,6 +205,18 @@ async function activate(
         }
       }
     }
+  }
+
+  const { scopes } = params.settings
+
+  const declaredSetting = (key: string) => {
+    const scope = scopes[key]
+
+    if (!scope) {
+      throw new Error(`${key} isn't a setting the manifest declares`)
+    }
+
+    return scope
   }
 
   const parity: Parity = {
@@ -299,7 +340,7 @@ async function activate(
 
         return confirmed
       },
-      open: (url) => send("ui.open", { url }),
+      open: (url, options = {}) => send("ui.open", options.where ? { url, where: options.where } : { url }),
       async progress(title, task) {
         const id = nextProgress++
         const controller = new AbortController()
@@ -315,6 +356,31 @@ async function activate(
           progress.delete(id)
           quietly("ui.progress", { id, done: true })
         }
+      }
+    },
+    settings: {
+      get<T extends SettingValue>(key: string): T {
+        declaredSetting(key)
+
+        // SAFETY: the value read fits the setting's schema, which says its type; `T` is the caller's word for that type.
+        return settings.values.get(key) as T
+      },
+      onChange<T extends SettingValue>(key: string, listener: (value: T) => void) {
+        declaredSetting(key)
+        const listeners = settings.listeners.get(key) ?? new Set()
+        settings.listeners.set(key, listeners)
+        // SAFETY: as for `get`: each value sent for `key` fits its schema.
+        const heard = listener as (value: SettingValue) => void
+        listeners.add(heard)
+
+        return once(() => listeners.delete(heard))
+      },
+      async update(key, value) {
+        if (declaredSetting(key) === "app") {
+          throw new Error(`${key} is the person's, for every project, so only Settings changes it`)
+        }
+
+        await send("settings.update", value === undefined ? { key } : { key, value })
       }
     },
     state: { app: state("app"), project: state("project") },

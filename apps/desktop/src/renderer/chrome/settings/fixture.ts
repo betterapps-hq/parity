@@ -60,7 +60,7 @@ export function useFixtureSettings({
     project: project === null ? undefined : { name: project, file: `${project.toLowerCase()}.par` },
     locked,
     extensions: extensionsFrom(project === null ? undefined : kestrelTools),
-    mine: (setting: Setting) => mine[setting.id]!,
+    mine: (setting: Setting) => mine[setting.id] ?? setting.default,
     theirs: (setting: Setting) => own[setting.id],
     setMine(setting, value) {
       if (failing.includes(setting.id)) {

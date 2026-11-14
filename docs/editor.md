@@ -5083,9 +5083,11 @@ lists them.
   `preferences`, as `{ "snapping": false }`. The project's value wins over the person's while it's open, in the active
   tab's canvas, its menus and its Export section, and autosave follows each project's own. They're kept in the order
   they were set, which is the order the page lists them; changing one keeps its place.
-- **Extensions' project settings,** in `extensions`, by extension id and then key, as
+- **Extensions' project settings,** in `extensions`, by the extension's prefix and then key, as
   `{ "storybook": { "configDir": "apps/web/.storybook" } }`. Each extension reads its own and takes one it can't read as
-  its default. Storybook's config folder is the one there is so far (see [storybook.md](storybook.md)).
+  its default; its manifest declares them (see [extensions.md](extensions.md#settings)). The window sends the field to
+  the project service whenever it changes, saved or not, so extensions see it at once, and an extension's
+  `parity.settings.update` comes back to the window as an undo step (PAR-1090).
 - **Each change is an undo step** on the main file, such as "Set snapping for the project" or "Use your own snapping",
   saved by Save, or a moment later with autosave on, as any edit is. A project with no `.par` yet gets one. Clearing the
   last value takes the field out of the file, so a project that sets nothing keeps the file it had.
@@ -7504,6 +7506,11 @@ File > Settings or Ctrl+, opens every setting on pages in a sidebar: General, Ca
 open project's page, under its name and badge; Extensions; and Diagnostics and Updates. On the start page there's no
 project page.
 
+Settings is its own web contents over the window, owned by main, which loads no project code (PAR-1090). The editor
+window's page runs the project's code, so main takes extensions' settings for every project only from Settings. The
+window sends Settings what its project page shows each time it changes, and makes each change Settings sends back an
+undo step. Escape or the close button takes Settings away.
+
 - **The person's settings save as they change,** with a brief Saved in the page's heading, and apply in every window. A
   change main couldn't save leaves the control as it was and says so under the row. A setting something outside Settings
   decides, as `PARITY_TELEMETRY` decides Share diagnostics, is disabled and names it, and Get beta updates waits while
@@ -7520,11 +7527,13 @@ project page.
   Save, which Ctrl+S also does, unless the project saves itself. On the person's pages, a setting the project sets shows
   the project's value beside it, which goes to the project's page.
 - **Extensions** lists the built-in ones, those running in the open project first, each with what detection found.
-  There's no switch: each runs when its tool is found. An extension's page shows what it found, its settings for the
-  project while it runs there, and what it adds (PAR-1100), built from what its adapter and extension tell the window: a
-  phrase for its adapter's role (renderer, builder, styles, router, screens), with how many pages or screens it read;
-  its actions by name; its extension's commands; and a status bar item when it shows one. With no project open, an
-  extension adds nothing.
+  There's no switch: each runs when its tool is found. An extension's page shows what it found, why its code stopped
+  when it did, its settings from its manifest (the person's for every project always, the project's while it runs there,
+  each value that doesn't fit named under them), what it adds (PAR-1100), its permissions, and how long its code took to
+  activate and the memory it holds (PAR-1090). What it adds is built from what its adapter and extension tell the
+  window: a phrase for its adapter's role (renderer, builder, styles, router, screens), with how many pages or screens
+  it read; its actions by name; its extension's commands; and a status bar item when it shows one. With no project open,
+  an extension adds nothing.
 - **Keyboard shortcuts** lists every command in the keymap's groups with its keys as a button: press it, then the new
   keys. Escape stops without changing them and Backspace removes them. Keys another command had move to this one, and
   that command's row says where they went. Entries `keybindings.json` has that Parity skipped come first, with a button
@@ -7542,29 +7551,36 @@ Code: `readSettings`, `changeSettings` and `changedSettings` in `packages/settin
 `rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and return
 data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`; the
 view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
-`SettingsData` (`store.ts`); and `chrome/SettingsDialog.tsx`, which builds it from the preferences, the project's
-settings, the keybindings, telemetry and updates. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the
-keymap writes them. `extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the
-running extensions and returns what an extension adds.
+`SettingsData` (`store.ts`); `chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app
+settings, the keybindings, telemetry and updates, and what the window sent of its project; `extension-settings.ts`,
+`extension-details.ts` and `values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page;
+`main/settings-view.ts`, which lays it over the window; `renderer/settings-project.ts`, the window's side, which sends
+the project's page and applies Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in
+the page for Storybook. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them.
+`extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and
+returns what an extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a
 tool the project doesn't use. `packages/settings/src/settings-file.test.ts` (14): the defaults with no file, each saved
 setting read, one bad value at its default, unknown keys passed over, a file that isn't JSON or an object, only what
 changed written, unknown keys kept, a reset, text that doesn't parse never written over, a window's change read or
-refused, and what changed. `main/settings-store.test.ts` (10): nothing written until a change, a change read back by a
-new copy, two copies' changes at the same moment both kept, one copy told of another's, a reset, a file that can't be
-read never written over with the change held, a held change saved once the file reads without undoing another copy's, a
-stale lock taken, a held lock waited for, and the lock let go when the work fails.
-`packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for an empty search; a
-label's start before a word inside it; another word for a setting, and which; where it is before its description; and
-values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its place, named keys,
-Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
-`chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and checks the project's
-value beside the person's, saving the project, changing a setting for it, a save that fails, moving a shortcut's keys,
-an extension's project setting, search results and opening on a setting. `chrome/SettingsDialog.stories.tsx` opens it
-over the example project, on General and on the project's page; `chrome/TelemetrySetting.stories.tsx` and
-`chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
+refused, and what changed, and extensions' settings read unchecked, one key set or taken out, and refused from a
+window's change. `main/settings-store.test.ts` (11): nothing written until a change, extensions' settings from two
+copies both kept and the other copy told, a change read back by a new copy, two copies' changes at the same moment both
+kept, one copy told of another's, a reset, a file that can't be read never written over with the change held, a held
+change saved once the file reads without undoing another copy's, a stale lock taken, a held lock waited for, and the
+lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to the project and closing
+taken only from Settings, and the project's page only from the editor window. `packages/extensions/src/hosts.test.ts`:
+what the Extensions page shows of each extension's code. `packages/editor/src/settings-search.test.ts` (6): every typed
+word starting a word; nothing for an empty search; a label's start before a word inside it; another word for a setting,
+and which; where it is before its description; and values listed as a sentence. `chrome/keys.test.ts` (6): letters and
+modifiers, a key named by its place, named keys, Shift left off plus and minus, nothing for a modifier alone, and keys
+the event matches. `chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and
+checks the project's value beside the person's, saving the project, changing a setting for it, a save that fails, moving
+a shortcut's keys, an extension's project setting, search results and opening on a setting.
+`chrome/SettingsDialog.stories.tsx` opens it over the example project, on General and on the project's page;
+`chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
 
 ### Installed app updates (PAR-160)
 

@@ -28,7 +28,17 @@ const storybook = readExtension({
     activates: ["onDetect"],
     contributes: {
       commands: [{ id: "storybook.open", title: "Open in Storybook" }],
-      statusItems: [{ id: "storybook.stories", title: "Storybook", command: "storybook.open" }]
+      statusItems: [{ id: "storybook.stories", title: "Storybook", command: "storybook.open" }],
+      settings: {
+        "storybook.configDir": { type: "string", default: ".storybook", scope: "project", title: "Config folder" },
+        "storybook.openIn": {
+          type: "string",
+          enum: ["browser", "parity"],
+          default: "browser",
+          scope: "app",
+          title: "Open stories in"
+        }
+      }
     }
   }
 })
@@ -108,6 +118,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   const changes: ExtensionStatus[][] = []
   const lines: { extension: string; line: LogLine }[] = []
   const notified: string[] = []
+  const updated: { extension: string; key: string; value?: JsonValue }[] = []
   const started: Started[] = []
   const state = memoryState()
 
@@ -148,6 +159,9 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
     },
     state,
     window: {
+      async updateSetting(_projectId, extension, key, value) {
+        updated.push(value === undefined ? { extension, key } : { extension, key, value })
+      },
       changed: (_projectId, extensions) => changes.push(extensions),
       logged: (_projectId, extension, line) => lines.push({ extension, line }),
       async ui(_projectId, _extension, method, params) {
@@ -178,7 +192,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
 
   const latest = (id: string) => changes.at(-1)?.find((extension) => extension.id === id)
 
-  return { hosts, changes, lines, notified, started, state, latest }
+  return { hosts, changes, lines, notified, updated, started, state, latest }
 }
 
 /** Waits for the memory ports to deliver what's in flight, a task at a time. */
@@ -455,6 +469,7 @@ describe("extension hosts", () => {
         activate: () => undefined,
         run: () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
+        "settings.changed": () => undefined,
         cancel: () => undefined,
         "selection.changed": () => undefined,
         stop: () => undefined
@@ -603,6 +618,77 @@ describe("extension hosts", () => {
       { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
     ])
   })
+
+  it("gives activate each setting from its own scope, the rest at their defaults, and refuses an undeclared key", async () => {
+    let given: Parity | undefined
+    const { hosts } = setUp({ "@parity-app/extension-storybook": { activate: (parity) => void (given = parity) } })
+
+    hosts.setAppSettings({ storybook: { openIn: "parity", configDir: "ignored" } })
+    hosts.open(project)
+    await settle()
+
+    expect(given?.settings.get("storybook.openIn")).toBe("parity")
+    expect(given?.settings.get("storybook.configDir")).toBe(".storybook")
+    expect(() => given?.settings.get("storybook.port")).toThrow("isn't a setting the manifest declares")
+  })
+
+  it("tells the running code each setting that changes, from Settings or the project's file", async () => {
+    const heard: string[] = []
+
+    const { hosts } = setUp({
+      "@parity-app/extension-storybook": {
+        activate(parity) {
+          parity.settings.onChange("storybook.openIn", (value) => heard.push(`openIn ${value}`))
+          parity.settings.onChange("storybook.configDir", (value) => heard.push(`configDir ${value}`))
+        }
+      }
+    })
+
+    hosts.open(project)
+    await settle()
+    hosts.setAppSettings({ storybook: { openIn: "parity" } })
+    hosts.setProjectSettings("shop", { storybook: { configDir: "docs/.storybook" } })
+    // Values that don't change aren't sent again.
+    hosts.setAppSettings({ storybook: { openIn: "parity" } })
+    await settle()
+
+    expect(heard).toEqual(["openIn parity", "configDir docs/.storybook"])
+  })
+
+  it("sends a project setting's update to the window, and refuses an app setting's", async () => {
+    let given: Parity | undefined
+
+    const { hosts, updated } = setUp({
+      "@parity-app/extension-storybook": { activate: (parity) => void (given = parity) }
+    })
+
+    hosts.open(project)
+    await settle()
+    await given?.settings.update("storybook.configDir", "docs/.storybook")
+    await given?.settings.update("storybook.configDir", undefined)
+
+    expect(updated).toEqual([
+      { extension: "storybook", key: "configDir", value: "docs/.storybook" },
+      { extension: "storybook", key: "configDir" }
+    ])
+    await expect(given?.settings.update("storybook.openIn", "parity")).rejects.toThrow("only Settings changes it")
+    expect(updated).toHaveLength(2)
+  })
+
+  it("lists a value that doesn't fit with a note, how long activating took, and the manifest's permissions", async () => {
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": { activate: () => undefined } })
+
+    hosts.setAppSettings({ storybook: { openIn: "tab" } })
+    hosts.open(project)
+    await settle()
+
+    const listed = latest("@parity-app/extension-storybook")
+    expect(listed?.settingProblems).toEqual([
+      `Open stories in is set to "tab", which it can't take, so it's at its default.`
+    ])
+    expect(listed?.activatedIn).toBeGreaterThanOrEqual(0)
+    expect(listed).toMatchObject({ prefix: "storybook", permissions: {}, activates: ["onDetect"] })
+  })
 })
 
 describe("selection, navigation and commands (PAR-1092)", () => {
@@ -617,6 +703,7 @@ describe("selection, navigation and commands (PAR-1092)", () => {
       window: {
         changed: () => undefined,
         logged: () => undefined,
+        updateSetting: () => Promise.resolve(),
         async ui(_projectId, _extension, method, params) {
           asked.push({ method, params })
 

@@ -14,6 +14,7 @@ import { ChevronRight, Plus } from "lucide-react"
 import type { KeyboardEvent } from "react"
 import { useSettingsProblems } from "../preferences.ts"
 import { type Extension, pages, type Setting, settings } from "./definitions.ts"
+import { extensionFacts, permissionLines } from "./extension-details.ts"
 import { Group, Row, SettingRow } from "./rows.tsx"
 import { type Hit, type Place, placeOf, search } from "./search.ts"
 import { ShortcutRow, ShortcutsPage } from "./shortcuts.tsx"
@@ -144,7 +145,7 @@ function ProjectPage({ name, store }: { name: string; store: Store }) {
   const addable = settings.filter((setting) => setting.scope === "either" && !store.overrides.includes(setting.id))
 
   const owned = store.extensions.flatMap((extension) => {
-    const own = settings.filter((setting) => setting.page === `ext:${extension.id}` && setting.scope === "project")
+    const own = extension.settings.filter((setting) => setting.scope === "project")
 
     return extension.running && own.length > 0 ? [{ extension, own }] : []
   })
@@ -280,11 +281,17 @@ function Logo({ extension, large = false }: { extension: Extension; large?: bool
 }
 
 /**
- * An extension's page: what detection found and whether it runs in the project, then its settings (the project's
- * tagged) and what it adds. There's no on and off: built-in extensions run whenever their tool is found.
+ * An extension's page: what detection found and whether it runs in the project, then its settings (the person's for
+ * every project, and the project's, tagged, while it runs there), what it adds, what it may do, and how its code is
+ * running. There's no on and off: built-in extensions run whenever their tool is found.
  */
 function ExtensionPage({ extension, store }: { extension: Extension; store: Store }) {
-  const own = settings.filter((setting) => setting.page === `ext:${extension.id}`)
+  const own = extension.settings.filter(
+    (setting) => setting.scope !== "project" || (!!store.project && extension.running)
+  )
+
+  const facts = extensionFacts(extension)
+  const permissions = permissionLines(extension.permissions)
 
   return (
     <>
@@ -303,19 +310,49 @@ function ExtensionPage({ extension, store }: { extension: Extension; store: Stor
           )}
         </div>
       </div>
-      {store.project && extension.running && own.length > 0 && (
+      {extension.reason && (extension.state === "crashed" || extension.state === "stuck") && (
+        <output className="block pb-2 type-message text-destructive">{extension.reason}</output>
+      )}
+      {own.length > 0 && (
         <Group title="Settings">
           {own.map((setting) => (
             <SettingRow key={setting.id} setting={setting} store={store} tagged />
           ))}
         </Group>
       )}
+      {extension.problems?.map((problem) => (
+        <output key={problem} className="mt-2 block px-1 type-message text-muted-foreground">
+          {problem}
+        </output>
+      ))}
       {extension.adds.length > 0 && (
         <Group title="Adds">
           {extension.adds.map((item) => (
             <div key={item} className="px-4 py-2.5 text-sm font-medium">
               {item}
             </div>
+          ))}
+        </Group>
+      )}
+      {extension.prefix !== undefined && (
+        <Group title="Permissions">
+          {permissions.length > 0 ? (
+            permissions.map((line) => (
+              <div key={line} className="px-4 py-2.5 text-sm">
+                {line}
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-2.5 text-sm text-muted-foreground">None</div>
+          )}
+        </Group>
+      )}
+      {facts.length > 0 && (
+        <Group title="Code">
+          {facts.map((fact) => (
+            <Row key={fact.label} label={fact.label}>
+              <span className="text-sm text-muted-foreground tabular-nums">{fact.value}</span>
+            </Row>
           ))}
         </Group>
       )}

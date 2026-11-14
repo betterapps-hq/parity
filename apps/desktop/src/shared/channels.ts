@@ -26,5 +26,11 @@ export const ipc = {
   /** Main tells windows the settings changed, in this copy or another. */
   settingsChanged: "canvas:settings-changed",
   /** Main asks a window whether it may close. */
-  closing: "canvas:closing"
+  closing: "canvas:closing",
+  /** Main tells Settings which page to show, and which setting on it to mark (PAR-1090). */
+  settingsOpening: "canvas:settings-opening",
+  /** Main tells Settings what the editor window sent of its open project. */
+  settingsProject: "canvas:settings-project",
+  /** Main tells the editor window a change Settings made to its project, to make an undo step. */
+  settingsProjectChange: "canvas:settings-project-change"
 } as const

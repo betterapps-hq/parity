@@ -79,6 +79,55 @@ function windowHandlers(
   ) as Handlers<WindowMethods>
 }
 
+/** The last of something main sent, kept for a page that starts listening after it arrived, and who's listening. */
+function lastHeard<T>(channel: string) {
+  const listeners = new Set<(value: T) => void>()
+  let last: { value: T } | undefined
+
+  ipcRenderer.on(channel, (_event, value: T) => {
+    last = { value }
+
+    for (const listener of listeners) {
+      listener(value)
+    }
+  })
+
+  return (listener: (value: T) => void) => {
+    listeners.add(listener)
+
+    if (last) {
+      listener(last.value)
+    }
+
+    return () => {
+      listeners.delete(listener)
+    }
+  }
+}
+
+type ViewHost = CanvasHost["settingsView"]
+
+const isSettings = process.argv.includes("--parity-settings-view")
+
+const settingsView: ViewHost = {
+  isSettings,
+  open: (opening) => ask("settingsOpen", opening),
+  publish: (project) => tell("settingsProject", project),
+  onProjectChange: (listener) => {
+    const changed = (_event: Electron.IpcRendererEvent, change: Parameters<typeof listener>[0]) => listener(change)
+    ipcRenderer.on(ipc.settingsProjectChange, changed)
+
+    return () => {
+      ipcRenderer.removeListener(ipc.settingsProjectChange, changed)
+    }
+  },
+  onOpening: lastHeard<Parameters<Parameters<ViewHost["onOpening"]>[0]>[0]>(ipc.settingsOpening),
+  onProject: lastHeard<Parameters<Parameters<ViewHost["onProject"]>[0]>[0]>(ipc.settingsProject),
+  changeProject: (change) => ask("settingsProjectChange", change),
+  changeExtensions: (change) => ask("extensionSettingsChange", change),
+  close: () => ask("settingsClose")
+}
+
 /**
  * The bridge to the page. What it asks main is one line a method, each typed by `hostMethods` through `ask` and `tell`,
  * so a line that sends the wrong thing, or promises the page something main doesn't answer, doesn't compile (PAR-965).
@@ -173,6 +222,8 @@ const host: CanvasHost = {
   installCli: () => ask("installCli"),
   quit: () => ask("quit"),
   toggleDevTools: () => ask("toggleDevTools"),
+  settingsView,
+  openInParity: (url) => ask("openInParity", url),
   settings: {
     // SAFETY: main answers this channel with its settings state, and main and this script ship together.
     now: () => ipcRenderer.sendSync(ipc.settingsNow) as ReturnType<CanvasHost["settings"]["now"]>,

@@ -16,6 +16,7 @@ import type {
 } from "@parity-app/extension-api"
 import { z } from "zod"
 import { keymapKeys } from "./keys.ts"
+import { fits } from "./settings.ts"
 import { isBuiltInKey, parseWhen, type When, whenKeys } from "./when.ts"
 
 /*
@@ -343,8 +344,9 @@ function ruleProblems(read: Manifest): Problem[] {
     needsPrefix(tool.name, ["contributes", "agentTools", index, "name"])
   }
 
-  for (const key of Object.keys(contributes.settings ?? {})) {
+  for (const [key, setting] of Object.entries(contributes.settings ?? {})) {
     needsPrefix(key, ["contributes", "settings", key])
+    problems.push(...settingProblems(setting).map((message) => ({ path: ["contributes", "settings", key], message })))
   }
 
   for (const [index, event] of read.activates.entries()) {
@@ -380,6 +382,25 @@ function ruleProblems(read: Manifest): Problem[] {
       }
     }
   }
+}
+
+/** What a setting's schema says of itself that can't hold: choices for a number, or a default that isn't one of them. */
+function settingProblems(setting: SettingContribution): string[] {
+  const problems: string[] = []
+
+  if (setting.enum && setting.type !== "string") {
+    problems.push("only a string setting can have choices in enum")
+  }
+
+  if (setting.enumTitles && setting.enumTitles.length !== setting.enum?.length) {
+    problems.push("enumTitles must name each of enum's choices, in its order")
+  }
+
+  if (setting.default !== undefined && !fits(setting, setting.default)) {
+    problems.push(`its default, ${JSON.stringify(setting.default)}, doesn't fit its type and choices`)
+  }
+
+  return problems
 }
 
 function isPart(text: string): boolean {
