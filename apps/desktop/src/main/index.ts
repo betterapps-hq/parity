@@ -21,6 +21,8 @@ import {
   protocol,
   safeStorage,
   screen,
+  type Session,
+  session as electronSession,
   shell,
   type UtilityProcess,
   utilityProcess,
@@ -61,6 +63,7 @@ import { createRemoteSearch } from "./remote-search.ts"
 import { createRenderPool, type RenderWindow } from "./render-pool.ts"
 import { createReports, offersCrashReports } from "./report.ts"
 import { localHistory } from "./search-history.ts"
+import { claimSessionSlot } from "./session-slot.ts"
 import { sessionStore } from "./session-store.ts"
 import { settingsStore } from "./settings-store.ts"
 import { settingsViews } from "./settings-view.ts"
@@ -130,8 +133,21 @@ const installedBuild = new InstalledBuild({
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })
 
+/**
+ * The session every window this copy opens uses: a folder of its own, so a second copy never waits on the first's
+ * storage. Claimed before Sentry starts, which registers its scheme on it once the app is ready.
+ */
+const slot = claimSessionSlot(app.getPath("userData"))
+
+app.once("will-quit", () => slot.release())
+
+function windowSession(): Session {
+  return electronSession.fromPartition(slot.partition)
+}
+
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
 const telemetryStart = startTelemetry(process.env, {
+  sessions: () => [electronSession.defaultSession, windowSession()],
   sending: telemetrySetting.get(),
   installed,
   published: installed && built.published,
@@ -493,6 +509,7 @@ function preloadArguments(): string[] {
  * extensions' app settings; `answerWindows` refuses them from the editor window's page.
  */
 const settingsView = settingsViews({
+  session: windowSession,
   page: new URL("settings.html", rendererUrl).href,
   preload: join(import.meta.dirname, "preload.cjs"),
   arguments: preloadArguments()
@@ -509,7 +526,7 @@ function openInParity(url: string): void {
     title: "Parity",
     autoHideMenuBar: true,
     backgroundColor: titleBarColors().background,
-    webPreferences: { contextIsolation: true, sandbox: true }
+    webPreferences: { session: windowSession(), contextIsolation: true, sandbox: true }
   })
 
   browserWindows.add(window)
@@ -553,6 +570,7 @@ function createWindow(): void {
     // No overlay on macOS, whose traffic lights sit inset in the strip instead.
     titleBarOverlay: !mac && { color: background, symbolColor: symbols, height: 40 },
     webPreferences: {
+      session: windowSession(),
       additionalArguments: preloadArguments(),
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,
@@ -898,6 +916,7 @@ const renderPool = createRenderPool<OffscreenWindow>({
       width: 1280,
       height: 800,
       webPreferences: {
+        session: windowSession(),
         offscreen: true,
         contextIsolation: true,
         sandbox: true,
@@ -1113,8 +1132,8 @@ void app.whenReady().then(() => {
     void refreshCli(cliTarget(true)).catch(() => undefined)
   }
 
-  protocol.handle("parity-preview", servePreview)
-  protocol.registerSource("parity", {
+  windowSession().protocol.handle("parity-preview", servePreview)
+  windowSession().protocol.registerSource("parity", {
     routes: [{ match: { host: "app" }, source: { type: "directory", root: join(import.meta.dirname, "renderer") } }]
   })
   // Otherwise the dock shows the icon of the app Parity runs as, which is Electron.

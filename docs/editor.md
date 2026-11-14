@@ -7599,6 +7599,9 @@ undo step. Escape or the close button takes Settings away.
   in one copy reaches the others' windows within a moment. When the file doesn't read, Parity keeps the settings it last
   read, or the defaults at start, won't write over it, and says so at the top of Settings' own pages. A change it
   couldn't save holds until Parity closes and is tried again, and Settings says so too.
+- **Copies running at once don't wait for each other.** Each copy's windows keep Chromium's own storage, and the code it
+  compiles for them, in a session folder of the copy's own, the first of eight no running copy holds, so a second copy
+  opens as fast as the first rather than about 3 s later. A copy that crashed leaves its folder for the next.
 - **The project's page lists what its `.par` sets** (see Settings saved with the project): its own values for the
   person's settings, each with every project's value under it, which goes to that setting, and an X that takes the
   project's value off; Change a setting for the project, which starts a switch at its other value; and its extensions'
@@ -7625,20 +7628,20 @@ undo step. Escape or the close button takes Settings away.
   `openSettings`.
 
 Code: `readSettings`, `changeSettings` and `changedSettings` in `packages/settings`, which take and return data;
-`settingsStore` in `apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` with `sharedFile`
-(`main/shared-file.ts`), under `withFileLock` (`main/file-lock.ts`), watching its folder; `chrome/preferences.ts`, which
-takes the settings from main; `rankSettings`, `matchesWords` and `listInWords` in
-`packages/editor/src/settings-search.ts`, which take and return data; the settings, pages and built-in extensions in
-`apps/desktop/src/renderer/chrome/settings/definitions.ts`; the view in `chrome/settings/SettingsView.tsx`, `pages.tsx`,
-`rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a `SettingsData` (`store.ts`);
-`chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app settings, the keybindings,
-telemetry and updates, and what the window sent of its project; `extension-settings.ts`, `extension-details.ts` and
-`values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page; `main/settings-view.ts`, which
-lays it over the window; `renderer/settings-project.ts`, the window's side, which sends the project's page and applies
-Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in the page for Storybook.
-`keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them. `extensionAdds` in
-`packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and returns what an
-extension adds.
+`claimSessionSlot` in `apps/desktop/src/main/session-slot.ts`, which picks the copy's session folder; `settingsStore` in
+`apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` with `sharedFile` (`main/shared-file.ts`), under
+`withFileLock` (`main/file-lock.ts`), watching its folder; `chrome/preferences.ts`, which takes the settings from main;
+`rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and return
+data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`; the
+view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
+`SettingsData` (`store.ts`); `chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app
+settings, the keybindings, telemetry and updates, and what the window sent of its project; `extension-settings.ts`,
+`extension-details.ts` and `values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page;
+`main/settings-view.ts`, which lays it over the window; `renderer/settings-project.ts`, the window's side, which sends
+the project's page and applies Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in
+the page for Storybook. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them.
+`extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and
+returns what an extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a
@@ -7646,21 +7649,24 @@ tool the project doesn't use. `packages/settings/src/settings-file.test.ts` (14)
 setting read, one bad value at its default, unknown keys passed over, a file that isn't JSON or an object, only what
 changed written, unknown keys kept, a reset, text that doesn't parse never written over, a window's change read or
 refused, and what changed, and extensions' settings read unchecked, one key set or taken out, and refused from a
-window's change. `main/settings-store.test.ts` (11): nothing written until a change, extensions' settings from two
-copies both kept and the other copy told, a change read back by a new copy, two copies' changes at the same moment both
-kept, one copy told of another's, a reset, a file that can't be read never written over with the change held, a held
-change saved once the file reads without undoing another copy's, a stale lock taken, a held lock waited for, and the
-lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to the project and closing
-taken only from Settings, and the project's page only from the editor window. `packages/extensions/src/hosts.test.ts`:
-what the Extensions page shows of each extension's code. `packages/editor/src/settings-search.test.ts` (6): every typed
-word starting a word; nothing for an empty search; a label's start before a word inside it; another word for a setting,
-and which; where it is before its description; and values listed as a sentence. `chrome/keys.test.ts` (6): letters and
-modifiers, a key named by its place, named keys, Shift left off plus and minus, nothing for a modifier alone, and keys
-the event matches. `chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and
-checks the project's value beside the person's, saving the project, changing a setting for it, a save that fails, moving
-a shortcut's keys, an extension's project setting, search results and opening on a setting.
-`chrome/SettingsDialog.stories.tsx` opens it over the example project, on General and on the project's page;
-`chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
+window's change. `main/session-slot.test.ts` (7): the first folder with no other copy, the next free one while others
+run, one taken over from a copy that crashed, one free again once its copy quits, the last shared when all are taken or
+another copy's claim doesn't end, and a claim a crashed copy left taken over. `main/settings-store.test.ts` (11):
+nothing written until a change, extensions' settings from two copies both kept and the other copy told, a change read
+back by a new copy, two copies' changes at the same moment both kept, one copy told of another's, a reset, a file that
+can't be read never written over with the change held, a held change saved once the file reads without undoing another
+copy's, a stale lock taken, a held lock waited for, and the lock let go when the work fails.
+`main/host-methods.test.ts`: extensions' settings, changes to the project and closing taken only from Settings, and the
+project's page only from the editor window. `packages/extensions/src/hosts.test.ts`: what the Extensions page shows of
+each extension's code. `packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for
+an empty search; a label's start before a word inside it; another word for a setting, and which; where it is before its
+description; and values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its
+place, named keys, Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
+`chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and checks the project's
+value beside the person's, saving the project, changing a setting for it, a save that fails, moving a shortcut's keys,
+an extension's project setting, search results and opening on a setting. `chrome/SettingsDialog.stories.tsx` opens it
+over the example project, on General and on the project's page; `chrome/TelemetrySetting.stories.tsx` and
+`chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
 
 ### Installed app updates (PAR-160)
 
