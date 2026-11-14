@@ -21,6 +21,7 @@ import {
   type ComponentInfo,
   type ComponentSource,
   libraryManifestExtension,
+  type PackageManifest,
   parseCanvasDocument,
   type RendererAdapter,
   type StylesAdapter,
@@ -234,6 +235,13 @@ interface Opening {
   versions?: ToolVersions
 }
 
+/** What a builder is started with before detection confirms it (PAR-1078): the builder whose config file is there. */
+interface EarlyStart {
+  builder: BuilderAdapter
+  name: string
+  startOptions: BuilderStartOptions
+}
+
 /** The tools whose versions both events record, by detection's IDs. */
 const recordedVersions = ["react", "vite", "tailwind", "storybook"] as const
 
@@ -359,8 +367,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   /**
    * Reads what opening a project needs before its builder starts: its package, renderer and builder, the tools it uses,
    * its files and components, and what the type checker found last time.
+   *
+   * Confirming the builder is the slow part, as it loads the project's config: Vite's took over a second (PAR-1078). So
+   * the files and components are read first, and `early` hears what the builder would be started with, with the builder
+   * whose config file is there. Its process starts while this one confirms it. Both at once in this process would only
+   * take turns on its thread, and start the builder later.
    */
-  async function detect(root: string, opening: Opening) {
+  async function detect(root: string, opening: Opening, early?: (read: EarlyStart) => void) {
     // Read first, so a change made while the project opens is a change from what it opened with.
     const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
@@ -376,7 +389,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     opening.framework = renderer.id
+    const name = pkg.name ?? basename(root)
 
+    const reading = await readProject(root, renderer, pkg, name, early).then(
+      (read) => ({ read }),
+      (cause: unknown) => ({ cause })
+    )
+
+    // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
     const found = await findBuilder(adapters.builders, root).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
       opening.versions = await toolVersions(root, await detectProject(root, pkg))
@@ -398,9 +418,27 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     const { builder } = found
-    const name = pkg.name ?? basename(root)
     opening.builder = builder.id
     opening.name = name
+
+    if ("cause" in reading) {
+      throw reading.cause
+    }
+
+    const { read } = reading
+    opening.cached = !!read.saved
+
+    return { ...read, builder, detection, explain, inputs, name, renderer }
+  }
+
+  /** Reads a project's files and components, and what the type checker found last time, for `detect`. */
+  async function readProject(
+    root: string,
+    renderer: RendererAdapter,
+    pkg: PackageManifest,
+    name: string,
+    early?: (read: EarlyStart) => void
+  ) {
     const config = await discoverProject(root, renderer, pkg)
     // A project file that can't be read stops the project opening, with an error naming it (PAR-1011).
     const known = new Map<string, string>()
@@ -430,28 +468,25 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       ? nextComponentList(discovered.list, { kind: "restored", sources: saved.sources, leftOut: saved.leftOut ?? [] })
       : discovered
 
-    opening.cached = !!saved
-
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
     }
 
-    return {
-      builder,
-      config,
-      detection,
-      discovered,
-      documents,
-      explain,
-      fingerprint,
-      inputs,
-      known,
-      mainDocument,
-      name,
-      opened,
+    const startOptions: BuilderStartOptions = {
+      root,
+      config: { ...config, components: opened.list.sources },
       renderer,
-      saved
+      rendererGuestPath: guestPath(renderer),
+      allowedOrigins
     }
+
+    const likely = adapters.builders.find((builder) => builder.configFiles.some((file) => existsSync(join(root, file))))
+
+    if (likely) {
+      early?.({ builder: likely, name, startOptions })
+    }
+
+    return { config, discovered, documents, fingerprint, known, mainDocument, opened, saved, startOptions }
   }
 
   /**
@@ -511,6 +546,38 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   async function start(root: string, opening: Opening): Promise<ProjectInfo> {
     const began = performance.now()
+    let builderStarted = began
+    /** The builder started before detection confirmed it, and its session. */
+    let early: { builder: BuilderAdapter; serving: Promise<BuilderProcessSession> } | undefined
+
+    const serve = async (builder: BuilderAdapter, name: string, options: BuilderStartOptions) => {
+      // The same project's last builder may still be closing.
+      await closing.get(root)
+      builderStarted = performance.now()
+
+      return serveBuilder(root, name, builder, options)
+    }
+
+    const closeEarly = async () => {
+      const started = early
+      early = undefined
+
+      if (started) {
+        await stopServing(root, started.serving)
+      }
+    }
+
+    const detected = await inSpan("project.detected", { root }, () =>
+      detect(root, opening, (read) => {
+        const serving = serve(read.builder, read.name, read.startOptions)
+        // Its error is the opening's only once detection confirms the builder.
+        serving.catch(() => undefined)
+        early = { builder: read.builder, serving }
+      })
+    ).catch((cause: unknown) => {
+      void closeEarly()
+      throw cause
+    })
 
     const {
       builder,
@@ -526,24 +593,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       name,
       opened,
       renderer,
-      saved
-    } = await inSpan("project.detected", { root }, () => detect(root, opening))
+      saved,
+      startOptions
+    } = detected
 
     opening.detectionMs = since(began)
     opening.step = "builder"
 
-    const startOptions: BuilderStartOptions = {
-      root,
-      config: { ...config, components: opened.list.sources },
-      renderer,
-      rendererGuestPath: guestPath(renderer),
-      allowedOrigins
+    // Detection found another builder than the one whose config file is there: it's the one that serves.
+    if (early && early.builder !== builder) {
+      await closeEarly()
     }
 
-    // The same project's last builder may still be closing.
-    await closing.get(root)
-    const serving = serveBuilder(root, name, builder, startOptions)
-    const builderStarted = performance.now()
+    const serving = early?.serving ?? serve(builder, name, startOptions)
     serving.then(
       () => (opening.builderMs = since(builderStarted)),
       () => undefined
@@ -555,11 +617,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       }),
       loadStyles(root, config.styles, detection)
     ]).catch((cause: unknown) => {
-      void serving.then(
-        (started) => started.close(),
-        () => undefined
-      )
-      forgetProcess(builderProcessId(root))
+      void stopServing(root, serving)
       throw cause
     })
 
@@ -627,6 +685,23 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     return withComponentList(project.info, project.list)
+  }
+
+  /**
+   * Closes a builder an opening started, once it answers, and takes it off the list. Resolves once it's closed. One
+   * started before detection confirmed it may list itself after this is called, so it's taken off again then, unless
+   * the project is open or opening again by then.
+   */
+  async function stopServing(root: string, serving: Promise<BuilderProcessSession>): Promise<void> {
+    forgetProcess(builderProcessId(root))
+    await serving.then(
+      (started) => started.close(),
+      () => undefined
+    )
+
+    if (!projects.has(root) && !opening.has(root)) {
+      forgetProcess(builderProcessId(root))
+    }
   }
 
   /**

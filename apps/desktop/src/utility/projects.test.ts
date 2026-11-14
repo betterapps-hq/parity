@@ -50,6 +50,8 @@ interface BuilderHooks {
   starting?: () => void
   /** The builder can't serve its guest restyled (`restyledGuestUrl`), so a stylesheet's change starts it again. */
   noRestyle?: boolean
+  /** Detection finds the builder once this settles, as loading a project's config takes a while. */
+  detecting?: Promise<void>
 }
 
 /** A builder that serves at the port it's given, and what it was asked. */
@@ -65,10 +67,15 @@ function fakeBuilder() {
     id: "fake",
     name: "Fake builder",
     configFiles: ["fake.config.ts"],
-    detect: () =>
-      failures.detection
-        ? Promise.reject(failures.detection)
-        : Promise.resolve({ found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }),
+    detect: async () => {
+      await hooks.detecting
+
+      if (failures.detection) {
+        throw failures.detection
+      }
+
+      return { found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }
+    },
     start: () => Promise.reject(new Error("started in its own process"))
   }
 
@@ -237,6 +244,29 @@ describe("opening a project", () => {
     const info = await projects.open(root)
     expect(info.notes.join("\n")).toContain("as the type checker found them last time")
     expect(checker.checkComponents).toHaveBeenCalledTimes(1)
+  })
+
+  it("starts the builder whose config file is there before detection confirms it, and serves from that one", async () => {
+    await write("fake.config.ts", "export default {}")
+    const { projects, builder } = setUp()
+    const confirmed = Promise.withResolvers<void>()
+    builder.hooks.detecting = confirmed.promise
+    const opening = projects.open(root)
+    await vi.waitFor(() => expect(builder.started).toEqual([5100]))
+
+    confirmed.resolve()
+    expect((await opening).guestUrl).toBe("http://localhost:5100/@parity/guest.js")
+    expect(builder.started).toEqual([5100])
+  })
+
+  it("closes a builder it started early when detection can't confirm it", async () => {
+    await write("fake.config.ts", "export default {}")
+    const { projects, builder } = setUp()
+    builder.fail("detection", new Error("The config didn't load"))
+    await expect(projects.open(root)).rejects.toThrow("The config didn't load")
+
+    expect(builder.started).toEqual([5100])
+    await vi.waitFor(() => expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"]))
   })
 
   it("takes its root from the project Parity was started with, read when the projects are made", () => {

@@ -6481,6 +6481,13 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   app data, and opens them as it starts, while the window loads its UI; the window's open of the same project joins the
   one under way. One the window doesn't ask for within a minute, as when its tabs and the list disagree, is closed
   again.
+- **The builder starts before detection confirms it (PAR-1078).** Confirming the builder loads the project's config, as
+  `vite` does, which took 0.75 seconds on the example and 1.3 to 1.8 while Parity starts, even with the last detection
+  kept. So the service reads the project's files and components first, starts the builder whose config file is there in
+  its own process, and confirms it meanwhile. Doing both at once in the service only made them take turns on its thread.
+  A builder that detection doesn't confirm is closed, and the one it finds is started instead.
+  `apps/desktop/src/utility/projects.test.ts` (2: the builder starts before detection confirms it and serves from there,
+  and one detection can't confirm is closed).
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's
