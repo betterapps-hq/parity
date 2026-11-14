@@ -37,18 +37,18 @@ are fixed in `LeftPanel.tsx`, and status items can only use Lucide's icons, whic
 Each registration is data. The app has one place that draws each kind, and it draws them all the same way, whichever
 adapter gave them.
 
-| Registration    | What the adapter gives                                                          | Where the app draws it                                    | What it replaces                                |
-| --------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------- |
-| Icons           | Its logo, and named icons for what it adds, as SVG                              | Anywhere an icon goes, beside Lucide's                    | Status items limited to Lucide                  |
-| Status items    | An icon, a value, words, a tooltip and what a click does                        | The status bar                                            | Built                                           |
-| Actions         | Commands with a name and an icon, and where each is offered                     | Status items, a component's menu, the actions search      | `storybook.open`, `openInStorybook`, `{ tool }` |
-| Canvas files    | Read-only design files it makes from the tool's files, with their layout        | The canvas, and the layers panel in the order it asks for | The `(stories)` and `(pages)` files             |
-| Node types      | A kind of node with a name, an icon and the fields it shows                     | Layers, the canvas and the inspector                      | `RouteNode` in core                             |
-| Component facts | Facts about each of the project's components, as a count with a label           | The Assets panel's cards and a component's menu           | `info.storybook`                                |
-| Panel tabs      | A tab with a name and an icon, and its content as a list or a tree              | The left panel                                            | Fixed tabs                                      |
-| Inspector rows  | Fields for a node of one of its types, or a component's props                   | The Design panel                                          | Nothing yet                                     |
-| Servers         | A server it runs for the project, with a name                                   | The processes panel                                       | `ServerKind`                                    |
-| Version facts   | The packages that carry its version, each major's release date, its config file | Detection and the version cutoff                          | The fixed list in `detect.ts`                   |
+| Registration   | What the adapter gives                                                          | Where the app draws it                                    | What it replaces                                |
+| -------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| Icons          | Its logo, and named icons for what it adds, as SVG                              | Anywhere an icon goes, beside Lucide's                    | Status items limited to Lucide                  |
+| Status items   | An icon, a value, words, a tooltip and what a click does                        | The status bar                                            | Built                                           |
+| Actions        | Commands with a name and an icon, and where each is offered                     | Status items, a component's menu, the actions search      | `storybook.open`, `openInStorybook`, `{ tool }` |
+| Canvas files   | Read-only design files it makes from the tool's files, with their layout        | The canvas, and the layers panel in the order it asks for | The `(stories)` and `(pages)` files             |
+| Node types     | A kind of node with a name, an icon and the fields it shows                     | Layers, the canvas and the inspector                      | `RouteNode` in core                             |
+| Node facts     | Facts about any node, by its type and key, as a count with a label or a value   | Cards, the inspector, and overlays on the canvas          | `info.storybook`                                |
+| Panel tabs     | A tab with a name and an icon, and its content as a list or a tree              | The left panel                                            | Fixed tabs                                      |
+| Inspector rows | Fields for a node of one of its types, or a component's props                   | The Design panel                                          | Nothing yet                                     |
+| Servers        | A server it runs for the project, with a name                                   | The processes panel                                       | `ServerKind`                                    |
+| Version facts  | The packages that carry its version, each major's release date, its config file | Detection and the version cutoff                          | The fixed list in `detect.ts`                   |
 
 Every id an adapter registers is its own (`storybook:open`, `tanstack-router:route`), so two adapters can't collide.
 
@@ -101,7 +101,8 @@ interface Registrations {
   actions?: AdapterAction[]
   files?: CanvasFile[]
   nodeTypes?: NodeType[]
-  components?: Record<string, ComponentFact[]>
+  /** Facts about nodes of any type: a component's stories, a route's load time. */
+  facts?: NodeFact[]
   tabs?: PanelTab[]
   rows?: InspectorRow[]
   servers?: ServerInfo[]
@@ -141,6 +142,31 @@ Opening a project runs every adapter's detector, all at once, and registers only
    `.storybook/main.ts` is added, the adapter is detected again. One that's found registers afresh; one that's gone
    takes its registrations with it. An adapter also registers afresh when the tool's own files change, as when a story
    is added.
+
+## Facts about any node
+
+An adapter can say things about nodes of any type, not only components: Storybook gives a component's stories, and a
+plugin could measure a route and give its load time or bundle size. A fact names its node by type and key
+(`{ type: "component", key: "PlanCard" }`, `{ type: "route", key: "/settings" }`), so it never relies on a name alone.
+The app shows facts in the node's card and inspector, and an adapter can ask for one to be drawn on the canvas, as a
+badge on the node or a line between nodes, in the canvas's own styles.
+
+Keys must be sturdy. A component's key is unique by construction: a library's is `library/Export`, and the app's own
+components share a name only with folders added (`marketing/Card`, `billing/Card`). Adapters match their tool's files to
+components by file and export, never by name (`componentFor`, tested in `packages/project/src/component-for.test.ts`
+with same-named components across folders and libraries).
+
+## Adapters read the designs too
+
+An adapter that adds nodes, or facts about them, needs to read nodes back and hear when they change: a plugin that
+annotates routes recomputes when a page's design changes, and one that checks components against a design system reads
+which components the designs place. So the context an adapter gets includes the project's designs, read-only:
+
+- **Read:** the designs and their nodes as data, the same `.par` model the app saves, walked by type.
+- **Watch:** a change event naming the designs and nodes that changed, after each edit settles, so an adapter recomputes
+  only what it needs. Its facts and canvas files register afresh from there.
+- **No writes yet.** An adapter changes designs only through an action the person runs, which goes through the app's own
+  edits and undo. Direct writes wait until plugins and trust are settled ([extensions.md](extensions.md)).
 
 ## Data, not React
 
@@ -189,16 +215,18 @@ since packages will be published to a registry. The workspace lists `adapters/*`
    `AdapterDetection`, detection reads each adapter's `versions`, `watches` took over from a builder's `configFiles`,
    and the fixed list in `detect.ts` is gone. The context has no `files(match)` yet, since no detector needs to search;
    it's added when one does. `findStorybook` still reads Storybook's script, port and stories for `info.storybook`,
-   until component facts replace it in step 5. A styles adapter is still chosen per stylesheet, by `handles(source)`.
+   until node facts replace it in step 5. A styles adapter is still chosen per stylesheet, by `handles(source)`.
 3. **Actions.** Built: an adapter lists its `actions` and does them in `run`, given an `ActionContext` whose `servers`
    find or start its tool's server. Storybook's Open in Storybook is one; `storybook.open`, `utility/storybook.ts` and
    the `{ tool }` click are gone, and a tool's server is listed as kind `tool`. An action names the components it's
    offered for, and a code component offers them wherever it's picked, with the adapter's logo: its layer's header, its
    right-click menus in Layers, on the canvas and in the Components panel, its row's button and card, and Search
-   actions. Only the stories count on a component's card still reads `info.storybook`, until component facts in step 5.
+   actions. Only the stories count on a component's card still reads `info.storybook`, until node facts in step 5.
 4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
    registers.
-5. **Component facts, panel tabs, inspector rows and servers,** each when an adapter first needs it.
+5. **Node facts and reading the designs,** starting with Storybook's stories count, which lets `findStorybook` and
+   `info.storybook` go; then reading and watching designs when the first adapter needs them.
+6. **Panel tabs, inspector rows and servers,** each when an adapter first needs it.
 
 ## Decisions needed
 
