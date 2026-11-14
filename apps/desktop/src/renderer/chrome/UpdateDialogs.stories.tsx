@@ -5,7 +5,7 @@ import type { BuildInfo } from "../../shared/protocol.ts"
 import { AboutDialog } from "./AboutDialog.tsx"
 import { closeDialog, openDialog } from "./app-dialogs.ts"
 import { AppMenu } from "./AppMenu.tsx"
-import { SettingsDialog } from "./SettingsDialog.tsx"
+import { openSettings, SettingsDialog } from "./SettingsDialog.tsx"
 import { receiveUpdate } from "./updates.tsx"
 
 /** Real update controls with a stand-in host: these stories cannot download or install anything. */
@@ -18,7 +18,12 @@ function Preview({ state, dialog, build }: { state: UpdateState; dialog: "about"
       setBeta: async (beta) => receiveUpdate({ phase: "idle", beta })
     }
     receiveUpdate(state)
-    openDialog(dialog)
+
+    if (dialog === "settings") {
+      openSettings("updates")
+    } else {
+      openDialog(dialog)
+    }
 
     return () => {
       window.canvasHost.updates = previous

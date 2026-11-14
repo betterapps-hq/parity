@@ -32,9 +32,9 @@ import type { Editor } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
-import { getPreferences } from "../chrome/preferences.ts"
 import type { DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox } from "../frame.ts"
+import { getEffectivePreferences } from "../project-settings.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
@@ -307,12 +307,15 @@ export function CanvasOverlay() {
 
     return scheduleOverlay(area, session, {
       showing: () =>
-        !!selection.get().design || !!selection.getHover()?.node || !!getDragView() || getPreferences().layoutGrid,
+        !!selection.get().design ||
+        !!selection.getHover()?.node ||
+        !!getDragView() ||
+        getEffectivePreferences(session.store).layoutGrid,
       designs: () =>
         overlayDesigns({
           selected: selection.get().design,
           hovered: selection.getHover()?.design,
-          layoutGrid: getPreferences().layoutGrid
+          layoutGrid: getEffectivePreferences(session.store).layoutGrid
         }),
       measure: () =>
         selection.getTool() === "interact" ? noMarks : overlayMarks(readScene(session, area, pointer.current.alt)),
@@ -686,7 +689,7 @@ function readScene(
   }
 
   // Every frame on screen, for its column grid.
-  if (getPreferences().layoutGrid) {
+  if (getEffectivePreferences(store).layoutGrid) {
     const view = area.getBoundingClientRect()
 
     scene.grid = allFrames(area).flatMap((host) => {

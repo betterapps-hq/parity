@@ -375,4 +375,17 @@ describe("storybook", () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
     expect((await discoverProject(root, renderer)).storybook).toBeUndefined()
   })
+
+  it("is found in the config folder the project sets, over the one its script names", async () => {
+    const pkg = { scripts: { storybook: "storybook dev -c config/sb" } }
+    await write("config/sb/main.ts", "export default {}")
+    await write("apps/web/.storybook/main.ts", "export default {}")
+
+    const set = await discoverProject(root, renderer, pkg, { storybookConfigDir: "apps/web/.storybook" })
+    expect(set.storybook).toMatchObject({ configDir: "apps/web/.storybook", main: "apps/web/.storybook/main.ts" })
+
+    // A folder with no config in it has no Storybook, rather than falling back to another.
+    const missing = await discoverProject(root, renderer, pkg, { storybookConfigDir: "docs/.storybook" })
+    expect(missing.storybook).toBeUndefined()
+  })
 })

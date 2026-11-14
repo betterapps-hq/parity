@@ -10,10 +10,14 @@ import type { ChangeConflict, ImageCredit } from "@parity-app/core"
 import {
   type CodeReference,
   cantRemove,
+  type ExportSize,
+  exportFiles,
   filterImages,
   findImage,
   type FoundScreen,
   type ImageFile,
+  type PictureCrop,
+  pictureCrop,
   projectImages
 } from "@parity-app/editor"
 import { z } from "zod"
@@ -911,34 +915,59 @@ async function contactSheets(
 }
 
 /**
- * Renders designs to PNGs, as the window's Export does: each design in every state, in its main mode and the modes
- * beside it, without showing agent activity on the canvas. Each picture comes with a file name that says which, when
- * there's more than one, and doesn't repeat another's, ignoring case.
+ * One picture `exportPictures` gives back: its file's name and size, and the PNG drawn at its scale, with the crop of
+ * it that is the whole design.
+ */
+export interface ExportedPicture {
+  name: string
+  size: ExportSize
+  png: string
+  crop: PictureCrop
+}
+
+/**
+ * Renders designs for the window's File > Export all at each size asked for: each design in every state, in its main
+ * mode and the modes beside it, drawn once at each scale, without showing agent activity on the canvas. Each file is
+ * named by its design, with its state and mode when there's more than one, as `exportFiles` names layers: the size's
+ * suffix and extension, and a number from the second picture named alike on. The host turns a JPG's PNG into a JPG.
  */
 export async function exportPictures(
   host: AgentHost,
   snapshot: TabSnapshot,
   designs: string[],
-  scale: number
-): Promise<{ files: { name: string; png: string }[]; warnings: string[] }> {
-  const result = await screenshots(host, snapshot, "Export", async (api) => {
-    for (const design of designs) {
-      await api.Screenshot(design, { state: "all", mode: "shown", scale })
+  sizes: readonly ExportSize[]
+): Promise<{ files: ExportedPicture[]; warnings: string[] }> {
+  const shots: (Screenshot & { scale: number })[] = []
+  const warnings = new Set<string>()
+
+  for (const scale of new Set(sizes.map((size) => size.scale))) {
+    const result = await screenshots(host, snapshot, "Export", async (api) => {
+      for (const design of designs) {
+        await api.Screenshot(design, { state: "all", mode: "shown", scale })
+      }
+    })
+
+    shots.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
+
+    for (const warning of result.warnings) {
+      warnings.add(warning)
     }
-  })
+  }
 
   const containers = new Map(
     snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
   )
 
   const modes = new Map(resolveModes(snapshot.modes).map((mode) => [mode.id, mode.name]))
+  const frameKey = (shot: Screenshot) => JSON.stringify([shot.design, shot.state, shot.mode])
+
+  // Each frame once, whichever scales drew it, so a design's files are named alike at every size.
+  const frames = [...new Map(shots.map((shot) => [frameKey(shot), shot])).values()]
 
   const perDesign = (design: string, field: "state" | "mode") =>
-    new Set(result.screenshots.filter((shot) => shot.design === design).map((shot) => shot[field])).size
+    new Set(frames.flatMap((shot) => (shot.design === design ? [shot[field]] : []))).size
 
-  const used = new Set<string>()
-
-  const files = result.screenshots.map((shot) => {
+  const labels = frames.map((shot) => {
     const container = containers.get(shot.design)
     const state = container && designStates(container).find((candidate) => candidate.id === shot.state)
     const parts = [container?.name ?? shot.design]
@@ -951,19 +980,31 @@ export async function exportPictures(
       parts.push(modes.get(shot.mode) ?? shot.mode)
     }
 
-    const base = fileName(parts.join(" ")) + (scale === 1 ? "" : `@${scale}x`)
-    let name = `${base}.png`
-
-    for (let copy = 2; used.has(name.toLowerCase()); copy++) {
-      name = `${base} ${copy}.png`
-    }
-
-    used.add(name.toLowerCase())
-
-    return { name, png: shot.png }
+    return parts.join(" ")
   })
 
-  return { files, warnings: result.warnings }
+  const files = exportFiles(labels, sizes).flatMap((file) => {
+    const frame = frames[file.layer]!
+
+    const shot = shots.find(
+      (candidate) => candidate.scale === file.size.scale && frameKey(candidate) === frameKey(frame)
+    )
+
+    const crop = shot && pictureCrop({ x: 0, y: 0, width: shot.width, height: shot.height }, shot)
+
+    if (!shot || !crop) {
+      // A frame that didn't draw at this scale has its warning already; one with no size gets one here.
+      if (shot) {
+        warnings.add(`${file.name}: the design has no size`)
+      }
+
+      return []
+    }
+
+    return [{ name: file.name, size: file.size, png: shot.png, crop }]
+  })
+
+  return { files, warnings: [...warnings] }
 }
 
 /**

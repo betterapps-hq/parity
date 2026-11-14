@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { join, posix, relative } from "node:path"
 import {
   type ComponentSource,
+  defaultStorybookConfigDir,
   scriptConfigExtensions,
   type PackageManifest,
   type StorybookInfo,
@@ -19,15 +20,16 @@ const moduleExtensions = [".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts
 /**
  * The project's Storybook, if it has one: where its config is, the script that starts it and the port it asks for,
  * and which components have stories. A story file belongs to a component when its meta's `component` is imported
- * from that component's module.
+ * from that component's module. `configured` is the config folder the project's `.par` sets, when it sets one.
  */
 export async function findStorybook(
   root: string,
   pkg: PackageManifest & { scripts?: Record<string, string> },
   components: Record<string, ComponentSource>,
-  resolveAlias: (specifier: string) => Promise<string | undefined>
+  resolveAlias: (specifier: string) => Promise<string | undefined>,
+  configured?: string
 ): Promise<StorybookInfo | undefined> {
-  const config = await storybookConfig(root, pkg)
+  const config = await storybookConfig(root, pkg, configured)
 
   if (!config) {
     return undefined
@@ -70,15 +72,20 @@ export async function findStorybook(
 }
 
 /**
- * Where the project's Storybook config is: the folder its `storybook dev` script names with `-c` or `--config-dir`, else
- * `.storybook`, and the `main` file there, relative to the root.
+ * Where the project's Storybook config is: the folder the project's `.par` sets (`configured`), else the one its
+ * `storybook dev` script names with `-c` or `--config-dir`, else `.storybook`, and the `main` file there, relative to
+ * the root.
  */
 export async function storybookConfig(
   root: string,
-  pkg: PackageManifest
+  pkg: PackageManifest,
+  configured?: string
 ): Promise<{ configDir: string; main: string; script?: [name: string, command: string] } | undefined> {
   const script = scriptRunning(pkg.scripts, /\bstorybook\s+dev\b/)
-  const configDir = (script && commandOption(script[1], ["-c", "--config-dir"])) ?? ".storybook"
+
+  const configDir =
+    configured ?? (script && commandOption(script[1], ["-c", "--config-dir"])) ?? defaultStorybookConfigDir
+
   const main = await findConfig(root, join(root, configDir), mainConfig)
 
   return main ? { configDir, main, script } : undefined

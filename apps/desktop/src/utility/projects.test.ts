@@ -532,6 +532,27 @@ describe("an open project's files", () => {
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
   })
 
+  it("find Storybook in the config folder the main file sets, and open again when it changes", async () => {
+    const { projects, detectionChanged } = setUp()
+    await write(".config/storybook/main.ts", "export default {}")
+    expect((await projects.open(root)).storybook).toBeUndefined()
+
+    const document = { ...designs("Sketch"), extensions: { storybook: { configDir: ".config/storybook" } } }
+    await projects.saveDocument({ projectId: root, path: "shop.par", document })
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+
+    // Saving it again with the same folder isn't a change.
+    await projects.saveDocument({ projectId: root, path: "shop.par", document })
+    await new Promise((done) => setImmediate(done))
+    expect(detectionChanged).toHaveLength(1)
+
+    await projects.close(root)
+    expect((await projects.open(root)).storybook).toMatchObject({
+      configDir: ".config/storybook",
+      main: ".config/storybook/main.ts"
+    })
+  })
+
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {
     const { projects } = setUp()
     await projects.open(root)

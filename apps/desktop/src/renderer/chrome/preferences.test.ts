@@ -4,7 +4,6 @@ import { readPreferences } from "./preferences.ts"
 const defaults = {
   theme: "dark",
   snapping: true,
-  exportScale: 2,
   exportSizes: [{ format: "png", scale: 2 }],
   componentsView: "list",
   layoutGrid: false,
@@ -18,7 +17,10 @@ describe("saved preferences", () => {
     const saved = {
       ...defaults,
       theme: "light",
-      exportScale: 3,
+      exportSizes: [
+        { format: "png", scale: 1 },
+        { format: "jpg", scale: 3 }
+      ],
       autosave: true,
       codeEditor: "zed",
       componentsView: "grid"
@@ -28,12 +30,17 @@ describe("saved preferences", () => {
   })
 
   it("put one value that doesn't read back to its default and keep the rest", () => {
-    const saved = { theme: "light", exportScale: 4, autosave: true }
+    const saved = { theme: "light", exportSizes: [{ format: "webp", scale: 2 }], autosave: true }
     expect(readPreferences(JSON.stringify(saved))).toEqual({ ...defaults, theme: "light", autosave: true })
     expect(readPreferences(JSON.stringify({ theme: "sepia", snapping: false }))).toEqual({
       ...defaults,
       snapping: false
     })
+  })
+
+  it("leave out a setting that's gone, such as the old export scale", () => {
+    const saved = { theme: "light", exportScale: 3 }
+    expect(readPreferences(JSON.stringify(saved))).toEqual({ ...defaults, theme: "light" })
   })
 
   it("are the defaults when nothing was saved or what was saved isn't preferences", () => {

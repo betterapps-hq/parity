@@ -174,6 +174,19 @@ const host: CanvasHost = {
   quit: () => ask("quit"),
   toggleDevTools: () => ask("toggleDevTools"),
   setTheme: (theme) => ask("setTheme", theme),
+  keybindings: {
+    get: () => ask("keybindingsState"),
+    replace: (replacements) => ask("keybindingsReplace", replacements),
+    open: () => ask("keybindingsOpen"),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
+      ipcRenderer.on(ipc.keybindingsChanged, changed)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.keybindingsChanged, changed)
+      }
+    }
+  },
   metrics: () => ask("metrics"),
   console: {
     announce: (level, context) => tell("consoleAnnounce", { level, ...context }),

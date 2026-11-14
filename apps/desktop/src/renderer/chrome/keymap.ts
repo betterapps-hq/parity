@@ -1,3 +1,4 @@
+import { windowStore } from "../store.ts"
 import { formatKeys, isMac, matches } from "./keys.ts"
 
 /**
@@ -153,11 +154,18 @@ export type Fixed = keyof typeof fixedKeys
 export type Shortcut = Command | Fixed
 
 /**
- * Every keys that run a command, the shown ones first. The key handlers and every place that shows keys read them here
- * rather than from `keymap`, so a binding changed in one place works and shows everywhere at once.
+ * The keys each command has now, with the person's changes from `keybindings.json`, which `keybindings.ts` applies
+ * (PAR-1085); nothing until there are any, so the keymap's apply.
+ */
+export const commandKeys = windowStore<Readonly<Record<Command, readonly string[]>> | undefined>(() => undefined)
+
+/**
+ * Every keys that run a command, the shown ones first, with the person's changes. The key handlers and every place that
+ * shows keys read them here rather than from `keymap`, so a binding changed in one place works and shows everywhere at
+ * once. Views read them as they draw, which for menus and tooltips is as they open.
  */
 export function keysOf(command: Command): readonly string[] {
-  return keymap[command].keys
+  return commandKeys.get()?.[command] ?? keymap[command].keys
 }
 
 /**
@@ -165,7 +173,7 @@ export function keysOf(command: Command): readonly string[] {
  * its first keys. Every menu, tooltip and list that shows one key reads it here.
  */
 export function shortcutOf(shortcut: Shortcut, mac = isMac()): string {
-  return formatKeys(isFixed(shortcut) ? fixedKeys[shortcut] : keysOf(shortcut)[0]!, mac)
+  return formatKeys(isFixed(shortcut) ? fixedKeys[shortcut] : (keysOf(shortcut)[0] ?? ""), mac)
 }
 
 function isFixed(shortcut: Shortcut): shortcut is Fixed {

@@ -146,6 +146,20 @@ export {
 } from "./document.ts"
 
 export {
+  clearExtensionSetting,
+  clearPreferenceOverride,
+  defaultStorybookConfigDir,
+  type PreferenceOverride,
+  preferenceOverrides,
+  type ProjectExtensions,
+  type ProjectPreferenceKey,
+  setExtensionSetting,
+  setPreferenceOverride,
+  storybookConfigDir,
+  withProjectPreferences
+} from "./project-settings.ts"
+
+export {
   addState,
   addVariant,
   boardTarget,

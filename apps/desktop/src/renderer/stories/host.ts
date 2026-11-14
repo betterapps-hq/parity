@@ -29,6 +29,7 @@ import { z } from "zod"
 import desktop from "../../../package.json"
 import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
 import type { ConnectorSearch } from "../../shared/connectors.ts"
+import { applyReplacements, readKeybindings } from "../../shared/keybindings.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -360,6 +361,9 @@ export function resetHost(): void {
   accountNow = signedOut
 }
 
+/** The story's `keybindings.json`, which a story's changes write and the next story starts without. */
+let storyKeybindings: string | undefined
+
 /**
  * Stands in for the desktop host in stories: the project service answers as the real one would for the example
  * project, from what Storybook discovered of it, and system dialogs answer as if the person cancelled.
@@ -414,6 +418,17 @@ export function installHost(): void {
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
     setTheme: () => Promise.resolve(),
+    // Stories start with the keymap's keys and keep what's changed in the story.
+    keybindings: {
+      get: () => Promise.resolve({ entries: [] }),
+      replace: (replacements) => {
+        storyKeybindings = applyReplacements(storyKeybindings, replacements)
+
+        return Promise.resolve(readKeybindings(storyKeybindings))
+      },
+      open: () => Promise.resolve(),
+      subscribe: () => () => undefined
+    },
     onClosing: () => undefined,
     // A typical reading from the desktop app, for the performance stats.
     metrics: () =>
@@ -436,6 +451,9 @@ export function installHost(): void {
   window.canvasHost = host
   // Each story starts signed out, with main's answer in, as `resetWindowStores` puts the rest back.
   resetWithWindow(resetAccountView)
+  resetWithWindow(() => {
+    storyKeybindings = undefined
+  })
 }
 
 /** A fresh copy of a project, as opening it again reads it again. */
@@ -779,7 +797,11 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       }
     case "designs.export":
       return {
-        files: request.params.designs.map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
+        files: request.params.designs.flatMap((design) =>
+          request.params.sizes.map(
+            ({ format, scale }) => `D:/exports/${design.split("#").at(-1)}${scale === 1 ? "" : `@${scale}x`}.${format}`
+          )
+        ),
         warnings: []
       }
     case "accessibility.check":

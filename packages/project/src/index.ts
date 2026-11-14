@@ -135,6 +135,14 @@ export interface DiscoveredProject extends ProjectConfig {
   uiKit?: string
 }
 
+/** What the caller already knows of the project when it discovers it. */
+export interface DiscoverOptions {
+  /** Its `.par` files, relative to the root, as `findProjectDocuments` lists them, when they've been found already. */
+  documents?: readonly string[]
+  /** The Storybook config folder its main `.par` sets (`storybookConfigDir`), which wins over finding one. */
+  storybookConfigDir?: string
+}
+
 /**
  * Works out what the canvas needs from the project as it is: no config file. Styles come from the project's own
  * conventions (shadcn's `components.json`, the app entry, the usual places; see `findStyles`), components from what the renderer recognizes in every file
@@ -144,7 +152,8 @@ export interface DiscoveredProject extends ProjectConfig {
 export async function discoverProject(
   root: string,
   renderer: RendererAdapter,
-  pkg: PackageManifest = {}
+  pkg: PackageManifest = {},
+  options: DiscoverOptions = {}
 ): Promise<DiscoveredProject> {
   const notes: string[] = []
   const shadcn = await shadcnConfig(root, notes)
@@ -155,7 +164,7 @@ export async function discoverProject(
   const app = await findAppComponents(root, renderer, tsconfig, uiKit, notes)
   notes.push(...libraries.notes)
   await addWorkspacePackages(root, pkg, renderer, libraries, notes)
-  const documents = await findDocuments(root)
+  const documents = options.documents ? [...options.documents] : await findProjectDocuments(root)
   const tokens: DescribedTokens[] = [...libraries.describedTokens]
   // A library's own project names its components as the apps that install it do, so its canvas's designs work there.
   let namespace: string | undefined
@@ -186,7 +195,14 @@ export async function discoverProject(
 
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
   const all = { ...components, ...libraries.components }
-  const storybook = await findStorybook(root, pkg, all, async (specifier) => resolveAlias(root, tsconfig, specifier))
+
+  const storybook = await findStorybook(
+    root,
+    pkg,
+    all,
+    async (specifier) => resolveAlias(root, tsconfig, specifier),
+    options.storybookConfigDir
+  )
 
   if (storybook) {
     notes.push(
@@ -513,7 +529,8 @@ function entitiesSource(
 
 const skippedFolders = new Set(["node_modules", ".git", "dist", "build", "out", "coverage", ".next", ".turbo"])
 
-async function findDocuments(root: string): Promise<string[]> {
+/** The project's `.par` files, relative to the root and sorted, with a `.lib.par` only at the root. */
+export async function findProjectDocuments(root: string): Promise<string[]> {
   const found: string[] = []
 
   const walk = async (folder: string) => {

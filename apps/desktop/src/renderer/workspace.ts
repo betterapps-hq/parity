@@ -8,7 +8,8 @@ import {
   jsonText,
   type LayerFailure,
   parseData,
-  versionedSources
+  versionedSources,
+  withProjectPreferences
 } from "@parity-app/core"
 import {
   boardComponentNode,
@@ -1307,7 +1308,8 @@ async function createSession(
 
         return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document)
       },
-      autosave: () => getPreferences().autosave
+      // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
+      autosave: (): boolean => withProjectPreferences(getPreferences(), store.getMainDocument()).autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
   )

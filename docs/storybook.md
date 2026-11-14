@@ -25,10 +25,12 @@ All four are optional, and none needs a Storybook package inside Parity.
 because it needs them to map stories.
 
 - **The config.** `storybookConfig` takes the first `package.json` script that runs `storybook dev` and reads its
-  `-c`/`--config-dir` and `-p`/`--port`. The folder defaults to `.storybook`. A `main` file must be there, with any
-  extension Storybook accepts, found through the shared config search in
+  `-c`/`--config-dir` and `-p`/`--port`. The folder defaults to `.storybook`. A folder the project's main `.par` sets,
+  in `extensions.storybook.configDir` (PAR-1085), wins over both, and Parity starts Storybook with it. A `main` file
+  must be there, with any extension Storybook accepts, found through the shared config search in
   [configs.ts](../packages/project/src/configs.ts). Without one, the project has no Storybook as far as Parity is
-  concerned.
+  concerned, even when another folder has one. The service reads the project's `.par` files before discovery for this,
+  and changing the folder, from the window or on disk, opens the project again, as a changed dependency does.
 - **The story files.** Every `*.stories.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` under the root, skipping `node_modules`, build
   folders, `storybook-static` and every dot folder. The `stories` globs in `main` aren't read, and `.mdx` files aren't
   looked at.

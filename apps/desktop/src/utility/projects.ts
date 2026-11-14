@@ -27,6 +27,8 @@ import {
   libraryManifestExtension,
   type PackageManifest,
   parseCanvasDocument,
+  type CanvasDocument,
+  storybookConfigDir,
   type ProjectRoute,
   type RendererAdapter,
   type RouterAdapter,
@@ -54,6 +56,7 @@ import {
   documentTarget,
   findLockfiles,
   findPackage,
+  findProjectDocuments,
   exportEntities,
   adapterActions,
   adapterStatus,
@@ -506,12 +509,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     usedEntities: EntitiesAdapter[],
     early?: (read: EarlyStart) => void
   ) {
-    const config = await discoverProject(root, renderer, pkg)
-    // A project file that can't be read stops the project opening, with an error naming it (PAR-1011).
+    // The project files are read before discovery, which follows what the main one sets, such as the Storybook config
+    // folder (PAR-1085). A project file that can't be read stops the project opening, with an error naming it
+    // (PAR-1011).
+    const paths = await findProjectDocuments(root)
     const known = new Map<string, string>()
 
     const documents = await Promise.all(
-      config.documents.map(async (path) => {
+      paths.map(async (path) => {
         const text = await readFile(join(root, path), "utf8")
         known.set(path, text)
 
@@ -519,8 +524,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       })
     )
 
-    const mainDocument = pickMainDocument(config.documents, name)
+    const mainDocument = pickMainDocument(paths, name)
     const main = documents.find((entry) => entry.path === mainDocument)?.document
+
+    const config = await discoverProject(root, renderer, pkg, {
+      documents: paths,
+      storybookConfigDir: storybookConfigDir(main)
+    })
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
     const discovered = nextComponentList(
@@ -1057,6 +1067,32 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   }
 
   /**
+   * Keeps what a project file holds now, as saved from the window or changed on disk. Returns a function that tells the
+   * windows to open the project again when the change needs it, to call once they've heard of the change itself:
+   * discovery reads the Storybook config folder the main file sets as the project opens, so a change to it is like a
+   * changed dependency (PAR-1085).
+   */
+  function keepDocument(project: Project, path: string, document: CanvasDocument): () => void {
+    const entry = project.info.documents.find((candidate) => candidate.path === path)
+    const storybookBefore = storybookConfigDir(entry?.document)
+
+    if (entry) {
+      entry.document = document
+    } else {
+      project.info.documents.push({ path, document })
+    }
+
+    if (path !== project.info.mainDocument || storybookConfigDir(document) === storybookBefore) {
+      return () => undefined
+    }
+
+    return () => {
+      logNote(`[service] ${project.info.name}'s Storybook config folder changed`)
+      listeners.detectionChanged({ projectId: project.info.id })
+    }
+  }
+
+  /**
    * Watches the project's `.par` files, so edits made outside the canvas (by an agent, git, or a text editor) show up
    * in it. Writes from the canvas itself are recognized by their content and ignored. Its component files are read
    * again when they're added, changed, renamed or deleted, a moment after the last change, and props and the type check
@@ -1113,16 +1149,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       try {
         const document = readDesigns(path, text)
-        const entry = project.info.documents.find((candidate) => candidate.path === path)
-
-        if (entry) {
-          entry.document = document
-        } else {
-          project.info.documents.push({ path, document })
-        }
-
+        const reopen = keepDocument(project, path, document)
         logNote(`[service] ${path} changed on disk`)
         listeners.fileChanged({ projectId: project.info.id, path, document })
+        reopen()
       } catch (error) {
         // Often a file caught mid-write; the next change event brings the rest.
         degraded("design_reload", `${path} changed on disk but can't be read`, error, root)
@@ -1625,8 +1655,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     async saveDocument({ projectId, path, document }) {
       const project = getProject(projectId)
-      const entry = project.info.documents.find((candidate) => candidate.path === path)
-
       const target = documentTarget(project.info.root, path)
 
       if (!target) {
@@ -1646,11 +1674,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         project.known.set(path, text)
       })
 
-      if (entry) {
-        entry.document = parsed
-      } else {
-        project.info.documents.push({ path, document: parsed })
-      }
+      // Asked to open the project again only after this reply, so the window has the file as saved by then.
+      setImmediate(keepDocument(project, path, parsed))
 
       return undefined
     },

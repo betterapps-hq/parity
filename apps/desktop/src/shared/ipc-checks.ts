@@ -85,3 +85,16 @@ export const problemReport = z.strictObject({
 })
 
 export type ProblemReport = z.infer<typeof problemReport>
+
+/**
+ * Commands' keys to write in `keybindings.json` (PAR-1085): each command's entry replaced by these keys, or removed
+ * with `null`. Main doesn't know the commands; the window works out what to write from the keymap.
+ */
+export const keybindingReplacements = z
+  .array(
+    z.strictObject({
+      command: nonBlankString.max(100),
+      keys: z.array(z.string().max(100)).max(20).nullable()
+    })
+  )
+  .max(200)

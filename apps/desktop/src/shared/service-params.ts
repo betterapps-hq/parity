@@ -167,7 +167,7 @@ export const serviceParams = {
   "designs.export": project.extend({
     folder: z.string(),
     designs: z.array(z.string()),
-    scale: finiteNumber.positive()
+    sizes: z.array(exportSize).min(1)
   }),
   "layers.export": project.extend({
     folder: z.string(),

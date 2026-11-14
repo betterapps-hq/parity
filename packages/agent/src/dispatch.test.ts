@@ -777,16 +777,47 @@ function severalFramesHost() {
   return fixture
 }
 
+const png1x = [{ format: "png", scale: 1 }] as const
+
 describe("exportPictures", () => {
-  it("names each picture by its design, with the scale when it isn't 1", async () => {
+  it("names each picture by its design, with the scale when it isn't 1, and crops it to the whole design", async () => {
     const { host, tab } = fixtureHost()
-    const { files } = await exportPictures(host, tab, ["signup"], 2)
-    expect(files).toEqual([{ name: "Sign up@2x.png", png: "iVBOR" }])
+    const { files } = await exportPictures(host, tab, ["signup"], [{ format: "png", scale: 2 }])
+
+    expect(files).toEqual([
+      {
+        name: "Sign up@2x.png",
+        size: { format: "png", scale: 2 },
+        png: "iVBOR",
+        crop: { left: 0, top: 0, width: expect.any(Number), height: 1200 }
+      }
+    ])
+  })
+
+  it("writes each picture at every size, drawing each scale once and a size asked for twice once", async () => {
+    const { host, tab, asked } = fixtureHost()
+
+    const sizes = [
+      { format: "png", scale: 1 },
+      { format: "jpg", scale: 2 },
+      { format: "png", scale: 2 },
+      { format: "jpg", scale: 2 }
+    ] as const
+
+    const { files } = await exportPictures(host, tab, ["signup"], sizes)
+
+    expect(files.map(({ name, crop }) => ({ name, height: crop.height }))).toEqual([
+      { name: "Sign up.png", height: 600 },
+      { name: "Sign up@2x.jpg", height: 1200 },
+      { name: "Sign up@2x.png", height: 1200 }
+    ])
+
+    expect(asked.frames.map((frame) => frame.scale)).toEqual([1, 2])
   })
 
   it("draws every state in each mode shown, naming each picture by its state and mode", async () => {
     const { host, tab, asked } = severalFramesHost()
-    const { files, warnings } = await exportPictures(host, tab, ["signup"], 1)
+    const { files, warnings } = await exportPictures(host, tab, ["signup"], png1x)
 
     expect(files.map((file) => file.name)).toEqual([
       "Sign up Default Desktop Light.png",
@@ -809,7 +840,7 @@ describe("exportPictures", () => {
         ? { ...(await render(snapshot, request)), png: undefined, error: "Boom" }
         : render(snapshot, request)
 
-    const { files, warnings } = await exportPictures(host, tab, ["signup"], 1)
+    const { files, warnings } = await exportPictures(host, tab, ["signup"], png1x)
     // Only one state drew, so the names leave the state out, as for a design with one.
     expect(files.map((file) => file.name)).toEqual(["Sign up Desktop Light.png", "Sign up Mobile Light.png"])
     expect(warnings).toEqual([expect.stringContaining("Boom")])
@@ -817,7 +848,7 @@ describe("exportPictures", () => {
 
   it("fails with the design's coded error when one partway through the list isn't there", async () => {
     const { host, tab, asked } = fixtureHost()
-    const refused = exportPictures(host, tab, ["signup", "checkout"], 1)
+    const refused = exportPictures(host, tab, ["signup", "checkout"], png1x)
     await expect(refused).rejects.toMatchObject({ details: { code: "unknown_design" } })
     expect(asked.frames.map((frame) => frame.design)).toEqual(["app.par#signup"])
   })

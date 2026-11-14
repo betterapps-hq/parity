@@ -225,7 +225,7 @@ since its end-to-end runs sent nine in ten of `parity-desktop`'s spans (PAR-777,
 `@parity-app/telemetry` decides this with the level, as `errorsOnly`. The local copy is written either way. Unit tests
 leave it off.
 
-- **Settings > Privacy > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
+- **Settings > Diagnostics > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
   install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
   `@parity-app/telemetry` finds the folder). Before the app has run, the CLI sends, as install `none`.
 - **`PARITY_TELEMETRY=all` or `off`** decides a run whatever the setting says, and **`DO_NOT_TRACK=1`** turns it off.

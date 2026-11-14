@@ -25,6 +25,7 @@ describe("the project service's params", () => {
     expectTypeOf<ServiceParams["tokens.save"]["changes"][number]>().toEqualTypeOf<TokenWrite>()
     expectTypeOf<ServiceParams["styles.classes"]["declarations"][number]>().toEqualTypeOf<CssDeclaration>()
     expectTypeOf<ServiceParams["layers.export"]["files"][number]["size"]>().toEqualTypeOf<ExportSize>()
+    expectTypeOf<ServiceParams["designs.export"]["sizes"][number]>().toEqualTypeOf<ExportSize>()
     expectTypeOf<NonNullable<ServiceParams["recovery.keep"]["copy"]>>().toEqualTypeOf<RecoveryCopy>()
   })
 })
