@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { type BuilderAdapter, type CodeChange, type ComponentSource, parseCanvasDocument } from "@parity-app/core"
 import type { BuilderProcessSession } from "@parity-app/processes"
-import { reactRenderer } from "@parity-app/renderer-react"
+import { reactRenderer } from "@parity-app/react-adapter"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
@@ -66,7 +66,7 @@ function fakeBuilder() {
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
-    configFiles: ["fake.config.ts"],
+    watches: ["fake.config.ts"],
     detect: async () => {
       await hooks.detecting
 

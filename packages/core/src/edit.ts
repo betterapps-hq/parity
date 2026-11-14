@@ -37,8 +37,13 @@ export interface NodeLocation {
  * layers it fills its component's slots with.
  */
 export function childEntries(node: DesignNode): { slot?: string; nodes: DesignNode[] }[] {
-  if (node.type === "layout") {
+  if (node.type === "layout" || node.type === "route") {
     return [{ nodes: node.children }]
+  }
+
+  // A component's board shows what it draws inside, after the layers passed into it.
+  if (node.type === "component" && node.internals) {
+    return [...Object.entries(node.slots ?? {}).map(([slot, nodes]) => ({ slot, nodes })), { nodes: node.internals }]
   }
 
   if (node.type === "component" || node.type === "instance") {

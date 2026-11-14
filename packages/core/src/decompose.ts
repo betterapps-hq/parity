@@ -330,6 +330,8 @@ function structure(node: DesignNode, inner = false): string {
   switch (node.type) {
     case "layout":
       return JSON.stringify(base)
+    case "route":
+      return JSON.stringify({ ...base, route: node.route })
     case "text":
       return JSON.stringify({ ...base, tag: node.tag ?? null })
     case "image":

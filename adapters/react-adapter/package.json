@@ -1,0 +1,21 @@
+{
+  "name": "@parity-app/react-adapter",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./guest": "./src/guest.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

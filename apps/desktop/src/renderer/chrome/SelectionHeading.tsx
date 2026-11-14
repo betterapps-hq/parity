@@ -1,7 +1,9 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowUpRight, BookOpen, Code } from "lucide-react"
+import { ArrowUpRight, Code, ExternalLink } from "lucide-react"
 import type { ReactNode } from "react"
 import { textFor } from "../canvas/kinds.tsx"
+import type { ComponentOffer } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import type { HeaderAction } from "./layer-kind.ts"
 
@@ -65,30 +67,88 @@ export function SelectionHeading({
 }
 
 const actionLooks: Record<HeaderAction, { label: string; icon: ReactNode }> = {
-  "open-in-storybook": { label: "Open in Storybook", icon: <BookOpen /> },
   "open-in-editor": { label: "Open in editor", icon: <Code /> },
   "go-to-component": { label: "Go to component", icon: <ArrowUpRight /> }
 }
 
-/** What a selection's header does, as icon buttons named by their hints, in the order given. */
+/**
+ * What a selection's header does, as icon buttons named by their hints, in the order given: the editor's own, then the
+ * adapters' actions, each with its adapter's logo, or with an external link for a page's, which opens it outside
+ * Parity, as Open in browser does. One that can't act on the selection stays, faded and focusable, its hint saying why,
+ * as No story found.
+ */
 export function HeaderActions({
-  actions,
-  onAction
+  actions = [],
+  onAction,
+  adapterOffers = [],
+  page = false,
+  onAdapterAction
 }: {
-  actions: readonly HeaderAction[]
-  onAction: (action: HeaderAction) => void
+  actions?: readonly HeaderAction[]
+  onAction?: (action: HeaderAction) => void
+  adapterOffers?: readonly ComponentOffer[]
+  /** The offers are for a page of the app. */
+  page?: boolean
+  onAdapterAction?: (offer: ComponentOffer) => void
 }) {
-  return actions.map((action) => (
-    <Hint key={action} label={actionLooks[action].label}>
+  return [
+    ...actions.map((action) => (
+      <HeaderButton key={action} label={actionLooks[action].label} onClick={() => onAction?.(action)}>
+        {actionLooks[action].icon}
+      </HeaderButton>
+    )),
+    ...adapterOffers.map((offer) => (
+      <HeaderButton
+        key={`${offer.action.adapter}:${offer.action.id}`}
+        label={offer.action.name}
+        unavailable={offer.unavailable}
+        onClick={() => onAdapterAction?.(offer)}
+      >
+        {page ? <ExternalLink /> : <AdapterLogo logo={offer.action.icon} />}
+      </HeaderButton>
+    ))
+  ]
+}
+
+function HeaderButton({
+  label,
+  unavailable,
+  onClick,
+  children
+}: {
+  label: string
+  /** Why it can't act, as its hint; it stays focusable rather than going quietly grey. */
+  unavailable?: string | undefined
+  onClick: () => void
+  children: ReactNode
+}) {
+  if (unavailable !== undefined) {
+    return (
+      <Hint label={unavailable}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-6 shrink-0 text-muted-foreground opacity-50"
+          aria-disabled
+          aria-label={`${label}, unavailable: ${unavailable}`}
+        >
+          {children}
+        </Button>
+      </Hint>
+    )
+  }
+
+  return (
+    <Hint label={label}>
       <Button
         size="icon"
         variant="ghost"
         className="size-6 shrink-0 text-muted-foreground"
-        aria-label={actionLooks[action].label}
-        onClick={() => onAction(action)}
+        aria-label={label}
+        onClick={onClick}
       >
-        {actionLooks[action].icon}
+        {children}
       </Button>
     </Hint>
-  ))
+  )
 }

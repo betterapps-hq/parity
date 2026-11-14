@@ -77,7 +77,8 @@ window.canvasRender = async (job) => {
     const loaded = await loadGuest(job.guestUrl, job.theme)
     showTokenOverrides(loaded.sheet, job.previews ?? [])
     const host = document.createElement("div")
-    host.style.width = `${job.mode.width}px`
+    // A frame narrower than its window lays out across the whole window, as the canvas's does (ModeView.tsx).
+    host.style.width = `${Math.max(job.mode.width, job.mode.viewport.width)}px`
 
     if (job.mode.height !== undefined) {
       host.style.height = `${job.mode.height}px`
@@ -195,7 +196,7 @@ window.canvasRender = async (job) => {
       width: job.mode.width,
       height: job.mode.height ?? frameHeight(origin.height, job.scale),
       nodes,
-      overflowsX: body.scrollWidth > body.clientWidth + 1,
+      overflowsX: job.mode.viewport.width <= job.mode.width && body.scrollWidth > body.clientWidth + 1,
       unknownComponents: [
         ...new Set(renderedComponents(tree).filter((name) => !known.has(name) && !loaded.guest.hasComponent(name)))
       ]

@@ -1,4 +1,6 @@
-import { Blocks, BookOpen, Brush, CircleX, Hammer, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
+import type { AdapterStatusItem } from "@parity-app/core"
+import { Blocks, CircleX, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
+import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 import type { ReactNode } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
@@ -6,14 +8,18 @@ import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
+import { projectAction, runAction } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
 import { usePreferences } from "./preferences.ts"
 import { Processes } from "./Processes.tsx"
-import { openInStorybook } from "./storybook.ts"
 
-/** How the project was understood, with nothing configured by hand. Each count opens the panel that lists it. */
+/**
+ * How the project was understood, with nothing configured by hand: an item for each of the project's tools, as its
+ * adapter tells it, then the components and tokens Parity found. Each count opens what lists it.
+ */
 export function StatusBar() {
   const session = useProject()
   const { info, store, tokens: tokenStore } = session
@@ -21,37 +27,43 @@ export function StatusBar() {
   const semantic = tokens.filter((token) => token.source === "semantic").length
   const { performanceStats } = usePreferences()
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
-  const stories = info.storybook ? Object.keys(info.storybook.stories).length : 0
+
+  // What an adapter's item does: open a left panel tab, or run one of its adapter's actions.
+  const open = (item: AdapterStatusItem) => {
+    const action =
+      item.opens && "action" in item.opens ? projectAction(info, item.adapter, item.opens.action) : undefined
+
+    if (item.opens && "tab" in item.opens) {
+      openTab(item.opens.tab)
+    } else if (action) {
+      void runAction(session.id, action)
+    }
+  }
+
   const themed = tokens.length - semantic
 
   return (
     <footer className="@container/footer flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
-      <Item
-        icon={<Brush className="size-3.5" />}
-        hint={titled(info, info.renderer.id, info.renderer.name)}
-        detail={withStatus(info, info.renderer.id, "Renders the project's components")}
-      >
-        <Words>
-          <strong className="font-medium text-foreground">{info.renderer.name}</strong>
-        </Words>
-      </Item>
-      <Item
-        icon={<Hammer className="size-3.5" />}
-        hint={titled(info, info.builder.id, info.builder.name)}
-        detail={withStatus(info, info.builder.id, `Builds the project, with ${info.detection.packageManager.name}`)}
-      >
-        <Words>
-          <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
-        </Words>
-      </Item>
+      {info.status.map((item) => (
+        <Item
+          key={`${item.adapter}:${item.icon}:${item.hint}`}
+          icon={<ItemIcon item={item} />}
+          hint={item.hint}
+          detail={item.detail}
+          onClick={item.opens && (() => open(item))}
+        >
+          <strong className="font-medium text-foreground">{item.value}</strong>
+          {item.words && <Words>{item.words}</Words>}
+        </Item>
+      ))}
       <Item
         icon={<Blocks className="size-3.5" />}
-        hint={`${plural(info.componentCount, "component")} in code`}
-        detail="Click to show them"
+        hint={plural(info.componentCount, "component")}
+        detail={`${componentOrigins(info)}. Click to show them`}
         onClick={() => openTab("components")}
       >
         <strong className="font-medium text-foreground">{info.componentCount}</strong>
-        <Words> {info.componentCount === 1 ? "component" : "components"} in code</Words>
+        <Words> {noun(info.componentCount, "component")}</Words>
       </Item>
       <Item
         icon={<Palette className="size-3.5" />}
@@ -62,17 +74,6 @@ export function StatusBar() {
         <strong className="font-medium text-foreground">{tokens.length}</strong>
         <Words> tokens</Words>
       </Item>
-      {info.storybook && (
-        <Item
-          icon={<BookOpen className="size-3.5" />}
-          hint={titled(info, "storybook", "Storybook")}
-          detail={`${plural(stories, "component")} with stories. Click to open it`}
-          onClick={() => void openInStorybook(session.id)}
-        >
-          <strong className="font-medium text-foreground">{stories}</strong>
-          <Words> in Storybook</Words>
-        </Item>
-      )}
       <span className="min-w-0 flex-1" />
       <ConsoleStatus projectId={session.id} />
       <SaveFailure store={store} />
@@ -84,26 +85,42 @@ export function StatusBar() {
 
 /*
  * Every item's tooltip has the same shape: a short title, the item's name and version or its count, then one short line
- * saying what it does or what clicking it does. Paths, discovery notes and errors stay out, since they can run long; the
+ * saying what it does or what clicking it does. The project's tools each give their own items, through their adapters
+ * (`StatusItem`); the components and tokens are Parity's own. Paths, discovery notes and errors stay out, since they can run long; the
  * Components panel, a notification or an agent's tools give them.
  */
 
-/** A tool's name with its version, when detection found one. */
-function titled(info: ProjectInfo, id: string, name: string): string {
-  const version = info.detection.tools.find((tool) => tool.id === id)?.version
-
-  return version ? `${name} ${version}` : name
-}
-
-/** A tooltip's line, with a note when the tool's version is one Parity doesn't test. */
-function withStatus(info: ProjectInfo, id: string, line: string): string {
-  const status = info.detection.tools.find((tool) => tool.id === id)?.status
-
-  if (status === "dropped" || status === "newer") {
-    return `${line}. Parity doesn't test this version`
+/**
+ * An adapter's item's icon: the Lucide icon it names, or a plain one for a name Lucide doesn't have, else its adapter's
+ * logo, filled with the text's colour.
+ */
+function ItemIcon({ item }: { item: AdapterStatusItem }) {
+  if (!item.icon && item.logo) {
+    return <AdapterLogo logo={item.logo} className="size-3.5" />
   }
 
-  return line
+  return <DynamicIcon name={iconName(item.icon)} className="size-3.5" />
+}
+
+function iconName(name: string | undefined): IconName {
+  return iconNames.find((each) => each === name) ?? "circle"
+}
+
+/** Where the components come from: how many are the app's own, then how many each library gives, as "120 from the app". */
+function componentOrigins(info: ProjectInfo): string {
+  const counts = new Map<string | undefined, number>()
+
+  for (const source of Object.values(info.sources)) {
+    counts.set(source.library, (counts.get(source.library) ?? 0) + 1)
+  }
+
+  const libraries = info.libraries.flatMap((library) => {
+    const count = counts.get(library.id)
+
+    return count ? [`${count.toLocaleString()} from ${library.name}`] : []
+  })
+
+  return [`${(counts.get(undefined) ?? 0).toLocaleString()} from the app`, ...libraries].join(", ")
 }
 
 function plural(count: number, word: string): string {

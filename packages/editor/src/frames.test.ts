@@ -13,6 +13,7 @@ import {
   draggedBox,
   drawnFrame,
   fittedFrame,
+  fitsDrawn,
   frameOfText,
   framePresets,
   frameRootShown,
@@ -105,6 +106,19 @@ describe("text on the empty canvas", () => {
     expect(fitted?.size).toEqual({ width: 42 })
     expect(fittedFrame(fitted!, 42.2)).toBeUndefined()
     expect(fittedFrame(withFrameSize(design, { width: 200 }), 42)).toBeUndefined()
+  })
+
+  // A story draws in each mode's whole window, so each mode's frame hugs what it draws there.
+  it("fits a screen that hugs its content in the viewport it was drawn in, leaving the others", () => {
+    const { design: frame } = frameOfText("Hi", [], { x: 0, y: 0 })
+    const story: ContainerSpec = { ...frame, kind: "screen", frames: { mobile: { width: 40 } } }
+
+    const fitted = fittedFrame(story, 96.4, "desktop")
+
+    expect(fitted?.frames).toEqual({ mobile: { width: 40 }, desktop: { width: 96 } })
+    expect(fittedFrame(fitted!, 96, "desktop")).toBeUndefined()
+    expect(fitsDrawn(story)).toBe(true)
+    expect(fitsDrawn({ ...story, kind: "screen", root: { type: "layout", id: "root", children: [] } })).toBe(false)
   })
 })
 

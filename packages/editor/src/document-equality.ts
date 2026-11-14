@@ -28,6 +28,14 @@ export function tidyView(
     delete next.order
   }
 
+  if (next.params && Object.keys(next.params).length === 0) {
+    delete next.params
+  }
+
+  if (next.scales && Object.keys(next.scales).length === 0) {
+    delete next.scales
+  }
+
   if (next.variants && Object.keys(next.variants).length === 0) {
     delete next.variants
   }

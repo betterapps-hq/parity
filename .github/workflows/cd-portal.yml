@@ -10,6 +10,7 @@ on:
     paths:
       - "apps/portal/**"
       - "packages/**"
+      - "adapters/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/cd-portal.yml"
   workflow_dispatch:

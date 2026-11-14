@@ -6,6 +6,7 @@ import { expect, userEvent, within } from "storybook/test"
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
+import { projectInfo, roots } from "../stories/host.ts"
 import accordion from "../stories/previews/accordion.png?inline"
 import attachmentGroup from "../stories/previews/attachment-group.png?inline"
 import button from "../stories/previews/button.png?inline"
@@ -23,6 +24,9 @@ import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { formatKeys } from "./keys.ts"
 import { Name } from "./Name.tsx"
+
+/** The example project's Storybook logo, as its adapter offers Open in Storybook with it. */
+const storybookLogo = projectInfo(roots.example).actions.find((action) => action.adapter === "storybook")?.icon
 
 /**
  * A component's card in the Assets panel: its preview, large, with its name, file and what to do with it. It opens
@@ -229,7 +233,7 @@ export const VariantsAndActions: Story = {
           stories={1}
           onInsert={() => undefined}
           onOpenFile={() => undefined}
-          onOpenStorybook={() => undefined}
+          offers={[{ id: "storybook:open", name: "Open in Storybook", logo: storybookLogo, run: () => undefined }]}
         />
       </Surface>
       <Surface label="Variants still being made">

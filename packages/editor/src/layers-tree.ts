@@ -112,11 +112,26 @@ function layerRow<D extends TreeDesign>(
   return { id: layerRowId(design.key, path), depth, design, node, path, within, hasChildren, expanded }
 }
 
+/**
+ * The layers a design's row opens to: its root, or, where `opensTo` names a layer for it, that layer's layers, as a
+ * component's board opens straight to what the component draws, since the board is the component.
+ */
+function designLayers<D extends TreeDesign>(
+  design: D,
+  library: ComponentLibrary,
+  opensTo?: (design: D) => DesignNode | undefined
+): Layer[] {
+  const start = opensTo?.(design)
+
+  return start ? layersInside({ node: start, path: start.id, within: [] }, library) : [rootLayer(design)]
+}
+
 /** Every row that shows, top to bottom: each design, and inside it the layers of every open row, into instances. */
 export function treeRows<D extends TreeDesign>(
   designs: readonly D[],
   expanded: ReadonlySet<string>,
-  library: ComponentLibrary
+  library: ComponentLibrary,
+  opensTo?: (design: D) => DesignNode | undefined
 ): TreeRow<D>[] {
   const rows: TreeRow<D>[] = []
   designs.forEach((design, index) => {
@@ -137,7 +152,8 @@ export function treeRows<D extends TreeDesign>(
       }
     }
 
-    visit(rootLayer(design), 1, 1, 1)
+    const top = designLayers(design, library, opensTo)
+    top.forEach((layer, at) => visit(layer, 1, at + 1, top.length))
   })
 
   return rows
@@ -151,7 +167,8 @@ export function searchRows<D extends TreeDesign>(
   designs: readonly D[],
   search: string,
   label: (design: D, node?: DesignNode) => string,
-  library: ComponentLibrary
+  library: ComponentLibrary,
+  opensTo?: (design: D) => DesignNode | undefined
 ): TreeRow<D>[] {
   const needle = search.trim().toLocaleLowerCase()
   const matches = (design: D, node?: DesignNode) => label(design, node).toLocaleLowerCase().includes(needle)
@@ -172,7 +189,7 @@ export function searchRows<D extends TreeDesign>(
   }
 
   const shown = designs.flatMap((design) => {
-    const inside = found(design, rootLayer(design), 1)
+    const inside = designLayers(design, library, opensTo).flatMap((layer) => found(design, layer, 1))
 
     return inside.length > 0 || matches(design) ? [{ design, inside }] : []
   })

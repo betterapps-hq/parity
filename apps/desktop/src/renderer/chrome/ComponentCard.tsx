@@ -1,6 +1,6 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import type { AdapterIcon } from "@parity-app/core"
 import {
-  BookOpen,
   CircleAlert,
   Component,
   Diamond,
@@ -17,6 +17,7 @@ import { type CSSProperties, type ReactElement, type ReactNode, useState } from 
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import type { useHoverCard } from "./hover-card.ts"
 import { Name } from "./Name.tsx"
@@ -37,6 +38,17 @@ const shownOptions = 5
 export interface CardVariant {
   value: string | number | boolean
   preview: PreviewState | undefined
+}
+
+/** One of the project's adapters' actions for a component, as its card's bar offers it. */
+export interface CardOffer {
+  /** Its adapter and id, to tell it from the rest. */
+  id: string
+  name: string
+  logo?: AdapterIcon
+  /** Why it can't act on this component, as `No story found`; its button stays, faded, its hint saying why. */
+  unavailable?: string | undefined
+  run: () => void
 }
 
 export interface ComponentCardProps {
@@ -64,8 +76,8 @@ export interface ComponentCardProps {
   onInsert?: () => void
   /** Opens its file in the person's editor; none for a component without one. */
   onOpenFile?: () => void
-  /** Opens its stories in Storybook; none for a component without any. */
-  onOpenStorybook?: () => void
+  /** What the project's adapters offer for it, as Open in Storybook on one with stories, each an icon button. */
+  offers?: readonly CardOffer[]
   /** Something else pressing or dragging it does, said last. */
   actions?: ReactNode
 }
@@ -89,7 +101,7 @@ export function ComponentCard({
   stories,
   onInsert,
   onOpenFile,
-  onOpenStorybook,
+  offers = [],
   actions
 }: ComponentCardProps) {
   const [shown, setShown] = useState<CardVariant>()
@@ -108,7 +120,7 @@ export function ComponentCard({
     stories !== undefined && stories > 0 && `${stories} ${stories === 1 ? "story" : "stories"}`
   ].filter(Boolean)
 
-  const bar = onInsert || onOpenFile || onOpenStorybook
+  const bar = onInsert || onOpenFile || offers.length > 0
 
   return (
     <div className="flex flex-col">
@@ -183,18 +195,26 @@ export function ComponentCard({
               </Button>
             </Hint>
           )}
-          {onOpenStorybook && (
-            <Hint label="Open in Storybook">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-7"
-                aria-label="Open in Storybook"
-                onClick={onOpenStorybook}
-              >
-                <BookOpen />
-              </Button>
-            </Hint>
+          {offers.map((offer) =>
+            offer.unavailable === undefined ? (
+              <Hint key={offer.id} label={offer.name}>
+                <Button size="icon" variant="ghost" className="size-7" aria-label={offer.name} onClick={offer.run}>
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            ) : (
+              <Hint key={offer.id} label={offer.unavailable}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 opacity-50"
+                  aria-disabled
+                  aria-label={`${offer.name}, unavailable: ${offer.unavailable}`}
+                >
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            )
           )}
         </div>
       )}

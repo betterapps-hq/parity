@@ -77,7 +77,7 @@ export const Everything: Story = {
         {
           ...base,
           id: `storybook:${roots.example}`,
-          kind: "storybook",
+          kind: "tool",
           lifetime: "server",
           name: "Storybook",
           status: "starting",
@@ -207,7 +207,12 @@ export const SmallProjectWithoutStorybook: Story = {
     async () => {
       await openProjects()
       preferring({ performanceStats: false })
-      await openAlso({ ...projectAt("D:/projects/landing-page"), componentCount: 1, storybook: undefined })
+      await openAlso({
+        ...projectAt("D:/projects/landing-page"),
+        componentCount: 1,
+        storybook: undefined,
+        status: projectAt("D:/projects/landing-page").status.filter((item) => item.adapter !== "storybook")
+      })
       workspace.activate("D:/projects/landing-page")
     }
   ]
@@ -252,7 +257,7 @@ export const ShowsComponents: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    await userEvent.click(statusBar().getByRole("button", { name: /components in code$/ }))
+    await userEvent.click(statusBar().getByRole("button", { name: /components$/ }))
     await expect(await body().findByRole("tab", { name: /Components/, selected: true })).toBeVisible()
   }
 }
@@ -280,11 +285,11 @@ export const OpeningStorybook: Story = {
     async () => {
       await openProjects("example")
       preferring({ performanceStats: false })
-      answering({ "storybook.open": () => never() })
+      answering({ "adapter.run": () => never() })
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
+    await userEvent.click(await body().findByRole("button", { name: /stories$/ }))
     await holdToast("Opening Storybook…")
   }
 }
@@ -299,7 +304,7 @@ export const OpenedStorybook: Story = {
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
+    await userEvent.click(await body().findByRole("button", { name: /stories$/ }))
     await holdToast("Opened in your browser")
   }
 }
@@ -311,14 +316,14 @@ export const StorybookFailed: Story = {
       await openProjects("example")
       preferring({ performanceStats: false })
       answering({
-        "storybook.open": () => {
+        "adapter.run": () => {
           throw new Error("storybook dev exited with code 1: Port 6006 is in use by another program")
         }
       })
     }
   ],
   play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
+    await userEvent.click(await body().findByRole("button", { name: /stories$/ }))
     await holdToast("Couldn't open Storybook")
   }
 }

@@ -66,7 +66,7 @@ expression forms.
 render.ts gives each element a `style` object today, which can't hold a state's pseudo-class, `::placeholder` or
 `::selection`, `@starting-style`, a `@container` query or a `group-hover:` rule. Each frame draws each layer with the
 classes Parity will write for it, compiled by the project's own Tailwind (the design system
-`@parity-app/styles-tailwind` already loads through `@tailwindcss/node`) into the shadow root's stylesheet, in
+`@parity-app/tailwind-adapter` already loads through `@tailwindcss/node`) into the shadow root's stylesheet, in
 Tailwind's own layers. So the frame has the code's cascade: `hover:` inside `@media (hover: hover)`, a typography
 preset's `--tw-leading`, `group-hover:`, `divide-y`'s child selector, a component's own classes against the layer's, and
 `!`. A project without Tailwind gets one rule set per layer, keyed by its node id (`[data-node="…"]`), in

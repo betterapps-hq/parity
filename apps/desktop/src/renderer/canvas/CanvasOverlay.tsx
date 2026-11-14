@@ -370,7 +370,7 @@ export function CanvasOverlay() {
           style={{
             left: model.frameSize.box.x + model.frameSize.box.w / 2,
             top: model.frameSize.box.y + model.frameSize.box.h + 6,
-            ...chipColors.layer
+            ...chipFor(model.frameSize.color)
           }}
         >
           {model.frameSize.size}

@@ -16,13 +16,15 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardRoot,
+  besideScale,
+  besideScales,
   changeCount,
-  companionScale,
   type ComponentLibrary,
   type ContainerKind,
   designStates,
+  fitsContent,
+  type FrameGeometry,
   frameGeometry,
-  frameSize,
   type ParamSpec,
   resolveDesign,
   type ResolvedMode,
@@ -33,13 +35,18 @@ import {
   activeState,
   type BoardBox,
   fittedFrame,
+  fitsDrawn,
   hugsContent,
   kindName,
   kindTitle,
+  pageFrameName,
+  landedElsewhere,
+  pageHeightMessage,
+  pageLandedMessage,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
-import { ChevronDown, Rows3 } from "lucide-react"
+import { ChevronDown, Rows3, TriangleAlert } from "lucide-react"
 import {
   type CSSProperties,
   memo,
@@ -67,7 +74,10 @@ import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
+import { useStore } from "../store.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
+import { useBoardInternals } from "./board-internals.ts"
+import { boardFile, componentBoardsFile } from "./component-boards.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
@@ -81,6 +91,8 @@ import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
+import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
+import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
@@ -122,14 +134,15 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
   const state = designStates(container)[0]!
   useFitToContent(board, entry)
+  useBoardInternals(board, entry)
 
   const titleBar = (
-    // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
-    <TitleBar active={hovered || isSelected} width={undefined} quiet>
+    // Its name runs past a narrow frame, out to the next design beside it, rather than being cut off at the frame's edge.
+    <TitleBar active={hovered || isSelected} width={title?.width} board={title} quiet>
       <TitleButton
         entry={entry}
         selected={isSelected}
-        color={isSelected ? designColor(container.kind) : undefined}
+        color={isSelected ? designColor(container.kind, entry.key) : undefined}
         quiet
         onPointerDown={onTitlePointerDown}
       />
@@ -176,63 +189,123 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
  */
 function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: ContainerEntry): void {
   const { store } = useProject()
-  const hugs = hugsContent(entry.container)
+  const hugs = fitsDrawn(entry.container)
+  const perMode = fitsContent(entry.container)
   const { key } = entry
   useEffect(() => {
-    const host = board.current?.querySelector<HTMLElement>("[data-frame]")
+    const container = board.current
 
-    if (!hugs || !host) {
+    if (!hugs || !container) {
       return undefined
     }
 
-    const rootElement = () => {
-      const current = store.getEntry(key)?.container
+    // A board far from view is a picture, so its frames come and go: each time one is drawn live, it's measured. A
+    // screen that fits its content, as a story, is measured in each mode's frame, which it fits apart.
+    const attached = new Map<HTMLElement, () => void>()
 
-      return current && findNodeElement(host, current.root.id)
-    }
+    const attach = () => {
+      const hosts = new Set(container.querySelectorAll<HTMLElement>("[data-frame]"))
 
-    const fit = () => {
-      const width = contentWidth(rootElement())
-      const current = store.getEntry(key)?.container
-
-      if (!width || !current || !fittedFrame(current, width)) {
-        return
+      for (const [host, detach] of attached) {
+        if (!hosts.has(host)) {
+          detach()
+          attached.delete(host)
+        }
       }
 
-      store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, { history: false })
-    }
-
-    const observer = new ResizeObserver(fit)
-    let watched: Element | undefined
-
-    const watch = () => {
-      const root = rootElement()
-
-      if (root === watched) {
-        return
-      }
-
-      observer.disconnect()
-      watched = root
-
-      if (root) {
-        observer.observe(root)
+      for (const host of hosts) {
+        if (!attached.has(host) && (perMode || attached.size === 0)) {
+          attached.set(host, fitFrame(host))
+        }
       }
     }
 
-    // The design is drawn into the frame once it's mounted, and its root element can be drawn again as it changes.
-    const stopDrawn = watchFrame(host, () => {
+    const fitFrame = (host: HTMLElement) => {
+      const rootElement = () => {
+        const current = store.getEntry(key)?.container
+
+        return current && findNodeElement(host, current.root.id)
+      }
+
+      const { viewport } = host.dataset
+
+      const fit = () => {
+        const width = contentWidth(rootElement())
+        const current = store.getEntry(key)?.container
+
+        if (!width || !current || !fittedFrame(current, width, viewport)) {
+          return
+        }
+
+        // A component's board and a story are drawn from the project's code each time, so the width they're drawn at
+        // isn't to be saved.
+        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width, viewport) ?? design, {
+          history: false,
+          persist: !key.startsWith(`${componentBoardsFile}#`) && !key.startsWith(`${storyScreensFile}#`)
+        })
+      }
+
+      const observer = new ResizeObserver(fit)
+      let watched: Element | undefined
+
+      const watch = () => {
+        const root = rootElement()
+
+        if (root === watched) {
+          return
+        }
+
+        observer.disconnect()
+        watched = root
+
+        if (root) {
+          observer.observe(root)
+        }
+      }
+
+      // The design is drawn into the frame once it's mounted, and its root element can be drawn again as it changes.
+      const stopDrawn = watchFrame(host, () => {
+        watch()
+        fit()
+      })
+
       watch()
-      fit()
-    })
 
-    watch()
+      // A design drawn afresh from code, as a board whose part found the parents it needs, starts without its width, though
+      // its root may be drawn as wide as before, so nothing above notices: it's measured once it's drawn.
+      let last = store.getEntry(key)?.container
+
+      const stopChanges = store.subscribe(() => {
+        const current = store.getEntry(key)?.container
+
+        if (current !== last) {
+          last = current
+          requestAnimationFrame(() => {
+            watch()
+            fit()
+          })
+        }
+      })
+
+      return () => {
+        stopDrawn()
+        stopChanges()
+        observer.disconnect()
+      }
+    }
+
+    const frames = new MutationObserver(attach)
+    frames.observe(container, { childList: true, subtree: true })
+    attach()
 
     return () => {
-      stopDrawn()
-      observer.disconnect()
+      frames.disconnect()
+
+      for (const detach of attached.values()) {
+        detach()
+      }
     }
-  }, [board, hugs, key, store])
+  }, [board, hugs, perMode, key, store])
 }
 
 /**
@@ -272,7 +345,11 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   useGutterStyle(board, "board")
+  // A screen that fits its content, as a story, is fitted in each mode's frame.
+  useFitToContent(board, entry)
   const { id: project, store, loaded, selection } = useProject()
+  // Where a page landed instead of its own path, as its frames say.
+  const landed = useStore(pageLandings).get(entry.key)
   // Whether its frames changed since they were first looked at, marked on the board for tools to read (PAR-997).
   const change = useDesignChange(project, entry.key)
   const settings = useModeSettings(store)
@@ -286,7 +363,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const states = designStates(container)
   const rows = allStates ? states : [active]
   const columns = [primary, ...companions]
-  const color = designColor(container.kind)
+  const color = designColor(container.kind, entry.key)
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
 
@@ -382,7 +459,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                 state={state}
                 mode={mode}
                 primary={column === 0}
-                scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
+                scale={column === 0 ? 1 : besideScale(container, mode)}
                 caption={index === 0}
                 tabbable={isSelected}
                 selected={selectedMode === mode.id}
@@ -395,6 +472,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
           </StateRow>
         ))}
       </div>
+      {landed !== undefined && <LandedElsewhere path={landed} width={width} />}
     </div>
   )
 }
@@ -587,6 +665,12 @@ function TitleButton({
   const used = useUsed()
   const [renaming, setRenaming] = useState(false)
   const { container } = entry
+  // A page of the app shows its route under its name (PAR-1076).
+  const path = routePagePath(session.id, container.id)
+  // A component's board shows the component's icon. Its file isn't shown: the name is how it's found.
+  const file = boardFile(session.id, container.id)
+  const kind = file === undefined ? container.kind : "component"
+  const under = path
 
   // Edit > Rename, or F2, with the design selected.
   const renameRequest = useRenameRequest(session.selection)
@@ -602,9 +686,11 @@ function TitleButton({
 
   const icon = (
     <DesignIcon
-      kind={container.kind}
+      kind={kind}
+      route={path !== undefined}
+      story={entry.path === storyScreensFile}
       className={`shrink-0 ${quiet ? "size-3.5" : "size-4"}`}
-      style={{ color: color ?? (quiet ? undefined : designColor(container.kind)) }}
+      style={{ color: color ?? (quiet && file === undefined ? undefined : designColor(kind)) }}
     />
   )
 
@@ -653,11 +739,22 @@ function TitleButton({
       }}
       className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
         quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
+      } ${
+        // A page's title is on the canvas's own color, so the line from the page above passes behind it (see
+        // `pageLinkLine`).
+        path === undefined ? "" : "bg-(--tl-color-background)"
       }`}
       style={color ? { color } : undefined}
     >
       {icon}
-      <Name>{container.name}</Name>
+      {under === undefined ? (
+        <Name>{container.name}</Name>
+      ) : (
+        <span className="flex min-w-0 flex-col items-start leading-tight">
+          <Name>{container.name}</Name>
+          <span className="max-w-full truncate text-xs font-normal text-muted-foreground">{under}</span>
+        </span>
+      )}
     </button>
   )
 
@@ -889,6 +986,75 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
  * `labelLook`): at screen size up close, as wide on screen as the frame, and fading out when zoomed far out, or once the
  * frame is too narrow on screen. The band shrinks with it past 40%.
  */
+/**
+ * How large a frame beside the main one is drawn, as a menu on its caption: one of `besideScales`, or Fit, which shrinks
+ * it to fit beside the main frame. It's how the canvas shows the design, so it isn't undone.
+ */
+function ScaleMenu({
+  entry,
+  mode,
+  scale,
+  tabbable
+}: {
+  entry: ContainerEntry
+  mode: ResolvedMode
+  scale: number
+  tabbable: boolean
+}) {
+  const { store } = useProject()
+  const set = entry.container.view?.scales?.[mode.id]
+  const fit = "fit"
+
+  // Undefined fits it beside the main frame.
+  const choose = (chosen: number | undefined) =>
+    store.updateView(
+      entry.key,
+      `Show ${mode.name} ${chosen === undefined ? "fitted" : `at ${chosen * 100}%`}`,
+      (view) => {
+        const scales = { ...view.scales }
+
+        if (chosen === undefined) {
+          delete scales[mode.id]
+        } else {
+          scales[mode.id] = chosen
+        }
+
+        return { ...view, scales }
+      }
+    )
+
+  // Its menu's clicks reach the canvas through the caption too, which would take them, so they stop here.
+  return (
+    <span className="contents" data-canvas-control onPointerDown={stopEventPropagation}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          tabIndex={tabbable ? 0 : -1}
+          aria-label={`${mode.name} size: ${Math.round(scale * 100)}%`}
+          className="pointer-events-auto flex shrink-0 items-center gap-0.5 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums hover:text-foreground"
+        >
+          {Math.round(scale * 100)}%
+          <ChevronDown className="size-3 opacity-60" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-32">
+          <DropdownMenuRadioGroup
+            value={set === undefined ? fit : String(set)}
+            onValueChange={(value: string) => choose(value === fit ? undefined : Number(value))}
+          >
+            <DropdownMenuRadioItem value={fit} closeOnClick>
+              Fit
+            </DropdownMenuRadioItem>
+            {besideScales.map((each) => (
+              <DropdownMenuRadioItem key={each} value={String(each)} closeOnClick>
+                {each * 100}%
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
+  )
+}
+
 function FrameCaption({ width, children }: { width: number; children: ReactNode }) {
   const band = useRef<HTMLElement>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -1032,13 +1198,21 @@ const FrameTile = memo(function FrameTile({
     return firstFrame.offer(shownBitmap.current, "bitmap")
   }, [showing, firstFrame])
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
+
+  // A frame that hugs its content and hasn't been measured yet, as a component's board or a story drawn from the code
+  // each time, is drawn once whatever the zoom, so it's fitted to what it draws (`useFitToContent`) rather than shown,
+  // and captured, as wide as its window until someone comes close.
+  const unmeasured = fitsContent(container)
+    ? container.frames?.[mode.viewport]?.width === undefined
+    : hugsContent(container) && container.size?.width === undefined
+
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
   // and its new bitmap is taken, so it doesn't sleep on it.
-  const awake = useAwake(shown && !kept.stale && !interactive, rest, key, view)
+  const awake = useAwake(shown && !kept.stale && !interactive && !unmeasured, rest, key, view)
   // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
   // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
   // frame's own height or, for one that grows with its content, its window's (PAR-525).
-  const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive })
+  const waiting = useFirstDrawWaits(rest, { bitmap: kept, awake, interactive: interactive || unmeasured })
   const skeleton = useFrameSkeleton(key, tile, frame.width, !bitmap && awake && !waiting)
   useEffect(() => {
     holding.current = waiting
@@ -1046,6 +1220,8 @@ const FrameTile = memo(function FrameTile({
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
+  // A page of the app draws the app itself at its URL, rather than a design (PAR-1076).
+  const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
   const tileStyle: CSSProperties = {}
 
   if (selected) {
@@ -1079,11 +1255,7 @@ const FrameTile = memo(function FrameTile({
             {frame.width}
             {frame.height !== undefined && ` × ${frame.height}`}
           </span>
-          {scale < 1 && (
-            <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-              {Math.round(scale * 100)}%
-            </span>
-          )}
+          {!primary && <ScaleMenu entry={entry} mode={mode} scale={scale} tabbable={tabbable} />}
         </FrameCaption>
       )}
       <div
@@ -1095,26 +1267,133 @@ const FrameTile = memo(function FrameTile({
         data-measured={height === undefined ? undefined : ""}
         data-asleep={awake && !waiting ? undefined : ""}
       >
-        <ModeView
-          project={session.id}
-          loaded={loaded}
-          tree={tree}
-          mode={mode}
-          frame={frame}
-          scale={scale}
-          design={entry.key}
-          state={state.id}
-          primary={primary}
-          interactions={interactions}
-          interactive={interactive}
-          asleep={!awake || waiting}
-          shows={shows.drawn}
-          {...(firstFrame ? { onDrawn: drawnLive } : {})}
-        />
-        {skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
-        {placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
-        {showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
+        {page ? (
+          <PageFrame url={page} design={entry.key} frame={frame} mode={mode} scale={scale} interactive={interactive} />
+        ) : (
+          <ModeView
+            project={session.id}
+            loaded={loaded}
+            tree={tree}
+            mode={mode}
+            frame={frame}
+            scale={scale}
+            design={entry.key}
+            state={state.id}
+            primary={primary}
+            interactions={interactions}
+            interactive={interactive}
+            asleep={!awake || waiting}
+            shows={shows.drawn}
+            {...(firstFrame ? { onDrawn: drawnLive } : {})}
+          />
+        )}
+        {!page && skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
+        {!page && placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
+        {!page && showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
       </div>
     </figure>
   )
 })
+
+/**
+ * A page of the app in a screen's frame (PAR-1076): the app's own entry at the page's URL, in a document of its own, so
+ * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
+ * selects over it. It's as tall as the page says it is (see `pageHeightMessage`), and never shorter than the frame's
+ * window, unless the frame has been given a height, which it then clips to. When the page lands somewhere other than its
+ * own path, as a route that redirects sends it (see `pageLandedMessage`), it notes where for its board and Layers.
+ */
+function PageFrame({
+  url,
+  design,
+  frame,
+  mode,
+  scale,
+  interactive
+}: {
+  url: string
+  /** The page's design, by key, which Layers notes where it landed under. */
+  design: string
+  frame: FrameGeometry
+  mode: ResolvedMode
+  scale: number
+  /** With the Interact tool, the page takes the pointer and keys, as a design does; otherwise the canvas has them. */
+  interactive: boolean
+}) {
+  // The app's own page reads its mode from the frame's name, so a frame in another mode is another page.
+  const name = pageFrameName(mode)
+  const page = useRef<HTMLIFrameElement>(null)
+  // How tall the page says it is, for the page it was said for, so another page starts from the window again.
+  const [told, setTold] = useState<{ page: string; height: number }>()
+  // Where the page last said it is, for the page it was said for.
+  const [landed, setLanded] = useState<{ page: string; path: string }>()
+  useEffect(() => {
+    const heard = (event: MessageEvent) => {
+      if (event.source === null || event.source !== page.current?.contentWindow) {
+        return
+      }
+
+      const said = pageHeightMessage.safeParse(event.data)
+
+      if (said.success) {
+        setTold({ page: `${name} ${url}`, height: said.data })
+      }
+
+      const went = pageLandedMessage.safeParse(event.data)
+
+      if (went.success) {
+        setLanded({ page: `${name} ${url}`, path: went.data })
+      }
+    }
+
+    window.addEventListener("message", heard)
+
+    return () => window.removeEventListener("message", heard)
+  }, [name, url])
+  const content = told?.page === `${name} ${url}` ? told.height : 0
+  const height = frame.height ?? Math.max(frame.viewport.height, content)
+  const elsewhere = landed?.page === `${name} ${url}` ? landedElsewhere(url, landed.path) : undefined
+  const heardLanding = landed?.page === `${name} ${url}`
+
+  // Layers says where the page landed too, once a frame has said.
+  useEffect(() => {
+    if (heardLanding) {
+      setPageLanding(design, elsewhere)
+    }
+  }, [design, elsewhere, heardLanding])
+
+  return (
+    <>
+      <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
+        <iframe
+          ref={page}
+          key={name}
+          name={name}
+          title={url}
+          src={url}
+          className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
+          style={{ width: frame.width, height, transform: `scale(${scale})` }}
+        />
+      </div>
+    </>
+  )
+}
+
+/**
+ * Where a page landed instead of its own path, under its board, lined up with its left edge, sized for the zoom as a
+ * frame's caption is, and the same few screen pixels below at any zoom: a warning, since the page drawn isn't the
+ * route's own.
+ */
+function LandedElsewhere({ path, width }: { path: string; width: number | undefined }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useCanvasLabel(ref, "detail", width === undefined ? {} : { width })
+
+  return (
+    // The gap is padding inside the scaled element, so it scales with the warning rather than the canvas.
+    <div ref={ref} className="pointer-events-none absolute top-full left-0 origin-top-left pt-2">
+      <div className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm whitespace-nowrap text-amber-700 dark:text-amber-400">
+        <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+        Lands on {path}
+      </div>
+    </div>
+  )
+}

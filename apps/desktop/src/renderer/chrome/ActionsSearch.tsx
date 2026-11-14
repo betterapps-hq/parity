@@ -9,16 +9,16 @@ import {
   CommandShortcut,
   Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
-import { walkNodes } from "@parity-app/core"
+import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { resetWithWindow } from "../store.ts"
 import {
-  type ProjectDesigns,
   type ProjectSession,
   useActiveTabId,
   useHomeActive,
@@ -27,6 +27,8 @@ import {
   workspace
 } from "../workspace.ts"
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
+import { runAction, selectionComponent } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap, shortcutOf } from "./keymap.ts"
@@ -203,9 +205,7 @@ function commandItems(): Item[] {
 }
 
 /** The open project's designs, their layers, the components it can insert and its tokens. */
-function projectItems(
-  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">
-): Item[] {
+function projectItems(session: ProjectSession): Item[] {
   const entries = session.store.getEntries()
   const library = session.store.getComponentLibrary()
   const items: Item[] = []
@@ -224,28 +224,47 @@ function projectItems(
     })
   }
 
-  for (const entry of entries) {
-    walkNodes(entry.container.root, (node, depth) => {
-      if (depth === 0) {
-        return
-      }
+  // Every design's layers, from the project's nodes, depth first under each design's root.
+  const nodes = projectNodes(session, { fresh: true })
 
-      items.push({
-        id: `layer:${entry.key}/${node.id}`,
-        group: "Layers",
-        label: layerLabel(node, entries, library, session.info.libraries),
-        keywords: entry.container.name,
-        detail: entry.container.name,
-        searchOnly: true,
-        // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
-        icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
-        run: () => {
-          session.selection.set(layersSelection(entry.key, [node.id]))
-          // The layer's frame lays out first, then it's scrolled into view.
-          requestAnimationFrame(() => revealSelection(session))
+  for (const design of nodes.ofType("design", { owner: designOwner })) {
+    const entry = session.store.getEntry(design.ref.key)
+
+    if (!entry) {
+      continue
+    }
+
+    const visit = (ref: NodeRef) => {
+      for (const child of nodes.children(ref)) {
+        const id = child.ref.key.slice(entry.key.length + 1)
+        const node = locateNode(entry.container.root, id)?.node
+
+        if (node) {
+          items.push({
+            id: `layer:${entry.key}/${node.id}`,
+            group: "Layers",
+            label: layerLabel(node, entries, library, session.info.libraries),
+            keywords: entry.container.name,
+            detail: entry.container.name,
+            searchOnly: true,
+            // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
+            icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
+            run: () => {
+              session.selection.set(layersSelection(entry.key, [node.id]))
+              // The layer's frame lays out first, then it's scrolled into view.
+              requestAnimationFrame(() => revealSelection(session))
+            }
+          })
         }
-      })
-    })
+
+        visit(child.ref)
+      }
+    }
+
+    // The root is the design itself, so its layers start below it.
+    for (const root of nodes.children(design.ref)) {
+      visit(root.ref)
+    }
   }
 
   const offer = offerOf(session.info, entries)
@@ -290,15 +309,37 @@ function projectItems(
   return items
 }
 
+/**
+ * What the project's adapters can do, under Object: each for the selected component when it's offered for it, as Open
+ * in Storybook on a component with stories, with the component's name beside it; greyed with why on a selected
+ * component it isn't for, as No story found; and for the whole project with no component selected, as opening
+ * Storybook's home.
+ */
+function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" | "store">): Item[] {
+  const component = selectionComponent(session)
+
+  return session.info.actions.map((action) => {
+    const offered = component !== undefined && action.components?.includes(component) ? component : undefined
+    const unavailable = component !== undefined && !offered && action.components ? action.unavailable : undefined
+
+    return {
+      id: `adapter:${action.adapter}:${action.id}`,
+      group: "Object",
+      label: action.name,
+      detail: unavailable ?? offered,
+      icon: <AdapterLogo logo={action.icon} />,
+      available: () => unavailable === undefined,
+      run: () => void runAction(session.id, action, offered)
+    }
+  })
+}
+
 /** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
-function gatherItems(
-  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">) | undefined,
-  projects: readonly { root: string; name: string }[]
-): Item[] {
+function gatherItems(session: ProjectSession | undefined, projects: readonly { root: string; name: string }[]): Item[] {
   return [
     ...commandItems(),
     ...extras,
-    ...(session ? projectItems(session) : []),
+    ...(session ? [...adapterItems(session), ...projectItems(session)] : []),
     ...projects.map((project): Item => ({
       id: `project:${project.root}`,
       group: "Projects",

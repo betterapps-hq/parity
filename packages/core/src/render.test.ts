@@ -4,6 +4,7 @@ import { defaultModeSettings, resolveModes } from "./modes.ts"
 import {
   applyPatch,
   componentLibrary,
+  fitsContent,
   frameGeometry,
   frameSize,
   frameViewport,
@@ -840,6 +841,36 @@ describe("sizing", () => {
     expect(frameGeometry(grows!, mode!)).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
     // A fixed height clips the frame, and is its window's height too.
     expect(frameGeometry(fixed!, mode!)).toEqual({ width: 1280, height: 600, viewport: { width: 1280, height: 600 } })
+  })
+
+  // A story's board: each mode's frame hugs the story, which responds to the whole window, as Storybook draws it.
+  it("draws a screen that fits its content as wide as it was measured, in the mode's whole window", () => {
+    const [desktop] = resolveModes(defaultModeSettings)
+
+    const [story] = parseCanvasDocument({
+      version: 4,
+      containers: [
+        {
+          id: "badge",
+          name: "Badge",
+          kind: "screen",
+          position: { x: 0, y: 0 },
+          root: { type: "layout", id: "root", style: { width: { size: "hug" } }, children: [] },
+          frames: { [desktop!.viewport]: { width: 96 } }
+        }
+      ]
+    }).containers
+
+    expect(fitsContent(story!)).toBe(true)
+    expect(frameGeometry(story!, desktop!)).toEqual({ width: 96, viewport: { width: 1280, height: 800 } })
+    // Before it's measured, it's as wide as its window.
+    expect(frameGeometry({ ...story!, frames: {} }, desktop!)).toEqual({
+      width: 1280,
+      viewport: { width: 1280, height: 800 }
+    })
+    // A frame hugs its content at its own size instead, and a screen that fills its window doesn't fit its content.
+    expect(fitsContent({ ...story!, kind: "frame" })).toBe(false)
+    expect(fitsContent({ ...story!, root: { type: "layout", id: "root", children: [] } })).toBe(false)
   })
 })
 

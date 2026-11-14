@@ -131,7 +131,7 @@ to pass on to its DOM.
   change. A layer of it with no style, and a component that puts its style on its root, are drawn as they are. The guest
   keeps what it found for every frame, until the component comes from another file.
 
-Code: the walk is `packages/renderer-react/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
+Code: the walk is `adapters/react-adapter/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
 props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
 inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
 lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
@@ -144,7 +144,7 @@ Whether a component takes `style` is read in `packages/code/src/props.ts` (`take
 
 Tests:
 
-- `packages/renderer-react/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
+- `adapters/react-adapter/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
   ignores its props, a fragment, a field around an input, nested layers, a provider, a component that draws nothing,
   portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one; and text drawn outside an
   element (PAR-201): a component that draws only text, one that draws text beside an element, text inside an element
@@ -704,9 +704,9 @@ the tree longer and every later change slower.
 - **Collapse all,** beside the search, closes every row. There's no Expand all, which on a large project would open
   thousands of rows. Instead, Alt+click on a row's arrow opens or closes it with everything inside it, as in Finder, and
   `*` on a row opens it and every row beside it in its group, as in any tree.
-- **Headings and states say what they count, or nothing.** The Components, Screens and Frames headings have no count,
-  which nobody needed. A design with more than one state says how many in words ("11 states"); one with a single state
-  says nothing.
+- **Headings and states say what they count, or nothing.** The Routes, Screens and Frames headings have no count, which
+  nobody needed. A design with more than one state says how many in words ("11 states"); one with a single state says
+  nothing.
 - **Each layer has an eye** that hides it in the state its board shows, or shows it again, as one undo step, without
   selecting it. It shows while the layer is hovered, in the panel or on the canvas, and stays on a hidden layer, crossed
   out. It's named Hide or Show, without the state, as the row menu's Hide is. The page can't be hidden, so it has none.
@@ -894,15 +894,17 @@ press taking 31ms and the frame after it 18ms.
 
 ### A component's stories and code from its menu (PAR-527)
 
-Right-clicking a component in the Components panel opens its menu: **View in Storybook**, then **View code**, which
-opens the component's file in the person's editor at the line of its export. Each is greyed with why when it can't act,
-rather than left out, so the menu is the same for every component: View in Storybook says "No stories" for one without
-any, and View code "Not in the project" for a library component without type declarations, whose declarations are
-otherwise its code. With stories, View in Storybook stays enabled while Storybook isn't running and says "Starts
-Storybook": choosing it starts the project's Storybook, reusing one already serving it, and opens the component's docs
-or first story once it's up, as the row's book button does. Whether it's running is the service's process list, which
-the status bar polls. A project without a Storybook has no View in Storybook. A library's component design offers Insert
-linked instance and Insert detached copy after them.
+Right-clicking a component in the Components panel opens its menu: what the project's adapters offer for components, as
+**Open in Storybook**, each with its adapter's logo, then **View code**, which opens the component's file in the
+person's editor at the line of its export. Each is greyed with why when it can't act, rather than left out, so the menu
+is the same for every component: Open in Storybook says "No story found" for one without any (the action's
+`unavailable`), and View code "Not in the project" for a library component without type declarations, whose declarations
+are otherwise its code. With stories, Open in Storybook stays enabled while Storybook isn't running and says "Starts
+Storybook" (the action's `starts`): choosing it starts the project's Storybook, reusing one already serving it, and
+opens the component's docs or first story once it's up, as the row's Storybook button does. Whether it's running is the
+service's process list, which the status bar polls, by the tool's process id (`storybook:<project>`). A project without
+a Storybook has no Open in Storybook. A library's component design offers Insert linked instance and Insert detached
+copy after them.
 
 Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
 and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
@@ -953,7 +955,7 @@ The inspector's Code tab, which listed a component layer's elements with their l
 Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code/Code panel`
 stories, beside the window, reading the example's files from Storybook's copy.
 
-- **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
+- **Where the lines come from:** the project's development server. vite-adapter's guest plugin gives each lowercase JSX
   element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
   file from the project root, then the line and column of its `<`. It runs before the framework plugin compiles the
   file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
@@ -969,7 +971,7 @@ stories, beside the window, reading the example's files from Storybook's copy.
 
 Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
 `formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
-plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
+plugin's transform, in `adapters/vite-adapter/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
 `renderer/canvas/element-sources.ts`; the menu's `open-source` entry in `chrome/canvas-menu.ts`, drawn by
 `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in `main/code-editor.ts`'s `openInEditor`
 and its check in `shared/ipc-checks.ts`. For agents: `componentsReport` in `packages/agent/src/dispatch.ts`,
@@ -980,7 +982,7 @@ Tests: `packages/code/src/element-sources.test.ts` (6: each element written for 
 a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
 tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps back to the file; and which files it's
 for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
-in it, and anything else reads as none). `packages/builder-vite/src/index.test.ts` (4: the project's own JSX tagged and
+in it, and anything else reads as none). `adapters/vite-adapter/src/index.test.ts` (4: the project's own JSX tagged and
 named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
 modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
@@ -1924,10 +1926,10 @@ empty space on the canvas makes a frame there (PAR-545; see Frames, below).
   the canvas was right-clicked and select it, leaving the view where it is. With no screen, component or note on the
   canvas, Select all and Zoom to fit are unavailable. Over a design the menu is as it was. It's as wide as its longest
   item, so New component and its keys stay on one line.
-- **Layers' + always shows** beside Components and Screens, with its name and keys in the tooltip. Since PAR-187 the
-  headings have no count. An empty group's row is a button that makes the first one: "No screens yet. New screen", the
-  action in the kind's color. Enter or Space on either makes one, rather than renaming the selected row as Enter in the
-  tree does.
+- **Layers' + always shows** beside Screens and Frames, with its name and keys in the tooltip; Routes has none, as
+  they're read from the app's code. Since PAR-187 the headings have no count. An empty group's row is a button that
+  makes the first one: "No screens yet. New screen", the action in the kind's color. Enter or Space on either makes one,
+  rather than renaming the selected row as Enter in the tree does.
 - **The inspector with nothing selected** asks for "a screen, component or frame on the canvas or in Layers", whatever
   is on the canvas.
 - **What lands on empty space on the canvas makes a frame there,** by one rule. Its top left is where it landed, it
@@ -2032,7 +2034,7 @@ mode, with one state, and isn't written to code.
   what goes (states after the first, previews beside the main one, params, and each design's instances, which become
   plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
   instances in the same step.
-- **Layers lists Frames** after Components and Screens once there are any; its + picks the frame tool.
+- **Layers lists Frames** after Routes and Screens once there are any; its + picks the frame tool.
 
 Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameName`, `snapToEdges`, `draggedBox`,
 `framePresets`, `frameOfText`, `textFrameRenamed`, `hugsContent`, `fittedFrame`, `withFrameSize`, `frameRootShown` and
@@ -2942,7 +2944,7 @@ image's is.
   the project first (connectors.md). `Update` takes `src`, `alt` and `credit` on a video, as on an image.
 
 Code: the node in `packages/core/src/document.ts` (`VideoNode`); `videoAttributes` and the `video` case in
-`packages/core/src/render.ts`; `attributesFor` in `packages/renderer-react/src/guest.ts`, which turns its flags into
+`packages/core/src/render.ts`; `attributesFor` in `adapters/react-adapter/src/guest.ts`, which turns its flags into
 React's props; the inspector's `MediaSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`; `NodeIcon` in
 `canvas/kinds.tsx` and `layerKind` in `chrome/layer-kind.ts`; placing in `packages/agent/src/dispatch.ts`
 (`placeTarget`, `savedIfFleeting`).
@@ -2951,7 +2953,7 @@ Tests:
 
 - `packages/core/src/render.test.ts`: a video drawn as a `<video>` that plays by itself without sound, and one with
   controls that waits.
-- `packages/renderer-react/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
+- `adapters/react-adapter/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
@@ -3815,12 +3817,12 @@ Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen S
 
 ### What's selected, above its name (PAR-723)
 
-The Design tab starts with what's selected: its kind's icon on a tile in the kind's tint, its name beside it, to rename
-it, and under the name its kind in the kind's color. What it does sits at the end of the row. The kind is a word or two
-that never repeats the name: Screen, Component or Frame for a design; Text, Image, Video, Horizontal layout, Vertical
-layout, Grid layout, Slot, Icon or Component instance for a layer. A placed component is a Component instance whether
-its component is code or a design, with the instance's Diamond, in Layers too. Hovering the kind says more, and screen
-readers hear that instead of the kind:
+The Design tab starts with what's selected: its kind's icon on a tile in the kind's tint, its name beside it as text,
+renamed in Layers or on the canvas rather than here, and under the name its kind in the kind's color. What it does sits
+at the end of the row. The kind is a word or two that never repeats the name: Screen, Component or Frame for a design;
+Text, Image, Video, Horizontal layout, Vertical layout, Grid layout, Slot, Icon or Component instance for a layer. A
+placed component is a Component instance whether its component is code or a design, with the instance's Diamond, in
+Layers too. Hovering the kind says more, and screen readers hear that instead of the kind:
 
 - **Which component.** An instance says which design it's of ("Instance of Plan card"), a component its name ("Button
   component"), and a library's component or icon which library, without its prefix ("Check icon from Lucide").
@@ -3829,18 +3831,19 @@ readers hear that instead of the kind:
 
 Where a layer sits isn't said, since Layers shows it, nor a text layer's tag. A layout's word follows its direction, as
 the insert picker names it, so it agrees with the icon; a grid gets the Layout section's grid icon, in Layers too. A
-layer inside an instance has the header its kind has, in its kind's color; only its name can't change there, since the
-component's design names it.
+layer inside an instance has the header its kind has, in its kind's color.
 
-The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye
-(`layerActions`):
+The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye:
 
-- **Open in Storybook** on a code component that has stories. A component design has no stories of its own yet, so it
-  offers none.
-- **Go to component** on an instance of one of the project's component designs, which selects the design and shows it.
+- **Go to component** on an instance of one of the project's component designs, which selects the design and shows it
+  (`layerActions`).
+- **What the project's adapters offer for a code component,** each with its adapter's logo, as Open in Storybook. On a
+  component no story links to it stays, faded and focusable, its hint saying "No story found". A component's board
+  offers the same in its header. The same actions end the layer's right-click menu in Layers, after a separator. See
+  [Adapters' actions](#adapters-actions).
 
-An icon and a layer that isn't a component have only the eye. A design's header has no actions. Open in editor, which
-opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
+An icon and a layer that isn't a component have only the eye. Other designs' headers have no actions. Open in editor,
+which opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
 (PAR-1027); its design is kept in `explorations/code-panel/OpenInEditor.stories.tsx` (Explorations › Code › Open in
 editor).
 
@@ -3885,10 +3888,10 @@ and dark.
 
 A layer's name, a text's tag, a code component's name, and an image's or a video's file, alt text, fit, credit and
 controls are its own fields: only the design sets them, never a state. One core function, `setOwnFields`, writes them
-for a rename in Layers or the header's name field, the Content section and an agent's `Update`, wherever the layer sits,
-a slot an instance fills included. An empty name or alt text, a cleared tag and controls turned off take the field away,
-so an agent's `""` does what clearing the field does. A field the layer's kind doesn't have is refused with the field
-named, and a change that leaves every field as it was gives back the same design, so nothing is saved.
+for a rename in Layers or on the canvas, the Content section and an agent's `Update`, wherever the layer sits, a slot an
+instance fills included. An empty name or alt text, a cleared tag and controls turned off take the field away, so an
+agent's `""` does what clearing the field does. A field the layer's kind doesn't have is refused with the field named,
+and a change that leaves every field as it was gives back the same design, so nothing is saved.
 
 Code: `packages/core/src/own-fields.ts`; `renameAndRecord` in `apps/desktop/src/renderer/chrome/inspector-events.ts`;
 `MediaSection` in `chrome/LayerPanel.tsx`; `update` in `packages/agent/src/workspace.ts`.
@@ -3997,7 +4000,7 @@ Tests: `packages/core/src/paint.test.ts` (10): one color token as a list of one 
 stops, fits and alphas are refused, the CSS each kind writes, and a render draws it.
 `packages/editor/src/style-editing.test.ts` (the Fill row's edit), `packages/editor/src/project-images.test.ts` (an
 image a fill paints is used), `packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it
-back, and hears about a color that isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against
+back, and hears about a color that isn't a token), `adapters/react-adapter/src/guest.test.ts` (a fill's images against
 the project), and `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back,
 ids kept so an open editor stays open, and gradient tokens read from CSS.
 
@@ -4205,7 +4208,7 @@ for a day.
 
 Code: `isDateValue` and `evaluateValue` in `packages/core/src/values/evaluate.ts`, `dateValue` and `sampleValue` in
 `packages/core/src/values/grammar.ts`, and a component node's `props` in `packages/core/src/document.ts`; the guest
-works them out in `madeProps` in `packages/renderer-react/src/guest.ts`.
+works them out in `madeProps` in `adapters/react-adapter/src/guest.ts`.
 
 Tests: `packages/core/src/values/values.test.ts` (3: a date in a sample and a decorator, from text and a number, made as
 `new Date` makes it; each date made once; a date `new Date` can't read refused) and `packages/core/src/render.test.ts`
@@ -4936,13 +4939,19 @@ its board shows first, and the rest are drawn beside it in that order where they
 - **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
   order, and the first frame's mode as `mode`, as before. An order that is the project's, and a first mode that is the
   project's primary mode, aren't written down.
+- **Each frame beside the first has its scale on its caption,** a menu of Fit, 25%, 50%, 75% and 100%. Fit, the default,
+  shrinks it to at most 640 wide (`companionScale`); the others are kept in the view's `scales`, by mode id
+  (`besideScale`), and the board's size follows them (`boardSize`).
 
-Code: `packages/core/src/document.ts` (the view's `order`) and `modes.ts` (`shownModes`'s `ordered`);
-`packages/editor/src/document-equality.ts` (an empty order is dropped); in the app, `canvas/view.ts` (`withModeOrder`),
-`ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the captions).
+Code: `packages/core/src/document.ts` (the view's `order` and `scales`), `modes.ts` (`shownModes`'s `ordered`) and
+`board.ts` (`besideScale`); `packages/editor/src/document-equality.ts` (an empty order is dropped); in the app,
+`canvas/view.ts` (`withModeOrder`), `ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and
+`canvas/ContainerView.tsx` (the captions).
 
 Tests:
 
+- `packages/core/src/board.test.ts`, "draws a companion at the scale its view sets for its mode, and others shrunk to
+  fit".
 - `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
   shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
   nothing, and modes the order doesn't name after it.
@@ -5306,12 +5315,12 @@ the same one; nothing between knows the framework.
     `Use a name from GetTokens().`
 
 Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
-`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/styles-tailwind/src/tokens.ts`; `StylesAdapter` in
+`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `adapters/tailwind-adapter/src/tokens.ts`; `StylesAdapter` in
 `packages/core/src/adapters.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
 `packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
 `packages/editor/src/token-edits.ts`.
 
-Tests: `packages/styles-tailwind/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
+Tests: `adapters/tailwind-adapter/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
 new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
 where the root declares it, a value taken back out); `packages/tokens/src/stylesheet.test.ts` (a token the stylesheet
 doesn't declare added to the root, whatever its name, and read back in its category);
@@ -5541,7 +5550,10 @@ keeps showing its bitmap until it wakes, then draws its design again at the size
   window's height or the height kept with an earlier bitmap. It falls asleep on its bitmap when it comes, at the height
   kept with it, so it never draws on the way. The block is still, since a pulse on every frame would repaint the canvas
   the whole time. A frame on the selected board, zoomed in or while interacting draws at once, and so does one whose
-  capture failed or whose design doesn't render, so it shows why.
+  capture failed or whose design doesn't render, so it shows why. So does a frame that hugs its content and hasn't been
+  measured, as a component's board or a story, drawn from the code each time the project opens: it's fitted to what it
+  draws, then falls asleep on a bitmap taken at that width, rather than standing in as wide as its window until someone
+  comes close.
 - **Sizes hold through sleep and waking.** The frame's element keeps the height it had when it fell asleep until it's
   drawn again, and its host skips drawing while it sleeps, as a board out of view does, so the browser keeps the size it
   last had when drawn rather than an empty frame's.
@@ -5677,34 +5689,34 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
-to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/renderer-react/src/guest.ts`,
+to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `adapters/react-adapter/src/guest.ts`,
 declared on `Guest` in `packages/core/src/adapters.ts`, keep where each component comes from in the guest's registry
 (`componentRegistry` in `component-registry.ts`, PAR-988), with each component's drawn or failing status in
 `render-statuses.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in
 `renderer/workspace.ts` and `renderer/render.ts` call.
 
-Tests: `packages/renderer-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
-moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
-added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
-given, and adds one given again). `packages/renderer-react/src/component-registry.test.ts` (6: a file's address on the
-dev server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded
-from there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and
-one only given forgotten; and the revision going up once a change, heard until unsubscribed) and
-`render-statuses.test.ts` (4: drawn once and heard once a task, failing while any boundary shows an error, a component
-still loading not drawn, and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for
-`guestChanges`: one new to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every
-component stays where it was, and nothing when only what else the list says about one changes).
-`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
-`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
-`apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
-components and the rest kept when it does, and a job built with every field passing the service's check whole; for
-`frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
-draws, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens previewed while
-`drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys follow the
-revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts` give and
-take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by reading them.
-A component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
-share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
+Tests: `adapters/react-adapter/src/guest.test.ts` (1: the revision goes up when a component comes from a new file, moved
+or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back added
+components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't given,
+and adds one given again). `adapters/react-adapter/src/component-registry.test.ts` (6: a file's address on the dev
+server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded from
+there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and one
+only given forgotten; and the revision going up once a change, heard until unsubscribed) and `render-statuses.test.ts`
+(4: drawn once and heard once a task, failing while any boundary shows an error, a component still loading not drawn,
+and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new
+to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it
+was, and nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2:
+a component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
+and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
+`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
+with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
+its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
+the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
+Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
+That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
+changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
+changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
+`addComponents` on.
 
 ### Failing components, in the console, and code edits picked up live (PAR-165)
 
@@ -5747,12 +5759,12 @@ warm, and 1.1 s the first time after the window loaded.
 
 Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerFailure`, `CodeChange` and
 `BuilderSession.codeChanges` in `packages/core/src/adapters.ts`; `frameFailures` and `FrameFailuresContext` in
-`packages/renderer-react/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
+`adapters/react-adapter/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
 `designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
-For edits: `stampChange` in `packages/builder-vite/src/code-changes.ts` and `gatherChanges` in
-`packages/project/src/code-changes.ts`, wired in builder-vite's `start`; the `codeChanged` method in
+For edits: `stampChange` in `adapters/vite-adapter/src/code-changes.ts` and `gatherChanges` in
+`packages/project/src/code-changes.ts`, wired in vite-adapter's `start`; the `codeChanged` method in
 `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
@@ -5766,11 +5778,11 @@ parent quoted in backticks, one failure per node across frames, an instance's fa
 and no sheet over it, its layer reported, then the same file at a new version drawn and the mark cleared).
 `apps/desktop/src/renderer/failures-store.test.ts` (1: one console error per layer across frames, with each frame, why
 and the fix, kept through Clear, and gone frame by frame as the layer draws).
-`packages/builder-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
+`adapters/vite-adapter/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
 among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
-changed files stamped, none without a change). `packages/renderer-react/src/guest.test.ts` (the revision moving once per
+changed files stamped, none without a change). `adapters/react-adapter/src/guest.test.ts` (the revision moving once per
 new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
 with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
 console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
@@ -5816,20 +5828,20 @@ on each stylesheet change, which costs a whole builder start.
 Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
 `packages/project/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
 `packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
-`packages/processes/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and
-`restyledGuest` in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
+`packages/processes/src/builder-process.ts`; `stampChange` in `adapters/vite-adapter/src/code-changes.ts` and
+`restyledGuest` in `adapters/vite-adapter/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
 `openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project
 discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
 `packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
 
 Tests: `packages/project/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
-`packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
+`adapters/vite-adapter/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
 change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the
 change passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
 closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
 guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
-without a restyled address started again on a new port). `packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite
+without a restyled address started again on a new port). `adapters/vite-adapter/src/stylesheets.test.ts` (1, a real Vite
 server: a file the stylesheet `@import`s, edited, is said to change the guest's stylesheets, and the guest at the
 session's restyled address imports the stylesheet with `?t=` and gets the new CSS).
 `packages/project/src/styles.test.ts` (Less imported as a global stylesheet, a Sass CSS module not). Checked in a
@@ -5916,7 +5928,7 @@ Code: `cacheRemovals` in `packages/processes/src/bitmap-cache.ts`; `renderQueue`
 opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
 `frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
-`packages/builder-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
+`adapters/vite-adapter/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
 carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
@@ -5942,7 +5954,7 @@ components import, the stylesheets and theirs, and the shared config; adds what 
 a touch or a change to a file the frame doesn't read; doesn't hold once a file it reads changes, an import or a
 stylesheet's import; nor for another renderer). `packages/project/src/frame-trace.test.ts` (4: the same hash for the
 same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
-and a digest that ignores order but not a hash, a file or the salt). `packages/builder-vite/src/loaded-files.test.ts`
+and a digest that ignores order but not a hash, a file or the salt). `adapters/vite-adapter/src/loaded-files.test.ts`
 (4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
 a file Vite hasn't built). `packages/processes/src/builder-process.test.ts` asks the builder's process what files
 modules load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
@@ -6267,6 +6279,11 @@ stay beside what they label instead of growing over the boards around it.
   showing every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few
   pixels each and show none, while a screen's rows, hundreds of pixels tall, keep theirs at 60%. The last row is
   measured the same way. A row's height is measured, since a frame that grows with its content sets it.
+- **A frame's name runs past it too.** A frame drawn on its own, as a story drawn from the code is, gets the same reach
+  as a board's title, out to the next design beside it. Before, its name was cut at the frame's edge at any zoom, so
+  "Badge / Default" over a 96-pixel badge read "Badge / …" even at 100%.
+- **A name that runs past its board shows while it has the room it runs into,** not only while the board under it is 24
+  screen pixels wide, so a narrow story keeps its name zoomed out where there's free canvas beside it.
 
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
@@ -6275,19 +6292,21 @@ state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` 
 `titleReach` in the package, applied by `useTitleReach` in `ContainerView.tsx`, with what else is on the page read from
 the canvas in `ContainerUtil.tsx`.
 
-Tests: `packages/editor/src/canvas-labels.test.ts` (14. `labelLook`, 8: every label at screen size up close; names
+Tests: `packages/editor/src/canvas-labels.test.ts` (16. `labelLook`, 8: every label at screen size up close; names
 shrinking to 60% and showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by
 25%; a label hiding once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail
 hiding with its title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a
 tall row; its space measured from its top to the next row's label; and hiding without that space on screen, or on a
 board too narrow for its title. `titleReach`, 6: to the next board level with it, short of 8 screen pixels; the nearest
 of several; a board lower down whose title is level; boards to its left, above or below ignored; never narrower than the
-board; and the band of the canvas a title covers growing further out). Gaps: applying the look to the DOM (the
-transform, the width it fits, the clipped icon and the row's measured height) has no automated test. It was checked in
-Storybook on the example's boards at 100%, 25%, 5% and 1%, and for PAR-155 on a row of component boards showing every
-state. For PAR-787 it was checked in Storybook's zoomed-out boards at 4% and 10%: screen names and "Plan card" and "Stat
-card" read in full, and a name with a board close beside it still truncates. A title running past its board can still
-cross a state label beside the next board's rows; that has no test.
+board; and the band of the canvas a title covers growing further out. `titleTop`, 2: 42 screen pixels above its board up
+close, and more of the canvas zoomed out). Gaps: applying the look to the DOM (the transform, the width it fits, the
+clipped icon and the row's measured height) has no automated test. It was checked in Storybook on the example's boards
+at 100%, 25%, 5% and 1%, and for PAR-155 on a row of component boards showing every state. For PAR-787 it was checked in
+Storybook's zoomed-out boards at 4% and 10%: screen names and "Plan card" and "Stat card" read in full, and a name with
+a board close beside it still truncates. On 2026-11-13 the example's stories were checked in the running app at 100%,
+50% and 25%: a story's name runs past its frame and reads in full where there's room beside it. A title running past its
+board can still cross a state label beside the next board's rows; that has no test.
 
 ### A board's gutter keeps its screen size up close (PAR-602)
 
@@ -6383,7 +6402,7 @@ Started again after a full run's measuring, both builds took about 4.7 s.
   involved. `pnpm perf` passes the flag too, unless it's run with `--react development`, and records the build in each
   result. Storybook and the end-to-end suite, which don't pass it, run the development build.
 - **Dependencies are prebundled as production:** the UI's Vite config sets `process.env.NODE_ENV` to `production` in the
-  dependency optimizer (Rolldown's `transform.define`), as builder-vite does for frames (PAR-198). The app's own modules
+  dependency optimizer (Rolldown's `transform.define`), as vite-adapter does for frames (PAR-198). The app's own modules
   are still served as in development, so `import.meta.env.DEV` stays true.
 - **The app's JSX calls the production `jsx`:** it's still compiled for development, calling `jsxDEV`, which the
   production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
@@ -6535,6 +6554,306 @@ nothing to draw, the phone mode sharing the primary mode's theme, a laptop's bes
 alone; and what renders `/`: Next's, a `pages` folder's and a `routes` folder's page over `App`, a route group's, a
 route file's default export, `App` by export or file and the nearest one, never a library's, and nothing). Gap:
 `createSession` calling it has no automated test.
+
+### Each page of the app as a screen, in its tree (PAR-1076)
+
+An app whose router Parity reads (TanStack Router, see support.md) opens with each of its pages as a screen above the
+designs, laid out as the router's tree, top down. A page is a route the router draws on its own. A layout's index that
+draws stands for the layout, so the layout's other pages hang from it: the example's App, at `/`, holds Pricing,
+Projects, Project detail and Settings. Each page is centered over the pages under it, and pages side by side go by path.
+A screen is named for the component its route draws, else its path.
+
+- **Layouts without a page.** A layout with no page of its own, because it has no index or its index draws nothing and
+  only redirects, is a group around its pages instead of a page: the example's `/settings` index only redirects to
+  Profile, so Settings is a dashed, rounded outline around Billing and Profile, side by side on its level, 48 canvas
+  pixels in from its sides. Its header, at a title's size, shows the layout icon, its name and path, and a chip with
+  where its index redirects, Profile, whose tooltip says "Redirects to Profile"; clicking the chip selects Profile. The
+  line from the page above ends at the group's top edge. Clicking the header selects the group, whose outline turns
+  solid in the page color, and brings forward its line up to App. Its panel shows the layout icon, its name and Layout,
+  then what the router says of its layout route, read-only: its path, file and component, where its index redirects as a
+  link that selects that page, and whether it loads data or can redirect. It has no frame of its own, so no modes or
+  Export (`PageGroupPanel`). Selecting a design takes the selection from it. A group is named for its path's last part,
+  or for its component when its path is its parent's, as a pathless layout's is. The group's outline is drawn round its
+  pages where they are now, so it follows a page that's moved.
+- **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
+  the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
+  an `if` is a sometimes, and doesn't count.
+- **Where a page lands.** The script the builder's server puts first in the app's `index.html` also posts the path the
+  page opened on, `{ parity: "page-landed", path }`, and again whenever the app's router moves it, until someone uses
+  the page with the pointer or keys. When the path isn't the page's own, ignoring a trailing slash, an amber "Lands on
+  /x" warning shows under the page's board, lined up with its left edge and a few screen pixels below at any zoom, sized
+  as a frame's caption is, so a redirect Parity couldn't read still shows. Its row in Layers shows an amber warning too,
+  whose tooltip says where. The example's Dashboard is behind a sign-in check in its `beforeLoad`, so it lands on
+  `/login` until someone logs in.
+
+- **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
+  page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
+  the layout icon and, at its right, where its index redirects, holding its pages: Settings holds Billing and Profile.
+  It's open until it's closed with its arrow, or Left and Right; clicking it selects its group, on the canvas too. Each
+  icon at the end of a row has a tooltip saying what it means: where a layout redirects, where a page lands, that a
+  component fails to draw, that a layer changes in the state shown or at some screen sizes, and what it's locked with. A
+  search lists the pages flat. Component designs are listed in the Components panel. A page shows the route icon, in
+  Layers and on its title, and its title shows its route's path under its name; selecting it shows its route's path,
+  params, file and component, and whether it loads data or can redirect, read-only. Its layers are what each route that
+  draws it draws, the root's outermost, each inside the one before as it draws at that route's outlet, as children
+  passed to it: Billing's are RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the
+  component's icon and color, and its panel shows its route too; a route that names no component, as a redirecting
+  index, shows as a route, named for its path. What each component draws inside comes with React's tree (step 4).
+- **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
+  part, as the `/settings` index is "Settings", else Home.
+- **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page
+  under it. It curves across above the lower page's title, 8 screen pixels short of it, and drops straight down from
+  there to the board, behind the title, whose name and path sit on the canvas's own color. Pages side by side share a
+  level, so a line only ever passes behind the title of the page it leads to, at any zoom: zoomed out, where a title
+  takes more of the canvas, the curve turns down higher. Once a title reaches up to the page above, the line curves all
+  the way down. Its dashes flow slowly down the tree, at any zoom, so the tree shows which way it runs. Lines are faint
+  until a page is selected or hovered, on the canvas or in Layers: then its way up to the top of the tree and its lines
+  to the pages right under it come forward in the page color, drawn over the rest. Selecting Billing brings forward
+  Billing's line and Settings' group's, and selecting Settings' group brings forward its line up to App. A line into a
+  group curves straight down to the group's top, since a group's header isn't a title it passes behind. The lines are
+  drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
+- **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
+  a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
+  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
+- **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
+  text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
+  view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, so
+  `/projects/$projectId` opens on `/projects/projectId` until it's given one. The values are how the canvas shows the
+  page, never the app's code, and aren't saved yet, since a page isn't. Tried in a development build: Project detail
+  opened on `/projects/projectId`, which the example says it can't find, and setting ProjectId to `atlas` drew the Atlas
+  project at `/projects/atlas`. Code: `samplePath` in `packages/editor/src/route-boards.ts`, the view's `params` in
+  `packages/core/src/document.ts`, and `RouteProps` in `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests:
+  `packages/editor/src/route-boards.test.ts`, "fills a param with the value given for it, written as a URL writes it".
+- **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
+  that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
+  pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
+  and clicking Pricing in App's frame takes it to `/pricing`.
+- **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
+  and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
+  attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
+  follows the system's theme, as the example's theme provider does, follows the mode's: in Desktop Light the page's
+  `<html>` is `light` with a white background. An app that keeps its own choice of theme, in `localStorage`, uses that,
+  and its page frames share it, since they're one origin.
+- **As tall as the page.** Each viewport's frame is as wide as its viewport and as tall as its page, with no scrollbar:
+  App, whose page runs 49px past a 1280 × 800 window, is 1280 × 849. The script the builder's server puts first in the
+  app's `index.html` posts the document's height to the canvas, `{ parity: "page-height", height }`, whenever it changes
+  while the frame is still as tall as its screen (Desktop 800, Tablet 1024, Mobile 844), and the frame grows to it but
+  never shrinks below the screen. It measures only at the screen's height because a page with a section as tall as the
+  window grows with the frame, without end; once the frame has grown, what such a section runs past isn't given a
+  scrollbar. So a page that changes after it first draws, as with the Interact tool, keeps the height it first had. A
+  frame given a height of its own keeps it and scrolls, but page frames have no resize handles yet.
+- **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
+  imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
+  the pages, which then had two copies of React.
+
+Tried in a development build on the example project, opened cold: six page screens in two levels, Billing and Profile in
+Settings' group with its Profile chip, four lines from App to Pricing, Projects, Project detail and the group, each page
+showing its page, with no errors; the lines' dashes moved from each page toward the pages under it. Layers listed App,
+its four pages a level in, and Billing and Profile in the Settings folder; clicking the folder selected the group on the
+canvas. Moving Pricing's page with `history.replaceState` showed "Lands on /pricing/annual" under its frame. Dashboard's
+frame drew the login page, and its row in Layers showed the warning, with "Lands on /login" on hover.
+
+Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
+`pageLandedMessage` and `landedElsewhere` in `packages/editor/src/route-boards.ts`, with `titleTop` in
+`canvas-labels.ts`; `routeOptions` in `adapters/tanstack-router-adapter/src/routes.ts`; `projectRoutes` in
+`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
+`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`; `routeLines` in
+`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`, and
+`appPageModeScript` in `app-page.ts`, whose messages `pageHeightMessage` and `pageLandedMessage` read.
+
+Tests: `packages/editor/src/route-boards.test.ts` (34: each layout's pages hung from its index, the root's index at the
+top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
+that redirects but draws staying a page, and a layout without an index a group; a forest without a root index, and
+nothing without routes; each page centered over the pages under it, a level below; a group's pages side by side inside
+it on its own level, with the page above centered over the group; each page's URL with its params' samples; a splat's
+empty sample; a screen for each page, named for its component, with the screen it hangs from, ending above the designs;
+a group for a layout without a page, hanging from the page above, with the page its index redirects to, its pages
+hanging from it and no screen for the layout; a pathless layout's group named for its component; a page's frames with no
+size of their own; the page's height read from its frame's message, rounded up, and no other message or a height that
+isn't a positive number; the path a page landed on read from its frame's message, and no other message or a path that
+isn't one; the landed path given when it isn't the page's own, and nothing for its own with or without a trailing slash;
+a group's box round its pages' titles; a line curving across above the lower page's title and dropping to its board,
+turning down higher zoomed out, and curving all the way down once the title reaches the page above; the lines a page
+brings forward, up to the top of the tree and down to the pages right under it, for several pages at once, and none for
+no page or a page outside the tree; a line into a group curving straight to its top), `canvas-labels.test.ts`
+(`titleTop`, up close and zoomed out), `adapters/tanstack-router-adapter/src/routes.test.ts` (the example's `/settings`
+index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
+`adapters/vite-adapter/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
+told once the frame is taller than its screen, the scrollbar hidden while it is and given back otherwise, the path the
+page opens on and where the router moves it told, nothing told once someone uses the page, and nothing told outside a
+page's frame). Gaps: reading routes when the project opens, the page frames, drawing the lines, groups, landing warning
+and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
+lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
+its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
+rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
+opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
+hovering Projects.
+
+### Each of the project's components on a board of its own (read-only viewer, step 8)
+
+The project opens with a board for each of its own components, below the pages and above the designs. Library components
+and pages aren't on boards, and neither are providers or the parts the Components panel hides. There's a row for each
+group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle, and the rest of the app's by folder.
+
+- **Drawn from the code.** The guest draws each component as inserting it would place it. A component a story draws
+  takes that story's args first, the first story's for each component, so Plan card draws with its name, price and
+  features rather than failing without them. Any other required prop gets its default or its first option, and a
+  component that takes children gets its own name as text. It starts without samples and takes them once the props have
+  been read from the component's types, a moment after the project opens. The board hugs the component with 2px around
+  it, so nothing at its edges is cut off, and has no fill, so the component sits on the canvas. Its title shows the
+  component's icon and its name, without its file. At 100% a component is its own size: the example's Button is 65.7 ×
+  32, as in a browser.
+- **Inside the parents a part needs.** A part that fails for want of a parent, as AvatarImage needs Avatar and
+  TabsTrigger needs TabsList inside Tabs, is drawn again inside the next parents to try (`nextBoardParents`), until it
+  draws: first the component its error names, then the components of its file whose names begin its own, outermost, then
+  the rest of its file. A parent that gets it further is kept, and one that doesn't, or fails itself, is dropped. A
+  parent that hides it, as an inactive TabsContent hides what's in it, counts as drawing nothing, so the search goes on,
+  and comes back to it when no parent shows it: an AvatarImage with no picture shows nothing anywhere. It stops after 12
+  tries. Layers still opens straight to the part's layers, without its parents.
+- **In the component's color.** A board is selected, outlined and titled in the component purple, with its size under it
+  in the same color, though it's a frame.
+- **Only the project's own.** A component from a library, or from a dependency in `node_modules`, gets no board; it's
+  still listed in the Components panel.
+- **Listed in Layers and the Components panel.** Layers lists the boards under Components, after Routes and Screens.
+  Pressing one of the project's components in the Components panel selects and shows its board. Dragging it still
+  inserts it, and pressing a library's component still adds it where the selection is.
+- **Every layer inside.** A board is the component, so its row in Layers opens straight to what the component draws,
+  with no layer for the board's padding or for the component around it: Card opens to `card` and its Text. Each element
+  it draws is a layer, read from the page each time the board is drawn live. `img`, `svg` and `canvas` are images,
+  `video` a video, and a text element (`p`, `span`, headings, `strong`, `em`, `label`, `a` and the like) with only text
+  in it is text. Any other element, a `div` or a `button` with its text in it, is a layout with its text as a layer
+  inside. A layer is named for its `data-slot`, as shadcn names its parts, else its role, else its tag. Its styles are
+  what it's drawn with: its size, a layout's direction, gap, padding and alignment, its fill, border, corners and
+  opacity, and a text's type. Selecting one outlines its element on the canvas.
+- **Each layer is its element's type.** A layer read from an element keeps its tag and the attributes that say what it
+  is, and `describeElement` in `@parity-app/layer-types` gives its type: its icon in Layers and in its panel's header,
+  and its family's color, as an orange Button for a `button` or a blue Layout for a `div` (Layers/Element types in
+  Storybook has the whole mapping). The header calls it by its type, with its role, input type or tag beside it, and it
+  has no Make component.
+- **Read-only panel.** A selected board's panel shows its file and the export it's drawn from. Under Props, it lists the
+  props the component declares and its variants, each with its options or type and its default. The attributes and
+  handlers it passes through to its element aren't listed. A layer inside it shows its type's sections: first the ones
+  its attributes fill (`panelData`), as Link with its `href` and target, a Checkbox with its name and whether it's
+  checked, or a video's Source and Playback, leaving out one with nothing set; then its text, for text; then the style
+  sections its type has, as a Button's Typography, Size, Fill, Stroke and Appearance. A layer of a page shows the Design
+  tab's sections with its values. None of them edits it.
+- **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
+  written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and
+  boards are left out of what Parity keeps to restore after a crash.
+- **Not yet.** A part that shows only when chosen, as TabsContent does, draws nothing. A page's layers don't show what
+  its components draw inside, since the page is the app's own document on another origin.
+
+Tried in a development build on the example project. Its own UI kit showed 36 boards in 10 rows under the page tree.
+Pressing CardTitle in the Components panel selected its board, with `src/components/ui/card.tsx` and its export in the
+panel. Button's panel listed its variant and size options and `asChild` = false. Reopening left nothing unsaved. Card's
+row opened to `card` and Text; selecting `card` outlined it and showed its size, padding and fill, greyed. Button's row
+opened to `button` with the orange Button icon, and its panel's header said Button, with Typography, Size, Fill, Stroke
+and Appearance; Input's `input` was a Text field. With the search, AvatarImage and AvatarFallback drew inside Avatar,
+TabsList and TabsContent inside Tabs, and TabsTrigger inside TabsList inside Tabs, and the canvas showed no errors;
+TabsList's board fit to 71 × 36, all in purple.
+
+Code: `componentBoards` and `boardGroups` in `packages/editor/src/component-boards.ts`; `nextBoardParents` in
+`board-parents.ts`; `searchBoardParents` in `apps/desktop/src/renderer/workspace.ts`; `onDesignFailures` in
+`failures-store.ts`; `designColor` in `canvas/kinds.tsx`; `elementLayers` in `packages/editor/src/element-layers.ts`;
+`describeElement` and `panelData` in `packages/layer-types`; `opensTo` in `layers-tree.ts`; `NodeIcon` and `nodeColor`
+in `canvas/kinds.tsx`; `ElementPanel` in `chrome/LayerPanel.tsx`;
+`apps/desktop/src/renderer/canvas/component-boards.ts`; `board-internals.ts`; `setInnerNodes` in `frame.ts`;
+`sampleBoards` and `ownWork` in `workspace.ts`; `ComponentSourceSection.tsx`; `pick` in `AssetsPanel.tsx`.
+
+Tests: `packages/editor/src/component-boards.test.ts` (5: the panel's groups without pages, libraries, dependencies or
+providers; a row for each group from the layout's top left; the component 2px in on no fill, with a sample for each
+required prop and its name as children; a story's args before its own samples; a part inside its parents, with what it
+draws read into it); `packages/editor/src/board-parents.test.ts` (6: the parent an error names, a parent kept that gets
+it further and the rest of its file tried, a parent that fails itself dropped, no search for another error, the end of
+the search, and a parent that hides the part passed over and come back to); `packages/editor/src/element-layers.test.ts`
+(14: the layer each element is, its name, a card's elements as layers with their elements, and computed styles as a
+valid layer style); `packages/layer-types/src/layer-types.test.ts` (37: each tag, input type and role in one type, and
+what an element describes as); `packages/layer-types/src/panel-data.test.ts` (6: a link's, a checkbox's, a switch's and
+a video's sections from their attributes, and sections with nothing set left out).
+
+### Each story as a screen (read-only viewer)
+
+The project opens with a screen for each of its Storybook stories, listed in Layers under Stories, after Screens, and
+laid out in a row for each story file, left of everything else on the canvas, on a grid 440 apart each way, as component
+boards are. A story wider or taller than that overlaps the one beside or below it.
+
+- **Listed as Storybook lists them.** Under Stories, each part of a story's title is a folder, as Storybook's sidebar
+  nests them: a group is a folder, a component holds its stories under a square split in four, in blue, and each story
+  is a teal bookmark named for itself, as `Outline` in UI, Button. Folders start closed; selecting a story on the canvas
+  opens the folders it's in. A click opens or closes a folder. The arrow keys move through folders and stories alike:
+  Right opens a folder or goes into it, Left closes it or goes up to the folder above, and Enter or Space opens or
+  closes it. A search opens every folder with something found in it and leaves out the rest. The adapter says which
+  folders each screen is in (`ImportedScreen.folders`); Layers draws any adapter's that way.
+
+- **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
+  meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
+  the project depends on when it opens, and the screens come in the project's info.
+- **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
+  args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
+  layout draws it, inside a layer named Bounds. It's a screen whose root hugs the story (core's `fitsContent`): each
+  mode's frame is as wide as the story draws in that mode, which the canvas measures and doesn't save (`frames`), while
+  the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as in
+  Storybook's canvas. The frame shows only its own width of that window. Layers and the Design panel show it as a story,
+  with its bookmark. Each is named for its title's last part and its own name, as `Button / Outline`.
+- **Its props, modes and sizes in the Design panel.** Selecting a story shows its header, then Props, the args of what
+  it draws, which edit and are written back as below, then Modes, as a screen's: its board draws a frame for each mode
+  it shows, across, in the order the section sets, and the board's modes menu adds and takes away modes, as on any
+  screen. A story's modes, order and frame scales aren't saved yet: they're the canvas's view of a design read from
+  code.
+- **Resized to test.** Dragging the Bounds layer's handles, or any layer's that takes a size, sets a width or height on
+  it, and the frame fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset
+  size, then shows at the end of the Design panel, for the story or any of its layers, and puts every layer back at the
+  size the story's file draws it (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never
+  written to the story's file. A component that doesn't take a style, as PlanCard, can't be sized itself, so Bounds is
+  there to drag.
+- **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
+  draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
+  `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
+  name.
+- **Args written back.** The props of what a story draws are its args, and they edit as any component's do. Saving sends
+  the stories' design file to the service (`entities.save`), which hands each screen whose layers changed to the adapter
+  that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes the args that differ from the meta's into the
+  story's `args` in its file, keeping code there, such as a function, as it's written.
+- **Otherwise read-only.** The rest of a story's screen is Storybook's to lay out: its other layers and sections show
+  their values without editing them, and nothing else of it is saved.
+- **Not yet.** A story's decorators, loaders and the `context` its `render` is given aren't applied. A story file added
+  while the project is open shows once it's opened again. A story that's a function, or whose args are a constant, isn't
+  written to, nor can a story take away an arg its meta gives. A screen can't yet be saved as a new story.
+
+Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
+two under Stories. Plan card / Default's frame fitted to 181 with its host 1280 wide, Desktop Dark shown beside it from
+Modes drew its own 181-wide frame, and its caption's menu set it to 50%. Dragging Bounds 90 pixels narrower made the
+frame 128 wide in a window still 1280 wide, and Reset size put it back at 181. Plan card / Popular drew the app's own
+PlanCard with the Popular badge, and Button / Outline its outline button at its own size. Card / Invite and Plan card /
+Side By Side drew their own `render` functions: the invite card, and two plan cards side by side. Setting Plan card /
+Popular's Price to $32 and saving wrote `price: "$32"` into the story's args, beside `popular: true`, and the screen
+drew $32.
+
+Code: `fitsContent`, `frameSize` and `frameGeometry` in `packages/core/src/render.ts`; `fittedFrame` and `fitsDrawn` in
+`packages/editor/src/frames.ts`, which `useFitToContent` in `apps/desktop/src/renderer/canvas/ContainerView.tsx` runs
+for each mode's frame; `ModeView.tsx` and `render.ts` (a frame narrower than its window); `hasTriedSize` and
+`withoutTriedSize` in `packages/editor/src/tried-size.ts`, `TriedSize.tsx` and the story branch of `DesignPanel.tsx` in
+`apps/desktop/src/renderer/chrome`; `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and
+`importStoryScreens` in `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`;
+`storyScreensDocument` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in
+`apps/desktop/src/renderer/workspace.ts`; `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`;
+`exportEntities` in `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts`
+writes; `writesProps` in `apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in
+`adapters/storybook-adapter`, `folderTree` in `packages/editor/src/layers-folders.ts`, and `storyPlaces` and
+`FolderLine` in `story-screens.ts` and `apps/desktop/src/renderer/chrome/LayerTree.tsx`.
+
+Tests: `packages/core/src/render.test.ts`, "draws a screen that fits its content as wide as it was measured, in the
+mode's whole window" (as wide as measured, as wide as the window before, not for a frame or a screen that fills it);
+`packages/editor/src/frames.test.ts`, "fits a screen that hugs its content in the viewport it was drawn in, leaving the
+others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its args kept, and
+a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're
+closed, an open folder's folders and a component's designs in order, a design without folders at the top, and a search
+opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and
+stories with args over the meta's, where a story's render function is, a file without a default export, a story's name
+in words, each story in a folder for each part of its title, stories imported as screens of their component, grouped by
+title, a story that renders itself drawing its function from its file, a story's own args written over the meta's with
+code kept, args added to a story without any and none for the meta's, a story that's a function left alone, and a
+screen's props written back to its file).
 
 ### Opening in seconds (PAR-179)
 
@@ -6828,21 +7147,21 @@ adding one to an open project changed nothing until Parity restarted.
 - **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
   (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
   told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
-- **Each builder adapter names the config files it looks for** (`BuilderAdapter.configFiles`, PAR-826), and the service
-  passes every registered builder's into `detectionInputs`, so a new builder needs no change to detection or the
-  service. Vite's are `vite.config` with each of `scriptConfigExtensions` (`.ts`, `.mts`, `.cts`, `.js`, `.mjs`,
-  `.cjs`), the list its detection summary names too. A change to a config's contents isn't compared: the project's own
-  Vite restarts its server when its config changes.
+- **Each adapter names the files it watches** (`Adapter.watches`, PAR-826), and the service passes every registered
+  adapter's into `detectionInputs`, so a new adapter needs no change to detection or the service. Vite's are
+  `vite.config` with each of `scriptConfigExtensions` (`.ts`, `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`), the list its
+  detection summary names too, and Storybook's are `.storybook/main` with each of them. A change to a config's contents
+  isn't compared: the project's own Vite restarts its server when its config changes.
 - **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
   again first when it did, so the answer describes the project as detected now.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
-`styles.ts`; `configFiles` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, and `viteConfigFiles` in
-`packages/builder-vite/src/index.ts`; `builderConfigs`, `detected`, `detectionChanged` and `tellDetectionChanged` in
-`openProjects`, `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in
-`shared/protocol.ts`, `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and
-`settleDetection` in `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in
-`renderer/agent/handlers.ts`.
+`styles.ts`; `watches` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
+`adapters/vite-adapter/src/index.ts` and `storybookConfigFiles` in `adapters/storybook-adapter/src/detect.ts`;
+`watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
+`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
 
 Tests: `packages/project/src/detection-inputs.test.ts` (6: `components.json` naming a stylesheet changes the key; a
 conventional stylesheet or a builder's config appearing changes it, and the entry `index.html` names is followed; the
@@ -6852,7 +7171,7 @@ while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (3: a
 now names its stylesheet tells the windows, a file detection doesn't read doesn't, a moment without package.json isn't a
 change, and opened again it's detected from the new file; a config file the registered builder names tells the windows,
 and one no builder names doesn't; a `components.json` written while the builder starts is told once the project is
-open). `packages/builder-vite/src/detect.test.ts` checks that each config name Vite finds is among
+open). `adapters/vite-adapter/src/detect.test.ts` checks that each config name Vite finds is among
 `viteBuilder.configFiles`. `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its
 project again only when the service says detection changed; a tab told while loading asks again once it's ready). Gaps:
 the handlers wiring `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's
@@ -6954,9 +7273,9 @@ The editor's labels, menus, hints, toasts and undo labels use one glossary (PAR-
 - **Undoing a view change has no step, but its label says what changed** ("Show Dark", "Show every state"), for anything
   that lists it later.
 - **A screen's icon is lucide's AppWindow,** a window with its title bar, and a component's is still Component. The
-  status bar says how many components are in code ("587 components in code"), the screen inspector's section that finds
-  repeated parts is Repeated parts, and the Components panel lists the project's own as Local components and a library's
-  ready-made ones as Ready-made components.
+  status bar says how many components there are ("587 components", its tooltip saying how many are the app's and how
+  many each library's), the screen inspector's section that finds repeated parts is Repeated parts, and the Components
+  panel lists the project's own as Local components and a library's ready-made ones as Ready-made components.
 
 Code: `kindName`, `kindTitle` and `kindsName` in `packages/editor/src/kind-names.ts` name screens and components for a
 label; `DesignStore.designsLabel` names selected ones by key, and `modeNames` in
@@ -7270,6 +7589,140 @@ Gaps: a design that's hovered but not selected shows its menus, and they're in t
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
 
+### Adapters' actions
+
+An adapter can offer actions, such as Storybook's Open in Storybook, which the app runs without knowing the tool.
+Before, the service had a `storybook.open` call and the status bar matched Storybook's item by name.
+
+- **An adapter lists its actions** (`actions`): an id, a name, which of the project's components it's offered for
+  (`components`, from the same facts its status items get), and what the app says while it runs and when it fails. The
+  windows get them with the project (`info.actions`, from `adapterActions`), by adapter, with its logo and the
+  components' keys. Storybook offers Open in Storybook for each component a story's meta names.
+- **The adapter decides what a component it isn't for shows** (`unavailable`): with a reason, the action stays there,
+  disabled, with the reason as its hint or beside it in a menu; without one, it's left out. Storybook's reason is "No
+  story found", so a component no story's meta names still shows Open in Storybook, disabled, in every place below.
+- **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
+  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, the
+  component, and `servers`, which find a server already serving the project (one Portless routes to, else one on its
+  port) or start the tool's command line from the project's install, list it with the project's processes as a tool's
+  server and stop it with the project. An address the action gives opens in the browser.
+- **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project.
+- **A code component offers the actions for it wherever it's picked,** each with its adapter's logo and the action's
+  name: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on the canvas,
+  after a separator, and its row in the Components panel, as a button beside it, in its right-click menu and on its
+  card. A component's board offers them too (`selectionComponent`, `componentOffers`, `layerComponent`). A button for
+  one that can't act stays faded and focusable, its hint the reason, and a menu item is greyed with the reason beside it
+  (`AdapterMenuItems`). Search actions lists each of the project's actions under Object, for the selected component when
+  it's offered for it, with the component's name beside it; greyed with the reason on a selected component it isn't for;
+  else for the whole project, as opening Storybook's home. Which components an action is for comes only from its
+  adapter: Storybook's are those its story files' metas name. The stories count on a component's card still reads
+  `info.storybook`, until adapters give facts about components.
+- **A page of the app offers the actions for its route** (`routes`, from the app's routes): the end of its header in the
+  Design panel and of its right-click menu in Layers (`routePageTarget`, `pageOffers`). The action is run with the page
+  (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its Props. TanStack
+  Router offers Open in browser for each page but the root, which opens that URL in the browser.
+- **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
+  running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
+  PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
+  page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
+  the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
+  header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
+  detail shows Open in browser in its header and at the end of its right-click menu in Layers, with an external link
+  icon in both, since it opens the page outside Parity.
+
+Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
+`packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
+`runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
+`adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
+`adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
+`renderer/chrome/adapter-actions.ts`, with `pageOffers`; `routePageTarget` in `renderer/canvas/route-pages.ts`; Open in
+browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent` in `renderer/chrome/layer-kind.ts`, tested
+in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`,
+`CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and
+`useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left
+panel › Component menu and Component card.
+
+Tests: `adapters/tanstack-router-adapter/src/routes.test.ts`, "tanstackRouter's Open in browser" (offered for each page
+but the root; opens the URL the page is drawn at); `packages/project/src/adapter-status.test.ts`, "tells the windows the
+routes an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story,
+else Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
+action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
+Gaps: `tool-servers.ts` has no unit test, and the story play functions weren't run.
+
+### Each adapter detects its own tool
+
+When a project opens, every adapter is asked whether the project uses its tool, and only those that find it are used.
+Before, the service asked renderers, routers and Storybook about package.json, builders about the root folder and
+Tailwind about a stylesheet's text, and `packages/project/src/detect.ts` kept its own list of tools for their versions,
+so Storybook was detected in two places and TanStack Router not at all.
+
+- **One context for every detector.** `detect` gets a `DetectContext`: the root, its package.json and `read(path)`, a
+  file's text. It returns an `AdapterDetection`: whether it found its tool, what it found in a sentence, its config
+  file, and its version when the tool says it, as Vite's own `vite` does. Storybook finds its `main` config in the
+  folder its `storybook dev` script names with `-c`, else `.storybook`.
+- **The first renderer and builder that find their tool are used, and every other adapter that finds its own.** The
+  styles adapter for a stylesheet is still chosen by its text (`handles`), since a project's stylesheets are found after
+  its renderer.
+- **Each adapter gives its tool's version facts** (`versions`): the packages that carry its version, a scope such as
+  `@storybook/`, other packages that ship it, such as Vite+, and each major's release date. Detection reads the
+  installed version of each tool an adapter found and checks it against that adapter's cutoff, so `detect.ts` has no
+  list of tools.
+- **What the example shows:** the service's log lists React 19.3.1, Vite 8.3.5 with `vite.config.ts`, Tailwind CSS
+  4.3.3, TanStack Router 1.170.46, which wasn't listed before, and Storybook 10.6.5 with `.storybook/main.ts`.
+
+Tried on 2026-11-13 in the running app on the example: the log above, and the status bar's items as before.
+
+Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions` and `declares` in
+`packages/core/src/adapters.ts`; each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
+`adapters/storybook-adapter/src/detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
+`packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
+
+Tests: `packages/project/src/detect.test.ts` (versions, cutoff and summaries from the tools adapters give),
+`adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
+`adapters/tanstack-router-adapter/src/routes.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit test
+runs the service's open path with several adapters of one kind.
+
+### Each tool's status bar item comes from its adapter
+
+The status bar starts with an item for each of the project's tools, which that tool's adapter writes, then the
+components and tokens Parity found. A new adapter adds its items without the app changing. The components item says just
+the count ("376 components"); its tooltip splits it into the app's own and each library's, as "5 from the app, 371 from
+Shadcn Nova".
+
+- **An adapter says what its item is.** Any adapter (renderer, builder, styles, router or entities) can have `status`,
+  which returns `StatusItem`s: an icon, a bold value, the words after it, the tooltip's title and line, and what a click
+  does, which is open a left panel tab or run one of its adapter's actions, as Storybook's runs Open in Storybook.
+- **An item shows its tool's logo unless it names an icon.** An adapter's `icon` is its tool's logo as path data (an
+  `AdapterIcon`: a `viewBox`, one path, and `evenodd` where one part is cut out of another), which the window fills with
+  the text's colour, so it reads like the Lucide icons beside it in either theme. Path data draws nothing but the shape,
+  so a logo can't run script or load anything. An item that names a Lucide icon gets it from `DynamicIcon`, and a name
+  Lucide doesn't have draws a plain circle. React's logo comes from the one `create-vite` puts in a new project,
+  Storybook's from the favicon it ships, Vite's one-colour mark from Simple Icons, and TanStack's from the black logo on
+  tanstack.com.
+- **It's told what Parity found.** The service calls each adapter the project uses with its tool's version (the running
+  builder's, otherwise detection's), the package manager, the entities it imported and the app's routes. It then adds
+  "Parity doesn't test this version" to an untested tool's tooltip, so adapters don't each repeat it.
+- **What the example shows:** React, Vite and Tailwind CSS, each with its logo and its version in its tooltip,
+  Tailwind's opening the Tokens panel; 8 routes from TanStack Router, with its logo, which opens Layers, where they're
+  listed (the root route isn't counted); and 12 stories from Storybook, with its logo, which opens Storybook.
+  Storybook's item used to count components with stories (4), which wasn't the number of stories the canvas shows.
+- **The components and tokens items stay the app's,** since their counts change while the project is open.
+
+Tried on 2026-11-13 in the running app on the example, as above: the five logos in dark mode, at 14px and at 64px, and
+Tailwind's tooltip and Enter on it opening the Tokens panel.
+
+Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
+`packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
+`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`,
+`tailwind-adapter`, `tanstack-router-adapter` and `storybook-adapter`; the one list of adapters in `packages/adapters`;
+and `chrome/StatusBar.tsx`, which draws `info.status`.
+
+Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
+an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
+its own id), and `adapters/tailwind-adapter/src/index.test.ts` (Tailwind's item). Storybook,
+`chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
+(`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
+
 ### The status bar's process lights stay off the main thread (PAR-524)
 
 Each process in the status bar has a light: a running server's breathes, a starting or stopping one's ring turns, a
@@ -7289,15 +7742,15 @@ breathes almost all the time, and it mustn't cost the window anything while noth
 - **The lights stand alone.** The status bar shows no words beside them. What they used to say (a crash or failed task,
   what's starting, a running task and its progress, or how many run) is now their tooltip and accessible name, and
   clicking them opens the flyout.
-- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), the renderer and
-  builder show only their icons; components, tokens and Storybook show their icons and counts (Storybook's is how many
-  components have stories); a failed save is its warning icon; and the performance stats are the gauge and the frame
-  rate. The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width
-  (checked at 375px).
+- **A narrow status bar shows icons and counts.** Below 56rem (a container query on the footer), each tool's item shows
+  its icon and its bold value (React's name, Vite's name, the counts of routes and stories); components and tokens show
+  their icons and counts; a failed save is its warning icon; and the performance stats are the gauge and the frame rate.
+  The words stay for screen readers and each tooltip names the item, so the status bar fits a phone's width (checked at
+  375px).
 - **Every tooltip has one shape:** a short title (the item's name and version, or its count), then one short line on
-  what it does or what a click does, such as "Storybook 10.6.5" over "3 components with stories. Click to open it". An
-  untested version adds "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since
-  they can run long: a failed save's reason is in its notification.
+  what it does or what a click does, such as "Storybook 10.6.5" over "Click to open it". An untested version adds
+  "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since they can run long: a
+  failed save's reason is in its notification.
 - **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
   600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
 
@@ -7311,6 +7764,34 @@ and EveryKindLight: each light in every status, in both themes; and `chrome/Proc
 one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
+
+### The project's nodes
+
+Every node Parity knows of has one address, a `NodeRef`: its owner, its type and a key unique within those two, as
+[the proposal](proposals/adapter-registrations.md#node-identity) sets out. The designs own their designs and layers
+(`design`, keyed `designKey/nodeId`), the renderer adapter the components (`react`, keyed as the component), the router
+adapter the routes (`tanstack-router`, keyed by the route's id) and an entities adapter its screens (`storybook`, keyed
+`file#Export`). So two of any kind with one name never share an address.
+
+- **One index per project** (`projectNodes`): built from the designs and the project's info, and brought up to date
+  150ms after edits to the designs, or a change to the info, settle, so a drag tells it once it rests. A reader about to
+  show what's there asks for it fresh.
+- **Reading it:** `get` by ref, `ofType` from any owner or one, `query` by owner, type and what a node is inside,
+  `children` and `parent`.
+- **Hearing of changes:** `watch` tells a listener what was added, changed, renamed and removed among the nodes a query
+  matches; `subscribe` tells one node's listeners when it changes, gets a new key from its owner, goes, or its owner
+  sends one of its type's events (`emit`). A change names the node's own fields that changed, not those of nodes inside
+  it, so editing a layer doesn't tell its design and every layer around it. A rename moves the node's subscriptions to
+  its new key.
+- **Who reads it so far:** Search actions lists every design's layers from it. Adapters get it once they read the
+  designs, a later step; layers inside an instance aren't in it yet, being the component's.
+- **The router's owner:** the project's info names the router adapter that read its routes (`info.router`).
+
+Code: `NodeRef`, `ProjectNode`, `ProjectNodes`, `NodeEvent` and `NodesChange` in `packages/core/src/nodes.ts`;
+`collectNodes` and `createNodeIndex` in `packages/editor/src/node-index.ts`, tested in `node-index.test.ts`;
+`projectNodes` in `apps/desktop/src/renderer/project-nodes.ts`; and its use in `projectItems` in `ActionsSearch.tsx`.
+Checked in the running app: searching "badge" lists the Badge stories' layers, and choosing one selects it. Gaps: the
+150ms settling and the Search use have no automated test.
 
 ## Signing in (PAR-612, PAR-669)
 
@@ -7478,7 +7959,7 @@ container query, a `group-hover:` rule.
 
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
-  The classes are the Tailwind printer's (`packages/styles-tailwind`), which writes a class only when it compiles back
+  The classes are the Tailwind printer's (`adapters/tailwind-adapter`), which writes a class only when it compiles back
   to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
   a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
   Tailwind's `utilities` layer and in Tailwind's order.
@@ -7514,7 +7995,7 @@ the service for the rest, naming the ones it has, so the stylesheet that comes b
 again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
 (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles adapter's
 `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen
-one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and no style.
+one from the rules. The React guest (`adapters/react-adapter/src/guest.ts`) gives an element its classes and no style.
 
 Tests:
 
@@ -7525,7 +8006,7 @@ Tests:
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
 - `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
   child is placed in is `relative`; an Absolute one stays Absolute.
-- `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
+- `adapters/tailwind-adapter/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
 - `apps/desktop/src/renderer/frame-classes.test.ts`: classes asked for while an ask is unanswered wait for it, so the
@@ -7663,11 +8144,11 @@ project's own modules are still served as in development, and its own dev server
   the one last drawn, so effects and class components' lifecycle methods ask about it.
 - **Layers are still found from React's tree,** which reads only fields both builds keep.
 
-Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packages/builder-vite/src/index.ts`;
-`developmentStandIns` in `packages/renderer-react/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
-`packages/renderer-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
+Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `adapters/vite-adapter/src/index.ts`;
+`developmentStandIns` in `adapters/react-adapter/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
+`adapters/react-adapter/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
 
-Tests: `packages/builder-vite/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
+Tests: `adapters/vite-adapter/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
 serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
 resolved from the folder of the module importing it; a prebundled package compiled for development getting the stand-in,
 with a runtime installed only below it; the stand-ins' matching; the optimizer settings for Vite 8 and before, its
@@ -7885,7 +8366,7 @@ and missed the frame's screenshots, and `problems` said nothing.
   takes what's in the page's.
 - **Popups don't count in a layer's box,** as before, so selecting the trigger doesn't outline the menu with it.
 
-Code: `framePortals` in `packages/renderer-react/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
+Code: `framePortals` in `adapters/react-adapter/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
 taken content out of layer boxes (`portaledIn`); `contentOutside` and `inlinePortals` in
 `apps/desktop/src/renderer/inline-portals.ts`, called by `canvasRender` in `render.ts`; the `outside` field in
 `shared/protocol.ts` and `main/render-results.ts`; `frameProblems` in `packages/agent/src/frames.ts`.
@@ -8414,12 +8895,12 @@ the parent's other slots. Library designs' `$call` factories are loaded even whe
 uses their modules; design-only `$import` props remain literal data.
 
 Code: `remapLibraryImports` and `libraryImports` in `packages/core/src/library.ts`; `findLibraries` in
-`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `packages/builder-vite/src/index.ts`;
+`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `adapters/vite-adapter/src/index.ts`;
 `iconCatalog` in `apps/desktop/src/renderer/chrome/icons.tsx`.
 
 Tests: `packages/project/src/index.test.ts` (aliased entry modules, decorators, nested made values and icon subpaths),
 `packages/core/src/library.test.ts` (one import traversal, ordinary data preserved and current-format-only reads),
 `packages/core/src/library-insert.test.ts` (render-prop insertion preserves other slots), and
-`packages/builder-vite/src/index.test.ts` (resolved icon modules, stable style keys and design-only factories), and
+`adapters/vite-adapter/src/index.test.ts` (resolved icon modules, stable style keys and design-only factories), and
 `apps/desktop/src/renderer/library-runtime.test.ts` (generated guest renders a placed library design with nested
 design-only factories).

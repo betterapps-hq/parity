@@ -52,6 +52,14 @@ export function layerKind(
     }
   }
 
+  if (node.type === "route") {
+    const route = node.route === "__root__" ? "the app's root route" : `the ${node.route} route`
+
+    return node.component
+      ? { label: "Component instance", description: `${node.component} component, drawn by ${route}` }
+      : { label: "Route", description: `Drawn by ${route}` }
+  }
+
   let layout = node.style?.flexDirection === "row" ? "Horizontal layout" : "Vertical layout"
 
   if (node.style?.display === "grid") {
@@ -70,33 +78,31 @@ export function layerKind(
  * What a selection's header does at the end of its row, before a layer's eye. `open-in-editor` is only drawn by the
  * Open in editor exploration, since the code side was set aside (PAR-1027).
  */
-export type HeaderAction = "open-in-storybook" | "open-in-editor" | "go-to-component"
+export type HeaderAction = "open-in-editor" | "go-to-component"
 
-/** What the project has for a layer's component: stories for it, and a design of it to go to. */
+/** What the project has for a layer's component: a design of it to go to. */
 export interface ComponentHas {
-  stories: boolean
   design: boolean
 }
 
 /**
- * What a layer's header offers: an instance of a design goes to the component, and a code component opens in Storybook
- * where it has stories. Open in editor was set aside with the code side (Explorations › Code › Open in editor). An icon and a layer that isn't a component
- * offer nothing but the eye.
+ * What a layer's header offers of its own: an instance of a design goes to the component. A code component's are its
+ * adapters' actions (`layerComponent`). Open in editor was set aside with the code side (Explorations › Code › Open in
+ * editor).
  */
-export function layerActions(
+export function layerActions(node: DesignNode, has: ComponentHas): HeaderAction[] {
+  return node.type === "instance" && has.design ? ["go-to-component"] : []
+}
+
+/**
+ * The project's component a layer draws, whose adapters' actions it offers, as Open in Storybook: a code component's,
+ * but not an icon's.
+ */
+export function layerComponent(
   node: DesignNode,
-  has: ComponentHas,
   libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
-): HeaderAction[] {
-  if (node.type === "instance") {
-    return has.design ? ["go-to-component"] : []
-  }
-
-  if (node.type !== "component" || isIconLayer(node, libraries)) {
-    return []
-  }
-
-  return has.stories ? ["open-in-storybook"] : []
+): string | undefined {
+  return node.type === "component" && !isIconLayer(node, libraries) ? node.component : undefined
 }
 
 /** The library a component comes from: the one whose id begins the component's, as `lucide` begins `lucide/Check`. */

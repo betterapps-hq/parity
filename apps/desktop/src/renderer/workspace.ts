@@ -1,28 +1,43 @@
 import {
   type CanvasDocument,
   codeChangeVersions,
+  findNode,
   finiteNumber,
   type GuestComponentSource,
   guestChanges,
   jsonText,
+  type LayerFailure,
   parseData,
   versionedSources,
   withProjectPreferences
 } from "@parity-app/core"
-import { openingDesigns } from "@parity-app/editor"
+import {
+  boardComponentNode,
+  boardGroups,
+  type BoardParents,
+  nextBoardParents,
+  noBoardParents,
+  openingDesigns,
+  type RecoveryCopy,
+  redrawnBoards
+} from "@parity-app/editor"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
+import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
+import { routePages, routePagesFile } from "./canvas/route-pages.ts"
+import { storyScreensDocument, storyScreensFile } from "./canvas/story-screens.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askToRestore } from "./chrome/restore.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
+import { designFailuresNow, onDesignFailures } from "./failures-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
 import { keepProjectPicture } from "./project-picture.ts"
@@ -794,6 +809,7 @@ export class Workspace {
   /** Draws a tab's session from a guest loaded anew, with tokens of its own, letting go of the last guest's tokens. */
   private drawFrom(tab: Tab, session: ProjectSession, info: ProjectInfo, loaded: LoadedGuest): void {
     const { tokens } = session
+    drawImported(info, loaded)
     this.updateSession(tab, session, { info, loaded, tokens: tokenStore(info, loaded, session.store) })
     tokens.dispose()
   }
@@ -1271,13 +1287,27 @@ async function createSession(
 ): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
+  const drawn = drawImported(info, loaded)
 
   const store = new DesignStore(
-    openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
+    [
+      ...openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
+      ...routePages(info),
+      ...componentBoardsDocument(info),
+      ...storyScreensDocument(info)
+    ],
     info.modes.settings,
     info.mainDocument,
     {
-      saveDocument: (path, document) => saveDocument(info.id, path, document),
+      // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
+      // stories are written back to their own files, through the adapter that read them.
+      saveDocument: (path, document) => {
+        if (path === storyScreensFile) {
+          return request("entities.save", { projectId: info.id, document })
+        }
+
+        return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document)
+      },
       // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
       autosave: (): boolean => withProjectPreferences(getPreferences(), store.getMainDocument()).autosave
     },
@@ -1286,6 +1316,7 @@ async function createSession(
 
   const components = new ComponentStore()
   inferComponents(info, components)
+  sampleBoards(info, store, components)
 
   const session = new ProjectSession(
     {
@@ -1293,11 +1324,13 @@ async function createSession(
       store,
       components,
       selection: new SelectionStore(),
-      recovery: keepRecovery(store, (copy) =>
-        request("recovery.keep", copy ? { projectId: info.id, copy } : { projectId: info.id })
-      )
+      recovery: keepRecovery(store, (copy) => {
+        const kept = copy && ownWork(copy)
+
+        return request("recovery.keep", kept ? { projectId: info.id, copy: kept } : { projectId: info.id })
+      })
     },
-    { info, loaded, tokens: tokenStore(info, loaded, store) }
+    { info, loaded, tokens: tokenStore(info, loaded, store), added: drawn }
   )
 
   sayWhenSavesFail(session)
@@ -1366,6 +1399,139 @@ function followCorrections(session: ProjectSession): void {
   })
 }
 
+/**
+ * What of a recovery copy is the person's own work: the pages, component boards and stories are drawn from the
+ * project's code each time it opens, so moving one leaves nothing to restore. Undefined when nothing's left.
+ */
+/** The design files drawn from the project's code each time it opens, which are never saved. */
+const generatedFiles = new Set([routePagesFile, componentBoardsFile, storyScreensFile])
+
+function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
+  const documents = copy.documents.filter(({ path }) => !generatedFiles.has(path))
+
+  return documents.length > 0 || copy.modes || copy.tokens.length > 0 ? { ...copy, documents } : undefined
+}
+
+/**
+ * Redraws the component boards with a sample for each prop once the service has said what each takes, and each inside
+ * the parents it's found to need, as a change that's neither undone nor saved. Only a board drawn differently changes
+ * (`redrawnBoards`): the rest keep what's been read inside them and their size, so nothing they show draws again.
+ */
+function sampleBoards(info: ProjectInfo, store: DesignStore, components: ComponentStore): void {
+  const parents = new Map<string, BoardParents>()
+
+  const designs = (drawn: ReturnType<typeof componentBoardsDocument>) =>
+    new Map((drawn[0]?.document.containers ?? []).map((board) => [board.id, board]))
+
+  // What was drawn last, as the store began with.
+  let before = designs(componentBoardsDocument(info))
+
+  const draw = () => {
+    const chains = Object.fromEntries([...parents].map(([component, state]) => [component, state.chain]))
+    const drawn = componentBoardsDocument(info, components.get(), chains)
+    const [boards] = drawn
+
+    if (!boards) {
+      return
+    }
+
+    const current = new Map(
+      boards.document.containers.flatMap((board) => {
+        const now = store.getEntry(`${boards.path}#${board.id}`)?.container
+
+        return now ? [[board.id, now] as const] : []
+      })
+    )
+
+    const containers = redrawnBoards(boards.document.containers, before, current)
+    before = designs(drawn)
+
+    if (containers.every((board) => board === current.get(board.id))) {
+      return
+    }
+
+    store.change(
+      "Draw components",
+      (snapshot) => ({
+        ...snapshot,
+        documents: new Map(snapshot.documents).set(boards.path, { ...boards.document, containers })
+      }),
+      { history: false, persist: false }
+    )
+  }
+
+  components.subscribe(draw)
+  searchBoardParents(info, store, parents, draw)
+}
+
+/**
+ * Finds what each of the project's own parts needs around it to draw (`nextBoardParents`): each time a board's part
+ * fails for want of a parent, its board is drawn again inside the next parents to try, until it draws or nothing's left.
+ * A report about layers the board no longer has, from before it was drawn again, is left alone.
+ */
+function searchBoardParents(
+  info: ProjectInfo,
+  store: DesignStore,
+  parents: Map<string, BoardParents>,
+  draw: () => void
+): void {
+  const groups = new Map(boardGroups(info.sources).flatMap(({ ids }) => ids.map((id) => [id, ids])))
+  const prefix = `${componentBoardsFile}#`
+
+  const step = (design: string, failures: readonly LayerFailure[]) => {
+    const board = design.startsWith(prefix) ? store.getEntry(design)?.container : undefined
+    const part = board && boardComponentNode(board)
+    const group = part && groups.get(part.component)
+
+    if (!board || !part || !group) {
+      return
+    }
+
+    const state = parents.get(part.component) ?? noBoardParents
+    const [first] = failures
+
+    if (state.done || (first && !findNode(board.root, first.nodeId))) {
+      return
+    }
+
+    // Nothing failing isn't enough: a parent can hide what's in it, as an inactive TabsContent does.
+    const failure = first ? { component: first.component, error: first.error } : drawsPart(part.id) || "nothing"
+    const next = nextBoardParents(part.component, group, state, failure === true ? undefined : failure)
+    parents.set(part.component, next)
+
+    if (next.chain.join() === state.chain.join()) {
+      return
+    }
+
+    draw()
+
+    // The canvas tells only when what fails changes, so a chain that draws as the last one did is looked at once drawn.
+    // A board far from view is a picture, with nothing of it on the page, so it's left until it's drawn live.
+    setTimeout(() => {
+      const outer = store.getEntry(design)?.container.root
+      const drawn = outer?.type === "layout" && outer.children[0] && drawsPart(outer.children[0].id)
+
+      if (parents.get(part.component) === next && drawn) {
+        step(design, designFailuresNow(info.id, design))
+      }
+    }, recheckAfter)
+  }
+
+  onDesignFailures(info.id, step)
+}
+
+/** How long a board's drawn again before what it draws is looked at, if the canvas hasn't said. */
+const recheckAfter = 1500
+
+/** Whether a layer is drawn on the canvas, in any frame. */
+function drawsPart(nodeId: string): boolean {
+  const selector = `[data-canvas-node="${CSS.escape(nodeId)}"]`
+
+  return [...document.querySelectorAll("[data-frame]")].some(
+    (frame) => (frame.shadowRoot ?? frame).querySelector(selector) !== null
+  )
+}
+
 /** Fills in each component's props once the service has inferred them, after the tab opens. */
 function inferComponents(info: ProjectInfo, components: ComponentStore): void {
   request("project.components", { projectId: info.id })
@@ -1418,6 +1584,22 @@ async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<Pro
 }
 
 /** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
+/**
+ * Gives the guest the code the project's imported screens draw that isn't one of its components, as a story's `render`
+ * function, and gives it back for offscreen renders to add to theirs.
+ */
+function drawImported(info: ProjectInfo, loaded: LoadedGuest): Record<string, GuestComponentSource> | undefined {
+  const sources = info.entities.sources
+
+  if (!sources || Object.keys(sources).length === 0) {
+    return undefined
+  }
+
+  loaded.guest.addComponents?.(sources)
+
+  return sources
+}
+
 function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
   return new TokenStore(
     loaded.tokens,

@@ -121,7 +121,7 @@ describe("a selected design, with no layer selected", () => {
       { key: "frame:desktop:default", box: shown.box, label: "Drag to resize the frame" },
       { key: "frame:desktop:loading", box: loading.box, label: "Drag to resize the frame" }
     ])
-    expect(marks.frameSize).toEqual({ box: shown.box, size: "400 × 300" })
+    expect(marks.frameSize).toEqual({ box: shown.box, size: "400 × 300", color: kindColors.layer })
   })
 
   it("takes no handles while locked, and has no size under it as a screen", () => {

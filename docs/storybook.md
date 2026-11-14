@@ -56,8 +56,12 @@ because it needs them to map stories.
 
 ### Opening stories
 
-The book buttons in the Components panel and the layer panel, and the Storybook item in the status bar, call
-`storybook.open` on the project service. That's [utility/storybook.ts](../apps/desktop/src/utility/storybook.ts).
+Open in Storybook, wherever a code component offers it (its layer's header, its right-click menus in Layers, on the
+canvas and in the Components panel, its row's button and card, and Search actions), and the Storybook item in the status
+bar, run the Storybook adapter's Open in Storybook action through `adapter.run` on the project service. The adapter
+decides what to open ([open.ts](../adapters/storybook-adapter/src/open.ts)); the app finds or starts its server, as any
+tool's ([utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts)), and lists it with the project's
+processes.
 
 - **Reusing a server.** Parity fetches `http://localhost:<port>/index.json`, using the script's port or 6006, with a
   3-second timeout. It reuses the server when one of the index's `importPath`s is one of the project's mapped story
@@ -84,16 +88,18 @@ The book buttons in the Components panel and the layer panel, and the Storybook 
 
 ### What reaches the UI
 
-`ProjectInfo.storybook` carries the detection result to the window. The UI shows Storybook buttons only for components
-with stories, and the status bar item only when the project has a Storybook. The agent API returns the version entry in
-`detection`, but not the story mapping, and none of the MCP tools in [packages/cli](../packages/cli) touch Storybook.
+`ProjectInfo.actions` carries Open in Storybook to the window with the components it's offered for: those a story file's
+meta names, resolved to the project's components. The UI offers it only for those, and the status bar item only when the
+project has a Storybook. `ProjectInfo.storybook` still carries the detection result, for the stories count on a
+component's card. The agent API returns the version entry in `detection`, but not the story mapping, and none of the MCP
+tools in [packages/cli](../packages/cli) touch Storybook.
 
 ### Parity's own Storybook
 
 [apps/desktop/.storybook](../apps/desktop/.storybook) is a separate development tool for Parity's own interface, on port
 6007, with about 60 story files. It isn't part of the product:
 
-- Its stories use `storybook/test` for play functions, and a stand-in `storybook.open` that returns a fixed URL.
+- Its stories use `storybook/test` for play functions, and a stand-in `adapter.run` that returns a fixed URL.
 - Its `example-project` plugin runs the real project discovery on `examples/shadcn-vite`, Storybook info included, but
   opens its own designs file, `.storybook/example.par`, in place of the example's: only the fourteen designs stories
   use, so stories stay quick while the example grows as a stress test.
@@ -124,8 +130,8 @@ components open on their docs page.
 - **`.parity/preview.tsx` for projects without Storybook,** decided on 2026-10-28. It has the same exports as
   Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx` unchanged. With no
   Parity file, Storybook's preview is used as it is. When both exist, Parity's file wins and replaces Storybook's on the
-  canvas; it can import `.storybook/preview` and spread its decorators to build on them. Adapters, plugins and settings
-  go in `parity.config.ts` at the project root instead, which runs in Node, while the preview file runs in the frames.
+  canvas; it can import `.storybook/preview` and spread its decorators to build on them. A project's extensions and
+  their settings go in its `.par` file instead, as [developer-api.md](proposals/developer-api.md) sets out.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
@@ -154,11 +160,11 @@ These rules keep Storybook optional and replaceable. A change that breaks one ne
 
    It never reads Storybook's internal modules, its cache, the manager's state, or `iframe.html`.
 
-3. **Everything Storybook-specific lives in one adapter,** behind an interface Parity owns. Today it's split between
-   [packages/project/src/storybook.ts](../packages/project/src/storybook.ts) and
-   [apps/desktop/src/utility/storybook.ts](../apps/desktop/src/utility/storybook.ts), with `StorybookInfo` in core and a
-   `storybook.open` call in the protocol. The canvas, `.par`, the agent API and the UI talk to the interface, never to
-   Storybook.
+3. **Everything Storybook-specific lives in one adapter,** behind an interface Parity owns. Detecting it, importing
+   stories, writing args back and opening it are in [adapters/storybook-adapter](../adapters/storybook-adapter); which
+   components have stories is still read by [packages/project/src/storybook.ts](../packages/project/src/storybook.ts)
+   into `StorybookInfo`, until adapters give facts about components. The canvas, `.par`, the agent API and the UI talk
+   to the interface, never to Storybook.
 4. **Parity's models are Parity's.** `.par`, modes, decorators, parameters and states are shaped so they translate to
    and from Storybook's (a mode value is a global, a state can be a story), but they're defined by Parity and never
    imported from Storybook's types.
@@ -272,7 +278,8 @@ Parity's own Storybook has play functions for the UI's Storybook states (opening
 status bar and the Components panel. They run against the stand-in service and aren't part of `vp run test`. The layer
 panel's button has no story.
 
-**Not covered:** all of [utility/storybook.ts](../apps/desktop/src/utility/storybook.ts). Reusing a server, starting
-one, choosing a port, matching index entries, building URLs, restarting a stopped one and stopping it have no tests. A
-fake `index.json` server and a fake `bin` would cover most of it in unit tests, and one fixture test could start
-`react-aria`'s real Storybook 9.
+**Covered:** matching index entries and building URLs, the server the adapter asks for (its config folder and port), and
+refusing a component without stories, in [open.test.ts](../adapters/storybook-adapter/src/open.test.ts). **Not
+covered:** [utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts). Reusing a server, starting one,
+choosing a port, restarting a stopped one and stopping it have no tests. A fake `index.json` server and a fake `bin`
+would cover most of it in unit tests, and one fixture test could start `react-aria`'s real Storybook 9.
