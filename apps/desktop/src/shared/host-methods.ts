@@ -1,5 +1,6 @@
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type { UpdateState } from "@parity-app/processes"
+import { settingsChange } from "@parity-app/settings"
 import { z } from "zod"
 import { type AccountState, accountEmail, organizationId, signInRequest } from "./account.ts"
 import { type ConnectorState, connectorPlaced, connectorSearch } from "./connectors.ts"
@@ -13,8 +14,7 @@ import {
   problemReport,
   saveDialogOptions,
   shownItem,
-  telemetrySetting,
-  themeSource
+  telemetrySetting
 } from "./ipc-checks.ts"
 import type { KeybindingsState } from "./keybindings.ts"
 import type {
@@ -26,6 +26,7 @@ import type {
   ReportCrash,
   TelemetryState
 } from "./protocol.ts"
+import type { SettingsState } from "./settings.ts"
 
 /**
  * What a window asks the main process over IPC, in one map (PAR-965): each method's name, the schema its params are
@@ -122,7 +123,8 @@ export const hostMethods = {
 
   quit: {},
   toggleDevTools: {},
-  setTheme: { params: themeSource },
+  /** Changes `settings.json`, which main then sends every window, for what it holds after. */
+  settingsChange: { params: settingsChange, result: answers<SettingsState>() },
   /** The shortcuts the person changed, in `keybindings.json` (PAR-1085), which main sends again whenever they change. */
   keybindingsState: { result: answers<KeybindingsState>() },
   /** Replaces commands' entries in `keybindings.json`, for what the file holds after. */

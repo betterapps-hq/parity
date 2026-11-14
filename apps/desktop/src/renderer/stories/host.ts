@@ -26,6 +26,7 @@ import {
 } from "@parity-app/editor"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { readExtension } from "@parity-app/extensions"
+import { defaultSettings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
@@ -426,7 +427,12 @@ export function installHost(): void {
       Promise.resolve({ folder: "C:\\Users\\ana\\AppData\\Local\\Parity\\bin", onPath: true, newTerminal: true }),
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
-    setTheme: () => Promise.resolve(),
+    // Stories keep settings in memory: `preferences.ts` changes them for the story and puts them back after.
+    settings: {
+      now: () => ({ values: { ...defaultSettings }, badValues: [] }),
+      change: () => Promise.resolve({ values: { ...defaultSettings }, badValues: [] }),
+      subscribe: () => () => undefined
+    },
     // Stories start with the keymap's keys and keep what's changed in the story.
     keybindings: {
       get: () => Promise.resolve({ entries: [] }),

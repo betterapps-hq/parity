@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.83.0",
+  "version": "0.84.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -58,6 +58,7 @@
     "@parity-app/registry": "workspace:*",
     "@parity-app/react-adapter": "workspace:*",
     "@parity-app/layer-types": "workspace:*",
+    "@parity-app/settings": "workspace:*",
     "@parity-app/service": "workspace:*",
     "@parity-app/style-schema": "workspace:*",
     "@parity-app/telemetry": "workspace:*",

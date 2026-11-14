@@ -26,11 +26,11 @@ function apply(): void {
 
 /**
  * Keeps the app's chrome in the theme from File > Preferences: light, dark, or the system's, following it as it
- * changes. Designs aren't affected; their modes choose their theme. The window's own title bar buttons follow too.
+ * changes. Designs aren't affected; their modes choose their theme. Main sets the title bar's buttons from the same
+ * setting in `settings.json`.
  */
 export function startTheme(): void {
   apply()
-  void window.canvasHost.setTheme(getPreferences().theme)
   let last = getPreferences().theme
   subscribePreferences(() => {
     const { theme } = getPreferences()
@@ -41,7 +41,6 @@ export function startTheme(): void {
 
     last = theme
     apply()
-    void window.canvasHost.setTheme(theme)
   })
   systemDark.addEventListener("change", apply)
 }

@@ -21,6 +21,10 @@ export const ipc = {
   accountChanged: "canvas:account-changed",
   /** Main tells windows what `keybindings.json` holds now (PAR-1085). */
   keybindingsChanged: "canvas:keybindings-changed",
+  /** The preload asks main for `settings.json` before the page draws, and waits for the answer. */
+  settingsNow: "canvas:settings-now",
+  /** Main tells windows the settings changed, in this copy or another. */
+  settingsChanged: "canvas:settings-changed",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing"
 } as const

@@ -3186,13 +3186,13 @@ Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's su
 a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
 reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
-`chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back and
-ignores a saved export scale. `packages/agent/src/dispatch.test.ts` ("exportPictures") names Export all's files at each
-size, with a size asked for twice written once and each scale drawn once. `chrome/ExportSection.stories.tsx`: Layer,
-SeveralSizes, AddingASize, SeveralLayers and WholeDesign; OneLayer and Design in `chrome/CanvasMenu.items.stories.tsx`
-check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in `chrome/AppMenu.file.stories.tsx` checks
-File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps: drawing offscreen and writing the files
-run in the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+`chrome/layers-menu.test.ts` list Export… where it goes, and `packages/settings/src/settings-file.test.ts` reads the
+sizes back. `packages/agent/src/dispatch.test.ts` ("exportPictures") names Export all's files at each size, with a size
+asked for twice written once and each scale drawn once. `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes,
+AddingASize, SeveralLayers and WholeDesign; OneLayer and Design in `chrome/CanvasMenu.items.stories.tsx` check the
+menu's item and its keys, and ExportSelectedAsItsShortcutDoes in `chrome/AppMenu.file.stories.tsx` checks File > Export
+selected and Ctrl+Shift+E ask for the same export's folder. Gaps: drawing offscreen and writing the files run in the
+desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
 
 ### Copy as PNG (PAR-190)
 
@@ -7434,6 +7434,11 @@ project page.
   change main couldn't save leaves the control as it was and says so under the row. A setting something outside Settings
   decides, as `PARITY_TELEMETRY` decides Share diagnostics, is disabled and names it, and Get beta updates waits while
   an update is checked, downloaded or installed.
+- **Every copy of Parity shares the person's settings,** kept in `settings.json` in the app's data folder, which holds
+  only what was changed. Main reads it before the window opens, so the first frame is in the saved theme. A change made
+  in one copy reaches the others' windows within a moment. When the file doesn't read, Parity keeps the settings it last
+  read, or the defaults at start, won't write over it, and says so at the top of Settings' own pages. A change it
+  couldn't save holds until Parity closes and is tried again, and Settings says so too.
 - **The project's page lists what its `.par` sets** (see Settings saved with the project): its own values for the
   person's settings, each with every project's value under it, which goes to that setting, and an X that takes the
   project's value off; Change a setting for the project, which starts a switch at its other value; and its extensions'
@@ -7457,9 +7462,12 @@ project page.
 - **Another part of the app can open Settings on a page,** with a setting on it marked and focused, through
   `openSettings`.
 
-Code: `rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and
-return data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`;
-the view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
+Code: `readSettings`, `changeSettings` and `changedSettings` in `packages/settings`, which take and return data;
+`settingsStore` in `apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` under `withFileLock`
+(`main/file-lock.ts`) and watches its folder; `chrome/preferences.ts`, which takes the settings from main;
+`rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and return
+data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`; the
+view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
 `SettingsData` (`store.ts`); and `chrome/SettingsDialog.tsx`, which builds it from the preferences, the project's
 settings, the keybindings, telemetry and updates. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the
 keymap writes them. `extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the
@@ -7467,10 +7475,17 @@ running extensions and returns what an extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a
-tool the project doesn't use. `packages/editor/src/settings-search.test.ts` (6): every typed word starting a word;
-nothing for an empty search; a label's start before a word inside it; another word for a setting, and which; where it is
-before its description; and values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named
-by its place, named keys, Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
+tool the project doesn't use. `packages/settings/src/settings-file.test.ts` (14): the defaults with no file, each saved
+setting read, one bad value at its default, unknown keys passed over, a file that isn't JSON or an object, only what
+changed written, unknown keys kept, a reset, text that doesn't parse never written over, a window's change read or
+refused, and what changed. `main/settings-store.test.ts` (10): nothing written until a change, a change read back by a
+new copy, two copies' changes at the same moment both kept, one copy told of another's, a reset, a file that can't be
+read never written over with the change held, a held change saved once the file reads without undoing another copy's, a
+stale lock taken, a held lock waited for, and the lock let go when the work fails.
+`packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for an empty search; a
+label's start before a word inside it; another word for a setting, and which; where it is before its description; and
+values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its place, named keys,
+Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
 `chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and checks the project's
 value beside the person's, saving the project, changing a setting for it, a save that fails, moving a shortcut's keys,
 an extension's project setting, search results and opening on a setting. `chrome/SettingsDialog.stories.tsx` opens it

@@ -61,6 +61,7 @@ import { createRenderPool, type RenderWindow } from "./render-pool.ts"
 import { createReports, offersCrashReports } from "./report.ts"
 import { localHistory } from "./search-history.ts"
 import { sessionStore } from "./session-store.ts"
+import { settingsStore } from "./settings-store.ts"
 import { readStandIn, standInAccount } from "./stand-in-account.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
@@ -80,7 +81,6 @@ import {
   watchWindowGone,
   watchWindowHangs
 } from "./telemetry.ts"
-import { savedTheme } from "./theme-file.ts"
 import type { UpdateSession } from "./update-session.ts"
 import { createUpdates } from "./updates.ts"
 
@@ -205,18 +205,34 @@ let updates: UpdateSession | undefined
 /** Closing windows and quitting, which each window's page decides on, and restarting to install an update. */
 const closeFlow = createCloseFlow({ quit: () => app.quit(), updates: () => updates, quitCancelled })
 
-/** The app's theme is kept here too, so the window opens in it before the page loads. */
-const themeFile = join(app.getPath("userData"), "theme.json")
+/**
+ * `settings.json`, the settings every copy of Parity shares (`docs/proposals/settings.md`), read before the window
+ * opens and sent to every window as they change, here or in another copy. The theme sets the title bar's buttons and
+ * system dialogs too.
+ */
+const settings = settingsStore(join(app.getPath("userData"), "settings.json"), {
+  changed: (state) => {
+    nativeTheme.themeSource = state.values.theme
 
-function readThemeFile(): string | undefined {
-  try {
-    return readFileSync(themeFile, "utf8")
-  } catch {
-    return undefined
-  }
-}
+    for (const window of appWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(ipc.settingsChanged, state)
+      }
+    }
+  },
+  problem: (message) => console.warn(message)
+})
 
-nativeTheme.themeSource = savedTheme(readThemeFile())
+nativeTheme.themeSource = settings.state().values.theme
+
+// The preload waits for the settings before the page draws, so the first frame has them; main answers from memory.
+ipcMain.on(ipc.settingsNow, (event) => {
+  event.returnValue = appWindowOf(event) ? settings.state() : undefined
+})
+
+app.on("browser-window-focus", () => settings.check())
+
+app.on("will-quit", () => settings.close())
 
 /**
  * The shortcuts the person changed (PAR-1085), read before the window opens and sent to every window as they change. The
@@ -937,13 +953,7 @@ answerWindows<HostEvent, BrowserWindow>({
     installCli: () => installCli(cliTarget(packaged)),
     quit: () => app.quit(),
     toggleDevTools: (window) => window.webContents.toggleDevTools(),
-    theme: {
-      get: () => nativeTheme.themeSource,
-      set: (theme) => {
-        nativeTheme.themeSource = theme
-      },
-      remember: (theme) => writeFileSync(themeFile, JSON.stringify({ theme }))
-    },
+    settings: { change: (change) => settings.change(change) },
     keybindings: {
       state: () => keybindings.state(),
       replace: (replacements) => keybindings.replace(replacements),
