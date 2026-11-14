@@ -7,8 +7,8 @@ adapter-registrations.md for how nodes are addressed, indexed and given facts, a
 packaging, with these changes to what those pages record:
 
 - **The manifest is the `parity` field in `package.json`,** not a `.lib.par`.
-- **A project names its extensions and their settings in its `.par` file,** not in `parity.config.ts`, and trusting the
-  project covers the extensions its `.par` names.
+- **A project names its extensions and their settings in its `.par` file,** and trusting the project covers the
+  extensions its `.par` names. There's no `parity.config.ts`.
 - **Extensions with the `edits` permission may change designs on their own,** which replaces adapter-registrations.md's
   "read-only to start".
 - **Connectors are providers** like the rest (below).
@@ -578,11 +578,11 @@ entry modules; then the connectors. Then `packages/adapters` goes.
   before the code loads. Behaviour (what a command does, a provider, facts, overlays) is code.
 - **A host for each extension,** so one that blocks or crashes affects only itself.
 - **Web views come in a later release,** after declarative views.
+- **No `parity.config.ts`.** [extensions.md](extensions.md) planned it for a project's extensions and settings, and both
+  are in the `.par` now. Code a project needs, such as decorators, stays in its preview file.
 
 ## Decisions needed
 
-- **`parity.config.ts`,** which [extensions.md](extensions.md) planned for a project's extensions and settings. With
-  both in the `.par`, nothing here needs it. Drop it, or keep it for what has to be code?
 - **Who wins on turning off.** A project that turns an extension on, over a person who turned it off in the app, as
   above?
 - **Raising `formatVersion` for `extensions`.** Raising it lets an older Parity say the file is newer rather than

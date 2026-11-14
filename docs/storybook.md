@@ -128,8 +128,8 @@ components open on their docs page.
 - **`.parity/preview.tsx` for projects without Storybook,** decided on 2026-10-28. It has the same exports as
   Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx` unchanged. With no
   Parity file, Storybook's preview is used as it is. When both exist, Parity's file wins and replaces Storybook's on the
-  canvas; it can import `.storybook/preview` and spread its decorators to build on them. Adapters, plugins and settings
-  go in `parity.config.ts` at the project root instead, which runs in Node, while the preview file runs in the frames.
+  canvas; it can import `.storybook/preview` and spread its decorators to build on them. A project's extensions and
+  their settings go in its `.par` file instead, as [developer-api.md](proposals/developer-api.md) sets out.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
