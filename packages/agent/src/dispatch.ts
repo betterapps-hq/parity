@@ -7,6 +7,7 @@ import {
   unknownReference
 } from "@parity-app/core"
 import type { ChangeConflict, ImageCredit } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core/schema"
 import {
   type CodeReference,
   cantRemove,
@@ -124,6 +125,20 @@ export interface AgentHost {
   scanImages(projectId: string): Promise<{ files: ImageFile[]; references: CodeReference[] }>
   /** Removes an image file as an edit the window can undo. Refuses one the project's code names. */
   removeImage(projectId: string, path: string): Promise<{ path: string; label: string }>
+  /** The project's extensions, with their commands, agent tools, node types and facts (PAR-1096). */
+  extensions(projectId: string): Promise<Answer<"extensions">["extensions"]>
+  /**
+   * Runs an extension's command, for a component when one is named, or its agent tool with `input`, for `agent`, and
+   * gives what it returned. Its changes are one undo step each, named after the agent and the extension.
+   */
+  runExtension(projectId: string, request: ExtensionRun, agent: string): Promise<JsonValue | undefined>
+}
+
+/** What an agent runs of an extension: a command, for a component when one is named, or a tool with its input. */
+export interface ExtensionRun {
+  name: string
+  target?: { type: "component"; key: string }
+  input?: { [field: string]: JsonValue }
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -346,6 +361,35 @@ const methods: MethodTable = {
     }
 
     return host.removeImage(projectId, image.path)
+  },
+  async extensions(params, { host }) {
+    const snapshot = await host.snapshot(params.tab)
+
+    return { tab: tabRef(snapshot), extensions: await host.extensions(snapshot.projectId) }
+  },
+  async runExtension(params, { host, presence, caller }) {
+    const snapshot = await host.snapshot(params.tab)
+    const request: ExtensionRun = { name: params.name }
+
+    if (params.component !== undefined) {
+      request.target = { type: "component", key: params.component }
+    }
+
+    if (params.input !== undefined) {
+      request.input = params.input
+    }
+
+    const result = await showing(presence(snapshot.tab.id), { kind: "board", label: `Run ${params.name}` }, () =>
+      host.runExtension(snapshot.projectId, request, caller?.name ?? "An agent")
+    )
+
+    const answer: Answer<"runExtension"> = { tab: tabRef(snapshot), name: params.name }
+
+    if (result !== undefined) {
+      answer.result = result
+    }
+
+    return answer
   }
 }
 

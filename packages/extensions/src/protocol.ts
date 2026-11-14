@@ -46,6 +46,24 @@ export interface ActivateParams {
   selection: NodeRef[]
   /** Its settings' values now, by key, and whose each one is: the person's (`app`) or the project's (`project`). */
   settings: { values: Record<string, SettingValue>; scopes: Record<string, "app" | "project"> }
+  /** The agent tools the manifest declares, which registrations are checked against. */
+  agentTools?: string[]
+  /** The extensions its manifest names in `extensionDependencies`, activated already, each with its API's methods. */
+  dependencies?: Dependency[]
+}
+
+/** An extension another builds on, as the host that builds on it sees it. */
+export interface Dependency {
+  id: string
+  version: string
+  displayName: string
+  /** The names of the functions its `activate` returned. */
+  api: string[]
+}
+
+/** What an extension's code gave back to whoever ran it: JSON, or nothing. */
+export interface Returned {
+  result?: JsonValue
 }
 
 /** Where `parity.navigate` goes, by method. */
@@ -59,10 +77,14 @@ export type NavigateTo =
 
 /** What the project service asks of a host. */
 export interface HostMethods {
-  /** Loads the extension's code and calls its `activate`. Answers once `activate` has. */
-  activate: { params: ActivateParams; result: undefined }
-  /** Runs one of its commands, once it has activated. */
-  run: { params: { command: string; target?: CommandTarget }; result: undefined }
+  /** Loads the extension's code and calls its `activate`. Answers once `activate` has, with its API's methods. */
+  activate: { params: ActivateParams; result: { api: string[] } }
+  /** Runs one of its commands, once it has activated, giving back what its handler returned. */
+  run: { params: { command: string; target?: CommandTarget }; result: Returned }
+  /** Runs one of its agent tools, with input its schema has checked. */
+  tool: { params: { name: string; input: Record<string, JsonValue> }; result: Returned }
+  /** Calls a function of its API, for an extension that builds on it. */
+  "api.call": { params: { method: string; args: JsonValue[] }; result: Returned }
   /** Answers at once, unless the extension's code is keeping the host busy, with the memory its process holds. */
   ping: { params: undefined; result: { memory?: number } | undefined }
   /** Some of its settings changed, in Settings or by its own `update`: their values now, by key. */
@@ -133,6 +155,8 @@ export interface HostServiceMethods {
   navigate: { params: NavigateTo; result: { url?: string } }
   /** Runs one of Parity's own commands, or an extension's. */
   "commands.execute": { params: { command: string; target?: CommandTarget }; result: undefined }
+  /** Calls a function of the API of an extension its manifest names in `extensionDependencies`. */
+  "extensions.call": { params: { extension: string; method: string; args: JsonValue[] }; result: Returned }
 }
 
 const text = z.string().max(20_000)
@@ -354,5 +378,9 @@ export const hostChecks: Checks<HostServiceMethods> = {
       z.strictObject({ kind: z.literal("openSettings"), id: name })
     ])
   ),
-  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional() }))
+  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional() })),
+  "extensions.call": checkOf(z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100) }))
 }
+
+/** Reads what an extension's code gave back, which could be anything its process posted. */
+export const readReturned = checkOf(z.strictObject({ result: jsonValue.optional() }))

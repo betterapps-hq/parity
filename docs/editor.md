@@ -1106,6 +1106,10 @@ and runs its code in a host of its own ([extensions.md](extensions.md)). Storybo
   which command has its keys.
 - **A node selected by ref** that has no panel of its own, as a story or an extension's node, shows its name, its type
   as its extension names it, and the facts extensions set about it (`NodePanel`).
+- **Check accessibility in Storybook (PAR-1096)** shows beside Open in Storybook in projects with
+  `@storybook/addon-a11y`, from an extension that builds on the Storybook extension's API, and opens a component's first
+  story with Storybook's accessibility panel open. Agents run either through `run_extension`
+  ([extensions.md](extensions.md#working-with-other-extensions-and-agents)).
 
 Code: `renderer/extensions.ts` (the store, `commandsAt`, `holdsFor`, `extensionKeys`, `statusItems`, `runCommand`),
 `renderer/extension-editor.ts` (what extensions ask of the tab, and the selection they're told),

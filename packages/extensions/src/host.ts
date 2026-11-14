@@ -1,16 +1,20 @@
 import { createChannel, type Port } from "@parity-app/channel"
 import type {
+  AgentToolInput,
   CommandTarget,
   Disposable,
+  ExtensionApi,
   ExtensionModule,
+  JsonValue,
   NodeRef,
   Parity,
   PickItem,
+  RemoteApi,
   SettingValue,
   State,
   StatusItem
 } from "@parity-app/extension-api"
-import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo } from "./protocol.ts"
+import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo, Returned } from "./protocol.ts"
 import { type Form, viewsOf } from "./views.ts"
 
 /*
@@ -38,7 +42,9 @@ export interface ExtensionHost {
   log(level: "info" | "warning" | "error", text: string, stack?: string): void
 }
 
-type CommandHandler = (target: CommandTarget | undefined) => void | Promise<void>
+type CommandHandler = (target: CommandTarget | undefined) => void | JsonValue | Promise<void | JsonValue>
+
+type ToolHandler = (input: AgentToolInput) => void | JsonValue | Promise<void | JsonValue>
 
 /** What's selected in the window, as the host keeps it for `parity.selection`, and who's told when it changes. */
 interface Selected {
@@ -55,8 +61,11 @@ interface HostSettings {
 interface Activated {
   handlers: Map<string, CommandHandler>
   forms: Map<string, Form>
+  tools: Map<string, ToolHandler>
   subscriptions: Disposable[]
   module: ExtensionModule
+  /** What its `activate` returned, for extensions that build on it. */
+  api: ExtensionApi
 }
 
 /** Serves the project service from an extension's host, until it's told to stop. */
@@ -87,7 +96,9 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       selected.refs = params.selection
       settings.values = new Map(Object.entries(params.settings.values))
       activated = activate(params, channel, progress, selected, settings, side)
-      await activated
+      const { api } = await activated
+
+      return { api: Object.keys(api) }
     },
     async run({ command, target }) {
       if (!activated) {
@@ -100,7 +111,37 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error(`Nothing handles ${command}. Its extension registers it with parity.commands.register.`)
       }
 
-      await handler(target)
+      return returned(await handler(target))
+    },
+    async tool({ name, input }) {
+      if (!activated) {
+        throw new Error("The extension hasn't activated")
+      }
+
+      const handler = (await activated).tools.get(name)
+
+      if (!handler) {
+        throw new Error(`Nothing handles ${name}. Its extension registers it with parity.agentTools.register.`)
+      }
+
+      return returned(await handler(input))
+    },
+    async "api.call"({ method, args }) {
+      if (!activated) {
+        throw new Error("The extension hasn't activated")
+      }
+
+      const { api } = await activated
+      const called = Object.hasOwn(api, method) ? api[method] : undefined
+
+      if (!called) {
+        throw new Error(`Its API has no ${method}`)
+      }
+
+      // SAFETY: an API's functions take JSON, as `ExtensionApi` says; `never` only lets each name the types it takes.
+      return returned(
+        await (called as (...given: JsonValue[]) => void | JsonValue | Promise<void | JsonValue>)(...args)
+      )
     },
     async "view.changed"({ view, key, value }) {
       if (!activated) {
@@ -187,6 +228,9 @@ async function activate(
   }
 
   const handlers = new Map<string, CommandHandler>()
+  const tools = new Map<string, ToolHandler>()
+  const declaredTools = new Set(params.agentTools ?? [])
+  const dependencies = new Map((params.dependencies ?? []).map((dependency) => [dependency.id, dependency]))
   const subscriptions: Disposable[] = []
   const { prefix } = params.extension
   const declaredCommands = new Set(params.commands)
@@ -407,6 +451,48 @@ async function activate(
       }
     },
     state: { app: state("app"), project: state("project") },
+    extensions: {
+      get<Api extends object>(id: string) {
+        const dependency = dependencies.get(id)
+
+        if (!dependency) {
+          throw new Error(`${id} isn't in the manifest's extensionDependencies`)
+        }
+
+        const api = Object.fromEntries(
+          dependency.api.map((method) => [
+            method,
+            async (...args: JsonValue[]) => {
+              const { result } = await send("extensions.call", { extension: id, method, args })
+
+              return result
+            }
+          ])
+        )
+
+        // SAFETY: `Api` is the caller's word for the dependency's API, whose methods are these, each a call to it.
+        return { id, version: dependency.version, displayName: dependency.displayName, api: api as RemoteApi<Api> }
+      }
+    },
+    agentTools: {
+      register(name, handler) {
+        if (!declaredTools.has(name)) {
+          throw new Error(`${name} isn't an agent tool the manifest declares`)
+        }
+
+        if (tools.has(name)) {
+          throw new Error(`${name} has a handler already`)
+        }
+
+        tools.set(name, handler)
+
+        return once(() => {
+          if (tools.get(name) === handler) {
+            tools.delete(name)
+          }
+        })
+      }
+    },
     log: {
       info: (message) => quietly("log", { level: "info", text: message }),
       warn: (message) => quietly("log", { level: "warning", text: message }),
@@ -426,9 +512,9 @@ async function activate(
     }
   }
 
-  await exports.activate(parity)
+  const api = apiOf(await exports.activate(parity))
 
-  return { handlers, forms, subscriptions, module: exports }
+  return { handlers, forms, tools, subscriptions, module: exports, api }
 }
 
 /** Disposes of what the extension added to `parity.subscriptions`, newest first, then calls its `deactivate`. */
@@ -449,6 +535,16 @@ async function deactivate(
   } catch (error) {
     log("error", `deactivate failed: ${message(error)}`, stackOf(error))
   }
+}
+
+/** What an extension's code returned, as the service is sent it. */
+function returned(value: void | JsonValue): Returned {
+  return value === undefined ? {} : { result: value }
+}
+
+/** An extension's API: the functions of what its `activate` returned, if it returned an object. */
+function apiOf(value: void | ExtensionApi): ExtensionApi {
+  return Object.fromEntries(Object.entries(value ?? {}).filter(([, method]) => method instanceof Function))
 }
 
 /** A disposable that runs `dispose` the first time only. */

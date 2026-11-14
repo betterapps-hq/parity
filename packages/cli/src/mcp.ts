@@ -9,6 +9,8 @@ import {
   describeComponents,
   describeConsole,
   describeExec,
+  describeExtensionRun,
+  describeExtensions,
   describeModes,
   describeProblems,
   describeProps,
@@ -226,6 +228,18 @@ const tools: Tool[] = [
     "Remove an image file from public/images. Refused while a design or code uses it, saying where.",
     operations.removeImage,
     (result) => [text(describeRemovedImage(result))]
+  ),
+  operationTool(
+    "get_extensions",
+    "List the project's extensions, as Storybook's: their commands, agent tools with input schemas, node types, and facts about components. Changes nothing.",
+    operations.extensions,
+    (result) => [text(describeExtensions(result))]
+  ),
+  operationTool(
+    "run_extension",
+    "Run an extension's command (for component, when given) or agent tool (with input fitting its schema), as get_extensions names them. Returns what it gave back. Its changes are undoable steps named after you and it; it can't ask the person anything.",
+    operations.runExtension,
+    (result) => [text(describeExtensionRun(result))]
   ),
   operationTool(
     "get_props",
