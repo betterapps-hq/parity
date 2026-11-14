@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@buildkitgg/shadcn-baseui-kit": "catalog:",
-    "@parity-app/multiplayer": "workspace:*",
     "@sentry/electron": "catalog:",
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",
@@ -48,6 +47,7 @@
     "@parity-app/connectors": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
+    "@parity-app/multiplayer": "workspace:*",
     "@parity-app/extension-api": "workspace:*",
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-storybook-a11y": "workspace:*",
