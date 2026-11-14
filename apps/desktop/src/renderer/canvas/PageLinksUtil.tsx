@@ -2,6 +2,7 @@ import { type BoardBox, labelLook, pageGroupBox, pageLinkLine, pageLinksLit } fr
 import { CornerDownRight, LayoutTemplate } from "lucide-react"
 import { useContext, useEffect, useState } from "react"
 import { HTMLContainer, Rectangle2d, type RecordProps, stopEventPropagation, T, useEditor, useValue } from "tldraw"
+import { Hint } from "../chrome/Hint.tsx"
 import { type SelectionStore, useHover, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { ProjectContext } from "./context.ts"
@@ -297,21 +298,23 @@ function PageGroupView({
           </span>
         </button>
         {group.redirect && (
-          <button
-            type="button"
-            className="ml-auto flex shrink-0 cursor-default items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-            aria-label={`Redirects to ${group.redirect.name}`}
-            onPointerDown={(event) => {
-              stopEventPropagation(event)
+          <Hint label={`Redirects to ${group.redirect.name}`} wait>
+            <button
+              type="button"
+              className="ml-auto flex shrink-0 cursor-default items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+              aria-label={`Redirects to ${group.redirect.name}`}
+              onPointerDown={(event) => {
+                stopEventPropagation(event)
 
-              if (group.redirect) {
-                onRedirect(group.redirect.key)
-              }
-            }}
-          >
-            <CornerDownRight className="size-3.5" />
-            {group.redirect.name}
-          </button>
+                if (group.redirect) {
+                  onRedirect(group.redirect.key)
+                }
+              }}
+            >
+              <CornerDownRight className="size-3.5" />
+              {group.redirect.name}
+            </button>
+          </Hint>
         )}
       </div>
     </div>

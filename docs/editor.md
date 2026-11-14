@@ -6483,11 +6483,11 @@ A screen is named for the component its route draws, else its path.
   only redirects, is a group around its pages instead of a page: the example's `/settings` index only redirects to
   Profile, so Settings is a dashed, rounded outline around Billing and Profile, side by side on its level, 48 canvas
   pixels in from its sides. Its header, at a title's size, shows the layout icon, its name and path, and a chip with
-  where its index redirects, Profile; clicking the chip selects Profile. The line from the page above ends at the
-  group's top edge. Clicking the header selects the group, whose outline turns solid in the page color, and brings
-  forward its line up to App. Selecting a design takes the selection from it. A group is named for its path's last part,
-  or for its component when its path is its parent's, as a pathless layout's is. The group's outline is drawn round its
-  pages where they are now, so it follows a page that's moved.
+  where its index redirects, Profile, whose tooltip says "Redirects to Profile"; clicking the chip selects Profile. The
+  line from the page above ends at the group's top edge. Clicking the header selects the group, whose outline turns
+  solid in the page color, and brings forward its line up to App. Selecting a design takes the selection from it. A
+  group is named for its path's last part, or for its component when its path is its parent's, as a pathless layout's
+  is. The group's outline is drawn round its pages where they are now, so it follows a page that's moved.
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
@@ -7457,8 +7457,8 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
   the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
   header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
-  detail shows Open in browser in its header, with an external link icon, since it opens the page outside Parity, and at
-  the end of its right-click menu in Layers, with TanStack's logo.
+  detail shows Open in browser in its header and at the end of its right-click menu in Layers, with an external link
+  icon in both, since it opens the page outside Parity.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;

@@ -1,11 +1,12 @@
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn-baseui-kit"
 import type { ActionPage } from "@parity-app/core"
+import { ExternalLink } from "lucide-react"
 import { type ComponentOffer, runAction } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 
 /**
  * What the project's adapters offer for a component or a page, ending a right-click menu after a separator: each with its
- * adapter's logo, and one that can't act greyed with why, as No story found. Nothing when there are none.
+ * adapter's logo (a page's, as Open in browser, with an external link), and one that can't act greyed with why, as No story found. Nothing when there are none.
  */
 export function AdapterMenuItems({
   offers,
@@ -32,7 +33,7 @@ export function AdapterMenuItems({
           disabled={unavailable !== undefined}
           onClick={() => void runAction(projectId, action, component, page)}
         >
-          <AdapterLogo logo={action.icon} />
+          {page ? <ExternalLink /> : <AdapterLogo logo={action.icon} />}
           {action.name}
           {unavailable !== undefined && (
             <ContextMenuShortcut data-words className="pl-4 whitespace-nowrap">
