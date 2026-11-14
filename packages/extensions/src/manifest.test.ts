@@ -99,6 +99,42 @@ describe("readExtension", () => {
     )
   })
 
+  it("takes when expressions over Parity's keys and its own, and keys it can read (PAR-1092)", () => {
+    const menus = {
+      layers: [
+        {
+          command: "timings.measure",
+          when: "node.type == route && (selection.count > 1 || !timings.measured)",
+          enablement: "project.uses(storybook) && fact.load > 500",
+          disabledReason: "Measure it first"
+        }
+      ]
+    }
+
+    const keybindings = [{ command: "timings.measure", key: "mod+shift+m", when: "tool == select" }]
+
+    expect(
+      readExtension(packageJson({ contributes: { ...contributes, menus, keybindings } })).manifest.contributes
+    ).toMatchObject({ menus, keybindings })
+  })
+
+  it("refuses a when that doesn't read, a key outside the prefix in one, and keys it can't read", () => {
+    const broken = { layers: [{ command: "timings.measure", when: "node.type ==" }] }
+    const outside = { layers: [{ command: "timings.measure", when: "node.type == route && storybook.hasStories" }] }
+
+    expect(() => readExtension(packageJson({ contributes: { ...contributes, menus: broken } }))).toThrow(
+      'expected a value after "=="'
+    )
+    expect(() => readExtension(packageJson({ contributes: { ...contributes, menus: outside } }))).toThrow(
+      "/parity/contributes/menus/layers/0/when"
+    )
+    expect(() =>
+      readExtension(
+        packageJson({ contributes: { ...contributes, keybindings: [{ command: "timings.measure", key: "hyper+m" }] } })
+      )
+    ).toThrow("hyper isn't a modifier")
+  })
+
   it("refuses an unknown activation event, placement or contributes key", () => {
     expect(() => readExtension(packageJson({ activates: ["onOpen"] }))).toThrow("/parity/activates/0")
     expect(() =>

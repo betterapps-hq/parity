@@ -446,6 +446,17 @@ export function installHost(): void {
       change: () => Promise.resolve({ values: { ...defaultSettings }, extensions: {}, badValues: [] }),
       subscribe: () => () => undefined
     },
+    // Stories start with nothing saved: no layout, tabs or projects.
+    saved: () => ({ values: {}, projects: { recent: [], notes: {} } }),
+    projects: {
+      change: () => Promise.resolve({ recent: [], notes: {} }),
+      subscribe: () => () => undefined
+    },
+    state: {
+      set: () => undefined,
+      claimTabs: () => Promise.resolve({ roots: [] }),
+      saveTabs: () => undefined
+    },
     // Stories start with the keymap's keys and keep what's changed in the story.
     keybindings: {
       get: () => Promise.resolve({ entries: [] }),

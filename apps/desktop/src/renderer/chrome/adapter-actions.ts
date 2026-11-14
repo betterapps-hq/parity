@@ -4,7 +4,7 @@ import type { ExtensionStatus, ProjectInfo } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { routePageTarget } from "../canvas/route-pages.ts"
-import { commandsAt, type PlacedCommand, runCommand } from "../extensions.ts"
+import { commandsAt, type PlacedCommand, runCommand, whenFactsOf } from "../extensions.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -79,7 +79,11 @@ function extensionOffers(
   { session, extensions, placement }: PlacedExtensions,
   target: CommandTarget
 ): ComponentOffer[] {
-  return commandsAt(extensions, placement, target).map((placed) => {
+  // What a `when` reads of a component: its node, owned by the renderer that draws it.
+  const node =
+    target.type === "component" ? { owner: session.info.renderer.id, type: "component", key: target.key } : undefined
+
+  return commandsAt(extensions, placement, target, whenFactsOf(session, node)).map((placed) => {
     const action: ExtensionAction = {
       adapter: placed.extension.id,
       id: placed.command.id,

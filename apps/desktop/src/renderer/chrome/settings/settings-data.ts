@@ -189,6 +189,7 @@ export function useSettingsData(
         : Promise.reject(new TypeError(`No command ${command}`)),
     lost,
     skipped: keybindings.skipped,
+    extensionShortcuts: shown.shortcuts ?? [],
     version: window.canvasHost.appVersion,
     checkForUpdates,
     busy: { betaUpdates: updatesBusy.has(updates.phase) },

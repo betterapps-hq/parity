@@ -85,7 +85,22 @@ export const settingsProject = z.strictObject({
   /** Whether the project saves each change itself. */
   savesItself: z.boolean(),
   /** The extensions as Settings lists them. */
-  list: z.array(settingsExtension).max(200)
+  list: z.array(settingsExtension).max(200),
+  /**
+   * The keys of the project's extensions, under each one's name (PAR-1092); one that doesn't work says which command
+   * has its keys.
+   */
+  shortcuts: z
+    .array(
+      z.strictObject({
+        extension: shortText,
+        shortcuts: z
+          .array(z.strictObject({ command: shortText, title: shortText, keys: shortText, clash: shortText.optional() }))
+          .max(200)
+      })
+    )
+    .max(200)
+    .optional()
 })
 
 export type SettingsProject = z.infer<typeof settingsProject>

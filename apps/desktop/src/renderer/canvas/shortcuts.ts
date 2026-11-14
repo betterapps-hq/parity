@@ -1,7 +1,9 @@
 import { useEffect } from "react"
 import { actions, commandsFor } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
+import { runExtensionKey } from "../extension-editor.ts"
 import type { SelectionStore } from "../selection.ts"
+import type { ProjectSession } from "../workspace.ts"
 
 // SAFETY: `keymap` has a key for each command and no others.
 const commands = Object.keys(keymap) as Command[]
@@ -37,7 +39,7 @@ export function useAppShortcuts(): void {
  * Keyboard shortcuts for the active tab, from the keymap. They're handled before tldraw sees them, because the design
  * store, not tldraw, owns undo, deletion and the selection inside designs; tldraw's own shortcuts are off.
  */
-export function useShortcuts(selection: SelectionStore | undefined, active: boolean): void {
+export function useShortcuts(selection: SelectionStore | undefined, active: boolean, session?: ProjectSession): void {
   useEffect(() => {
     if (!active || !selection) {
       return undefined
@@ -123,6 +125,13 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
         return
       }
 
+      // A key no command of Parity's has can be an extension's (PAR-1092).
+      if (session && runExtensionKey(session, event)) {
+        handled()
+
+        return
+      }
+
       // The browser's own Ctrl shortcuts for these would select the page's text or act on nothing here.
       if (mod && ["c", "x", "v", "d", "g", "a"].includes(event.key.toLowerCase())) {
         handled()
@@ -170,5 +179,5 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
       window.removeEventListener("pointerup", onPointerUp, { capture: true })
       window.removeEventListener("pointercancel", onPointerUp, { capture: true })
     }
-  }, [selection, active])
+  }, [selection, active, session])
 }

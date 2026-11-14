@@ -14,7 +14,7 @@ import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { askChangesAgain } from "../canvas/frame-changes.ts"
 import { announceEdit } from "../chrome/project-edits.tsx"
 import { answerExtension } from "../extension-ui.ts"
-import { extensionsOf } from "../extensions.ts"
+import { extensionsOf, isEditorRequest } from "../extensions.ts"
 import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../project-settings.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
@@ -152,8 +152,20 @@ const handlers: Handlers = {
 
     return undefined
   },
-  "extensions.ui": (asked) => {
+  "extensions.ui": async (asked) => {
     const session = sessionOf(asked.projectId)
+
+    // Selecting, navigating and running Parity's commands need the project's tab.
+    if (isEditorRequest(asked)) {
+      if (!session) {
+        throw new Error(`No tab has project ${asked.projectId} open`)
+      }
+
+      // It reaches into the canvas and the panels, so it loads with the first such request.
+      const { answerEditor } = await import("../extension-editor.ts")
+
+      return answerEditor(session, asked)
+    }
 
     const name =
       (session &&

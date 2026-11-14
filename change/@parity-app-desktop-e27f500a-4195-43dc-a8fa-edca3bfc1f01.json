@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Extensions get app and project settings from their manifests: Storybook's config folder and where stories open, changed in Settings, now its own view that loads no project code",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

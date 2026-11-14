@@ -24,6 +24,7 @@ import {
   redoChange,
   reloadFile,
   saveFailure,
+  savedView,
   startSave,
   undoChange,
   unsavedPaths,
@@ -771,5 +772,34 @@ describe("the merged project file", () => {
     )
 
     expect(mergedDocument(history)).toEqual({ version: 4, containers: [], preferences, extensions })
+  })
+})
+
+describe("a design's view as saved", () => {
+  const view = { previews: { "default/desktop": { width: 900 } } }
+
+  it("reads it from the design's file, as saved rather than as it is now", () => {
+    const history = open({ ...design("home"), view })
+
+    const changed = taken(
+      recordChange(
+        history,
+        "Resize preview",
+        changeDesign(history.current, { path: "app.par", id: "home" }, (container) => ({ ...container, view: {} }))
+      )
+    )
+
+    expect(savedView(changed, "app.par", "home", false)).toEqual(view)
+  })
+
+  it("reads a design drawn from code from what the project file keeps for it", () => {
+    const history = openDesigns(
+      [{ path: "app.par", document: { version: 4, containers: [], codeDesigns: { "(stories)#card": { view } } } }],
+      defaultModeSettings,
+      "app.par"
+    )
+
+    expect(savedView(history, "(stories)", "card", true)).toEqual(view)
+    expect(savedView(history, "(stories)", "other", true)).toBeUndefined()
   })
 })

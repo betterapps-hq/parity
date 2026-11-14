@@ -4,11 +4,14 @@ import {
   layersSelection,
   pickPreviews,
   previewsSelection,
+  refsSelection,
   sameSelection,
   selectedDesigns,
   selectedNodes,
   selectedPreviews,
+  selectionForRefs,
   selectionKey,
+  selectionRefs,
   toggleLayer
 } from "./selection.ts"
 
@@ -115,5 +118,65 @@ describe("selecting previews", () => {
 
     expect(sameSelection(a, b)).toBe(false)
     expect(selectionKey(a)).not.toBe(selectionKey(b))
+  })
+})
+
+describe("the selection by NodeRef (PAR-1092)", () => {
+  const settings = { owner: "tanstack-router", type: "route", key: "/settings" }
+  const pricing = { owner: "tanstack-router", type: "route", key: "/pricing" }
+  const story = { owner: "storybook", type: "story", key: "button--primary" }
+
+  const places = {
+    isDesign: (key: string) => ["main/sign-in", "(pages)/pricing", "a/b"].includes(key),
+    pageOf: (route: { key: string }) => (route.key === "/pricing" ? "(pages)/pricing" : undefined)
+  }
+
+  const layerType = (_design: string, node: string) => (node === "title" ? "text" : "frame")
+
+  it("gives the designs, the layers of one, or the nodes held by ref", () => {
+    expect(selectionRefs(designsSelection(["main/sign-in", "a/b"]), layerType)).toEqual([
+      { owner: "design", type: "design", key: "main/sign-in" },
+      { owner: "design", type: "design", key: "a/b" }
+    ])
+    expect(selectionRefs(layersSelection("main/sign-in", ["box", "title"]), layerType)).toEqual([
+      { owner: "design", type: "frame", key: "main/sign-in/box" },
+      { owner: "design", type: "text", key: "main/sign-in/title" }
+    ])
+    expect(selectionRefs(previewsSelection("a/b", ["/mobile"]), layerType)).toEqual([
+      { owner: "design", type: "design", key: "a/b" }
+    ])
+    expect(selectionRefs(refsSelection([settings, story, settings]), layerType)).toEqual([settings, story])
+    expect(selectionRefs({ note: "n1" }, layerType)).toEqual([])
+  })
+
+  it("selects designs, a route's page among them, as designs, and layers of one design as layers", () => {
+    expect(selectionForRefs([pricing], places)).toEqual({ design: "(pages)/pricing" })
+    expect(selectionForRefs([{ owner: "design", type: "design", key: "a/b" }, pricing], places)).toEqual(
+      designsSelection(["a/b", "(pages)/pricing"])
+    )
+    expect(
+      selectionForRefs(
+        [
+          { owner: "design", type: "text", key: "a/b/title" },
+          { owner: "design", type: "frame", key: "a/b/box" }
+        ],
+        places
+      )
+    ).toEqual(layersSelection("a/b", ["title", "box"]))
+  })
+
+  it("selects a route without a page, a story, or a mix, by ref", () => {
+    expect(selectionForRefs([settings], places)).toEqual({ refs: [settings] })
+    expect(selectionForRefs([story, pricing], places)).toEqual({ refs: [story, pricing] })
+    expect(selectionForRefs([{ owner: "design", type: "design", key: "gone" }], places)).toEqual({
+      refs: [{ owner: "design", type: "design", key: "gone" }]
+    })
+    expect(selectionForRefs([], places)).toEqual({})
+  })
+
+  it("tells selections of different nodes apart, in any order", () => {
+    expect(sameSelection(refsSelection([settings]), refsSelection([settings]))).toBe(true)
+    expect(sameSelection(refsSelection([settings]), refsSelection([pricing]))).toBe(false)
+    expect(selectionKey(refsSelection([settings, story]))).toBe(selectionKey(refsSelection([story, settings])))
   })
 })

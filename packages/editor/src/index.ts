@@ -172,6 +172,7 @@ export {
   reloadFile,
   revertTo,
   saveFailure,
+  savedView,
   type SaveState,
   startSave,
   type TokenFailure,
@@ -392,13 +393,18 @@ export {
   designsSelection,
   layersSelection,
   pickPreviews,
+  type LayerTypeOf,
   previewsSelection,
+  type RefPlaces,
+  refsSelection,
   sameSelection,
   selectedDesigns,
   selectedNodes,
   selectedPreviews,
   type Selection,
+  selectionForRefs,
   selectionKey,
+  selectionRefs,
   toggleLayer
 } from "./selection.ts"
 

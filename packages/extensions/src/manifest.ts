@@ -15,7 +15,9 @@ import type {
   ToolVersionFacts
 } from "@parity-app/extension-api"
 import { z } from "zod"
+import { keymapKeys } from "./keys.ts"
 import { fits } from "./settings.ts"
+import { isBuiltInKey, parseWhen, type When, whenKeys } from "./when.ts"
 
 /*
  * Reads an extension's manifest, the `parity` field of its `package.json`, and refuses one that breaks a rule: a field
@@ -68,8 +70,23 @@ const command = z.strictObject({
   starts: z.string().optional()
 }) satisfies z.ZodType<CommandContribution>
 
-/** A context key, or `!key` for one that mustn't hold. */
-const contextKey = z.string().regex(/^!?[a-z][\w.-]*$/, "expected a context key, or !key")
+/** A `when` or `enablement`: context keys and comparisons, joined with `&&`, `||` and `!` (see `when.ts`). */
+const contextKey = z.string().superRefine((text, context) => {
+  try {
+    parseWhen(text)
+  } catch (error) {
+    context.addIssue({ code: "custom", message: error instanceof Error ? error.message : String(error) })
+  }
+})
+
+/** Keys as a manifest writes them, `mod+shift+t`, which the keymap's form must be made from. */
+const keys = z.string().superRefine((text, context) => {
+  try {
+    keymapKeys(text)
+  } catch (error) {
+    context.addIssue({ code: "custom", message: error instanceof Error ? error.message : String(error) })
+  }
+})
 
 const menuItem = z.strictObject({
   command: z.string(),
@@ -133,9 +150,7 @@ const setting = z.strictObject({
 const contributions = z.strictObject({
   commands: z.array(command).optional(),
   menus: z.record(menuPlacement, z.array(menuItem)).optional(),
-  keybindings: z
-    .array(z.strictObject({ command: z.string(), key: z.string(), when: contextKey.optional() }))
-    .optional(),
+  keybindings: z.array(z.strictObject({ command: z.string(), key: keys, when: contextKey.optional() })).optional(),
   tabs: z
     .array(
       z.strictObject({
@@ -296,6 +311,10 @@ function ruleProblems(read: Manifest): Problem[] {
   ids("sections")
   ids("statusItems")
 
+  for (const [index, section] of (contributes.sections ?? []).entries()) {
+    contextNeedsPrefix(section.when, ["contributes", "sections", index, "when"])
+  }
+
   const declared = (id: string, path: (string | number)[]) => {
     if (!commands.has(id)) {
       problems.push({ path, message: `names a command the manifest doesn't declare: ${id}` })
@@ -312,6 +331,7 @@ function ruleProblems(read: Manifest): Problem[] {
 
   for (const [index, binding] of (contributes.keybindings ?? []).entries()) {
     declared(binding.command, ["contributes", "keybindings", index, "command"])
+    contextNeedsPrefix(binding.when, ["contributes", "keybindings", index, "when"])
   }
 
   for (const [index, item] of (contributes.statusItems ?? []).entries()) {
@@ -341,9 +361,25 @@ function ruleProblems(read: Manifest): Problem[] {
 
   return problems
 
-  function contextNeedsPrefix(key: string | undefined, path: (string | number)[]) {
-    if (key !== undefined) {
-      needsPrefix(key.replace(/^!/, ""), path)
+  /** Every key a `when` looks up is Parity's own, as `node.type`, or starts with the prefix. */
+  function contextNeedsPrefix(when: string | undefined, path: (string | number)[]) {
+    if (when === undefined) {
+      return
+    }
+
+    let parsed: When
+
+    // One that doesn't read is named by its own check.
+    try {
+      parsed = parseWhen(when)
+    } catch {
+      return
+    }
+
+    for (const key of whenKeys(parsed)) {
+      if (!isBuiltInKey(key)) {
+        needsPrefix(key, path)
+      }
     }
   }
 }
