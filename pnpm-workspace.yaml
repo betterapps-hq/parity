@@ -45,15 +45,15 @@ catalog:
   "@buildkitgg/shadcn-baseui-kit": npm:@buildkitgg/shadcn-baseui-nova@0.5.0
   "@buildkitgg/storybook-config": 0.2.0
   "@sentry/cli": 3.8.2
-  "@sentry/electron": 8.3.0
-  "@sentry/node": 11.8.0
+  "@sentry/electron": 8.4.0
+  "@sentry/node": 11.12.0
   "@webref/css": 8.7.8
   beachball: 2.66.0
   css-tree: 3.2.1
   electron-builder: 26.18.0
   electron-updater: 6.8.11
   jiti: 2.7.0
-  knip: 6.44.1
+  knip: 6.45.1
   sharp: 0.35.5
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
