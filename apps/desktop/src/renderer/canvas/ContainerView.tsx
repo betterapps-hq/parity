@@ -16,14 +16,15 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardRoot,
+  besideScale,
+  besideScales,
   changeCount,
-  companionScale,
   type ComponentLibrary,
   type ContainerKind,
   designStates,
+  fitsContent,
   type FrameGeometry,
   frameGeometry,
-  frameSize,
   type ParamSpec,
   resolveDesign,
   type ResolvedMode,
@@ -188,6 +189,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
 function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: ContainerEntry): void {
   const { store } = useProject()
   const hugs = fitsDrawn(entry.container)
+  const perMode = fitsContent(entry.container)
   const { key } = entry
   useEffect(() => {
     const container = board.current
@@ -211,7 +213,7 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
       }
 
       for (const host of hosts) {
-        if (!attached.has(host) && (attached.size === 0 || host.dataset.viewport)) {
+        if (!attached.has(host) && (perMode || attached.size === 0)) {
           attached.set(host, fitFrame(host))
         }
       }
@@ -302,7 +304,7 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
         detach()
       }
     }
-  }, [board, hugs, key, store])
+  }, [board, hugs, perMode, key, store])
 }
 
 /**
@@ -342,6 +344,8 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   useGutterStyle(board, "board")
+  // A screen that fits its content, as a story, is fitted in each mode's frame.
+  useFitToContent(board, entry)
   const { id: project, store, loaded, selection } = useProject()
   // Whether its frames changed since they were first looked at, marked on the board for tools to read (PAR-997).
   const change = useDesignChange(project, entry.key)
@@ -452,7 +456,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                 state={state}
                 mode={mode}
                 primary={column === 0}
-                scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
+                scale={column === 0 ? 1 : besideScale(container, mode)}
                 caption={index === 0}
                 tabbable={isSelected}
                 selected={selectedMode === mode.id}
@@ -978,6 +982,75 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
  * `labelLook`): at screen size up close, as wide on screen as the frame, and fading out when zoomed far out, or once the
  * frame is too narrow on screen. The band shrinks with it past 40%.
  */
+/**
+ * How large a frame beside the main one is drawn, as a menu on its caption: one of `besideScales`, or Fit, which shrinks
+ * it to fit beside the main frame. It's how the canvas shows the design, so it isn't undone.
+ */
+function ScaleMenu({
+  entry,
+  mode,
+  scale,
+  tabbable
+}: {
+  entry: ContainerEntry
+  mode: ResolvedMode
+  scale: number
+  tabbable: boolean
+}) {
+  const { store } = useProject()
+  const set = entry.container.view?.scales?.[mode.id]
+  const fit = "fit"
+
+  // Undefined fits it beside the main frame.
+  const choose = (chosen: number | undefined) =>
+    store.updateView(
+      entry.key,
+      `Show ${mode.name} ${chosen === undefined ? "fitted" : `at ${chosen * 100}%`}`,
+      (view) => {
+        const scales = { ...view.scales }
+
+        if (chosen === undefined) {
+          delete scales[mode.id]
+        } else {
+          scales[mode.id] = chosen
+        }
+
+        return { ...view, scales }
+      }
+    )
+
+  // Its menu's clicks reach the canvas through the caption too, which would take them, so they stop here.
+  return (
+    <span className="contents" data-canvas-control onPointerDown={stopEventPropagation}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          tabIndex={tabbable ? 0 : -1}
+          aria-label={`${mode.name} size: ${Math.round(scale * 100)}%`}
+          className="pointer-events-auto flex shrink-0 items-center gap-0.5 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums hover:text-foreground"
+        >
+          {Math.round(scale * 100)}%
+          <ChevronDown className="size-3 opacity-60" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-32">
+          <DropdownMenuRadioGroup
+            value={set === undefined ? fit : String(set)}
+            onValueChange={(value: string) => choose(value === fit ? undefined : Number(value))}
+          >
+            <DropdownMenuRadioItem value={fit} closeOnClick>
+              Fit
+            </DropdownMenuRadioItem>
+            {besideScales.map((each) => (
+              <DropdownMenuRadioItem key={each} value={String(each)} closeOnClick>
+                {each * 100}%
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
+  )
+}
+
 function FrameCaption({ width, children }: { width: number; children: ReactNode }) {
   const band = useRef<HTMLElement>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -1121,10 +1194,14 @@ const FrameTile = memo(function FrameTile({
     return firstFrame.offer(shownBitmap.current, "bitmap")
   }, [showing, firstFrame])
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
+
   // A frame that hugs its content and hasn't been measured yet, as a component's board or a story drawn from the code
   // each time, is drawn once whatever the zoom, so it's fitted to what it draws (`useFitToContent`) rather than shown,
   // and captured, as wide as its window until someone comes close.
-  const unmeasured = hugsContent(container) && container.size?.width === undefined
+  const unmeasured = fitsContent(container)
+    ? container.frames?.[mode.viewport]?.width === undefined
+    : hugsContent(container) && container.size?.width === undefined
+
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
   // and its new bitmap is taken, so it doesn't sleep on it.
   const awake = useAwake(shown && !kept.stale && !interactive && !unmeasured, rest, key, view)
@@ -1174,11 +1251,7 @@ const FrameTile = memo(function FrameTile({
             {frame.width}
             {frame.height !== undefined && ` × ${frame.height}`}
           </span>
-          {scale < 1 && (
-            <span className="shrink-0 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-              {Math.round(scale * 100)}%
-            </span>
-          )}
+          {!primary && <ScaleMenu entry={entry} mode={mode} scale={scale} tabbable={tabbable} />}
         </FrameCaption>
       )}
       <div

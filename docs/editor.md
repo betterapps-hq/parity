@@ -4898,13 +4898,19 @@ its board shows first, and the rest are drawn beside it in that order where they
 - **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
   order, and the first frame's mode as `mode`, as before. An order that is the project's, and a first mode that is the
   project's primary mode, aren't written down.
+- **Each frame beside the first has its scale on its caption,** a menu of Fit, 25%, 50%, 75% and 100%. Fit, the default,
+  shrinks it to at most 640 wide (`companionScale`); the others are kept in the view's `scales`, by mode id
+  (`besideScale`), and the board's size follows them (`boardSize`).
 
-Code: `packages/core/src/document.ts` (the view's `order`) and `modes.ts` (`shownModes`'s `ordered`);
-`packages/editor/src/document-equality.ts` (an empty order is dropped); in the app, `canvas/view.ts` (`withModeOrder`),
-`ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the captions).
+Code: `packages/core/src/document.ts` (the view's `order` and `scales`), `modes.ts` (`shownModes`'s `ordered`) and
+`board.ts` (`besideScale`); `packages/editor/src/document-equality.ts` (an empty order is dropped); in the app,
+`canvas/view.ts` (`withModeOrder`), `ModesSection` and `ModeRow` in `chrome/DesignPanel.tsx`, and
+`canvas/ContainerView.tsx` (the captions).
 
 Tests:
 
+- `packages/core/src/board.test.ts`, "draws a companion at the scale its view sets for its mode, and others shrunk to
+  fit".
 - `apps/desktop/src/renderer/canvas/view.test.ts`, "a design's mode order" (4): the list in the design's order with the
   shown modes beside the first in it, the old first still shown beside a new one, the project's order written as
   nothing, and modes the order doesn't name after it.
@@ -6686,9 +6692,22 @@ boards are. A story wider or taller than that overlaps the one beside or below i
   the project depends on when it opens, and the screens come in the project's info.
 - **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
   args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
-  layout draws it: a frame that hugs the story, rather than a screen as wide as a viewport, whose width the canvas
-  measures and doesn't save. Layers and the Design panel show it as a story, with its bookmark, and it has no frame size
-  of its own to set. Each is named for its title's last part and its own name, as `Button / Outline`.
+  layout draws it, inside a layer named Bounds. It's a screen whose root hugs the story (core's `fitsContent`): each
+  mode's frame is as wide as the story draws in that mode, which the canvas measures and doesn't save (`frames`), while
+  the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as in
+  Storybook's canvas. The frame shows only its own width of that window. Layers and the Design panel show it as a story,
+  with its bookmark. Each is named for its title's last part and its own name, as `Button / Outline`.
+- **Its props, modes and sizes in the Design panel.** Selecting a story shows its header, then Props, the args of what
+  it draws, which edit and are written back as below, then Modes, as a screen's: its board draws a frame for each mode
+  it shows, across, in the order the section sets, and the board's modes menu adds and takes away modes, as on any
+  screen. A story's modes, order and frame scales aren't saved yet: they're the canvas's view of a design read from
+  code.
+- **Resized to test.** Dragging the Bounds layer's handles, or any layer's that takes a size, sets a width or height on
+  it, and the frame fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset
+  size, then shows at the end of the Design panel, for the story or any of its layers, and puts every layer back at the
+  size the story's file draws it (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never
+  written to the story's file. A component that doesn't take a style, as PlanCard, can't be sized itself, so Bounds is
+  there to drag.
 - **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
@@ -6704,28 +6723,39 @@ boards are. A story wider or taller than that overlaps the one beside or below i
   written to, nor can a story take away an arg its meta gives. A screen can't yet be saved as a new story.
 
 Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
-two under Stories. Plan card / Popular drew the app's own PlanCard with the Popular badge, and Button / Outline its
-outline button at its own size. Card / Invite and Plan card / Side By Side drew their own `render` functions: the invite
-card, and two plan cards side by side. Setting Plan card / Popular's Price to $32 and saving wrote `price: "$32"` into
-the story's args, beside `popular: true`, and the screen drew $32.
+two under Stories. Plan card / Default's frame fitted to 181 with its host 1280 wide, Desktop Dark shown beside it from
+Modes drew its own 181-wide frame, and its caption's menu set it to 50%. Dragging Bounds 90 pixels narrower made the
+frame 128 wide in a window still 1280 wide, and Reset size put it back at 181. Plan card / Popular drew the app's own
+PlanCard with the Popular badge, and Button / Outline its outline button at its own size. Card / Invite and Plan card /
+Side By Side drew their own `render` functions: the invite card, and two plan cards side by side. Setting Plan card /
+Popular's Price to $32 and saving wrote `price: "$32"` into the story's args, beside `popular: true`, and the screen
+drew $32.
 
-Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and `importStoryScreens` in
-`adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`; `storyScreensDocument` in
-`apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in `apps/desktop/src/renderer/workspace.ts`;
-`writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`; `exportEntities` in
-`packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts` writes; `writesProps` in
-`apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in `adapters/storybook-adapter`, `folderTree` in
-`packages/editor/src/layers-folders.ts`, and `storyPlaces` and `FolderLine` in `story-screens.ts` and
-`apps/desktop/src/renderer/chrome/LayerTree.tsx`.
+Code: `fitsContent`, `frameSize` and `frameGeometry` in `packages/core/src/render.ts`; `fittedFrame` and `fitsDrawn` in
+`packages/editor/src/frames.ts`, which `useFitToContent` in `apps/desktop/src/renderer/canvas/ContainerView.tsx` runs
+for each mode's frame; `ModeView.tsx` and `render.ts` (a frame narrower than its window); `hasTriedSize` and
+`withoutTriedSize` in `packages/editor/src/tried-size.ts`, `TriedSize.tsx` and the story branch of `DesignPanel.tsx` in
+`apps/desktop/src/renderer/chrome`; `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and
+`importStoryScreens` in `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`;
+`storyScreensDocument` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in
+`apps/desktop/src/renderer/workspace.ts`; `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`;
+`exportEntities` in `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts`
+writes; `writesProps` in `apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in
+`adapters/storybook-adapter`, `folderTree` in `packages/editor/src/layers-folders.ts`, and `storyPlaces` and
+`FolderLine` in `story-screens.ts` and `apps/desktop/src/renderer/chrome/LayerTree.tsx`.
 
-Tests: `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're closed, an open folder's
-folders and a component's designs in order, a design without folders at the top, and a search opening the folders with
-something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and stories with args over the
-meta's, where a story's render function is, a file without a default export, a story's name in words, each story in a
-folder for each part of its title, stories imported as screens of their component, grouped by title, a story that
-renders itself drawing its function from its file, a story's own args written over the meta's with code kept, args added
-to a story without any and none for the meta's, a story that's a function left alone, and a screen's props written back
-to its file).
+Tests: `packages/core/src/render.test.ts`, "draws a screen that fits its content as wide as it was measured, in the
+mode's whole window" (as wide as measured, as wide as the window before, not for a frame or a screen that fills it);
+`packages/editor/src/frames.test.ts`, "fits a screen that hugs its content in the viewport it was drawn in, leaving the
+others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its args kept, and
+a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're
+closed, an open folder's folders and a component's designs in order, a design without folders at the top, and a search
+opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and
+stories with args over the meta's, where a story's render function is, a file without a default export, a story's name
+in words, each story in a folder for each part of its title, stories imported as screens of their component, grouped by
+title, a story that renders itself drawing its function from its file, a story's own args written over the meta's with
+code kept, args added to a story without any and none for the meta's, a story that's a function left alone, and a
+screen's props written back to its file).
 
 ### Opening in seconds (PAR-179)
 

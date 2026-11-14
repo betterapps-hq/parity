@@ -535,6 +535,11 @@ const containerViewSettings = fileObject({
    * the main one; modes it doesn't name follow in project order. The main frame's mode comes first whatever the order.
    */
   order: z.array(z.string()).optional(),
+  /**
+   * How large each mode's frame beside the main one is drawn, by mode id, from a tenth to its full size. One it doesn't
+   * name is shrunk to fit beside the main frame (see `companionScale`).
+   */
+  scales: z.record(z.string(), z.number().min(0.1).max(1)).optional(),
   /** A component's state the canvas shows. Defaults to the first. */
   state: z.string().optional(),
   /** Show every state of a component, one row each, instead of only the active one. */

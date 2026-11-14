@@ -7,7 +7,7 @@ import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageRoute } from "../canvas/route-pages.ts"
-import { storyScreensFile } from "../canvas/story-screens.ts"
+import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -29,9 +29,11 @@ import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
 import { RouteSection } from "./RoutePanel.tsx"
+import { useLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
+import { TriedSize } from "./TriedSize.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
 
 /**
@@ -98,14 +100,23 @@ function SelectedPanel() {
   if (selected.node) {
     const panel = <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
 
+    // A story's layers can be dragged to another size, to see how it responds, which is put back from here.
+    const tried = entry.path === storyScreensFile && <TriedSize entry={entry} />
+
     // A layer of a page, a component's board or a story is read from the project's code: its values show, and nothing
     // edits them.
     return readFromCode(entry.path) && !writesProps(entry.path, selected.node) ? (
-      <fieldset disabled className="contents">
-        {panel}
-      </fieldset>
+      <>
+        <fieldset disabled className="contents">
+          {panel}
+        </fieldset>
+        {tried}
+      </>
     ) : (
-      panel
+      <>
+        {panel}
+        {tried}
+      </>
     )
   }
 
@@ -131,6 +142,19 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
     )
   }
 
+  // A story: its header, the props it draws its component with, which are its args, its modes and Export.
+  if (entry.path === storyScreensFile) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <StoryProps entry={entry} />
+        <TriedSize entry={entry} />
+        <ModesSection entry={entry} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
   // One of the project's components on its board: its header, what its code says of it, and Export.
   const component = boardComponent(session.id, entry.container.id)
 
@@ -149,6 +173,13 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
 
     return Section && <Section key={section} entry={entry} />
   })
+}
+
+/** A story's args, as the props of the layer that draws it, which edits write back to its file. */
+function StoryProps({ entry }: { entry: ContainerEntry }) {
+  const layer = useLayer(entry, storyLayer)
+
+  return layer ? <PropsSection layer={layer} /> : null
 }
 
 /** What draws each of a design's sections; a layer's own, as Content and Attributes, aren't a design's. */

@@ -87,6 +87,20 @@ export function companionScale(width: number): number {
   return Math.min(1, companionWidth / width)
 }
 
+/** The scales a frame beside the main one can be set to, as its caption offers them. */
+export const besideScales = [0.25, 0.5, 0.75, 1] as const
+
+/**
+ * How large a design draws its frame for a mode beside its main one: the scale its view sets for that mode, or else
+ * shrunk to fit beside the main frame (`companionScale`).
+ */
+export function besideScale(
+  design: ContainerSpec,
+  mode: Pick<ResolvedMode, "id" | "viewport" | "width" | "options">
+): number {
+  return design.view?.scales?.[mode.id] ?? companionScale(frameSize(design, mode).width)
+}
+
 /**
  * The size of a design's board when the canvas hasn't drawn it: its frames for the modes it shows (`modes`, the main
  * frame's first), companions shrunk as the canvas shrinks them, in one row per state shown, with the board's gutter,
@@ -98,11 +112,11 @@ export function companionScale(width: number): number {
  */
 export function boardSize(
   design: ContainerSpec,
-  modes: readonly Pick<ResolvedMode, "viewport" | "width" | "options">[]
+  modes: readonly Pick<ResolvedMode, "id" | "viewport" | "width" | "options">[]
 ) {
   const frames = modes.map((mode, column) => {
     const size = frameSize(design, mode)
-    const scale = column === 0 ? 1 : companionScale(size.width)
+    const scale = column === 0 ? 1 : besideScale(design, mode)
 
     return {
       width: Math.round(size.width * scale),

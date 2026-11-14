@@ -2,6 +2,7 @@ import {
   type CssDeclaration,
   declarations,
   type Direction,
+  isHug,
   type LayerKind,
   type NodeStyle,
   type StyleContext
@@ -158,10 +159,26 @@ function contextWrapper(
 }
 
 /**
+ * Whether a screen fits its content: its root layout hugs its content's width, so each mode's frame is as wide as what
+ * it draws, in a window as wide as the mode's viewport, as Storybook draws a story at its own size in a full-width
+ * window. The width each mode's frame is drawn at is kept in `frames`, as the canvas measures it. A frame has a size of
+ * its own and hugs its content there instead (the editor's `hugsContent`), in a window as wide as itself.
+ */
+export function fitsContent(design: ContainerSpec): boolean {
+  return (design.kind ?? "screen") === "screen" && design.root.type === "layout" && isHug(design.root.style?.width)
+}
+
+/**
  * The size a design's frame is drawn at in a mode: the design's own size for the mode's viewport if it has one, else
  * as wide as the viewport and as tall as its content (no height). A frame has one size of its own, whatever the mode.
+ * A screen that fits its content (`fitsContent`) is drawn as wide as it was measured in that mode, and never fixes its
+ * height.
  */
 export function frameSize(design: ContainerSpec, mode: Pick<ResolvedMode, "viewport" | "width">): DrawnFrameSize {
+  if (fitsContent(design)) {
+    return { width: design.frames?.[mode.viewport]?.width ?? mode.width }
+  }
+
   const size = design.kind === "frame" ? design.size : design.frames?.[mode.viewport]
   const drawn: DrawnFrameSize = { width: size?.width ?? mode.width }
 
@@ -208,8 +225,10 @@ export function frameGeometry(
   mode: Pick<ResolvedMode, "viewport" | "width" | "options">
 ): FrameGeometry {
   const size = frameSize(design, mode)
+  // A screen that fits its content is drawn in the mode's whole window, however narrow its frame is.
+  const window = fitsContent(design) ? { width: mode.width } : size
 
-  return { ...size, viewport: frameViewport(size, mode) }
+  return { ...size, viewport: frameViewport(window, mode) }
 }
 
 /** Every design that instances can place, by id. */

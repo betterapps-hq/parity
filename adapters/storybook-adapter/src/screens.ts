@@ -4,6 +4,7 @@ import {
   type DesignNode,
   type EntitiesSource,
   type FileWrite,
+  findNode,
   type GuestComponentSource,
   type ImportedScreen,
   isMadeValue,
@@ -72,8 +73,9 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Projec
 }
 
 /**
- * A story's screen: what it draws at its own size, with its args as props, on the page's background. It's a frame that
- * hugs the story, padded as Storybook's default layout draws one, rather than a screen as wide as a viewport.
+ * A story's screen: what it draws at its own size, with its args as props, on the page's background. Its root hugs the
+ * story, padded as Storybook's default layout draws one, so each mode's frame is only as wide as the story, while the
+ * story lays out in the mode's whole window, as in Storybook's canvas.
  */
 export function storyScreen(path: string, story: Story, component: string): ContainerSpec {
   const node: DesignNode = { type: "component", id: "story", component }
@@ -90,7 +92,7 @@ export function storyScreen(path: string, story: Story, component: string): Cont
   return {
     id: `story:${path}#${story.exportName}`,
     name: story.name,
-    kind: "frame",
+    kind: "screen",
     position: { x: 0, y: 0 },
     root: {
       type: "layout",
@@ -104,7 +106,9 @@ export function storyScreen(path: string, story: Story, component: string): Cont
         fills: [{ type: "solid", color: { token: "background" } }],
         color: { token: "foreground" }
       },
-      children: [node]
+      // Around what the story draws, at its size until it's dragged to another, to see how the story responds there,
+      // whether or not its component takes a size of its own.
+      children: [{ type: "layout", id: "bounds", name: "Bounds", style: { alignItems: "start" }, children: [node] }]
     }
   }
 }
@@ -119,7 +123,7 @@ export async function exportStoryScreen(
   source: EntitiesSource
 ): Promise<FileWrite[]> {
   const [path, exportName] = splitRef(screen.ref)
-  const drawn = edited.root.type === "layout" ? edited.root.children.find((child) => child.id === "story") : undefined
+  const drawn = findNode(edited.root, "story")
   const text = path && (await source.read(path))
 
   if (!exportName || !text || drawn?.type !== "component") {

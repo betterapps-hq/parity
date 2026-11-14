@@ -51,7 +51,15 @@ export {
   type ToolVersions
 } from "./adapters.ts"
 
-export { boardLayoutAt, boardSize, companionScale, gutterScale, shrinkBelow } from "./board.ts"
+export {
+  besideScale,
+  besideScales,
+  boardLayoutAt,
+  boardSize,
+  companionScale,
+  gutterScale,
+  shrinkBelow
+} from "./board.ts"
 
 export {
   bodyAttribute,
@@ -336,6 +344,7 @@ export {
   emptyLayoutAttribute,
   type EvalContext,
   type EvalScope,
+  fitsContent,
   frameGeometry,
   type FrameGeometry,
   frameSize,

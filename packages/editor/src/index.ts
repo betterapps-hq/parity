@@ -516,3 +516,5 @@ export {
   readStyles,
   styleOfElement
 } from "./element-layers.ts"
+
+export { hasTriedSize, withoutTriedSize } from "./tried-size.ts"

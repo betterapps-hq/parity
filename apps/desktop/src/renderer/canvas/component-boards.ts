@@ -1,6 +1,7 @@
-import { addDesigns, type CanvasDocument, type ComponentInfo, type PropValues } from "@parity-app/core"
+import { addDesigns, type CanvasDocument, type ComponentInfo, findNode, type PropValues } from "@parity-app/core"
 import { type BoardLayout, boardsHeight, componentBoards } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import { storyLayer } from "./story-screens.ts"
 
 /**
  * Where the boards of the project's own components are kept among its designs: a design file of their own that's never
@@ -62,12 +63,11 @@ function screenSamples(info: BoardsInfo) {
   const samples: Record<string, PropValues> = {}
 
   for (const { screen } of info.entities?.screens ?? []) {
-    const drawn = screen.root.type === "layout" ? screen.root.children : []
+    // What a story draws, inside its bounds (see `storybook-adapter`'s `storyScreen`).
+    const node = findNode(screen.root, storyLayer)
 
-    for (const node of drawn) {
-      if (node.type === "component" && node.props && !(node.component in samples)) {
-        samples[node.component] = node.props
-      }
+    if (node?.type === "component" && node.props && !(node.component in samples)) {
+      samples[node.component] = node.props
     }
   }
 

@@ -1,4 +1,4 @@
-import { addDesigns, type CanvasDocument, type ImportedScreen } from "@parity-app/core"
+import { addDesigns, type CanvasDocument, type ContainerSpec, type ImportedScreen } from "@parity-app/core"
 import type { ProjectInfo } from "@parity-app/project"
 import { componentBoardsTop } from "./component-boards.ts"
 
@@ -57,6 +57,11 @@ function groupLeaf(screen: ImportedScreen): string {
 export interface StoryPlace {
   folders: string[]
   name: string
+}
+
+/** A story's design as its Storybook file draws it, by the design's id, before anything's changed on the canvas. */
+export function drawnStory(info: Pick<ProjectInfo, "entities">, design: string): ContainerSpec | undefined {
+  return info.entities.screens?.find((each) => each.screen.id === design)?.screen
 }
 
 /** Each imported screen's place in Layers, by its design's id, as Storybook's sidebar lists the stories. */

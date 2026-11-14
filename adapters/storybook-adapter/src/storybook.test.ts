@@ -116,16 +116,23 @@ describe("importStoryScreens", () => {
       ["src/stories/card.stories.tsx#Plain", "Card", "Plain"]
     ])
     expect(screens[1]?.screen).toMatchObject({
-      // A frame hugging the story, as Storybook draws one at its own size.
-      kind: "frame",
+      // A screen hugging the story in each mode's window, as Storybook draws one at its own size.
+      kind: "screen",
       root: {
         type: "layout",
         style: { width: { size: "hug" } },
+        // Inside bounds that can be dragged to another size, to see how the story responds.
         children: [
           {
-            type: "component",
-            component: "ui/button/Button",
-            props: { children: "Save changes", disabled: false, variant: "outline" }
+            type: "layout",
+            name: "Bounds",
+            children: [
+              {
+                type: "component",
+                component: "ui/button/Button",
+                props: { children: "Save changes", disabled: false, variant: "outline" }
+              }
+            ]
           }
         ]
       }
@@ -140,7 +147,9 @@ describe("importStoryScreens", () => {
       "story:src/stories/card.stories.tsx#Plain": { path: "src/stories/card.stories.tsx", export: "Plain" }
     })
     expect(screens[3]?.screen.root).toMatchObject({
-      children: [{ type: "component", component: "story:src/stories/card.stories.tsx#Invite", name: "Invite" }]
+      children: [
+        { children: [{ type: "component", component: "story:src/stories/card.stories.tsx#Invite", name: "Invite" }] }
+      ]
     })
   })
 })
