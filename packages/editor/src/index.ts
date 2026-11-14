@@ -77,7 +77,7 @@ export { type DesignOperation, designOperationChanges, type FieldPath } from "./
 
 export { createEditSettler, type EditSettler, type SettleOptions } from "./edit-settler.ts"
 
-export { sameValue, withTidyView } from "./document-equality.ts"
+export { sameDesign, sameDocument, sameValue, withTidyView } from "./document-equality.ts"
 
 export {
   countMedia,
@@ -178,6 +178,7 @@ export {
   type TokenFailure,
   undoChange,
   unsavedPaths,
+  withoutModes,
   withStylesheet,
   writeFailed,
   writeStarted,
@@ -357,7 +358,14 @@ export {
   videosFolder
 } from "./project-images.ts"
 
-export { readRecoveryCopy, recoveryCopy, type RecoveryCopy, recoveryCopySchema, restoreRecovery } from "./recovery.ts"
+export {
+  readRecoveryCopy,
+  recoveryCopy,
+  type RecoveryCopy,
+  recoveryCopySchema,
+  restoreLabel,
+  restoreRecovery
+} from "./recovery.ts"
 
 export {
   addReferences,
@@ -481,12 +489,14 @@ export {
 
 export {
   noTokenEdits,
+  sameTokenValues,
   type TokenChange,
   tokenDifferences,
   type TokenEdit,
   type TokenEdits,
   tokensWithEdits,
   type TokenWrite,
+  tokenWrites,
   withTokenEdits,
   withTokenOverrides
 } from "./token-edits.ts"
