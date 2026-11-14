@@ -4,6 +4,7 @@ import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
 import {
+  type ExtensionEdits,
   type ExtensionHostsOptions,
   type ExtensionStateStore,
   type ExtensionStatus,
@@ -42,6 +43,20 @@ const timings = readExtension({
     icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
     activates: ["onCommand:timings.measure"],
     contributes: { commands: [{ id: "timings.measure", title: "Measure route timings" }] }
+  }
+})
+
+const tidy = readExtension({
+  name: "parity-tidy",
+  version: "1.0.0",
+  main: "dist/extension.js",
+  parity: {
+    displayName: "Tidy",
+    prefix: "tidy",
+    icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+    activates: ["onCommand:tidy.rename"],
+    permissions: { edits: true, write: ["**"] },
+    contributes: { commands: [{ id: "tidy.rename", title: "Rename layer" }] }
   }
 })
 
@@ -103,7 +118,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   })
 
   const hosts = extensionHosts<OpenedProject>({
-    extensions: [installed(storybook), installed(timings)],
+    extensions: [installed(storybook), installed(timings), installed(tidy)],
     start(extension) {
       const [service, host] = memoryPorts()
       let end: (ending: ChildEnd) => void = () => undefined
@@ -151,6 +166,12 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
       stop: vi.fn<() => void>(),
       stopAll: vi.fn<() => void>(),
       routed: () => Promise.resolve([])
+    },
+    edits: {
+      transact: vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve()),
+      files: vi.fn<ExtensionEdits["files"]>((_projectId, _extension, _label, files) =>
+        Promise.resolve(files.map((file) => file.path))
+      )
     },
     ...options
   })
@@ -498,5 +519,87 @@ describe("extension hosts", () => {
     expect(deactivate).toHaveBeenCalledOnce()
     expect(stopAll).toHaveBeenCalledWith("shop", "@parity-app/extension-storybook")
     expect(hosts.list("shop").extensions).toEqual([])
+  })
+
+  it("renames a layer from a command as one change, labelled with the extension's name", async () => {
+    const transact = vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve())
+
+    const { hosts } = setUp(
+      {
+        "parity-tidy": {
+          activate(parity) {
+            parity.commands.register("tidy.rename", async (target) => {
+              if (target?.type === "layer") {
+                await parity.edits.transact("Rename layer", [
+                  { op: "set", design: target.design, node: target.node, path: ["name"], value: "Heading" }
+                ])
+              }
+            })
+          }
+        }
+      },
+      { edits: { transact, files: () => Promise.resolve([]) } }
+    )
+
+    hosts.open(project)
+    await hosts.run("shop", "tidy.rename", { type: "layer", design: "app.par#home", node: "title" })
+
+    expect(transact).toHaveBeenCalledWith("shop", "parity-tidy", "Tidy: Rename layer", [
+      { op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Heading" }
+    ])
+  })
+
+  it("refuses design changes from an extension without the edits permission", async () => {
+    const transact = vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve())
+
+    const { hosts } = setUp(
+      {
+        "parity-route-timings": {
+          activate(parity) {
+            parity.commands.register("timings.measure", () =>
+              parity.edits.transact("Badge", [{ op: "remove", design: "app.par#home", node: "title" }])
+            )
+          }
+        }
+      },
+      { edits: { transact, files: () => Promise.resolve([]) } }
+    )
+
+    hosts.open(project)
+
+    await expect(hosts.run("shop", "timings.measure")).rejects.toThrow("Route timings can't change designs")
+    expect(transact).not.toHaveBeenCalled()
+  })
+
+  it("writes files through the service, and refuses a .par whatever the permission names", async () => {
+    const files = vi.fn<ExtensionEdits["files"]>(() => Promise.resolve(["src/Button.stories.tsx"]))
+    let written: string[] = []
+
+    const { hosts } = setUp(
+      {
+        "parity-tidy": {
+          activate(parity) {
+            parity.commands.register("tidy.rename", async () => {
+              written = await parity.files.edit("Add story", [
+                { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
+              ])
+              await parity.files.edit("Rename", [{ kind: "patch", path: "app.par", find: "Title", replace: "Heading" }])
+            })
+          }
+        }
+      },
+      { edits: { transact: () => Promise.resolve(), files } }
+    )
+
+    hosts.open(project)
+
+    await expect(hosts.run("shop", "tidy.rename")).rejects.toThrow(
+      "Tidy can't write app.par: extensions change designs with parity.edits, never .par files"
+    )
+    expect(written).toEqual(["src/Button.stories.tsx"])
+    expect(files).toHaveBeenCalledOnce()
+    expect(files).toHaveBeenCalledWith("shop", "parity-tidy", "Tidy: Add story", [
+      { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
+    ])
   })
 })

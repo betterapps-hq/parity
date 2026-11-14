@@ -29,6 +29,8 @@ export interface Parity {
   readonly facts: Facts
   readonly status: StatusItems
   readonly servers: Servers
+  readonly edits: Edits
+  readonly files: Files
   readonly ui: Ui
   readonly state: { readonly app: State; readonly project: State }
   readonly log: Log
@@ -51,8 +53,17 @@ export interface Project {
   detected: JsonValue | undefined
 }
 
-/** What a command was run for: a component's card or one of its layers. Nothing when it's run from Search actions. */
-export type CommandTarget = { type: "component"; key: string }
+/**
+ * What a command was run for: a component's card or one of its layers, or a layer in Layers, by its design's key
+ * (`app.par#home`) and its id. Nothing when it's run from Search actions.
+ */
+export type CommandTarget = ComponentTarget | LayerTarget
+
+/** A component of the project, by its key. */
+export type ComponentTarget = { type: "component"; key: string }
+
+/** A layer, by its design's key and its id. */
+export type LayerTarget = { type: "layer"; design: string; node: string }
 
 export interface Commands {
   /** Gives behaviour to a command the manifest declares. A second handler for one command is refused. */
@@ -78,7 +89,7 @@ export interface Fact {
 
 export interface Facts {
   /** Sets the extension's facts about `target`, replacing those it set before. An empty list takes them away. */
-  set(target: CommandTarget, facts: Fact[]): void
+  set(target: ComponentTarget, facts: Fact[]): void
 }
 
 export interface StatusItems {
@@ -129,6 +140,59 @@ export interface Servers {
    * person's browser opens. None without Portless.
    */
   routed(): Promise<{ url: string; address: string }[]>
+}
+
+/**
+ * A layer's field, as a path into it: `["name"]`, `["hidden"]`, `["text"]`, `["props", "variant"]` or
+ * `["style", "padding"]`. Not `id`, `type`, `children` or `slots`.
+ */
+export type FieldPath = string[]
+
+/**
+ * One change to a design, by its key (`app.par#home`), as a person's edit makes it. Layers are placed before a sibling
+ * by its id, or last when `before` is left out, in `slot` when the parent is a component or an instance.
+ */
+export type DesignOperation =
+  /** Inserts a layer with everything inside it. Its ids must be new to the design. */
+  | { op: "insert"; design: string; parent: string; slot?: string; before?: string; node: JsonValue }
+  | { op: "remove"; design: string; node: string }
+  /** Moves a layer within its design. */
+  | { op: "move"; design: string; node: string; parent: string; slot?: string; before?: string }
+  /** Sets one of a layer's fields, or takes it away when `value` is left out. */
+  | { op: "set"; design: string; node: string; path: FieldPath; value?: JsonValue }
+
+/**
+ * Changing designs, for an extension whose manifest has the `edits` permission. A change goes to the window that has
+ * the project open, waiting for one, which applies it as it applies an agent's: checked whole and applied whole, as one
+ * undo step named after the extension and `label`, as "Tidy: Rename layers". Extensions never write `.par` files.
+ */
+export interface Edits {
+  /**
+   * Applies `operations` in order, as one undo step. Rejects, changing nothing, when one can't apply, as when someone
+   * deleted a layer it names meanwhile, or when what it leaves isn't a valid design.
+   */
+  transact(label: string, operations: DesignOperation[]): Promise<void>
+}
+
+/**
+ * One file's part in `files.edit`, by its path from the project's root. Each says what it expects to find, so a file
+ * that changed meanwhile is left alone: `create` expects no file, `replace` and `delete` exactly what's there, and
+ * `patch` its `find` text once.
+ */
+export type FileEdit =
+  | { kind: "create"; path: string; content: string }
+  | { kind: "replace"; path: string; expected: string; content: string }
+  | { kind: "patch"; path: string; find: string; replace: string }
+  | { kind: "delete"; path: string; expected: string }
+
+/** Changing the project's files: code, such as a story's args or a test. */
+export interface Files {
+  /**
+   * Writes the files together through the project service, which checks each still holds what the edit expects, and
+   * shows the change with Undo under the extension's name and `label`. Limited to the paths the manifest's `write`
+   * permission names, and never a `.par` file. Gives the paths it changed.
+   */
+  edit(label: string, files: FileEdit[]): Promise<string[]>
 }
 
 /** How a toast looks. */

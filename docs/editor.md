@@ -1101,6 +1101,32 @@ Tests: `packages/extensions/src/hosts.test.ts` and `manifest.test.ts` ([extensio
 `chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no tests of their own. They were tried in
 the running app on 2026-11-14 with the mouse and keyboard ([extensions.md](extensions.md) says how).
 
+### Extensions' changes to designs and files (PAR-1093)
+
+An extension with the `edits` permission changes designs through `parity.edits.transact`, and project files through
+`parity.files.edit` ([extensions.md](extensions.md)).
+
+- **One undo step each,** named after the extension and its label: Edit > Undo says "Undo Tidy: Rename layer". The
+  window applies the operations to the designs as they are when they arrive, so a layer someone deleted meanwhile is
+  refused, changing nothing, rather than brought back. Operations that cancel out make no step.
+- **Saved with the project,** as the person's own edits are. With automatic saving on, the files are written a moment
+  later.
+- **File changes** show in the same toast as the project's other edits, "Changed src/Button.stories.tsx", with the
+  extension's label, the diff and Undo.
+- **Commands for any layer.** A row's menu in Layers shows the commands an extension places at `layers` with
+  `"when": "layer"`, run for that layer. Commands placed for components, as Open in Storybook, still show only on a
+  component's layer.
+
+Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `DesignStore.applyOperations`,
+`extensions.transact` and `extensions.edited` in `renderer/agent/handlers.ts`, `layerOffers` in
+`chrome/adapter-actions.ts`, and `commandsAt` in `renderer/extensions.ts`.
+
+Tests: `packages/editor/src/design-operations.test.ts` (renaming, taking a field away, inserting, moving and removing,
+and what's refused), `renderer/design-store.test.ts` "an extension's operations" (one step under the extension's name
+that Undo takes back, and refusing the whole change), `renderer/extensions.test.ts` "commandsAt for a layer", and
+`packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par` files). Gaps: no extension
+built into Parity changes designs yet, so the layer menu and the undo label weren't tried in the running app.
+
 ### Previews in the Components panel and the insert picker (PAR-208)
 
 The Components tab shows each component's picture (see Component previews, made offscreen and kept on disk), in one of

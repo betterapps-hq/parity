@@ -1,7 +1,17 @@
 import { type Channel, createChannel, type Port } from "@parity-app/channel"
-import type { CommandTarget, Contributions, Fact, JsonValue, PathIcon, ServerRequest } from "@parity-app/extension-api"
+import type {
+  CommandTarget,
+  Contributions,
+  DesignOperation,
+  Fact,
+  FileEdit,
+  JsonValue,
+  PathIcon,
+  ServerRequest
+} from "@parity-app/extension-api"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import type { ExtensionPackage } from "./manifest.ts"
+import { editsRefusal, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
   hostChecks,
@@ -97,6 +107,17 @@ export interface ExtensionServers {
   routed(): Promise<{ url: string; address: string }[]>
 }
 
+/**
+ * Where extensions' changes go once their permissions are checked: designs to the window that has the project open,
+ * and files to the project service's one queued write. `label` names the extension, as "Tidy: Rename layers".
+ */
+export interface ExtensionEdits {
+  /** Applies design operations as one undo step, waiting for a window. Rejects, changing nothing, when one can't apply. */
+  transact(projectId: string, extension: string, label: string, operations: DesignOperation[]): Promise<void>
+  /** Writes files together, shown with Undo. Answers with the paths it changed. */
+  files(projectId: string, extension: string, label: string, files: FileEdit[]): Promise<string[]>
+}
+
 /** How long hosts get, in milliseconds, and how many crashes in a row leave one stopped. */
 export interface HostTiming {
   /** How often a running host is pinged. */
@@ -132,6 +153,7 @@ export interface ExtensionHostsOptions<Project extends OpenedProject> {
   state: ExtensionStateStore
   window: ExtensionWindow
   servers: ExtensionServers
+  edits: ExtensionEdits
   timing?: Partial<HostTiming>
 }
 
@@ -269,6 +291,7 @@ export function extensionHosts<Project extends OpenedProject>(
     const projectId = open.project.id
     const id = host.extension.package.id
     const { root } = open.project
+    const { displayName, permissions } = host.extension.package.manifest
 
     const ui =
       <M extends UiMethod>(method: M) =>
@@ -330,7 +353,25 @@ export function extensionHosts<Project extends OpenedProject>(
       "servers.stop"({ id: server }: HostServiceMethods["servers.stop"]["params"]) {
         options.servers.stop(projectId, id, server)
       },
-      "servers.routed": () => options.servers.routed()
+      "servers.routed": () => options.servers.routed(),
+      async "edits.transact"({ label, operations }: HostServiceMethods["edits.transact"]["params"]) {
+        const refused = editsRefusal(displayName, permissions)
+
+        if (refused) {
+          throw new Error(refused)
+        }
+
+        await options.edits.transact(projectId, id, `${displayName}: ${label}`, operations)
+      },
+      async "files.edit"({ label, files }: HostServiceMethods["files.edit"]["params"]) {
+        const refused = files.map((file) => writeRefusal(displayName, permissions, file.path)).filter(Boolean)
+
+        if (refused.length > 0) {
+          throw new Error(refused.join("\n"))
+        }
+
+        return { paths: await options.edits.files(projectId, id, `${displayName}: ${label}`, files) }
+      }
     }
   }
 

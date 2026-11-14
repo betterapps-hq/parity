@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import {
+  type ExtensionEdits,
   type ExtensionHosts,
   type ExtensionWindow,
   extensionHosts,
@@ -59,9 +60,13 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   })
 ]
 
-/** Every open project's extensions, telling `window` what changes and asking the person through it. */
-export function startExtensions(window: ExtensionWindow): ExtensionHosts<ExtensionProject> {
+/**
+ * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes
+ * to designs and files going through `edits`.
+ */
+export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits): ExtensionHosts<ExtensionProject> {
   return extensionHosts<ExtensionProject>({
+    edits,
     extensions: builtIns(),
     start(extension, project) {
       logNote(`[service] starting ${extension.package.manifest.displayName} for ${project.name}`)

@@ -98,7 +98,7 @@ import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentOffers, pageOffers } from "./adapter-actions.ts"
+import { componentOffers, layerOffers, pageOffers } from "./adapter-actions.ts"
 import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
@@ -1596,9 +1596,13 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const page = row.node ? undefined : routePageTarget(session.id, row.design.container)
   const { extensions } = useExtensions(session)
 
-  const offers = page
-    ? pageOffers(session.info, page.route)
-    : componentOffers(session.info, component, { session, extensions, placement: "layers" })
+  const placed = { session, extensions, placement: "layers" as const }
+  let offers = page ? pageOffers(session.info, page.route) : componentOffers(session.info, component, placed)
+
+  // Any other layer offers the extensions' commands placed in Layers, run for the layer (PAR-1093).
+  if (!page && !component && row.node && row.path === row.node.id) {
+    offers = layerOffers(placed, { type: "layer", design: row.design.key, node: row.node.id })
+  }
 
   const items = layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {
