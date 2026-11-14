@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 22:44:46 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 23:31:46 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.87.0
+
+Sat, 14 Nov 2026 23:31:46 GMT
+
+### Minor changes
+
+- Extensions draw declarative views in panel tabs, Design tab sections and pages; Storybook adds a Stories tab, a
+  Stories section and a setup guide (ajcraswell@gmail.com)
 
 ## 0.86.0
 

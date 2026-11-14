@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 23:31:46 GMT",
+      "version": "0.87.0",
+      "tag": "@parity-app/desktop_v0.87.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1881da4b1a464ebc0dd9865f45b1e32e0d9a904c",
+            "comment": "Run the end-to-end tests on their own copy of the example's designs"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "66058c6f48cd2e12feba7b9f7c635df2ff08a6f7",
+            "comment": "Extensions draw declarative views in panel tabs, Design tab sections and pages; Storybook adds a Stories tab, a Stories section and a setup guide"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 22:44:46 GMT",
       "version": "0.86.0",
       "tag": "@parity-app/desktop_v0.86.0",
