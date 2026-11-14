@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 10:41:18 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 11:03:46 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.6
+
+Sat, 14 Nov 2026 11:03:46 GMT
+
+### Patches
+
+- Find a project's library files by an index, so a project opens sooner (ajcraswell@gmail.com)
 
 ## 0.82.5
 

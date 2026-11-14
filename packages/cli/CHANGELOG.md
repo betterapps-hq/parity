@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 14 Nov 2026 06:03:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 11:03:54 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.61.3
+
+Sat, 14 Nov 2026 11:03:54 GMT
+
+### Patches
+
+- Find a project's library files by an index, so a project opens sooner (ajcraswell@gmail.com)
 
 ## 0.61.2
 
