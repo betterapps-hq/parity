@@ -15,7 +15,6 @@ import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
 import { parseManifest } from "@parity-app/core"
-import { buildRegistryIndex, registryIndexFile } from "@parity-app/registry"
 import { build, type BuildOptions } from "esbuild"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
@@ -99,13 +98,6 @@ cpSync(join(appDir, "resources"), join(out, "resources"), { recursive: true })
 const registry = dirname(require.resolve("@parity-app/registry/package.json"))
 
 cpSync(join(registry, "libraries"), join(out, "libraries"), { recursive: true })
-
-// Which package each library file describes, so opening a project parses only the files for its own packages, not
-// the tens of megabytes of the rest (PAR-1085).
-writeFileSync(
-  join(out, "libraries", registryIndexFile),
-  JSON.stringify(await buildRegistryIndex(join(out, "libraries")))
-)
 
 cpSync(join(registry, "in-app.json"), join(out, "in-app.json"))
 

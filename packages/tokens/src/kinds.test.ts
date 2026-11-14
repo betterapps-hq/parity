@@ -137,7 +137,7 @@ describe("previewKind", () => {
   })
 
   it("places Chakra's tokens: layers, borders, cursors, ratios, blurs and animations", async () => {
-    const chakra = await registryKinds("chakra")
+    const chakra = await registryKinds("@chakra-ui+react")
     expect(chakra).toMatchObject({
       "chakra-z-index-modal": "z-index",
       "chakra-borders-sm": "border",
@@ -155,7 +155,7 @@ describe("previewKind", () => {
   })
 
   it("places Fluent's camel-cased tokens: stroke widths, durations and curves", async () => {
-    const fluent = await registryKinds("fluent")
+    const fluent = await registryKinds("@fluentui+react-components")
     expect(fluent).toMatchObject({
       strokeWidthThin: "border-width",
       durationNormal: "duration",
@@ -168,7 +168,7 @@ describe("previewKind", () => {
   })
 
   it("places Mantine's tokens, a color named for a curve as a color, and leaves its scale a number", async () => {
-    const mantine = await registryKinds("mantine")
+    const mantine = await registryKinds("@mantine+core")
     expect(mantine).toMatchObject({
       "mantine-z-index-modal": "z-index",
       "mantine-breakpoint-md": "breakpoint",

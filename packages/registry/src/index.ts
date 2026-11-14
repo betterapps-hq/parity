@@ -25,7 +25,7 @@ export { parseJsonc } from "./jsonc.ts"
  * the package it describes and the versions it covers.
  */
 export interface RegistryEntry {
-  /** The file's name, as in `mui.lib.par`. */
+  /** The file's name, as in `@mui+material.lib.par` (see `registryFileName`). */
   file: string
   /** Its absolute path. */
   path: string
@@ -64,22 +64,26 @@ export function registryDir(): string {
 }
 
 let cache: Promise<RegistryEntry[]> | undefined
+let listing: Promise<string[]> | undefined
+const entryCache = new Map<string, Promise<RegistryEntry | undefined>>()
 
-/** The file the app's build writes beside the registry's files, naming the package each describes (PAR-1085). */
-export const registryIndexFile = "index.json"
-
-const registryIndex = z.array(fileObject({ file: z.string(), package: libraryPackage }))
-
-/** Each registry file and the package it describes, so the file for a package is found without parsing the others. */
-export type RegistryIndex = z.infer<typeof registryIndex>
-
-/** The index of the registry at `dir`, from its files, for the app's build to write as `registryIndexFile`. */
-export async function buildRegistryIndex(dir = registryDir()): Promise<RegistryIndex> {
-  return (await readEntries(dir)).map(({ file, manifest }) => ({ file, package: manifest.package! }))
+/**
+ * The name of a package's registry file: its npm name with `+` for the `/` after its scope, which no package name has,
+ * as in `@mui+material.lib.par`. Another file for an older major version adds it, as in `@mui+material@7.lib.par`.
+ * Named for their packages, the files for a project's packages are found without opening the rest (PAR-1086).
+ */
+export function registryFileName(packageName: string, major?: number): string {
+  return `${packageName.replace("/", "+")}${major === undefined ? "" : `@${major}`}${libraryManifestExtension}`
 }
 
-let indexCache: Promise<RegistryIndex | undefined> | undefined
-const entryCache = new Map<string, Promise<RegistryEntry | undefined>>()
+/** The package a registry file is named for, or nothing for a file that isn't a library's. */
+export function registryFilePackage(file: string): string | undefined {
+  if (!file.endsWith(libraryManifestExtension)) {
+    return undefined
+  }
+
+  return file.slice(0, -libraryManifestExtension.length).replace(/@\d+$/, "").replace("+", "/")
+}
 
 /** Every file in the registry, read once. One that doesn't parse is skipped with a warning. */
 export function registryEntries(dir = registryDir()): Promise<RegistryEntry[]> {
@@ -125,29 +129,18 @@ async function readEntry(dir: string, file: string): Promise<RegistryEntry | und
   }
 }
 
-/** The registry's index at `dir`, or nothing when there's none or it can't be read, as in a development checkout. */
-async function readIndex(dir: string): Promise<RegistryIndex | undefined> {
-  try {
-    return parseData(registryIndex, JSON.parse(await readFile(join(dir, registryIndexFile), "utf8")))
-  } catch {
-    return undefined
-  }
-}
-
 /**
- * The registry's files for a package. With an index, only those files are parsed: the registry is tens of megabytes,
- * most of it libraries a project doesn't use, and a project's every dependency is looked up as it opens (PAR-1085).
- * Without one, every file is read, as `registryEntries` does.
+ * The registry's files for a package, found by their names, so only those are opened: the registry is tens of
+ * megabytes, most of it libraries a project doesn't use, and each of a project's dependencies is looked up as it opens
+ * (PAR-1086). A file that turns out to describe another package is left out.
  */
 async function entriesFor(packageName: string, dir = registryDir()): Promise<RegistryEntry[]> {
   const shared = dir === registryDir()
-  const index = await (shared ? (indexCache ??= readIndex(dir)) : readIndex(dir))
+  const list = () => readdir(dir).catch((): string[] => [])
 
-  if (!index) {
-    return (await registryEntries(dir)).filter((entry) => entry.manifest.package?.name === packageName)
-  }
-
-  const files = index.filter((entry) => entry.package.name === packageName).map((entry) => entry.file)
+  const files = (await (shared ? (listing ??= list()) : list()))
+    .filter((file) => registryFilePackage(file) === packageName)
+    .sort()
 
   const read = (file: string) => {
     if (!shared) {
@@ -161,7 +154,9 @@ async function entriesFor(packageName: string, dir = registryDir()): Promise<Reg
     return kept
   }
 
-  return (await Promise.all(files.map(read))).filter((entry) => entry !== undefined)
+  return (await Promise.all(files.map(read))).filter(
+    (entry): entry is RegistryEntry => entry?.manifest.package?.name === packageName
+  )
 }
 
 /**
