@@ -74,6 +74,7 @@ import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
+import { useStore } from "../store.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { useBoardInternals } from "./board-internals.ts"
 import { boardFile, componentBoardsFile } from "./component-boards.ts"
@@ -90,7 +91,7 @@ import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
-import { routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
+import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
@@ -347,6 +348,8 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   // A screen that fits its content, as a story, is fitted in each mode's frame.
   useFitToContent(board, entry)
   const { id: project, store, loaded, selection } = useProject()
+  // Where a page landed instead of its own path, as its frames say.
+  const landed = useStore(pageLandings).get(entry.key)
   // Whether its frames changed since they were first looked at, marked on the board for tools to read (PAR-997).
   const change = useDesignChange(project, entry.key)
   const settings = useModeSettings(store)
@@ -469,6 +472,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
           </StateRow>
         ))}
       </div>
+      {landed !== undefined && <LandedElsewhere path={landed} width={width} />}
     </div>
   )
 }
@@ -1296,7 +1300,7 @@ const FrameTile = memo(function FrameTile({
  * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
  * selects over it. It's as tall as the page says it is (see `pageHeightMessage`), and never shorter than the frame's
  * window, unless the frame has been given a height, which it then clips to. When the page lands somewhere other than its
- * own path, as a route that redirects sends it (see `pageLandedMessage`), it says where under the frame, at its left.
+ * own path, as a route that redirects sends it (see `pageLandedMessage`), it notes where for its board and Layers.
  */
 function PageFrame({
   url,
@@ -1370,27 +1374,26 @@ function PageFrame({
           style={{ width: frame.width, height, transform: `scale(${scale})` }}
         />
       </div>
-      {/* Under the frame, in its tile, which it's placed against: the frame clips what's in it. */}
-      {elsewhere !== undefined && <LandedElsewhere path={elsewhere} width={frame.width * scale} />}
     </>
   )
 }
 
 /**
- * Where a page landed instead of its own path, under its frame at the left, sized for the zoom as a frame's caption is:
- * a warning, since the page drawn isn't the route's own.
+ * Where a page landed instead of its own path, under its board, lined up with its left edge, sized for the zoom as a
+ * frame's caption is, and the same few screen pixels below at any zoom: a warning, since the page drawn isn't the
+ * route's own.
  */
-function LandedElsewhere({ path, width }: { path: string; width: number }) {
+function LandedElsewhere({ path, width }: { path: string; width: number | undefined }) {
   const ref = useRef<HTMLDivElement>(null)
-  useCanvasLabel(ref, "detail", { width })
+  useCanvasLabel(ref, "detail", width === undefined ? {} : { width })
 
   return (
-    <div
-      ref={ref}
-      className="absolute top-full left-0 mt-6 flex origin-top-left items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm whitespace-nowrap text-amber-700 dark:text-amber-400"
-    >
-      <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
-      Lands on {path}
+    // The gap is padding inside the scaled element, so it scales with the warning rather than the canvas.
+    <div ref={ref} className="pointer-events-none absolute top-full left-0 origin-top-left pt-2">
+      <div className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm whitespace-nowrap text-amber-700 dark:text-amber-400">
+        <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+        Lands on {path}
+      </div>
     </div>
   )
 }

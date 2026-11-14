@@ -1,5 +1,5 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowUpRight, Code } from "lucide-react"
+import { ArrowUpRight, Code, ExternalLink } from "lucide-react"
 import type { ReactNode } from "react"
 import { textFor } from "../canvas/kinds.tsx"
 import type { ComponentOffer } from "./adapter-actions.ts"
@@ -73,18 +73,22 @@ const actionLooks: Record<HeaderAction, { label: string; icon: ReactNode }> = {
 
 /**
  * What a selection's header does, as icon buttons named by their hints, in the order given: the editor's own, then the
- * adapters' actions, each with its adapter's logo. One that can't act on the selection stays, faded and focusable, its
- * hint saying why, as No story found.
+ * adapters' actions, each with its adapter's logo, or with an external link for a page's, which opens it outside
+ * Parity, as Open in browser does. One that can't act on the selection stays, faded and focusable, its hint saying why,
+ * as No story found.
  */
 export function HeaderActions({
   actions = [],
   onAction,
   adapterOffers = [],
+  page = false,
   onAdapterAction
 }: {
   actions?: readonly HeaderAction[]
   onAction?: (action: HeaderAction) => void
   adapterOffers?: readonly ComponentOffer[]
+  /** The offers are for a page of the app. */
+  page?: boolean
   onAdapterAction?: (offer: ComponentOffer) => void
 }) {
   return [
@@ -100,7 +104,7 @@ export function HeaderActions({
         unavailable={offer.unavailable}
         onClick={() => onAdapterAction?.(offer)}
       >
-        <AdapterLogo logo={offer.action.icon} />
+        {page ? <ExternalLink /> : <AdapterLogo logo={offer.action.icon} />}
       </HeaderButton>
     ))
   ]

@@ -6494,9 +6494,10 @@ A screen is named for the component its route draws, else its path.
 - **Where a page lands.** The script the builder's server puts first in the app's `index.html` also posts the path the
   page opened on, `{ parity: "page-landed", path }`, and again whenever the app's router moves it, until someone uses
   the page with the pointer or keys. When the path isn't the page's own, ignoring a trailing slash, an amber "Lands on
-  /x" warning shows under the page's frame, at its left, sized for the zoom as a frame's caption is, so a redirect
-  Parity couldn't read still shows. Its row in Layers shows an amber warning too, whose tooltip says where. The
-  example's Dashboard is behind a sign-in check in its `beforeLoad`, so it lands on `/login` until someone logs in.
+  /x" warning shows under the page's board, lined up with its left edge and a few screen pixels below at any zoom, sized
+  as a frame's caption is, so a redirect Parity couldn't read still shows. Its row in Layers shows an amber warning too,
+  whose tooltip says where. The example's Dashboard is behind a sign-in check in its `beforeLoad`, so it lands on
+  `/login` until someone logs in.
 
 - **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
   page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
@@ -7456,7 +7457,8 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
   the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
   header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
-  detail shows Open in browser, with TanStack's logo, in its header and at the end of its right-click menu in Layers.
+  detail shows Open in browser in its header, with an external link icon, since it opens the page outside Parity, and at
+  the end of its right-click menu in Layers, with TanStack's logo.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;

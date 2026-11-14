@@ -253,6 +253,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
                 adapterOffers={
                   target ? pageOffers(session.info, target.route) : componentOffers(session.info, component)
                 }
+                page={target !== undefined}
                 onAdapterAction={({ action }) => void runAction(session.id, action, component, target)}
               />
             )
