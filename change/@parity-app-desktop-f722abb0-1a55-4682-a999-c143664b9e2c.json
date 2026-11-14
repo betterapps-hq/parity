@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying that fades and selects, and a screen-sized preview ring",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
