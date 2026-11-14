@@ -73,7 +73,7 @@ export {
 
 export { designColors } from "./design-colors.ts"
 
-export { withTidyView } from "./document-equality.ts"
+export { sameValue, withTidyView } from "./document-equality.ts"
 
 export {
   countMedia,
@@ -532,4 +532,4 @@ export {
   styleOfElement
 } from "./element-layers.ts"
 
-export { hasTriedSize, withoutTriedSize } from "./tried-size.ts"
+export { codeDesignSettings, hasTriedSize, withCodeDesignSettings, withoutTriedSize } from "./tried-size.ts"

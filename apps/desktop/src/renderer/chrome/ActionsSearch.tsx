@@ -11,7 +11,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
-import { FolderOpen, Palette } from "lucide-react"
+import { ExternalLink, FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
@@ -27,7 +27,7 @@ import {
   workspace
 } from "../workspace.ts"
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
-import { runAction, selectionComponent } from "./adapter-actions.ts"
+import { runAction, selectionComponent, selectionPage } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
@@ -313,24 +313,41 @@ function projectItems(session: ProjectSession): Item[] {
  * What the project's adapters can do, under Object: each for the selected component when it's offered for it, as Open
  * in Storybook on a component with stories, with the component's name beside it; greyed with why on a selected
  * component it isn't for, as No story found; and for the whole project with no component selected, as opening
- * Storybook's home.
+ * Storybook's home. An action for pages is there only with a page it's for selected, with the page's path beside it,
+ * as Open in browser.
  */
 function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" | "store">): Item[] {
   const component = selectionComponent(session)
+  const page = selectionPage(session)
 
-  return session.info.actions.map((action) => {
+  return session.info.actions.flatMap((action): Item[] => {
+    const item = { id: `adapter:${action.adapter}:${action.id}`, group: "Object" as const, label: action.name }
+
+    if (action.routes) {
+      return page && action.routes.includes(page.route)
+        ? [
+            {
+              ...item,
+              detail: new URL(page.url).pathname,
+              icon: <ExternalLink />,
+              run: () => void runAction(session.id, action, undefined, page)
+            }
+          ]
+        : []
+    }
+
     const offered = component !== undefined && action.components?.includes(component) ? component : undefined
     const unavailable = component !== undefined && !offered && action.components ? action.unavailable : undefined
 
-    return {
-      id: `adapter:${action.adapter}:${action.id}`,
-      group: "Object",
-      label: action.name,
-      detail: unavailable ?? offered,
-      icon: <AdapterLogo logo={action.icon} />,
-      available: () => unavailable === undefined,
-      run: () => void runAction(session.id, action, offered)
-    }
+    return [
+      {
+        ...item,
+        detail: unavailable ?? offered,
+        icon: <AdapterLogo logo={action.icon} />,
+        available: () => unavailable === undefined,
+        run: () => void runAction(session.id, action, offered)
+      }
+    ]
   })
 }
 
