@@ -2,6 +2,73 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 12:19:19 GMT",
+      "version": "0.83.0",
+      "tag": "@parity-app/desktop_v0.83.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "76f262d6323b4952c4d58300f00a4210adcfe5c0",
+            "comment": "Count changes from the last git commit in a git repository, through swappable change detectors"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e5ce28a1746bb34d25a952e3a7fc62f2dc8a401b",
+            "comment": "Update the node index in place from what an edit touched, and tell watchers once per settled edit"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f14fd0904667f1c83c25ca4349e909105816fd87",
+            "comment": "Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a9823b4292590c0f78fe7f62daf1c111d7c3e44f",
+            "comment": "Settings is a paged dialog with a page for the open project's own settings, shortcut rebinding saved in keybindings.json, and a page for each built-in extension"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "70c03ab95db88024283fb40296d74c18e52169de",
+            "comment": "Previews on a board can be selected, zoomed, set to their own width, theme and language, and resized by a handle that lands on the app's breakpoints"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "955f18ff14584743dbeda47228dadbefe91b3f5d",
+            "comment": "Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from its host"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c6d828b893e53aa5eca809b2c2212d0158e8e67b",
+            "comment": "Pages, component boards and stories keep their modes, scales, route params and tried sizes when the project reopens, and Open in browser shows on the canvas and in Search actions"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "76f262d6323b4952c4d58300f00a4210adcfe5c0",
+            "comment": "Read a project's TanStack Router routes"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "070bcaf20d033c107552dc755d30a387aeb1bbfd",
+            "comment": "Name the registry's library files for their packages, so a project opens without reading the files of packages it doesn't use"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 11:03:46 GMT",
       "version": "0.82.6",
       "tag": "@parity-app/desktop_v0.82.6",

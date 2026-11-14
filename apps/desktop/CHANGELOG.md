@@ -1,8 +1,33 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 11:03:46 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 12:19:19 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.83.0
+
+Sat, 14 Nov 2026 12:19:19 GMT
+
+### Minor changes
+
+- Count changes from the last git commit in a git repository, through swappable change detectors (ajcraswell@gmail.com)
+- Update the node index in place from what an edit touched, and tell watchers once per settled edit
+  (ajcraswell@gmail.com)
+- Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows
+  (ajcraswell@gmail.com)
+- Settings is a paged dialog with a page for the open project's own settings, shortcut rebinding saved in
+  keybindings.json, and a page for each built-in extension (ajcraswell@gmail.com)
+- Previews on a board can be selected, zoomed, set to their own width, theme and language, and resized by a handle that
+  lands on the app's breakpoints (ajcraswell@gmail.com)
+- Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from
+  its host (ajcraswell@gmail.com)
+- Pages, component boards and stories keep their modes, scales, route params and tried sizes when the project reopens,
+  and Open in browser shows on the canvas and in Search actions (ajcraswell@gmail.com)
+
+### Patches
+
+- Name the registry's library files for their packages, so a project opens without reading the files of packages it
+  doesn't use (ajcraswell@gmail.com)
 
 ## 0.82.6
 
