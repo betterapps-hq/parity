@@ -68,18 +68,17 @@ export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): 
 
 /**
  * How much height a state's label has beside its row of the every-state grid, in page pixels: from its top to where the
- * next row's label starts, past the gap between rows. A row's label starts at the top of its frames, `height`
- * tall, but the first row's at the top of the caption band above them. The last row gets the same, so a board's rows are
- * measured alike. A label with its count of changes is 36 pixels tall at screen size and about 22 shrunk to 60%, so one
+ * next row's label starts, past the gap between rows. Every row's label starts at the top of its frames, `height`
+ * tall, the first row's too (PAR-1119). The last row gets the same, so a board's rows are measured alike. A label with its count of changes is 36 pixels tall at screen size and about 22 shrunk to 60%, so one
  * shown with at least `smallestLabelled` of this on screen never reaches the next.
  *
  * The board's gutter is taken at 40%, the size it keeps on the canvas from there out (see `boardLayoutAt`). That's
  * exact where a label can be short of space; closer in, the gap between rows alone is 73 pixels on screen.
  */
-export function stateLabelSpace(height: number, captioned: boolean): number {
-  const { caption, rowDivider } = boardLayoutAt(shrinkBelow)
+export function stateLabelSpace(height: number): number {
+  const { rowDivider } = boardLayoutAt(shrinkBelow)
 
-  return (captioned ? caption : 0) + height + rowDivider.before + rowDivider.line + rowDivider.after
+  return height + rowDivider.before + rowDivider.line + rowDivider.after
 }
 
 /** Where a board sits on the canvas, in page pixels. */

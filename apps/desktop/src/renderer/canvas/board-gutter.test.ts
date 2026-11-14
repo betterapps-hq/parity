@@ -34,8 +34,9 @@ describe("boardParts", () => {
     expect([length(row.marginTop), length(row.paddingTop)]).toEqual([36, 1 + 36])
     // Every row's frames are raised into the band above them, where their headers sit.
     expect(length(boardParts.rowFrames(1).marginTop)).toBe(-36)
-    // A later row's label starts beside its frames.
+    // Every row's label starts beside its frames, the first row's below its header band as a later row's is.
     expect(boardParts.nextStateLabel(1).top).toBe(row.paddingTop)
+    expect(boardParts.firstStateLabel(1).top).toBe(boardParts.firstRow(1).paddingTop)
   })
 
   it("makes a row a header line taller where its headers have a line under their names", () => {

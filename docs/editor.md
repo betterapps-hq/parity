@@ -6395,6 +6395,8 @@ stay beside what they label instead of growing over the boards around it.
   title, clipped to its 24 or more pixels, and a narrower one shows none. A narrow component's labels hide this way even
   above 25%, before a caption would have faded, so a board's state labels and captions never show once its title has
   gone. A hidden label doesn't take the pointer.
+- **Every state's label starts beside the top of its row's frames,** the first row's below the preview headers as a
+  later row's is (PAR-1119), so the labels line up with the frames they name.
 - **A state's label needs space before the next row's (PAR-155).** It hides once the space from its top to where the
   next row's label starts, past the gap between rows, is under 24 screen pixels, so a row of component boards showing
   every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few pixels each
@@ -6462,15 +6464,16 @@ canvas past that; the estimate's main frame, its own size for a viewport, a fixe
 and gaps, rows of states, a frame's own size, and never being smaller than the board drawn at any zoom);
 `apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
 canvas past 40%, the gaps before the first companion and between rows with every row's frames raised into their header
-band, a tall row a band taller, the edge a screen pixel wide, each place clearing what another set, and a board laid out
-from the parts matching the estimate at 40% and 5% and smaller at 100%); `packages/editor/src/canvas-labels.test.ts` (a
-state label's space, from its frames and the gutter at 40%); `packages/editor/src/zoom-settle.test.ts` (4: settling
-after 3 frames and 150 ms, starting again when the zoom changes, not settling between slow frames that each zoom, nor
-between a mouse wheel's notches at 60 frames a second). The `zoom at 100%` run of `pnpm perf --profile` shows whether
-boards measure themselves mid-zoom, as `getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to
-the DOM, and the shape waiting for the zoom to settle, have no automated test. They were checked in Storybook on the
-example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of
-laying boards out again on each frame of a zoom wasn't timed.
+band and every row's label beside its frames, a tall row a band taller, the edge a screen pixel wide, each place
+clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%);
+`packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
+not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
+`zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
+`getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting for the
+zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign in
+showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
+frame of a zoom wasn't timed.
 
 ### A preview's header, settings and width (PAR-1071)
 
