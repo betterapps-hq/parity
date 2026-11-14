@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@buildkitgg/shadcn-baseui-kit": "catalog:",
+    "@parity-app/multiplayer": "workspace:*",
     "@sentry/electron": "catalog:",
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",

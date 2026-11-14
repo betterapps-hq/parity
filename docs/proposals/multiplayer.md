@@ -922,31 +922,71 @@ Today's run is recorded on this page with its commit at step 2. Its file goes at
 out that commit runs it again. They run as one-off commands, not `package.json` scripts:
 
 ```bash
-pnpm exec vp test bench apps/desktop/src/renderer/design-store.bench.ts
+NODE_OPTIONS=--expose-gc pnpm exec vp test bench apps/desktop/src/renderer/design-store.bench.ts
 ```
 
 ```bash
-pnpm exec vp test bench packages/multiplayer-local packages/multiplayer-loro
+NODE_OPTIONS=--expose-gc pnpm exec vp test bench packages/multiplayer-local packages/multiplayer-loro
 ```
 
-| Project    | Designs | Layers each | Depth |
-| ---------- | ------: | ----------: | ----: |
-| Small      |      20 |         200 |     6 |
-| Large      |     200 |       1,000 |    10 |
-| Very large |     500 |       2,000 |    12 |
+`generateProject` makes each project from a seed, so every run loads the same one: 25 designs to a file, about one in
+twenty a component, and screens of nested layouts with text and instances filling the components' slots. The sizes match
+what's expected, thousands to tens of thousands of layers, rather than the million the first draft of this table had:
 
-| Scenario                                   | Measures                                  |
-| ------------------------------------------ | ----------------------------------------- |
-| Open the project                           | Time, memory after                        |
-| Set one field on one layer                 | Time per transaction                      |
-| A 300-frame drag of one layer, then end    | Time per frame, time to end, memory after |
-| Type 200 characters into a text layer      | Time per character                        |
-| Paste 500 layers                           | Time                                      |
-| Undo and redo 50 steps                     | Time per step                             |
-| Comparing on a one-field change            | Time, against sending the operation       |
-| Save one file                              | Time to produce its `.par`                |
-| 10,000 edits in a session                  | Memory growth                             |
-| Exchange 1,000 transactions with a replica | Bytes, time to apply (Loro only)          |
+| Project    | Designs | Layers each | Depth | Layers in all |
+| ---------- | ------: | ----------: | ----: | ------------: |
+| Small      |      20 |         100 |     6 |        ~2,000 |
+| Large      |     100 |         200 |     8 |       ~20,000 |
+| Very large |     250 |         400 |    10 |      ~100,000 |
+
+| Scenario                                   | Measures                                              |
+| ------------------------------------------ | ----------------------------------------------------- |
+| Open the project                           | Time; the heap the session holds over the files       |
+| Set one field on one layer                 | Time per transaction                                  |
+| A 300-frame drag of one design, then end   | Time per frame, the end included                      |
+| Type 200 characters into a text layer      | Time per character, each its own transaction          |
+| Paste 500 layers, or take them out again   | Time per paste                                        |
+| Undo and redo 50 steps                     | Time per step                                         |
+| Comparing on a one-field change            | Time, against sending the operation (`benchProvider`) |
+| Save one file                              | Time to produce its `.par` and write it as JSON       |
+| 10,000 edits in a session                  | Heap growth                                           |
+| Exchange 1,000 transactions with a replica | Bytes, time to apply (`benchProvider`, Loro only)     |
+
+Each edit is made as the editor makes it: a function from the design to the new design, copying only the layers above
+the one that changed.
+
+### Today's numbers
+
+`DesignStore` on `history.ts`'s snapshots, run on `1881da4b` with PAR-1109's bench on top, on Windows 11 with an AMD
+Ryzen AI Max+ PRO 395 (32 threads) and Node 24.20.0. Times are the mean per unit.
+
+| Scenario                                  |    Small |    Large | Very large |
+| ----------------------------------------- | -------: | -------: | ---------: |
+| Open the project                          | 0.012 ms | 0.068 ms |   0.437 ms |
+| Set one field on one layer                | 0.681 ms | 1.745 ms |   4.211 ms |
+| A 300-frame drag of one design, per frame | 0.869 ms | 1.523 ms |   5.723 ms |
+| Type into a text layer, per character     | 0.510 ms | 1.765 ms |   5.733 ms |
+| Paste 500 layers, or take them out        | 0.897 ms | 3.250 ms |   4.767 ms |
+| Undo or redo, per step                    | 0.019 ms | 0.203 ms |   0.749 ms |
+| Save one file                             | 0.486 ms | 1.418 ms |   2.267 ms |
+
+| Heap                       |  Small |  Large | Very large |
+| -------------------------- | -----: | -----: | ---------: |
+| The files' values          | 0.4 MB | 4.4 MB |    21.8 MB |
+| The session opened on them | 0.1 MB | 0.1 MB |     0.2 MB |
+| 10,000 edits               |  ~0 MB | 0.2 MB |     0.3 MB |
+
+What they say about today:
+
+- **Every edit costs more as the project grows, not just as the change does.** One field on one layer takes 0.7 ms on
+  the small project and 4.2 ms on the very large one, and a drag frame or a typed character costs the same. Indexing
+  every design is only part of it, since opening, which indexes them all, takes 0.4 ms; where the rest goes, a profile
+  at step 3 will say. At 100,000 layers that's a quarter of a 60 fps frame before drawing.
+- **Undo is cheap,** swapping snapshots, and **memory is flat**: opening shares the files' objects, and the 200-step
+  limit keeps 10,000 edits from growing the heap. The small project's edits measured within a megabyte of zero either
+  way, which is noise.
+- **Opening is fast:** the store indexes the designs it's given and shares their objects. Reading and parsing the files
+  isn't in it, and costs the same for every provider.
 
 ### What Loro costs to load
 
