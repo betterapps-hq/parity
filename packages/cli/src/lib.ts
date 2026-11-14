@@ -34,7 +34,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
   const { appManifestPath, generateLibrary, manifestText, mergeManifest, reviseLibrary } =
     await import("@parity-app/libgen")
 
-  const { covers, registryDir, registryEntries } = await import("@parity-app/registry")
+  const { covers, registryDir, registryEntries, registryFileName } = await import("@parity-app/registry")
   const spec = packageName === undefined ? undefined : packageSpec(packageName)
   let root = resolve(options.root ?? ".")
 
@@ -82,7 +82,24 @@ export async function runLib(packageName: string | undefined, options: LibOption
   } else if (options.out) {
     target = resolve(options.out)
   } else if (options.registry) {
-    target = join(registryDir(), `${id}.lib.par`)
+    // Named for its package, so a project's packages find their files without opening the rest (PAR-1086): the file
+    // that covers the version it describes, else the package's own name, with the major version when the package has
+    // a file already.
+    const described = generated.manifest.package
+    const name = described?.name ?? spec?.name
+
+    if (!name) {
+      throw invalidInput("package", "A registry file names the package it describes")
+    }
+
+    const files = (await registryEntries()).filter((entry) => entry.manifest.package?.name === name)
+    const major = described?.version === undefined ? Number.NaN : Number.parseInt(described.version, 10)
+    const covering = files.find((entry) => covers(entry.manifest, described?.version))
+
+    target = join(
+      registryDir(),
+      covering?.file ?? registryFileName(name, files.length > 0 && Number.isFinite(major) ? major : undefined)
+    )
   } else if (packageName) {
     target = resolve(`${id}.lib.par`)
   } else {

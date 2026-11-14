@@ -6510,13 +6510,16 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   it's idle after its first paint, so a project opening finds it ready, and shows the opening state while it loads.
   That's 600 KB out of the 3.6 MB the window runs before it paints. tldraw stays in the main chunk: agent handlers, the
   project picture and quick insert import it eagerly. No test: the end-to-end tests open projects through it.
-- **A project's library files are found by an index (PAR-1086).** As a project opens, each of its dependencies is looked
-  up in Parity's library registry. That read and checked all 23 files, 27 MB with Chakra's 19.6, just to find the
-  package each describes. The app's build now writes `libraries/index.json` beside them, and only the files for the
-  project's own packages are parsed. In the built app, detection took 507 ms rather than 795, and the project opened in
-  0.96 seconds rather than 1.25. A development checkout has no index and reads every file as before. The catalog and the
-  CLI still read every file when asked. `packages/registry/src/index.test.ts` (3: the index names each file's package, a
-  package's file is found without parsing the others, and an unreadable index reads every file).
+- **A project's library files are found by their names (PAR-1086).** As a project opens, each of its dependencies is
+  looked up in Parity's library registry. That read and checked all 23 files, 27 MB with Chakra's 19.6, just to find the
+  package each describes. Each file is now named for its package, `@mui+material.lib.par`, with `+` for the `/` no
+  package name otherwise has, and a major version for another file of the same package, `@mui+material@7.lib.par`. So
+  only the files for the project's own packages are opened, in development and in the built app alike. In the built app,
+  detection took 507 ms rather than 795, and the project opened in 0.96 seconds rather than 1.25.
+  `parity lib --registry` writes files under these names. The catalog and the CLI's listings still read every file when
+  asked. `packages/registry/src/index.test.ts` (4: names follow packages and major versions, each of Parity's own files
+  is named for its package, a package's file is found without opening the others, and a file describing another package
+  is left out).
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's

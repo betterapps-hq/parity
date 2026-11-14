@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Name the registry's library files for their packages, so a project opens without reading the files of packages it doesn't use",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
