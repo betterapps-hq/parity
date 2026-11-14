@@ -10,9 +10,9 @@ export const commandRan = defineEvent(
   z.object({
     action: z.string().describe("The action's ID in the keymap, as `chrome/actions.ts` names it"),
     from: z
-      .enum(["key", "menu", "canvasMenu", "layersMenu", "search", "toolbar", "panel"])
+      .enum(["key", "menu", "canvasMenu", "layersMenu", "search", "toolbar", "panel", "extension"])
       .describe(
-        "What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, or a button in a panel or page"
+        "What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, a button in a panel or page, or an extension's parity.commands.execute"
       ),
     enabled: z.boolean().describe("Whether it applied then. One that didn't is recorded as cancelled, without running"),
     layers: z.int().min(0).describe("How many layers were selected"),

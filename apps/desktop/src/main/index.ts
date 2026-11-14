@@ -36,6 +36,7 @@ import { telemetryRunArgument, telemetryRunVariable, writeTelemetryRun } from ".
 import { handleInSpan, traceWith } from "../shared/tracing.ts"
 import { type Account, createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
+import { appStateFiles } from "./app-state.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { cliTarget, installCli, refreshCli } from "./cli-command.ts"
 import { copiedFiles, rawFormat } from "./clipboard-files.ts"
@@ -247,9 +248,38 @@ ipcMain.on(ipc.settingsNow, (event) => {
   event.returnValue = appWindowOf(event) ? settings.state() : undefined
 })
 
-app.on("browser-window-focus", () => settings.check())
+/**
+ * `projects.json` and `state.json`: the recent and starred projects every copy shares and sends its windows as they
+ * change, and what the app remembers for itself, such as the layout and each window's tabs.
+ */
+const appState = appStateFiles<BrowserWindow>(app.getPath("userData"), {
+  projectsChanged: (projects) => {
+    for (const window of appWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(ipc.projectsChanged, projects)
+      }
+    }
+  },
+  problem: (message) => console.warn(message),
+  windowKey: (window) => window.id
+})
 
-app.on("will-quit", () => settings.close())
+// As for the settings, the preload waits for these before the page draws; main answers from memory.
+ipcMain.on(ipc.stateNow, (event) => {
+  event.returnValue = appWindowOf(event)
+    ? { values: appState.values(), projects: appState.projects().values }
+    : undefined
+})
+
+app.on("browser-window-focus", () => {
+  settings.check()
+  appState.check()
+})
+
+app.on("will-quit", () => {
+  settings.close()
+  appState.close()
+})
 
 /**
  * The shortcuts the person changed (PAR-1085), read before the window opens and sent to every window as they change. The
@@ -568,7 +598,10 @@ function createWindow(): void {
     return { action: "deny" }
   })
   // The hidden render windows would otherwise keep the app running.
-  window.on("closed", () => renderPool.closeAll())
+  window.on("closed", () => {
+    renderPool.closeAll()
+    appState.closed(window)
+  })
   void window.loadURL(rendererUrl)
 }
 
@@ -1030,6 +1063,12 @@ answerWindows<HostEvent, BrowserWindow>({
     quit: () => app.quit(),
     toggleDevTools: (window) => window.webContents.toggleDevTools(),
     settings: { change: (change) => settings.change(change) },
+    projects: { change: (change) => appState.changeProjects(change) },
+    state: {
+      set: (key, value) => appState.set(key, value),
+      claimTabs: (window) => appState.claimTabs(window),
+      saveTabs: (window, tabs) => appState.saveTabs(window, tabs)
+    },
     settingsView,
     openInParity,
     keybindings: {

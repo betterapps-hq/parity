@@ -1,11 +1,17 @@
+import { locateNode } from "@parity-app/core"
+import { selectionRefs } from "@parity-app/editor"
 import type {
   CommandContribution,
   CommandTarget,
   MenuPlacement,
+  NodeRef,
   StatusItemContribution
 } from "@parity-app/extension-api"
+import { type ExtensionKey, holdsWhen, type ResolvedKeys, resolveKeys, type WhenValue } from "@parity-app/extensions"
 import { toast } from "sonner"
-import type { ExtensionStatus, LogLine } from "../shared/protocol.ts"
+import type { ExtensionStatus, ExtensionUiRequest, LogLine } from "../shared/protocol.ts"
+import { type Command, keymap, keysOf } from "./chrome/keymap.ts"
+import { matches } from "./chrome/keys.ts"
 import { projectPart } from "./project-part.ts"
 import { reportError } from "./report-error.ts"
 import { request } from "./service.ts"
@@ -18,6 +24,22 @@ import type { ProjectSession } from "./workspace.ts"
  * as it happens. A host that crashes or gets stuck is named in a notification with Restart, and its contributions leave
  * the panels and menus while it's stopped.
  */
+
+/** What an extension asks of the window that isn't `parity.ui`. */
+export type EditorRequest = Extract<
+  ExtensionUiRequest,
+  { method: "selection.set" | "selection.highlight" | "navigate" | "commands.execute" }
+>
+
+/** Whether a request from an extension is one this module answers. */
+export function isEditorRequest(asked: ExtensionUiRequest): asked is EditorRequest {
+  return (
+    asked.method === "selection.set" ||
+    asked.method === "selection.highlight" ||
+    asked.method === "navigate" ||
+    asked.method === "commands.execute"
+  )
+}
 
 /** A project's extensions and their logs. */
 export interface ProjectExtensions {
@@ -104,19 +126,96 @@ export interface PlacedCommand {
   disabledReason?: string
 }
 
-/** Whether a context key holds for `target`: `true`, or a list holding the target's key. `!key` turns it around. */
-export function holds(extension: ExtensionStatus, key: string | undefined, target: CommandTarget | undefined): boolean {
-  if (key === undefined) {
-    return true
+/**
+ * What Parity knows of where a command shows, which a manifest's `when` and `enablement` read (PAR-1092): the node it's
+ * shown for (`node.type`, `node.owner`, `node.key`), how many things are selected (`selection.count`), the tool picked
+ * (`tool`), and the tools the project has (`project.uses(tool)`).
+ */
+export interface WhenFacts {
+  node?: NodeRef
+  selectionCount?: number
+  tool?: string
+  /** The project's tools, by the prefixes of their extensions and the ids of their adapters. */
+  tools?: readonly string[]
+}
+
+/** What's selected in a project's tab, by `NodeRef`, the one picked last at the end. */
+export function selectedRefs(session: Pick<ProjectSession, "selection" | "store">): NodeRef[] {
+  return selectionRefs(session.selection.get(), (design, node) => {
+    const root = session.store.getEntry(design)?.container.root
+
+    return root && locateNode(root, node)?.node.type
+  })
+}
+
+/** What the project's tab knows that a `when` reads: what's selected, the tool and the project's tools. */
+export function whenFactsOf(session: Pick<ProjectSession, "info" | "selection" | "store">, node?: NodeRef): WhenFacts {
+  const refs = selectedRefs(session)
+  const { note, reference } = session.selection.get()
+
+  const facts: WhenFacts = {
+    // A note or a reference isn't a node, but it's selected.
+    selectionCount: refs.length + (note || reference ? 1 : 0),
+    tool: session.selection.getTool(),
+    tools: session.info.detection.tools.map((tool) => tool.id)
   }
 
-  const negated = key.startsWith("!")
-  const name = negated ? key.slice(1) : key
-  // `layer` is Parity's own key, which holds for a layer that isn't a component's (extensions' keys have a prefix).
-  const value = name === "layer" ? target?.type === "layer" : extension.context[name]
-  const found = value === true || (Array.isArray(value) && target !== undefined && value.includes(targetKey(target)))
+  const shown = node ?? refs.at(-1)
 
-  return negated ? !found : found
+  if (shown) {
+    facts.node = shown
+  }
+
+  return facts
+}
+
+/**
+ * Whether a `when` or `enablement` holds for `target`, with what the extension set, its facts about the target
+ * (`fact.<id>`) and what Parity knows. A component target is its node when the facts name none.
+ */
+export function holdsFor(
+  extensions: readonly ExtensionStatus[],
+  extension: ExtensionStatus,
+  text: string | undefined,
+  target?: CommandTarget,
+  facts: WhenFacts = {}
+): boolean {
+  const node = facts.node ?? (target ? targetNode(target) : undefined)
+  const key = target ? targetKey(target) : node?.key
+
+  const value = (name: string): WhenValue | undefined => {
+    switch (name) {
+      // Parity's own: it holds for a layer that isn't a component's.
+      case "layer":
+        return target?.type === "layer"
+      case "node.type":
+        return node?.type
+      case "node.owner":
+        return node?.owner
+      case "node.key":
+        return node?.key
+      case "selection.count":
+        return facts.selectionCount
+      case "tool":
+        return facts.tool
+      default:
+        break
+    }
+
+    if (name.startsWith("fact.")) {
+      const id = name.slice("fact.".length)
+      const found = [extension, ...extensions].flatMap((each) => (key === undefined ? [] : (each.facts[key] ?? [])))
+
+      return found.find((fact) => fact.id === id)?.value
+    }
+
+    return extension.context[name]
+  }
+
+  const uses = (tool: string) =>
+    (facts.tools ?? []).includes(tool) || extensions.some((each) => each.prefix === tool && showing(each))
+
+  return holdsWhen(text, key === undefined ? { value, uses } : { value, uses, target: key })
 }
 
 /**
@@ -127,11 +226,27 @@ function targetKey(target: CommandTarget): string {
   return target.type === "layer" ? `${target.design}/${target.node}` : target.key
 }
 
+/**
+ * A command's target as a node, when the facts name none: a component, or a layer of the designs' own. A view's item
+ * isn't a node.
+ */
+function targetNode(target: CommandTarget): NodeRef | undefined {
+  switch (target.type) {
+    case "component":
+      return { owner: "", type: "component", key: target.key }
+    case "layer":
+      return { owner: "design", type: "layer", key: targetKey(target) }
+    case "item":
+      return undefined
+  }
+}
+
 /** The commands extensions place at `placement`, for `target`, in the order their manifests list them. */
 export function commandsAt(
   extensions: readonly ExtensionStatus[],
   placement: MenuPlacement,
-  target?: CommandTarget
+  target?: CommandTarget,
+  facts?: WhenFacts
 ): PlacedCommand[] {
   return extensions.filter(showing).flatMap((extension) =>
     (extension.contributes.menus?.[placement] ?? []).flatMap((item): PlacedCommand[] => {
@@ -141,11 +256,11 @@ export function commandsAt(
       // components, as Open in Storybook, don't show greyed on every layer.
       const unplaced = target?.type === "layer" && item.when === undefined
 
-      if (!command || unplaced || !holds(extension, item.when, target)) {
+      if (!command || unplaced || !holdsFor(extensions, extension, item.when, target, facts)) {
         return []
       }
 
-      const enabled = holds(extension, item.enablement, target)
+      const enabled = holdsFor(extensions, extension, item.enablement, target, facts)
       const placed: PlacedCommand = { extension, command, enabled }
 
       if (!enabled && item.disabledReason) {
@@ -172,6 +287,45 @@ export function statusItems(extensions: readonly ExtensionStatus[]): ShownStatus
     .flatMap((extension) =>
       (extension.contributes.statusItems ?? []).map((item) => ({ extension, item, ...extension.status[item.id] }))
     )
+}
+
+// SAFETY: `keymap` has a key for each command and no others.
+const parityCommands = Object.keys(keymap) as Command[]
+
+/**
+ * Which of extensions' keys work, and which clash (PAR-1092): Parity's own keys win, with the person's changes, and a
+ * key two extensions ask for goes to neither. An extension stopped after crashing has none.
+ */
+export function extensionKeys(extensions: readonly ExtensionStatus[]): ResolvedKeys {
+  return resolveKeys(
+    parityCommands.flatMap((command) => keysOf(command)),
+    extensions.flatMap((extension) =>
+      showing(extension) ? [{ id: extension.id, keybindings: extension.contributes.keybindings }] : []
+    )
+  )
+}
+
+/** The extension key a key event is, whose `when` holds, if any. */
+export function extensionKeyFor(
+  event: Parameters<typeof matches>[0],
+  extensions: readonly ExtensionStatus[],
+  facts: WhenFacts
+): { key: ExtensionKey; extension: ExtensionStatus; command: CommandContribution } | undefined {
+  for (const key of extensionKeys(extensions).keys) {
+    const extension = extensions.find((each) => each.id === key.extension)
+    const command = extension?.contributes.commands?.find((declared) => declared.id === key.command)
+
+    if (
+      extension &&
+      command &&
+      matches(event, key.keys) &&
+      holdsFor(extensions, extension, key.when, undefined, facts)
+    ) {
+      return { key, extension, command }
+    }
+  }
+
+  return undefined
 }
 
 /**

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands only where a when expression holds, and add keys, which Parity's own win (PAR-1092)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

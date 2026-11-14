@@ -1,13 +1,12 @@
-import { type BoardBox, labelLook, pageGroupBox, pageLinkLine, pageLinksLit } from "@parity-app/editor"
+import { type BoardBox, labelLook, pageGroupBox, pageLinkLine, pageLinksLit, refsSelection } from "@parity-app/editor"
 import { CornerDownRight, LayoutTemplate } from "lucide-react"
-import { useContext, useEffect, useState } from "react"
+import { useContext, useState } from "react"
 import { HTMLContainer, Rectangle2d, type RecordProps, stopEventPropagation, T, useEditor, useValue } from "tldraw"
 import { Hint } from "../chrome/Hint.tsx"
 import { type SelectionStore, useHover, useSelection } from "../selection.ts"
-import { useStore } from "../store.ts"
 import { ProjectContext } from "./context.ts"
 import { designColor } from "./kinds.tsx"
-import { type PageGroupPlace, routePageGroups, routePageLinks, selectedPageGroup } from "./route-pages.ts"
+import { type PageGroupPlace, routePageGroups, routePageLinks, routeRef, selectedPageGroup } from "./route-pages.ts"
 import { type CanvasRecord, CanvasUtil, createCanvasId } from "./tldraw-names.ts"
 
 declare module "tldraw" {
@@ -76,16 +75,8 @@ function PageLines({ project }: { project: string }) {
   }
 
   const groups = routePageGroups(project)
-  const pickedGroup = useStore(selectedPageGroup)
+  const pickedGroup = selectedPageGroup(project, useSelection(session.selection))
   const [hoveredGroup, setHoveredGroup] = useState<string>()
-  const pickedDesign = useSelection(session.selection).design
-
-  // Selecting a design takes the selection from a group.
-  useEffect(() => {
-    if (pickedDesign !== undefined) {
-      selectedPageGroup.set(undefined)
-    }
-  }, [pickedDesign])
 
   const lit = useLitLinks(project, session.selection, groups, [pickedGroup, hoveredGroup])
   const boxes = useGroupBoxes(groups, zoom)
@@ -104,9 +95,11 @@ function PageLines({ project }: { project: string }) {
   )
 
   const select = (key: string) => {
-    if (boxes.has(key)) {
-      session.selection.set({})
-      selectedPageGroup.set(key)
+    const group = groups.find((each) => each.key === key)
+
+    // A group is its layout route's, which the selection holds by ref.
+    if (group) {
+      session.selection.set(refsSelection([routeRef(session.info, group.route)]))
     } else {
       session.selection.set({ design: key })
     }

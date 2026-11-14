@@ -2,6 +2,7 @@ import {
   addDesigns,
   type CanvasDocument,
   type ContainerSpec,
+  type ContainerViewSettings,
   defaultModeSettings,
   emptyDocument,
   type ModeSettings
@@ -379,6 +380,26 @@ export function unsavedPaths(history: DesignHistory): string[] {
   }
 
   return unsaved
+}
+
+/**
+ * How a design was shown when it was last saved (PAR-1071): its view as its file holds it, or, for a design drawn from
+ * the project's code (`drawnFromCode`), as the project file keeps it (`codeDesigns`, by the design's key, as
+ * `(stories)#button-outline`). What a preview sets is changed only where it differs from this.
+ */
+export function savedView(
+  history: DesignHistory,
+  path: string,
+  id: string,
+  drawnFromCode: boolean
+): ContainerViewSettings | undefined {
+  const { documents } = history.saved
+
+  if (drawnFromCode) {
+    return documents.get(history.mainPath)?.codeDesigns?.[`${path}#${id}`]?.view
+  }
+
+  return documents.get(path)?.containers.find((design) => design.id === id)?.view
 }
 
 /**

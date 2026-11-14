@@ -1,5 +1,5 @@
-import { type ActionPage, addDesigns, type CanvasDocument, type ContainerSpec } from "@parity-app/core"
-import { routeTree, samplePath } from "@parity-app/editor"
+import { type ActionPage, addDesigns, type CanvasDocument, type ContainerSpec, type NodeRef } from "@parity-app/core"
+import { routeTree, samplePath, type Selection } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import { windowStore } from "../store.ts"
 import { componentBoardsTop } from "./component-boards.ts"
@@ -47,10 +47,19 @@ export interface PageGroupPlace {
 const pageGroups = new Map<string, readonly PageGroupPlace[]>()
 
 /**
- * The layout group selected, by its key: a group isn't a design, so it's selected here rather than in the project's
- * selection, which holds nothing while it is.
+ * A route as the project's selection holds it (PAR-1092): by `NodeRef`, owned by the router that read it. A layout group
+ * is selected this way, as it isn't a design.
  */
-export const selectedPageGroup = windowStore<string | undefined>(() => undefined)
+export function routeRef(info: Pick<ProjectInfo, "router">, route: string): NodeRef {
+  return { owner: info.router?.id ?? "router", type: "route", key: route }
+}
+
+/** The layout group selected, by its key: the group drawn for the route the selection holds, when it has no page. */
+export function selectedPageGroup(project: string, selection: Selection): string | undefined {
+  const last = selection.refs?.length === 1 ? selection.refs[0] : undefined
+
+  return last?.type === "route" ? routePageGroup(project, last.key)?.key : undefined
+}
 
 /**
  * Where each page landed instead of its own path, by its design's key, as its frames say (see `pageLandedMessage`): a
@@ -168,6 +177,22 @@ export function routePageTarget(project: string, design: ContainerSpec): ActionP
 /** The id of the route a page screen draws, or undefined for a design. */
 export function routePageRoute(project: string, design: string): string | undefined {
   return pagePlaces.get(project)?.get(design)?.route
+}
+
+/** The key of the design that draws a route's page, by the route's id, or undefined for a route without a page. */
+export function routePageDesign(project: string, route: string): string | undefined {
+  for (const [design, place] of pagePlaces.get(project) ?? []) {
+    if (place.route === route) {
+      return designKey(design)
+    }
+  }
+
+  return undefined
+}
+
+/** The layout group the canvas draws for a route without a page of its own, by the route's id. */
+export function routePageGroup(project: string, route: string): PageGroupPlace | undefined {
+  return routePageGroups(project).find((group) => group.route === route)
 }
 
 /** The path of a page screen's route, as its router writes it, or undefined for a design. */

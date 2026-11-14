@@ -188,6 +188,51 @@ export function withoutPreviewValues(
   })
 }
 
+/** One of a preview's values as it sets it: its width, its scale or the option it picks for a variable. */
+function previewValueOf(settings: PreviewSettings | undefined, value: PreviewValue): number | string | undefined {
+  if (value === "width" || value === "scale") {
+    return settings?.[value]
+  }
+
+  return settings?.options?.[value.slice("option:".length)]
+}
+
+/**
+ * The values a preview has changed since it was last saved (PAR-1071): set, set differently or unset. Saving makes what
+ * it sets the baseline, so its header shows a reset only while one of these is.
+ */
+export function unsavedPreviewValues(
+  settings: PreviewSettings | undefined,
+  saved: PreviewSettings | undefined
+): PreviewValue[] {
+  const values = new Set([...previewValues(saved), ...previewValues(settings)])
+
+  return [...values].filter((value) => previewValueOf(settings, value) !== previewValueOf(saved, value))
+}
+
+/** A design's view with a preview's values back as they were last saved: those given, or every one that changed. */
+export function withSavedPreviewValues(
+  view: ContainerViewSettings,
+  key: string,
+  saved: PreviewSettings | undefined,
+  values?: readonly PreviewValue[]
+): ContainerViewSettings {
+  const which = values ?? unsavedPreviewValues(view.previews?.[key], saved)
+  const options: Record<string, string | undefined> = {}
+
+  for (const value of which) {
+    if (value.startsWith("option:")) {
+      options[value.slice("option:".length)] = saved?.options?.[value.slice("option:".length)]
+    }
+  }
+
+  return withPreviewValues(view, key, {
+    ...(which.includes("width") && { width: saved?.width }),
+    ...(which.includes("scale") && { scale: saved?.scale }),
+    options
+  })
+}
+
 function setOrDrop(settings: PreviewSettings, field: "width" | "scale", value: number | undefined): void {
   if (value === undefined) {
     delete settings[field]

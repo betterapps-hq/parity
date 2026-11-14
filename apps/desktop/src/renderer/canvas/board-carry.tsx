@@ -17,25 +17,33 @@ interface Carry {
   carried: () => boolean
   /** Where it would land, while it's carried. */
   marker: ReactNode
+  /** It's being carried, so its cursor grabs. */
+  carrying: boolean
 }
 
 /**
  * Carries a row's name or a column's header across its board to put it somewhere else (PAR-1071): pressing and moving
  * it shows a marker where it would land, between the others, and letting go there moves it (`onDrop`, with where it
  * lands among them). A press that doesn't move is a click. `items` are the rows or columns on screen, in order, the
- * pressed one among them at `from`, read as the press starts.
+ * pressed one among them at `from`, read as the press starts. Once it moves, `onStart` hears it, and the previews it
+ * carries (`carried`) are faded until it's let go.
  */
 export function useCarry({
   axis,
   items,
   from,
   color,
+  carried,
+  onStart,
   onDrop
 }: {
   axis: "x" | "y"
   items: () => HTMLElement[]
   from: () => number
   color: string
+  /** The previews it carries, which fade while it's carried. */
+  carried: () => HTMLElement[]
+  onStart: () => void
   onDrop: (to: number) => void
 }): Carry {
   const [landing, setLanding] = useState<Landing>()
@@ -52,12 +60,22 @@ export function useCarry({
     const pressed = from()
     const start = { x: event.clientX, y: event.clientY }
     let last: Landing | undefined
+    let faded: HTMLElement[] = []
     moved.current = false
     target.setPointerCapture(event.pointerId)
 
     const move = (pointer: PointerEvent) => {
       if (!moved.current && Math.hypot(pointer.clientX - start.x, pointer.clientY - start.y) < carryAfter) {
         return
+      }
+
+      if (!moved.current) {
+        onStart()
+        faded = carried()
+
+        for (const preview of faded) {
+          preview.dataset.carried = ""
+        }
       }
 
       moved.current = true
@@ -70,6 +88,10 @@ export function useCarry({
       target.removeEventListener("pointerup", up)
       target.removeEventListener("pointercancel", up)
       setLanding(undefined)
+
+      for (const preview of faded) {
+        delete preview.dataset.carried
+      }
 
       // A slot just before or after itself leaves it where it is.
       if (last && pressed >= 0 && last.to !== pressed && last.to !== pressed + 1) {
@@ -107,7 +129,8 @@ export function useCarry({
 
       return was
     },
-    marker
+    marker,
+    carrying: landing !== undefined
   }
 }
 

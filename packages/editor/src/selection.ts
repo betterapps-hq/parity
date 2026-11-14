@@ -1,6 +1,8 @@
+import { designOwner, type NodeRef, nodeRefId } from "@parity-app/core"
+
 /**
- * What's selected in a tab, as data: a design on its own, or with layers or one of its modes, several designs, or a
- * free text note, or a reference. The app keeps the selection in a store and reads it through these; the rules for what an edit to it
+ * What's selected in a tab, as data: a design on its own, or with layers or one of its modes, several designs, a
+ * free text note, a reference, or any other nodes by `NodeRef`. The app keeps the selection in a store and reads it through these; the rules for what an edit to it
  * lands on are in `edit-frame.ts`.
  */
 
@@ -28,6 +30,11 @@ export interface Selection {
   note?: string
   /** A screen from a real app, placed on the canvas to look at. */
   reference?: string
+  /**
+   * Nodes that aren't a design or its layers, by `NodeRef`, the one picked last at the end (PAR-1092): a route without a
+   * page of its own, which the canvas draws as a group, a story, or an extension's node. Held on its own.
+   */
+  refs?: NodeRef[]
 }
 
 /** Whether two selections select the same things, picked the same way. */
@@ -41,7 +48,8 @@ export function sameSelection(a: Selection, b: Selection): boolean {
     a.reference === b.reference &&
     sameList(a.nodes, b.nodes) &&
     sameList(a.designs, b.designs) &&
-    sameList(a.previews, b.previews)
+    sameList(a.previews, b.previews) &&
+    sameList(a.refs?.map(nodeRefId), b.refs?.map(nodeRefId))
   )
 }
 
@@ -63,7 +71,8 @@ export function selectionKey(selection: Selection): string {
     selection.mode,
     selection.state,
     selection.note,
-    selection.reference
+    selection.reference,
+    (selection.refs ?? []).map(nodeRefId).toSorted()
   ])
 }
 
@@ -174,6 +183,13 @@ export function pickPreviews(current: Selection, design: string, previews: strin
   return previewsSelection(design, all ? rest : [...rest, ...previews])
 }
 
+/** A selection of nodes by ref, which holds nothing else. None selects nothing. */
+export function refsSelection(refs: readonly NodeRef[]): Selection {
+  const unique = [...new Map(refs.map((ref) => [nodeRefId(ref), ref])).values()]
+
+  return unique.length === 0 ? {} : { refs: unique }
+}
+
 /** A selection of designs on the canvas. */
 export function designsSelection(designs: string[]): Selection {
   const unique = [...new Set(designs)]
@@ -189,4 +205,98 @@ export function designsSelection(designs: string[]): Selection {
   }
 
   return selection
+}
+
+/** What `selectionRefs` needs of the designs: a layer's type, by its design and id. */
+export type LayerTypeOf = (design: string, node: string) => string | undefined
+
+/**
+ * What's selected, by `NodeRef` (PAR-1092), the one picked last at the end, as extensions read it: the designs, or the
+ * layers of one, or the nodes held by ref. A note or a reference isn't a node, so it gives none.
+ */
+export function selectionRefs(selection: Selection, layerType: LayerTypeOf): NodeRef[] {
+  if (selection.refs) {
+    return selection.refs
+  }
+
+  const { design } = selection
+  const layers = selectedNodes(selection)
+
+  if (design !== undefined && layers.length > 0) {
+    return layers.map((node) => ({
+      owner: designOwner,
+      type: layerType(design, node) ?? "layer",
+      key: `${design}/${node}`
+    }))
+  }
+
+  let keys = selectedDesigns(selection)
+
+  // A preview or a mode selected on its own is its design's.
+  if (keys.length === 0 && design !== undefined) {
+    keys = [design]
+  }
+
+  return keys.map((key) => ({ owner: designOwner, type: "design", key }))
+}
+
+/** What `selectionForRefs` needs of the project: whether a key is a design's, and the page a route draws, if any. */
+export interface RefPlaces {
+  isDesign(key: string): boolean
+  /** The key of the design that draws a route's page, as the canvas's pages file holds it. */
+  pageOf(route: NodeRef): string | undefined
+}
+
+/**
+ * The selection that selects nodes, as an extension's `parity.selection.set` asks (PAR-1092): designs, a route's page
+ * among them, as designs; layers of one design as layers; anything else, or a mix, by ref.
+ */
+export function selectionForRefs(refs: readonly NodeRef[], places: RefPlaces): Selection {
+  const designs: string[] = []
+  const layers: { design: string; node: string }[] = []
+
+  for (const ref of refs) {
+    const page = ref.type === "route" ? places.pageOf(ref) : undefined
+
+    if (page !== undefined) {
+      designs.push(page)
+    } else if (ref.owner === designOwner && ref.type === "design" && places.isDesign(ref.key)) {
+      designs.push(ref.key)
+    } else {
+      const layer = ref.owner === designOwner ? layerOfKey(ref.key, places) : undefined
+
+      if (!layer) {
+        return refsSelection(refs)
+      }
+
+      layers.push(layer)
+    }
+  }
+
+  if (layers.length === 0) {
+    return designsSelection(designs)
+  }
+
+  const [first] = layers
+  const oneDesign = first && designs.length === 0 && layers.every((layer) => layer.design === first.design)
+
+  return oneDesign
+    ? layersSelection(
+        first.design,
+        layers.map((layer) => layer.node)
+      )
+    : refsSelection(refs)
+}
+
+/** A layer's design and id from its key, `designKey/layerId`, where the design's key can hold a slash too. */
+function layerOfKey(key: string, places: RefPlaces): { design: string; node: string } | undefined {
+  for (let at = key.indexOf("/"); at !== -1; at = key.indexOf("/", at + 1)) {
+    const design = key.slice(0, at)
+
+    if (places.isDesign(design) && at < key.length - 1) {
+      return { design, node: key.slice(at + 1) }
+    }
+  }
+
+  return undefined
 }

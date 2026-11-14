@@ -104,15 +104,24 @@ const shownProject: HostSent<"settingsProject"> = {
 }
 
 /**
- * Params a one-way method's schema takes: the announcement, the project Settings shows, or nothing for the close
- * replies, which take none.
+ * Params a one-way method's schema takes: the announcement, the project Settings shows, a value or tabs to keep, or
+ * nothing for the close replies, which take none.
  */
-function toldParams(method: HostMethod): HostSent<"consoleAnnounce" | "settingsProject"> | undefined {
-  if (method === "consoleAnnounce") {
-    return announcement
+function toldParams(
+  method: HostMethod
+): HostSent<"consoleAnnounce" | "settingsProject" | "stateSet" | "tabsSave"> | undefined {
+  switch (method) {
+    case "consoleAnnounce":
+      return announcement
+    case "settingsProject":
+      return shownProject
+    case "stateSet":
+      return { key: "layout", value: { left: false } }
+    case "tabsSave":
+      return { roots: ["D:/shop"] }
+    default:
+      return undefined
   }
-
-  return method === "settingsProject" ? shownProject : undefined
 }
 
 /** A request from Parity's own page in a development copy, which `fromParityPage` takes. */

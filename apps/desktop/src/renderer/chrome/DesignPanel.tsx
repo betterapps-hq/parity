@@ -6,7 +6,6 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
 import { pickedStory, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
-import { ModesList } from "../canvas/view-lists.tsx"
 import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -14,7 +13,6 @@ import { useExtensions } from "../extensions.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { useStore } from "../store.ts"
 import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
@@ -24,6 +22,7 @@ import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name } from "./Name.tsx"
+import { NodePanel } from "./NodePanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
@@ -67,9 +66,9 @@ function SelectedPanel() {
   const { id, store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
-  const pickedGroup = useStore(selectedPageGroup)
-  // A layout group isn't a design, so the selection holds nothing while one is picked.
-  const group = entry ? undefined : routePageGroups(id).find(({ key }) => key === pickedGroup)
+  const pickedGroup = selectedPageGroup(id, selected)
+  // A layout group isn't a design: the selection holds its route by ref.
+  const group = routePageGroups(id).find(({ key }) => key === pickedGroup)
 
   if (selected.note) {
     return <NotePanel noteKey={selected.note} />
@@ -81,6 +80,12 @@ function SelectedPanel() {
 
   if (group) {
     return <PageGroupPanel group={group} />
+  }
+
+  const node = selected.refs?.at(-1)
+
+  if (node) {
+    return <NodePanel node={node} />
   }
 
   if (!entry) {
@@ -134,8 +139,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const components = useComponents(session.components)
   const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
-  // A page of the app (PAR-1076): its header, its path params as props, its route, its modes and Export; nothing of it
-  // is designed.
+  // A page of the app (PAR-1076): its header, its path params as props, its route and Export; nothing of it is designed.
   const route = routePageRoute(session.id, entry.container.id)
 
   if (route !== undefined) {
@@ -144,20 +148,18 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
         <DesignHeader entry={entry} />
         <RouteProps entry={entry} route={route} />
         <RouteSection route={route} />
-        <ModesSection entry={entry} />
         <DesignExport entry={entry} />
       </>
     )
   }
 
-  // A story: its header, the props it draws its component with, which are its args, its modes and Export.
+  // A story: its header, the props it draws its component with, which are its args, and Export.
   if (entry.path === storyScreensFile) {
     return (
       <>
         <DesignHeader entry={entry} />
         <StoryProps entry={entry} />
         <TriedSize entry={entry} />
-        <ModesSection entry={entry} />
         <DesignExport entry={entry} />
       </>
     )
@@ -203,7 +205,6 @@ const designSections: Partial<Record<InspectorSection, ComponentType<{ entry: Co
   props: () => <PropsSection />,
   components: ComponentsSection,
   styles: FrameStyles,
-  modes: ModesSection,
   export: DesignExport
 }
 
@@ -304,22 +305,6 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
   const editor = useStyleEditor(entry, [entry.container.root.id])
 
   return editor ? <StyleSections editor={editor} container={entry.container} /> : null
-}
-
-/**
- * A screen's or component's modes in its own order, each put in place by its handle, each shown by its switch: any can
- * be off while another shows, and the first shown is drawn at full size (see `ModesList`).
- */
-export function ModesSection({ entry }: { entry: ContainerEntry }) {
-  const { store } = useProject()
-  const settings = useModeSettings(store)
-  const { ordered } = containerModes(settings, entry.container)
-
-  return (
-    <PanelSection title="Modes" count={ordered.length}>
-      <ModesList entry={entry} group="modes" />
-    </PanelSection>
-  )
 }
 
 function NotePanel({ noteKey }: { noteKey: string }) {

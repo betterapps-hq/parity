@@ -141,7 +141,6 @@ export type InspectorSection =
   | "media"
   | "noStyle"
   | "styles"
-  | "modes"
   | "export"
 
 /** A section, and what the selection needs for it to show. */
@@ -168,7 +167,6 @@ export const panelTable: readonly PanelPart[] = [
   { section: "noStyle", needs: (can) => !can.design && !can.styled },
   // A screen or a component design is sized and styled through its layers; a frame through its own.
   { section: "styles", needs: (can) => !can.design || can.frame },
-  { section: "modes", needs: (can) => can.design && !can.frame },
   { section: "export", needs: () => true }
 ]
 

@@ -10,7 +10,7 @@ import type {
 } from "@parity-app/extension-api"
 import type { ExtensionStatus } from "../shared/protocol.ts"
 import { setLayout } from "./chrome/layout.ts"
-import { extensionsOf, holds, showing } from "./extensions.ts"
+import { extensionsOf, holdsFor, showing } from "./extensions.ts"
 import { reportError } from "./report-error.ts"
 import { request } from "./service.ts"
 import { workspace } from "./workspace.ts"
@@ -99,7 +99,7 @@ export function sectionsFor(extensions: readonly ExtensionStatus[], selected: Se
     return (
       section !== undefined &&
       (section.nodeType === undefined || section.nodeType === selected.nodeType) &&
-      holds(view.extension, section.when, selected.target)
+      holdsFor(extensions, view.extension, section.when, selected.target)
     )
   })
 }
@@ -198,7 +198,7 @@ export function actionsFor(
   return (actions ?? []).flatMap((action) => {
     const command = extension.contributes.commands?.find((declared) => declared.id === action.command)
 
-    return command && holds(extension, action.when, target) ? [command] : []
+    return command && holdsFor([extension], extension, action.when, target) ? [command] : []
   })
 }
 

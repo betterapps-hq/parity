@@ -1090,16 +1090,39 @@ and runs its code in a host of its own ([extensions.md](extensions.md)). Storybo
   "Storybook isn't answering". A stopped extension's commands and status items are hidden until it restarts.
 - **Questions** an extension asks, a confirmation, a field or a list to pick from, open a dialog saying which extension
   asks. Escape cancels.
+- **When and enablement (PAR-1092).** A placement shows only where its `when` holds and is greyed where its `enablement`
+  doesn't. Either reads the node it's shown for (`node.type == route`), how many things are selected
+  (`selection.count > 1`), the tool (`tool == select`), the project's tools (`project.uses(storybook)`), extensions'
+  facts about the node (`fact.stories > 0`) and the extension's own context keys, joined with `&&`, `||`, `!` and
+  parentheses ([extensions.md](extensions.md)).
+- **Selection, navigation and Parity's commands (PAR-1092).** An extension reads what's selected, by `NodeRef`, and is
+  told each time it changes; it selects nodes as picking them in Layers does, points at one as hovering a row does,
+  brings one into view or frames it, opens a design, shows one in a mode or a state, opens a panel's tab or its own
+  Settings page, and runs Parity's own commands, the ones in the keymap, on what's selected. A command that doesn't
+  apply to what's selected fails, saying so.
+- **Keys (PAR-1092).** An extension's keys work on the canvas wherever no command of Parity's has them and their `when`
+  holds; Parity's own keys win, with the person's changes, and a key two extensions ask for goes to neither. Settings'
+  Keyboard shortcuts page lists each extension's keys after Parity's, under its name, and one that doesn't work says
+  which command has its keys.
+- **A node selected by ref** that has no panel of its own, as a story or an extension's node, shows its name, its type
+  as its extension names it, and the facts extensions set about it (`NodePanel`).
 
-Code: `renderer/extensions.ts` (the store, `commandsAt`, `statusItems`, `runCommand`), `renderer/extension-ui.ts`,
-`chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`; `extensions.*` in
-`shared/protocol.ts`; the service's side in `utility/extensions.ts`.
+Code: `renderer/extensions.ts` (the store, `commandsAt`, `holdsFor`, `extensionKeys`, `statusItems`, `runCommand`),
+`renderer/extension-editor.ts` (what extensions ask of the tab, and the selection they're told),
+`renderer/extension-ui.ts`, `chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`;
+`extensions.*` in `shared/protocol.ts`; the service's side in `utility/extensions.ts`.
 
-Tests: `packages/extensions/src/hosts.test.ts` and `manifest.test.ts` ([extensions.md](extensions.md)), and
-`chrome/layout.test.ts` (the bottom tab kept with the rest of the layout, Console by default). Stories:
-`chrome/StatusBar.stories.tsx` OpeningStorybook, OpenedStorybook and StorybookFailed, and
-`chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no tests of their own. They were tried in
-the running app on 2026-11-14 with the mouse and keyboard ([extensions.md](extensions.md) says how).
+Tests: `packages/extensions/src/hosts.test.ts`, `manifest.test.ts`, `when.test.ts` and `keys.test.ts`
+([extensions.md](extensions.md)); `renderer/extensions.test.ts` (placements, greyed by `enablement`, over the node, the
+selection and the project's tools, and extensions' keys, which Parity's own win);
+`packages/editor/src/selection.test.ts` (the selection by `NodeRef`); and `chrome/layout.test.ts` (the bottom tab kept
+with the rest of the layout, Console by default). Stories: `chrome/StatusBar.stories.tsx` OpeningStorybook,
+OpenedStorybook and StorybookFailed, and `chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no
+tests of their own. They were tried in the running app on 2026-11-14 with the mouse and keyboard
+([extensions.md](extensions.md) says how). Answering an extension's selection, navigation and commands in the tab
+(`extension-editor.ts`), the extension keys on the canvas and the Keyboard shortcuts page's extension groups have no
+tests of their own, and no extension uses them yet; Open in Storybook greyed with "No story found" by its `enablement`,
+and selecting Settings' layout in Layers bringing its group into view, were tried in the running app on 2026-11-14.
 
 ### Extensions' changes to designs and files (PAR-1093)
 
@@ -2406,8 +2429,8 @@ selected now.
 
 Code: `packages/editor/src/find-anything.ts` matches (`matchWords`), ranks, caps and groups (`findAnything`) and keeps
 the recent picks (`rememberPick`). `chrome/ActionsSearch.tsx` gathers the items and runs the one picked, remembering
-picks in `localStorage` (`parity.recentSearches`). Components come from the insert picker's offer (`offerOf` and
-`insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
+picks in `state.json` (`recentSearches`), which main keeps. Components come from the insert picker's offer (`offerOf`
+and `insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
 `chrome/repeated-parts.ts` keeps each screen's repeated parts for `ComponentsSection.tsx`. Repeat is `repeat` in
 `chrome/keymap.ts`; the action list's one wrapper (`recordActions` in `chrome/record-actions.ts`) tells
 `rememberCommand` in `chrome/actions.ts` of each action that runs, and it remembers the repeatable ones in
@@ -5019,16 +5042,16 @@ Tests:
 
 ### A design's modes in its own order (PAR-923)
 
-A screen's or component's Modes section lists every mode of the project in the design's own order. The first one shown
-is drawn first on its board, and the other shown modes beside it in that order. The board's modes menu lists them alike
-(see "A board's rows and columns, in order").
+A screen's or component's board lists every mode of the project in the design's own order, in its title's Modes menu
+(see "A board's rows and columns, in order"). The first one shown is drawn first on its board, and the other shown modes
+beside it in that order. The Design tab has no Modes section: modes are set on the canvas (PAR-1071).
 
 - **Each row has a handle** on the left, which drags it into place with the motion lists use, and Up and Down on it move
   it a place. A project with one mode has no handle.
 - **Any mode can be off** while another shows. The one left showing can't be switched off, and its switch's hint says
   "At least one mode always shows". Turning off the first mode in the list makes the next one shown the first, and the
   list keeps its order.
-- **No crown, radio, Show all or Only.** The project's primary mode isn't marked in the section or on a board's mode
+- **No crown, radio, Show all or Only.** The project's primary mode isn't marked in the list or on a board's mode
   captions.
 - **The file keeps the order** as the view's `order`, the modes' ids, with modes it doesn't name after it in project
   order, and the first frame's mode as `mode`, as before. An order that is the project's, with its first mode shown
@@ -5039,8 +5062,9 @@ is drawn first on its board, and the other shown modes beside it in that order. 
 
 Code: `packages/core/src/document.ts` (the view's `order` and `scales`), `modes.ts` (`shownModes`'s `ordered`) and
 `board.ts` (`besideScale`); `packages/editor/src/document-equality.ts` (an empty order is dropped); in the app,
-`canvas/view.ts` (`withModes`), `ModesList` in `canvas/view-lists.tsx`, `ShowList` in `chrome/ShowList.tsx`,
-`ModesSection` in `chrome/DesignPanel.tsx`, and `canvas/ContainerView.tsx` (the headers).
+`canvas/view.ts` (`withModes`), `ModesList` in `canvas/view-lists.tsx`, `ShowList` in `chrome/ShowList.tsx`, the
+`panelTable` in `packages/editor/src/layer-capabilities.ts` (no Modes section), and `canvas/ContainerView.tsx` (the
+headers).
 
 Tests:
 
@@ -5050,9 +5074,9 @@ Tests:
   order, the next shown drawn first when the first in the list is off with the list's order kept, and never none; and "a
   design's mode order" (3): the list in the design's order with the shown modes beside the first, the project's order
   written as nothing, and modes the order doesn't name after it.
-- Stories: Parity/Inspector/Sections/Modes › Another Mode First, which checks the first mode's switch is on and
-  disabled, then moves Desktop Light first with Up on its handle, with Mobile Light still shown beside it; Every Mode
-  Shown and Mode Selected.
+- `packages/editor/src/layer-capabilities.test.ts`: a screen's and a component's sections, with no Modes section.
+- Stories: Parity/Canvas/Board menus › Another Mode First, which opens the Modes menu and moves Desktop Light first with
+  Up on its handle, with Mobile Light still shown; Modes Menu, Every Mode Shown and States Menu.
 
 ### Unsaved changes survive a crash (PAR-905)
 
@@ -6455,63 +6479,82 @@ settings change how the canvas draws it, never the design.
 
 - **The header names its mode,** and its state too in its accessible name where the board shows every state, as "Popular
   in Desktop Light". Clicking the name selects the preview alone; Shift+click adds it to the previews selected, or takes
-  it away. Selected previews have a ring in the mode color, and their names take it. Picking a mode in the Modes list
-  still selects its column in every row shown.
+  it away. Selected previews have a 2-pixel ring in the mode color at any zoom, and their names take it; pointing at a
+  header outlines its preview faintly. The mode color (green) marks only selected previews: while any are selected, the
+  board has neither its edge nor the canvas's selection outline, as a frame has none while a layer in it is selected.
 - **The last preview picked holds the settings** of every one selected: a Zoom field and a settings button. Zoom is a
   percentage from 10 to 400, typed or scrubbed, with Fit, 100%, 75%, 50% and 25% in its menu; Fit is there only for a
   preview beside the first, which fits it to at most 640 wide. The settings button opens Preview settings above the
   preview: Width, in pixels, and a select for each of the project's variables other than its viewport, such as Theme and
   Locale. Values that differ across the previews selected read Mixed.
-- **A preview that sets anything** shows the settings button with a change dot beside its name, and a reset ("Reset
-  preview settings", with the hint "Reset to Desktop Light"), whether or not it's selected. There are no chips for its
-  values. Preview settings has the same reset beside its title, which keeps its place whether or not the reset shows.
+- **A preview that sets anything** shows the settings button beside its name, whether or not it's selected. There are no
+  chips for its values.
+- **Saving makes what's set the baseline.** A value changed since the last save marks the settings button (or the Zoom
+  field, for a zoom) with the change dot, and the header shows a reset ("Reset preview settings"), which puts it back as
+  saved: its hint says "Reset to saved values", or "Reset to Desktop Light" where nothing was saved. After a save the
+  dot and the reset go, and the settings button stays. Preview settings has the same reset beside its title, which keeps
+  its place whether or not the reset shows, and each field's reset arrow names the saved value it goes back to.
 - **Nothing is cut off.** Where the name and what follows it don't fit over the preview, what follows goes on a line
   under the name, and its row makes room for it.
 - **The handle resizes the preview,** while the board's hovered or selected: dragging it sets the preview's width, and
-  every selected preview's where it's one of them. Double-clicking it puts the width back to the mode's, and Left and
-  Right nudge it, by 10 with Shift. A page is between 320 and 1920 wide and a story or a component between 80 and 1920.
-  A page lands on the app's breakpoints within 6 screen pixels, unless Alt is held, and shows them under it while it's
-  resized, the one it's at lit up to the next. The breakpoints are the project's breakpoint tokens, such as Tailwind
-  CSS's `--breakpoint-sm`, and its libraries' breakpoints. A story keeps its own size: more width shows the canvas
-  behind it.
+  every selected preview's where it's one of them. Double-clicking it puts the width back as saved, or to the mode's
+  where none was saved, and Left and Right nudge it, by 10 with Shift. A page is between 320 and 1920 wide and a story
+  or a component between 80 and 1920. A page lands on the app's breakpoints within 6 screen pixels, unless Alt is held,
+  and shows them under it while it's resized, the one it's at lit up to the next. The breakpoints are the project's
+  breakpoint tokens, such as Tailwind CSS's `--breakpoint-sm`, and its libraries' breakpoints. A story keeps its own
+  size: more width shows the canvas behind it.
 - **The file keeps them** in the view's `previews`, by `state/mode`: `width`, `scale` and `options`, by variable id. A
   value set back to its mode's is dropped, and an empty entry with it. They're view changes, so they aren't undoable.
   The board's size follows each row's own previews (`boardSize`).
 
 Code: `packages/core/src/preview.ts` (`previewKey`, `previewSettingsOf`, `previewOptionsMode`, `previewGeometry`,
-`previewScale`, `withPreviewValues`, `withoutPreviewValues`, `breakpointAt`, `snapToBreakpoint`), the view's `previews`
-in `document.ts`, and `boardSize` in `board.ts`; `pickPreviews` and `selectedPreviews` in
-`packages/editor/src/selection.ts`; in the app, `PreviewHeader`, `ZoomField` and `SettingsMenu` in
-`canvas/preview-parts.tsx`, `PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView` and
-`FrameTile` in `canvas/ContainerView.tsx`. The canvas leaves presses on a `data-canvas-control` to the control
-(`CanvasOverlay`).
+`previewScale`, `withPreviewValues`, `withoutPreviewValues`, `unsavedPreviewValues`, `withSavedPreviewValues`,
+`breakpointAt`, `snapToBreakpoint`), the view's `previews` in `document.ts`, and `boardSize` in `board.ts`;
+`pickPreviews` and `selectedPreviews` in `packages/editor/src/selection.ts`, and `savedView` in `history.ts` (in the
+design's file, or the project file's `codeDesigns` for a design drawn from code); in the app, `getSavedView` in
+`design-store.ts`, `useSavedView`, `PreviewHeader`, `ZoomField` and `SettingsMenu` in `canvas/preview-parts.tsx`,
+`PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView`, `FrameTile` and `PreviewRing` in
+`canvas/ContainerView.tsx`; `HoverOutlines` in `canvas/CanvasEditor.tsx` leaves out the board's outline. The canvas
+leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
 
-Tests: `packages/core/src/preview.test.ts` (11: a preview's key read back, its options drawn over its mode's viewport,
-its width with the window it stands for, its scale, setting and dropping values, what a design file holds, a board sized
-by each row's previews, the breakpoint a width is at, and landing on a breakpoint);
-`packages/editor/src/selection.test.ts`, "selecting previews" (6: one preview as a mode and state, a click selecting it
-alone, Shift adding and removing it, a row added and removed, the design left once the last is removed, and selections
-told apart). Gaps: the header's stacking, the popover and the handle have no automated test. They were tried in a
-development build on the example project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan card
-/ Default, Preview settings set Desktop Dark to 900 wide and its header then showed the change dot and reset, the handle
-dragged Desktop Light from 181 to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and Pricing's
-page reflowed as it was dragged from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than
-the window.
+Tests: `packages/core/src/preview.test.ts` (13: a preview's key read back, its options drawn over its mode's viewport,
+its width with the window it stands for, its scale, setting and dropping values, what a design file holds, what changed
+since the last save, values put back as saved, a board sized by each row's previews, the breakpoint a width is at, and
+landing on a breakpoint); `packages/editor/src/history.test.ts`, "a design's view as saved" (2: from its file as saved
+rather than as it is, and from the project file for a design drawn from code); `packages/editor/src/selection.test.ts`,
+"selecting previews" (6: one preview as a mode and state, a click selecting it alone, Shift adding and removing it, a
+row added and removed, the design left once the last is removed, and selections told apart). Gaps: the header's
+stacking, the popover and the handle have no automated test. They were tried in a development build on the example
+project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan card / Default, Preview settings set
+Desktop Dark to 900 wide and its header then showed the change dot and reset, the handle dragged Desktop Light from 181
+to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and Pricing's page reflowed as it was dragged
+from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than the window. In Storybook's
+Parity/Canvas/Boards Every state on 2026-11-14, Button / Default in Desktop Dark set to 900 wide showed the dot and the
+reset, a save took both away and left the settings button, and 950 then reset to 900; pointing at a header outlined its
+preview.
 
 ### A board's rows and columns, in order (PAR-1071)
 
 A board shows a row for each state it shows and a column for each mode, in the design's own order. Both can be shown,
 hidden and put in order on the canvas.
 
-- **The title has a menu for each,** while the board's hovered or selected: States (Stories on a Storybook file's board)
-  with how many show, and Modes, with Edit modes beside its heading, which opens the inspector's Modes tab. A design
-  with one state has no States menu, and a project with one mode no Modes menu. Each menu lists every one with a handle
-  and a switch, as the Modes section does, and the one left showing can't be switched off.
+- **The title has a menu for each,** while the board's hovered or selected or a menu's open: a small button with an
+  icon, how many show and a chevron, named "States, 4 shown" (Stories on a Storybook file's board). Its heading counts
+  them all, and the Modes menu has Edit modes beside its heading, which opens the inspector's Modes tab. A design with
+  one state has no States menu; the Modes menu is there with one mode, for Edit modes. Each menu lists every one with a
+  handle and a switch, a mode with its width and its variables' values as chips, and the one left showing can't be
+  switched off. A long list scrolls.
+- **A page's title adds Open in browser,** what the project's adapters offer for it, as the Design tab's heading does.
+- **On a narrow board the controls follow the name,** out over the canvas beside it where the name runs past the board,
+  rather than hiding; zoomed so far out that there's no room for them, they hide.
+- **The Design tab has no Modes section** for any design: modes are set on the canvas, from the title.
 - **A row's label selects it.** Clicking it selects every preview in the row; Shift+click adds the row or takes it away.
   A component's label names its state, and every state but the base one says how many changes it makes. A Storybook
   file's board names each story over its row instead.
-- **A row's label or a column's header moves it.** Dragging it shows a line where it would land, and letting go puts it
-  there. Up and Down on a label, or Left and Right on a header, move it a place. A press that doesn't move is a click.
+- **A row's label or a column's header moves it** (their hints say "Drag to reorder"). Dragging it shows a line where it
+  would land and fades the previews it carries, and letting go puts it there. Dragging a header selects its preview
+  unless it's selected already, and dragging a label selects the design. Up and Down on a label, or Left and Right on a
+  header, move it a place. A press that doesn't move is a click.
 - **A long row wraps.** Its previews go onto another line once it's wider than two and a half times its widest preview,
   or 1600, whichever is more.
 - **The file keeps them** in the view: `states`, the states shown, where not every one is, and `stateOrder`, where it
@@ -6521,8 +6564,9 @@ hidden and put in order on the canvas.
 Code: `packages/core/src/rows.ts` (`orderedStates`, `shownStates`, `withShownStates`, `withStateOrder`, `reorderShown`),
 `rowWrapWidth` and `wrapRow` in `board.ts`, and the view's `states` and `stateOrder` in `document.ts`; in the app,
 `BoardMenus` in `canvas/BoardMenus.tsx`, `StatesList` and `ModesList` in `canvas/view-lists.tsx`, `ShowList` in
-`chrome/ShowList.tsx`, `useCarry` in `canvas/board-carry.tsx`, `PreviewHeader` in `canvas/preview-parts.tsx`, and
-`BoardView`, `StateLabel` and `RowName` in `canvas/ContainerView.tsx`.
+`chrome/ShowList.tsx`, `useCarry` in `canvas/board-carry.tsx`, `PreviewHeader` in `canvas/preview-parts.tsx`,
+`BoardView`, `StateLabel`, `RowName` and `TitleControls` in `canvas/ContainerView.tsx`, and the page's and story's
+sections in `chrome/DesignPanel.tsx`.
 
 Tests: `packages/core/src/rows.test.ts` (9: the states shown by default, by the view's state, every state or a list, in
 the design's order; the fewest words written, never none, and what a file can hold; an order of its own kept and the
@@ -6532,7 +6576,10 @@ design's modes in its own order"). Gaps: the menus, the labels and carrying have
 Storybook's Parity/Canvas/Boards Every state on Button: switching off Outline, Destructive and Default left Disabled
 alone with its switch locked, Down on Default's handle moved its row second, Shift+click selected the Destructive and
 Disabled rows, Up on Disabled's label moved it above Destructive, dragging Destructive's label put it second, Right on
-Desktop Light's header drew Desktop Dark first, and turning on Tablet Light wrapped each row onto two lines.
+Desktop Light's header drew Desktop Dark first, and turning on Tablet Light wrapped each row onto two lines. Then, after
+matching the approved sketch: the menus showed as chips with their icons and chevrons, the Modes heading counted 4, and
+carrying Desktop Dark's header faded its four previews, showed the marker and the grab cursor, selected it and drew it
+first.
 
 ## What the editor itself loads
 
@@ -6643,6 +6690,14 @@ at the end of the strip. Both are the start page from the explorations:
   greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
   says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
   checks the listed folders when the window starts, when the list changes, and each time Home or a new tab shows.
+- **Every copy of Parity lists the same projects,** kept in `projects.json` in the app's data folder. Opening, starring
+  or removing a project in one copy changes the start page in the others within a moment, and a change two copies make
+  at once keeps both.
+- **The tabs come back next time,** kept in `state.json` with the panel layout and Search's recent picks. Each window's
+  tabs have an entry of their own, which main writes as they change and every 10 seconds, so a copy that crashed loses
+  nothing: the next copy to start reopens the tabs of the newest copy that's gone, and a window that reloads keeps its
+  own. A copy started for one project, as `pnpm dev` is, opens that project and keeps no tabs. The layout is the one
+  last saved by any copy; a running copy doesn't follow another's.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
 - **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
@@ -6666,42 +6721,55 @@ at the end of the strip. Both are the start page from the explorations:
   project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
-`StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
-each project's notes, and asks the service which folders are gone and where the example is (`checkFolders`, through
-`start.check`, answered by `utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture;
-`chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
-`start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
-(`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
-started for each session by `keepPictureOf` in `workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
-`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
-`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
-in the folder main names as `PARITY_PICTURE_DIR`.
+`StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home and new tabs,
+claims its tabs from main (`restore`) and changes the projects with `changeProjectsData`, and asks the service which
+folders are gone and where the example is (`checkFolders`, through `start.check`, answered by
+`utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture; `chrome/TabBar.tsx` draws the
+Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures: `start/ProjectArt.tsx` draws one,
+`start/pictures.ts` reads them for the page, and `start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the
+screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`, started for each session by `keepPictureOf` in
+`workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in `canvas/frame-bitmaps.ts`; the
+service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`, through the `pictures.store`,
+`pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main names as
+`PARITY_PICTURE_DIR`.
+
+`readProjects`, `changeProjects`, `readState` and `changeState` in `packages/settings` take and return data;
+`appStateFiles` in `apps/desktop/src/main/app-state.ts` keeps both files with `sharedFile` (`main/shared-file.ts`), as
+`settings.json` is kept, and the window reads them through `renderer/saved.ts`.
 
 Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
 scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
-tabs" (8, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
+tabs" (7, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
 and picture through a code change and a reconnect, telling subscribers, the picture stopping when the tab closes, and a
-new session and picture on reopening), "starting the workspace" (Home on a fresh install, and staying there) and
-"checking the start page's folders" (2: gone folders flagged and the example kept; checked again when Home shows).
-`utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where Parity runs
-once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame
-first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone beside a
-phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its
-window and read back; the latest in place of the one before; projects with none, or a file that can't be read, left out;
-a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial files only once
-old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping through screens, which
-plays, Home without pictures, the first time with and without the example, folders that are gone, which plays, Starred,
-Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures, Parity/App's On
-Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip.
-Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
-Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where
-opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving across its card
-flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and saved with
-Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as tall as its
-content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with
-the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme
-opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it showed where
-it was with Remove.
+new session and picture on reopening), "starting the workspace" (4: Home on a fresh install, and staying there; a dev
+runner's project opened without keeping tabs; and the tabs told to main once claimed) and "checking the start page's
+folders" (2: gone folders flagged and the example kept; checked again when Home shows).
+`packages/settings/src/projects-file.test.ts` (7: nothing with no file, entries that don't read dropped, a file that
+isn't JSON, a project opened put first with its time and the list kept to its limit, a star kept after Remove all,
+unknown keys kept and text that doesn't parse never written over, and a window's change refused when it isn't one).
+`packages/settings/src/state-file.test.ts` (7: a window part's value kept as saved, unknown keys kept, tabs taken from
+the newest copy that's gone and not from one running, given to only one of two copies starting together, kept by a
+window that reloads, and forgotten after a week). `main/app-state.test.ts` (5: a star from a second copy kept after both
+close, one copy told of another's change, a crashed copy's tabs reopened in the next, a reload keeping its tabs while a
+copy beside it gets none, and no tabs kept for a window that never claimed any). `utility/start-folders.test.ts` (3:
+folders that aren't there or are files; the example found above where Parity runs once its packages are installed, and
+none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order;
+no components or frames, and no more than the most; no second phone beside a phone; a phone by its device or its width)
+and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place
+of the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
+the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
+Stories: Parity/Start page (Home, signed in, a card flipping through screens, which plays, Home without pictures, the
+first time with and without the example, folders that are gone, which plays, Starred, Shared with you, a project's menu,
+New project, Open, a new tab), with the example project's pictures, Parity/App's On Home, New tab, No project open and
+Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip. Gaps: no end-to-end test drives Home or
+a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume. Taking a picture, which waits on the
+canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where opening the example kept its five
+screens (72 KB), Home showed Team members with Mobile Light, moving across its card flipped through Team members, Sign
+in and Pricing, and Team members' main frame set to Desktop Dark and saved with Ctrl+S showed dark on the card once
+taken again; chakra's Home screen, shorter than its window, was drawn as tall as its content. The first run and gone
+folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with the example's tab closed and
+Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme opened the example; a listed
+folder that wasn't there showed greyed with Folder not found, and Enter on it showed where it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -6756,9 +6824,10 @@ A screen is named for the component its route draws, else its path.
   solid in the page color, and brings forward its line up to App. Its panel shows the layout icon, its name and Layout,
   then what the router says of its layout route, read-only: its path, file and component, where its index redirects as a
   link that selects that page, and whether it loads data or can redirect. It has no frame of its own, so no modes or
-  Export (`PageGroupPanel`). Selecting a design takes the selection from it. A group is named for its path's last part,
-  or for its component when its path is its parent's, as a pathless layout's is. The group's outline is drawn round its
-  pages where they are now, so it follows a page that's moved.
+  Export (`PageGroupPanel`). The selection holds the group's layout route by `NodeRef`, as an extension's
+  `parity.selection.set` does too (PAR-1092), so selecting a design takes the selection from it. A group is named for
+  its path's last part, or for its component when its path is its parent's, as a pathless layout's is. The group's
+  outline is drawn round its pages where they are now, so it follows a page that's moved.
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
@@ -6773,16 +6842,17 @@ A screen is named for the component its route draws, else its path.
 - **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
   page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
   the layout icon and, at its right, where its index redirects, holding its pages: Settings holds Billing and Profile.
-  It's open until it's closed with its arrow, or Left and Right; clicking it selects its group, on the canvas too. Each
-  icon at the end of a row has a tooltip saying what it means: where a layout redirects, where a page lands, that a
-  component fails to draw, that a layer changes in the state shown or at some screen sizes, and what it's locked with. A
-  search lists the pages flat. Component designs are listed in the Components panel. A page shows the route icon, in
-  Layers and on its title, and its title shows its route's path under its name; selecting it shows its route's path,
-  params, file and component, and whether it loads data or can redirect, read-only. Its layers are what each route that
-  draws it draws, the root's outermost, each inside the one before as it draws at that route's outlet, as children
-  passed to it: Billing's are RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the
-  component's icon and color, and its panel shows its route too; a route that names no component, as a redirecting
-  index, shows as a route, named for its path. What each component draws inside comes with React's tree (step 4).
+  It's open until it's closed with its arrow, or Left and Right; clicking it selects its layout route, by `NodeRef`
+  (PAR-1092), which selects its group on the canvas and brings the group into view. Each icon at the end of a row has a
+  tooltip saying what it means: where a layout redirects, where a page lands, that a component fails to draw, that a
+  layer changes in the state shown or at some screen sizes, and what it's locked with. A search lists the pages flat.
+  Component designs are listed in the Components panel. A page shows the route icon, in Layers and on its title, and its
+  title shows its route's path under its name; selecting it shows its route's path, params, file and component, and
+  whether it loads data or can redirect, read-only. Its layers are what each route that draws it draws, the root's
+  outermost, each inside the one before as it draws at that route's outlet, as children passed to it: Billing's are
+  RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the component's icon and color,
+  and its panel shows its route too; a route that names no component, as a redirecting index, shows as a route, named
+  for its path. What each component draws inside comes with React's tree (step 4).
 - **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
   part, as the `/settings` index is "Settings", else Home.
 - **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page
@@ -7555,19 +7625,20 @@ undo step. Escape or the close button takes Settings away.
   `openSettings`.
 
 Code: `readSettings`, `changeSettings` and `changedSettings` in `packages/settings`, which take and return data;
-`settingsStore` in `apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` under `withFileLock`
-(`main/file-lock.ts`) and watches its folder; `chrome/preferences.ts`, which takes the settings from main;
-`rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and return
-data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`; the
-view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
-`SettingsData` (`store.ts`); `chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app
-settings, the keybindings, telemetry and updates, and what the window sent of its project; `extension-settings.ts`,
-`extension-details.ts` and `values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page;
-`main/settings-view.ts`, which lays it over the window; `renderer/settings-project.ts`, the window's side, which sends
-the project's page and applies Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in
-the page for Storybook. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them.
-`extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and
-returns what an extension adds.
+`settingsStore` in `apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` with `sharedFile`
+(`main/shared-file.ts`), under `withFileLock` (`main/file-lock.ts`), watching its folder; `chrome/preferences.ts`, which
+takes the settings from main; `rankSettings`, `matchesWords` and `listInWords` in
+`packages/editor/src/settings-search.ts`, which take and return data; the settings, pages and built-in extensions in
+`apps/desktop/src/renderer/chrome/settings/definitions.ts`; the view in `chrome/settings/SettingsView.tsx`, `pages.tsx`,
+`rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a `SettingsData` (`store.ts`);
+`chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app settings, the keybindings,
+telemetry and updates, and what the window sent of its project; `extension-settings.ts`, `extension-details.ts` and
+`values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page; `main/settings-view.ts`, which
+lays it over the window; `renderer/settings-project.ts`, the window's side, which sends the project's page and applies
+Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in the page for Storybook.
+`keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them. `extensionAdds` in
+`packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and returns what an
+extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a

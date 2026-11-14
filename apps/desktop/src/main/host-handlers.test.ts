@@ -66,6 +66,8 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
     installCli: () => Promise.resolve({ folder: "C:/bin", onPath: true, newTerminal: false }),
     quit: () => undefined,
     toggleDevTools: () => undefined,
+    projects: { change: () => Promise.resolve({ recent: [], notes: {} }) },
+    state: { set: () => undefined, claimTabs: () => Promise.resolve({ roots: [] }), saveTabs: () => undefined },
     settings: { change: () => Promise.resolve({ values: { ...defaultSettings }, extensions: {}, badValues: [] }) },
     settingsView: {
       open: () => undefined,

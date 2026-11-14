@@ -23,7 +23,7 @@ export function preloadOpenProject(): void {
 export function ProjectView({ id, active }: { id: string; active: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
   const session = tab?.session
-  useShortcuts(session?.selection, active)
+  useShortcuts(session?.selection, active, session)
 
   if (!tab) {
     return null

@@ -2,12 +2,9 @@ import {
   type CanvasDocument,
   codeChangeVersions,
   findNode,
-  finiteNumber,
   type GuestComponentSource,
   guestChanges,
-  jsonText,
   type LayerFailure,
-  parseData,
   versionedSources,
   withProjectPreferences
 } from "@parity-app/core"
@@ -23,11 +20,17 @@ import {
   prunedDocument,
   sameValue
 } from "@parity-app/editor"
+import {
+  changeProjectsData,
+  type ProjectNote,
+  type Projects,
+  type ProjectsChange,
+  type SavedTabs
+} from "@parity-app/settings"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
-import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
 import { keepCodeDesigns, openCodeDesigns } from "./canvas/code-designs.ts"
 import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
@@ -47,9 +50,10 @@ import { keepProjectPicture } from "./project-picture.ts"
 import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
 import { holdRecording } from "./replay.ts"
 import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
+import { saved } from "./saved.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
-import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
+import { type KnownProject, knownProjects } from "./start/projects.ts"
 import { signal, type Store, createStore } from "./store.ts"
 import { TokenStore } from "./tokens-store.ts"
 import { currentTraceContext } from "./tracing.ts"
@@ -214,25 +218,23 @@ export function isPlaceholder(id: string): boolean {
   return id.startsWith("opening-")
 }
 
-const storageKey = "parity.workspace"
-const recentKey = "parity.recent"
-const notesKey = "parity.projects"
-const recentLimit = 10
-
 /**
  * The open tabs. Each is one project with its own builder, guest and canvas, or a new tab waiting for one. Home sits
  * before them all: it shows when `activeId` is `homeTab`, or when no tab has it.
  */
 export class Workspace {
   private tabs: readonly Tab[] = []
-  private recent: readonly string[] = loadRecent()
+  /** The recent projects, from `projects.json`, which every copy shares. */
+  private recent: readonly string[] = saved().projects.recent
   /** When each project last opened and whether it's starred, by folder. */
-  private notes: Readonly<Record<string, ProjectNote>> = loadNotes()
+  private notes: Readonly<Record<string, ProjectNote>> = saved().projects.notes
   /** Listed projects whose folders weren't there when last checked (PAR-188). */
   private missing: ReadonlySet<string> = new Set()
   /** The example project's folder, when this copy of Parity has it. */
   private example: string | undefined
   private projects: readonly KnownProject[] = knownProjects(this.recent, this.notes)
+  /** Whether this window keeps its tabs for next time: it claimed some, rather than opening for one project. */
+  private keepsTabs = false
   private activeId: string | undefined
   private nextPlaceholder = 1
   private nextBlank = 1
@@ -253,6 +255,13 @@ export class Workspace {
 
   subscribe = this.changes.subscribe
 
+  constructor() {
+    // Another copy opening or starring a project changes the start page here too.
+    if (typeof window !== "undefined") {
+      window.canvasHost?.projects?.subscribe((projects) => this.takeProjects(projects))
+    }
+  }
+
   getTabs = () => this.tabs
   getActiveId = () => this.activeId
   getTab = (id: string | undefined) => this.tabs.find((tab) => tab.id === id)
@@ -270,35 +279,37 @@ export class Workspace {
    * Reopens the tabs from last time, or the dev runner's requested project, on Home if that's where the window was. A
    * fresh install shows Home.
    */
-  restore(): void {
-    let saved: SavedTabs = { roots: [] }
+  async restore(): Promise<void> {
+    void this.checkFolders()
+    const { initialProject } = window.canvasHost
 
-    try {
-      saved = readSavedTabs(localStorage.getItem(storageKey))
-    } catch {
-      // Storage can be unavailable, which means starting fresh.
+    // A copy started for one project opens it and keeps no tabs of its own (`docs/proposals/settings.md`).
+    if (initialProject) {
+      void this.open(initialProject, true, true)
+
+      return
     }
 
-    const roots = saved.roots
-    void this.checkFolders()
+    let tabs: SavedTabs = { roots: [] }
+
+    try {
+      tabs = await window.canvasHost.state.claimTabs()
+      this.keepsTabs = true
+    } catch {
+      // Main couldn't give any, which means starting fresh.
+    }
 
     // Set first, so the projects reopening behind it don't take its place.
-    if (saved.active === homeTab) {
+    if (tabs.active === homeTab) {
       this.activeId = homeTab
     }
 
-    if (roots.length === 0) {
-      if (window.canvasHost.initialProject) {
-        void this.open(window.canvasHost.initialProject, true, true)
-      }
-    } else {
-      for (const root of roots) {
-        void this.open(root, root === saved.active, true)
-      }
+    for (const root of tabs.roots) {
+      void this.open(root, root === tabs.active, true)
+    }
 
-      if (saved.active !== homeTab && !roots.includes(saved.active ?? "")) {
-        this.activate(this.tabs[0]?.id)
-      }
+    if (tabs.roots.length > 0 && tabs.active !== homeTab && !tabs.roots.includes(tabs.active ?? "")) {
+      this.activate(this.tabs[0]?.id)
     }
   }
 
@@ -895,25 +906,12 @@ export class Workspace {
 
   /** Takes a project off the recent list, or every project when none is given. Starred ones stay starred. */
   forgetRecent(root?: string): void {
-    this.recent = root ? this.recent.filter((candidate) => candidate !== root) : []
-    this.saveRecent()
+    this.changeProjects(root === undefined ? { kind: "forgot" } : { kind: "forgot", root })
   }
 
   /** Stars a project, so the start page keeps it under Starred, or unstars it. */
   star(root: string, starred: boolean): void {
-    const { opened } = this.notes[root] ?? {}
-    const note: ProjectNote = {}
-
-    if (opened !== undefined) {
-      note.opened = opened
-    }
-
-    if (starred) {
-      note.starred = starred
-    }
-
-    this.notes = { ...this.notes, [root]: note }
-    this.saveNotes()
+    this.changeProjects({ kind: "starred", root, starred })
   }
 
   activate(id: string | undefined): void {
@@ -1168,48 +1166,33 @@ export class Workspace {
     this.notify()
   }
 
+  /** Tells main the tabs, which keeps them in `state.json` for the next window, once this one has claimed some. */
   private save(): void {
-    const roots = this.tabs.filter((tab) => tab.session || tab.status === "loading").map((tab) => tab.id)
-
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({ roots: roots.filter((root) => !isPlaceholder(root)), active: this.activeId })
-      )
-    } catch {
-      // Storage can be unavailable; tabs then just don't come back next time.
+    if (!this.keepsTabs) {
+      return
     }
+
+    const roots = this.tabs
+      .filter((tab) => (tab.session || tab.status === "loading") && !isPlaceholder(tab.id))
+      .map((tab) => tab.id)
+
+    window.canvasHost.state.saveTabs(this.activeId === undefined ? { roots } : { roots, active: this.activeId })
   }
 
   private remember(root: string): void {
-    this.recent = [root, ...this.recent.filter((candidate) => candidate !== root)].slice(0, recentLimit)
-    this.notes = { ...this.notes, [root]: { ...this.notes[root], opened: Date.now() } }
-    this.saveRecent()
+    this.changeProjects({ kind: "opened", root })
   }
 
-  /** Saves the recent list, and the notes on what's still listed. */
-  private saveRecent(): void {
-    try {
-      localStorage.setItem(recentKey, JSON.stringify(this.recent))
-    } catch {
-      // Storage can be unavailable; the list then just isn't remembered.
-    }
-
-    this.saveNotes()
+  /** Changes the recent and starred projects here at once, and in `projects.json` for every copy. */
+  private changeProjects(change: ProjectsChange): void {
+    this.takeProjects(changeProjectsData({ recent: [...this.recent], notes: { ...this.notes } }, change, Date.now()))
+    void window.canvasHost?.projects?.change(change).catch(() => undefined)
   }
 
-  /** Saves the notes on projects the start page still lists, so ones it forgot don't pile up. */
-  private saveNotes(): void {
-    this.notes = Object.fromEntries(
-      Object.entries(this.notes).filter(([root, note]) => note.starred || this.recent.includes(root))
-    )
-
-    try {
-      localStorage.setItem(notesKey, JSON.stringify(this.notes))
-    } catch {
-      // Storage can be unavailable; the notes then just aren't remembered.
-    }
-
+  /** Lists the projects as main or this window has them, letting go of pictures of projects no longer listed. */
+  private takeProjects({ recent, notes }: Projects): void {
+    this.recent = recent
+    this.notes = notes
     this.projects = knownProjects(this.recent, this.notes, this.missing)
     // A project's picture goes with it (PAR-607).
     void request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) }).catch(() => undefined)
@@ -1218,56 +1201,6 @@ export class Workspace {
 
   private notify(): void {
     this.changes.notify()
-  }
-}
-
-const savedNotes = jsonText(
-  z.record(z.string(), z.object({ opened: finiteNumber.optional(), starred: z.literal(true).optional() }))
-)
-
-/** What the window keeps about each project. Notes it can't read are dropped, as a corrupt recent list is. */
-function loadNotes(): Record<string, ProjectNote> {
-  try {
-    return parseData(savedNotes, localStorage.getItem(notesKey) ?? "{}")
-  } catch {
-    return {}
-  }
-}
-
-/** A list of project roots as saved, without any that aren't one. */
-const savedRoots = z
-  .array(z.string().catch(""))
-  .catch([])
-  .transform((roots) => roots.filter(Boolean))
-
-const savedTabs = z.object({
-  /** The projects open in tabs, in the strip's order. */
-  roots: savedRoots,
-  /** The root of the tab that was showing, or Home. */
-  active: z.string().optional().catch(undefined)
-})
-
-type SavedTabs = z.infer<typeof savedTabs>
-
-/** The tabs saved as `text`. A corrupt entry reads as none, and one bad value as its default. */
-function readSavedTabs(text: string | null): SavedTabs {
-  return jsonText(savedTabs)
-    .catch({ roots: [] })
-    .parse(text ?? "{}")
-}
-
-/** The recent projects saved as `text`, without any entry that isn't a project's root. */
-function readRecent(text: string | null): string[] {
-  return jsonText(savedRoots)
-    .catch([])
-    .parse(text ?? "[]")
-}
-
-function loadRecent(): string[] {
-  try {
-    return readRecent(localStorage.getItem(recentKey))
-  } catch {
-    return []
   }
 }
 

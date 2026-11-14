@@ -31,10 +31,19 @@ import type {
   ReferenceAdded
 } from "@parity-app/editor"
 import type { SettingValue } from "@parity-app/extension-api"
-import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
+import type { ExtensionStatus, HostServiceMethods, LogLine, WindowAsk } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
-import type { ExtensionSettingsChange, SettingsChange } from "@parity-app/settings"
+import type {
+  AppState,
+  JsonValue,
+  Projects,
+  ProjectsChange,
+  SavedTabs,
+  ExtensionSettingsChange,
+  SettingsChange,
+  StateKey
+} from "@parity-app/settings"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange } from "@parity-app/tokens"
 import type { z } from "zod"
@@ -154,6 +163,8 @@ export interface ServiceMethods {
   "extensions.viewOpened": { params: ServiceParams["extensions.viewOpened"]; result: undefined }
   /** The person changed a field of an extension's form. */
   "extensions.viewChanged": { params: ServiceParams["extensions.viewChanged"]; result: undefined }
+  /** What's selected in the project's tab changed, by `NodeRef`, which its extensions' `parity.selection` gives. */
+  "extensions.selectionChanged": { params: ServiceParams["extensions.selectionChanged"]; result: undefined }
   /**
    * The project's settings for its extensions, from its main `.par`'s `extensions` field, sent each time they change,
    * before they're saved, so extensions see them at once (PAR-1090).
@@ -393,7 +404,10 @@ export interface WindowMethods {
   "extensions.changed": { params: { projectId: string; extensions: ExtensionStatus[] }; result: undefined }
   /** An extension wrote a line to its log. */
   "extensions.logged": { params: { projectId: string; extension: string; line: LogLine }; result: undefined }
-  /** An extension asks the person something through `parity.ui`, or shows them something. */
+  /**
+   * An extension asks the person something through `parity.ui`, or shows them something, or selects, navigates or runs
+   * one of Parity's commands through `parity.selection`, `parity.navigate` and `parity.commands.execute`.
+   */
   "extensions.ui": { params: ExtensionUiRequest; result: ExtensionUiAnswer }
   /**
    * An extension changes designs (PAR-1093): applied as an agent's call is, as one undo step under `label`, which names
@@ -417,13 +431,13 @@ export interface WindowMethods {
   "extensions.reveal": { params: { projectId: string; extension: string; view: string }; result: undefined }
 }
 
-/** What an extension asks through `parity.ui`, by method, with what the host sent. */
+/** What an extension asks of the window, by method, with what the host sent. */
 export type ExtensionUiRequest = {
-  [M in UiMethod]: { projectId: string; extension: string; method: M; params: HostServiceMethods[M]["params"] }
-}[UiMethod]
+  [M in WindowAsk]: { projectId: string; extension: string; method: M; params: HostServiceMethods[M]["params"] }
+}[WindowAsk]
 
-/** The window's answer to any of `parity.ui`'s methods. */
-export type ExtensionUiAnswer = HostServiceMethods[UiMethod]["result"]
+/** The window's answer to any of the methods an extension asks of it. */
+export type ExtensionUiAnswer = HostServiceMethods[WindowAsk]["result"]
 
 /**
  * An answer as data, across the bridge between the page and the preload script: a failure thrown across it keeps only
@@ -654,6 +668,25 @@ export interface CanvasHost {
     /** Makes one change, setting each key given or putting it back to its default with `null`. */
     change: (change: SettingsChange) => Promise<SettingsState>
     subscribe: (listener: (state: SettingsState) => void) => () => void
+  }
+  /**
+   * What `state.json` keeps for the window, such as the layout, and `projects.json`, from main's memory. The preload
+   * waits for them, so the first frame has them.
+   */
+  saved: () => { values: AppState["values"]; projects: Projects }
+  /** `projects.json`, the recent and starred projects every copy shares, which main keeps. */
+  projects: {
+    change: (change: ProjectsChange) => Promise<Projects>
+    subscribe: (listener: (projects: Projects) => void) => () => void
+  }
+  /** `state.json`, what the app remembers for itself, which main keeps. Other copies don't apply it. */
+  state: {
+    /** Saves one value, for the next window to start with. */
+    set: (key: StateKey, value: JsonValue) => void
+    /** The tabs to open with: this window's own after a reload, or those of the newest copy that's gone. */
+    claimTabs: () => Promise<SavedTabs>
+    /** The window's tabs now. Kept only once it has claimed some. */
+    saveTabs: (tabs: SavedTabs) => void
   }
   /**
    * Settings, its own web contents over the editor window, which loads no project code (PAR-1090). The editor window
