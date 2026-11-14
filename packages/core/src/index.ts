@@ -105,6 +105,7 @@ export { deviceForWidth, type DeviceKind, devicePresets, lengthToPixels, screenH
 export {
   canvasDocument,
   type CanvasDocument,
+  type CodeDesignSettings,
   type ComponentNode,
   type ComponentRef,
   type ContainerKind,

@@ -730,6 +730,18 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
 export const formatVersion = 4
 
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
+/**
+ * What the person set on a design drawn from code: what it shows, and the width and height tried on its layers, by
+ * layer id, which are never written to its code.
+ */
+const codeDesignSettings = fileObject({
+  view: containerViewSettings.optional(),
+  sizes: z.record(z.string(), nodeStyle).optional()
+})
+
+/** What the person set on a design drawn from code. */
+export type CodeDesignSettings = z.infer<typeof codeDesignSettings>
+
 export const canvasDocument = fileObject({
   version: z.literal(formatVersion),
   containers: z.array(containerSpec),
@@ -759,7 +771,13 @@ export const canvasDocument = fileObject({
    */
   preferences: projectPreferences.optional(),
   /** Extensions' project settings, by extension id and then key, as `storybook` → `configDir`. Unset while there are none. */
-  extensions: projectExtensions.optional()
+  extensions: projectExtensions.optional(),
+  /**
+   * What the person set on the designs drawn from the project's code (its pages, component boards and stories), by
+   * each design's key, as `(stories)#button-outline`: those designs are drawn again each time the project opens, so
+   * what they show and the sizes tried on their layers are kept here.
+   */
+  codeDesigns: z.record(z.string().min(1), codeDesignSettings).optional()
 })
 
 /**

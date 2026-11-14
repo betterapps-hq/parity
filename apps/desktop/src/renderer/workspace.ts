@@ -27,6 +27,7 @@ import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
+import { keepCodeDesigns, withCodeDesigns } from "./canvas/code-designs.ts"
 import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import { routePages, routePagesFile } from "./canvas/route-pages.ts"
@@ -1289,13 +1290,12 @@ async function createSession(
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const drawn = drawImported(info, loaded)
 
+  const opening = openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings)
+  const fromCode = [...routePages(info), ...componentBoardsDocument(info), ...storyScreensDocument(info)]
+  const kept = opening.find(({ path }) => path === info.mainDocument)?.document.codeDesigns
+
   const store = new DesignStore(
-    [
-      ...openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
-      ...routePages(info),
-      ...componentBoardsDocument(info),
-      ...storyScreensDocument(info)
-    ],
+    [...opening, ...withCodeDesigns(fromCode, kept)],
     info.modes.settings,
     info.mainDocument,
     {
@@ -1314,6 +1314,7 @@ async function createSession(
     info.libraries.flatMap((library) => library.designs ?? [])
   )
 
+  keepCodeDesigns(store, fromCode)
   const components = new ComponentStore()
   inferComponents(info, components)
   sampleBoards(info, store, components)

@@ -6619,11 +6619,23 @@ A screen is named for the component its route draws, else its path.
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
   view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, so
   `/projects/$projectId` opens on `/projects/projectId` until it's given one. The values are how the canvas shows the
-  page, never the app's code, and aren't saved yet, since a page isn't. Tried in a development build: Project detail
-  opened on `/projects/projectId`, which the example says it can't find, and setting ProjectId to `atlas` drew the Atlas
-  project at `/projects/atlas`. Code: `samplePath` in `packages/editor/src/route-boards.ts`, the view's `params` in
-  `packages/core/src/document.ts`, and `RouteProps` in `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests:
-  `packages/editor/src/route-boards.test.ts`, "fills a param with the value given for it, written as a URL writes it".
+  page, never the app's code, and are kept with what else is set on it (see Kept in the project file, below). Tried in a
+  development build: Project detail opened on `/projects/projectId`, which the example says it can't find, and setting
+  ProjectId to `atlas` drew the Atlas project at `/projects/atlas`. Code: `samplePath` in
+  `packages/editor/src/route-boards.ts`, the view's `params` in `packages/core/src/document.ts`, and `RouteProps` in
+  `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests: `packages/editor/src/route-boards.test.ts`, "fills a param
+  with the value given for it, written as a URL writes it".
+- **Kept in the project file.** What's set on a design drawn from code, a page's, a component board's or a story's, is
+  kept in the project's file under `codeDesigns`, by the design's key, and set on it again when its code draws it next
+  time the project opens: what it shows (its view: modes, their order and scales, and a page's params) and, for a story,
+  the sizes tried on its layers. Nothing else of it is saved, and nothing is written to the app's code. A design missing
+  for now, such as a story whose file fails, keeps what it had. Tried in a development build: setting Project detail's
+  ProjectId to `atlas` and saving wrote it under `codeDesigns`, and after reloading the window the page opened on
+  `/projects/atlas` again, with nothing unsaved. Code: `codeDesignSettings` and `withCodeDesignSettings` in
+  `packages/editor/src/tried-size.ts`, `codeDesigns` in `packages/core/src/document.ts`, and `withCodeDesigns` and
+  `keepCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts`. Tests:
+  `packages/editor/src/tried-size.test.ts`, "what's set on a design drawn from code". Gaps: a story's kept modes and
+  tried sizes weren't tried in the app, and `code-designs.ts` has no unit test.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
@@ -6798,14 +6810,13 @@ boards are. A story wider or taller than that overlaps the one beside or below i
 - **Its props, modes and sizes in the Design panel.** Selecting a story shows its header, then Props, the args of what
   it draws, which edit and are written back as below, then Modes, as a screen's: its board draws a frame for each mode
   it shows, across, in the order the section sets, and the board's modes menu adds and takes away modes, as on any
-  screen. A story's modes, order and frame scales aren't saved yet: they're the canvas's view of a design read from
-  code.
+  screen. A story's modes, order and frame scales are kept in the project's file, as a page's are.
 - **Resized to test.** Dragging the Bounds layer's handles, or any layer's that takes a size, sets a width or height on
   it, and the frame fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset
   size, then shows at the end of the Design panel, for the story or any of its layers, and puts every layer back at the
   size the story's file draws it (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never
-  written to the story's file. A component that doesn't take a style, as PlanCard, can't be sized itself, so Bounds is
-  there to drag.
+  written to the story's file; it's kept in the project's file until it's reset. A component that doesn't take a style,
+  as PlanCard, can't be sized itself, so Bounds is there to drag.
 - **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
@@ -7621,29 +7632,31 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   adapter: Storybook's are those its story files' metas name. The stories count on a component's card still reads
   `info.storybook`, until adapters give facts about components.
 - **A page of the app offers the actions for its route** (`routes`, from the app's routes): the end of its header in the
-  Design panel and of its right-click menu in Layers (`routePageTarget`, `pageOffers`). The action is run with the page
-  (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its Props. TanStack
-  Router offers Open in browser for each page but the root, which opens that URL in the browser.
+  Design panel, of its right-click menu in Layers and on the canvas, and in Search actions under Object, with the page's
+  path beside it, only while that page is selected (`routePageTarget`, `selectionPage`, `pageOffers`). The action is run
+  with the page (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its
+  Props. TanStack Router offers Open in browser for each page but the root, which opens that URL in the browser.
 - **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
   running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
   PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
   page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
   the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
   header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
-  detail shows Open in browser in its header and at the end of its right-click menu in Layers, with an external link
-  icon in both, since it opens the page outside Parity.
+  detail shows Open in browser in its header and at the end of its right-click menus in Layers and on the canvas, with
+  an external link icon, since it opens the page outside Parity, and searching "open in" lists it with `/projects/atlas`
+  beside it once its ProjectId is `atlas`.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
 `runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
 `adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
 `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
-`renderer/chrome/adapter-actions.ts`, with `pageOffers`; `routePageTarget` in `renderer/canvas/route-pages.ts`; Open in
-browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent` in `renderer/chrome/layer-kind.ts`, tested
-in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`,
-`CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and
-`useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left
-panel › Component menu and Component card.
+`renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
+`renderer/canvas/route-pages.ts`; Open in browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent`
+in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`,
+`RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`,
+`AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`,
+`ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
 
 Tests: `adapters/tanstack-router-adapter/src/routes.test.ts`, "tanstackRouter's Open in browser" (offered for each page
 but the root; opens the URL the page is drawn at); `packages/project/src/adapter-status.test.ts`, "tells the windows the
