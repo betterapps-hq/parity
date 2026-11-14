@@ -94,10 +94,11 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 - **`files.edit(label, files)`:** writes project files the `write` permission names (below).
 - **`state.app` and `state.project`:** values that persist, for every project or for this one.
 - **`log`:** lines in the extension's log, as `console` writes are too.
+- **`views`:** fills the tabs, sections and pages the manifest declares (below).
 - **`subscriptions`:** disposables Parity disposes as the host stops.
 
-The host checks each call against the manifest: a command, status item, setting or context key the manifest doesn't
-declare is refused. The service checks what the host sends, so a node that isn't one is refused too.
+The host checks each call against the manifest: a command, status item, setting, context key or view the manifest
+doesn't declare is refused. The service checks what the host sends, so a node that isn't one is refused too.
 
 ## Settings
 
@@ -132,6 +133,36 @@ An extension declares its settings in its manifest's `contributes.settings`, by 
 
 The Extensions page also shows each extension's permissions as its manifest declares them, how long its code took to
 activate, and the memory its host holds, which the host reports when the service pings it.
+
+## Views
+
+An extension's UI is data that Parity draws with its own kit (PAR-1094), so it has the editor's spacing, keyboard use,
+themes and accessible names, and no extension code runs in the window. The manifest declares where each view goes, and
+which kind it is:
+
+- **`tabs`:** a tab in the left, right or bottom panel (`area`), after Parity's own, with its title and icon.
+- **`sections`:** a section in the Design tab, for a node type (`nodeType`), where its `when` holds for what's selected.
+  For now a section shows for a component's board, as `nodeType: "component"`; other node types come with `nodeTypes`.
+- **`pages`:** a page in a tab at the top, after its project's tab, such as a setup guide. It closes with the project.
+
+The code fills one with `parity.views.table`, `tree`, `list`, `keyValue` or `form`, given the id of one whose `view` is
+that kind ([views.ts](../packages/extensions/src/views.ts)). A view holds items, or a form's fields, and options:
+
+- **Items** have a `key`, a `label`, and optionally a `detail`, an `icon` with a `tone`, a table's `cells`, a tree's
+  `parent`, a key-value pair's `value`, and a `target`, the component it's about.
+- **Options:** a `description` above the items, what shows while there are none (`empty`), commands on a `toolbar`, and
+  commands on each item (`itemActions`), each with a `when`. A table's options name its `columns`. Commands come from
+  the manifest, with their titles and icons.
+- **Changes:** `set` replaces every item, `upsert` adds or replaces items by key, `remove` takes them away, and `update`
+  changes options. Changes made together go to the window as one. `reveal` opens the view's tab or page, and disposing
+  of the view empties it.
+- **Forms** hold text, number, boolean and select fields. `onChange` gets each change the person makes, which the form
+  keeps.
+
+Until the code fills a view, it says the extension is starting, or why it stopped, with Restart. Opening a tab or page
+starts an extension that activates on it (`onView:<id>`). An item's actions run for its `target`, or for the item itself
+(`{ type: "item", view, key }`), and the first one also runs on Enter or a double-click. In a section, only the items
+about what's selected, and those about nothing, show.
 
 ## Changing designs and files
 
@@ -189,6 +220,9 @@ Extensions change designs and files through Parity, never by writing them, so un
   change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`.
 - [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
   files and paths outside the project.
+- [views.test.ts](../packages/extensions/src/views.test.ts): a view drawing nothing until the code fills it, a run of
+  changes sent as one, disposing and restarting emptying views, undeclared views, kinds and actions refused, a form's
+  changes, and `reveal`.
 - [settings.test.ts](../packages/extensions/src/settings.test.ts): settings kept by the key after the prefix, read from
   their own scope, a value that doesn't fit at its default with a note, types and choices, defaults, and what changed.
   [manifest.test.ts](../packages/extensions/src/manifest.test.ts) also refuses choices on a number, titles that don't

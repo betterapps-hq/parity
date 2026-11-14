@@ -172,7 +172,8 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
         }
 
         return undefined
-      }
+      },
+      reveal: () => undefined
     },
     servers: {
       serve: () => Promise.resolve({ url: "" }),
@@ -468,6 +469,7 @@ describe("extension hosts", () => {
       channel.serve({
         activate: () => undefined,
         run: () => undefined,
+        "view.changed": () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
         "settings.changed": () => undefined,
         cancel: () => undefined,
@@ -704,6 +706,7 @@ describe("selection, navigation and commands (PAR-1092)", () => {
         changed: () => undefined,
         logged: () => undefined,
         updateSetting: () => Promise.resolve(),
+        reveal: () => undefined,
         async ui(_projectId, _extension, method, params) {
           asked.push({ method, params })
 

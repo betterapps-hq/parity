@@ -15,15 +15,18 @@ import {
 import { Ban, ChevronRight, CircleX, Info, RotateCw, ScrollText, TriangleAlert, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ExtensionStatus, LogLine } from "../../shared/protocol.ts"
+import { type PlacedView, tabsAt } from "../extension-views.ts"
 import { extensionsOf, type ProjectExtensions, restartExtension, useExtensions } from "../extensions.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { ExtensionLogo } from "./ExtensionIcons.tsx"
+import { ContributionIcon, ExtensionLogo } from "./ExtensionIcons.tsx"
+import { ExtensionView } from "./ExtensionView.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { setLayout, useLayout } from "./layout.ts"
 
 /*
  * The bottom panel's tabs (PAR-1089): the console first, then a tab for each extension with something in its log, or
- * whose host crashed or got stuck. An extension's tab shows its log, newest last, and its host's state with Restart.
+ * whose host crashed or got stuck, then the tabs extensions add for their views (PAR-1094). An extension's log tab
+ * shows its log, newest last, and its host's state with Restart.
  */
 
 type Session = Pick<ProjectSession, "id" | "untilClosed">
@@ -43,20 +46,30 @@ export function useBottomTab(session: Session): ExtensionStatus | undefined {
   return tabs.find((extension) => extension.id === bottomTab)
 }
 
+/** The extension tab that shows in the bottom panel, when one added for a view is chosen. */
+export function useBottomView(session: Session): PlacedView | undefined {
+  const { bottomTab } = useLayout()
+
+  return tabsAt(useExtensions(session).extensions, "bottom").find((view) => view.id === bottomTab)
+}
+
 /**
  * The tabs at the start of the bottom panel's header, or the console's title alone while no extension has a tab, so
  * the panel looks as it did before extensions.
  */
 export function BottomTabs({ session, title }: { session: Session; title: ReactNode }) {
-  const tabs = withTabs(useExtensions(session))
+  const extensions = useExtensions(session)
+  const tabs = withTabs(extensions)
+  const views = tabsAt(extensions.extensions, "bottom")
   const shown = useBottomTab(session)
+  const view = useBottomView(session)
 
-  if (tabs.length === 0) {
+  if (tabs.length === 0 && views.length === 0) {
     return title
   }
 
   return (
-    <Tabs value={shown?.id ?? "console"} onValueChange={(value: string) => setLayout({ bottomTab: value })}>
+    <Tabs value={view?.id ?? shown?.id ?? "console"} onValueChange={(value: string) => setLayout({ bottomTab: value })}>
       <TabsList className="h-7 min-w-0 bg-transparent p-0" aria-label="Bottom panel">
         <TabsTrigger value="console" className="flex-none text-xs">
           Console
@@ -70,6 +83,12 @@ export function BottomTabs({ session, title }: { session: Session; title: ReactN
             )}
           </TabsTrigger>
         ))}
+        {views.map((added) => (
+          <TabsTrigger key={added.id} value={added.id} className="flex-none text-xs">
+            <ContributionIcon name={added.icon} logo={added.extension.icon} className="size-3.5 shrink-0" />
+            {added.title}
+          </TabsTrigger>
+        ))}
       </TabsList>
     </Tabs>
   )
@@ -81,6 +100,24 @@ const stateWords: Record<ExtensionStatus["state"], string> = {
   running: "Running",
   stuck: "Not answering",
   crashed: "Stopped"
+}
+
+/** A tab an extension added to the bottom panel, under its tabs, holding one of its views. */
+export function BottomView({ session, view }: { session: Session; view: PlacedView }) {
+  return (
+    <>
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
+        <BottomTabs session={session} title={null} />
+        <span className="flex-1" />
+        <IconButton label="Close the panel" shortcut="console" onClick={() => setLayout({ console: false })}>
+          <X />
+        </IconButton>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <ExtensionView session={session} view={view} size="panel" />
+      </div>
+    </>
+  )
 }
 
 /** An extension's log, under the bottom panel's tabs, with its host's state and Restart. */

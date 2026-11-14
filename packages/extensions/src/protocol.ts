@@ -12,7 +12,9 @@ import type {
   PickItem,
   ServerRequest,
   SettingValue,
-  Tone
+  Tone,
+  ViewData,
+  ViewKind
 } from "@parity-app/extension-api"
 import { z } from "zod"
 
@@ -37,6 +39,8 @@ export interface ActivateParams {
   /** The ids the manifest declares, which registrations are checked against. */
   commands: string[]
   statusItems: string[]
+  /** The tabs, sections and pages it declares, by id, with the kind of view each holds. */
+  views: Record<string, ViewKind>
   state: StateValues
   /** What's selected in the window with the project open, which `parity.selection.get` gives until it changes. */
   selection: NodeRef[]
@@ -65,6 +69,8 @@ export interface HostMethods {
   "settings.changed": { params: { values: Record<string, SettingValue> }; result: undefined }
   /** The person cancelled a task under `ui.progress`. */
   cancel: { params: { progress: number }; result: undefined }
+  /** The person changed a field of one of its forms. */
+  "view.changed": { params: { view: string; key: string; value: string | number | boolean }; result: undefined }
   /** What's selected in the window changed. */
   "selection.changed": { params: { refs: NodeRef[] }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
@@ -107,6 +113,12 @@ export interface HostServiceMethods {
   "settings.update": { params: { key: string; value?: SettingValue }; result: undefined }
   /** Shows a task's progress, says what it's doing now, or ends it with `done`. */
   "ui.progress": { params: { id: number; title?: string; detail?: string; done?: boolean }; result: undefined }
+  /** Draws one of its views with this data, replacing what it drew before. */
+  "view.set": { params: { id: string; data: ViewData }; result: undefined }
+  /** Empties one of its views again. */
+  "view.clear": { params: { id: string }; result: undefined }
+  /** Opens one of its views' tab or page. */
+  "view.reveal": { params: { id: string }; result: undefined }
   "servers.serve": { params: ServerRequest; result: { url: string } }
   "servers.adopt": { params: { id: string; name: string; url: string }; result: undefined }
   "servers.stop": { params: { id: string }; result: undefined }
@@ -134,6 +146,60 @@ const checkOf =
     parseData(schema, params)
 
 const url = z.url({ protocol: /^https?$/ })
+
+const viewLabel = z.string().max(200)
+const iconName = z.string().max(64)
+const tone = z.enum(["info", "success", "warning", "error"])
+const viewAction = z.strictObject({ command: z.string().max(200), when: z.string().max(200).optional() })
+
+const viewItem = z.strictObject({
+  key: z.string().max(500),
+  label: viewLabel,
+  detail: z.string().max(2000).optional(),
+  value: z.string().max(2000).optional(),
+  icon: iconName.optional(),
+  tone: tone.optional(),
+  cells: z.array(z.string().max(500)).max(20).optional(),
+  parent: z.string().max(500).optional(),
+  target: z.strictObject({ type: z.literal("component"), key: z.string() }).optional()
+})
+
+const field = { key: z.string().max(200), label: viewLabel, detail: z.string().max(2000).optional() }
+
+const formField = z.discriminatedUnion("type", [
+  z.strictObject({
+    ...field,
+    type: z.literal("text"),
+    value: z.string().max(20_000),
+    placeholder: viewLabel.optional()
+  }),
+  z.strictObject({ ...field, type: z.literal("number"), value: z.number() }),
+  z.strictObject({ ...field, type: z.literal("boolean"), value: z.boolean() }),
+  z.strictObject({
+    ...field,
+    type: z.literal("select"),
+    value: z.string().max(500),
+    options: z.array(z.strictObject({ value: z.string().max(500), label: viewLabel })).max(200)
+  })
+])
+
+const viewOptions = z.strictObject({
+  description: z.string().max(5000).optional(),
+  empty: z.strictObject({ title: viewLabel, detail: z.string().max(2000).optional() }).optional(),
+  toolbar: z.array(viewAction).max(10).optional(),
+  itemActions: z.array(viewAction).max(10).optional(),
+  columns: z.array(viewLabel).max(20).optional()
+})
+
+/** A view's data as a host sends it: a form holds fields, and the other kinds hold items. */
+const viewData: z.ZodType<ViewData> = z.union([
+  z.strictObject({ kind: z.literal("form"), options: viewOptions, items: z.array(formField).max(200) }),
+  z.strictObject({
+    kind: z.enum(["table", "tree", "list", "keyValue"]),
+    options: viewOptions,
+    items: z.array(viewItem).max(10_000)
+  })
+])
 
 const designKey = z.string().max(2000)
 
@@ -257,6 +323,9 @@ export const hostChecks: Checks<HostServiceMethods> = {
       done: z.boolean().optional()
     })
   ),
+  "view.set": checkOf(z.strictObject({ id: z.string().max(200), data: viewData })),
+  "view.clear": checkOf(z.strictObject({ id: z.string().max(200) })),
+  "view.reveal": checkOf(z.strictObject({ id: z.string().max(200) })),
   "servers.serve": checkOf(
     z.strictObject({
       id: z.string().max(100),

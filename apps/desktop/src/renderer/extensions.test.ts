@@ -21,6 +21,7 @@ function storybook(change: Partial<ExtensionStatus> = {}): ExtensionStatus {
     status: {},
     context: { "storybook.hasStories": ["Button"] },
     facts: {},
+    views: {},
     ...change
   }
 }
@@ -43,8 +44,8 @@ describe("commandsAt", () => {
   })
 
   it("enables a command without enablement anywhere it's placed, with or without a component", () => {
-    expect(commandsAt([storybook()], "search", badge)).toMatchObject([{ enabled: true }])
-    expect(commandsAt([storybook()], "search")).toMatchObject([{ enabled: true }])
+    expect(commandsAt([storybook()], "search", badge)).toMatchObject([{ enabled: true }, { enabled: true }])
+    expect(commandsAt([storybook()], "search")).toMatchObject([{ enabled: true }, { enabled: true }])
   })
 
   it("leaves out a placement the manifest doesn't name, and an extension stopped after crashing", () => {

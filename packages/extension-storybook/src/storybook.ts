@@ -5,7 +5,11 @@ import { z } from "zod"
  * entries of a running Storybook's `/index.json`, and the page that opens a component's stories.
  */
 
-const storyFile = z.object({ path: z.string() })
+const storyFile = z.object({
+  path: z.string(),
+  /** The stories it exports, by export name. */
+  exports: z.array(z.string()).optional()
+})
 
 /** What detection found of the project's Storybook, as `parity.project.detected` gives it. */
 const detected = z.object({

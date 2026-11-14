@@ -159,6 +159,10 @@ export interface ServiceMethods {
   "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
   /** The person cancelled an extension's task shown with `parity.ui.progress`. */
   "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
+  /** One of an extension's tabs or pages opened, which starts an extension that activates on it. */
+  "extensions.viewOpened": { params: ServiceParams["extensions.viewOpened"]; result: undefined }
+  /** The person changed a field of an extension's form. */
+  "extensions.viewChanged": { params: ServiceParams["extensions.viewChanged"]; result: undefined }
   /** What's selected in the project's tab changed, by `NodeRef`, which its extensions' `parity.selection` gives. */
   "extensions.selectionChanged": { params: ServiceParams["extensions.selectionChanged"]; result: undefined }
   /**
@@ -423,6 +427,8 @@ export interface WindowMethods {
     params: { projectId: string; extension: string; key: string; value?: SettingValue }
     result: undefined
   }
+  /** An extension asks to open the tab or page that holds one of its views. */
+  "extensions.reveal": { params: { projectId: string; extension: string; view: string }; result: undefined }
 }
 
 /** What an extension asks of the window, by method, with what the host sent. */
@@ -473,7 +479,8 @@ export const windowMethods = Object.keys({
   "extensions.ui": true,
   "extensions.transact": true,
   "extensions.edited": true,
-  "extensions.setting": true
+  "extensions.setting": true,
+  "extensions.reveal": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }

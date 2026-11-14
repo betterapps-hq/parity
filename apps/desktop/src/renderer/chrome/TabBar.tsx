@@ -6,6 +6,7 @@ import type { DesignStore } from "../design-store.ts"
 import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
+import { PageTabIcon } from "./ExtensionPage.tsx"
 import { Hint } from "./Hint.tsx"
 import { shortcutOf } from "./keymap.ts"
 import { Name } from "./Name.tsx"
@@ -82,6 +83,7 @@ function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
       >
         {tab.status === "loading" && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
         {tab.status === "error" && <TriangleAlert className="size-3.5 shrink-0 text-destructive" />}
+        {tab.page && <PageTabIcon page={tab.page} />}
         <Name className="min-w-0 flex-1">{tab.title}</Name>
         <CloseButton tab={tab} selected={selected} unsaved={unsaved} />
         {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}

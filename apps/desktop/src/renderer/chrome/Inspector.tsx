@@ -3,13 +3,17 @@ import { Accessibility, MonitorSmartphone, SlidersHorizontal } from "lucide-reac
 import { AccessibilityPanel } from "./AccessibilityPanel.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
 import { ErrorBoundary } from "./ErrorBoundary.tsx"
+import { ExtensionTabPanels, extensionPanelTab, useExtensionTabs } from "./ExtensionTabs.tsx"
 import { ModesPanel } from "./ModesPanel.tsx"
 import { SidePanel } from "./SidePanel.tsx"
 
 /**
- * Right panel: what's selected, the project's modes, and accessibility checks of the selected design.
+ * Right panel: what's selected, the project's modes, and accessibility checks of the selected design; then the tabs
+ * extensions add.
  */
 export function Inspector() {
+  const added = useExtensionTabs("right")
+
   return (
     <SidePanel
       side="right"
@@ -18,7 +22,8 @@ export function Inspector() {
       tabs={[
         { value: "design", label: "Design", icon: SlidersHorizontal },
         { value: "modes", label: "Modes", icon: MonitorSmartphone },
-        { value: "accessibility", label: "Accessibility", icon: Accessibility }
+        { value: "accessibility", label: "Accessibility", icon: Accessibility },
+        ...added.map(extensionPanelTab)
       ]}
     >
       <TabsContent value="design" className="min-h-0 overflow-x-hidden overflow-y-auto">
@@ -36,6 +41,7 @@ export function Inspector() {
           <AccessibilityPanel />
         </ErrorBoundary>
       </TabsContent>
+      <ExtensionTabPanels views={added} />
     </SidePanel>
   )
 }

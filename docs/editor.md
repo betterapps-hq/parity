@@ -1150,6 +1150,40 @@ that Undo takes back, and refusing the whole change), `renderer/extensions.test.
 `packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par` files). Gaps: no extension
 built into Parity changes designs yet, so the layer menu and the undo label weren't tried in the running app.
 
+### Extensions' views (PAR-1094)
+
+Extensions add tabs, Design tab sections and pages, drawn from data their code sends
+([extensions.md](extensions.md#views)).
+
+- **Tabs** join the left and right panels after Parity's own, with the extension's icon, and the bottom panel after the
+  extensions' logs. A tab that opens starts an extension that activates on it.
+- **Sections** show in the Design tab for a component's board, after What its code says, where the section's `when`
+  holds for the component. Only the items about that component show.
+- **Pages** open in a tab at the top, after their project's tab, headed by the extension's logo and the page's title. A
+  page's tab closes with its project's.
+- **Kinds.** A table, with its columns and each row's actions; a tree, where arrow keys move between rows and open and
+  close them, Home and End go to the ends, Enter or a double-click runs the first action, and the menu key or a
+  right-click lists them all; a list, as a setup guide's steps, each with its icon in its tone and its actions;
+  key-value pairs; and a form, with the kit's fields, a switch and `AppSelect`, which sends a text or number field's
+  value on Enter or when it loses focus. Each item's action buttons are named with the item, as "Open in Storybook,
+  Primary".
+- **Before the code fills it,** a view says "Starting Storybook…", "Nothing to show yet" once it's running, or why it
+  stopped, with Restart.
+
+Storybook adds the Stories tab to the left panel, a Stories section for a component with stories, and the Storybook
+setup page, which Show Storybook setup in Search actions opens ([storybook.md](storybook.md#views)).
+
+Code: `renderer/extension-views.ts` (`tabsAt`, `sectionsFor`, `pageOf`, `shownItems`, `treeRows`, `revealView`),
+`chrome/ExtensionView.tsx`, `chrome/ExtensionTabs.tsx`, `chrome/ExtensionPage.tsx`, the bottom panel's tabs in
+`chrome/ExtensionLog.tsx`, and `Workspace.openPage` in `renderer/workspace.ts`.
+
+Tests: `renderer/extension-views.test.ts` (placing tabs, sections and pages, a section's items, a tree's rows and an
+item's actions) and `packages/extensions/src/views.test.ts`. Stories: `chrome/ExtensionView.stories.tsx` Kinds, with a
+play function for the tree's keys, and Page. Gaps: the panels, the page's tab and the form's round trip have no tests of
+their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow keys,
+Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at 390
+pixels, with the keyboard reaching its button after the tabs.
+
 ### Previews in the Components panel and the insert picker (PAR-208)
 
 The Components tab shows each component's picture (see Component previews, made offscreen and kept on disk), in one of

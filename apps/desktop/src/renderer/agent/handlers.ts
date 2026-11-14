@@ -14,6 +14,7 @@ import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { askChangesAgain } from "../canvas/frame-changes.ts"
 import { announceEdit } from "../chrome/project-edits.tsx"
 import { answerExtension } from "../extension-ui.ts"
+import { revealView } from "../extension-views.ts"
 import { extensionsOf, isEditorRequest } from "../extensions.ts"
 import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../project-settings.ts"
 import { reportIds } from "../replay.ts"
@@ -148,6 +149,15 @@ const handlers: Handlers = {
 
     if (session) {
       extensionsOf(session).logged(extension, line)
+    }
+
+    return undefined
+  },
+  "extensions.reveal": ({ projectId, extension, view }) => {
+    const session = sessionOf(projectId)
+
+    if (session) {
+      revealView(session, extension, view)
     }
 
     return undefined

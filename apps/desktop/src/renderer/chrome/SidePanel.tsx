@@ -1,6 +1,6 @@
 import { Tabs, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { type LucideIcon, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
-import type { ReactNode } from "react"
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
+import type { ComponentType, ReactNode } from "react"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
@@ -8,7 +8,8 @@ import { panelLimits, setLayout, useLayout } from "./layout.ts"
 export interface PanelTab {
   value: string
   label: string
-  icon: LucideIcon
+  /** Parity's own tabs take a Lucide icon; an extension's, its contribution's icon (PAR-1094). */
+  icon: ComponentType<{ className?: string }>
 }
 
 interface SidePanelProps {

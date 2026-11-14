@@ -3,15 +3,18 @@ import { Component, ImagePlay, Layers, Palette, Smile } from "lucide-react"
 import { MediaPanel } from "../media/MediaPanel.tsx"
 import { ComponentsPanel, IconsPanel } from "./AssetsPanel.tsx"
 import { ErrorBoundary } from "./ErrorBoundary.tsx"
+import { ExtensionTabPanels, extensionPanelTab, useExtensionTabs } from "./ExtensionTabs.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { SidePanel } from "./SidePanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
 
 /**
  * Left panel: every design's layers; what can go into designs (components, icons and media), each a tab of its own;
- * and the project's tokens.
+ * and the project's tokens; then the tabs extensions add.
  */
 export function LeftPanel() {
+  const added = useExtensionTabs("left")
+
   return (
     <SidePanel
       side="left"
@@ -22,7 +25,8 @@ export function LeftPanel() {
         { value: "components", label: "Components", icon: Component },
         { value: "icons", label: "Icons", icon: Smile },
         { value: "media", label: "Media", icon: ImagePlay },
-        { value: "tokens", label: "Tokens", icon: Palette }
+        { value: "tokens", label: "Tokens", icon: Palette },
+        ...added.map(extensionPanelTab)
       ]}
     >
       <TabsContent value="layers" className="flex min-h-0 flex-col">
@@ -50,6 +54,7 @@ export function LeftPanel() {
           <TokensPanel />
         </ErrorBoundary>
       </TabsContent>
+      <ExtensionTabPanels views={added} />
     </SidePanel>
   )
 }

@@ -10,7 +10,9 @@ import type {
   PathIcon,
   Permissions,
   ServerRequest,
-  SettingValue
+  SettingValue,
+  ViewData,
+  ViewKind
 } from "@parity-app/extension-api"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import type { ExtensionPackage } from "./manifest.ts"
@@ -67,6 +69,8 @@ export interface ExtensionStatus {
   context: Record<string, boolean | string[]>
   /** The facts it set, by what they're about: a component's key. */
   facts: Record<string, Fact[]>
+  /** What its code put in its tabs, sections and pages, by id. One it hasn't filled shows that it's starting. */
+  views: Record<string, ViewData>
   /** Settings whose values didn't fit their schema, and so read as their defaults, one sentence each. */
   settingProblems: string[]
   /** How long its code took to activate the last time it did, in milliseconds. */
@@ -121,6 +125,8 @@ export interface ExtensionWindow {
     method: M,
     params: HostServiceMethods[M]["params"]
   ): Promise<HostServiceMethods[M]["result"]>
+  /** Opens the tab or page that holds one of an extension's views. */
+  reveal(projectId: string, extension: string, view: string): void
 }
 
 /** The project service's process manager, as extensions' servers use it. */
@@ -204,6 +210,8 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   run(projectId: string, command: string, target?: CommandTarget): Promise<void>
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
+  /** The person changed a field of an extension's form. */
+  viewChanged(projectId: string, extension: string, change: HostMethods["view.changed"]["params"]): Promise<void>
   /** Ends an extension's host and starts it again, as after it crashed or got stuck. */
   restart(projectId: string, extension: string): void
   /** The person cancelled a task under `ui.progress`. */
@@ -226,6 +234,7 @@ interface Host<Project> {
   status: Record<string, StatusValue>
   context: Record<string, boolean | string[]>
   facts: Record<string, Fact[]>
+  views: Record<string, ViewData>
   logs: LogLine[]
   /** When it crashed lately, in milliseconds since 1970. */
   crashes: number[]
@@ -307,6 +316,7 @@ export function extensionHosts<Project extends OpenedProject>(
       status: { ...host.status },
       context: { ...host.context },
       facts: { ...host.facts },
+      views: { ...host.views },
       settingProblems: host.settings.problems
     }
 
@@ -428,6 +438,27 @@ export function extensionHosts<Project extends OpenedProject>(
 
         changed(open)
       },
+      "view.set"({ id: view, data }: HostServiceMethods["view.set"]["params"]) {
+        const declared = declaredViews(host.extension.package.manifest.contributes)[view]
+
+        if (declared !== data.kind) {
+          throw new Error(`${view} isn't a ${data.kind} view the manifest declares`)
+        }
+
+        host.views[view] = data
+        changed(open)
+      },
+      "view.clear"({ id: view }: HostServiceMethods["view.clear"]["params"]) {
+        delete host.views[view]
+        changed(open)
+      },
+      "view.reveal"({ id: view }: HostServiceMethods["view.reveal"]["params"]) {
+        if (declaredViews(host.extension.package.manifest.contributes)[view] === undefined) {
+          throw new Error(`${view} isn't a tab or page the manifest declares`)
+        }
+
+        options.window.reveal(projectId, id, view)
+      },
       "ui.notify": ui("ui.notify"),
       "ui.pick": ui("ui.pick"),
       "ui.input": ui("ui.input"),
@@ -506,6 +537,7 @@ export function extensionHosts<Project extends OpenedProject>(
     channel.connect(link.port)
     host.context = {}
     host.facts = {}
+    host.views = {}
     const stored = options.state.read(found.id, open.project.root)
     host.settings = settingsOf(open, extension)
     const began = Date.now()
@@ -521,6 +553,7 @@ export function extensionHosts<Project extends OpenedProject>(
       project: { root: open.project.root, name: open.project.name },
       commands: (found.manifest.contributes.commands ?? []).map((command) => command.id),
       statusItems: (found.manifest.contributes.statusItems ?? []).map((item) => item.id),
+      views: declaredViews(found.manifest.contributes),
       state: { app: stored.app, project: stored.project },
       selection: open.selection,
       settings: {
@@ -727,6 +760,7 @@ export function extensionHosts<Project extends OpenedProject>(
           status: options.state.read(extension.package.id, project.root).status,
           context: {},
           facts: {},
+          views: {},
           logs: [],
           crashes: [],
           settings: settingsOf(open, extension)
@@ -772,6 +806,15 @@ export function extensionHosts<Project extends OpenedProject>(
           start(open, host)
         }
       }
+    },
+    async viewChanged(projectId, id, change) {
+      const host = hostOf(projectOf(projectId), id)
+
+      if (!host.running) {
+        throw new Error(`${host.extension.package.manifest.displayName} isn't running`)
+      }
+
+      await host.running.channel.request("view.changed", change)
     },
     restart(projectId, id) {
       const open = projectOf(projectId)
@@ -828,6 +871,16 @@ export function extensionHosts<Project extends OpenedProject>(
       }
     }
   }
+}
+
+/** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
+function declaredViews(contributes: Contributions): Record<string, ViewKind> {
+  return Object.fromEntries(
+    [...(contributes.tabs ?? []), ...(contributes.sections ?? []), ...(contributes.pages ?? [])].map(({ id, view }) => [
+      id,
+      view
+    ])
+  )
 }
 
 /** Whether memory moved by a tenth or more since it was last shown, so a window hears of it only then. */
