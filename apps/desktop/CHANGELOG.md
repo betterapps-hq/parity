@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 12:19:19 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 20:03:51 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.84.0
+
+Sat, 14 Nov 2026 20:03:51 GMT
+
+### Minor changes
+
+- Settings are kept in settings.json, which every copy of Parity shares: a change in one copy reaches the others, and
+  the theme no longer resets. (ajcraswell@gmail.com)
 
 ## 0.83.0
 

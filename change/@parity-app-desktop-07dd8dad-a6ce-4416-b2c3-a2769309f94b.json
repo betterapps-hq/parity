@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Settings are kept in settings.json, which every copy of Parity shares: a change in one copy reaches the others, and the theme no longer resets.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

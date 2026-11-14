@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 20:03:51 GMT",
+      "version": "0.84.0",
+      "tag": "@parity-app/desktop_v0.84.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "19090334bfcb7e6bef6affc9f4ffc5c41154b79e",
+            "comment": "Settings are kept in settings.json, which every copy of Parity shares: a change in one copy reaches the others, and the theme no longer resets."
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 12:19:19 GMT",
       "version": "0.83.0",
       "tag": "@parity-app/desktop_v0.83.0",
