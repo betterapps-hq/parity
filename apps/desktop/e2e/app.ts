@@ -1134,7 +1134,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Whether `check` comes true within a few seconds, trying every 50ms. */
-async function until(check: () => Promise<boolean>, timeout = 5000): Promise<boolean> {
+export async function until(check: () => Promise<boolean>, timeout = 5000): Promise<boolean> {
   for (const deadline = Date.now() + timeout; Date.now() < deadline;) {
     if (await check()) {
       return true

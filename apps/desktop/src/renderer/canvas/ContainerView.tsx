@@ -1548,6 +1548,9 @@ function PageFrame({
           name={name}
           title={url}
           src={url}
+          // Outside Interact it's as inert as a design's frame, so Tab on the canvas never goes into the page and leaves
+          // the canvas's keys behind.
+          inert={!interactive}
           className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
           style={{ width: frame.width, height, transform: `scale(${scale})` }}
         />

@@ -57,7 +57,7 @@ describe("right-click menus", () => {
       // MemberRow has no story, so Storybook has nothing to open.
       "Open in Storybook No story found"
     ])
-    expect(await menu().getByRole("separator").count()).toBe(6)
+    expect(await menu().getByRole("separator").count()).toBe(7)
     // Its items run the menubar's commands.
     await menu()
       .getByRole("menuitem", { name: /^Duplicate/ })

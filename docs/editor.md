@@ -879,9 +879,10 @@ Tests:
 - `apps/desktop/e2e/inserting.e2e.ts` (6), end to end (PAR-202): opening seven times, the fastest under 100ms and the
   median under 150ms (25 to 50ms on a quiet machine); Escape straight after opening closing the picker with the design
   still selected, and a click straight after selecting a layer (PAR-554); the browsing order, read a screen at a time;
-  "badge" finding Badge, AvatarBadge and SidebarMenuBadge only, Badge with the UI kit and Shadcn Nova; App and
-  ThemeProvider left out of a folder search and found by name, and Dialog's overlay after every dialog part placed; and
-  Enter inserting the UI kit's Badge, and the Shadcn Nova source inserting Nova's.
+  "badge" finding Badge, StatusBadge, AvatarBadge and SidebarMenuBadge only, in that order; App and ThemeProvider left
+  out of a folder search and found by name, and Dialog's overlay after every dialog part placed; and Enter inserting
+  Nova's Badge, and StatusBadge's source inserting the app's own. The example takes its UI kit from Shadcn Nova, so a
+  component in two places is covered by `insert-search.test.ts` and the FoundInTwoPlaces story.
 - `chrome/QuickInsert.stories.tsx`: Open, Searching, FoundInTwoPlaces, SearchedByName, SearchingIcons, NoResults and
   NothingToInsertInto.
 
@@ -987,10 +988,10 @@ modules and files without JSX left alone; development server only). `apps/deskto
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
 (Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
 `chrome/CanvasMenu.right-click.stories.tsx`, drawn from Storybook's copy of the example project, which the same
-transform tags, and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at
-`member-row.tsx`). `packages/agent/src/dispatch.test.ts` (the file each project component is written in),
-`packages/agent/src/run.test.ts` (`Measure` gives each node's source, and none for Parity's own layers),
-`packages/cli/src/client.test.ts` (the project's own components listed by file) and
+transform tags, and in the running app `e2e/menus.e2e.ts` (the Members row's menu has Open in editor at
+`member-row.tsx`, then Open in Storybook, greyed with No story found). `packages/agent/src/dispatch.test.ts` (the file
+each project component is written in), `packages/agent/src/run.test.ts` (`Measure` gives each node's source, and none
+for Parity's own layers), `packages/cli/src/client.test.ts` (the project's own components listed by file) and
 `apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps: reading the attribute in the offscreen
 page (`renderer/render.ts`) has no test of its own; the Measure and render-result tests pass a source through.
 
@@ -2551,8 +2552,9 @@ Code: `adjacentDesign` and `designOrder` in `apps/desktop/src/renderer/canvas/se
 
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` (the order, going round, from a layer, and with nothing
 selected). End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2): N from Pricing selects Sign up and zooms to it,
-so that Zoom to selection (Shift+2) after it doesn't move the view, and Shift+N goes back; and N from Members, the last
-screen, goes round to Member row, the first component.
+so that Zoom to selection (Shift+2) after it doesn't move the view, and Shift+N goes back; and Shift+N from the first
+component goes round to the last design, one of the app's pages, which come after the screens the project lists, and N
+goes back.
 
 ### Copy, paste and paste style (PAR-7)
 
@@ -7802,9 +7804,10 @@ neither overflows nor scrolls; Shift+Tab back from Members' title into Layers le
 New screen button, scrolled out of view, isn't drawn, so focus reaches the tree instead); Tab on from the title leaves
 the page still; and a click on a layer then selects it. It fails without the fix, at the first check.
 `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State and Modes menus and its
-mode caption, where Enter selects the mode column, then out of the canvas without reaching another title or board, where
-before it went on to the next design's title. Every end-to-end test also fails if the page scrolled during it (see
-"Testing in the app" above); before the fix that also failed the older test that tabs on from Sign in's title.
+board's controls, where Enter on its preview's mode name selects that preview, then out of the canvas without reaching
+another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
+scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
+Sign in's title.
 
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip

@@ -8,13 +8,25 @@ let app: App
 
 beforeAll(async () => {
   app = await App.connect()
+
   // Bitmaps are taken one frame at a time in the background, and a frame without one stays drawn, so a run that starts
   // with this file waits for them all.
-  await app.page.waitForFunction(
-    () => document.querySelectorAll("[data-bitmap]").length === document.querySelectorAll("[data-frame]").length,
-    undefined,
-    { timeout: 150_000, polling: 500 }
-  )
+  try {
+    await app.page.waitForFunction(
+      () => document.querySelectorAll("[data-bitmap]").length === document.querySelectorAll("[data-frame]").length,
+      undefined,
+      { timeout: 150_000, polling: 500 }
+    )
+  } catch (error) {
+    // Which frames never got one, so a failure says where to look.
+    const without = await app.page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("[data-frame]")].flatMap((host) =>
+        host.closest("[data-bitmap]") ? [] : [`${host.dataset.design} ${host.dataset.state}/${host.dataset.mode}`]
+      )
+    )
+
+    throw new Error(`${without.length} frames have no bitmap: ${without.slice(0, 20).join(", ")}`, { cause: error })
+  }
 }, 180_000)
 
 afterEach(() => app?.reset())

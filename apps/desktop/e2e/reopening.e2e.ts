@@ -19,7 +19,7 @@ const frames = () => app.page.locator("[data-frame]").count()
  * The window's DOM nodes, once everything nothing holds is collected. What the page logged goes first: DevTools keeps
  * every element a console message names, which only matters while a debugger is attached, as it is here.
  */
-async function nodes(): Promise<number> {
+async function nodes(): Promise<{ nodes: number; documents: number }> {
   const cdp = await app.page.context().newCDPSession(app.page)
   await cdp.send("Runtime.discardConsoleEntries")
 
@@ -27,10 +27,10 @@ async function nodes(): Promise<number> {
     await cdp.send("HeapProfiler.collectGarbage")
   }
 
-  const { nodes } = await cdp.send("Memory.getDOMCounters")
+  const { nodes, documents } = await cdp.send("Memory.getDOMCounters")
   await cdp.detach()
 
-  return nodes
+  return { nodes, documents }
 }
 
 /**
@@ -88,7 +88,11 @@ describe("closing a project", () => {
       // tldraw sometimes keeps the editor closed last, with its canvas, until another replaces it: about 3,600 nodes on
       // the example project, whose frames showing bitmaps hold none of their own (PAR-445). That's one canvas however
       // often the project opens, so it's allowed for. A canvas kept on each reopen comes to three of them.
-      expect(await nodes()).toBeLessThan(closed + 5000)
+      // The documents say whether what's kept is a page's frame, each of which is one.
+      const after = await nodes()
+      expect(after.nodes, `documents went from ${closed.documents} to ${after.documents}`).toBeLessThan(
+        closed.nodes + 5000
+      )
     } finally {
       await restoreProject(count)
     }
