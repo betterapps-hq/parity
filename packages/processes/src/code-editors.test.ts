@@ -47,6 +47,12 @@ describe("the command line that runs an editor's batch file", () => {
     )
   })
 
+  it("escapes a quote inside an argument, doubling the backslashes before it, and the ones that end it", () => {
+    expect(batchCommandLine("x.cmd", ['say "hi"', "D:\\end\\"])).toBe(
+      String.raw`^"x.cmd^" ^"say^ \^"hi\^"^" ^"D:\end\\^"`
+    )
+  })
+
   it.runIf(process.platform === "win32")("passes paths through cmd.exe and a batch file as they're spelled", () => {
     const folder = mkdtempSync(join(tmpdir(), "parity editor "))
 
@@ -54,7 +60,16 @@ describe("the command line that runs an editor's batch file", () => {
       // As VS Code's code.cmd passes its arguments on, with %*.
       const batch = join(folder, "echo (1).cmd")
       writeFileSync(batch, '@echo off\r\nnode -e "console.log(JSON.stringify(process.argv.slice(1)))" -- %*\r\n')
-      const args = ["--goto", String.raw`D:\R&D (old)\100%PATH%\a!b^c;d, e.tsx:12`, "%USERNAME%"]
+
+      const args = [
+        "--goto",
+        String.raw`D:\R&D (old)\100%PATH%\a!b^c;d, e.tsx:12`,
+        "%USERNAME%",
+        'say "hi"',
+        "D:\\ends in a slash\\",
+        String.raw`a\"b`
+      ]
+
       const run = spawnSync(batchCommandLine(batch, args), { shell: true, encoding: "utf8" })
 
       expect(JSON.parse(run.stdout)).toEqual(args)

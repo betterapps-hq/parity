@@ -536,7 +536,13 @@ function SourceSection({
 
   const running = new Set(
     processes
-      .filter((process) => process.kind === "tool" && process.projectId === session.id && process.status === "running")
+      .filter(
+        (process) =>
+          process.owner.kind === "parity" &&
+          process.owner.role === "tool" &&
+          process.projectId === session.id &&
+          process.state === "running"
+      )
       .map((process) => process.id)
   )
 

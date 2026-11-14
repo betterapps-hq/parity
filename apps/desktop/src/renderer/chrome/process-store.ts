@@ -19,7 +19,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
  * Processes asked to stop or restart: shown as stopping or starting until the service reports a status other than the
  * one it had when asked.
  */
-const pending = new Map<string, { status: ProjectProcess["status"]; was: ProjectProcess["status"] }>()
+const pending = new Map<string, { status: ProjectProcess["state"]; was: ProjectProcess["state"] }>()
 
 function poll(): void {
   clearTimeout(timer)
@@ -32,13 +32,13 @@ function poll(): void {
           return process
         }
 
-        if (process.status !== asked.was) {
+        if (process.state !== asked.was) {
           pending.delete(process.id)
 
           return process
         }
 
-        return { ...process, status: asked.status }
+        return { ...process, state: asked.status }
       })
 
       for (const id of pending.keys()) {
@@ -157,13 +157,13 @@ export async function dismissProcess(process: ProjectProcess): Promise<void> {
 
 async function act(
   process: ProjectProcess,
-  status: ProjectProcess["status"],
+  status: ProjectProcess["state"],
   method: "processes.stop" | "processes.restart",
   failure: string
 ): Promise<void> {
-  pending.set(process.id, { status, was: process.status })
+  pending.set(process.id, { status, was: process.state })
   processes.update((now) =>
-    now.map((candidate) => (candidate.id === process.id ? { ...candidate, status } : candidate))
+    now.map((candidate) => (candidate.id === process.id ? { ...candidate, state: status } : candidate))
   )
 
   try {

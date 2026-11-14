@@ -26,21 +26,21 @@ const project = { projectId: "D:/projects/shop", project: "shop" } as const
 const storybook = {
   ...project,
   id: "storybook:shop",
-  kind: "tool",
+  owner: { kind: "parity", role: "tool" },
   lifetime: "server",
   name: "Storybook",
-  url: "http://localhost:6006"
+  endpoint: { url: "http://localhost:6006", port: 6006, protocol: "http" }
 } as const
 
 describe("servers", () => {
   it("follows a server Parity started until it's dismissed", async () => {
-    const tracking = processes.trackProcess({ ...storybook, status: "starting" }, { stop: () => undefined })
-    expect((await processes.listProcesses())[0]).toMatchObject({ status: "starting", canStop: true, canRestart: false })
+    const tracking = processes.trackProcess({ ...storybook, state: "starting" }, { stop: () => undefined })
+    expect((await processes.listProcesses())[0]).toMatchObject({ state: "starting", canStop: true, canRestart: false })
     tracking.set("running")
     tracking.set("failed", { error: "Stopped by itself, with exit code 1" })
 
     const [listed] = await processes.listProcesses()
-    expect(listed).toMatchObject({ status: "failed", canStop: false, error: "Stopped by itself, with exit code 1" })
+    expect(listed).toMatchObject({ state: "failed", canStop: false, error: "Stopped by itself, with exit code 1" })
     expect(listed!.stoppedAt).toBeGreaterThanOrEqual(listed!.startedAt)
 
     await processes.dismissProcess({ id: "storybook:shop" })
@@ -56,16 +56,16 @@ describe("servers", () => {
       ])
     )
     await writeFile(join(state, "proxy.port"), "1355")
-    processes.trackProcess({ ...storybook, status: "running" })
+    processes.trackProcess({ ...storybook, state: "running" })
 
-    expect((await processes.listProcesses()).map((entry) => [entry.name, entry.domain])).toEqual([
+    expect((await processes.listProcesses()).map((entry) => [entry.name, entry.opens])).toEqual([
       ["Storybook", "http://storybook.shop.localhost:1355"]
     ])
   })
 
   it("leaves a server unnamed without Portless", async () => {
-    processes.trackProcess({ ...storybook, status: "running" })
-    expect((await processes.listProcesses())[0]?.domain).toBeUndefined()
+    processes.trackProcess({ ...storybook, state: "running" })
+    expect((await processes.listProcesses())[0]?.addresses).toEqual([])
   })
 })
 
@@ -73,10 +73,10 @@ describe("tasks", () => {
   const typecheck = {
     ...project,
     id: "typecheck:shop",
-    kind: "typecheck",
+    owner: { kind: "parity", role: "typecheck" },
     lifetime: "task",
     name: "Type check",
-    status: "running"
+    state: "running"
   } as const
 
   it("shows what a running task is doing, then only what it found", async () => {
@@ -89,7 +89,7 @@ describe("tasks", () => {
 
     tracking.set("passed", { summary: "Read 12 files, no changes" })
     const [listed] = await processes.listProcesses()
-    expect(listed).toMatchObject({ status: "passed", summary: "Read 12 files, no changes", canStop: false })
+    expect(listed).toMatchObject({ state: "passed", summary: "Read 12 files, no changes", canStop: false })
     expect(listed!.detail).toBeUndefined()
     expect(listed!.progress).toBeUndefined()
   })
@@ -101,19 +101,27 @@ describe("tasks", () => {
     expect(canceled).toBe(true)
     expect(tracking.stopping).toBe(true)
     tracking.set("canceled")
-    expect((await processes.listProcesses())[0]?.status).toBe("canceled")
+    expect((await processes.listProcesses())[0]?.state).toBe("canceled")
 
     processes.trackProcess({ ...typecheck, detail: "Reading 12 component files" })
     const [again] = await processes.listProcesses()
-    expect(again).toMatchObject({ status: "running", detail: "Reading 12 component files" })
+    expect(again).toMatchObject({ state: "running", detail: "Reading 12 component files" })
     expect(again!.stoppedAt).toBeUndefined()
   })
 
   it("keeps each task's last result until it runs again or is dismissed, however long ago it finished", async () => {
     const first = processes.trackProcess(typecheck)
     first.set("failed", { summary: "Couldn't read the components" })
-    const lint = processes.trackProcess({ ...typecheck, id: "lint:shop", kind: "lint", name: "Lint" })
+
+    const lint = processes.trackProcess({
+      ...typecheck,
+      id: "lint:shop",
+      owner: { kind: "parity", role: "lint" },
+      name: "Lint"
+    })
+
     lint.set("passed", { summary: "No problems" })
+
     expect((await processes.listProcesses()).map((entry) => entry.summary)).toEqual([
       "Couldn't read the components",
       "No problems"

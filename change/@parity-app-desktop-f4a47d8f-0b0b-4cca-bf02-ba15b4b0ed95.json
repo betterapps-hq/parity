@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Processes have one start per id, ready checks, tasks, restarts after a crash and checks on adopted servers, and send processes.* events in place of server.*",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

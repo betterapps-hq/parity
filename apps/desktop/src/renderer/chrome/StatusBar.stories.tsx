@@ -68,7 +68,7 @@ export const Everything: Story = {
       const base = {
         projectId: roots.example,
         project: "shadcn-vite",
-        startedBy: "parity",
+        run: 1,
         canStop: true,
         canRestart: true
       } as const
@@ -77,20 +77,22 @@ export const Everything: Story = {
         {
           ...base,
           id: `storybook:${roots.example}`,
-          kind: "tool",
+          owner: { kind: "parity", role: "tool" },
+          addresses: [],
           lifetime: "server",
           name: "Storybook",
-          status: "starting",
+          state: "starting",
           startedAt: Date.now() - 9000,
-          url: "http://localhost:6006"
+          endpoint: { url: "http://localhost:6006", port: 6006, protocol: "http" }
         },
         {
           ...base,
           id: `e2e:${roots.example}`,
-          kind: "e2e",
+          owner: { kind: "parity", role: "e2e" },
+          addresses: [],
           lifetime: "task",
           name: "Playwright",
-          status: "canceled",
+          state: "canceled",
           startedAt: Date.now() - 300_000,
           stoppedAt: Date.now() - 240_000,
           summary: "Canceled after 18 of 42 tests"

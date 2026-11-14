@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import type { ProcessStatus, ProjectProcess, ServerKind, TaskKind } from "../../shared/protocol.ts"
+import type { ProcessRole, ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { KindTile, Light } from "./Processes.tsx"
 
 /**
@@ -16,13 +16,13 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** Each kind by name. Typed by the kinds the service reports, so a new kind can't be left out. */
-const servers: Record<ServerKind, string> = {
+/** Each kind by name. Between them they cover every role the service reports, so a new one can't be left out. */
+const servers: Record<Extract<ProcessRole, "builder" | "tool">, string> = {
   builder: "Build server",
   tool: "Storybook"
 }
 
-const tasks: Record<TaskKind, string> = {
+const tasks: Record<Exclude<ProcessRole, "builder" | "tool">, string> = {
   install: "Install",
   typecheck: "Type check",
   test: "Unit tests",
@@ -51,33 +51,30 @@ const taskStatuses: { status: ProcessStatus; label: string }[] = [
   { status: "canceled", label: "Canceled" }
 ]
 
-function example(
-  kind: ProjectProcess["kind"],
-  lifetime: ProjectProcess["lifetime"],
-  status: ProcessStatus
-): ProjectProcess {
+function example(kind: ProcessRole, lifetime: ProjectProcess["lifetime"], status: ProcessStatus): ProjectProcess {
   return {
     id: `${kind}:${status}`,
-    kind,
+    owner: { kind: "parity", role: kind },
     lifetime,
     name: kind,
     projectId: "example",
     project: "example",
-    status,
+    state: status,
+    run: 1,
+    addresses: [],
     startedAt: Date.now(),
-    startedBy: "parity",
     canStop: false,
     canRestart: false
   }
 }
 
 /** A kind and its name, as a section lists it. */
-type NamedKind = [kind: ProjectProcess["kind"], name: string]
+type NamedKind = [kind: ProcessRole, name: string]
 
 /** A section's kinds with their names, in the order it lists them. */
-function named(kinds: Partial<Record<ProjectProcess["kind"], string>>): NamedKind[] {
+function named(kinds: Partial<Record<ProcessRole, string>>): NamedKind[] {
   // Every key came from `kinds`, whose keys are all process kinds.
-  const listed = (kind: string): kind is ProjectProcess["kind"] => kind in kinds
+  const listed = (kind: string): kind is ProcessRole => kind in kinds
 
   return Object.entries(kinds).flatMap(([kind, name]): NamedKind[] =>
     listed(kind) && name !== undefined ? [[kind, name]] : []
@@ -92,7 +89,7 @@ function Section({
 }: {
   title: string
   lifetime: ProjectProcess["lifetime"]
-  kinds: Partial<Record<ProjectProcess["kind"], string>>
+  kinds: Partial<Record<ProcessRole, string>>
   statuses: { status: ProcessStatus; label: string }[]
 }) {
   return (
