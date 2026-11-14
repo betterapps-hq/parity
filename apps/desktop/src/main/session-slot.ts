@@ -67,8 +67,15 @@ function whileClaiming(locks: string, work: () => SessionSlot, waitMs: number, s
         return shared
       }
 
+      const made = statSync(claim, { throwIfNoEntry: false })?.mtimeMs
+
+      // The other copy let go between the two calls, so try again.
+      if (made === undefined) {
+        continue
+      }
+
       // A claim this old was left by a copy that crashed while starting.
-      if (Date.now() - statSync(claim, { throwIfNoEntry: false })!.mtimeMs > staleMs) {
+      if (Date.now() - made > staleMs) {
         rmSync(claim, { recursive: true, force: true })
         continue
       }

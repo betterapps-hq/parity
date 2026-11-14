@@ -1,8 +1,31 @@
+import type * as Fs from "node:fs"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { claimSessionSlot, slotCount } from "./session-slot.ts"
+
+/** Runs once before the next look at a folder's age, as another copy would between this copy's two calls. */
+interface Between {
+  run?: () => void
+}
+
+const between = vi.hoisted((): Between => ({}))
+
+vi.mock("node:fs", async (importOriginal) => {
+  const fs = await importOriginal<typeof Fs>()
+
+  return {
+    ...fs,
+    statSync: (path: string, options?: Fs.StatSyncOptions) => {
+      const run = between.run
+      between.run = undefined
+      run?.()
+
+      return fs.statSync(path, options)
+    }
+  }
+})
 
 let folder: string
 
@@ -60,6 +83,15 @@ describe("a copy's session folder", () => {
     expect(claimSessionSlot(data, { pid: 10, alive: runningOnly(), waitMs: 50 }).partition).toBe(
       `persist:copy-${slotCount}`
     )
+  })
+
+  it("tries again when another copy's claim ends just as it looks (PAR-1116)", () => {
+    const data = dataFolder()
+    const claim = join(data, "session-locks", "claiming")
+    mkdirSync(claim)
+    between.run = () => rmSync(claim, { recursive: true })
+
+    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly() }).partition).toBe("persist:copy-1")
   })
 
   it("takes over a claim a copy left as it crashed", () => {
