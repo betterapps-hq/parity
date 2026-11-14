@@ -151,9 +151,14 @@ void installedBuild.get()
 
 const rendererUrl = environment.PARITY_RENDERER_URL
 
-// A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files.
+// A standard, secure origin keeps storage and project CORS working when the UI comes from the installed files. Chromium
+// keeps compiled code only for http(s) unless a scheme asks, so without `codeCache` the window's few megabytes of
+// JavaScript were compiled again on every launch, in a long task before its first paint (PAR-1082).
 protocol.registerSchemesAsPrivileged([
-  { scheme: "parity", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+  {
+    scheme: "parity",
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, codeCache: true }
+  },
   // Component previews, which the window shows as plain images straight from the store (PAR-207).
   { scheme: "parity-preview", privileges: { standard: true, secure: true } }
 ])

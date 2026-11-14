@@ -6493,6 +6493,11 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
   A waiting process that ended is replaced by a new one. `packages/processes/src/spare.test.ts` (3: the waiting child is
   handed over and the next starts only when asked, and one that ended is replaced when taken or prepared).
+- **The window's compiled code is kept between launches (PAR-1082).** The installed window loads from `parity://`, and
+  Chromium keeps compiled code only for http(s) unless a scheme asks for it. So the window compiled its few megabytes of
+  JavaScript again every launch, in a long task before it first painted. With the scheme's `codeCache` privilege, the
+  window painted about 0.2 seconds sooner after it was created, and the long task was mostly gone. A development build
+  loads over http, so `pnpm perf` doesn't show this. No test: it's one privilege, measured in the built app.
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's

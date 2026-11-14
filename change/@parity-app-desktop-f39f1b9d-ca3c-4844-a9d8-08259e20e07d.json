@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep the window's compiled code between launches, so it paints sooner",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
