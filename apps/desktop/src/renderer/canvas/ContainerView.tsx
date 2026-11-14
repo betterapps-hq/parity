@@ -16,16 +16,19 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardRoot,
-  besideScale,
-  besideScales,
   changeCount,
   type ComponentLibrary,
   type ContainerKind,
   designStates,
   fitsContent,
   type FrameGeometry,
-  frameGeometry,
+  type ModeVariable,
   type ParamSpec,
+  previewGeometry,
+  previewKey,
+  previewOptionsMode,
+  previewScale,
+  previewSettingsOf,
   resolveDesign,
   type ResolvedMode,
   type StateSpec,
@@ -67,13 +70,18 @@ import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../c
 import { Hint } from "../chrome/Hint.tsx"
 import { shortcutOf } from "../chrome/keymap.ts"
 import { Name, NameInput } from "../chrome/Name.tsx"
-import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import { useLibrary, useModeSettings } from "../design-store.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
-import { useDesignSelection, useInteracting, useInteractions, useRenameRequest } from "../selection.ts"
+import {
+  useDesignSelection,
+  useInteracting,
+  useInteractions,
+  usePreviewSelection,
+  useRenameRequest
+} from "../selection.ts"
 import { useStore } from "../store.ts"
 import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { useBoardInternals } from "./board-internals.ts"
@@ -91,6 +99,8 @@ import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
+import { PreviewHeader, type PreviewTarget } from "./preview-parts.tsx"
+import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
 import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
@@ -171,7 +181,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
         primary
         scale={1}
         caption={false}
-        tabbable={isSelected}
+        variables={settings.variables}
         selected={false}
         place="firstFrame"
         loaded={loaded}
@@ -353,7 +363,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   // Whether its frames changed since they were first looked at, marked on the board for tools to read (PAR-997).
   const change = useDesignChange(project, entry.key)
   const settings = useModeSettings(store)
-  const { selected: isSelected, mode: selectedMode } = useDesignSelection(selection, entry.key)
+  const { selected: isSelected } = useDesignSelection(selection, entry.key)
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
   // Kept while the modes and the design are, so frames that show nothing new aren't drawn again.
@@ -362,7 +372,53 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const allStates = container.view?.allStates ?? false
   const states = designStates(container)
   const rows = allStates ? states : [active]
-  const columns = [primary, ...companions]
+  const columns = useMemo(() => [primary, ...companions], [primary, companions])
+  const { variables } = settings
+
+  // The selected previews, by `state/mode`, the last picked holding their settings. A mode picked without a state, as
+  // the Modes list picks one, is its column in every row shown.
+  const picked = usePreviewSelection(selection, entry.key).flatMap((each) =>
+    each.startsWith("/") ? rows.map((state) => `${state.id}${each}`) : [each]
+  )
+
+  const holder = picked.at(-1)
+  // A page tries widths from a phone's up; a story or a component is as narrow as it likes.
+  const page = routePagePath(project, container.id) !== undefined
+  const narrowest = page ? 320 : 80
+  // A page lands on the app's breakpoints as it's resized; a story or a component keeps whatever width it's given.
+  const breakpoints = useBreakpoints()
+  // The preview being resized, which keeps its handle while it is.
+  const [resizing, setResizing] = useState<string>()
+  // The previews whose headers don't fit what follows their names beside them, so their rows make room for a line.
+  const [stacks, setStacks] = useState<ReadonlySet<string>>(() => new Set())
+
+  const onStack = useCallback(
+    (preview: string, stacked: boolean) =>
+      setStacks((now) => {
+        if (now.has(preview) === stacked) {
+          return now
+        }
+
+        const next = new Set(now)
+
+        if (stacked) {
+          next.add(preview)
+        } else {
+          next.delete(preview)
+        }
+
+        return next
+      }),
+    []
+  )
+
+  // The previews selected, as their settings work from them: the first mode's draw at full size.
+  const targets: PreviewTarget[] = picked.flatMap((each) => {
+    const mode = columns.find((column) => each.endsWith(`/${column.id}`))
+
+    return mode ? [{ key: each, mode, first: mode.id === primary.id }] : []
+  })
+
   const color = designColor(container.kind, entry.key)
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
@@ -420,11 +476,12 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   return (
     <div
       ref={board}
-      className="container-view relative w-max bg-card font-sans text-card-foreground shadow-2xl"
+      className="container-view relative w-max font-sans text-card-foreground"
       data-design={key}
       data-changed={change.state === "changed" ? "" : undefined}
     >
-      <BoardEdge />
+      {/* No card of its own: its edge shows while it's hovered or selected, as a frame's does. */}
+      {(hovered || isSelected) && <BoardEdge color={isSelected && picked.length === 0 ? color : undefined} />}
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -440,6 +497,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             key={state.id}
             state={state.id}
             first={index === 0}
+            tall={columns.some((mode) => stacks.has(previewKey(state.id, mode.id)))}
             label={
               rows.length > 1 && (
                 <StateLabel
@@ -452,23 +510,64 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
               )
             }
           >
-            {columns.map((mode, column) => (
-              <FrameTile
-                key={mode.id}
-                entry={entry}
-                state={state}
-                mode={mode}
-                primary={column === 0}
-                scale={column === 0 ? 1 : besideScale(container, mode)}
-                caption={index === 0}
-                tabbable={isSelected}
-                selected={selectedMode === mode.id}
-                place={framePlace(column)}
-                loaded={loaded}
-                library={library}
-                rest={rest}
-              />
-            ))}
+            {columns.map((mode, column) => {
+              const preview = previewKey(state.id, mode.id)
+              const own = previewSettingsOf(container, state.id, mode.id)
+              const scale = previewScale(container, mode, column === 0, own)
+              const self = { key: preview, mode, first: column === 0 }
+
+              return (
+                <FrameTile
+                  key={mode.id}
+                  entry={entry}
+                  state={state}
+                  mode={mode}
+                  primary={column === 0}
+                  scale={scale}
+                  caption={index === 0}
+                  header={
+                    <PreviewHeader
+                      design={container}
+                      designKey={key}
+                      state={state}
+                      mode={mode}
+                      first={column === 0}
+                      targets={holder === preview ? targets : undefined}
+                      selected={picked.includes(preview)}
+                      named={rows.length > 1}
+                      tabbable={isSelected}
+                      variables={variables}
+                      narrowest={narrowest}
+                      stacked={stacks.has(preview)}
+                      onStack={onStack}
+                    />
+                  }
+                  resize={
+                    (hovered || isSelected || resizing === preview) && (
+                      <PreviewResize
+                        design={container}
+                        designKey={key}
+                        self={self}
+                        changing={picked.includes(preview) ? targets : [self]}
+                        width={previewGeometry(container, mode, own).width}
+                        scale={scale}
+                        narrowest={narrowest}
+                        breakpoints={page ? breakpoints : undefined}
+                        tabbable={isSelected}
+                        resizing={resizing === preview}
+                        onResizing={(now) => setResizing(now ? preview : undefined)}
+                      />
+                    )
+                  }
+                  variables={variables}
+                  selected={picked.includes(preview)}
+                  place={framePlace(column)}
+                  loaded={loaded}
+                  library={library}
+                  rest={rest}
+                />
+              )
+            })}
           </StateRow>
         ))}
       </div>
@@ -477,7 +576,16 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   )
 }
 
-/** Where a frame is in its row, by its column: the main frame, then the first companion, after the dashed line. */
+/** A row's gutter: the first or a later one, a header line taller where its headers need it. */
+function rowPart(first: boolean, tall: boolean): BoardPart {
+  if (first) {
+    return tall ? "firstTallRow" : "firstRow"
+  }
+
+  return tall ? "nextTallRow" : "nextRow"
+}
+
+/** Where a frame is in its row, by its column: the main frame, then the first companion, a little further off. */
 function framePlace(column: number): FrameTileProps["place"] {
   if (column === 0) {
     return "firstFrame"
@@ -486,8 +594,11 @@ function framePlace(column: number): FrameTileProps["place"] {
   return column === 1 ? "dividedFrame" : "nextFrame"
 }
 
-/** The board's edge, a screen pixel wide at any zoom. It's drawn over the board rather than as its border, which would take room. */
-function BoardEdge() {
+/**
+ * The board's edge, a screen pixel wide at any zoom, in its design's color while it's selected on its own. It's drawn
+ * over the board rather than as its border, which would take room.
+ */
+function BoardEdge({ color }: { color?: string | undefined }) {
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(ref, "edge")
 
@@ -496,50 +607,36 @@ function BoardEdge() {
       ref={ref}
       aria-hidden
       className="pointer-events-none absolute top-0 left-0 origin-top-left border border-solid"
-    />
-  )
-}
-
-/** A dashed line on the board, which takes no room: the space around it leaves room for it. */
-function DashedLine({ part }: { part: "rowLine" | "frameLine" }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  useGutterStyle(ref, part)
-
-  return (
-    <span
-      ref={ref}
-      aria-hidden
-      className={`pointer-events-none absolute top-0 left-0 block origin-top-left border-dashed ${
-        part === "rowLine" ? "border-t" : "border-l"
-      }`}
+      style={color ? { borderColor: color } : undefined}
     />
   )
 }
 
 /**
- * One state's row of the board's frames. The first sits below the band its frames' captions are in; a later one below a
- * dashed line. Either way the row's own height is its frames', which its state's label is measured by (see
- * `useLabelSpace`).
+ * One state's row of the board's frames, each below the band its header is in, a later row below the gap between rows.
+ * A row whose headers don't all fit beside their names is a header line taller, for the line under them (`tall`).
+ * Either way the row's own height is its frames', which its state's label is measured by (see `useLabelSpace`).
  */
 function StateRow({
   state,
   first,
+  tall,
   label,
   children
 }: {
   state: string
   first: boolean
+  tall: boolean
   label: ReactNode
   children: ReactNode
 }) {
   const row = useRef<HTMLElement>(null)
   const frames = useRef<HTMLDivElement>(null)
-  useGutterStyle(row, first ? "firstRow" : "nextRow")
-  useGutterStyle(frames, first ? "firstRowFrames" : "nextRowFrames")
+  useGutterStyle(row, rowPart(first, tall))
+  useGutterStyle(frames, "rowFrames")
 
   return (
     <section ref={row} className="state-row relative" data-state={state}>
-      {!first && <DashedLine part="rowLine" />}
       {label}
       <div ref={frames} className="flex items-start">
         {children}
@@ -982,79 +1079,11 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
 }
 
 /**
- * Names a frame's mode above it, centred in the band of the board's gutter above the first row. It's detail (see
- * `labelLook`): at screen size up close, as wide on screen as the frame, and fading out when zoomed far out, or once the
- * frame is too narrow on screen. The band shrinks with it past 40%.
+ * The band above a preview that its header sits in (see `PreviewHeader`). The header is detail (see `labelLook`): at
+ * screen size up close, as wide on screen as the preview, and fading out when zoomed far out, or once the preview is
+ * too narrow on screen. It sits at the band's foot, so a header with a line under its name grows up into the room its
+ * row makes for it. The band shrinks with it past 40%.
  */
-/**
- * How large a frame beside the main one is drawn, as a menu on its caption: one of `besideScales`, or Fit, which shrinks
- * it to fit beside the main frame. It's how the canvas shows the design, so it isn't undone.
- */
-function ScaleMenu({
-  entry,
-  mode,
-  scale,
-  tabbable
-}: {
-  entry: ContainerEntry
-  mode: ResolvedMode
-  scale: number
-  tabbable: boolean
-}) {
-  const { store } = useProject()
-  const set = entry.container.view?.scales?.[mode.id]
-  const fit = "fit"
-
-  // Undefined fits it beside the main frame.
-  const choose = (chosen: number | undefined) =>
-    store.updateView(
-      entry.key,
-      `Show ${mode.name} ${chosen === undefined ? "fitted" : `at ${chosen * 100}%`}`,
-      (view) => {
-        const scales = { ...view.scales }
-
-        if (chosen === undefined) {
-          delete scales[mode.id]
-        } else {
-          scales[mode.id] = chosen
-        }
-
-        return { ...view, scales }
-      }
-    )
-
-  // Its menu's clicks reach the canvas through the caption too, which would take them, so they stop here.
-  return (
-    <span className="contents" data-canvas-control onPointerDown={stopEventPropagation}>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          tabIndex={tabbable ? 0 : -1}
-          aria-label={`${mode.name} size: ${Math.round(scale * 100)}%`}
-          className="pointer-events-auto flex shrink-0 items-center gap-0.5 rounded bg-muted px-1.5 text-xs text-muted-foreground tabular-nums hover:text-foreground"
-        >
-          {Math.round(scale * 100)}%
-          <ChevronDown className="size-3 opacity-60" aria-hidden />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-32">
-          <DropdownMenuRadioGroup
-            value={set === undefined ? fit : String(set)}
-            onValueChange={(value: string) => choose(value === fit ? undefined : Number(value))}
-          >
-            <DropdownMenuRadioItem value={fit} closeOnClick>
-              Fit
-            </DropdownMenuRadioItem>
-            {besideScales.map((each) => (
-              <DropdownMenuRadioItem key={each} value={String(each)} closeOnClick>
-                {each * 100}%
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </span>
-  )
-}
-
 function FrameCaption({ width, children }: { width: number; children: ReactNode }) {
   const band = useRef<HTMLElement>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -1064,7 +1093,7 @@ function FrameCaption({ width, children }: { width: number; children: ReactNode 
   return (
     <figcaption ref={band} className="relative">
       {/* Out of the flow, so a long caption doesn't widen a narrow frame's board. */}
-      <div ref={ref} className="absolute top-1/2 left-0 -mt-3 flex h-6 origin-left items-center gap-2 text-sm">
+      <div ref={ref} className="absolute bottom-1 left-0 flex origin-bottom-left items-end text-sm">
         {children}
       </div>
     </figcaption>
@@ -1078,12 +1107,16 @@ interface FrameTileProps {
   /** The board's main frame. */
   primary: boolean
   scale: number
-  /** Column headers show on the first row only; the columns line up below it. */
+  /** In the first row, whose frames are what the project's picture shows. */
   caption: boolean
-  /** The caption is in the tab order, as it is while its design is selected (see TitleButton). */
-  tabbable: boolean
+  /** Its header, in the band above it (see `PreviewHeader`). A frame on its own has none. */
+  header?: ReactNode
+  /** The handle in the gutter after it, which resizes it (see `PreviewResize`). */
+  resize?: ReactNode
+  /** The project's mode variables, which a preview's own options are of. */
+  variables: readonly ModeVariable[]
   selected: boolean
-  /** Where it is in its row: the main frame, the first companion after the dashed line, or a later one. */
+  /** Where it is in its row: the main frame, the first companion, or a later one. */
   place: Extract<BoardPart, "firstFrame" | "dividedFrame" | "nextFrame">
   loaded: ReturnType<typeof useProject>["loaded"]
   library: ComponentLibrary
@@ -1101,7 +1134,9 @@ const FrameTile = memo(function FrameTile({
   primary,
   scale,
   caption,
-  tabbable,
+  header,
+  resize,
+  variables,
   selected,
   place,
   loaded,
@@ -1110,11 +1145,14 @@ const FrameTile = memo(function FrameTile({
 }: FrameTileProps) {
   const session = useProject()
   const { selection } = session
+  const { container } = entry
+  // What the preview sets over its mode: its own width and options, which it's drawn with (PAR-1071).
+  const own = previewSettingsOf(container, state.id, mode.id)
+  const drawn = useMemo(() => previewOptionsMode(mode, variables, own), [mode, variables, own])
   // Its size and the window it stands for, which its bitmap and the live frame both draw at.
-  const frame = frameGeometry(entry.container, mode)
+  const frame = previewGeometry(container, drawn, own)
   const interactions = useInteractions(selection)
   const interactive = useInteracting(selection)
-  const { container } = entry
 
   const tree = useMemo(
     () =>
@@ -1129,7 +1167,7 @@ const FrameTile = memo(function FrameTile({
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
-  const shows = useFrameShows(session, tree, mode, frame, scale, { key: entry.key, state: state.id })
+  const shows = useFrameShows(session, tree, drawn, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
   // Whether the frame changed since it was first looked at, which its board adds up (PAR-997).
   useFrameChange({ project: session.id, design: entry.key, state: state.id, mode: mode.id }, shows.job, key)
@@ -1219,7 +1257,6 @@ const FrameTile = memo(function FrameTile({
   }, [waiting])
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
-  const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   // A page of the app draws the app itself at its URL, rather than a design (PAR-1076).
   const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
   const tileStyle: CSSProperties = {}
@@ -1236,28 +1273,7 @@ const FrameTile = memo(function FrameTile({
 
   return (
     <figure ref={figure} className="mode-tile relative m-0" data-mode={mode.id} data-primary={primary}>
-      {place === "dividedFrame" && <DashedLine part="frameLine" />}
-      {caption && (
-        <FrameCaption width={frame.width * scale}>
-          <button
-            type="button"
-            tabIndex={tabbable ? 0 : -1}
-            data-canvas-control
-            onPointerDown={stopEventPropagation}
-            onClick={onSelect}
-            className="pointer-events-auto flex min-w-0 items-center gap-1.5 font-medium hover:underline"
-            style={selected ? { color: kindColors.mode } : undefined}
-          >
-            <ModeViewportIcon of={mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
-            <Name>{mode.name}</Name>
-          </button>
-          <span className="shrink-0 rounded bg-muted px-1.5 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            {frame.width}
-            {frame.height !== undefined && ` × ${frame.height}`}
-          </span>
-          {!primary && <ScaleMenu entry={entry} mode={mode} scale={scale} tabbable={tabbable} />}
-        </FrameCaption>
-      )}
+      {header && <FrameCaption width={frame.width * scale}>{header}</FrameCaption>}
       <div
         ref={tile}
         className="relative transition-shadow"
@@ -1268,13 +1284,13 @@ const FrameTile = memo(function FrameTile({
         data-asleep={awake && !waiting ? undefined : ""}
       >
         {page ? (
-          <PageFrame url={page} design={entry.key} frame={frame} mode={mode} scale={scale} interactive={interactive} />
+          <PageFrame url={page} design={entry.key} frame={frame} mode={drawn} scale={scale} interactive={interactive} />
         ) : (
           <ModeView
             project={session.id}
             loaded={loaded}
             tree={tree}
-            mode={mode}
+            mode={drawn}
             frame={frame}
             scale={scale}
             design={entry.key}
@@ -1290,6 +1306,7 @@ const FrameTile = memo(function FrameTile({
         {!page && skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
         {!page && placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
         {!page && showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
+        {resize}
       </div>
     </figure>
   )

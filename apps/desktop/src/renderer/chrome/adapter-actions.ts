@@ -3,6 +3,7 @@ import type { MenuPlacement } from "@parity-app/extension-api"
 import type { ExtensionStatus, ProjectInfo } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
+import { routePageTarget } from "../canvas/route-pages.ts"
 import { commandsAt, type PlacedCommand, runCommand } from "../extensions.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
@@ -117,6 +118,21 @@ export function selectionComponent(
     : locateNode(entry.container.root, selected.node)?.node
 
   return node && layerComponent(node, session.info.libraries)
+}
+
+/**
+ * The app's page the selection is of, whose adapters' actions it offers, as Open in browser: one page, or a layer in it.
+ * Undefined for anything else, or for several things.
+ */
+export function selectionPage(session: Pick<ProjectSession, "id" | "selection" | "store">): ActionPage | undefined {
+  const selected = session.selection.get()
+  const entry = selected.design ? session.store.getEntry(selected.design) : undefined
+
+  if (!entry || (selected.nodes && selected.nodes.length > 1) || (selected.designs && selected.designs.length > 1)) {
+    return undefined
+  }
+
+  return routePageTarget(session.id, entry.container)
 }
 
 /**

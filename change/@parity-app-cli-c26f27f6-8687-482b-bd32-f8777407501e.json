@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Pages, component boards and stories keep their modes, scales, route params and tried sizes when the project reopens, and Open in browser shows on the canvas and in Search actions",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

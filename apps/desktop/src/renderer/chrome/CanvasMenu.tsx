@@ -26,7 +26,7 @@ import { allFrames } from "../frame.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentOffers, selectionComponent } from "./adapter-actions.ts"
+import { componentOffers, pageOffers, selectionComponent, selectionPage } from "./adapter-actions.ts"
 import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
@@ -216,10 +216,15 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
   const entries = useContainerEntries(session.store)
   // Select all and Zoom to fit have something to act on once the canvas holds a note.
   useNotes(session.store)
-  // Over a code component's layer or board, what the project's adapters offer for it ends the menu, as in Layers.
+  // Over a code component's layer or board, or over a page, what the project's adapters offer for it ends the menu, as
+  // in Layers.
   const component = opened.target && selectionComponent(session)
   const { extensions } = useExtensions(session)
-  const offers = componentOffers(session.info, component, { session, extensions, placement: "canvas" })
+  const page = opened.target ? selectionPage(session) : undefined
+
+  const offers = page
+    ? pageOffers(session.info, page.route)
+    : componentOffers(session.info, component, { session, extensions, placement: "canvas" })
 
   const items = canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(
     (entry, index) => {
@@ -262,7 +267,7 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
   return (
     <>
       {items}
-      <AdapterMenuItems offers={offers} projectId={session.id} component={component} />
+      <AdapterMenuItems offers={offers} projectId={session.id} component={component} page={page} />
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { boardLayoutAt, gutterScale } from "@parity-app/core"
+import { boardLayoutAt } from "@parity-app/core"
 import type { RefObject } from "react"
 import { useZoomStyle } from "./zoom-style.ts"
 
@@ -6,18 +6,6 @@ import { useZoomStyle } from "./zoom-style.ts"
 export type GutterStyle = Record<string, string>
 
 const px = (length: number) => `${length}px`
-
-/**
- * A dashed line on a board, drawn a screen pixel wide up close and thinner past 40%, as its gutter is (`gutterScale`).
- * It's laid out that many times longer than what it spans and scaled down to fit, from its top left: a border is
- * rounded up to a whole device pixel before the canvas's zoom, so one drawn at a fraction of a canvas pixel thickened
- * zoomed in.
- */
-function line(zoom: number, along: "width" | "height") {
-  const scale = gutterScale(zoom)
-
-  return { [along]: `${100 / scale}%`, transform: `scale(${scale})` }
-}
 
 /**
  * How each part of a board follows the zoom, from its gutter at that zoom (`boardLayoutAt`). The canvas applies these to
@@ -38,28 +26,30 @@ export const boardParts = {
     transform: `scale(${1 / zoom})`,
     borderRadius: px(boardLayoutAt(zoom).radius * zoom)
   }),
-  /** The first row of frames, below the band their captions sit in. */
+  /** The first row of frames, below the band their headers sit in. */
   firstRow: (zoom: number) => ({ marginTop: "", paddingTop: px(boardLayoutAt(zoom).caption) }),
-  /** A later row of states, below a dashed line. */
+  /** The first row, a header line taller for headers with a line under their names. */
+  firstTallRow: (zoom: number) => ({ marginTop: "", paddingTop: px(2 * boardLayoutAt(zoom).caption) }),
+  /** A later row of states, below the gap between rows, whose last part is the band its headers sit in. */
   nextRow: (zoom: number) => {
     const { before, line, after } = boardLayoutAt(zoom).rowDivider
 
     return { marginTop: px(before), paddingTop: px(line + after) }
   },
+  /** A later row, a header line taller for headers with a line under their names. */
+  nextTallRow: (zoom: number) => {
+    const { caption, rowDivider } = boardLayoutAt(zoom)
+    const { before, line, after } = rowDivider
+
+    return { marginTop: px(before), paddingTop: px(line + after + caption) }
+  },
   /**
-   * The first row's frames, raised into the band above them with their captions, so the row is as tall as its frames
-   * alone and the dashed line before the companions runs past the captions too.
+   * A row's frames, raised into the band above them with their headers, so the row is as tall as its frames alone.
    */
-  firstRowFrames: (zoom: number) => ({ marginTop: px(-boardLayoutAt(zoom).caption) }),
-  /** A later row's frames, which have no captions. */
-  nextRowFrames: () => ({ marginTop: "" }),
-  /** The dashed line above a later row of states. */
-  rowLine: (zoom: number) => line(zoom, "width"),
-  /** The dashed line before the first companion frame. */
-  frameLine: (zoom: number) => line(zoom, "height"),
+  rowFrames: (zoom: number) => ({ marginTop: px(-boardLayoutAt(zoom).caption) }),
   /** The main frame, at the board's side. */
   firstFrame: () => ({ marginLeft: "", paddingLeft: "" }),
-  /** The first companion frame, after the dashed line. */
+  /** The first companion frame, a little further off than the rest. */
   dividedFrame: (zoom: number) => {
     const { before, line, after } = boardLayoutAt(zoom).divider
 
@@ -67,7 +57,12 @@ export const boardParts = {
   },
   /** A later companion frame. */
   nextFrame: (zoom: number) => ({ marginLeft: px(boardLayoutAt(zoom).between), paddingLeft: "" }),
-  /** The band a frame's caption sits in, above the frame. */
+  /**
+   * The handle that resizes a preview, in the gap after it: as wide as the board's side, so the last preview's stays
+   * inside the board and each one's grip sits close to the preview it resizes.
+   */
+  resizeHandle: (zoom: number) => ({ width: px(boardLayoutAt(zoom).side) }),
+  /** The band a preview's header sits in, above the preview. */
   caption: (zoom: number) => ({ height: px(boardLayoutAt(zoom).caption) }),
   /** The first row's state label, at the top of the caption band, just outside the board. */
   firstStateLabel: (zoom: number) => ({ top: "0px", marginRight: px(boardLayoutAt(zoom).side) }),

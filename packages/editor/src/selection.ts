@@ -19,6 +19,11 @@ export interface Selection {
   /** The mode column selected on its own, or the frame a node was picked in. */
   mode?: string
   state?: string
+  /**
+   * Every selected preview of the design, by `state/mode` (see `previewKey`), the one picked last at the end and in
+   * `mode` and `state`, when there's more than one and no layer is selected.
+   */
+  previews?: string[]
   /** A free text note on the canvas. */
   note?: string
   /** A screen from a real app, placed on the canvas to look at. */
@@ -35,7 +40,8 @@ export function sameSelection(a: Selection, b: Selection): boolean {
     a.note === b.note &&
     a.reference === b.reference &&
     sameList(a.nodes, b.nodes) &&
-    sameList(a.designs, b.designs)
+    sameList(a.designs, b.designs) &&
+    sameList(a.previews, b.previews)
   )
 }
 
@@ -53,6 +59,7 @@ export function selectionKey(selection: Selection): string {
     selection.design,
     selectedNodes(selection).toSorted(),
     (selection.designs ?? []).toSorted(),
+    (selection.previews ?? []).toSorted(),
     selection.mode,
     selection.state,
     selection.note,
@@ -118,6 +125,53 @@ export function toggleLayer(
   const next = list.includes(node) ? list.filter((id) => id !== node) : [...list, node]
 
   return layersSelection(design, next, { mode: current.mode ?? frame.mode, state: current.state ?? frame.state })
+}
+
+/** Every selected preview of the design, by `state/mode`, the one picked last at the end. */
+export function selectedPreviews(selection: Selection): string[] {
+  if (selection.node || !selection.mode) {
+    return []
+  }
+
+  return selection.previews ?? [`${selection.state ?? ""}/${selection.mode}`]
+}
+
+/**
+ * A selection of one design's previews, by `state/mode`: the last is the one picked, whose settings hold every one's.
+ * None selects the design on its own.
+ */
+export function previewsSelection(design: string, previews: string[]): Selection {
+  const unique = [...new Set(previews)]
+  const last = unique.at(-1)
+
+  if (last === undefined) {
+    return { design }
+  }
+
+  const at = last.indexOf("/")
+  const selection: Selection = { design, mode: last.slice(at + 1), state: last.slice(0, at) }
+
+  if (unique.length > 1) {
+    selection.previews = unique
+  }
+
+  return selection
+}
+
+/**
+ * Picking previews of a design, as a click on one or a state's name does: the previews picked alone, or with Shift
+ * added to those selected, or taken away when every one of them already is.
+ */
+export function pickPreviews(current: Selection, design: string, previews: string[], add: boolean): Selection {
+  if (!add || current.design !== design) {
+    return previewsSelection(design, previews)
+  }
+
+  const selected = selectedPreviews(current)
+  const rest = selected.filter((key) => !previews.includes(key))
+  const all = previews.every((key) => selected.includes(key))
+
+  return previewsSelection(design, all ? rest : [...rest, ...previews])
 }
 
 /** A selection of designs on the canvas. */
