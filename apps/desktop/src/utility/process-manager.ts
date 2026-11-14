@@ -175,21 +175,25 @@ const summaryWait = 5000
  * been tried; `ready()` says when it's ready. Refuses with a `ProcessError` before anything runs.
  */
 export async function startProcess(spec: ManagedSpec): Promise<ManagedProcess> {
-  const existing = entries.get(spec.id)
-
   try {
+    let existing = entries.get(spec.id)
+
+    // One being stopped goes first. Starts that waited for it look again, so the first starts and the rest share it.
+    while (existing && existing.live && existing.stopBy && !existing.restarting && !existing.adopted) {
+      await existing.end.promise
+      existing = entries.get(spec.id)
+    }
+
     if (existing && (existing.live || existing.starting)) {
       if (existing.adopted) {
         throw new ProcessError("process_adopted", `${spec.name} is a server this extension adopted`)
       }
 
-      if (existing.stopBy && !existing.restarting) {
-        await existing.end.promise
-      } else if (existing.spec?.fingerprint === spec.fingerprint) {
-        return await (existing.starting ?? Promise.resolve(existing.handle))
-      } else {
+      if (existing.spec?.fingerprint !== spec.fingerprint) {
         throw new ProcessError("process_spec_differs", `${spec.name} is already running with another spec`)
       }
+
+      return await (existing.starting ?? Promise.resolve(existing.handle))
     }
 
     const entry = newEntry(spec)

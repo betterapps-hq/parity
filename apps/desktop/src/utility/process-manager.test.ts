@@ -121,6 +121,19 @@ describe("starting a server", { timeout: 60_000 }, () => {
     expect(sink.named("processes.refused").map((event) => event.attributes.code)).toEqual(["process_spec_differs"])
   })
 
+  it("starts once for two starts that wait for the run being stopped", async () => {
+    const spec = await storybook()
+    const first = await startProcess(spec)
+    await first.ready()
+
+    const stopping = first.stop("extension")
+    const [one, two] = await Promise.all([startProcess(spec), startProcess(spec)])
+    await stopping
+
+    expect(one).toBe(two)
+    await expect(one.ready()).resolves.toMatchObject({ run: 1, state: "running" })
+  })
+
   it("stops everything it started for a project when the project closes", async () => {
     const server = await startProcess(await storybook())
     await server.ready()
