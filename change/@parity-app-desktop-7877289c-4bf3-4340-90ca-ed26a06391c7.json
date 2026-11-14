@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep a builder process loaded before a project opens, so a project's builder starts sooner",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

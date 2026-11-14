@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 06:02:52 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 08:53:51 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.2
+
+Sat, 14 Nov 2026 08:53:51 GMT
+
+### Patches
+
+- Keep a builder process loaded before a project opens, so a project's builder starts sooner (ajcraswell@gmail.com)
 
 ## 0.82.1
 
