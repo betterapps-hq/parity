@@ -55,6 +55,15 @@ export class KindOutlines extends IndicatorOverlayUtil {
       }
     }
 
+    // Several notes or references selected by a box are selected in tldraw alone: the selection holds one at a time.
+    for (const id of showing ? this.editor.getSelectedShapeIds() : []) {
+      const target = this.targetOf(id)
+
+      if (target && target.kind !== "design") {
+        this.shown.set(id, { color: drawableColor(source.colorOf(target)), hovered: false })
+      }
+    }
+
     const hintingShapeIds = overlays[0]?.props.hintingShapeIds ?? []
 
     if (this.shown.size === 0 && hintingShapeIds.length === 0) {
