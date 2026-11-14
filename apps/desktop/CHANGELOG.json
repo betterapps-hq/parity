@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 10:41:18 GMT",
+      "version": "0.82.5",
+      "tag": "@parity-app/desktop_v0.82.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a853b98454551e976e2615d0355889e067f9278b",
+            "comment": "Load an open project's canvas and panels in a chunk of their own, so the window paints sooner"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 10:25:05 GMT",
       "version": "0.82.4",
       "tag": "@parity-app/desktop_v0.82.4",
