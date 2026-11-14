@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Start a project's builder before detection confirms it, so a project opens sooner",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
