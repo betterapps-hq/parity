@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep compiled code for main, the service and builders between launches, so the app and projects open sooner",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
