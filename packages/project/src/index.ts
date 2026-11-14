@@ -17,9 +17,11 @@ import {
   type PackageManifest,
   parseLibraryManifest,
   type ProjectConfig,
+  type ProjectAction,
   type ProjectEntities,
   type ProjectRoute,
-  type RendererAdapter
+  type RendererAdapter,
+  type StatusFacts
 } from "@parity-app/core"
 import { parseJsonc } from "@parity-app/registry"
 import type { ProjectDetection } from "./detection.ts"
@@ -327,11 +329,57 @@ export async function importEntities(
   return entities
 }
 
-/** An adapter that may add items to the status bar, with what Parity found of its tool. */
+/** An adapter that may add items to the status bar or offer actions, with what Parity found of its tool. */
 export interface StatusSource {
-  adapter: Pick<Adapter, "id" | "icon" | "status">
+  adapter: Pick<Adapter, "id" | "icon" | "status" | "actions">
   /** The tool's version when the running tool says it; otherwise detection's. */
   version?: string
+}
+
+/**
+ * What Parity found of an adapter's tool, as its status items and actions are told it: its version, the package
+ * manager, the entities it imported and the app's routes.
+ */
+function factsFor(
+  { adapter, version }: StatusSource,
+  detection: ProjectDetection,
+  entities: ProjectEntities,
+  routes: readonly ProjectRoute[]
+): StatusFacts {
+  const screens = entities.screens?.filter((screen) => screen.adapter === adapter.id)
+
+  return {
+    version: version ?? detection.tools.find((tool) => tool.id === adapter.id)?.version,
+    packageManager: detection.packageManager.name,
+    entities: { screens, sources: entities.sources },
+    routes
+  }
+}
+
+/** What each adapter in `sources` can do, as the windows are told it: with its logo, and the components it's offered for. */
+export function adapterActions(
+  sources: readonly StatusSource[],
+  detection: ProjectDetection,
+  entities: ProjectEntities,
+  routes: readonly ProjectRoute[] = []
+): ProjectAction[] {
+  return sources.flatMap((source) => {
+    const { adapter } = source
+
+    return (adapter.actions ?? []).map(({ components, ...action }) => {
+      const told: ProjectAction = { ...action, adapter: adapter.id }
+
+      if (adapter.icon) {
+        told.icon = adapter.icon
+      }
+
+      if (components) {
+        told.components = components(factsFor(source, detection, entities, routes))
+      }
+
+      return told
+    })
+  })
 }
 
 /**
@@ -345,17 +393,11 @@ export function adapterStatus(
   entities: ProjectEntities,
   routes: readonly ProjectRoute[] = []
 ): AdapterStatusItem[] {
-  return sources.flatMap(({ adapter, version }) => {
+  return sources.flatMap((source) => {
+    const { adapter } = source
     const detected = detection.tools.find((tool) => tool.id === adapter.id)
     const untested = detected?.status === "dropped" || detected?.status === "newer"
-    const screens = entities.screens?.filter((screen) => screen.adapter === adapter.id)
-
-    const items = adapter.status?.({
-      version: version ?? detected?.version,
-      packageManager: detection.packageManager.name,
-      entities: { screens, sources: entities.sources },
-      routes
-    })
+    const items = adapter.status?.(factsFor(source, detection, entities, routes))
 
     return (items ?? []).map((item) => {
       const told: AdapterStatusItem = {

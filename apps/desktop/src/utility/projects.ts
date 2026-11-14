@@ -55,6 +55,7 @@ import {
   findLockfiles,
   findPackage,
   exportEntities,
+  adapterActions,
   adapterStatus,
   importEntities,
   importersOf,
@@ -630,6 +631,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       throw cause
     })
 
+    // The adapters the project uses, each told what Parity found of its tool for its status items and actions.
+    const told = [
+      { adapter: renderer },
+      { adapter: builder, version: session.toolVersion },
+      ...adapters.styles.filter((adapter) => adapter.id === styles.info?.id).map((adapter) => ({ adapter })),
+      ...usedRouters.map((adapter) => ({ adapter })),
+      ...usedEntities.map((adapter) => ({ adapter }))
+    ]
+
     const info = openedProjectInfo({
       root,
       name,
@@ -639,21 +649,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       guestUrl: session.guestUrl,
       routes,
       entities,
-      actions: used.flatMap(({ adapter }) =>
-        (adapter.actions ?? []).map((action) => ({ ...action, adapter: adapter.id }))
-      ),
-      status: adapterStatus(
-        [
-          { adapter: renderer },
-          { adapter: builder, version: session.toolVersion },
-          ...adapters.styles.filter((adapter) => adapter.id === styles.info?.id).map((adapter) => ({ adapter })),
-          ...usedRouters.map((adapter) => ({ adapter })),
-          ...usedEntities.map((adapter) => ({ adapter }))
-        ],
-        detection,
-        entities,
-        routes
-      ),
+      actions: adapterActions(told, detection, entities, routes),
+      status: adapterStatus(told, detection, entities, routes),
       config,
       detection,
       documents,

@@ -35,7 +35,10 @@ export const storybookAdapter: EntitiesAdapter = {
     {
       id: "open",
       name: "Open in Storybook",
-      forComponent: true,
+      // A component's stories, as its story files' metas name it.
+      components: ({ entities }) => [
+        ...new Set((entities?.screens ?? []).flatMap((screen) => (screen.component ? [screen.component] : [])))
+      ],
       progress: "Opening Storybook…",
       failed: "Couldn't open Storybook",
       note: "If it isn't running yet, it starts first; that can take a minute."

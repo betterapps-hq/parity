@@ -123,9 +123,13 @@ export interface AdapterStatusItem extends StatusItem {
   logo?: AdapterIcon
 }
 
-/** An action an adapter offers, with the adapter that does it. */
-export interface ProjectAction extends AdapterAction {
+/** An action an adapter offers, as the windows are told it: with the adapter that does it, its logo, and its components. */
+export interface ProjectAction extends Omit<AdapterAction, "components"> {
   adapter: string
+  /** The adapter's logo. */
+  icon?: AdapterIcon
+  /** The components it's offered for, by key. */
+  components?: string[]
 }
 
 /**
@@ -177,10 +181,10 @@ export interface AdapterAction {
   /** Its name in a menu, as `Open in Storybook`. */
   name: string
   /**
-   * Whether it's offered for one of the project's components too, which `ActionContext.component` names, as well as for
-   * the whole project.
+   * The project's components it's also offered for, by key, from what Parity found of its tool, as those with stories;
+   * `ActionContext.component` names the one it's run for. Without it, it's offered for the whole project only.
    */
-  forComponent?: boolean
+  components?(facts: StatusFacts): string[]
   /** What the app says while it runs, as `Opening Storybook…`. */
   progress: string
   /** What the app says when it fails, as `Couldn't open Storybook`. */
@@ -665,6 +669,8 @@ export interface ImportedScreen {
   group: string
   /** The folders Layers lists it in, outermost first, as `UI` then `Button`; at the top without any. */
   folders?: string[]
+  /** The project's component it's about, by its key, as the component a story's meta names. */
+  component?: string
   screen: ContainerSpec
 }
 

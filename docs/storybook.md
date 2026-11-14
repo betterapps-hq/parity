@@ -54,10 +54,11 @@ because it needs them to map stories.
 
 ### Opening stories
 
-The book buttons in the Components panel and the layer panel, and the Storybook item in the status bar, run the
-Storybook adapter's Open in Storybook action through `adapter.run` on the project service. The adapter decides what to
-open ([open.ts](../adapters/storybook-adapter/src/open.ts)); the app finds or starts its server, as any tool's
-([utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts)), and lists it with the project's processes.
+The book buttons in the Components panel, Open in Storybook in a code component's layer header and right-click menu, and
+the Storybook item in the status bar, run the Storybook adapter's Open in Storybook action through `adapter.run` on the
+project service. The adapter decides what to open ([open.ts](../adapters/storybook-adapter/src/open.ts)); the app finds
+or starts its server, as any tool's ([utility/tool-servers.ts](../apps/desktop/src/utility/tool-servers.ts)), and lists
+it with the project's processes.
 
 - **Reusing a server.** Parity fetches `http://localhost:<port>/index.json`, using the script's port or 6006, with a
   3-second timeout. It reuses the server when one of the index's `importPath`s is one of the project's mapped story

@@ -5,6 +5,7 @@ import { adapters } from "@parity-app/adapters"
 import { hasElementSources, inferProps } from "@parity-app/code"
 import { type Adapter, type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
 import {
+  adapterActions,
   adapterStatus,
   detectAdapters,
   detectContext,
@@ -228,9 +229,7 @@ async function discover(): Promise<{
     routes: [],
     entities: {},
     status: adapterStatus(tools, detection, entities),
-    actions: tools.flatMap(({ adapter }) =>
-      (adapter.actions ?? []).map((action) => ({ ...action, adapter: adapter.id }))
-    ),
+    actions: adapterActions(tools, detection, entities),
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,

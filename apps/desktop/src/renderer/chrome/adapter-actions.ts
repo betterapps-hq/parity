@@ -8,6 +8,11 @@ export function projectAction(info: ProjectInfo, adapter: string, id: string): P
   return info.actions.find((action) => action.adapter === adapter && action.id === id)
 }
 
+/** The adapters' actions for one of the project's components, as its layers offer them. */
+export function componentActions(info: ProjectInfo, component: string | undefined): ProjectAction[] {
+  return component ? info.actions.filter((action) => action.components?.includes(component)) : []
+}
+
 /**
  * Does an adapter's action for the project, or for one of its components, saying so while it runs, and opens in the
  * browser the address it gives.

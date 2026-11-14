@@ -39,6 +39,7 @@ import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
+import { componentActions, runAction } from "./adapter-actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
 import { BaseDesignNote } from "./BaseDesignNote.tsx"
 import { pushAndRecord } from "./component-events.ts"
@@ -49,7 +50,7 @@ import { Hint } from "./Hint.tsx"
 import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
-import { type HeaderAction, layerActions, type LayerKind, layerKind } from "./layer-kind.ts"
+import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
 import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -60,7 +61,6 @@ import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
-import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
@@ -190,34 +190,30 @@ const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
 }
 
 /**
- * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and opens a code
- * component in Storybook.
+ * What a layer's header does before its eye: goes to the component an instance is of (`layerActions`), then what the
+ * project's adapters offer for a code component, as Open in Storybook.
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
   const entries = useContainerEntries(session.store)
-  const component = node.type === "component" ? node.component : undefined
+  const component = layerComponent(node, session.info.libraries)
   const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
-
-  const actions = layerActions(
-    node,
-    {
-      stories: component !== undefined && hasStories(session.info, component),
-      design: design !== undefined
-    },
-    session.info.libraries
-  )
 
   const act = (action: HeaderAction) => {
     if (action === "go-to-component" && design) {
       session.selection.set({ design: design.key })
       revealSelection(session)
-    } else if (action === "open-in-storybook" && component) {
-      void openInStorybook(session.info, component)
     }
   }
 
-  return <HeaderActions actions={actions} onAction={act} />
+  return (
+    <HeaderActions
+      actions={layerActions(node, { design: design !== undefined })}
+      onAction={act}
+      adapterActions={componentActions(session.info, component)}
+      onAdapterAction={(action) => void runAction(session.id, action, component)}
+    />
+  )
 }
 
 /**

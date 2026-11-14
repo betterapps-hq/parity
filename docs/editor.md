@@ -3790,15 +3790,16 @@ the insert picker names it, so it agrees with the icon; a grid gets the Layout s
 layer inside an instance has the header its kind has, in its kind's color; only its name can't change there, since the
 component's design names it.
 
-The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye
-(`layerActions`):
+The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye:
 
-- **Open in Storybook** on a code component that has stories. A component design has no stories of its own yet, so it
-  offers none.
-- **Go to component** on an instance of one of the project's component designs, which selects the design and shows it.
+- **Go to component** on an instance of one of the project's component designs, which selects the design and shows it
+  (`layerActions`).
+- **What the project's adapters offer for a code component,** each with its adapter's logo, as Open in Storybook on one
+  that has stories. A component's board offers the same in its header. The same actions end the layer's right-click menu
+  in Layers, after a separator. See [Adapters' actions](#adapters-actions).
 
-An icon and a layer that isn't a component have only the eye. A design's header has no actions. Open in editor, which
-opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
+An icon and a layer that isn't a component have only the eye. Other designs' headers have no actions. Open in editor,
+which opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
 (PAR-1027); its design is kept in `explorations/code-panel/OpenInEditor.stories.tsx` (Explorations › Code › Open in
 editor).
 
@@ -6191,6 +6192,10 @@ stay beside what they label instead of growing over the boards around it.
   "Badge / Default" over a 96-pixel badge read "Badge / …" even at 100%.
 - **A name that runs past its board shows while it has the room it runs into,** not only while the board under it is 24
   screen pixels wide, so a narrow story keeps its name zoomed out where there's free canvas beside it.
+- **Packed stories leave room for their names.** Each story in a row takes at least its title's room (`titleRoom`): its
+  name's width at screen size, measured in the title's font, over 40%, the zoom below which names shrink with the
+  canvas, so the name takes the same room from there out to 24%, where it's down to its smallest. So every story's name
+  reads in full down to 24%. Further out, names are cut at the next story again.
 
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
@@ -6199,7 +6204,7 @@ state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` 
 `titleReach` in the package, applied by `useTitleReach` in `ContainerView.tsx`, with what else is on the page read from
 the canvas in `ContainerUtil.tsx`.
 
-Tests: `packages/editor/src/canvas-labels.test.ts` (16. `labelLook`, 8: every label at screen size up close; names
+Tests: `packages/editor/src/canvas-labels.test.ts` (17. `labelLook`, 8: every label at screen size up close; names
 shrinking to 60% and showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by
 25%; a label hiding once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail
 hiding with its title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a
@@ -6207,13 +6212,15 @@ tall row; its space measured from its top to the next row's label; and hiding wi
 board too narrow for its title. `titleReach`, 6: to the next board level with it, short of 8 screen pixels; the nearest
 of several; a board lower down whose title is level; boards to its left, above or below ignored; never narrower than the
 board; and the band of the canvas a title covers growing further out. `titleTop`, 2: 42 screen pixels above its board up
-close, and more of the canvas zoomed out). Gaps: applying the look to the DOM (the transform, the width it fits, the
-clipped icon and the row's measured height) has no automated test. It was checked in Storybook on the example's boards
-at 100%, 25%, 5% and 1%, and for PAR-155 on a row of component boards showing every state. For PAR-787 it was checked in
+close, and more of the canvas zoomed out. `titleRoom`, 1: a board that much from the next leaves its title room to read
+in full at 100%, 40%, 30% and 24%). Gaps: applying the look to the DOM (the transform, the width it fits, the clipped
+icon and the row's measured height) has no automated test. It was checked in Storybook on the example's boards at 100%,
+25%, 5% and 1%, and for PAR-155 on a row of component boards showing every state. For PAR-787 it was checked in
 Storybook's zoomed-out boards at 4% and 10%: screen names and "Plan card" and "Stat card" read in full, and a name with
 a board close beside it still truncates. On 2026-11-13 the example's stories were checked in the running app at 100%,
-50% and 25%: a story's name runs past its frame and reads in full where there's room beside it. A title running past its
-board can still cross a state label beside the next board's rows; that has no test.
+50% and 25%, where every story's name reads in full, and at 10%, where they're cut again. `storyPositions` and the
+title's measured width have no unit test. A title running past its board can still cross a state label beside the next
+board's rows; that has no test.
 
 ### A board's gutter keeps its screen size up close (PAR-602)
 
@@ -7333,23 +7340,31 @@ keeps the page still, but such an element would sit outside its panel.
 An adapter can offer actions, such as Storybook's Open in Storybook, which the app runs without knowing the tool.
 Before, the service had a `storybook.open` call and the status bar matched Storybook's item by name.
 
-- **An adapter lists its actions** (`actions`): an id, a name, whether it's offered for a component too, and what the
-  app says while it runs and when it fails. The windows get them with the project (`info.actions`), by adapter.
+- **An adapter lists its actions** (`actions`): an id, a name, which of the project's components it's offered for
+  (`components`, from the same facts its status items get), and what the app says while it runs and when it fails. The
+  windows get them with the project (`info.actions`, from `adapterActions`), by adapter, with its logo and the
+  components' keys. Storybook offers Open in Storybook for each component a story's meta names.
 - **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
   adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, the
   component, and `servers`, which find a server already serving the project (one Portless routes to, else one on its
   port) or start the tool's command line from the project's install, list it with the project's processes as a tool's
   server and stop it with the project. An address the action gives opens in the browser.
-- **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project;
-  the book buttons in the Components and layer panels run it for a component. Which components have stories still comes
-  from `info.storybook`, until adapters give facts about components.
+- **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project.
+- **A code component's layer offers the actions for its component** in two places, each with its adapter's logo and the
+  action's name: the end of its header in the Design panel, and the end of its right-click menu in Layers. A component's
+  board offers them too (`componentActions`, `layerComponent`). The book buttons in the Components panel still ask
+  `info.storybook` which components have stories, until adapters give facts about components.
 - **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
-  running, and the processes list it as Storybook, a tool's server.
+  running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
+  PlanCard board, shows Open in Storybook in its header and its right-click menu, which opens the component's docs page.
 
 Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
 `packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
 `runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
-`adapter.run` in `shared/protocol.ts`; and `runAction` and `projectAction` in `renderer/chrome/adapter-actions.ts`.
+`adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
+`adapter-status.test.ts`; `runAction`, `projectAction` and `componentActions` in `renderer/chrome/adapter-actions.ts`;
+`layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
+`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx` and `AdapterLogo.tsx`.
 
 Tests: `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else Storybook's
 home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed action reaches

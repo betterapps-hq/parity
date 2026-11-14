@@ -1,7 +1,7 @@
 import type { AdapterIcon, ImportedScreen, ProjectRoute, StatusFacts } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { ProjectDetection } from "./detection.ts"
-import { adapterStatus } from "./index.ts"
+import { adapterActions, adapterStatus } from "./index.ts"
 
 const logo: AdapterIcon = { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" }
 
@@ -92,5 +92,31 @@ describe("adapterStatus", () => {
     )
 
     expect(item?.detail).toBe("Builds the project. Parity doesn't test this version")
+  })
+})
+
+describe("adapterActions", () => {
+  const open = { id: "open", name: "Open in Tool", progress: "Opening Tool…", failed: "Couldn't open Tool" }
+
+  it("tells the windows each action with its adapter and logo, and the components it's for, from the adapter's screens", () => {
+    const actions = adapterActions(
+      [
+        {
+          adapter: {
+            id: "tool",
+            icon: logo,
+            actions: [{ ...open, components: ({ entities }) => entities?.screens?.map((each) => each.ref) ?? [] }]
+          }
+        },
+        { adapter: { id: "plain", actions: [open] } }
+      ],
+      detection,
+      { screens: [screen("tool", "Card"), screen("other", "Button")] }
+    )
+
+    expect(actions).toEqual([
+      { ...open, adapter: "tool", icon: logo, components: ["Card"] },
+      { ...open, adapter: "plain" }
+    ])
   })
 })

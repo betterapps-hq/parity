@@ -9,6 +9,7 @@ import { type DesignStore, useSaveState } from "../design-store.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
 import { projectAction, runAction } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
@@ -95,11 +96,7 @@ export function StatusBar() {
  */
 function ItemIcon({ item }: { item: AdapterStatusItem }) {
   if (!item.icon && item.logo) {
-    return (
-      <svg viewBox={item.logo.viewBox} className="size-3.5" fill="currentColor" aria-hidden>
-        <path d={item.logo.path} fillRule={item.logo.fillRule} />
-      </svg>
-    )
+    return <AdapterLogo logo={item.logo} className="size-3.5" />
   }
 
   return <DynamicIcon name={iconName(item.icon)} className="size-3.5" />

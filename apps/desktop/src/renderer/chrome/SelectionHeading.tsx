@@ -1,7 +1,9 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowUpRight, BookOpen, Code } from "lucide-react"
+import type { ProjectAction } from "@parity-app/core"
+import { ArrowUpRight, Code } from "lucide-react"
 import type { ReactNode } from "react"
 import { textFor } from "../canvas/kinds.tsx"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import type { HeaderAction } from "./layer-kind.ts"
 
@@ -65,30 +67,55 @@ export function SelectionHeading({
 }
 
 const actionLooks: Record<HeaderAction, { label: string; icon: ReactNode }> = {
-  "open-in-storybook": { label: "Open in Storybook", icon: <BookOpen /> },
   "open-in-editor": { label: "Open in editor", icon: <Code /> },
   "go-to-component": { label: "Go to component", icon: <ArrowUpRight /> }
 }
 
-/** What a selection's header does, as icon buttons named by their hints, in the order given. */
+/**
+ * What a selection's header does, as icon buttons named by their hints, in the order given: the editor's own, then the
+ * adapters' actions, each with its adapter's logo.
+ */
 export function HeaderActions({
-  actions,
-  onAction
+  actions = [],
+  onAction,
+  adapterActions = [],
+  onAdapterAction
 }: {
-  actions: readonly HeaderAction[]
-  onAction: (action: HeaderAction) => void
+  actions?: readonly HeaderAction[]
+  onAction?: (action: HeaderAction) => void
+  adapterActions?: readonly ProjectAction[]
+  onAdapterAction?: (action: ProjectAction) => void
 }) {
-  return actions.map((action) => (
-    <Hint key={action} label={actionLooks[action].label}>
+  return [
+    ...actions.map((action) => (
+      <HeaderButton key={action} label={actionLooks[action].label} onClick={() => onAction?.(action)}>
+        {actionLooks[action].icon}
+      </HeaderButton>
+    )),
+    ...adapterActions.map((action) => (
+      <HeaderButton
+        key={`${action.adapter}:${action.id}`}
+        label={action.name}
+        onClick={() => onAdapterAction?.(action)}
+      >
+        <AdapterLogo logo={action.icon} />
+      </HeaderButton>
+    ))
+  ]
+}
+
+function HeaderButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Hint label={label}>
       <Button
         size="icon"
         variant="ghost"
         className="size-6 shrink-0 text-muted-foreground"
-        aria-label={actionLooks[action].label}
-        onClick={() => onAction(action)}
+        aria-label={label}
+        onClick={onClick}
       >
-        {actionLooks[action].icon}
+        {children}
       </Button>
     </Hint>
-  ))
+  )
 }

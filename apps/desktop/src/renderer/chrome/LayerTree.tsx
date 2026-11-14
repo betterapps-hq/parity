@@ -84,6 +84,8 @@ import { type ContainerEntry, useContainerEntries, useNotes } from "../design-st
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { actions, commandsFor } from "./actions.ts"
+import { componentActions, runAction } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
 import { showConsole } from "./ConsolePanel.tsx"
@@ -91,6 +93,7 @@ import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
 import { keymap } from "./keymap.ts"
+import { layerComponent } from "./layer-kind.ts"
 import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
@@ -1408,7 +1411,12 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   // What the commands can do changes with the designs as well as the selection.
   useContainerEntries(session.store)
 
-  return layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
+  // A component's board offers what its component's layer does.
+  const node = row.node ?? boardOpensTo(row.design)
+  const component = node && layerComponent(node, session.info.libraries)
+  const offered = componentActions(session.info, component)
+
+  const items = layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {
       return <ContextMenuSeparator key={`line-${index}`} />
     }
@@ -1435,4 +1443,21 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
       </ContextMenuItem>
     )
   })
+
+  // What the project's adapters offer for a code component, as Open in Storybook, after the editor's own commands.
+  return offered.length === 0
+    ? items
+    : [
+        ...items,
+        <ContextMenuSeparator key="adapters-line" />,
+        ...offered.map((action) => (
+          <ContextMenuItem
+            key={`${action.adapter}:${action.id}`}
+            onClick={() => void runAction(session.id, action, component)}
+          >
+            <AdapterLogo logo={action.icon} />
+            {action.name}
+          </ContextMenuItem>
+        ))
+      ]
 }

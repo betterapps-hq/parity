@@ -52,13 +52,19 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Projec
         sources[drawn] = { path, export: story.render }
       }
 
-      screens.push({
+      const screen: ImportedScreen = {
         adapter: storybookId,
         ref,
         group,
         folders: titleFolders(group),
         screen: storyScreen(path, story, drawn)
-      })
+      }
+
+      if (component) {
+        screen.component = component
+      }
+
+      screens.push(screen)
     }
   }
 

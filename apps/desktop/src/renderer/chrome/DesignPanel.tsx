@@ -16,6 +16,7 @@ import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
+import { componentActions, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
@@ -28,7 +29,7 @@ import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
 import { RouteSection } from "./RoutePanel.tsx"
-import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
@@ -179,7 +180,8 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const { primary } = containerModes(settings, container)
   // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
   const page = routePageRoute(session.id, container.id) !== undefined
-  const board = boardComponent(session.id, container.id) !== undefined
+  const component = boardComponent(session.id, container.id)
+  const board = component !== undefined
   const story = entry.path === storyScreensFile
   let kind = kindTitle(container.kind)
   let detail = `${kind}, saved in ${entry.path}`
@@ -210,6 +212,15 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
           color={designColor(board ? "component" : container.kind)}
           kind={kind}
           detail={detail}
+          action={
+            board && (
+              // What the project's adapters offer for a board's component, as Open in Storybook.
+              <HeaderActions
+                adapterActions={componentActions(session.info, component)}
+                onAdapterAction={(action) => void runAction(session.id, action, component)}
+              />
+            )
+          }
           name={
             <NameInput
               key={container.name}
