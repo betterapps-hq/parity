@@ -9,12 +9,14 @@ import type {
   NodeRef,
   Parity,
   PickItem,
+  ProviderHandle,
+  ProviderKinds,
   RemoteApi,
-  RouterProvider,
   SettingValue,
   State,
   StatusItem
 } from "@parity-app/extension-api"
+import { type HostFiles, hostFiles } from "./host-files.ts"
 import { type HostProcesses, hostProcesses } from "./host-processes.ts"
 import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo, ProviderKind, Returned } from "./protocol.ts"
 import { type Form, viewsOf } from "./views.ts"
@@ -86,9 +88,7 @@ interface HostSettings {
 }
 
 /** The providers an extension's code registered, by kind. */
-interface Registered {
-  router?: RouterProvider
-}
+type Registered = { [K in ProviderKind]?: ProviderKinds[K] }
 
 interface Activated {
   handlers: Map<string, CommandHandler>
@@ -108,6 +108,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const selected: Selected = { refs: [], listeners: new Set() }
   const settings: HostSettings = { values: new Map(), listeners: new Map() }
   const processes = hostProcesses()
+  const files = hostFiles()
   const calls = side.calls ?? noCalls
   let activated: Promise<Activated> | undefined
   let stopping = false
@@ -132,7 +133,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       settings.values = new Map(Object.entries(params.settings.values))
       processes.begin(params.extension.id, params.processes)
       activated = calls.run(params.call, () =>
-        activate(params, channel, progress, selected, settings, side, calls, processes)
+        activate(params, channel, progress, selected, settings, side, calls, { processes, files })
       )
       const { api } = await activated
 
@@ -186,14 +187,20 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension hasn't activated")
       }
 
-      // A router is the only provider so far, and `routes` its only method.
-      const router = (await activated).providers[call.kind]
+      const { router, addresses, discovery } = (await activated).providers
 
-      if (!router) {
+      const missing = (): never => {
         throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
       }
 
-      return await router.routes()
+      switch (call.kind) {
+        case "router":
+          return await (router ?? missing()).routes()
+        case "addresses":
+          return await (addresses ?? missing()).addresses(call.params)
+        case "discovery":
+          return await (discovery ?? missing()).discover(call.params)
+      }
     },
     async "view.changed"({ view, key, value }) {
       if (!activated) {
@@ -243,6 +250,9 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
     "processes.changed": ({ processes: changed }) => processes.changed(changed),
     "processes.lines": ({ id, run, lines }) => processes.lines(id, lines, run),
     "processes.ended": ({ id, end }) => processes.ended(id, end),
+    "files.changed"({ id }) {
+      files.changed(id)
+    },
     async stop() {
       if (stopping) {
         return
@@ -276,7 +286,7 @@ async function activate(
   settings: HostSettings,
   side: HostSide,
   calls: CallContext,
-  processes: HostProcesses
+  { processes, files }: { processes: HostProcesses; files: HostFiles }
 ): Promise<Activated> {
   const exports = await side.load(params.main)
 
@@ -433,18 +443,16 @@ async function activate(
       }
     },
     processes: processes.api(send, (text) => quietly("log", { level: "error", text })),
-    servers: {
-      routed: () => send("servers.routed", undefined)
-    },
     edits: {
       transact: (label, operations) => send("edits.transact", { label, operations })
     },
     files: {
-      async edit(label, files) {
-        const { paths } = await send("files.edit", { label, files })
+      async edit(label, edits) {
+        const { paths } = await send("files.edit", { label, files: edits })
 
         return paths
-      }
+      },
+      ...files.api(send, (text) => quietly("log", { level: "error", text }))
     },
     providers: {
       register(kind, provider) {
@@ -456,13 +464,34 @@ async function activate(
           throw new Error(`A ${kind} is registered already`)
         }
 
-        providers[kind] = provider
+        // `provider` is what `kind` registers, as `register`'s type says, which an index can't tell TypeScript.
+        Object.assign(providers, { [kind]: provider })
 
-        return once(() => {
+        const registered: HostServiceMethods["providers.register"]["params"] = { kind }
+
+        if ("maxAgeMs" in provider && provider.maxAgeMs !== undefined) {
+          registered.maxAgeMs = provider.maxAgeMs
+        }
+
+        quietly("providers.register", registered)
+
+        const disposal = once(() => {
           if (providers[kind] === provider) {
             delete providers[kind]
+            quietly("providers.dispose", { kind })
           }
         })
+
+        const handle: ProviderHandle = {
+          changed() {
+            if (providers[kind] === provider) {
+              quietly("providers.changed", { kind })
+            }
+          },
+          dispose: () => disposal.dispose()
+        }
+
+        return handle
       }
     },
     ui: {

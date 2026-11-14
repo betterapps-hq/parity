@@ -1,4 +1,4 @@
-import type { ProcessErrorCode, ProcessInfo, ProcessSpec, Run } from "@parity-app/extension-api"
+import type { Address, ProcessErrorCode, ProcessInfo, ProcessSpec, Run } from "@parity-app/extension-api"
 
 /*
  * The rules for what a process may be, kept free of Node so they're tested on their own (docs/proposals/processes.md):
@@ -304,4 +304,65 @@ export function isLocalHost(host: string): boolean {
   const bare = host.replace(/^\[|\]$/g, "").toLowerCase()
 
   return bare === "localhost" || bare === "127.0.0.1" || bare === "::1" || bare.endsWith(".localhost")
+}
+
+/** Whether a host is on the local network: a private IPv4 or IPv6 address, or a name under `.local`. */
+export function isPrivateHost(host: string): boolean {
+  const bare = host.replace(/^\[|\]$/g, "").toLowerCase()
+  const octets = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(bare)
+
+  if (octets) {
+    const [first, second] = [Number(octets[1]), Number(octets[2])]
+
+    return first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168)
+  }
+
+  return /^f[cd][0-9a-f]{0,2}:/.test(bare) || bare.endsWith(".local")
+}
+
+/**
+ * Why Parity drops an address a provider gives, or nothing when it takes it. One on this machine may be any kind but
+ * `network` and `tunnel`; one on the local network only `network`; anywhere else only a `public` one, from an extension
+ * allowed to publish.
+ */
+export function addressRefusal(address: Omit<Address, "provider">, publish: boolean): string | undefined {
+  let url: URL
+
+  try {
+    url = new URL(address.url)
+  } catch {
+    return `${address.url} isn't a URL`
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return `${address.url} isn't http or https`
+  }
+
+  if (isLocalHost(url.hostname)) {
+    return address.kind === "network" || address.kind === "tunnel"
+      ? `${address.url} is on this machine, so it isn't a ${address.kind} address`
+      : undefined
+  }
+
+  if (isPrivateHost(url.hostname)) {
+    return address.kind === "network" ? undefined : `${address.url} is on the local network, so it's a network address`
+  }
+
+  return address.public && publish ? undefined : `${address.url} is public, which this extension may not give`
+}
+
+/** Which kinds of address `opens` prefers, the first first. A network address only when the person picks it. */
+const opensOrder: Address["kind"][] = ["name", "proxy", "container"]
+
+/** What the person's browser opens for a server: its preferred address on this machine, else its endpoint. */
+export function opensAt(addresses: readonly Address[], endpoint: string | undefined): string | undefined {
+  for (const kind of opensOrder) {
+    const found = addresses.find((address) => address.kind === kind && !address.public)
+
+    if (found) {
+      return found.url
+    }
+  }
+
+  return endpoint
 }

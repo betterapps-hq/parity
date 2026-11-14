@@ -1,4 +1,4 @@
-import type { AdoptSpec, Candidate, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
+import type { Candidate, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
 import {
   componentsWithStories,
   type DetectedStorybook,
@@ -19,9 +19,10 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * Its settings (PAR-1090) are the project's config folder, which detection reads from the main `.par` before this code
  * loads, and where stories open, the person's choice for every project.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
- * it already runs, by its Portless name or on its usual port, and adopts it, or starts it with `parity.processes`.
- * What `activate` returns is its API for other extensions (PAR-1096), as the accessibility extension uses it, and Open
- * in Storybook gives agents the page it opened.
+ * it already runs, as a discovery provider such as Portless finds it or on its usual port, and adopts it, or starts it
+ * with `parity.processes`. It opens at the server's preferred address, as the name Portless gives it. What `activate`
+ * returns is its API for other extensions (PAR-1096), as the accessibility extension uses it, and Open in Storybook
+ * gives agents the page it opened.
  */
 
 /**
@@ -95,7 +96,7 @@ export function activate(parity: Parity): StorybookApi | undefined {
     finding ??= serve(parity, storybook, paths).finally(() => (finding = undefined))
     const handle = await finding
     const server = await handle.ready()
-    setup.set(setupGuide(storybook, { address: await addressOf(parity, server) }).items)
+    setup.set(setupGuide(storybook, { address: addressOf(server) }).items)
     const entries = server.endpoint && (await storyIndex(server.endpoint.url).catch(() => undefined))
 
     if (entries) {
@@ -106,7 +107,7 @@ export function activate(parity: Parity): StorybookApi | undefined {
     await handle.stop()
     finding ??= serve(parity, storybook, paths).finally(() => (finding = undefined))
     const again = await (await finding).ready()
-    setup.set(setupGuide(storybook, { address: await addressOf(parity, again) }).items)
+    setup.set(setupGuide(storybook, { address: addressOf(again) }).items)
 
     if (!again.endpoint) {
       throw new Error("Storybook started without a port")
@@ -126,7 +127,7 @@ export function activate(parity: Parity): StorybookApi | undefined {
     }
 
     const { server, entries } = await ensure()
-    const address = await addressOf(parity, server)
+    const address = addressOf(server)
 
     return component ? storyPage(address, entries, paths, kind) : address
   }
@@ -176,25 +177,9 @@ async function serve(parity: Parity, storybook: DetectedStorybook, paths: string
 
   const wanted = storybook.port ?? 6006
 
-  // Without stories to check, a routed Storybook could be any project's, so only the usual port is tried.
-  const found: (Candidate | AdoptSpec)[] = await parity.processes.find({
-    ports: [wanted],
-    discovered: paths.length > 0
-  })
-
-  if (paths.length > 0) {
-    const ports = new Set(found.map((candidate) => candidate.endpoint.port))
-
-    for (const route of await parity.servers.routed()) {
-      const port = Number(new URL(route.url).port)
-
-      if (!ports.has(port)) {
-        found.push({ endpoint: { url: route.url, port, protocol: "http" } })
-      }
-    }
-  }
-
-  const serving: (Candidate | AdoptSpec)[] = []
+  // Without stories to check, a discovered Storybook could be any project's, so only the usual port is tried.
+  const found = await parity.processes.find({ ports: [wanted], discovered: paths.length > 0 })
+  const serving: Candidate[] = []
 
   for (const candidate of found) {
     // Another server on the port answers with an error, or not at all.
@@ -206,7 +191,7 @@ async function serve(parity: Parity, storybook: DetectedStorybook, paths: string
   }
 
   // Two worktrees can serve the same stories: the one serving this checkout's files is ours.
-  const mine: (Candidate | AdoptSpec)[] = []
+  const mine: Candidate[] = []
 
   for (const candidate of serving) {
     if (serving.length === 1 || (await servesFrom(candidate.endpoint.url, parity.project.root))) {
@@ -234,18 +219,15 @@ async function serve(parity: Parity, storybook: DetectedStorybook, paths: string
   })
 }
 
-/** Where the browser opens a Storybook: its Portless name when Portless routes to its port, else where it answers. */
-async function addressOf(parity: Parity, server: ProcessInfo): Promise<string> {
-  const endpoint = server.endpoint
+/** Where the browser opens a Storybook: its preferred address, as a name Portless routes to it, else where it answers. */
+function addressOf(server: ProcessInfo): string {
+  const address = server.opens ?? server.endpoint?.url
 
-  if (!endpoint) {
+  if (!address) {
     throw new Error("Storybook isn't listening yet")
   }
 
-  const routed = await parity.servers.routed().catch(() => [])
-  const route = routed.find((each) => Number(new URL(each.url).port) === endpoint.port)
-
-  return route?.address ?? server.opens ?? endpoint.url
+  return address
 }
 
 /** The stories and docs pages a Storybook at `base` serves. Rejects when nothing answers there. */

@@ -417,6 +417,9 @@ importers:
       '@parity-app/extension-api':
         specifier: workspace:*
         version: link:../../packages/extension-api
+      '@parity-app/extension-portless':
+        specifier: workspace:*
+        version: link:../../packages/extension-portless
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../../packages/extension-storybook
@@ -803,6 +806,16 @@ importers:
         version: 4.6.7
 
   packages/extension-api: {}
+
+  packages/extension-portless:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
 
   packages/extension-storybook:
     dependencies:

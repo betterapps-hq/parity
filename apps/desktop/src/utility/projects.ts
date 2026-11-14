@@ -98,7 +98,6 @@ import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
 import { writeProjectFile } from "./project-files.ts"
 import type { TypeChecker } from "./props.ts"
-import { toolServers } from "./tool-servers.ts"
 
 const require = createRequire(import.meta.url)
 
@@ -1807,8 +1806,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         source: projectSource(info.root, project.list.sources),
         detection: found.detection,
         component,
-        page,
-        servers: toolServers({ id: info.id, name: info.name, root: info.root }, id)
+        page
       })
     }
   }

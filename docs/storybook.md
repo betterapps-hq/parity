@@ -67,10 +67,11 @@ count on its card, and the status item's count. The Storybook adapter still dete
 screens.
 
 - **Reusing a server.** The extension asks `parity.processes.find` about the script's port or 6006, and, when the
-  project has stories, takes the servers Portless routes to as well. It fetches each one's `index.json` with a 3-second
-  timeout, and keeps those where one of the index's `importPath`s is one of the project's mapped story files, or every
-  one when no stories are mapped. When two serve the same stories, as two worktrees can, the one serving this checkout's
-  files is the project's. It adopts that one, so it's listed with the project's processes, but Parity never stops it.
+  project has stories, the discovery providers too, as the Portless extension's routes. It fetches each one's
+  `index.json` with a 3-second timeout, and keeps those where one of the index's `importPath`s is one of the project's
+  mapped story files, or every one when no stories are mapped. When two serve the same stories, as two worktrees can,
+  the one serving this checkout's files is the project's. It adopts that one, so it's listed with the project's
+  processes, but Parity never stops it.
 - **Starting one.** Otherwise it starts the project's own Storybook with `parity.processes.start`, which its manifest
   allows with `"permissions": { "processes": ["bin:storybook"] }`:
   - on the wanted port when it's free, else on one the system picks;

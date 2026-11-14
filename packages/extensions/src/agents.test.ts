@@ -118,8 +118,18 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
       snapshot: () => ({ list: [], output: {}, ready: {} }),
       watch: () => () => undefined,
       reattached: () => undefined,
-      stopAll: () => undefined,
-      routed: () => Promise.resolve([])
+      stopAll: () => undefined
+    },
+    providers: {
+      register: () => undefined,
+      changed: () => undefined,
+      dispose: () => undefined,
+      disposeAll: () => undefined
+    },
+    files: {
+      place: { home: "/home", variables: {}, platform: "linux" },
+      read: () => Promise.reject(new Error("Not in this test")),
+      watch: () => () => undefined
     },
     edits: { transact, files: () => Promise.resolve([]) }
   })

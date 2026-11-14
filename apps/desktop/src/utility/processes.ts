@@ -1,7 +1,6 @@
 import type { Address } from "@parity-app/extension-api"
 import type { ProcessStatus, ProjectProcess } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
-import { readPortless } from "./portless.ts"
 
 /** What can be done to a process Parity started: a server stopped or restarted, a task canceled or run again. */
 interface Controls {
@@ -214,30 +213,30 @@ export function trackedProcesses(projectId?: string): ProjectProcess[] {
   )
 }
 
-/**
- * What Parity runs for the open projects, each server with the Portless name that routes to its port as its address
- * and what the browser opens.
- */
-export async function listProcesses(): Promise<ProjectProcess[]> {
-  const portless = await readPortless()
+/** What Parity runs for the open projects, each server with what the browser opens: its preferred address, else its endpoint. */
+export function listProcesses(): Promise<ProjectProcess[]> {
+  return Promise.resolve(
+    trackedProcesses().map((process) => ({ ...process, opens: process.opens ?? process.endpoint?.url }))
+  )
+}
 
-  return trackedProcesses().map((process) => {
-    const route = process.endpoint && portless.routes.find((candidate) => candidate.port === process.endpoint?.port)
+/** Sets the places a server is reached, from address providers, and which one the browser opens. */
+export function setAddresses(id: string, addresses: Address[], opens: string | undefined): void {
+  const item = tracked.get(id)
 
-    if (!route) {
-      return { ...process, opens: process.opens ?? process.endpoint?.url }
-    }
+  if (!item) {
+    return
+  }
 
-    const named: Address = {
-      url: portless.address(route.hostname),
-      label: route.hostname,
-      kind: "name",
-      public: false,
-      provider: "parity"
-    }
+  item.process.addresses = addresses
 
-    return { ...process, addresses: [named, ...process.addresses], opens: named.url }
-  })
+  if (opens === undefined) {
+    delete item.process.opens
+  } else {
+    item.process.opens = opens
+  }
+
+  changed(item.process.projectId)
 }
 
 export function stopProcess({ id }: { id: string }): Promise<undefined> {
