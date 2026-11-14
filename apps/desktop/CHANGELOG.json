@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 21:19:06 GMT",
+      "version": "0.85.0",
+      "tag": "@parity-app/desktop_v0.85.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1d4c2d037c390680e374b08711a42a7782cb28c5",
+            "comment": "Settings builds each extension's Adds from what its adapter and extension tell the window"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 20:03:51 GMT",
       "version": "0.84.0",
       "tag": "@parity-app/desktop_v0.84.0",
