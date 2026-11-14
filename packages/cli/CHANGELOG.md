@@ -1,8 +1,26 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 14 Nov 2026 11:03:54 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 12:01:37 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.62.0
+
+Sat, 14 Nov 2026 12:01:37 GMT
+
+### Minor changes
+
+- A project file can keep its own autosave, snapping, layout grid and export sizes, and Storybook's config folder;
+  exporting every design writes each of the export sizes (ajcraswell@gmail.com)
+- Previews on a board can be selected, zoomed, set to their own width, theme and language, and resized by a handle that
+  lands on the app's breakpoints (ajcraswell@gmail.com)
+- Pages, component boards and stories keep their modes, scales, route params and tried sizes when the project reopens,
+  and Open in browser shows on the canvas and in Search actions (ajcraswell@gmail.com)
+
+### Patches
+
+- Name the registry's library files for their packages, so a project opens without reading the files of packages it
+  doesn't use (ajcraswell@gmail.com)
 
 ## 0.61.3
 

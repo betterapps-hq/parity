@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A project file can keep its own autosave, snapping, layout grid and export sizes, and Storybook's config folder; exporting every design writes each of the export sizes",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
