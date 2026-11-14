@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A copy of Parity that can't read the kept accounts no longer deletes the file and signs every copy out.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

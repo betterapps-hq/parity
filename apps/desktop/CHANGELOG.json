@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 06:02:52 GMT",
+      "version": "0.82.1",
+      "tag": "@parity-app/desktop_v0.82.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c0a3635a1f676f99504da97761bb5d0e6d3c9c07",
+            "comment": "A copy of Parity that can't read the kept accounts no longer deletes the file and signs every copy out."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c1c9107230f1b851ef9ae2ca9c963dc81095e877",
+            "comment": "Start a project's builder before detection confirms it, so a project opens sooner"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "299e3b31d184407864a8773cc21a7646bf7d6482",
+            "comment": "Import the shadcn example's components from Buildkit's Nova package"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 10:50:18 GMT",
       "version": "0.82.0",
       "tag": "@parity-app/desktop_v0.82.0",

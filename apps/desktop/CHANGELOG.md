@@ -1,8 +1,18 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 13 Nov 2026 10:50:18 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 06:02:52 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.1
+
+Sat, 14 Nov 2026 06:02:52 GMT
+
+### Patches
+
+- A copy of Parity that can't read the kept accounts no longer deletes the file and signs every copy out.
+  (ajcraswell@gmail.com)
+- Start a project's builder before detection confirms it, so a project opens sooner (ajcraswell@gmail.com)
 
 ## 0.82.0
 
