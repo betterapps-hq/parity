@@ -6498,6 +6498,13 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   JavaScript again every launch, in a long task before it first painted. With the scheme's `codeCache` privilege, the
   window painted about 0.2 seconds sooner after it was created, and the long task was mostly gone. A development build
   loads over http, so `pnpm perf` doesn't show this. No test: it's one privilege, measured in the built app.
+- **Main, the service and builders keep their compiled code too (PAR-1083).** The built app starts at `start.mjs`, which
+  turns on Node's compile cache before importing main's bundle and passes it to the service and builders through
+  `NODE_COMPILE_CACHE`. A builder's cache covers the project's Vite and plugins as well. Each process writes its cache
+  15 seconds after it starts, since a builder or the service can be ended outright. Across 8 alternating launches of the
+  built app, main was ready in 750 ms rather than 890, the builder in 1.83 seconds rather than 2.06, and the project
+  opened in 2.90 seconds rather than 3.12. A development build doesn't start at `start.mjs`, so it's unchanged. No test:
+  it's measured in the built app.
 - **An open project's canvas and panels load in a chunk of their own (PAR-1084).** None of them is drawn until a project
   has opened, seconds after the window paints, so `OpenProject.tsx` is loaded lazily. The window loads that chunk once
   it's idle after its first paint, so a project opening finds it ready, and shows the opening state while it loads.

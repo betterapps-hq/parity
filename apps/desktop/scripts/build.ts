@@ -263,6 +263,19 @@ function shipOtherMacBinaries(): void {
 
 const { name, version, license, description, author, homepage } = readManifest(appDir)
 
+// The app starts here, so Node keeps V8's compiled code for main between launches, and for the service and builders
+// through the variable they inherit (PAR-1083). Main's bundle is compiled before any of its code runs, so turning the
+// cache on has to come before it's imported.
+writeFileSync(
+  join(out, "start.mjs"),
+  `import { enableCompileCache, flushCompileCache } from "node:module"
+const { directory } = enableCompileCache()
+if (directory) process.env.NODE_COMPILE_CACHE = directory
+await import("./main.mjs")
+flushCompileCache()
+`
+)
+
 writeFileSync(
   join(out, "package.json"),
   JSON.stringify(
@@ -274,7 +287,7 @@ writeFileSync(
       author,
       homepage,
       type: "module",
-      main: "main.mjs",
+      main: "start.mjs",
       // Names a CI build's Sentry release; an installed build's is its version (PAR-625).
       commit: currentCommit(appDir),
       releaseChannel: process.env.PARITY_RELEASE_CHANNEL === "beta" ? "beta" : undefined
