@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Settings builds each extension's Adds from what its adapter and extension tell the window",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

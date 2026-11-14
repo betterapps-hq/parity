@@ -52,6 +52,8 @@ export {
   type ToolVersions
 } from "./adapters.ts"
 
+export { type AdapterFacts, type ContributingExtension, extensionAdds } from "./extension-adds.ts"
+
 export {
   besideScale,
   besideScales,

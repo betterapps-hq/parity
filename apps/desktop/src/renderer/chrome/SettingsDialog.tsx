@@ -1,8 +1,9 @@
-import type { JsonValue, PreferenceOverride, ProjectPreferenceKey } from "@parity-app/core"
+import { extensionAdds, type JsonValue, type PreferenceOverride, type ProjectPreferenceKey } from "@parity-app/core"
 import type { ExportSize } from "@parity-app/editor"
 import { type CodeEditorChoice, codeEditors } from "@parity-app/processes"
 import { useSyncExternalStore } from "react"
 import { z } from "zod"
+import { extensionsOf, type ProjectExtensions } from "../extensions.ts"
 import {
   clearProjectExtensionSetting,
   clearProjectPreference,
@@ -156,6 +157,16 @@ const plainValue = z.union([z.string(), z.number(), z.boolean()])
 /** Updates can't change the beta setting while it checks, downloads or installs. */
 const updatesBusy = new Set(["disabled", "checking", "downloading", "installing"])
 
+const noExtensions: ProjectExtensions = { extensions: [], logs: {} }
+const unsubscribed = () => () => undefined
+
+/** The extensions running in the active tab's project, or none on Home. */
+function useActiveExtensions(session: ReturnType<typeof useActiveSession>): ProjectExtensions {
+  const store = session ? extensionsOf(session).store : undefined
+
+  return useSyncExternalStore(store?.subscribe ?? unsubscribed, store?.get ?? (() => noExtensions))
+}
+
 /** The active tab's project, or nothing on Home or while it opens. */
 function useActiveSession() {
   return useSyncExternalStore(workspace.subscribe, () => workspace.getActive()?.session)
@@ -169,6 +180,7 @@ export function SettingsDialog() {
   const effective = useEffectivePreferences()
   const project = useProjectSettings()
   const session = useActiveSession()
+  const running = useActiveExtensions(session)
   const telemetry = useTelemetry(open)
   const updates = useUpdates()
   const keybindings = useKeybindings()
@@ -200,7 +212,9 @@ export function SettingsDialog() {
   const data: SettingsData = {
     project: session && project ? { name: session.info.name, file: session.store.mainPath } : undefined,
     locked,
-    extensions: extensionsFrom(session ? session.info.detection.tools : undefined),
+    extensions: session
+      ? extensionsFrom(session.info.detection.tools, (id) => extensionAdds(id, session.info, running.extensions))
+      : extensionsFrom(undefined),
     mine(entry) {
       if (isPreference(entry.id)) {
         return shownValue(preferences, entry.id)
