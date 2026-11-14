@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "account.storeFailed's stage now says the file stays when a copy can't read it.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

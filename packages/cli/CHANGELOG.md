@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Fri, 13 Nov 2026 06:22:45 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 06:03:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.61.2
+
+Sat, 14 Nov 2026 06:03:09 GMT
+
+### Patches
+
+- account.storeFailed's stage now says the file stays when a copy can't read it. (ajcraswell@gmail.com)
 
 ## 0.61.1
 

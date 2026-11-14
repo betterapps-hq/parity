@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 06:03:09 GMT",
+      "version": "0.61.2",
+      "tag": "@parity-app/cli_v0.61.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c0a3635a1f676f99504da97761bb5d0e6d3c9c07",
+            "comment": "account.storeFailed's stage now says the file stays when a copy can't read it."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7d5b8d260b01040bb29a1be2d11012e9d082a246",
+            "comment": "Read a project's TanStack Router routes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 13 Nov 2026 06:22:45 GMT",
       "version": "0.61.1",
       "tag": "@parity-app/cli_v0.61.1",
