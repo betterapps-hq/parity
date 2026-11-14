@@ -645,6 +645,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       name,
       renderer: { id: renderer.id, name: renderer.name },
       builder: { id: builder.id, name: builder.name, toolVersion: session.toolVersion },
+      router: usedRouters[0] && { id: usedRouters[0].id, name: usedRouters[0].name },
       styles,
       guestUrl: session.guestUrl,
       routes,

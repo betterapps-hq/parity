@@ -85,6 +85,19 @@ export { extractComponent, findRepeats, type RepeatCandidate } from "./decompose
 
 export { addDesigns, emptyDocument, removeDesigns } from "./designs.ts"
 
+export {
+  designOwner,
+  type NodeData,
+  type NodeEvent,
+  type NodeQuery,
+  type NodeRef,
+  nodeRefId,
+  type NodesChange,
+  type ProjectNode,
+  type ProjectNodes,
+  type ScreenData
+} from "./nodes.ts"
+
 export { type ChangeConflict, describeConflicts, type DesignChange, type ModesChange } from "./design-change.ts"
 
 export { deviceForWidth, type DeviceKind, devicePresets, lengthToPixels, screenHeightForWidth } from "./devices.ts"

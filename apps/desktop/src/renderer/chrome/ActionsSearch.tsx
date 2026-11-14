@@ -9,15 +9,15 @@ import {
   CommandShortcut,
   Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
-import { walkNodes } from "@parity-app/core"
+import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { projectNodes } from "../project-nodes.ts"
 import { resetWithWindow } from "../store.ts"
 import {
-  type ProjectDesigns,
   type ProjectSession,
   useActiveTabId,
   useHomeActive,
@@ -204,9 +204,7 @@ function commandItems(): Item[] {
 }
 
 /** The open project's designs, their layers, the components it can insert and its tokens. */
-function projectItems(
-  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">
-): Item[] {
+function projectItems(session: ProjectSession): Item[] {
   const entries = session.store.getEntries()
   const library = session.store.getComponentLibrary()
   const items: Item[] = []
@@ -225,28 +223,47 @@ function projectItems(
     })
   }
 
-  for (const entry of entries) {
-    walkNodes(entry.container.root, (node, depth) => {
-      if (depth === 0) {
-        return
-      }
+  // Every design's layers, from the project's nodes, depth first under each design's root.
+  const nodes = projectNodes(session, { fresh: true })
 
-      items.push({
-        id: `layer:${entry.key}/${node.id}`,
-        group: "Layers",
-        label: layerLabel(node, entries, library, session.info.libraries),
-        keywords: entry.container.name,
-        detail: entry.container.name,
-        searchOnly: true,
-        // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
-        icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
-        run: () => {
-          session.selection.set(layersSelection(entry.key, [node.id]))
-          // The layer's frame lays out first, then it's scrolled into view.
-          requestAnimationFrame(() => revealSelection(session))
+  for (const design of nodes.ofType("design", { owner: designOwner })) {
+    const entry = session.store.getEntry(design.ref.key)
+
+    if (!entry) {
+      continue
+    }
+
+    const visit = (ref: NodeRef) => {
+      for (const child of nodes.children(ref)) {
+        const id = child.ref.key.slice(entry.key.length + 1)
+        const node = locateNode(entry.container.root, id)?.node
+
+        if (node) {
+          items.push({
+            id: `layer:${entry.key}/${node.id}`,
+            group: "Layers",
+            label: layerLabel(node, entries, library, session.info.libraries),
+            keywords: entry.container.name,
+            detail: entry.container.name,
+            searchOnly: true,
+            // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
+            icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
+            run: () => {
+              session.selection.set(layersSelection(entry.key, [node.id]))
+              // The layer's frame lays out first, then it's scrolled into view.
+              requestAnimationFrame(() => revealSelection(session))
+            }
+          })
         }
-      })
-    })
+
+        visit(child.ref)
+      }
+    }
+
+    // The root is the design itself, so its layers start below it.
+    for (const root of nodes.children(design.ref)) {
+      visit(root.ref)
+    }
   }
 
   const offer = offerOf(session.info, entries)
@@ -317,10 +334,7 @@ function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" 
 }
 
 /** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
-function gatherItems(
-  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id" | "info" | "tokens">) | undefined,
-  projects: readonly { root: string; name: string }[]
-): Item[] {
+function gatherItems(session: ProjectSession | undefined, projects: readonly { root: string; name: string }[]): Item[] {
   return [
     ...commandItems(),
     ...extras,

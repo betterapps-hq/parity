@@ -236,6 +236,8 @@ export {
   treeRows
 } from "./layers-tree.ts"
 
+export { collectNodes, createNodeIndex, type NodeIndex, type NodeSources } from "./node-index.ts"
+
 export {
   type FolderedRow,
   folderId,

@@ -4,8 +4,8 @@ Status: draft for discussion. Built on 2026-11-13: each adapter's `status` hook 
 and steps 1 to 3 below without the folder move: every adapter interface extends one `Adapter`, React, Vite, Tailwind,
 TanStack Router and Storybook bring their logos, `packages/adapters` is the one list, Tailwind has a status item, and
 every adapter detects its own tool through one context and gives its own version facts, and adapters offer actions the
-app runs, as Open in Storybook. Plugins, and how they're packaged and trusted, are in [extensions.md](extensions.md);
-this page is only about where an adapter's content appears in the editor.
+app runs, as Open in Storybook, and step 4's node index in the window. Plugins, and how they're packaged and trusted,
+are in [extensions.md](extensions.md); this page is only about where an adapter's content appears in the editor.
 
 ## In one line
 
@@ -293,9 +293,11 @@ since packages will be published to a registry. The workspace lists `adapters/*`
    offered for, and a code component offers them wherever it's picked, with the adapter's logo: its layer's header, its
    right-click menus in Layers, on the canvas and in the Components panel, its row's button and card, and Search
    actions. Only the stories count on a component's card still reads `info.storybook`, until node facts in step 5.
-4. **Node identity and the index.** `NodeRef`, and `ProjectNodes` with `get`, `ofType`, `watch` and `subscribe`, read
-   only, over the designs and the nodes adapters already make (components, routes, stories). Elements' structural keys
-   come with the code adapter. `query` and `links` grow as adapters need them.
+4. **Node identity and the index.** Built in the window: `NodeRef`, and `ProjectNodes` with `get`, `ofType`, `query`,
+   `children`, `parent`, `watch`, `subscribe` and type events, read only, over the designs and the nodes adapters
+   already make (components, routes, stories), kept up to date as edits settle. Search actions reads its layers from it.
+   Left: sending it to adapters in the utility process, layers inside instances, elements' structural keys (with the
+   code adapter) and `links`.
 5. **Node facts,** attached by `NodeRef`, starting with Storybook's stories count, which lets `findStorybook` and
    `info.storybook` go.
 6. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router

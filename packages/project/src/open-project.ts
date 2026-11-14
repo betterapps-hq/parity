@@ -30,6 +30,8 @@ export interface ProjectInfo {
   name: string
   renderer: { id: string; name: string }
   builder: { id: string; name: string; toolVersion: string }
+  /** The router adapter that read `routes`, when the app has one; their owner among the project's nodes. */
+  router?: { id: string; name: string }
   /** The styling framework whose theme the tokens include, when one was recognized. */
   styles?: { id: string; name: string; stylesheet: string; error?: string }
   /** The styling framework's full theme, which compiled CSS trims to what the project's code uses. */
@@ -83,6 +85,7 @@ export interface OpenedProject {
   name: string
   renderer: { id: string; name: string }
   builder: { id: string; name: string; toolVersion: string }
+  router?: { id: string; name: string } | undefined
   styles: { info?: ProjectInfo["styles"]; theme: ThemeVariable[] }
   guestUrl: string
   routes: ProjectRoute[]
@@ -100,7 +103,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
   const { config } = opened
   const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document.modes
 
-  return {
+  const info: OpenedProjectInfo = {
     id: opened.root,
     root: opened.root,
     name: opened.name,
@@ -122,6 +125,12 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     mainDocument: opened.mainDocument,
     modes: { settings: modes ?? defaultModeSettings, custom: !!modes }
   }
+
+  if (opened.router) {
+    info.router = opened.router
+  }
+
+  return info
 }
 
 /** An open project's info with its component list as it is now. */

@@ -7595,6 +7595,34 @@ one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
+### The project's nodes
+
+Every node Parity knows of has one address, a `NodeRef`: its owner, its type and a key unique within those two, as
+[the proposal](proposals/adapter-registrations.md#node-identity) sets out. The designs own their designs and layers
+(`design`, keyed `designKey/nodeId`), the renderer adapter the components (`react`, keyed as the component), the router
+adapter the routes (`tanstack-router`, keyed by the route's id) and an entities adapter its screens (`storybook`, keyed
+`file#Export`). So two of any kind with one name never share an address.
+
+- **One index per project** (`projectNodes`): built from the designs and the project's info, and brought up to date
+  150ms after edits to the designs, or a change to the info, settle, so a drag tells it once it rests. A reader about to
+  show what's there asks for it fresh.
+- **Reading it:** `get` by ref, `ofType` from any owner or one, `query` by owner, type and what a node is inside,
+  `children` and `parent`.
+- **Hearing of changes:** `watch` tells a listener what was added, changed, renamed and removed among the nodes a query
+  matches; `subscribe` tells one node's listeners when it changes, gets a new key from its owner, goes, or its owner
+  sends one of its type's events (`emit`). A change names the node's own fields that changed, not those of nodes inside
+  it, so editing a layer doesn't tell its design and every layer around it. A rename moves the node's subscriptions to
+  its new key.
+- **Who reads it so far:** Search actions lists every design's layers from it. Adapters get it once they read the
+  designs, a later step; layers inside an instance aren't in it yet, being the component's.
+- **The router's owner:** the project's info names the router adapter that read its routes (`info.router`).
+
+Code: `NodeRef`, `ProjectNode`, `ProjectNodes`, `NodeEvent` and `NodesChange` in `packages/core/src/nodes.ts`;
+`collectNodes` and `createNodeIndex` in `packages/editor/src/node-index.ts`, tested in `node-index.test.ts`;
+`projectNodes` in `apps/desktop/src/renderer/project-nodes.ts`; and its use in `projectItems` in `ActionsSearch.tsx`.
+Checked in the running app: searching "badge" lists the Badge stories' layers, and choosing one selects it. Gaps: the
+150ms settling and the Search use have no automated test.
+
 ## Signing in (PAR-612, PAR-669)
 
 You sign in with Google, GitHub, Microsoft or a work email, in your browser, through WorkOS AuthKit, as
