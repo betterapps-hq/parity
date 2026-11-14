@@ -7776,9 +7776,15 @@ Every node Parity knows of has one address, a `NodeRef`: its owner, its type and
 adapter the routes (`tanstack-router`, keyed by the route's id) and an entities adapter its screens (`storybook`, keyed
 `file#Export`). So two of any kind with one name never share an address.
 
-- **One index per project** (`projectNodes`): built from the designs and the project's info, and brought up to date
-  150ms after edits to the designs, or a change to the info, settle, so a drag tells it once it rests. A reader about to
-  show what's there asks for it fresh.
+- **One index per project** (`projectNodes`): built from the designs and the project's info, and updated in place once
+  an edit settles: 150ms after edits to the designs or a change to the info pause, or as soon as a drag or another
+  gesture ends, so a drag tells it once, never on each frame. No edit waits more than 5 seconds, so a gesture that never
+  ends can't hold them. A reader about to show what's there asks for it fresh.
+- **Updated by what an edit touched:** the index is in parts, one per design and one each for the components, routes and
+  stories. Only the parts whose sources changed are gathered again, and inside them only the nodes that aren't the same
+  objects as before are compared: the designs keep a design and a layer the same object until an edit touches it. So an
+  edit to one layer compares that layer and the layers above it, leaves every other design alone, and watchers get one
+  change for it.
 - **Reading it:** `get` by ref, `ofType` from any owner or one, `query` by owner, type and what a node is inside,
   `children` and `parent`.
 - **Hearing of changes:** `watch` tells a listener what was added, changed, renamed and removed among the nodes a query
@@ -7791,10 +7797,12 @@ adapter the routes (`tanstack-router`, keyed by the route's id) and an entities 
 - **The router's owner:** the project's info names the router adapter that read its routes (`info.router`).
 
 Code: `NodeRef`, `ProjectNode`, `ProjectNodes`, `NodeEvent` and `NodesChange` in `packages/core/src/nodes.ts`;
-`collectNodes` and `createNodeIndex` in `packages/editor/src/node-index.ts`, tested in `node-index.test.ts`;
-`projectNodes` in `apps/desktop/src/renderer/project-nodes.ts`; and its use in `projectItems` in `ActionsSearch.tsx`.
-Checked in the running app: searching "badge" lists the Badge stories' layers, and choosing one selects it. Gaps: the
-150ms settling and the Search use have no automated test.
+`collectNodes`, `createNodeCollector` and `createNodeIndex` in `packages/editor/src/node-index.ts`, tested in
+`node-index.test.ts`; `createEditSettler` in `packages/editor/src/edit-settler.ts`, tested in `edit-settler.test.ts`;
+the store's `inGesture` and `subscribeGestures`, tested in `design-store.test.ts`; `projectNodes` in
+`apps/desktop/src/renderer/project-nodes.ts`; and its use in `projectItems` in `ActionsSearch.tsx`. Checked in the
+running app: searching "badge" lists the Badge stories' layers, and choosing one selects it. Gaps: `projectNodes`'s
+wiring of the store to the settler and the Search use have no automated test.
 
 ## Signing in (PAR-612, PAR-669)
 

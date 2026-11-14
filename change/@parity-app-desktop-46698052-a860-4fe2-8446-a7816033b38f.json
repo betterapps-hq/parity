@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Update the node index in place from what an edit touched, and tell watchers once per settled edit",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

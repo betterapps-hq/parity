@@ -211,6 +211,21 @@ describe("gestures", () => {
     expect(store.getHistory().canUndo).toBe(false)
   })
 
+  it("says when the first gesture begins and the last one ends, so readers know when its changes settle", () => {
+    const { store } = setup()
+    const told: boolean[] = []
+    store.subscribeGestures(() => told.push(store.inGesture()))
+
+    const drag = store.beginGesture()
+    const scrub = store.beginGesture()
+    store.endGesture(drag)
+    store.endGesture(drag)
+    store.endGesture(scrub)
+
+    expect(told).toEqual([true, false])
+    expect(store.inGesture()).toBe(false)
+  })
+
   it("makes a live drag one step, though it took a side back mid-drag, and none once Escape cancels it", () => {
     vi.useFakeTimers()
 

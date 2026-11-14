@@ -73,6 +73,8 @@ export {
 
 export { designColors } from "./design-colors.ts"
 
+export { createEditSettler, type EditSettler, type SettleOptions } from "./edit-settler.ts"
+
 export { withTidyView } from "./document-equality.ts"
 
 export {
@@ -238,7 +240,15 @@ export {
   treeRows
 } from "./layers-tree.ts"
 
-export { collectNodes, createNodeIndex, type NodeIndex, type NodeSources } from "./node-index.ts"
+export {
+  collectNodes,
+  createNodeCollector,
+  createNodeIndex,
+  type NodeIndex,
+  type NodePart,
+  type NodeSources,
+  type NodeUpdate
+} from "./node-index.ts"
 
 export {
   type FolderedRow,

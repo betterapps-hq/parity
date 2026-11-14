@@ -137,6 +137,9 @@ export class DesignStore {
   private readonly epoch = Math.random().toString(36).slice(2, 10).padEnd(8, "0")
   /** How many gestures have begun, to give each its own id. */
   private gestures = 0
+  /** The gestures begun and not yet ended. */
+  private readonly openGestures = new Set<string>()
+  private readonly gestureChanges = signal()
 
   constructor(
     documents: { path: string; document: CanvasDocument }[],
@@ -239,14 +242,30 @@ export class DesignStore {
    */
   beginGesture(): string {
     this.gestures += 1
+    const gesture = `${this.epoch}:${this.gestures}`
+    this.openGestures.add(gesture)
 
-    return `${this.epoch}:${this.gestures}`
+    if (this.openGestures.size === 1) {
+      this.gestureChanges.notify()
+    }
+
+    return gesture
   }
+
+  /** Whether a gesture has begun and not ended, so its changes haven't settled yet. */
+  inGesture = (): boolean => this.openGestures.size > 0
+
+  /** Told when the first gesture begins and when the last one ends, which is when its changes settle. */
+  subscribeGestures = this.gestureChanges.subscribe
 
   /** Ends a gesture: a change made with it later starts a step of its own. Returns whether it made an undo step. */
   endGesture(gesture: string): boolean {
     const stepped = this.state.past.some((step) => step.gesture === gesture)
     this.state = endGesture(this.state, gesture)
+
+    if (this.openGestures.delete(gesture) && this.openGestures.size === 0) {
+      this.gestureChanges.notify()
+    }
 
     return stepped
   }

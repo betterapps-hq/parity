@@ -1,20 +1,20 @@
-import type { ContainerSpec, NodesChange, NodeEvent, ProjectRoute } from "@parity-app/core"
+import type { ContainerSpec, DesignNode, NodesChange, NodeEvent, ProjectRoute } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { collectNodes, createNodeIndex } from "./node-index.ts"
+import { collectNodes, createNodeCollector, createNodeIndex } from "./node-index.ts"
 
-const pricing: ContainerSpec = {
+const cardLayer: DesignNode = { type: "component", id: "card", component: "marketing/Card" }
+
+const origin = { x: 0, y: 0 }
+
+/** The pricing design with its title saying `text`, and the same card layer object each time. */
+const titled = (text: string): ContainerSpec => ({
   id: "pricing",
   name: "Pricing",
-  position: { x: 0, y: 0 },
-  root: {
-    type: "layout",
-    id: "root",
-    children: [
-      { type: "text", id: "title", text: "Plans" },
-      { type: "component", id: "card", component: "marketing/Card" }
-    ]
-  }
-}
+  position: origin,
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text }, cardLayer] }
+})
+
+const pricing = titled("Plans")
 
 const route = (id: string, parent?: string): ProjectRoute => ({
   id,
@@ -156,5 +156,82 @@ describe("createNodeIndex", () => {
     index.emit("route:visited", settings, { url: "/settings" })
 
     expect(events).toEqual(["route:visited", "watched route:visited"])
+  })
+})
+
+describe("createNodeCollector", () => {
+  it("returns only the parts whose sources changed, keeping every node an edit didn't touch", () => {
+    const collect = createNodeCollector()
+    const first = collect(sources)
+    const before = first.parts.flatMap((part) => part.nodes)
+    const designs = [{ key: "app.par#pricing", container: titled("Pricing plans") }]
+
+    const next = collect({ ...sources, designs })
+
+    expect(next.parts.map((part) => part.part)).toEqual(["design:app.par#pricing"])
+    const after = next.parts[0]?.nodes ?? []
+    expect(after.map((node, at) => node === before[at])).toEqual([true, false, false, true])
+    expect(collect({ ...sources, designs }).parts).toEqual([])
+  })
+
+  it("empties a design's part when the design goes", () => {
+    const collect = createNodeCollector()
+    collect(sources)
+
+    const next = collect({ ...sources, designs: [] })
+
+    expect(next.parts).toEqual([{ part: "design:app.par#pricing", nodes: [] }])
+    expect(next.order).toEqual(["components", "routes", "screens"])
+  })
+})
+
+describe("NodeIndex.update", () => {
+  it("compares only the nodes an edit touched and tells each watch once", () => {
+    const collect = createNodeCollector()
+    const index = createNodeIndex()
+    index.update(collect(sources))
+    const changes: NodesChange[] = []
+    index.watch({}, (change) => changes.push(change))
+    const card = index.get(layer("component", "card"))
+
+    index.update(collect({ ...sources, designs: [{ key: "app.par#pricing", container: titled("Pricing plans") }] }))
+
+    expect(changes).toHaveLength(1)
+    expect(changes[0]?.changed.map(({ node, fields }) => [node.ref.key, fields])).toEqual([
+      ["app.par#pricing/title", ["text"]]
+    ])
+    expect(index.get(layer("component", "card"))).toBe(card)
+    expect(index.children(layer("layout", "root")).map((node) => node.name)).toEqual(["title", "card"])
+  })
+
+  it("keeps parts in the order given, and drops the ones it leaves out", () => {
+    const index = createNodeIndex()
+    const node = (key: string) => ({ ref: { owner: "test", type: "item", key }, name: key, data: {} })
+    index.update({
+      parts: [
+        { part: "a", nodes: [node("a")] },
+        { part: "b", nodes: [node("b")] }
+      ],
+      order: ["a", "b"]
+    })
+    const removed: string[] = []
+    index.watch({}, (change) => removed.push(...change.removed.map((ref) => ref.key)))
+
+    index.update({ parts: [{ part: "c", nodes: [node("c")] }], order: ["c", "a"] })
+
+    expect(index.ofType("item").map((item) => item.name)).toEqual(["c", "a"])
+    expect(removed).toEqual(["b"])
+  })
+
+  it("tells nobody anything when nothing changed", () => {
+    const collect = createNodeCollector()
+    const index = createNodeIndex()
+    index.update(collect(sources))
+    const changes: NodesChange[] = []
+    index.watch({}, (change) => changes.push(change))
+
+    index.update(collect(sources))
+
+    expect(changes).toEqual([])
   })
 })
