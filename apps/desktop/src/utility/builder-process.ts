@@ -3,6 +3,7 @@
 import { viteBuilder } from "@parity-app/builder-vite"
 import { nodePort } from "@parity-app/channel"
 import { serveBuilderProcess } from "@parity-app/processes"
+import { keepCompiledCode } from "../shared/compile-cache.ts"
 
 serveBuilderProcess(
   {
@@ -20,6 +21,8 @@ serveBuilderProcess(
   },
   [viteBuilder]
 )
+
+keepCompiledCode()
 
 // The service ended, even killed outright: nothing can reach this builder any more.
 process.on("disconnect", () => process.exit(0))

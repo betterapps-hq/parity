@@ -2,6 +2,51 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 10:25:05 GMT",
+      "version": "0.82.4",
+      "tag": "@parity-app/desktop_v0.82.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9b0d53de27330fb16c7f531f68f58a3246295fb2",
+            "comment": "Keep compiled code for main, the service and builders between launches, so the app and projects open sooner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 09:46:47 GMT",
+      "version": "0.82.3",
+      "tag": "@parity-app/desktop_v0.82.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aac067e676a9b1901707265e6a18a53b0d3fca23",
+            "comment": "Keep the window's compiled code between launches, so it paints sooner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 08:53:51 GMT",
+      "version": "0.82.2",
+      "tag": "@parity-app/desktop_v0.82.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8e153f769d49dc98914411bd2be63fd16b35b4c5",
+            "comment": "Keep a builder process loaded before a project opens, so a project's builder starts sooner"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 06:02:52 GMT",
       "version": "0.82.1",
       "tag": "@parity-app/desktop_v0.82.1",

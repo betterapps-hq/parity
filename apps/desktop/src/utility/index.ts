@@ -7,6 +7,7 @@ import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
+import { keepCompiledCode } from "../shared/compile-cache.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { changedFrames, storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
@@ -316,6 +317,8 @@ prepareBuilder()
 void sweepBitmaps()
 
 reportCacheUse()
+
+keepCompiledCode()
 
 const agentImages: AgentImages = {
   scanImages: (projectId) => scanImages(projects.get(projectId)),

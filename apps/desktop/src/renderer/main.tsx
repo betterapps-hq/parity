@@ -8,6 +8,7 @@ import { receiveTelemetry } from "./chrome/telemetry-setting.ts"
 import { installClassMerger } from "./class-merger.ts"
 import { setInterfaceTelemetry, watchTabs } from "./interface-events.ts"
 import { watchLongTasks } from "./long-tasks.ts"
+import { preloadOpenProject } from "./ProjectView.tsx"
 import { replaySampling } from "./replay.ts"
 import { setWindowTelemetry } from "./report-error.ts"
 import { caughtEventId, reactErrorHandlers, startTelemetry } from "./telemetry.ts"
@@ -61,3 +62,5 @@ createRoot(document.getElementById("root")!, reactErrorHandlers).render(
     <App />
   </StrictMode>
 )
+
+preloadOpenProject()

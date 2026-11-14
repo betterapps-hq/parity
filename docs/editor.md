@@ -6493,6 +6493,23 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
   A waiting process that ended is replaced by a new one. `packages/processes/src/spare.test.ts` (3: the waiting child is
   handed over and the next starts only when asked, and one that ended is replaced when taken or prepared).
+- **The window's compiled code is kept between launches (PAR-1082).** The installed window loads from `parity://`, and
+  Chromium keeps compiled code only for http(s) unless a scheme asks for it. So the window compiled its few megabytes of
+  JavaScript again every launch, in a long task before it first painted. With the scheme's `codeCache` privilege, the
+  window painted about 0.2 seconds sooner after it was created, and the long task was mostly gone. A development build
+  loads over http, so `pnpm perf` doesn't show this. No test: it's one privilege, measured in the built app.
+- **Main, the service and builders keep their compiled code too (PAR-1083).** The built app starts at `start.mjs`, which
+  turns on Node's compile cache before importing main's bundle and passes it to the service and builders through
+  `NODE_COMPILE_CACHE`. A builder's cache covers the project's Vite and plugins as well. Each process writes its cache
+  15 seconds after it starts, since a builder or the service can be ended outright. Across 8 alternating launches of the
+  built app, main was ready in 750 ms rather than 890, the builder in 1.83 seconds rather than 2.06, and the project
+  opened in 2.90 seconds rather than 3.12. A development build doesn't start at `start.mjs`, so it's unchanged. No test:
+  it's measured in the built app.
+- **An open project's canvas and panels load in a chunk of their own (PAR-1084).** None of them is drawn until a project
+  has opened, seconds after the window paints, so `OpenProject.tsx` is loaded lazily. The window loads that chunk once
+  it's idle after its first paint, so a project opening finds it ready, and shows the opening state while it loads.
+  That's 600 KB out of the 3.6 MB the window runs before it paints. tldraw stays in the main chunk: agent handlers, the
+  project picture and quick insert import it eagerly. No test: the end-to-end tests open projects through it.
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's
