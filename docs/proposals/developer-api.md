@@ -204,7 +204,8 @@ from the manifest alone. The code loads the first time the command runs.
 - **Running.** Everything it registers or subscribes to returns a `Disposable`. Those it adds to `parity.subscriptions`
   go when it does.
 - **Deactivated** when its tool is no longer detected, the project closes, or it's reloaded during development. Its
-  contributions, facts, nodes, overlays, servers and processes go with it.
+  contributions, facts, nodes and overlays go with it. Its processes stop too, except on a reload, which leaves them
+  running for the host to get back ([processes.md](processes.md#lifecycle)).
 
 ## The Extensions page
 
@@ -215,8 +216,9 @@ Search actions. Each extension shows its logo, what it adds, what detection foun
 - **No switch.** Every extension today is Parity's own and gives the basic support for a language, framework or builder,
   so each runs whenever its tool is detected and can't be turned off. A switch comes with third-party extensions.
 - **When one stops running,** because its tool is no longer detected or it crashed, its contributions disappear from
-  every panel and menu, its servers and processes stop, and its canvas files close. Nodes of its types in saved designs
-  stay in the file and show "From Route timings", so nothing is lost.
+  every panel and menu and its canvas files close. Its processes stop when its tool is no longer detected, but keep
+  running after a crash, so it gets them back when it restarts ([processes.md](processes.md#lifecycle)). Nodes of its
+  types in saved designs stay in the file and show "From Route timings", so nothing is lost.
 - **Not installed.** A project whose `.par` names an extension the person doesn't have says so once, with Install, which
   opens the Extensions page. Its nodes show the package name the `.par` saved with them.
 - **Uninstalling** removes the extension's app state and app settings, and leaves what it saved in projects.
@@ -319,10 +321,9 @@ they're synchronous; anything that changes something is asynchronous (Speed and 
 - `parity.files.edit(label, changes)`: writes project files through the project service's one queued write, which checks
   nothing changed underneath, can be undone under the extension's name, and isn't read back as an outside edit. Limited
   to the write paths its permissions name. Parity refuses writes to `.par` files whatever they name.
-- `parity.servers.serve(server)` and `parity.processes.run(command)`: ask the project service's process manager to find
-  or start a tool's server or run a command. Each is listed with the project's processes under the extension, its output
-  goes to the extension's tab in the bottom panel, and the service stops it when the extension stops or its host
-  crashes.
+- `parity.processes`: starts, adopts, finds and watches the project's processes through the project service's process
+  manager, and providers change where servers are reached and how commands run. [processes.md](processes.md) sets it
+  out.
 
 ### Providers
 
