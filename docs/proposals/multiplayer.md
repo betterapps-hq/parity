@@ -49,7 +49,7 @@ Parity talks to it through `@parity-app/multiplayer`, and `@parity-app/multiplay
   node from every owner, read only: layers, and the components, routes and stories that code owns. The project's
   document holds what Parity saves itself, the `.par` files with modes and token edits, and is the only thing with undo,
   gestures and saving. Code Parity writes from designs later is output, and what's read back from it is code's nodes. So
-  the document is `ProjectDoc`, not a node store, and `DesignStore` is renamed or folded away when it moves onto it.
+  the document is `ProjectDoc`, not a node store, and `DesignStore` is folded away when the session moves onto it.
 - **Undo is per person and made of operations:** it reverses only this person's transactions.
 - **Loro can be turned off with one line,** and the editor keeps working on the local provider (Turning Loro off).
 - **`history.ts`'s snapshot undo goes** once `DesignStore` sits on the document, as [conventions.md](../conventions.md)
@@ -577,9 +577,9 @@ and the snapshot undo.
 The node index from PAR-1088 keeps working, since unchanged designs and layers stay the same objects. Later,
 `DocChange.designs` can name the parts to gather again instead of comparing objects.
 
-### What's left of `DesignStore`
+### `DesignStore` is folded away
 
-Once the document holds the state, undo, gestures and changes, `DesignStore` is left with three jobs:
+Once the document holds the state, undo, gestures and changes, `DesignStore` is left with three jobs, which split up:
 
 | Job                    | What it does now                                                                                      | Where it goes                                                                                        |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -587,11 +587,18 @@ Once the document holds the state, undo, gestures and changes, `DesignStore` is 
 | Lookups built from it  | `getEntries`, `getEntry`, `getLibrary`, `getComponentLibrary`, notes and references with their keys   | Functions of `doc.files()`, memoized by object, as now                                               |
 | The bridge for callers | `updateContainer`, `addContainer`, `setModes` and the rest, turning whole values into a transaction   | Free functions over `ProjectDoc`, such as `updateContainer(doc, key, label, update)`, in the package |
 
-Folding it away would end step 5 with `ProjectDoc` and `ProjectSaver` in the session, and no `DesignStore`. The ~100
-callers would change their receiver, from `store.updateContainer(…)` to `updateContainer(doc, …)`, which is mechanical
-and lands in the same step, and agents' status and revision (`status`, `getRevision`) would read the document's version
-and the saver's state. The other way is to rename it `ProjectDocStore` and keep the three jobs in it. Which one is
-decided before step 5.
+Step 5 ends with `ProjectDoc` and `ProjectSaver` in the session, and no `DesignStore`:
+
+- **Each piece has one job.** The saver is tested against a document of its own, and the functions for callers are data
+  in, data out, in the package, tested without Electron.
+- **The window, agents and extensions edit the same `ProjectDoc`,** with no store in front of it whose methods only the
+  window has.
+- **The ~100 callers change their receiver,** from `store.updateContainer(…)` to `updateContainer(doc, …)`. It's
+  mechanical, and step 5 rewrites those files anyway.
+- **Agents' status and revision** (`status`, `getRevision`) read the document's version and the saver's state.
+
+Renaming it `ProjectDocStore` and keeping the three jobs together would have made a smaller diff, at the cost of a
+store-shaped layer that only the window has.
 
 ## The shared tests
 
@@ -851,9 +858,9 @@ Loro then comes in where the provider is picked, which is also how it would go b
 3. **`@parity-app/multiplayer`:** the types, the bridge, `diffFiles`, and under `/testing` the shared tests,
    `benchProjectDoc` and the generated project.
 4. **`@parity-app/multiplayer-local`,** passing the shared tests.
-5. **The session on the document, with the local provider:** `renderer/project-doc.ts`, `DesignStore` renamed or folded
-   away, the snapshot undo removed from `history.ts`, the events above, [editor.md](../editor.md) updated, and the bench
-   run again against today's numbers.
+5. **The session on the document, with the local provider:** `renderer/project-doc.ts`, `ProjectSaver`, `DesignStore`
+   folded away, the snapshot undo removed from `history.ts`, the events above, [editor.md](../editor.md) updated, and
+   the bench run again against today's numbers.
 6. **`@parity-app/multiplayer-loro`,** passing every shared test, the concurrent ones with a replica pair.
 7. **The window on Loro:** `renderer/project-doc.ts` picks `loroProvider`, and the bench and load costs run on all
    three, with the numbers here and a decision on hot paths.
@@ -872,5 +879,3 @@ Loro then comes in where the provider is picked, which is also how it would go b
 - **Modes and a file's other fields replaced whole.** Two people changing different viewports at once keep only the last
   change. Fine until someone needs more.
 - **The web review page and 3.4 MB of WebAssembly.** The diff doesn't need Loro, so the page may not either.
-- **Fold `DesignStore` away or rename it.** Folding leaves `ProjectDoc`, `ProjectSaver` and free functions for callers;
-  renaming keeps one `ProjectDocStore` (What's left of `DesignStore`).
