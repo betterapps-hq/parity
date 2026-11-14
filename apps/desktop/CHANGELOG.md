@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 09:46:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 10:25:05 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.4
+
+Sat, 14 Nov 2026 10:25:05 GMT
+
+### Patches
+
+- Keep compiled code for main, the service and builders between launches, so the app and projects open sooner
+  (ajcraswell@gmail.com)
 
 ## 0.82.3
 
