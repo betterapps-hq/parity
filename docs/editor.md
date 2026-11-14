@@ -1090,16 +1090,39 @@ and runs its code in a host of its own ([extensions.md](extensions.md)). Storybo
   "Storybook isn't answering". A stopped extension's commands and status items are hidden until it restarts.
 - **Questions** an extension asks, a confirmation, a field or a list to pick from, open a dialog saying which extension
   asks. Escape cancels.
+- **When and enablement (PAR-1092).** A placement shows only where its `when` holds and is greyed where its `enablement`
+  doesn't. Either reads the node it's shown for (`node.type == route`), how many things are selected
+  (`selection.count > 1`), the tool (`tool == select`), the project's tools (`project.uses(storybook)`), extensions'
+  facts about the node (`fact.stories > 0`) and the extension's own context keys, joined with `&&`, `||`, `!` and
+  parentheses ([extensions.md](extensions.md)).
+- **Selection, navigation and Parity's commands (PAR-1092).** An extension reads what's selected, by `NodeRef`, and is
+  told each time it changes; it selects nodes as picking them in Layers does, points at one as hovering a row does,
+  brings one into view or frames it, opens a design, shows one in a mode or a state, opens a panel's tab or its own
+  Settings page, and runs Parity's own commands, the ones in the keymap, on what's selected. A command that doesn't
+  apply to what's selected fails, saying so.
+- **Keys (PAR-1092).** An extension's keys work on the canvas wherever no command of Parity's has them and their `when`
+  holds; Parity's own keys win, with the person's changes, and a key two extensions ask for goes to neither. Settings'
+  Keyboard shortcuts page lists each extension's keys after Parity's, under its name, and one that doesn't work says
+  which command has its keys.
+- **A node selected by ref** that has no panel of its own, as a story or an extension's node, shows its name, its type
+  as its extension names it, and the facts extensions set about it (`NodePanel`).
 
-Code: `renderer/extensions.ts` (the store, `commandsAt`, `statusItems`, `runCommand`), `renderer/extension-ui.ts`,
-`chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`; `extensions.*` in
-`shared/protocol.ts`; the service's side in `utility/extensions.ts`.
+Code: `renderer/extensions.ts` (the store, `commandsAt`, `holdsFor`, `extensionKeys`, `statusItems`, `runCommand`),
+`renderer/extension-editor.ts` (what extensions ask of the tab, and the selection they're told),
+`renderer/extension-ui.ts`, `chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`;
+`extensions.*` in `shared/protocol.ts`; the service's side in `utility/extensions.ts`.
 
-Tests: `packages/extensions/src/hosts.test.ts` and `manifest.test.ts` ([extensions.md](extensions.md)), and
-`chrome/layout.test.ts` (the bottom tab kept with the rest of the layout, Console by default). Stories:
-`chrome/StatusBar.stories.tsx` OpeningStorybook, OpenedStorybook and StorybookFailed, and
-`chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no tests of their own. They were tried in
-the running app on 2026-11-14 with the mouse and keyboard ([extensions.md](extensions.md) says how).
+Tests: `packages/extensions/src/hosts.test.ts`, `manifest.test.ts`, `when.test.ts` and `keys.test.ts`
+([extensions.md](extensions.md)); `renderer/extensions.test.ts` (placements, greyed by `enablement`, over the node, the
+selection and the project's tools, and extensions' keys, which Parity's own win);
+`packages/editor/src/selection.test.ts` (the selection by `NodeRef`); and `chrome/layout.test.ts` (the bottom tab kept
+with the rest of the layout, Console by default). Stories: `chrome/StatusBar.stories.tsx` OpeningStorybook,
+OpenedStorybook and StorybookFailed, and `chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no
+tests of their own. They were tried in the running app on 2026-11-14 with the mouse and keyboard
+([extensions.md](extensions.md) says how). Answering an extension's selection, navigation and commands in the tab
+(`extension-editor.ts`), the extension keys on the canvas and the Keyboard shortcuts page's extension groups have no
+tests of their own, and no extension uses them yet; Open in Storybook greyed with "No story found" by its `enablement`,
+and selecting Settings' layout in Layers bringing its group into view, were tried in the running app on 2026-11-14.
 
 ### Extensions' changes to designs and files (PAR-1093)
 
@@ -6720,9 +6743,10 @@ A screen is named for the component its route draws, else its path.
   solid in the page color, and brings forward its line up to App. Its panel shows the layout icon, its name and Layout,
   then what the router says of its layout route, read-only: its path, file and component, where its index redirects as a
   link that selects that page, and whether it loads data or can redirect. It has no frame of its own, so no modes or
-  Export (`PageGroupPanel`). Selecting a design takes the selection from it. A group is named for its path's last part,
-  or for its component when its path is its parent's, as a pathless layout's is. The group's outline is drawn round its
-  pages where they are now, so it follows a page that's moved.
+  Export (`PageGroupPanel`). The selection holds the group's layout route by `NodeRef`, as an extension's
+  `parity.selection.set` does too (PAR-1092), so selecting a design takes the selection from it. A group is named for
+  its path's last part, or for its component when its path is its parent's, as a pathless layout's is. The group's
+  outline is drawn round its pages where they are now, so it follows a page that's moved.
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
@@ -6737,16 +6761,17 @@ A screen is named for the component its route draws, else its path.
 - **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
   page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
   the layout icon and, at its right, where its index redirects, holding its pages: Settings holds Billing and Profile.
-  It's open until it's closed with its arrow, or Left and Right; clicking it selects its group, on the canvas too. Each
-  icon at the end of a row has a tooltip saying what it means: where a layout redirects, where a page lands, that a
-  component fails to draw, that a layer changes in the state shown or at some screen sizes, and what it's locked with. A
-  search lists the pages flat. Component designs are listed in the Components panel. A page shows the route icon, in
-  Layers and on its title, and its title shows its route's path under its name; selecting it shows its route's path,
-  params, file and component, and whether it loads data or can redirect, read-only. Its layers are what each route that
-  draws it draws, the root's outermost, each inside the one before as it draws at that route's outlet, as children
-  passed to it: Billing's are RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the
-  component's icon and color, and its panel shows its route too; a route that names no component, as a redirecting
-  index, shows as a route, named for its path. What each component draws inside comes with React's tree (step 4).
+  It's open until it's closed with its arrow, or Left and Right; clicking it selects its layout route, by `NodeRef`
+  (PAR-1092), which selects its group on the canvas and brings the group into view. Each icon at the end of a row has a
+  tooltip saying what it means: where a layout redirects, where a page lands, that a component fails to draw, that a
+  layer changes in the state shown or at some screen sizes, and what it's locked with. A search lists the pages flat.
+  Component designs are listed in the Components panel. A page shows the route icon, in Layers and on its title, and its
+  title shows its route's path under its name; selecting it shows its route's path, params, file and component, and
+  whether it loads data or can redirect, read-only. Its layers are what each route that draws it draws, the root's
+  outermost, each inside the one before as it draws at that route's outlet, as children passed to it: Billing's are
+  RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the component's icon and color,
+  and its panel shows its route too; a route that names no component, as a redirecting index, shows as a route, named
+  for its path. What each component draws inside comes with React's tree (step 4).
 - **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
   part, as the `/settings` index is "Settings", else Home.
 - **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page

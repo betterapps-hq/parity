@@ -1,12 +1,12 @@
 import type { ProjectRoute } from "@parity-app/core"
-import { routeScreenId } from "@parity-app/editor"
+import { refsSelection, routeScreenId } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
 import { example, openProjects } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
-import { routePagesFile, selectedPageGroup } from "./route-pages.ts"
+import { routePagesFile, routeRef } from "./route-pages.ts"
 
 /**
  * The lines of the app's page tree (PAR-1076), on the example opened with its own routes, as the TanStack Router
@@ -89,7 +89,10 @@ function pageTree({ zoom, selected, group }: { zoom?: number; selected?: string;
         session.selection.set({ design: page(selected) })
       }
 
-      selectedPageGroup.set(group && page(group))
+      // A layout group is selected by its route.
+      if (group) {
+        session.selection.set(refsSelection([routeRef(session.info, group)]))
+      }
     }
   }
 }

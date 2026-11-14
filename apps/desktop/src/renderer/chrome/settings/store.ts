@@ -7,6 +7,16 @@ export interface Skipped {
   keys: string
 }
 
+/** An extension's key, as the Keyboard shortcuts page lists it under the extension's name (PAR-1092). */
+export interface ExtensionShortcut {
+  command: string
+  title: string
+  /** As the keymap writes them. */
+  keys: string
+  /** Why it doesn't work, when another command has the keys. */
+  clash?: string
+}
+
 /** The project the window has open. */
 export interface OpenProject {
   name: string
@@ -44,6 +54,8 @@ export interface SettingsData {
   /** A command whose keys another took, and that command's name. */
   lost: Record<string, string>
   skipped: Skipped[]
+  /** The keys of the open project's extensions, under each one's name. */
+  extensionShortcuts?: { extension: string; shortcuts: ExtensionShortcut[] }[]
   version: string
   checkForUpdates?: () => void
   /** Settings updates decides can't change while it works, by setting id. */

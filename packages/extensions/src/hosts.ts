@@ -6,6 +6,7 @@ import type {
   Fact,
   FileEdit,
   JsonValue,
+  NodeRef,
   PathIcon,
   ServerRequest
 } from "@parity-app/extension-api"
@@ -46,6 +47,8 @@ export type HostState =
 export interface ExtensionStatus {
   id: string
   displayName: string
+  /** What its ids start with, which also names its page in Settings. */
+  prefix: string
   icon: PathIcon
   contributes: Contributions
   state: HostState
@@ -83,12 +86,18 @@ export interface ExtensionStateStore {
 /** The methods of `parity.ui`, which a window answers. */
 export type UiMethod = "ui.notify" | "ui.pick" | "ui.input" | "ui.confirm" | "ui.open" | "ui.progress"
 
+/** What `parity.selection`, `parity.navigate` and `parity.commands.execute` ask of the window (PAR-1092). */
+export type EditorMethod = "selection.set" | "selection.highlight" | "navigate" | "commands.execute"
+
+/** Everything hosts ask of the window that has a project open. */
+export type WindowAsk = UiMethod | EditorMethod
+
 /** What hosts tell the window that has a project open, and ask of the person through it. */
 export interface ExtensionWindow {
   /** A project's extensions changed: one started, crashed or set a status item or context key. */
   changed(projectId: string, extensions: ExtensionStatus[]): void
   logged(projectId: string, extension: string, line: LogLine): void
-  ui<M extends UiMethod>(
+  ui<M extends WindowAsk>(
     projectId: string,
     extension: string,
     method: M,
@@ -180,6 +189,8 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   cancel(projectId: string, extension: string, progress: number): void
   /** A project's extensions and their logs. */
   list(projectId: string): { extensions: ExtensionStatus[]; logs: Record<string, LogLine[]> }
+  /** What's selected in the window with the project open changed, which every running host is told. */
+  selectionChanged(projectId: string, refs: NodeRef[]): void
 }
 
 interface Host<Project> {
@@ -207,6 +218,8 @@ interface Running {
 interface OpenProject<Project> {
   project: Project
   hosts: Map<string, Host<Project>>
+  /** What's selected in its window, which hosts start with. */
+  selection: NodeRef[]
 }
 
 /** Every open project's extensions, each in a host of its own. */
@@ -222,6 +235,7 @@ export function extensionHosts<Project extends OpenedProject>(
     const status: ExtensionStatus = {
       id: found.id,
       displayName: found.manifest.displayName,
+      prefix: found.manifest.prefix,
       icon: found.manifest.icon,
       contributes: found.manifest.contributes,
       state: host.state,
@@ -294,7 +308,7 @@ export function extensionHosts<Project extends OpenedProject>(
     const { displayName, permissions } = host.extension.package.manifest
 
     const ui =
-      <M extends UiMethod>(method: M) =>
+      <M extends WindowAsk>(method: M) =>
       (params: HostServiceMethods[M]["params"]) =>
         options.window.ui(projectId, id, method, params)
 
@@ -371,6 +385,17 @@ export function extensionHosts<Project extends OpenedProject>(
         }
 
         return { paths: await options.edits.files(projectId, id, `${displayName}: ${label}`, files) }
+      },
+      "selection.set": ui("selection.set"),
+      "selection.highlight": ui("selection.highlight"),
+      navigate: ui("navigate"),
+      // An extension's command runs in its host; anything else is one of Parity's, which the window runs.
+      async "commands.execute"(params: HostServiceMethods["commands.execute"]["params"]) {
+        if (declarer(open, params.command)) {
+          await runCommand(open, params.command, params.target)
+        } else {
+          await options.window.ui(projectId, id, "commands.execute", params)
+        }
       }
     }
   }
@@ -402,7 +427,8 @@ export function extensionHosts<Project extends OpenedProject>(
       project: { root: open.project.root, name: open.project.name },
       commands: (found.manifest.contributes.commands ?? []).map((command) => command.id),
       statusItems: (found.manifest.contributes.statusItems ?? []).map((item) => item.id),
-      state: { app: stored.app, project: stored.project }
+      state: { app: stored.app, project: stored.project },
+      selection: open.selection
     }
 
     if (host.detected !== undefined) {
@@ -525,13 +551,57 @@ export function extensionHosts<Project extends OpenedProject>(
     return host
   }
 
+  /** The host of the extension that declares a command, if any. */
+  const declarer = (open: OpenProject<Project>, command: string) =>
+    [...open.hosts.values()].find((candidate) =>
+      candidate.extension.package.manifest.contributes.commands?.some((declared) => declared.id === command)
+    )
+
+  /** Runs an extension's command, starting its host first when it isn't running. */
+  async function runCommand(open: OpenProject<Project>, command: string, target?: CommandTarget): Promise<void> {
+    const host = declarer(open, command)
+
+    if (!host) {
+      throw new Error(`No extension running for ${open.project.name} declares ${command}`)
+    }
+
+    const name = host.extension.package.manifest.displayName
+
+    if (host.state === "crashed" || host.state === "stuck") {
+      throw new Error(
+        `${name} ${host.state === "crashed" ? "has stopped" : "isn't answering"}. Restart it to try again.`
+      )
+    }
+
+    if (!host.running) {
+      start(open, host)
+    }
+
+    const running = host.running
+
+    if (!running) {
+      throw new Error(`${name} couldn't start`)
+    }
+
+    await running.activated.catch(() => {
+      throw new Error(`${name} couldn't start: ${host.reason ?? "it stopped"}`)
+    })
+
+    try {
+      await running.channel.request("run", target ? { command, target } : { command })
+    } catch (cause) {
+      log(open, host, withStack({ level: "error", text: `${command} failed: ${messageOf(cause)}` }, cause))
+      throw cause
+    }
+  }
+
   return {
     open(project) {
       if (projects.has(project.id)) {
         return
       }
 
-      const open: OpenProject<Project> = { project, hosts: new Map() }
+      const open: OpenProject<Project> = { project, hosts: new Map(), selection: [] }
       projects.set(project.id, open)
 
       for (const extension of options.extensions) {
@@ -578,46 +648,7 @@ export function extensionHosts<Project extends OpenedProject>(
       projects.delete(projectId)
       await Promise.all([...open.hosts.values()].map((host) => stop(open, host)))
     },
-    async run(projectId, command, target) {
-      const open = projectOf(projectId)
-
-      const host = [...open.hosts.values()].find((candidate) =>
-        candidate.extension.package.manifest.contributes.commands?.some((declared) => declared.id === command)
-      )
-
-      if (!host) {
-        throw new Error(`No extension running for ${open.project.name} declares ${command}`)
-      }
-
-      const name = host.extension.package.manifest.displayName
-
-      if (host.state === "crashed" || host.state === "stuck") {
-        throw new Error(
-          `${name} ${host.state === "crashed" ? "has stopped" : "isn't answering"}. Restart it to try again.`
-        )
-      }
-
-      if (!host.running) {
-        start(open, host)
-      }
-
-      const running = host.running
-
-      if (!running) {
-        throw new Error(`${name} couldn't start`)
-      }
-
-      await running.activated.catch(() => {
-        throw new Error(`${name} couldn't start: ${host.reason ?? "it stopped"}`)
-      })
-
-      try {
-        await running.channel.request("run", target ? { command, target } : { command })
-      } catch (cause) {
-        log(open, host, withStack({ level: "error", text: `${command} failed: ${messageOf(cause)}` }, cause))
-        throw cause
-      }
-    },
+    run: (projectId, command, target) => runCommand(projectOf(projectId), command, target),
     viewOpened(projectId, view) {
       const open = projectOf(projectId)
 
@@ -643,6 +674,20 @@ export function extensionHosts<Project extends OpenedProject>(
     cancel(projectId, id, progress) {
       const running = hostOf(projectOf(projectId), id).running
       void running?.channel.request("cancel", { progress }).catch(() => undefined)
+    },
+    selectionChanged(projectId, refs) {
+      const open = projects.get(projectId)
+
+      if (!open) {
+        return
+      }
+
+      open.selection = refs
+
+      // A host still activating is sent it too: it has the selection it started with until then.
+      for (const host of open.hosts.values()) {
+        void host.running?.channel.request("selection.changed", { refs }).catch(() => undefined)
+      }
     },
     list(projectId) {
       const open = projects.get(projectId)

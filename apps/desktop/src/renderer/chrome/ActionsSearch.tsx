@@ -15,7 +15,7 @@ import { ExternalLink, FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
-import { commandsAt, extensionsOf, runCommand } from "../extensions.ts"
+import { commandsAt, extensionsOf, runCommand, whenFactsOf } from "../extensions.ts"
 import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { resetWithWindow } from "../store.ts"
@@ -362,9 +362,16 @@ function extensionItems(session: ProjectSession): Item[] {
   const component = selectionComponent(session)
   const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
   const { extensions } = extensionsOf(session).store.get()
-  const forComponent = target ? commandsAt(extensions, "componentCard", target) : []
+  // What a `when` reads: the selected component, or what's selected.
 
-  return commandsAt(extensions, "search", target).map((placed) => {
+  const facts = whenFactsOf(
+    session,
+    component === undefined ? undefined : { owner: session.info.renderer.id, type: "component", key: component }
+  )
+
+  const forComponent = target ? commandsAt(extensions, "componentCard", target, facts) : []
+
+  return commandsAt(extensions, "search", target, facts).map((placed) => {
     const acts = forComponent.some((each) => each.command.id === placed.command.id && each.enabled)
 
     return {

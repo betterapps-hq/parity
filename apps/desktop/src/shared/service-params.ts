@@ -169,6 +169,9 @@ export const serviceParams = {
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
+  "extensions.selectionChanged": project.extend({
+    refs: z.array(z.strictObject({ owner: z.string(), type: z.string(), key: z.string() })).max(10_000)
+  }),
   "adapter.run": project.extend({
     adapter: z.string(),
     action: z.string(),

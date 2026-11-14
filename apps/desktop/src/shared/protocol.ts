@@ -30,7 +30,7 @@ import type {
   RecoveryCopy,
   ReferenceAdded
 } from "@parity-app/editor"
-import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
+import type { ExtensionStatus, HostServiceMethods, LogLine, WindowAsk } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
 import type { SettingsChange } from "@parity-app/settings"
@@ -148,6 +148,8 @@ export interface ServiceMethods {
   "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
   /** The person cancelled an extension's task shown with `parity.ui.progress`. */
   "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
+  /** What's selected in the project's tab changed, by `NodeRef`, which its extensions' `parity.selection` gives. */
+  "extensions.selectionChanged": { params: ServiceParams["extensions.selectionChanged"]; result: undefined }
   /**
    * Does one of an adapter's actions for the project, or for one of its components, as opening a component's stories in
    * Storybook, which starts it first if needed. Returns an address to open in the browser when it gives one.
@@ -382,7 +384,10 @@ export interface WindowMethods {
   "extensions.changed": { params: { projectId: string; extensions: ExtensionStatus[] }; result: undefined }
   /** An extension wrote a line to its log. */
   "extensions.logged": { params: { projectId: string; extension: string; line: LogLine }; result: undefined }
-  /** An extension asks the person something through `parity.ui`, or shows them something. */
+  /**
+   * An extension asks the person something through `parity.ui`, or shows them something, or selects, navigates or runs
+   * one of Parity's commands through `parity.selection`, `parity.navigate` and `parity.commands.execute`.
+   */
   "extensions.ui": { params: ExtensionUiRequest; result: ExtensionUiAnswer }
   /**
    * An extension changes designs (PAR-1093): applied as an agent's call is, as one undo step under `label`, which names
@@ -396,13 +401,13 @@ export interface WindowMethods {
   "extensions.edited": { params: { projectId: string; edit: ProjectEditResult }; result: undefined }
 }
 
-/** What an extension asks through `parity.ui`, by method, with what the host sent. */
+/** What an extension asks of the window, by method, with what the host sent. */
 export type ExtensionUiRequest = {
-  [M in UiMethod]: { projectId: string; extension: string; method: M; params: HostServiceMethods[M]["params"] }
-}[UiMethod]
+  [M in WindowAsk]: { projectId: string; extension: string; method: M; params: HostServiceMethods[M]["params"] }
+}[WindowAsk]
 
-/** The window's answer to any of `parity.ui`'s methods. */
-export type ExtensionUiAnswer = HostServiceMethods[UiMethod]["result"]
+/** The window's answer to any of the methods an extension asks of it. */
+export type ExtensionUiAnswer = HostServiceMethods[WindowAsk]["result"]
 
 /**
  * An answer as data, across the bridge between the page and the preload script: a failure thrown across it keeps only

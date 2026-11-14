@@ -104,7 +104,7 @@ const extensions = startExtensions(
     },
     async ui(projectId, extension, method, params) {
       const window = await whenWindow()
-      // SAFETY: the window answers each of parity.ui's methods with that method's result (see `ExtensionUiAnswer`); the
+      // SAFETY: the window answers each method an extension asks of it with that method's result (see `ExtensionUiAnswer`); the
       // channel's one method can't say which from the request.
       const request = { projectId, extension, method, params } as ExtensionUiRequest
 
@@ -215,6 +215,7 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
+  "extensions.selectionChanged": ({ projectId, refs }) => extensions.selectionChanged(projectId, refs),
   "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),

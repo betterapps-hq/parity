@@ -48,6 +48,16 @@ export function ShortcutsPage({ store }: { store: Store }) {
           )}
         </Group>
       ))}
+      {/* Extensions' keys come from their manifests, so they show here without being changed here. */}
+      {store.extensionShortcuts?.map(({ extension, shortcuts }) => (
+        <Group key={extension} title={extension}>
+          {shortcuts.map((shortcut) => (
+            <Row key={`${shortcut.command} ${shortcut.keys}`} label={shortcut.title} problem={shortcut.clash}>
+              <Kbd>{formatKeys(shortcut.keys)}</Kbd>
+            </Row>
+          ))}
+        </Group>
+      ))}
     </>
   )
 }

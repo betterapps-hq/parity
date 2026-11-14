@@ -16,6 +16,7 @@ import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
+import { followSelection } from "./extension-editor.ts"
 import { useTool } from "./selection.ts"
 import { type ProjectSession, type Tab, workspace } from "./workspace.ts"
 
@@ -34,6 +35,9 @@ export function OpenProject({
   active: boolean
   reopen: () => void
 }) {
+  // The project's extensions read what's selected through `parity.selection` (PAR-1092).
+  useEffect(() => followSelection(session), [session])
+
   return (
     <ProjectContext value={session}>
       <div hidden={!active} className="flex min-h-0 flex-1 flex-col">

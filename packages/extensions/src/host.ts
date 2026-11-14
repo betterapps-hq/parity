@@ -3,12 +3,13 @@ import type {
   CommandTarget,
   Disposable,
   ExtensionModule,
+  NodeRef,
   Parity,
   PickItem,
   State,
   StatusItem
 } from "@parity-app/extension-api"
-import type { ActivateParams, HostMethods, HostServiceMethods } from "./protocol.ts"
+import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo } from "./protocol.ts"
 
 /*
  * The host's side: the code that runs in an extension's own process, for one open project. It loads the extension's
@@ -35,6 +36,12 @@ export interface ExtensionHost {
 
 type CommandHandler = (target: CommandTarget | undefined) => void | Promise<void>
 
+/** What's selected in the window, as the host keeps it for `parity.selection`, and who's told when it changes. */
+interface Selected {
+  refs: NodeRef[]
+  listeners: Set<(refs: NodeRef[]) => void>
+}
+
 interface Activated {
   handlers: Map<string, CommandHandler>
   subscriptions: Disposable[]
@@ -45,6 +52,7 @@ interface Activated {
 export function serveExtensionHost(side: HostSide): ExtensionHost {
   const channel = createChannel<HostMethods, HostServiceMethods>()
   const progress = new Map<number, AbortController>()
+  const selected: Selected = { refs: [], listeners: new Set() }
   let activated: Promise<Activated> | undefined
   let stopping = false
 
@@ -64,7 +72,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension has activated already")
       }
 
-      activated = activate(params, channel, progress, side)
+      selected.refs = params.selection
+      activated = activate(params, channel, progress, selected, side)
       await activated
     },
     async run({ command, target }) {
@@ -83,6 +92,17 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
     ping: () => undefined,
     cancel({ progress: id }) {
       progress.get(id)?.abort()
+    },
+    "selection.changed"({ refs }) {
+      selected.refs = refs
+
+      for (const listener of selected.listeners) {
+        try {
+          listener(refs)
+        } catch (error) {
+          log("error", `A selection listener failed: ${message(error)}`, stackOf(error))
+        }
+      }
     },
     async stop() {
       if (stopping) {
@@ -113,6 +133,7 @@ async function activate(
   params: ActivateParams,
   channel: ReturnType<typeof createChannel<HostMethods, HostServiceMethods>>,
   progress: Map<number, AbortController>,
+  selected: Selected,
   side: HostSide
 ): Promise<Activated> {
   const exports = await side.load(params.main)
@@ -134,6 +155,10 @@ async function activate(
     void send(method, value).catch(() => undefined)
 
   let nextProgress = 1
+
+  const go = async (to: NavigateTo) => {
+    await send("navigate", to)
+  }
 
   const state = (scope: "app" | "project"): State => {
     const values = new Map(Object.entries(params.state[scope]))
@@ -178,7 +203,28 @@ async function activate(
             handlers.delete(id)
           }
         })
+      },
+      execute: (command, target) => send("commands.execute", target ? { command, target } : { command })
+    },
+    selection: {
+      get: () => [...selected.refs],
+      set: (refs) => send("selection.set", { refs }),
+      highlight: (refs) => send("selection.highlight", { refs }),
+      onChange(listener) {
+        selected.listeners.add(listener)
+
+        return once(() => selected.listeners.delete(listener))
       }
+    },
+    navigate: {
+      reveal: (ref) => go({ kind: "reveal", ref }),
+      zoomTo: (ref) => go({ kind: "zoomTo", ref }),
+      openDesign: (key) => go({ kind: "openDesign", key }),
+      setMode: (mode) => go({ kind: "setMode", mode }),
+      setState: (design, state) => go({ kind: "setState", design, state }),
+      showTab: (id) => go({ kind: "showTab", id }),
+      openSettings: (id = params.extension.id) => go({ kind: "openSettings", id }),
+      pageUrl: async (ref) => (await send("navigate", { kind: "pageUrl", ref })).url
     },
     context: {
       set(key, value) {

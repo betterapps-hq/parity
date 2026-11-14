@@ -25,6 +25,8 @@ export interface Parity {
   /** Disposables that go when the extension stops. Add what you register or subscribe to. */
   readonly subscriptions: Disposable[]
   readonly commands: Commands
+  readonly selection: Selection
+  readonly navigate: Navigate
   readonly context: Context
   readonly facts: Facts
   readonly status: StatusItems
@@ -68,6 +70,63 @@ export type LayerTarget = { type: "layer"; design: string; node: string }
 export interface Commands {
   /** Gives behaviour to a command the manifest declares. A second handler for one command is refused. */
   register(id: string, handler: (target: CommandTarget | undefined) => void | Promise<void>): Disposable
+  /**
+   * Runs a command: one of Parity's own, by its id in the keymap and menus (`zoomToSelection`, `duplicate`, `wrap`), on
+   * what's selected in the window, or any extension's, which starts its extension first when it isn't running. Waits
+   * for a window with the project open. Fails when there's no such command, or it can't run on what's selected.
+   */
+  execute(id: string, target?: CommandTarget): Promise<void>
+}
+
+/**
+ * Every node Parity knows of, by one address, whoever made it: a design (`design`, `design`, its key), a layer in one
+ * (`design`, its type, `designKey/layerId`), a component, a route, a story, or an extension's own node.
+ */
+export interface NodeRef {
+  /** Who made it and keeps its key: `design` for the designs' own, or the id of the adapter or extension. */
+  owner: string
+  /** Its kind: `design` or a layer's type for the designs' own, or a type its owner names, as `route`. */
+  type: string
+  /** Unique within its owner and type: a route's id, a component's key, `designKey/layerId` for a layer. */
+  key: string
+}
+
+/** What's selected in the window with the project open, by `NodeRef`. */
+export interface Selection {
+  /** What's selected now, the one picked last at the end. Empty when nothing is, or no window has the project open. */
+  get(): NodeRef[]
+  /**
+   * Selects nodes, as picking them in Layers does, and brings them into view. A route with a page selects its page, and
+   * one without, as a layout, selects its group. Nodes of more than one design, or of no design, are selected as nodes.
+   */
+  set(refs: NodeRef[]): Promise<void>
+  /** Outlines nodes on the canvas without selecting them, as pointing at a row in Layers does. None takes it away. */
+  highlight(refs: NodeRef[]): Promise<void>
+  /** Told what's selected each time it changes. */
+  onChange(listener: (refs: NodeRef[]) => void): Disposable
+}
+
+/** A tab of a panel: Parity's own (`layers`, `components`, `icons`, `media`, `tokens`, `design`), or an extension's. */
+export type TabId = string
+
+/** Moving around the window with the project open. Each waits for one. */
+export interface Navigate {
+  /** Scrolls Layers and the canvas to a node, changing the zoom only when it has to. */
+  reveal(ref: NodeRef): Promise<void>
+  /** Frames a node on the canvas. */
+  zoomTo(ref: NodeRef): Promise<void>
+  /** Selects a design and brings it into view, by its key. */
+  openDesign(key: string): Promise<void>
+  /** Shows the selected design's frames in one of its modes, by name. */
+  setMode(mode: string): Promise<void>
+  /** Shows a design in one of its states, by name. */
+  setState(design: string, state: string): Promise<void>
+  /** Opens a tab of a panel. */
+  showTab(id: TabId): Promise<void>
+  /** Opens Settings at an extension's page, by its id; this extension's when none is given. */
+  openSettings(id?: string): Promise<void>
+  /** The URL the canvas draws a route's page at, with its params filled in, or nothing for a node that isn't one. */
+  pageUrl(ref: NodeRef): Promise<string | undefined>
 }
 
 /**

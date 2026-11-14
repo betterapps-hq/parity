@@ -456,6 +456,7 @@ describe("extension hosts", () => {
         run: () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
         cancel: () => undefined,
+        "selection.changed": () => undefined,
         stop: () => undefined
       })
       channel.connect(host)
@@ -601,5 +602,127 @@ describe("extension hosts", () => {
     expect(files).toHaveBeenCalledWith("shop", "parity-tidy", "Tidy: Add story", [
       { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
     ])
+  })
+})
+
+describe("selection, navigation and commands (PAR-1092)", () => {
+  const route = { owner: "tanstack-router", type: "route", key: "/settings" }
+  const design = { owner: "design", type: "design", key: "pricing" }
+
+  /** Hosts whose window records what it's asked, and answers `pageUrl`. */
+  function withWindow(modules: Record<string, ExtensionModule>) {
+    const asked: { method: string; params: unknown }[] = []
+
+    const set = setUp(modules, {
+      window: {
+        changed: () => undefined,
+        logged: () => undefined,
+        async ui(_projectId, _extension, method, params) {
+          asked.push({ method, params })
+
+          return method === "navigate" ? { url: "http://localhost:5173/settings" } : undefined
+        }
+      }
+    })
+
+    return { ...set, asked }
+  }
+
+  it("gives what's selected, from the start and as it changes", async () => {
+    let given: Parity | undefined
+    const seen: unknown[] = []
+
+    const { hosts } = setUp({
+      "@parity-app/extension-storybook": {
+        activate(parity) {
+          given = parity
+          parity.selection.onChange((refs) => seen.push(refs))
+        }
+      }
+    })
+
+    hosts.open(project)
+    hosts.selectionChanged("shop", [design])
+    await settle()
+
+    expect(given?.selection.get()).toEqual([design])
+
+    hosts.selectionChanged("shop", [route])
+    await settle()
+
+    expect(given?.selection.get()).toEqual([route])
+    expect(seen.at(-1)).toEqual([route])
+  })
+
+  it("asks the window to select, highlight and navigate, and gives a route's page URL", async () => {
+    let url: string | undefined
+
+    const { hosts, asked } = withWindow({
+      "@parity-app/extension-storybook": {
+        async activate(parity) {
+          await parity.selection.set([route])
+          await parity.selection.highlight([design])
+          await parity.navigate.reveal(route)
+          await parity.navigate.setState("pricing", "Empty")
+          await parity.navigate.openSettings()
+          url = await parity.navigate.pageUrl(route)
+        }
+      }
+    })
+
+    hosts.open(project)
+    await settle(30)
+
+    expect(asked).toEqual([
+      { method: "selection.set", params: { refs: [route] } },
+      { method: "selection.highlight", params: { refs: [design] } },
+      { method: "navigate", params: { kind: "reveal", ref: route } },
+      { method: "navigate", params: { kind: "setState", design: "pricing", state: "Empty" } },
+      { method: "navigate", params: { kind: "openSettings", id: "@parity-app/extension-storybook" } },
+      { method: "navigate", params: { kind: "pageUrl", ref: route } }
+    ])
+    expect(url).toBe("http://localhost:5173/settings")
+  })
+
+  it("runs Parity's own commands in the window and extensions' in their hosts", async () => {
+    const measured = vi.fn<() => void>()
+
+    const { hosts, asked } = withWindow({
+      "@parity-app/extension-storybook": {
+        async activate(parity) {
+          await parity.commands.execute("zoomToSelection")
+          await parity.commands.execute("timings.measure")
+        }
+      },
+      "parity-route-timings": {
+        activate: (parity) => void parity.commands.register("timings.measure", measured)
+      }
+    })
+
+    hosts.open(project)
+    await settle(40)
+
+    expect(asked).toEqual([{ method: "commands.execute", params: { command: "zoomToSelection" } }])
+    expect(measured).toHaveBeenCalledOnce()
+  })
+
+  it("refuses a node that isn't one", async () => {
+    let refused: unknown
+
+    const { hosts } = withWindow({
+      "@parity-app/extension-storybook": {
+        async activate(parity) {
+          // SAFETY: an extension's code can send anything; the service checks it.
+          await parity.selection.set([{ owner: "", type: "route", key: "/" }] as never).catch((error) => {
+            refused = error
+          })
+        }
+      }
+    })
+
+    hosts.open(project)
+    await settle(20)
+
+    expect(refused).toBeInstanceOf(Error)
   })
 })

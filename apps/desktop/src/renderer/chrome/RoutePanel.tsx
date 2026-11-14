@@ -2,7 +2,7 @@ import { LayoutTemplate } from "lucide-react"
 import type { ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { designColor } from "../canvas/kinds.tsx"
-import { type PageGroupPlace, selectedPageGroup } from "../canvas/route-pages.ts"
+import type { PageGroupPlace } from "../canvas/route-pages.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { type PropRow, PropRows } from "../inspector/controls/instance-section.tsx"
@@ -112,10 +112,7 @@ export function PageGroupPanel({ group }: { group: PageGroupPlace }) {
               <button
                 type="button"
                 className="block min-w-0 truncate py-1 text-left text-sm text-primary hover:underline"
-                onClick={() => {
-                  selectedPageGroup.set(undefined)
-                  selection.set({ design: redirect.key })
-                }}
+                onClick={() => selection.set({ design: redirect.key })}
               >
                 {redirect.name}
               </button>
@@ -179,6 +176,6 @@ export function RouteProps({ entry, route: id }: { entry: ContainerEntry; route:
 }
 
 /** A value the panel shows but doesn't edit, selectable to copy. */
-function Value({ children }: { children: ReactNode }) {
+export function Value({ children }: { children: ReactNode }) {
   return <span className="block min-w-0 truncate py-1 text-sm select-text">{children}</span>
 }

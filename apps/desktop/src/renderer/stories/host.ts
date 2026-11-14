@@ -494,6 +494,7 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
     {
       id: storybookExtension.id,
       displayName: manifest.displayName,
+      prefix: manifest.prefix,
       icon: manifest.icon,
       contributes: manifest.contributes,
       state: "running",

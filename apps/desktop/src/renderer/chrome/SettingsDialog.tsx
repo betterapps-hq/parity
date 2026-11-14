@@ -3,7 +3,7 @@ import type { ExportSize } from "@parity-app/editor"
 import { type CodeEditorChoice, codeEditors } from "@parity-app/processes"
 import { useSyncExternalStore } from "react"
 import { z } from "zod"
-import { extensionsOf, type ProjectExtensions } from "../extensions.ts"
+import { extensionKeys, extensionsOf, type ProjectExtensions } from "../extensions.ts"
 import {
   clearProjectExtensionSetting,
   clearProjectPreference,
@@ -22,7 +22,7 @@ import { type Preferences, setPreferences, usePreferences } from "./preferences.
 import { extensionsFrom, type Setting, type Value } from "./settings/definitions.ts"
 import { SettingsView } from "./settings/SettingsView.tsx"
 import { isCommand } from "./settings/shortcuts.tsx"
-import type { SettingsData } from "./settings/store.ts"
+import type { ExtensionShortcut, SettingsData } from "./settings/store.ts"
 import { setTelemetryLevel, useTelemetry } from "./telemetry-setting.ts"
 import { checkForUpdates, setBetaUpdates, useUpdates } from "./updates.tsx"
 
@@ -167,6 +167,51 @@ function useActiveExtensions(session: ReturnType<typeof useActiveSession>): Proj
   return useSyncExternalStore(store?.subscribe ?? unsubscribed, store?.get ?? (() => noExtensions))
 }
 
+/**
+ * Each extension's keys, under its name, those that don't work saying which command has them: one of Parity's, which
+ * wins, or another extension's, when both ask for them.
+ */
+function shortcutsOf(
+  extensions: ProjectExtensions["extensions"]
+): { extension: string; shortcuts: ExtensionShortcut[] }[] {
+  const { keys, clashes } = extensionKeys(extensions)
+  const nameOf = (id: string) => extensions.find((each) => each.id === id)?.displayName ?? id
+
+  const labelOf = (written: string) => {
+    const owner = Object.keys(keymap).find((command) => isCommand(command) && keysOf(command).includes(written))
+
+    return owner && isCommand(owner) ? keymap[owner].label : "Another command"
+  }
+
+  return extensions.flatMap((extension) => {
+    const titleOf = (command: string) =>
+      extension.contributes.commands?.find((declared) => declared.id === command)?.title ?? command
+
+    const shortcuts: ExtensionShortcut[] = [
+      ...keys.flatMap((key) =>
+        key.extension === extension.id ? [{ command: key.command, title: titleOf(key.command), keys: key.keys }] : []
+      ),
+      ...clashes.flatMap((clash) =>
+        clash.extension === extension.id
+          ? [
+              {
+                command: clash.command,
+                title: titleOf(clash.command),
+                keys: clash.keys,
+                clash:
+                  clash.with === "parity"
+                    ? `${labelOf(clash.keys)} has these keys`
+                    : `${clash.with.map(nameOf).join(" and ")} also asks for these keys`
+              }
+            ]
+          : []
+      )
+    ]
+
+    return shortcuts.length > 0 ? [{ extension: extension.displayName, shortcuts }] : []
+  })
+}
+
 /** The active tab's project, or nothing on Home or while it opens. */
 function useActiveSession() {
   return useSyncExternalStore(workspace.subscribe, () => workspace.getActive()?.session)
@@ -285,6 +330,7 @@ export function SettingsDialog() {
         : Promise.reject(new TypeError(`No command ${command}`)),
     lost,
     skipped: keybindings.skipped,
+    extensionShortcuts: shortcutsOf(running.extensions),
     version: window.canvasHost.appVersion,
     checkForUpdates,
     busy: { betaUpdates: updatesBusy.has(updates.phase) },

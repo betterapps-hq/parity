@@ -7,6 +7,7 @@ import type {
   Fact,
   FileEdit,
   JsonValue,
+  NodeRef,
   PickItem,
   ServerRequest,
   Tone
@@ -35,7 +36,18 @@ export interface ActivateParams {
   commands: string[]
   statusItems: string[]
   state: StateValues
+  /** What's selected in the window with the project open, which `parity.selection.get` gives until it changes. */
+  selection: NodeRef[]
 }
+
+/** Where `parity.navigate` goes, by method. */
+export type NavigateTo =
+  | { kind: "reveal" | "zoomTo" | "pageUrl"; ref: NodeRef }
+  | { kind: "openDesign"; key: string }
+  | { kind: "setMode"; mode: string }
+  | { kind: "setState"; design: string; state: string }
+  | { kind: "showTab"; id: string }
+  | { kind: "openSettings"; id: string }
 
 /** What the project service asks of a host. */
 export interface HostMethods {
@@ -47,6 +59,8 @@ export interface HostMethods {
   ping: { params: undefined; result: undefined }
   /** The person cancelled a task under `ui.progress`. */
   cancel: { params: { progress: number }; result: undefined }
+  /** What's selected in the window changed. */
+  "selection.changed": { params: { refs: NodeRef[] }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
   stop: { params: undefined; result: undefined }
 }
@@ -93,6 +107,12 @@ export interface HostServiceMethods {
   "edits.transact": { params: { label: string; operations: DesignOperation[] }; result: undefined }
   /** Writes project files the `write` permission names, never a `.par`. Answers with the paths it changed. */
   "files.edit": { params: { label: string; files: FileEdit[] }; result: { paths: string[] } }
+  "selection.set": { params: { refs: NodeRef[] }; result: undefined }
+  "selection.highlight": { params: { refs: NodeRef[] }; result: undefined }
+  /** Moves around the window; `pageUrl` answers with the URL. */
+  navigate: { params: NavigateTo; result: { url?: string } }
+  /** Runs one of Parity's own commands, or an extension's. */
+  "commands.execute": { params: { command: string; target?: CommandTarget }; result: undefined }
 }
 
 const text = z.string().max(20_000)
@@ -151,6 +171,19 @@ const fileEdit: z.ZodType<FileEdit> = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("delete"), path: filePath, expected: fileText })
 ])
 
+const name = z.string().min(1).max(500)
+
+const nodeRef = z.strictObject({ owner: name, type: name, key: z.string().min(1).max(2000) })
+
+const refs = z.strictObject({ refs: z.array(nodeRef).max(10_000) })
+
+const componentTarget = z.strictObject({ type: z.literal("component"), key: z.string() })
+
+const commandTarget = z.discriminatedUnion("type", [
+  componentTarget,
+  z.strictObject({ type: z.literal("layer"), design: z.string().max(2000), node: z.string().max(500) })
+])
+
 /** Reads each of a host's requests before the service handles it. */
 export const hostChecks: Checks<HostServiceMethods> = {
   log: checkOf(z.strictObject({ level: z.enum(["info", "warning", "error"]), text, stack: text.optional() })),
@@ -166,7 +199,7 @@ export const hostChecks: Checks<HostServiceMethods> = {
   ),
   "facts.set": checkOf(
     z.strictObject({
-      target: z.strictObject({ type: z.literal("component"), key: z.string() }),
+      target: componentTarget,
       facts: z
         .array(z.strictObject({ id: z.string().max(100), label: z.string().max(100), value: z.string().max(200) }))
         .max(20)
@@ -225,5 +258,18 @@ export const hostChecks: Checks<HostServiceMethods> = {
   "servers.stop": checkOf(z.strictObject({ id: z.string().max(100) })),
   "servers.routed": checkOf(z.undefined()),
   "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000) })),
-  "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000) }))
+  "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000) })),
+  "selection.set": checkOf(refs),
+  "selection.highlight": checkOf(refs),
+  navigate: checkOf(
+    z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.enum(["reveal", "zoomTo", "pageUrl"]), ref: nodeRef }),
+      z.strictObject({ kind: z.literal("openDesign"), key: name }),
+      z.strictObject({ kind: z.literal("setMode"), mode: name }),
+      z.strictObject({ kind: z.literal("setState"), design: name, state: name }),
+      z.strictObject({ kind: z.literal("showTab"), id: name }),
+      z.strictObject({ kind: z.literal("openSettings"), id: name })
+    ])
+  ),
+  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional() }))
 }
