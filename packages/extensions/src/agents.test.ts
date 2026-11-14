@@ -2,6 +2,7 @@ import { memoryPorts } from "@parity-app/channel"
 import type { AgentToolInput, ExtensionModule, Parity } from "@parity-app/extension-api"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
+import { z } from "zod"
 import { agentExtensions, readToolInput } from "./agents.ts"
 import { serveExtensionHost } from "./host.ts"
 import { type ExtensionEdits, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
@@ -221,7 +222,7 @@ describe("extensions for agents", () => {
 
   it("checks an agent tool's input against its schema before running it", async () => {
     const page = vi.fn<(input: AgentToolInput) => { url: string }>((input) => ({
-      url: `/checks/${String(input.component)}`
+      url: `/checks/${z.object({ component: z.string() }).parse(input).component}`
     }))
 
     const { hosts } = setUp({

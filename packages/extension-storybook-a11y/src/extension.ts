@@ -1,5 +1,6 @@
 import type { Parity } from "@parity-app/extension-api"
 import type { StorybookApi } from "@parity-app/extension-storybook"
+import { z } from "zod"
 import { accessibilityPage } from "./accessibility.ts"
 
 /*
@@ -11,6 +12,9 @@ import { accessibilityPage } from "./accessibility.ts"
  */
 
 const storybookId = "@parity-app/extension-storybook"
+
+/** The `a11y.page` tool's input, as its schema in the manifest gives it. */
+const pageInput = z.object({ component: z.string() })
 
 export async function activate(parity: Parity): Promise<void> {
   const storybook = parity.extensions.get<StorybookApi>(storybookId).api
@@ -35,7 +39,7 @@ export async function activate(parity: Parity): Promise<void> {
 
       return { url }
     }),
-    // Parity checks the input against the tool's schema, which makes `component` a string.
-    parity.agentTools.register("a11y.page", async ({ component }) => ({ url: await pageOf(String(component)) }))
+    // Parity has checked the input against the tool's schema already; this reads it as that schema says.
+    parity.agentTools.register("a11y.page", async (input) => ({ url: await pageOf(pageInput.parse(input).component) }))
   )
 }
