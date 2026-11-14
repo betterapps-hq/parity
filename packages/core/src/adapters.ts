@@ -714,6 +714,11 @@ export interface ProjectRoute {
   loads: boolean
   /** Whether it can redirect or refuse before it draws. */
   guards: boolean
+  /**
+   * Where it always sends the browser instead of drawing, from the root, as a layout's index that only redirects to one
+   * of the layout's pages: `/settings/profile`. Undefined when it draws, or redirects only sometimes, as a guard does.
+   */
+  redirect?: string
 }
 
 /**

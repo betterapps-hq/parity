@@ -64,7 +64,10 @@ export function readRoutes(read: (path: string) => string | undefined): ProjectR
   const found: ProjectRoute[] = []
   const children = Map.groupBy(routes, (route) => route.parent)
 
-  const add = (route: Omit<ProjectRoute, "file" | "params" | "component" | "loads" | "guards">, module: string) => {
+  const add = (
+    route: Omit<ProjectRoute, "file" | "params" | "component" | "loads" | "guards" | "redirect">,
+    module: string
+  ) => {
     const { file, text } = resolveModule(module, read)
     found.push({ ...route, file, params: paramsOf(route.path), ...routeOptions(text) })
   }
@@ -294,16 +297,17 @@ function paramsOf(path: string): string[] {
 
 /**
  * What a route's file says of it, from the options of `export const Route = createFileRoute(…)({…})` or
- * `createRootRoute({…})`: the component it names, and whether it has a `loader` or a `beforeLoad`.
+ * `createRootRoute({…})`: the component it names, whether it has a `loader` or a `beforeLoad`, and where it always
+ * redirects (see `alwaysRedirects`).
  */
-function routeOptions(text: string | undefined): Pick<ProjectRoute, "component" | "loads" | "guards"> {
+function routeOptions(text: string | undefined): Pick<ProjectRoute, "component" | "loads" | "guards" | "redirect"> {
   const options = text === undefined ? undefined : exportedRouteOptions(text)
 
   if (!options) {
     return { loads: false, guards: false }
   }
 
-  const said: Pick<ProjectRoute, "component" | "loads" | "guards"> = {
+  const said: Pick<ProjectRoute, "component" | "loads" | "guards" | "redirect"> = {
     loads: propertyValue(options, "loader") !== undefined,
     guards: propertyValue(options, "beforeLoad") !== undefined
   }
@@ -314,7 +318,48 @@ function routeOptions(text: string | undefined): Pick<ProjectRoute, "component" 
     said.component = component.text
   }
 
+  const redirect =
+    alwaysRedirects(propertyValue(options, "beforeLoad")) ?? alwaysRedirects(propertyValue(options, "loader"))
+
+  if (redirect !== undefined) {
+    said.redirect = redirect
+  }
+
   return said
+}
+
+/**
+ * Where a `beforeLoad` or `loader` always sends the browser: the path of a `throw redirect({ to: "/settings/profile" })`
+ * that runs every time, as the function's body or one of its own statements, not inside an `if` or a callback. A
+ * redirect that runs only sometimes, as a sign-in guard's does, can only be seen by opening the page.
+ */
+function alwaysRedirects(option: ts.Node | undefined): string | undefined {
+  const body =
+    option && (ts.isArrowFunction(option) || ts.isFunctionExpression(option) || ts.isMethodDeclaration(option))
+      ? option.body
+      : undefined
+
+  if (!body) {
+    return undefined
+  }
+
+  const statements = ts.isBlock(body) ? body.statements : []
+  const thrown = statements.find((statement) => ts.isThrowStatement(statement) || ts.isReturnStatement(statement))
+
+  if (!thrown || !ts.isThrowStatement(thrown)) {
+    return undefined
+  }
+
+  const call = unwrap(thrown.expression)
+  const argument = ts.isCallExpression(call) && call.arguments[0] ? unwrap(call.arguments[0]) : undefined
+
+  return ts.isCallExpression(call) &&
+    ts.isIdentifier(call.expression) &&
+    call.expression.text === "redirect" &&
+    argument &&
+    ts.isObjectLiteralExpression(argument)
+    ? stringProperty(argument, "to")
+    : undefined
 }
 
 /** The options object of the call `export const Route = …` ends with. */

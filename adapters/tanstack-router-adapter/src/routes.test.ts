@@ -77,7 +77,8 @@ describe("readRoutes", () => {
         params: [],
         index: true,
         loads: false,
-        guards: true
+        guards: true,
+        redirect: "/settings/profile"
       },
       {
         id: "/settings/billing",
@@ -174,6 +175,29 @@ describe("readRoutes", () => {
         guards: false
       }
     ])
+  })
+
+  it("reads where a route always redirects, but not a redirect that runs only sometimes", () => {
+    const route = (options: string) =>
+      readRoutes(
+        recordReader({
+          "src/routeTree.gen.ts": `
+            import { Route as rootRouteImport } from './routes/__root'
+            import { Route as AccountRouteImport } from './routes/account'
+            const AccountRoute = AccountRouteImport.update({ id: '/account', path: '/account', getParentRoute: () => rootRouteImport } as any)
+          `,
+          "src/routes/account.tsx": `export const Route = createFileRoute("/account")(${options})`
+        })
+      )[1]?.redirect
+
+    expect(route(`{ beforeLoad: () => { throw redirect({ to: "/account/profile" }) } }`)).toBe("/account/profile")
+    expect(route(`{ beforeLoad() { throw redirect({ to: "/account/profile" }) } }`)).toBe("/account/profile")
+    expect(route(`{ loader: async () => { throw redirect({ to: "/account/profile" }) } }`)).toBe("/account/profile")
+    expect(
+      route(`{ beforeLoad: ({ context }) => { if (!context.user) { throw redirect({ to: "/sign-in" }) } } }`)
+    ).toBeUndefined()
+    expect(route(`{ beforeLoad: () => { return; throw redirect({ to: "/x" }) } }`)).toBeUndefined()
+    expect(route(`{ component: Account }`)).toBeUndefined()
   })
 
   it("lists nothing before the router's tooling writes the route tree", () => {
