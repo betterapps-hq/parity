@@ -6498,6 +6498,13 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   JavaScript again every launch, in a long task before it first painted. With the scheme's `codeCache` privilege, the
   window painted about 0.2 seconds sooner after it was created, and the long task was mostly gone. A development build
   loads over http, so `pnpm perf` doesn't show this. No test: it's one privilege, measured in the built app.
+- **Main, the service and builders keep their compiled code too (PAR-1083).** The built app starts at `start.mjs`, which
+  turns on Node's compile cache before importing main's bundle and passes it to the service and builders through
+  `NODE_COMPILE_CACHE`. A builder's cache covers the project's Vite and plugins as well. Each process writes its cache
+  15 seconds after it starts, since a builder or the service can be ended outright. Across 8 alternating launches of the
+  built app, main was ready in 750 ms rather than 890, the builder in 1.83 seconds rather than 2.06, and the project
+  opened in 2.90 seconds rather than 3.12. A development build doesn't start at `start.mjs`, so it's unchanged. No test:
+  it's measured in the built app.
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's
