@@ -65,7 +65,7 @@ it("renders a library design whose factory modules appear in no sample or decora
         name: "library-fixture",
         setup(builder) {
           builder.onResolve({ filter: /^virtual:canvas\/renderer$/ }, () => ({
-            path: require.resolve("@parity-app/react-adapter/guest")
+            path: require.resolve("@parity-app/extension-react/guest")
           }))
           builder.onResolve({ filter: /^(fixture|kit|design-values|nested-values)$/ }, ({ path }) => ({
             path,

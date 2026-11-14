@@ -59,6 +59,7 @@ await build({
     "builder-process": join(appDir, "src/utility/builder-process.ts"),
     "extension-host": join(appDir, "src/utility/extension-host.ts"),
     // Parity's own extensions, which a host loads only when one activates.
+    "extensions/react": require.resolve("@parity-app/extension-react"),
     "extensions/storybook": require.resolve("@parity-app/extension-storybook"),
     "extensions/storybook-a11y": require.resolve("@parity-app/extension-storybook-a11y"),
     "extensions/tailwind": require.resolve("@parity-app/extension-tailwind"),
@@ -80,7 +81,7 @@ await build({
 
 // The project's Vite compiles the guest with the project's own React, never Parity's copy.
 await build({
-  entryPoints: { guest: require.resolve("@parity-app/react-adapter/guest") },
+  entryPoints: { guest: require.resolve("@parity-app/extension-react/guest") },
   bundle: true,
   platform: "browser",
   format: "esm",

@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import type { frameRules, MountHandle, PropValues, RenderComponent, RenderElement, RenderNode } from "@parity-app/core"
-import type { createGuest } from "@parity-app/react-adapter/guest"
+import type { createGuest } from "@parity-app/extension-react/guest"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
@@ -17,7 +17,7 @@ const entry = `
 export { prepareFrame, setDrawnNodes, findNodeElement, findNodeElements, nodeBox, nodesAt, nodeParent, nodeOfElement,
   drawnNodeIds, showFrameRules } from "./frame.ts"
 export { frameRules } from "@parity-app/core"
-export { createGuest } from "@parity-app/react-adapter/guest"
+export { createGuest } from "@parity-app/extension-react/guest"
 import { cloneElement, createElement, Fragment, useEffect, useRef, useState } from "react"
 
 // Radix's Slot, as shadcn's Button uses it for asChild: draws its one child with its own props under the child's, the

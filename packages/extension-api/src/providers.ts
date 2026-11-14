@@ -71,6 +71,34 @@ export interface TokenWrite {
   value: string | undefined
 }
 
+/**
+ * Reads which components a UI framework's files export (React, Vue, Svelte…). What it draws with is its guest module,
+ * which the manifest's `providers.renderer` names, compiled into the project's own build and run in the canvas frames.
+ */
+export interface RendererProvider {
+  /**
+   * The components each file exports, read from its text alone, in the order the files are given. A file's name says
+   * how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export. Parity asks a batch at a time.
+   */
+  components(request: { files: SourceFile[] }): Promise<ComponentExport[][]>
+}
+
+/** A file's path, from the project root or absolute, and its text. */
+export interface SourceFile {
+  file: string
+  source: string
+}
+
+/** An export a renderer recognises as a component. */
+export interface ComponentExport {
+  /** What it's called: the export's name, or for a default export, its declaration's name, else its file's. */
+  name: string
+  /** The export it's imported by: its name, or `default`. */
+  export: string
+  /** How it was recognised. Unset where only the type checker can decide, as for a declaration file's exports. */
+  as?: "function" | "forwardRef" | "memo" | "lazy" | "class" | "exotic"
+}
+
 /** What an address provider is told about a server. Nothing of its output or environment. */
 export interface ServerFacts {
   /** Its id among the project's processes. */
@@ -116,6 +144,7 @@ export interface DiscoveryProvider {
 export interface ProviderKinds {
   router: RouterProvider
   styles: StylesProvider
+  renderer: RendererProvider
   addresses: AddressProvider
   discovery: DiscoveryProvider
 }

@@ -25,6 +25,8 @@ export {
   type ProjectAction,
   type ProjectRoute,
   type RendererAdapter,
+  type RendererDescription,
+  type RendererPackage,
   type EntitiesAdapter,
   type FileWrite,
   type ActionContext,
@@ -47,6 +49,7 @@ export {
   type ToolVersions,
   type ToolVersionsExtra,
   peerVersions,
+  extensionRenderer,
   detectPeers
 } from "./adapters.ts"
 

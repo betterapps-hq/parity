@@ -3,8 +3,9 @@ import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { detectPeers, type PackageManifest } from "@parity-app/core"
+import { detectPeers, extensionRenderer, type PackageManifest, type RendererDescription } from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
+import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
@@ -70,8 +71,14 @@ function byPeers(found: InstalledExtension<ExtensionProject>): InstalledExtensio
   return { ...found, detect: ({ pkg }) => (versions && detectPeers(pkg, versions).found ? {} : undefined) }
 }
 
+/** The renderers Parity's own extensions describe, which read components through their hosts (PAR-1095). */
+export const builtInRenderers: RendererDescription[] = [extensionRenderer(reactPackage)].filter(
+  (renderer) => renderer !== undefined
+)
+
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
+  byPeers(builtIn(reactPackage, "react", () => undefined)),
   byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
   builtIn(storybookPackage, "storybook", ({ open }) => {

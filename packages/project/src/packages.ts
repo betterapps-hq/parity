@@ -374,7 +374,7 @@ async function exportsOf(
     return found
   }
 
-  for (const component of renderer.findComponents(source, file)) {
+  for (const component of await renderer.findComponents(source, file)) {
     found.set(component.export, { name: component.name, file, as: component.as })
   }
 

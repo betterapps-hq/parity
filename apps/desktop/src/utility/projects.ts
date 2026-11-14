@@ -30,10 +30,11 @@ import {
   type CanvasDocument,
   storybookConfigDir,
   type RendererAdapter,
+  type RendererDescription,
   type ThemeVariable,
   withLibraryCanvas
 } from "@parity-app/core"
-import type { ProviderCall, ProviderKind, ProviderResult } from "@parity-app/extensions"
+import { batched, type ProviderCall, type ProviderKind, type ProviderResult } from "@parity-app/extensions"
 import {
   type BuilderProcessOptions,
   builderProcessOptions,
@@ -171,7 +172,8 @@ export interface ProjectProviders {
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
 export interface ProjectAdapters {
-  renderers: RendererAdapter[]
+  /** The renderers extensions describe, which read components through their providers (PAR-1095). */
+  renderers: RendererDescription[]
   builders: BuilderAdapter[]
   /**
    * The tools extensions give, each found when the project's package.json declares one of its packages, and listed with
@@ -456,9 +458,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
     }
 
-    const renderer = rendererFound.adapter
-    opening.framework = renderer.id
     const name = pkg.name ?? basename(root)
+    const renderer = providedRenderer(rendererFound.adapter, { root, name, pkg })
+    opening.framework = renderer.id
     const usedBy = <A extends Adapter>(found: AdapterFound<A>[]) => found.filter(({ detection }) => detection.found)
 
     const entitiesFound = await detectAdapters(project, adapters.entities ?? []).then(usedBy)
@@ -1066,6 +1068,21 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     if (project.info.guestUrl === guestUrl) {
       project.drawnGuestUrl = drawn
     }
+  }
+
+  /** A renderer an extension describes, reading components through its provider, a batch of files at a time. */
+  function providedRenderer(description: RendererDescription, project: ProviderProject): RendererAdapter {
+    const read = batched(async (files: { file: string; source: string }[]) => {
+      const found = await provide(project, { kind: "renderer", method: "components", params: { files } })
+
+      if (!found) {
+        throw new Error(`${description.name} has no renderer to read components with`)
+      }
+
+      return found
+    })
+
+    return { ...description, findComponents: (source, file) => read({ file, source }) }
   }
 
   /** What a provider of the project's answers, or nothing when none of its extensions provides one. */

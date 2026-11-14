@@ -85,14 +85,14 @@ go.
 
 ### UI framework (renderer adapter)
 
-| Tool                 | Status | Notes                                                                                                                                                                           |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| React 19             | ✅     | `adapters/react-adapter`. Finds layers in React's tree, as React DevTools does, tested on 19.3; a release that changes the tree falls back to the `data-canvas-node` attribute. |
-| React 18 and earlier | ❌     | Dropped: React 18 came out in March 2022. Untested, but not blocked.                                                                                                            |
-| Vue, Svelte          | ⏳     | `RendererAdapter` is ready for them.                                                                                                                                            |
-| Solid, Preact        | ⏳     |                                                                                                                                                                                 |
-| Angular              | ❌     | Not planned.                                                                                                                                                                    |
-| React Native         | ❌     | Needs native frames, after the web.                                                                                                                                             |
+| Tool                 | Status | Notes                                                                                                                                                                                             |
+| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React 19             | ✅     | Its extension (`packages/extension-react`). Finds layers in React's tree, as React DevTools does, tested on 19.3; a release that changes the tree falls back to the `data-canvas-node` attribute. |
+| React 18 and earlier | ❌     | Dropped: React 18 came out in March 2022. Untested, but not blocked.                                                                                                                              |
+| Vue, Svelte          | ⏳     | A renderer provider is ready for them.                                                                                                                                                            |
+| Solid, Preact        | ⏳     |                                                                                                                                                                                                   |
+| Angular              | ❌     | Not planned.                                                                                                                                                                                      |
+| React Native         | ❌     | Needs native frames, after the web.                                                                                                                                                               |
 
 ### Build tool (builder adapter)
 
@@ -229,16 +229,16 @@ go.
 
 **Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
 tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. `adapters/`
-holds one package per tool, each named for it: `storybook-adapter`, `vite-adapter` and `react-adapter`; Tailwind CSS and
-TanStack Router are extensions. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a design
-of the story kind, its stories its states, a row each on its board. A story whose meta names a component and has no
-`render` of its own draws that component with the story's args as its props. A story that renders itself draws its
-`render` function, loaded from its file, with its args as props. Decorators and the `render` function's `context` aren't
-applied yet. Edits to a story's args are written back to its file, as the args that differ from its meta's; nothing else
-of a story file's design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of
-icon for a group, a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the
-mode's whole window, and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it,
-its modes and their scales are kept in the project's file, never in the story's.
+holds one package per tool, each named for it: `storybook-adapter` and `vite-adapter`; React, Tailwind CSS and TanStack
+Router are extensions. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a design of the
+story kind, its stories its states, a row each on its board. A story whose meta names a component and has no `render` of
+its own draws that component with the story's args as its props. A story that renders itself draws its `render`
+function, loaded from its file, with its args as props. Decorators and the `render` function's `context` aren't applied
+yet. Edits to a story's args are written back to its file, as the args that differ from its meta's; nothing else of a
+story file's design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of icon
+for a group, a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the mode's
+whole window, and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it, its
+modes and their scales are kept in the project's file, never in the story's.
 
 ### Language
 

@@ -202,10 +202,27 @@ export interface NodeTypeContribution {
   color?: string
 }
 
+/** What Parity needs of a renderer before its code runs: its guest module, and what a builder prepares for it. */
+export interface RendererContribution {
+  /** The package export, as `./guest`, whose module exports `createGuest`. It runs in the canvas frames. */
+  guest: string
+  /** Packages that must resolve to exactly one copy, taken from the project. The renderer is found when it has all. */
+  runtimePackages: string[]
+  /** Modules the guest imports, so a builder can prepare them before the first render. */
+  runtimeImports: string[]
+  /**
+   * Modules a builder serves in place of ones the framework's production build leaves empty, by how their specifier
+   * ends, with `$base` standing for the rest of it.
+   */
+  developmentStandIns?: Record<string, string>
+  /** File extensions that can hold the framework's components, as `.tsx`. */
+  componentExtensions: string[]
+}
+
 /** The jobs an extension does for a tool, each given behaviour with `parity.providers.register`. */
 export interface Providers {
   /** Draws components. Its guest module runs in the canvas frames, compiled into the project's own build. */
-  renderer?: { guest: string }
+  renderer?: RendererContribution
   /** Starts the dev server. Its entry module runs in the builder process. */
   builder?: { entry: string }
   /** Reads and writes the theme. */

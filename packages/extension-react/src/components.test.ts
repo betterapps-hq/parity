@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { findComponents } from "./index.ts"
+import { findComponents } from "./components.ts"
 
 const names = (source: string, file = "src/components/card.tsx") =>
   findComponents(source, file).map((found) => (found.as ? `${found.name}:${found.as}` : `${found.name}?`))
