@@ -221,8 +221,8 @@ background), `hoverTarget`, `boardClick`, `touchedBy` and `boxSelection` (a box)
 finds what's under the pointer and hands it over (`underPoint`, and `selectedIn` for the selected layer and the layer it
 sits in). `canvas/CanvasOverlay.tsx` handles the pointer ahead of tldraw and outlines the hover in its frame;
 `canvas/select-box.ts` (`pressBackground`) follows a press on a frame's background; `canvas/layer-drag.ts`
-(`pressLayers`) drags as before. `canvas/CanvasEditor.tsx` (`HoverOutlines`) leaves out the board's hover outline while
-a layer is hovered. Enter is `selectChildren` in `chrome/actions.ts`, with `childLayers` in `canvas/layers.ts`, and the
+(`pressLayers`) drags as before. `canvas/CanvasEditor.tsx` (`KindOutlines`) leaves out the board's hover outline while a
+layer is hovered. Enter is `selectChildren` in `chrome/actions.ts`, with `childLayers` in `canvas/layers.ts`, and the
 keymap calls it "Select the layers inside, or edit text". A hover carries its frame's mode and state (`selection.ts`),
 and `elementBox` in `frame.ts` leaves out clipped elements.
 
@@ -261,6 +261,35 @@ of five), and three double-clicks 1.3 to 2.1 s, sent as soon as each selection d
 made, set one after another as fast as they drew, took 1.06 to 1.37 s, before counting the gestures. Ctrl doesn't change
 what a box selects, where Figma's selects the layers deeper inside. Right-click's Select layer, listing everything under
 the pointer, is PAR-168.
+
+### Each outline in its own kind's color (PAR-1118)
+
+An outline always has the color of the thing it goes round: a component's board purple, a screen's blue, a preview's
+ring the mode green, a layer its own kind's color. Selecting or hovering something never outlines what it's inside.
+
+- **A selected layer** is outlined alone. Its board has neither its edge nor tldraw's outline.
+- **Selected previews** have their rings, and their board no outline.
+- **A selected design** has its board's edge and outline in its own color.
+- **Several designs** are each outlined in their own color, and the box round them all is neutral, the color of muted
+  text.
+- **Hovering** outlines the hovered thing in its own color, at half opacity. A layer under the pointer is outlined, not
+  its board.
+- **Notes and references** keep their colors: a note the screen blue, a reference the layer blue.
+
+Code: `canvasOutlines` in `packages/editor/src/outlines.ts` takes the selection and what's hovered and returns each
+outline, with what it goes round and whether it's hovered. In the app, `KindOutlines` in `canvas/CanvasEditor.tsx` draws
+boards', notes' and references' outlines from it in place of tldraw's indicators, which have one color for everything,
+and `useBoardOutline` in `selection.ts` shows `BoardEdge` in `canvas/ContainerView.tsx` the same way. tldraw's selection
+color is set once, to the neutral one, for the box round several designs.
+
+Tests: `packages/editor/src/outlines.test.ts` (9): a design's board, several designs each as itself, a layer and not its
+board, previews and not their board, a note and a reference, a hover beside the selection, a hovered layer and not its
+board, something hovered and selected outlined once, and nothing.
+
+Tried in Storybook's Parity/Canvas/Boards › Every state on 2026-11-14: Button selected had a purple outline; a layer in
+it a purple outline of its own and none on the board, where the board had been blue; a preview its green ring alone; the
+board hovered a see-through purple outline; and Sign in with two component boards selected by a box, blue and purple,
+inside a gray box.
 
 ### The overlay measures only when what it shows can change (PAR-522)
 
@@ -6514,7 +6543,7 @@ Code: `packages/core/src/preview.ts` (`previewKey`, `previewSettingsOf`, `previe
 design's file, or the project file's `codeDesigns` for a design drawn from code); in the app, `getSavedView` in
 `design-store.ts`, `useSavedView`, `PreviewHeader`, `ZoomField` and `SettingsMenu` in `canvas/preview-parts.tsx`,
 `PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView`, `FrameTile` and `PreviewRing` in
-`canvas/ContainerView.tsx`; `HoverOutlines` in `canvas/CanvasEditor.tsx` leaves out the board's outline. The canvas
+`canvas/ContainerView.tsx`; `KindOutlines` in `canvas/CanvasEditor.tsx` leaves out the board's outline. The canvas
 leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
 
 Tests: `packages/core/src/preview.test.ts` (13: a preview's key read back, its options drawn over its mode's viewport,

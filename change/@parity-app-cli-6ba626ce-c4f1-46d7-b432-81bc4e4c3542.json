@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Every outline on the canvas takes the color of what it goes round, and selecting a layer or preview no longer outlines its board",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

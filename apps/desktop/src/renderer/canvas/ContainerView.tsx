@@ -81,6 +81,7 @@ import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
 import {
+  useBoardOutline,
   useDesignSelection,
   useInteracting,
   useInteractions,
@@ -371,6 +372,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const change = useDesignChange(project, entry.key)
   const settings = useModeSettings(store)
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
+  const outline = useBoardOutline(selection, entry.key, hovered)
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
   const saved = useSavedView(key, entry.path)
@@ -524,12 +526,9 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
       data-design={key}
       data-changed={change.state === "changed" ? "" : undefined}
     >
-      {/* No card of its own: its edge shows while it's hovered or selected, as a frame's does. */}
-      {/* With previews selected, they have the ring and the board no edge of its own, as a frame has none while a layer
-          in it is selected. */}
-      {(hovered || (isSelected && picked.length === 0)) && (
-        <BoardEdge color={isSelected && picked.length === 0 ? color : undefined} />
-      )}
+      {/* No card of its own: its edge shows in its own color while it's selected, and see-through while it's hovered. A
+          layer or preview selected in it outlines itself instead (PAR-1118). */}
+      {outline && <BoardEdge color={color} hovered={outline === "hovered"} />}
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -710,10 +709,10 @@ function framePlace(column: number): FrameTileProps["place"] {
 }
 
 /**
- * The board's edge, a screen pixel wide at any zoom, in its design's color while it's selected on its own. It's drawn
- * over the board rather than as its border, which would take room.
+ * The board's edge, a screen pixel wide at any zoom, in its design's color, see-through while it's only hovered. It's
+ * drawn over the board rather than as its border, which would take room.
  */
-function BoardEdge({ color }: { color?: string | undefined }) {
+function BoardEdge({ color, hovered }: { color: string; hovered: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(ref, "edge")
 
@@ -721,8 +720,8 @@ function BoardEdge({ color }: { color?: string | undefined }) {
     <div
       ref={ref}
       aria-hidden
-      className="pointer-events-none absolute top-0 left-0 origin-top-left border border-solid"
-      style={color ? { borderColor: color } : undefined}
+      className={`pointer-events-none absolute top-0 left-0 origin-top-left border border-solid ${hovered ? "opacity-50" : ""}`}
+      style={{ borderColor: color }}
     />
   )
 }

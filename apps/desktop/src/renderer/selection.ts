@@ -1,4 +1,5 @@
 import {
+  canvasOutlines,
   pickReview,
   type Review,
   type ReviewTool,
@@ -207,6 +208,35 @@ export function usePreviewSelection(store: SelectionStore, design: string): stri
   })
 
   return part === "" ? [] : part.split("\n")
+}
+
+/**
+ * Whether a design's board is outlined, as `canvasOutlines` says (PAR-1118): "selected" when the design itself is,
+ * "hovered" when it's under the pointer (`hovered`) or its row in Layers is, and nothing while a layer or preview in it
+ * is selected or a layer in it is hovered, which outline themselves. Read as a plain string, so a board draws again
+ * only when its own outline changes.
+ */
+export function useBoardOutline(store: SelectionStore, design: string, hovered: boolean): "selected" | "hovered" | "" {
+  return useSyncExternalStore(store.subscribe, () => {
+    const hover = store.getHover()
+    let target: Parameters<typeof canvasOutlines>[1]
+
+    if (hover?.node) {
+      target = { kind: "layer", design: hover.design, node: hover.node }
+    } else if (hovered || hover?.design === design) {
+      target = { kind: "design", design }
+    }
+
+    const outline = canvasOutlines(store.get(), target).find(
+      (each) => each.target.kind === "design" && each.target.design === design
+    )
+
+    if (!outline) {
+      return ""
+    }
+
+    return outline.hovered ? "hovered" : "selected"
+  })
 }
 
 export function useHover(store: SelectionStore): Hover | undefined {

@@ -1,7 +1,9 @@
 import {
   designsSelection,
   holdZoom,
+  type OutlineTarget,
   referenceSize,
+  type Selection,
   selectedDesigns,
   zoomHeldFrom,
   zoomSettled
@@ -28,6 +30,7 @@ import { useProject } from "./context.ts"
 import { isFarZoom } from "./frame-bitmaps.ts"
 import { hiddenSleepMs } from "./frame-sleep.ts"
 import { CameraGestures, countFrames, type GestureEnded, recordGesture } from "./gesture.ts"
+import { drawableColor, KindOutlines, neutralSelection, outlineSources } from "./kind-outlines.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { redrawLayer } from "./layer-redraw.ts"
 import { NoteUtil } from "./NoteUtil.tsx"
@@ -84,57 +87,12 @@ class SelectionBox extends SelectionForegroundOverlayUtil {
   }
 }
 
-/** Whether the canvas is hovering a layer inside a design, by editor (see `HoverOutlines`). */
-const hoveringLayer = new WeakMap<Editor, Atom<boolean>>()
-
-/** Whether previews of the selected design are selected rather than the design itself, by editor (see `HoverOutlines`). */
-const pickingPreviews = new WeakMap<Editor, Atom<boolean>>()
+const overlayUtils = [SelectionBox, KindOutlines]
 
 /**
- * Hovering outlines only what a click would select. With the pointer on a layer inside a design, a click selects that
- * layer, which the canvas's overlay outlines, so tldraw doesn't outline the board around it as hovered. Over the board's
- * background, or a frame's, it does. While previews are selected, their rings mark them and the board has no outline
- * of its own (PAR-1071).
- */
-class HoverOutlines extends IndicatorOverlayUtil {
-  static override type = IndicatorOverlayUtil.type
-
-  override getOverlays() {
-    const overlays = this.withoutPickedBoard(super.getOverlays())
-    const hovered = this.editor.getHoveredShapeId()
-
-    if (!hovered || !hoveringLayer.get(this.editor)?.get() || this.editor.getSelectedShapeIds().includes(hovered)) {
-      return overlays
-    }
-
-    return overlays.flatMap((overlay) => {
-      const idsToDisplay = overlay.props.idsToDisplay.filter((id) => id !== hovered)
-
-      return idsToDisplay.length > 0 || overlay.props.hintingShapeIds.length > 0
-        ? [{ ...overlay, props: { ...overlay.props, idsToDisplay } }]
-        : []
-    })
-  }
-
-  private withoutPickedBoard(overlays: ReturnType<IndicatorOverlayUtil["getOverlays"]>) {
-    if (!pickingPreviews.get(this.editor)?.get()) {
-      return overlays
-    }
-
-    const selected = new Set(this.editor.getSelectedShapeIds())
-
-    return overlays.map((overlay) => ({
-      ...overlay,
-      props: { ...overlay.props, idsToDisplay: overlay.props.idsToDisplay.filter((id) => !selected.has(id)) }
-    }))
-  }
-}
-
-const overlayUtils = [SelectionBox, HoverOutlines]
-
-/**
- * tldraw draws outlines and handles on a canvas, in its theme's colors. Setting a custom property on the canvas
- * instead changed none of them, yet restyled every element of every frame each time the color did.
+ * The color tldraw draws the box round several designs in, which is no one kind's (PAR-1118). tldraw draws on a canvas,
+ * in its theme's colors: setting a custom property on the canvas instead changed none of them, yet restyled every
+ * element of every frame each time the color did.
  */
 function setSelectionColor(editor: Editor, color: string): void {
   const value = drawableColor(color)
@@ -149,21 +107,6 @@ function setSelectionColor(editor: Editor, color: string): void {
     ...theme,
     colors: { ...theme.colors, light: { ...light, selectionStroke: value }, dark: { ...dark, selectionStroke: value } }
   })
-}
-
-const drawable = new Map<string, string>()
-
-/** A color a canvas can draw with: the kinds' colors are custom properties, which only CSS resolves. */
-function drawableColor(color: string): string {
-  let value = drawable.get(color)
-
-  if (value === undefined) {
-    const property = /^var\((--[\w-]+)\)$/.exec(color)?.[1]
-    value = (property && getComputedStyle(document.documentElement).getPropertyValue(property).trim()) || color
-    drawable.set(color, value)
-  }
-
-  return value
 }
 
 /**
@@ -609,12 +552,31 @@ export function CanvasEditor({
         }
       })
 
-      const previewsPicked = atom("picking previews", false)
-      pickingPreviews.set(editor, previewsPicked)
+      const selected = atom<Selection>("selection outlined", selection.get())
+      const hoveredLayer = atom<OutlineTarget | undefined>("layer hovered", undefined)
+      outlineSources.set(editor, {
+        selection: selected,
+        hoveredLayer,
+        canvasIdOf: canvasIdFor,
+        colorOf: (target) => {
+          if (target.kind === "note") {
+            return kindColors.screen
+          }
+
+          if (target.kind === "reference") {
+            return kindColors.layer
+          }
+
+          const entry = store.getEntry(target.design)
+
+          return designColor(entry?.container.kind, target.design)
+        }
+      })
+      setSelectionColor(editor, neutralSelection)
 
       const followSelection = () => {
         const current = selection.get()
-        previewsPicked.set(!!current.design && !!current.mode && !current.node)
+        selected.set(current)
         let keys: string[]
 
         if (current.note) {
@@ -633,32 +595,16 @@ export function CanvasEditor({
         if (ids.length !== wanted.length || ids.some((id, index) => id !== wanted[index])) {
           editor.setSelectedShapes(wanted)
         }
-
-        // Each kind of thing has its own selection color.
-        const entry = current.design ? store.getEntry(current.design) : undefined
-        let color: string = kindColors.screen
-
-        if (current.node || current.reference) {
-          color = kindColors.layer
-        } else if (current.mode) {
-          color = kindColors.mode
-        } else if (entry) {
-          color = designColor(entry.container.kind, entry.key)
-        }
-
-        setSelectionColor(editor, color)
       }
 
       const stopFollowing = selection.subscribe(followSelection)
       followSelection()
-      const layerHovered = atom("hovering a layer", false)
-      hoveringLayer.set(editor, layerHovered)
       // Only the Layers panel hovers a design without a layer, which outlines its board as hovering the board does.
       const rowHovered = atom<string | undefined>("design hovered in Layers", undefined)
 
       const stopHover = selection.subscribe(() => {
         const hover = selection.getHover()
-        layerHovered.set(!!hover?.node)
+        hoveredLayer.set(hover?.node ? { kind: "layer", design: hover.design, node: hover.node } : undefined)
         rowHovered.set(hover && !hover.node ? hover.design : undefined)
       })
 
@@ -713,8 +659,7 @@ export function CanvasEditor({
         stopFollowing()
         stopHover()
         stopOutline()
-        hoveringLayer.delete(editor)
-        pickingPreviews.delete(editor)
+        outlineSources.delete(editor)
         onEditor(undefined)
       }
     },
