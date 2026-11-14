@@ -13,16 +13,13 @@ import {
   Sun
 } from "lucide-react"
 import { reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
-import { type Mark, markOf } from "./marks.tsx"
+import { type Mark, markOf, projectMark } from "./marks.tsx"
 
 /**
  * Whose a setting is. `app`: the person's, the same in every project. `project`: the project's, saved in its file, so
  * everyone who opens it gets it. `either`: the person's for every project, which a project can change for itself.
  */
 export type Scope = "app" | "project" | "either"
-
-/** Which settings Settings shows and changes: the person's for every project, or this project's. */
-export type View = "app" | "project"
 
 export interface Option {
   value: string
@@ -50,6 +47,8 @@ export interface Setting {
   detail?: string
   /** Other words people search for it by. */
   keywords?: string[]
+  /** The group it's in on its page, where the page has more than one. */
+  group?: string
   scope: Scope
   control: Control
   default: Value
@@ -225,6 +224,7 @@ export const pages: Page[] = [
   { id: "canvas", label: "Canvas", icon: Frame, group: 0 },
   { id: "export", label: "Export", icon: Download, group: 0 },
   { id: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard, group: 0 },
+  { id: "project", label: project.name, icon: projectMark(project.name), group: 1 },
   { id: "extensions", label: "Extensions", icon: Puzzle, group: 1 },
   { id: "experiments", label: "Experiments", icon: FlaskConical, group: 2 },
   { id: "diagnostics", label: "Diagnostics", icon: ShieldCheck, group: 2 },
@@ -257,6 +257,7 @@ export const settings: Setting[] = [
     label: "Theme",
     detail: "Previews show whichever theme their mode picks.",
     keywords: ["dark", "light", "appearance", "color scheme"],
+    group: "Appearance",
     scope: "app",
     control: { kind: "select", options: themes },
     default: "dark"
@@ -267,6 +268,7 @@ export const settings: Setting[] = [
     label: "Save automatically",
     detail: "Saves each change a moment after it's made.",
     keywords: ["autosave"],
+    group: "Saving",
     scope: "either",
     control: { kind: "switch" },
     default: false
@@ -277,9 +279,28 @@ export const settings: Setting[] = [
     label: "Code editor",
     detail: "Where View code opens a component's file. Automatic uses the first one installed.",
     keywords: ["vscode", "cursor", "ide", "view code"],
+    group: "Code",
     scope: "app",
     control: { kind: "select", options: editors },
     default: "auto"
+  },
+  {
+    id: "componentsView",
+    page: "general",
+    label: "Components view",
+    detail: "How the Components tab lists components.",
+    keywords: ["assets", "grid", "list"],
+    group: "Panels",
+    scope: "app",
+    control: {
+      kind: "select",
+      options: [
+        { value: "names", label: "Names" },
+        { value: "list", label: "List" },
+        { value: "grid", label: "Grid" }
+      ]
+    },
+    default: "list"
   },
   {
     id: "snapping",
@@ -301,31 +322,7 @@ export const settings: Setting[] = [
     control: { kind: "switch" },
     default: false
   },
-  {
-    id: "componentsView",
-    page: "canvas",
-    label: "Components view",
-    scope: "app",
-    control: {
-      kind: "select",
-      options: [
-        { value: "names", label: "Names" },
-        { value: "list", label: "List" },
-        { value: "grid", label: "Grid" }
-      ]
-    },
-    default: "list"
-  },
-  {
-    id: "performanceStats",
-    page: "canvas",
-    label: "Performance stats",
-    detail: "Frame rate, memory and CPU in the status bar.",
-    keywords: ["fps", "frame rate"],
-    scope: "app",
-    control: { kind: "switch" },
-    default: false
-  },
+
   {
     id: "exportSizes",
     page: "export",
@@ -347,21 +344,11 @@ export const settings: Setting[] = [
     default: false
   },
   {
-    id: "flag.comments",
+    id: "flag.lenses",
     page: "experiments",
-    label: "Comments",
-    detail: "Comment on designs and reply to others in the project.",
-    keywords: ["feature flag", "collaboration"],
-    scope: "app",
-    control: { kind: "switch" },
-    default: false
-  },
-  {
-    id: "flag.agentEdits",
-    page: "experiments",
-    label: "Agent edits on the canvas",
-    detail: "Shows where an agent is working and what it changed.",
-    keywords: ["feature flag", "ai", "claude"],
+    label: "App lenses",
+    detail: "Shows each layer of the app as its own view, read from the project as Storybook is.",
+    keywords: ["feature flag", "routes", "views"],
     scope: "app",
     control: { kind: "switch" },
     default: false
@@ -369,27 +356,34 @@ export const settings: Setting[] = [
   {
     id: "telemetry",
     page: "diagnostics",
-    label: "Send diagnostics",
-    keywords: ["telemetry", "sentry", "crash reports", "privacy"],
+    label: "Share diagnostics",
+    detail: "Errors and crashes, sent to the Parity team to help fix bugs.",
+    keywords: ["telemetry", "sentry", "crash reports", "privacy", "errors"],
+    group: "Sharing",
     scope: "app",
-    control: {
-      kind: "select",
-      options: [
-        { value: "all", label: "Everything" },
-        { value: "errors", label: "Errors and crashes" },
-        { value: "off", label: "Nothing" }
-      ]
-    },
-    default: "all"
+    control: { kind: "switch" },
+    default: true
   },
   {
     id: "installId",
     page: "diagnostics",
     label: "Install ID",
     detail: "Groups this install's reports.",
+    group: "Sharing",
     scope: "app",
     control: { kind: "fixed" },
     default: "3f9c2a71-6b0e-4d8a-9e15-c4a7d2b08f63"
+  },
+  {
+    id: "performanceStats",
+    page: "diagnostics",
+    label: "Performance stats",
+    detail: "Frame rate, memory and CPU in the status bar.",
+    keywords: ["fps", "frame rate", "status bar"],
+    group: "Performance",
+    scope: "app",
+    control: { kind: "switch" },
+    default: false
   },
   {
     id: "betaUpdates",
@@ -426,11 +420,9 @@ export const settings: Setting[] = [
   }
 ]
 
-/** Whether a setting shows, and changes, in a view. */
-export function shownIn(setting: Setting, view: View): boolean {
-  return setting.scope === "either" || setting.scope === view
-}
-
 export function defaults(): Record<string, Value> {
   return Object.fromEntries(settings.map((setting) => [setting.id, setting.default]))
 }
+
+/** The Parity version Updates shows, as the app's package.json has it. */
+export const version = "0.82.1"

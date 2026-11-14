@@ -1,14 +1,18 @@
+import { keymap } from "../../chrome/keymap.ts"
 import { type Extension, type Page, pages, type Setting, settings } from "./data.ts"
+import type { Mark } from "./marks.tsx"
 
 export type Hit =
   | { kind: "page"; page: Page }
   | { kind: "extension"; extension: Extension }
   /** `keyword` is the word it matched by when its own text didn't match, to say why it's listed. */
   | { kind: "setting"; setting: Setting; keyword?: string }
+  /** A command in the keymap, whose keys can be changed where it's found. */
+  | { kind: "shortcut"; command: string; label: string }
 
 /**
  * What a search finds, best first: pages and extensions by name, then settings by label, then by another word for
- * them, then by their description or where they are.
+ * them, then by their description or where they are, then shortcuts by their command's name.
  */
 export function search(query: string, installed: readonly Extension[]): Hit[] {
   if (!query.trim()) {
@@ -32,18 +36,30 @@ export function search(query: string, installed: readonly Extension[]): Hit[] {
     .sort((a, b) => b.score - a.score)
     .map(({ setting, keyword }): Hit => ({ kind: "setting", setting, keyword }))
 
-  return [...places, ...ranked]
+  const shortcuts = Object.entries(keymap).flatMap(([command, binding]): Hit[] =>
+    matches(binding.label, query) ? [{ kind: "shortcut", command, label: binding.label }] : []
+  )
+
+  return [...places, ...ranked, ...shortcuts]
 }
 
-/** Where a setting is, as the results show it: its page, and its extension's for an extension's. */
-export function placeOf(setting: Setting, installed: readonly Extension[]): string[] {
-  if (setting.page.startsWith("ext:")) {
-    const extension = installed.find((entry) => `ext:${entry.id}` === setting.page)
+/** Where a setting is: its page, or its extension's page for an extension's. */
+export interface Place {
+  id: string
+  label: string
+  icon: Mark
+}
 
-    return ["Extensions", extension?.name ?? ""]
+export function placeOf(setting: Setting, installed: readonly Extension[]): Place {
+  const extension = installed.find((entry) => `ext:${entry.id}` === setting.page)
+
+  if (extension) {
+    return { id: setting.page, label: extension.name, icon: extension.icon }
   }
 
-  return [pages.find((page) => page.id === setting.page)?.label ?? ""]
+  const page = pages.find((entry) => entry.id === setting.page) ?? pages[0]!
+
+  return { id: page.id, label: page.label, icon: page.icon }
 }
 
 /** How well a setting matches: higher is better. `keyword` is set when only another word for it matched. */
@@ -64,13 +80,16 @@ function rank(setting: Setting, query: string, installed: readonly Extension[]):
     return { score: 2, keyword }
   }
 
-  const around = [setting.detail ?? "", ...placeOf(setting, installed)]
+  // Where it is counts for more than its description: "story" finds Storybook's settings before a flag that names it.
+  if (matches(placeOf(setting, installed).label, query)) {
+    return { score: 1.5 }
+  }
 
-  return around.some((text) => matches(text, query)) ? { score: 1 } : undefined
+  return matches(setting.detail ?? "", query) ? { score: 1 } : undefined
 }
 
 /** Whether every typed word starts a word in the text, as Search actions matches. */
-export function matches(text: string, query: string): boolean {
+function matches(text: string, query: string): boolean {
   const words = text.toLowerCase().split(/[^a-z0-9.]+/)
   const typed = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
 
