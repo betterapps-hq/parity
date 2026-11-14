@@ -1,4 +1,4 @@
-import { readFileSync, watch } from "node:fs"
+import { readFileSync, realpathSync, watch } from "node:fs"
 import { basename, dirname } from "node:path"
 import {
   type AppSettings,
@@ -215,7 +215,9 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
 
   const startWatching = () => {
     try {
-      watcher = watch(dirname(file), (_event, changedName) => {
+      // The folder by its real, long path: on Windows, libuv stops the process on a short (8.3) one, as a temp folder
+      // under C:\Users\RUNNER~1 has.
+      watcher = watch(realpathSync.native(dirname(file)), (_event, changedName) => {
         if (changedName !== name) {
           return
         }
