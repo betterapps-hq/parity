@@ -24,7 +24,6 @@ let asked: Asked[] = []
 let windowListeners = new Map<string, number>()
 
 function stubWindow(): void {
-  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined })
   vi.stubGlobal("window", {
     matchMedia: () => ({ matches: false, addEventListener: () => undefined }),
     addEventListener: (event: string) => windowListeners.set(event, (windowListeners.get(event) ?? 0) + 1),

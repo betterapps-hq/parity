@@ -33,7 +33,7 @@ describe("reading settings.json", () => {
   })
 
   it("says why a file that isn't an object couldn't be read", () => {
-    expect(readSettings("[]").problem).toBe("settings.json isn't an object of settings.")
+    expect(readSettings("[]").problem).toBe("settings.json isn't an object.")
   })
 })
 

@@ -25,6 +25,10 @@ export const ipc = {
   settingsNow: "canvas:settings-now",
   /** Main tells windows the settings changed, in this copy or another. */
   settingsChanged: "canvas:settings-changed",
+  /** The preload asks main for `state.json`'s values and `projects.json` before the page draws. */
+  stateNow: "canvas:state-now",
+  /** Main tells windows the recent or starred projects changed, in this copy or another. */
+  projectsChanged: "canvas:projects-changed",
   /** Main asks a window whether it may close. */
   closing: "canvas:closing"
 } as const

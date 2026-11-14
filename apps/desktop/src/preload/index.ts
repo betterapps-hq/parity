@@ -186,6 +186,26 @@ const host: CanvasHost = {
       }
     }
   },
+  // SAFETY: main answers this channel with what state.json and projects.json hold, and ships with this script.
+  saved: () => ipcRenderer.sendSync(ipc.stateNow) as ReturnType<CanvasHost["saved"]>,
+  projects: {
+    change: (change) => ask("projectsChange", change),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, projects: Parameters<typeof listener>[0]) =>
+        listener(projects)
+
+      ipcRenderer.on(ipc.projectsChanged, changed)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.projectsChanged, changed)
+      }
+    }
+  },
+  state: {
+    set: (key, value) => tell("stateSet", { key, value }),
+    claimTabs: () => ask("tabsClaim"),
+    saveTabs: (tabs) => tell("tabsSave", tabs)
+  },
   keybindings: {
     get: () => ask("keybindingsState"),
     replace: (replacements) => ask("keybindingsReplace", replacements),

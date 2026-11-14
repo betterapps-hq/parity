@@ -1,6 +1,6 @@
 import type { ConsoleEntry } from "@parity-app/agent"
 import type { UpdateState } from "@parity-app/processes"
-import type { SettingsChange } from "@parity-app/settings"
+import type { JsonValue, Projects, ProjectsChange, SavedTabs, SettingsChange, StateKey } from "@parity-app/settings"
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import type { ProblemReport } from "../shared/ipc-checks.ts"
 import type { KeybindingsState, Replacement } from "../shared/keybindings.ts"
@@ -79,6 +79,16 @@ export interface HostNeeds<Event, Window> {
   /** `settings.json`, which main keeps for every window and copy. */
   settings: {
     change(change: SettingsChange): Promise<SettingsState>
+  }
+  /** `projects.json`, the recent and starred projects every copy shares. */
+  projects: {
+    change(change: ProjectsChange): Promise<Projects>
+  }
+  /** `state.json`, what the app remembers for itself: the layout, recent searches and each window's tabs. */
+  state: {
+    set(key: StateKey, value: JsonValue): void
+    claimTabs(window: Window): Promise<SavedTabs>
+    saveTabs(window: Window, tabs: SavedTabs): void
   }
   /** `keybindings.json`, which main keeps for every window (PAR-1085). */
   keybindings: {
@@ -173,6 +183,11 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
     quit: () => needs.quit(),
     toggleDevTools: (_nothing, window) => needs.toggleDevTools(window),
     settingsChange: (change) => needs.settings.change(change),
+    projectsChange: (change) => needs.projects.change(change),
+    stateSet: ({ key, value }) => needs.state.set(key, value),
+    tabsClaim: (_nothing, window) => needs.state.claimTabs(window),
+    tabsSave: ({ roots, active }, window) =>
+      needs.state.saveTabs(window, active === undefined ? { roots } : { roots, active }),
     keybindingsState: () => needs.keybindings.state(),
     keybindingsReplace: (replacements) => needs.keybindings.replace(replacements),
     keybindingsOpen: () => needs.keybindings.open(),

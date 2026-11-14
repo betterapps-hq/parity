@@ -26,7 +26,15 @@ import type { CodeReference, EditStatus, ImageFile, RecoveryCopy, ReferenceAdded
 import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
-import type { SettingsChange } from "@parity-app/settings"
+import type {
+  AppState,
+  JsonValue,
+  Projects,
+  ProjectsChange,
+  SavedTabs,
+  SettingsChange,
+  StateKey
+} from "@parity-app/settings"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange } from "@parity-app/tokens"
 import type { z } from "zod"
@@ -612,6 +620,25 @@ export interface CanvasHost {
     /** Makes one change, setting each key given or putting it back to its default with `null`. */
     change: (change: SettingsChange) => Promise<SettingsState>
     subscribe: (listener: (state: SettingsState) => void) => () => void
+  }
+  /**
+   * What `state.json` keeps for the window, such as the layout, and `projects.json`, from main's memory. The preload
+   * waits for them, so the first frame has them.
+   */
+  saved: () => { values: AppState["values"]; projects: Projects }
+  /** `projects.json`, the recent and starred projects every copy shares, which main keeps. */
+  projects: {
+    change: (change: ProjectsChange) => Promise<Projects>
+    subscribe: (listener: (projects: Projects) => void) => () => void
+  }
+  /** `state.json`, what the app remembers for itself, which main keeps. Other copies don't apply it. */
+  state: {
+    /** Saves one value, for the next window to start with. */
+    set: (key: StateKey, value: JsonValue) => void
+    /** The tabs to open with: this window's own after a reload, or those of the newest copy that's gone. */
+    claimTabs: () => Promise<SavedTabs>
+    /** The window's tabs now. Kept only once it has claimed some. */
+    saveTabs: (tabs: SavedTabs) => void
   }
   /** `keybindings.json`, the shortcuts the person changed, which main keeps (PAR-1085). */
   keybindings: {

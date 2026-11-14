@@ -90,8 +90,17 @@ function main() {
 const announcement: HostSent<"consoleAnnounce"> = { level: "warning", design: "Card" }
 
 /** Params a one-way method's schema takes: the announcement, or nothing for the close replies, which take none. */
-function toldParams(method: HostMethod): HostSent<"consoleAnnounce"> | undefined {
-  return method === "consoleAnnounce" ? announcement : undefined
+function toldParams(method: HostMethod): HostSent<"consoleAnnounce" | "stateSet" | "tabsSave"> | undefined {
+  switch (method) {
+    case "consoleAnnounce":
+      return announcement
+    case "stateSet":
+      return { key: "layout", value: { left: false } }
+    case "tabsSave":
+      return { roots: ["D:/shop"] }
+    default:
+      return undefined
+  }
 }
 
 /** A request from Parity's own page in a development copy, which `fromParityPage` takes. */

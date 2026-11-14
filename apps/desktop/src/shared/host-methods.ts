@@ -1,6 +1,6 @@
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type { UpdateState } from "@parity-app/processes"
-import { settingsChange } from "@parity-app/settings"
+import { type Projects, projectsChange, type SavedTabs, settingsChange, stateKeys } from "@parity-app/settings"
 import { z } from "zod"
 import { type AccountState, accountEmail, organizationId, signInRequest } from "./account.ts"
 import { type ConnectorState, connectorPlaced, connectorSearch } from "./connectors.ts"
@@ -49,6 +49,12 @@ interface Answers<Result> {
 function answers<Result>(): Answers<Result> {
   return {}
 }
+
+/** One value `state.json` keeps for the window, which the part of the window that owns it reads. */
+const stateValue = z.strictObject({ key: z.enum(stateKeys), value: z.json() })
+
+/** A window's tabs, to reopen next time. */
+const savedTabs = z.strictObject({ roots: z.array(z.string()).max(200), active: z.string().optional() })
 
 /** One of main's methods, as the map declares it. */
 interface HostMethodSpec {
@@ -125,6 +131,14 @@ export const hostMethods = {
   toggleDevTools: {},
   /** Changes `settings.json`, which main then sends every window, for what it holds after. */
   settingsChange: { params: settingsChange, result: answers<SettingsState>() },
+  /** Changes `projects.json`, the recent and starred projects, which main then sends every window. */
+  projectsChange: { params: projectsChange, result: answers<Projects>() },
+  /** Saves one value in `state.json`, such as the layout, for the next window to start with. */
+  stateSet: { params: stateValue, oneWay: true },
+  /** The tabs this window opens with: its own after a reload, or those of the newest copy that's gone. */
+  tabsClaim: { result: answers<SavedTabs>() },
+  /** The window's tabs now, which main keeps saying while the copy runs. */
+  tabsSave: { params: savedTabs, oneWay: true },
   /** The shortcuts the person changed, in `keybindings.json` (PAR-1085), which main sends again whenever they change. */
   keybindingsState: { result: answers<KeybindingsState>() },
   /** Replaces commands' entries in `keybindings.json`, for what the file holds after. */

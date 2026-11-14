@@ -1,4 +1,3 @@
-import { z } from "zod"
 import {
   type AppSettings,
   defaultSettings,
@@ -7,6 +6,7 @@ import {
   settingKeys,
   settingValues
 } from "./app-settings.ts"
+import { type FileObject, fileText, objectToChange, parseObject } from "./json-object.ts"
 
 /** What `settings.json` gives: every setting, and the problems with what it holds, for Settings to show. */
 export interface ReadSettings {
@@ -15,29 +15,6 @@ export interface ReadSettings {
   badValues: SettingKey[]
   /** Why the file couldn't be read at all, when it couldn't. Its values are then the defaults. */
   problem?: string
-}
-
-const jsonObject = z.record(z.string(), z.json())
-
-type FileObject = z.infer<typeof jsonObject>
-
-/** The file's text as an object of its keys, or why it isn't one. No text, as for a missing file, is an empty one. */
-function parse(text: string | undefined): { object: FileObject } | { problem: string } {
-  if (text === undefined || text.trim() === "") {
-    return { object: {} }
-  }
-
-  let json: unknown
-
-  try {
-    json = JSON.parse(text)
-  } catch (error) {
-    return { problem: `settings.json isn't JSON: ${error instanceof Error ? error.message : String(error)}` }
-  }
-
-  const object = jsonObject.safeParse(json)
-
-  return object.success ? { object: object.data } : { problem: "settings.json isn't an object of settings." }
 }
 
 /** Each setting `object` holds, each that's missing or doesn't read at its default. */
@@ -69,7 +46,7 @@ function valuesOf(object: FileObject): Pick<ReadSettings, "values" | "badValues"
  * its default without resetting the rest, and keys this version doesn't know are passed over.
  */
 export function readSettings(text: string | undefined): ReadSettings {
-  const parsed = parse(text)
+  const parsed = parseObject("settings.json", text)
 
   if ("problem" in parsed) {
     return { values: { ...defaultSettings }, badValues: [], problem: parsed.problem }
@@ -83,13 +60,7 @@ export function readSettings(text: string | undefined): ReadSettings {
  * other key as it was. Throws for text that doesn't parse, which must never be written over.
  */
 export function changeSettings(text: string | undefined, change: SettingsChange): string {
-  const parsed = parse(text)
-
-  if ("problem" in parsed) {
-    throw new Error(parsed.problem)
-  }
-
-  const next: FileObject = { ...parsed.object }
+  const next = objectToChange("settings.json", text)
 
   for (const [key, value] of Object.entries(change)) {
     if (value === undefined) {
@@ -103,7 +74,7 @@ export function changeSettings(text: string | undefined, change: SettingsChange)
     }
   }
 
-  return `${JSON.stringify(next, null, 2)}\n`
+  return fileText(next)
 }
 
 /** The settings whose values differ between `before` and `after`, with their values after. */

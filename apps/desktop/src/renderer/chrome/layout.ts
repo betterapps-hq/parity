@@ -1,10 +1,11 @@
-import { finiteNumber, jsonText } from "@parity-app/core"
+import { finiteNumber } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/settings"
 import { z } from "zod"
 import { recordInterface } from "../interface-events.ts"
+import { saved, saveState } from "../saved.ts"
 import { useStore, windowStore } from "../store.ts"
 import type { Attributes } from "./event-attributes.ts"
 
-const storageKey = "parity.layout"
 export const panelLimits = { left: [232, 480], right: [260, 520], console: [120, 640] } as const
 
 /** A panel's saved width, or the console's height, kept to its limits. */
@@ -31,38 +32,23 @@ const savedLayout = z.object({
 
 export type PanelLayout = z.infer<typeof savedLayout>
 
-/** The panel layout saved as `text`, each value that's missing or doesn't read at its default. */
-export function readLayout(text: string | null): PanelLayout {
-  return jsonText(savedLayout)
-    .catch(() => savedLayout.parse({}))
-    .parse(text ?? "{}")
+/** The panel layout as saved, each value that's missing or doesn't read at its default. */
+export function readLayout(value: JsonValue | undefined): PanelLayout {
+  return savedLayout.catch(() => savedLayout.parse({})).parse(value ?? {})
 }
 
 /** The layout as it was saved; `resetWindowStores` puts back the defaults, as a first run has them. */
-const layout = windowStore(() => readLayout(null))
+const layout = windowStore(() => readLayout(undefined))
 
-layout.set(load())
-
-function load(): PanelLayout {
-  try {
-    return readLayout(localStorage.getItem(storageKey))
-  } catch {
-    // Storage can be unavailable; the defaults then apply.
-    return readLayout(null)
-  }
-}
+// Shared by every copy in `state.json`: a window starts with the layout last saved.
+layout.set(readLayout(saved().values.layout))
 
 export function setLayout(change: Partial<PanelLayout>): void {
   const before = layout.get()
   const after = { ...before, ...change }
   recordShownPanels(before, after)
 
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(after))
-  } catch {
-    // Storage can be unavailable; the layout then just isn't remembered.
-  }
-
+  saveState("layout", { ...after })
   layout.set(after)
 }
 
