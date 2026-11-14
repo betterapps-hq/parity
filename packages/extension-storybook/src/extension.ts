@@ -3,6 +3,7 @@ import {
   componentsWithStories,
   type DetectedStorybook,
   type IndexEntry,
+  type PageKind,
   readDetected,
   readStoryIndex,
   servesStories,
@@ -19,15 +20,34 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * loads, and where stories open, the person's choice for every project.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
  * it already runs, by its Portless name or on its usual port, and adopts it, or starts it with `parity.processes`.
+ * What `activate` returns is its API for other extensions (PAR-1096), as the accessibility extension uses it, and Open
+ * in Storybook gives agents the page it opened.
  */
 
-export function activate(parity: Parity): void {
+/**
+ * The Storybook extension's API, which extensions that name it in `extensionDependencies` get with
+ * `parity.extensions.get("@parity-app/extension-storybook").api`, each function giving a promise there.
+ */
+export type StorybookApi = {
+  /** The components with stories, by key. */
+  componentsWithStories(): string[]
+  /** A component's story files, relative to the project's root. */
+  storyFiles(component: string): string[]
+  /**
+   * The page that opens a component's stories in the project's Storybook, or Storybook's home without one, starting
+   * Storybook first when it isn't running: its docs page when it has one, or with `kind` "story" its first story.
+   * Throws for a component with no stories.
+   */
+  storyPage(component?: string, kind?: PageKind): Promise<string>
+}
+
+export function activate(parity: Parity): StorybookApi | undefined {
   const storybook = readDetected(parity.project.detected)
 
   if (!storybook) {
     parity.log.warn("Detection found no Storybook that this version can read.")
 
-    return
+    return undefined
   }
 
   const withStories = componentsWithStories(storybook)
@@ -95,21 +115,34 @@ export function activate(parity: Parity): void {
     return { server: again, entries: await storyIndex(again.endpoint.url) }
   }
 
+  const storyFiles = (component: string) => (storybook.stories[component] ?? []).map((file) => file.path)
+
+  /** The page that opens a component's stories, or Storybook's home, with Storybook running. */
+  const pageOf = async (component: string | undefined, kind?: PageKind) => {
+    const paths = component ? storyFiles(component) : []
+
+    if (component && paths.length === 0) {
+      throw new Error(`${component} has no stories`)
+    }
+
+    const { server, entries } = await ensure()
+    const address = await addressOf(parity, server)
+
+    return component ? storyPage(address, entries, paths, kind) : address
+  }
+
   parity.subscriptions.push(
     parity.commands.register("storybook.open", async (target) => {
       const component = target?.type === "component" ? target.key : undefined
-      const storyFiles = component ? (storybook.stories[component] ?? []).map((file) => file.path) : []
 
-      if (component && storyFiles.length === 0) {
+      if (component && storyFiles(component).length === 0) {
         throw new Error(`${component} has no stories`)
       }
 
       const url = await parity.ui.progress("Opening Storybook…", async (progress) => {
         progress.report("If it isn't running yet, it starts first, which can take a minute.")
-        const { server, entries } = await ensure()
-        const address = await addressOf(parity, server)
 
-        return component ? storyPage(address, entries, storyFiles) : address
+        return pageOf(component)
       })
 
       // Where stories open is the person's choice, for every project (PAR-1090).
@@ -119,8 +152,17 @@ export function activate(parity: Parity): void {
       if (where === "browser") {
         void parity.ui.notify("Opened in your browser", { detail: url, tone: "success" })
       }
+
+      // What an agent that ran it gets back.
+      return { url }
     })
   )
+
+  return {
+    componentsWithStories: () => withStories,
+    storyFiles,
+    storyPage: pageOf
+  }
 }
 
 /** The project's Storybook: ours already, one running that serves its stories, adopted, or one started. */

@@ -66,11 +66,14 @@ describe("the Storybook extension", () => {
     expect(servesStories(entries, [])).toBe(true)
   })
 
-  it("opens a component's docs first, then its first story, then Storybook's home", () => {
+  it("opens a component's docs first, then its first story, then Storybook's home, or its first story when asked", () => {
     const address = "http://localhost:6006"
 
     expect(storyPage(address, entries, ["src/button.stories.tsx"])).toBe(`${address}/?path=/docs/button--docs`)
     expect(storyPage(address, entries, ["src/card.stories.tsx"])).toBe(`${address}/?path=/story/card--plain`)
     expect(storyPage(address, entries, ["src/gone.stories.tsx"])).toBe(address)
+    expect(storyPage(address, entries, ["src/button.stories.tsx"], "story")).toBe(
+      `${address}/?path=/story/button--primary`
+    )
   })
 })

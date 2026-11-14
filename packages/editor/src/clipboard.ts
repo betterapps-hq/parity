@@ -4,6 +4,7 @@ import {
   type ContainerSpec,
   containerSpec,
   type DesignNode,
+  designId,
   editNode,
   findNode,
   generateId,
@@ -19,7 +20,6 @@ import {
   type StateSpec,
   styleKeys,
   topmostNodes,
-  uniqueId,
   withFreshIds
 } from "@parity-app/core"
 import { z } from "zod"
@@ -238,8 +238,9 @@ export function copyLayersInto(container: ContainerSpec, target: PasteTarget, no
 }
 
 /**
- * Copies of `designs` moved by `shift` and rounded to whole pixels. Each keeps its id unless `taken`, or a copy before
- * it, has it, when it gets one from its name.
+ * Copies of `designs` moved by `shift` and rounded to whole pixels. Each gets a new id from its name (see `designId`),
+ * even when its own is free, so two people pasting one copy don't make the same id. Instances among the copies follow
+ * a copied component to its new id.
  */
 export function copyDesigns(
   designs: readonly ContainerSpec[],
@@ -247,17 +248,29 @@ export function copyDesigns(
   shift: { x: number; y: number }
 ): ContainerSpec[] {
   const ids = [...taken]
+  const renamed = new Map<string, string>()
 
-  return designs.map((design) => {
-    const id = ids.includes(design.id) ? uniqueId(design.name, ids) : design.id
+  const copies = designs.map((design) => {
+    const id = designId(design.name, ids)
     ids.push(id)
 
-    return {
-      ...design,
-      id,
-      position: { x: Math.round(design.position.x + shift.x), y: Math.round(design.position.y + shift.y) }
+    if (!renamed.has(design.id)) {
+      renamed.set(design.id, id)
     }
+
+    return id
   })
+
+  return designs.map((design, index) => ({
+    ...design,
+    id: copies[index]!,
+    position: { x: Math.round(design.position.x + shift.x), y: Math.round(design.position.y + shift.y) },
+    root: mapNodes(design.root, (node) => {
+      const component = node.type === "instance" ? renamed.get(node.design) : undefined
+
+      return component ? { ...node, design: component } : node
+    })
+  }))
 }
 
 /**

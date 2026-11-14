@@ -1,4 +1,4 @@
-import { type MadeKind, uniqueId } from "@parity-app/core"
+import { type MadeKind, designId } from "@parity-app/core"
 import { designGap, detachInstancesOf, freeSpotBeside, instanceCount, kindName, turnInto } from "@parity-app/editor"
 import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
@@ -30,7 +30,7 @@ export function duplicateDesign(
   const { store, editor } = session
   const taken = store.getEntries().map((candidate) => candidate.container.id)
   const name = `${entry.container.name} copy`
-  const id = uniqueId(name, taken)
+  const id = designId(name, taken)
   const bounds = editor?.getShapePageBounds(canvasIdFor(entry.key))
 
   const x =

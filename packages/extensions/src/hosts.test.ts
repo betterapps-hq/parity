@@ -598,8 +598,10 @@ describe("extension hosts", () => {
       const [service, host] = memoryPorts()
       const channel = createChannel<HostMethods, HostServiceMethods>()
       channel.serve({
-        activate: () => undefined,
-        run: () => undefined,
+        activate: () => ({ api: [] }),
+        run: () => ({}),
+        tool: () => ({}),
+        "api.call": () => ({}),
         "view.changed": () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
         "settings.changed": () => undefined,

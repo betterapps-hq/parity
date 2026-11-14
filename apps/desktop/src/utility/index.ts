@@ -2,6 +2,7 @@ import { adapters } from "@parity-app/adapters"
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
+import { agentExtensions } from "@parity-app/extensions"
 import { errorCode } from "@parity-app/telemetry"
 import { portFree } from "@parity-app/vite-adapter"
 import type { MessagePortMain } from "electron"
@@ -11,6 +12,7 @@ import type { ExtensionUiRequest, ServiceMethods, WindowMethods } from "../share
 import { changedFrames, storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import {
+  type AgentExtensions,
   type AgentImages,
   checkAccessibility,
   exportDesigns,
@@ -420,7 +422,13 @@ const agentImages: AgentImages = {
   saveImage: async (projectId, image) => saveImageFrom(projects.get(projectId), image, fetch)
 }
 
-void startAgentServer(editorWindow, agentImages).catch((cause: unknown) => {
+// Agents run extensions' commands and tools through the same hosts the person's clicks do (PAR-1096).
+const agentExtensionCalls: AgentExtensions = {
+  extensions: async (projectId) => agentExtensions(extensions.list(projectId).extensions),
+  runExtension: (projectId, request, agent) => extensions.runForAgent(projectId, request, agent)
+}
+
+void startAgentServer(editorWindow, agentImages, agentExtensionCalls).catch((cause: unknown) => {
   console.error("[service] agent server failed to start", cause)
   const code = errorCode(cause)
   const failed: Attributes<"agent.serverFailed"> = { message: cause instanceof Error ? cause.message : String(cause) }

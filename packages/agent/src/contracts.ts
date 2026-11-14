@@ -7,7 +7,7 @@
 
 import { CodedError } from "@parity-app/core/errors"
 import { propGroups, propKinds } from "@parity-app/core/props"
-import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
+import { checkData, jsonText, jsonValue, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 
 // Requests. Each message names its field, as the CLI has always worded them, so it reads on its own in a terminal,
@@ -307,6 +307,13 @@ export const requests = {
   removeImage: fields({
     tab,
     image: text("image", "Path, address (/images/hero.png) or file name.")
+  }),
+  extensions: fields({ tab }),
+  runExtension: fields({
+    tab,
+    name: text("name", "Command id or tool name."),
+    component: text("component", "Component a command runs for.").optional(),
+    input: z.record(z.string(), jsonValue, "input must be an object").optional().describe("A tool's input.")
   }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
@@ -930,6 +937,35 @@ const placedReferencesReply = z.looseObject({
   withoutPictures: z.int().optional().describe("How many past limit have no picture. Name a design or raise limit.")
 })
 
+/** An extension found in the project (PAR-1096), with what agents can run and read of it. */
+const agentExtension = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  state: z.string().describe("waiting until its code is needed, then starting, running, stuck or crashed."),
+  reason: z.string().optional().describe("Why it's stuck or crashed."),
+  commands: z
+    .array(z.looseObject({ id: z.string(), title: z.string(), note: z.string().optional() }))
+    .describe("Commands run_extension runs by id, for a component when one is named."),
+  tools: z
+    .array(z.looseObject({ name: z.string(), description: z.string(), input: plainObject }))
+    .describe("Agent tools run_extension runs by name, with input that fits the tool's JSON Schema."),
+  nodeTypes: z.array(z.looseObject({ id: z.string(), name: z.string() })),
+  facts: z.array(
+    z.looseObject({
+      component: z.string(),
+      facts: z.array(z.looseObject({ id: z.string(), label: z.string(), value: z.string() }))
+    })
+  )
+})
+
+const extensionsReply = z.looseObject({ tab: ref, extensions: z.array(agentExtension) })
+
+const runExtensionReply = z.looseObject({
+  tab: ref,
+  name: z.string(),
+  result: jsonValue.optional().describe("What the command or tool gave back, when it gave anything.")
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -956,7 +992,9 @@ export const replies = {
   place: placeReply,
   placedReferences: placedReferencesReply,
   images: imagesReply,
-  removeImage: removeImageReply
+  removeImage: removeImageReply,
+  extensions: extensionsReply,
+  runExtension: runExtensionReply
 }
 
 /**

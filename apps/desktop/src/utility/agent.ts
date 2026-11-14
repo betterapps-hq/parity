@@ -69,11 +69,24 @@ const noImages: AgentImages = {
   saveImage: () => Promise.reject(new Error("Images can't be saved here"))
 }
 
-export async function startAgentServer(window: () => WindowChannel, images: AgentImages): Promise<void> {
+/** What agents' extension calls need of the service: its extensions, and running their commands and tools (PAR-1096). */
+export type AgentExtensions = Pick<AgentHost, "extensions" | "runExtension">
+
+/** For hosts that only draw and export, which run no extensions. */
+const noExtensions: AgentExtensions = {
+  extensions: () => Promise.resolve([]),
+  runExtension: () => Promise.reject(new Error("Extensions can't run here"))
+}
+
+export async function startAgentServer(
+  window: () => WindowChannel,
+  images: AgentImages,
+  extensions: AgentExtensions = noExtensions
+): Promise<void> {
   const token = randomBytes(24).toString("hex")
 
   const server = createServer((request, response) => {
-    void handle(request, response, token, window, images)
+    void handle(request, response, token, window, images, extensions)
   })
 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -106,7 +119,8 @@ async function handle(
   response: ServerResponse,
   token: string,
   window: () => WindowChannel,
-  images: AgentImages
+  images: AgentImages,
+  extensions: AgentExtensions
 ) {
   const reply: Reply = (status, body) => {
     response.writeHead(status, { "content-type": "application/json" })
@@ -142,7 +156,7 @@ async function handle(
     // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629), and
     // its span says what was asked and how it went (PAR-641).
     const answer = async () => {
-      const result = await answerRequest(body, desktopHost(window(), images), (caller) => {
+      const result = await answerRequest(body, desktopHost(window(), images, extensions), (caller) => {
         // Only tags telemetry, so a main that's gone is no matter.
         mainProcess.request("agentCalled", caller).catch(() => undefined)
       })
@@ -199,9 +213,14 @@ async function passLinkToMain(request: IncomingMessage, reply: Reply) {
  * The desktop's side of an agent call: the editor window's live tabs, the offscreen renderer, the console and the
  * screenshots folder. Which method does what is `dispatch` in `@parity-app/agent`.
  */
-export function desktopHost(window: WindowChannel, images: AgentImages = noImages): AgentHost {
+export function desktopHost(
+  window: WindowChannel,
+  images: AgentImages = noImages,
+  extensions: AgentExtensions = noExtensions
+): AgentHost {
   return {
     ...images,
+    ...extensions,
     tabs: () => window.request("agent.tabs", undefined),
     copy: () => window.request("agent.copy", undefined),
     open: (root) => window.request("agent.open", { root }),

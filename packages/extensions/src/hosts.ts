@@ -19,14 +19,17 @@ import type {
   ViewKind
 } from "@parity-app/extension-api"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
+import { readToolInput } from "./agents.ts"
 import type { ExtensionPackage } from "./manifest.ts"
 import { editsRefusal, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
+  type Dependency,
   hostChecks,
   type HostMethods,
   type HostServiceMethods,
   type LogLine,
+  readReturned,
   type StateValues,
   type StatusValue
 } from "./protocol.ts"
@@ -248,6 +251,12 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   close(projectId: string): Promise<void>
   /** Runs a command, starting its extension's host first when it isn't running. */
   run(projectId: string, command: string, target?: CommandTarget): Promise<void>
+  /**
+   * Runs an extension's command or agent tool for an agent, by the command's id or the tool's name, starting its host
+   * first when it isn't running, and gives back what it returned. A tool's input is checked against its schema. While
+   * it runs, the extension's changes are named after `agent` and the extension, and it can't ask the person anything.
+   */
+  runForAgent(projectId: string, request: AgentRun, agent: string): Promise<JsonValue | undefined>
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -266,8 +275,17 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   setProjectSettings(projectId: string, settings: StoredSettings): void
 }
 
+/** What an agent runs: a command, for a component or layer when it names one, or an agent tool, with its input. */
+export interface AgentRun {
+  name: string
+  target?: CommandTarget
+  input?: JsonValue
+}
+
 interface Host<Project> {
   extension: InstalledExtension<Project>
+  /** The names of the functions its `activate` returned, once it has. */
+  api?: string[]
   detected?: JsonValue
   state: HostState
   reason?: string
@@ -309,6 +327,12 @@ export function extensionHosts<Project extends OpenedProject>(
   options: ExtensionHostsOptions<Project>
 ): ExtensionHosts<Project> {
   const timing = { ...defaultTiming, ...options.timing }
+  /** Agents' calls running now, by the id each was given, which hosts send back with what their code asks. */
+  const calls = new Map<number, string>()
+  let nextCall = 1
+
+  /** The agent whose call an id names, if it's one running now. Any other id, as one a host made up, names nobody. */
+  const agentOf = (call: number | undefined) => (call === undefined ? undefined : calls.get(call))
   const projects = new Map<string, OpenProject<Project>>()
   let appSettings: StoredSettings = {}
 
@@ -452,6 +476,27 @@ export function extensionHosts<Project extends OpenedProject>(
       (params: HostServiceMethods[M]["params"]) =>
         options.window.ui(projectId, id, method, params)
 
+    // During an agent's call, there's nobody to answer a question.
+    const ask =
+      <M extends "ui.pick" | "ui.input" | "ui.confirm">(method: M) =>
+      ({ call, ...params }: HostServiceMethods[M]["params"]) => {
+        const agent = agentOf(call)
+
+        if (agent !== undefined) {
+          throw new Error(`There's nobody to ask: ${agent} is running ${displayName}, so ${method} can't be answered`)
+        }
+
+        // SAFETY: the params less `call`, which only the service reads.
+        return options.window.ui(projectId, id, method, params as HostServiceMethods[M]["params"])
+      }
+
+    // A change made during an agent's call is named after both, as "Claude Code via Tidy: Rename layers".
+    const named = (label: string, call: number | undefined) => {
+      const agent = agentOf(call)
+
+      return agent === undefined ? `${displayName}: ${label}` : `${agent} via ${displayName}: ${label}`
+    }
+
     return {
       log: (line: HostServiceMethods["log"]["params"]) => log(open, host, line),
       "state.update"({ scope, key, value }: HostServiceMethods["state.update"]["params"]) {
@@ -516,9 +561,9 @@ export function extensionHosts<Project extends OpenedProject>(
         options.window.reveal(projectId, id, view)
       },
       "ui.notify": ui("ui.notify"),
-      "ui.pick": ui("ui.pick"),
-      "ui.input": ui("ui.input"),
-      "ui.confirm": ui("ui.confirm"),
+      "ui.pick": ask("ui.pick"),
+      "ui.input": ask("ui.input"),
+      "ui.confirm": ask("ui.confirm"),
       "ui.open": ui("ui.open"),
       "ui.progress": ui("ui.progress"),
       async "settings.update"({ key, value }: HostServiceMethods["settings.update"]["params"]) {
@@ -557,34 +602,56 @@ export function extensionHosts<Project extends OpenedProject>(
         options.processes.markReady(caller, process, match)
       },
       "servers.routed": () => options.processes.routed(),
-      async "edits.transact"({ label, operations }: HostServiceMethods["edits.transact"]["params"]) {
+      async "edits.transact"({ label, operations, call }: HostServiceMethods["edits.transact"]["params"]) {
         const refused = editsRefusal(displayName, permissions)
 
         if (refused) {
           throw new Error(refused)
         }
 
-        await options.edits.transact(projectId, id, `${displayName}: ${label}`, operations)
+        await options.edits.transact(projectId, id, named(label, call), operations)
       },
-      async "files.edit"({ label, files }: HostServiceMethods["files.edit"]["params"]) {
+      async "files.edit"({ label, files, call }: HostServiceMethods["files.edit"]["params"]) {
         const refused = files.map((file) => writeRefusal(displayName, permissions, file.path)).filter(Boolean)
 
         if (refused.length > 0) {
           throw new Error(refused.join("\n"))
         }
 
-        return { paths: await options.edits.files(projectId, id, `${displayName}: ${label}`, files) }
+        return { paths: await options.edits.files(projectId, id, named(label, call), files) }
       },
       "selection.set": ui("selection.set"),
       "selection.highlight": ui("selection.highlight"),
       navigate: ui("navigate"),
       // An extension's command runs in its host; anything else is one of Parity's, which the window runs.
-      async "commands.execute"(params: HostServiceMethods["commands.execute"]["params"]) {
+      // An extension's command run during an agent's call is the agent's too.
+      async "commands.execute"({ call, ...params }: HostServiceMethods["commands.execute"]["params"]) {
         if (declarer(open, params.command)) {
-          await runCommand(open, params.command, params.target)
+          await runCommand(open, params.command, params.target, agentOf(call))
         } else {
           await options.window.ui(projectId, id, "commands.execute", params)
         }
+      },
+      async "extensions.call"({ extension, method, args, call }: HostServiceMethods["extensions.call"]["params"]) {
+        if (!host.extension.package.manifest.extensionDependencies?.includes(extension)) {
+          throw new Error(`${extension} isn't in ${displayName}'s extensionDependencies`)
+        }
+
+        // A call made during an agent's call is the agent's too, so it carries the same id.
+        const known = agentOf(call) === undefined ? undefined : call
+        const other = hostOf(open, extension)
+        const running = await ensureRunning(open, other, [], known)
+
+        if (!other.api?.includes(method)) {
+          throw new Error(`${other.extension.package.manifest.displayName}'s API has no ${method}`)
+        }
+
+        return readReturned(
+          await running.channel.request(
+            "api.call",
+            known === undefined ? { method, args } : { method, args, call: known }
+          )
+        )
       }
     }
   }
@@ -593,7 +660,13 @@ export function extensionHosts<Project extends OpenedProject>(
    * Starts a host's process and activates its extension. `again` says why it stopped before, when it ran already, so it
    * gets back the processes it owns.
    */
-  const start = (open: OpenProject<Project>, host: Host<Project>, again?: "crash" | "stuck") => {
+  const start = (
+    open: OpenProject<Project>,
+    host: Host<Project>,
+    chain: string[] = [],
+    call?: number,
+    again?: "crash" | "stuck"
+  ) => {
     const { extension } = host
     const { package: found } = extension
     const link = options.start(extension, open.project)
@@ -648,11 +721,36 @@ export function extensionHosts<Project extends OpenedProject>(
       params.project.detected = host.detected
     }
 
-    const activated = withTimeout(
-      channel.request("activate", params),
-      timing.activateTimeout,
-      () => `activate didn't finish within ${timing.activateTimeout / 1000} seconds`
-    )
+    const tools = (found.manifest.contributes.agentTools ?? []).map((tool) => tool.name)
+
+    if (tools.length > 0) {
+      params.agentTools = tools
+    }
+
+    delete host.api
+
+    // The extensions it builds on activate first, so their APIs are ready when it does.
+    // An agent's call that starts it starts it as the agent's, so its `activate` can't ask the person either.
+    if (call !== undefined) {
+      params.call = call
+    }
+
+    const activated = dependenciesOf(open, host, [...chain, found.id], call).then(async (dependencies) => {
+      if (dependencies.length > 0) {
+        params.dependencies = dependencies
+      }
+
+      // What's selected now, which may have changed while the extensions it builds on started.
+      params.selection = open.selection
+
+      const { api } = await withTimeout(
+        channel.request("activate", params),
+        timing.activateTimeout,
+        () => `activate didn't finish within ${timing.activateTimeout / 1000} seconds`
+      )
+
+      host.api = api
+    })
 
     const running: Running = { link, channel, activated, stopPinging: () => undefined, unwatch }
 
@@ -704,7 +802,7 @@ export function extensionHosts<Project extends OpenedProject>(
 
     if (host.crashes.length < timing.crashLimit) {
       log(open, host, { level: "info", text: "Starting it again" })
-      start(open, host, "crash")
+      start(open, host, [], undefined, "crash")
 
       return
     }
@@ -779,20 +877,37 @@ export function extensionHosts<Project extends OpenedProject>(
     return host
   }
 
-  /** The host of the extension that declares a command, if any. */
-  const declarer = (open: OpenProject<Project>, command: string) =>
-    [...open.hosts.values()].find((candidate) =>
-      candidate.extension.package.manifest.contributes.commands?.some((declared) => declared.id === command)
+  /** Starts the extensions a host builds on, once each, and gives each one's API once it has activated. */
+  async function dependenciesOf(
+    open: OpenProject<Project>,
+    host: Host<Project>,
+    chain: string[],
+    call?: number
+  ): Promise<Dependency[]> {
+    const ids = host.extension.package.manifest.extensionDependencies ?? []
+
+    return Promise.all(
+      ids.map(async (id) => {
+        if (chain.includes(id)) {
+          throw new Error(`It depends on itself, through ${[...chain, id].join(", ")}`)
+        }
+
+        const other = open.hosts.get(id)
+
+        if (!other) {
+          throw new Error(`It needs ${id}, which isn't in ${open.project.name}`)
+        }
+
+        await ensureRunning(open, other, chain, call)
+        const { package: found } = other.extension
+
+        return { id, version: found.version, displayName: found.manifest.displayName, api: other.api ?? [] }
+      })
     )
+  }
 
-  /** Runs an extension's command, starting its host first when it isn't running. */
-  async function runCommand(open: OpenProject<Project>, command: string, target?: CommandTarget): Promise<void> {
-    const host = declarer(open, command)
-
-    if (!host) {
-      throw new Error(`No extension running for ${open.project.name} declares ${command}`)
-    }
-
+  /** A host's process once it has activated, starting it first when it isn't running. */
+  async function ensureRunning(open: OpenProject<Project>, host: Host<Project>, chain: string[] = [], call?: number) {
     const name = host.extension.package.manifest.displayName
 
     if (host.state === "crashed" || host.state === "stuck") {
@@ -802,7 +917,7 @@ export function extensionHosts<Project extends OpenedProject>(
     }
 
     if (!host.running) {
-      start(open, host)
+      start(open, host, chain, call)
     }
 
     const running = host.running
@@ -815,10 +930,96 @@ export function extensionHosts<Project extends OpenedProject>(
       throw new Error(`${name} couldn't start: ${host.reason ?? "it stopped"}`)
     })
 
+    return running
+  }
+
+  /**
+   * Runs `task` as `agent`'s call, when an agent makes it: under an id of its own, which the host carries through the
+   * extension's code and sends with what that code asks, so each change is named after the agent whose call made it,
+   * whatever other calls run meanwhile.
+   */
+  async function as<T>(agent: string | undefined, task: (call: number | undefined) => Promise<T>): Promise<T> {
+    if (agent === undefined) {
+      return task(undefined)
+    }
+
+    const call = nextCall++
+    calls.set(call, agent)
+
     try {
-      await running.channel.request("run", target ? { command, target } : { command })
+      return await task(call)
+    } finally {
+      calls.delete(call)
+    }
+  }
+
+  /** The host of the extension that declares a command, if any. */
+  const declarer = (open: OpenProject<Project>, command: string) =>
+    [...open.hosts.values()].find((candidate) =>
+      candidate.extension.package.manifest.contributes.commands?.some((declared) => declared.id === command)
+    )
+
+  /** Runs an extension's command, starting its host first when it isn't running, and gives what it returned. */
+  async function runCommand(
+    open: OpenProject<Project>,
+    command: string,
+    target?: CommandTarget,
+    agent?: string
+  ): Promise<JsonValue | undefined> {
+    const host = declarer(open, command)
+
+    if (!host) {
+      throw new Error(`No extension running for ${open.project.name} declares ${command}`)
+    }
+
+    try {
+      return await as(agent, async (call) => {
+        const running = await ensureRunning(open, host, [], call)
+        const params: HostMethods["run"]["params"] = target ? { command, target } : { command }
+
+        if (call !== undefined) {
+          params.call = call
+        }
+
+        const { result } = readReturned(await running.channel.request("run", params))
+
+        return result
+      })
     } catch (cause) {
       log(open, host, withStack({ level: "error", text: `${command} failed: ${messageOf(cause)}` }, cause))
+      throw cause
+    }
+  }
+
+  /** Runs an extension's agent tool for an agent, with its input checked against the tool's schema. */
+  async function runTool(open: OpenProject<Project>, name: string, input: JsonValue | undefined, agent: string) {
+    const host = [...open.hosts.values()].find((candidate) =>
+      candidate.extension.package.manifest.contributes.agentTools?.some((tool) => tool.name === name)
+    )
+
+    const tool = host?.extension.package.manifest.contributes.agentTools?.find((each) => each.name === name)
+
+    if (!host || !tool) {
+      throw new Error(`No extension for ${open.project.name} has a command or agent tool named ${name}`)
+    }
+
+    const checked = readToolInput(tool, input)
+
+    try {
+      return await as(agent, async (call) => {
+        const running = await ensureRunning(open, host, [], call)
+
+        const { result } = readReturned(
+          await running.channel.request(
+            "tool",
+            call === undefined ? { name, input: checked } : { name, input: checked, call }
+          )
+        )
+
+        return result
+      })
+    } catch (cause) {
+      log(open, host, withStack({ level: "error", text: `${name} failed: ${messageOf(cause)}` }, cause))
       throw cause
     }
   }
@@ -858,12 +1059,25 @@ export function extensionHosts<Project extends OpenedProject>(
         open.hosts.set(extension.package.id, host)
       }
 
+      // One that builds on an extension that isn't in the project can't run here, so it isn't found.
+      for (let dropped = true; dropped;) {
+        dropped = false
+
+        for (const [id, host] of open.hosts) {
+          if (host.extension.package.manifest.extensionDependencies?.some((needed) => !open.hosts.has(needed))) {
+            open.hosts.delete(id)
+            dropped = true
+          }
+        }
+      }
+
       changed(open)
 
       for (const host of open.hosts.values()) {
         const { activates } = host.extension.package.manifest
 
-        if (activates.includes("onDetect") || activates.includes("onStartup")) {
+        // One an earlier extension built on is running already.
+        if (!host.running && (activates.includes("onDetect") || activates.includes("onStartup"))) {
           start(open, host)
         }
       }
@@ -882,7 +1096,22 @@ export function extensionHosts<Project extends OpenedProject>(
         options.processes.stopAll(projectId, host.extension.package.id)
       }
     },
-    run: (projectId, command, target) => runCommand(projectOf(projectId), command, target),
+    async run(projectId, command, target) {
+      await runCommand(projectOf(projectId), command, target)
+    },
+    runForAgent(projectId, { name, target, input }, agent) {
+      const open = projectOf(projectId)
+
+      if (declarer(open, name)) {
+        if (input !== undefined) {
+          throw new Error(`${name} is a command, which takes no input`)
+        }
+
+        return runCommand(open, name, target, agent)
+      }
+
+      return runTool(open, name, input, agent)
+    },
     viewOpened(projectId, view) {
       const open = projectOf(projectId)
 
@@ -915,7 +1144,7 @@ export function extensionHosts<Project extends OpenedProject>(
       running?.link.life.stop()
       host.crashes = []
       log(open, host, { level: "info", text: "Restarting" })
-      start(open, host, ran ? again : undefined)
+      start(open, host, [], undefined, ran ? again : undefined)
     },
     cancel(projectId, id, progress) {
       const running = hostOf(projectOf(projectId), id).running

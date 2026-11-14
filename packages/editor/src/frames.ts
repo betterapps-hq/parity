@@ -12,7 +12,7 @@ import {
   type ResolvedMode,
   resolveModes,
   screenHeightForWidth,
-  uniqueId,
+  designId,
   walkNodes
 } from "@parity-app/core"
 import { newDesign } from "./create.ts"
@@ -62,7 +62,7 @@ export function drawnFrame(
 
   return {
     ...frame,
-    id: uniqueId(
+    id: designId(
       name,
       taken.map((design) => design.id)
     ),
@@ -305,7 +305,7 @@ export function frameOfText(text: string, taken: Iterable<string>, at: Point): N
 
   return {
     design: {
-      id: uniqueId(name, taken),
+      id: designId(name, taken),
       name,
       kind: "frame",
       position: { x: Math.round(at.x), y: Math.round(at.y) },

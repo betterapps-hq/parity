@@ -266,13 +266,22 @@ export function previewMode(modes: readonly ResolvedMode[], appearance: Appearan
   )
 }
 
-/** A short, unique id for a new mode or option, derived from its name. */
-export function uniqueId(name: string, taken: Iterable<string>): string {
-  const base =
+/** `name` lowercased, with each run of other characters made one hyphen, or `fallback` when nothing is left. */
+export function idStem(name: string, fallback: string): string {
+  return (
     name
       .toLowerCase()
       .replaceAll(/[^a-z0-9]+/g, "-")
-      .replaceAll(/^-|-$/g, "") || "mode"
+      .replaceAll(/^-|-$/g, "") || fallback
+  )
+}
+
+/**
+ * A short, unique id for a new mode, viewport, state or variant option, derived from its name. Designs get theirs from
+ * `designId`.
+ */
+export function uniqueId(name: string, taken: Iterable<string>): string {
+  const base = idStem(name, "mode")
 
   const used = new Set(taken)
   let id = base
