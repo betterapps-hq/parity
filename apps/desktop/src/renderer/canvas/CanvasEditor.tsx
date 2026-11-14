@@ -6,21 +6,23 @@ import {
   zoomHeldFrom,
   zoomSettled
 } from "@parity-app/editor"
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   type Atom,
   atom,
   type Computed,
   computed,
   type Editor,
+  getUserPreferences,
   react,
   SelectionForegroundOverlayUtil,
+  setUserPreferences,
   type TLComponents,
   Tldraw
 } from "tldraw"
 import { heldBoards } from "../agent/held-boards.ts"
 import { holdWhileZooming } from "../replay.ts"
-import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
+import { useResolvedTheme } from "../theme.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
 import { isFarZoom } from "./frame-bitmaps.ts"
@@ -342,6 +344,14 @@ export function CanvasEditor({
   const { id: tab, store, selection, editor } = useProject()
   const theme = useResolvedTheme()
 
+  // tldraw draws its first frame in the app's theme, rather than in the light one it starts in until it's mounted. Its
+  // preferences are every canvas's, so a tab opened later finds them set already, and nothing changes as it draws.
+  useState(() => {
+    if (getUserPreferences().colorScheme !== theme) {
+      setUserPreferences({ ...getUserPreferences(), colorScheme: theme })
+    }
+  })
+
   // The canvas follows the app's theme; designs keep the theme their mode picks.
   useEffect(() => {
     editor?.user.updateUserPreferences({ colorScheme: theme })
@@ -369,7 +379,7 @@ export function CanvasEditor({
   const handleMount = useCallback(
     (editor: Editor) => {
       // Snapping on by default, as in Figma: dragged designs lock to the edges and centers of the ones around them.
-      editor.user.updateUserPreferences({ colorScheme: getResolvedTheme(), isSnapMode: true })
+      editor.user.updateUserPreferences({ isSnapMode: true })
       // Out to 1%, past tldraw's 5%, so a project with dozens of screens fits in view at once.
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       hiddenTabs.set(editor, atom("tab hidden", false))

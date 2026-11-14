@@ -7639,6 +7639,11 @@ client ID and never its API key, and the window never sees a token.
   `pnpm perf` and the checks that run a built copy (`try-built.ts`, `try-update.ts`) start it signed in as a stand-in
   with `PARITY_SIGNED_IN_AS`, JSON naming an email, with no tokens and without WorkOS (`main/stand-in-account.ts`).
   `launch({ signedInAs })` names another stand-in, and `launch({ signedOut: true })` starts at the sign-in screen.
+- **Copies open at once share the kept accounts, not Chromium's storage.** Chromium's storage in the user data folder is
+  one copy's at a time, so a copy opened while another has it would freeze for seconds, in tldraw's light theme, the
+  first time its page touched storage. It keeps that storage in a temporary folder of its own instead, found by
+  Electron's single-instance lock, and removes it as it quits, or the next such copy does (`main/copy-storage.ts`,
+  tested in `copy-storage.test.ts`). The canvas draws its first frame in the app's theme either way.
 - **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
   Signed in already, it's Add another account, which says the accounts you're in stay signed in.
