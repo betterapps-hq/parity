@@ -116,6 +116,7 @@ export function boardSize(
   modes: readonly Pick<ResolvedMode, "id" | "viewport" | "width" | "options">[]
 ) {
   const states = designStates(design)
+
   const shown = design.view?.allStates
     ? states
     : [states.find((state) => state.id === design.view?.state) ?? states[0]!]
