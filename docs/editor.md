@@ -6791,7 +6791,8 @@ A screen is named for the component its route draws, else its path.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
-  and clicking Pricing in App's frame takes it to `/pricing`.
+  and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a design's frame is, so Tab on
+  the canvas never goes into the page and leaves the canvas's keys there (`keyboard.e2e.ts`, "keys outside Interact").
 - **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
   and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
   attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
