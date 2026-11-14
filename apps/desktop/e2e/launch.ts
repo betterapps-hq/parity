@@ -393,7 +393,8 @@ async function stopProcess(child: ChildProcess): Promise<void> {
 /**
  * Components the canvas has to find from React's tree: a row that takes a member and renders none of its other props,
  * a pair of elements with nothing around them, and a field that passes its props to the input inside it. A row warns
- * when it's clicked, for the console's tests.
+ * when it's clicked, for the console's tests. Drawn without a member, as on their boards, the row and the pair show a
+ * stand-in rather than failing, so their frames draw and are captured as the others are.
  */
 const memberRow = `import type * as React from "react"
 import { Avatar, AvatarFallback, Badge, Input } from "@buildkitgg/shadcn-baseui-nova"
@@ -403,25 +404,31 @@ export interface Member {
   role: string
 }
 
+const standIn: Member = { name: "Member", role: "Role" }
+
 /** One member of a team: it takes the member and nothing else, so it renders none of the props it's given. */
 export function MemberRow({ member }: { member: Member }) {
+  const { name, role } = { ...standIn, ...member }
+
   return (
-    <div className="flex items-center gap-3 rounded-md border p-3" onClick={() => console.warn("Picked", member.name)}>
+    <div className="flex items-center gap-3 rounded-md border p-3" onClick={() => console.warn("Picked", name)}>
       <Avatar>
-        <AvatarFallback>{member.name.slice(0, 2)}</AvatarFallback>
+        <AvatarFallback>{String(name).slice(0, 2)}</AvatarFallback>
       </Avatar>
-      <span className="flex-1 text-sm font-medium">{member.name}</span>
-      <Badge variant="secondary">{member.role}</Badge>
+      <span className="flex-1 text-sm font-medium">{name}</span>
+      <Badge variant="secondary">{role}</Badge>
     </div>
   )
 }
 
 /** A member's name and role, with no element around them. */
 export function MemberNames({ member }: { member: Member }) {
+  const { name, role } = { ...standIn, ...member }
+
   return (
     <>
-      <span className="text-sm font-medium">{member.name}</span>
-      <span className="text-xs text-muted-foreground">{member.role}</span>
+      <span className="text-sm font-medium">{name}</span>
+      <span className="text-xs text-muted-foreground">{role}</span>
     </>
   )
 }
