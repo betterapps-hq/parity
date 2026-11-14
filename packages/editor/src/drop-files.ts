@@ -1,4 +1,4 @@
-import { type ContainerSpec, type DesignNode, generateId, uniqueId, withFreshIds } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, generateId, designId, withFreshIds } from "@parity-app/core"
 import { landedStyle } from "./new-screen.ts"
 
 /**
@@ -265,7 +265,7 @@ export function designOfMedia(
   const name = (files.length === 1 && fileBaseName(files[0]!)) || severalName(nodes)
 
   return {
-    id: uniqueId(name, taken),
+    id: designId(name, taken),
     name,
     kind: "frame",
     position: at,

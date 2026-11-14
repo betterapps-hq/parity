@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import type { ProjectProcess } from "../../shared/protocol.ts"
+import type { ProcessRole, ProjectProcess } from "../../shared/protocol.ts"
 import { openProjects, preferring } from "../stories/fixtures.tsx"
 import { roots, running } from "../stories/host.ts"
 import { AtBottom } from "./chrome-fixtures.tsx"
@@ -53,17 +53,26 @@ function rowButton(flyout: HTMLElement, name: string, button: string): Promise<H
 function storybook(overrides: Partial<ProjectProcess> = {}): ProjectProcess {
   return {
     id: `storybook:${roots.example}`,
-    kind: "tool",
+    owner: { kind: "parity", role: "tool" },
     lifetime: "server",
     name: "Storybook",
     projectId: roots.example,
     project: "shadcn-vite",
-    status: "running",
+    state: "running",
     startedAt: ago(18),
     pid: 18_240,
-    url: "http://localhost:6006",
-    domain: "https://storybook.shadcn-vite.localhost",
-    startedBy: "parity",
+    endpoint: { url: "http://localhost:6006", port: 6006, protocol: "http" },
+    addresses: [
+      {
+        url: "https://storybook.shadcn-vite.localhost",
+        label: "storybook.shadcn-vite.localhost",
+        kind: "name",
+        public: false,
+        provider: "parity"
+      }
+    ],
+    opens: "https://storybook.shadcn-vite.localhost",
+    run: 1,
     canStop: true,
     canRestart: true,
     ...overrides
@@ -72,23 +81,24 @@ function storybook(overrides: Partial<ProjectProcess> = {}): ProjectProcess {
 
 /** A task for the example: running for `minutes`, or finished that long ago when given a status that ends it. */
 function task(
-  kind: ProjectProcess["kind"],
+  kind: ProcessRole,
   name: string,
   overrides: Partial<ProjectProcess> & { minutes?: number; took?: number } = {}
 ): ProjectProcess {
   const { minutes = 0.4, took = 0.3, ...rest } = overrides
-  const done = rest.status && rest.status !== "running" && rest.status !== "stopping"
+  const done = rest.state && rest.state !== "running" && rest.state !== "stopping"
 
   const result: ProjectProcess = {
     id: `${kind}:${roots.example}`,
-    kind,
+    owner: { kind: "parity", role: kind },
     lifetime: "task",
     name,
     projectId: roots.example,
     project: "shadcn-vite",
-    status: "running",
+    state: "running",
     startedAt: done ? ago(minutes + took) : ago(minutes),
-    startedBy: "parity",
+    run: 1,
+    addresses: [],
     canStop: !done,
     canRestart: true
   }
@@ -104,22 +114,22 @@ function task(
 function recent(): ProjectProcess[] {
   return [
     task("typecheck", "Type check", {
-      status: "passed",
+      state: "passed",
       minutes: 41,
       took: 0.05,
       summary: "Read 34 files, no changes"
     }),
     task("install", "Install Radix Themes", {
       id: "install:radix",
-      status: "passed",
+      state: "passed",
       minutes: 26,
       took: 0.4,
       summary: "Added @radix-ui/themes",
       canRestart: false
     }),
-    task("format", "Format", { status: "passed", minutes: 12, took: 0.03, summary: "Formatted 12 files" }),
-    task("lint", "Lint", { status: "failed", minutes: 9, took: 0.08, summary: "3 problems in 2 files" }),
-    task("e2e", "Playwright", { status: "canceled", minutes: 4, took: 1.2, summary: "Canceled after 18 of 42 tests" })
+    task("format", "Format", { state: "passed", minutes: 12, took: 0.03, summary: "Formatted 12 files" }),
+    task("lint", "Lint", { state: "failed", minutes: 9, took: 0.08, summary: "3 problems in 2 files" }),
+    task("e2e", "Playwright", { state: "canceled", minutes: 4, took: 1.2, summary: "Canceled after 18 of 42 tests" })
   ]
 }
 
@@ -139,7 +149,9 @@ export const Open: Story = {
 
 /** Storybook starting, just asked for: its light turns until it's ready, and the lights' tooltip says what's starting. */
 export const Starting: Story = {
-  loaders: [() => runningWith(storybook({ domain: undefined, status: "starting", startedAt: Date.now() - 9000 }))],
+  loaders: [
+    () => runningWith(storybook({ addresses: [], opens: undefined, state: "starting", startedAt: Date.now() - 9000 }))
+  ],
   play: async () => {
     await openFlyout()
   }
@@ -151,7 +163,7 @@ export const Crashed: Story = {
     () =>
       runningWith(
         storybook({
-          status: "failed",
+          state: "failed",
           startedAt: ago(4.2),
           stoppedAt: ago(3),
           canStop: false,
@@ -218,7 +230,7 @@ export const TaskFailed: Story = {
     () =>
       runningWith(
         storybook(),
-        task("lint", "Lint", { status: "failed", minutes: 0.1, took: 0.08, summary: "3 problems in 2 files" })
+        task("lint", "Lint", { state: "failed", minutes: 0.1, took: 0.08, summary: "3 problems in 2 files" })
       )
   ]
 }
@@ -267,7 +279,7 @@ export const RunningATaskAgain: Story = {
 
 /** A project without Portless: each address is a local port. */
 export const WithoutPortless: Story = {
-  loaders: [() => runningWith(storybook({ domain: undefined }))],
+  loaders: [() => runningWith(storybook({ addresses: [], opens: undefined }))],
   play: async () => {
     const flyout = await openFlyout()
     await within(flyout).findByText(":6006")
@@ -282,16 +294,17 @@ export const TwoProjects: Story = {
         storybook(),
         {
           id: "builder:D:/projects/dashboard",
-          kind: "builder",
+          owner: { kind: "parity", role: "builder" },
           lifetime: "server",
           name: "Vite",
           projectId: "D:/projects/dashboard",
           project: "dashboard",
-          status: "running",
+          state: "running",
           startedAt: ago(47),
           pid: 3,
-          url: "http://localhost:51832",
-          startedBy: "parity",
+          endpoint: { url: "http://localhost:51832", port: 51832, protocol: "http" },
+          run: 1,
+          addresses: [],
           canStop: false,
           canRestart: false
         },
@@ -300,8 +313,17 @@ export const TwoProjects: Story = {
           projectId: "D:/projects/dashboard",
           project: "dashboard",
           pid: 24_018,
-          url: "http://localhost:6007",
-          domain: "https://storybook.dashboard.localhost",
+          endpoint: { url: "http://localhost:6007", port: 6007, protocol: "http" },
+          addresses: [
+            {
+              url: "https://storybook.dashboard.localhost",
+              label: "storybook.dashboard.localhost",
+              kind: "name",
+              public: false,
+              provider: "parity"
+            }
+          ],
+          opens: "https://storybook.dashboard.localhost",
           startedAt: ago(33)
         })
       )

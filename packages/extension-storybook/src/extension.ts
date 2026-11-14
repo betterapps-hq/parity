@@ -7,6 +7,7 @@ import {
   componentsWithStories,
   type DetectedStorybook,
   type IndexEntry,
+  type PageKind,
   readDetected,
   readStoryIndex,
   servesStories,
@@ -23,7 +24,26 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * loads, and where stories open, the person's choice for every project.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
  * it already runs, by its Portless name or on its usual port, or starts it through Parity's process manager.
+ * What `activate` returns is its API for other extensions (PAR-1096), as the accessibility extension uses it, and Open
+ * in Storybook gives agents the page it opened.
  */
+
+/**
+ * The Storybook extension's API, which extensions that name it in `extensionDependencies` get with
+ * `parity.extensions.get("@parity-app/extension-storybook").api`, each function giving a promise there.
+ */
+export type StorybookApi = {
+  /** The components with stories, by key. */
+  componentsWithStories(): string[]
+  /** A component's story files, relative to the project's root. */
+  storyFiles(component: string): string[]
+  /**
+   * The page that opens a component's stories in the project's Storybook, or Storybook's home without one, starting
+   * Storybook first when it isn't running: its docs page when it has one, or with `kind` "story" its first story.
+   * Throws for a component with no stories.
+   */
+  storyPage(component?: string, kind?: PageKind): Promise<string>
+}
 
 /** A running Storybook: where Parity reaches it, and where the browser opens it, by its Portless name when it has one. */
 interface Running {
@@ -34,13 +54,13 @@ interface Running {
 /** The fields of Storybook's own package.json that say where its command line is. */
 const storybookManifest = z.looseObject({ bin: z.union([z.string(), z.record(z.string(), z.string())]).optional() })
 
-export function activate(parity: Parity): void {
+export function activate(parity: Parity): StorybookApi | undefined {
   const storybook = readDetected(parity.project.detected)
 
   if (!storybook) {
     parity.log.warn("Detection found no Storybook that this version can read.")
 
-    return
+    return undefined
   }
 
   const withStories = componentsWithStories(storybook)
@@ -111,20 +131,33 @@ export function activate(parity: Parity): void {
     return { running: again, entries: await storyIndex(again.url) }
   }
 
+  const storyFiles = (component: string) => (storybook.stories[component] ?? []).map((file) => file.path)
+
+  /** The page that opens a component's stories, or Storybook's home, with Storybook running. */
+  const pageOf = async (component: string | undefined, kind?: PageKind) => {
+    const paths = component ? storyFiles(component) : []
+
+    if (component && paths.length === 0) {
+      throw new Error(`${component} has no stories`)
+    }
+
+    const { running: found, entries } = await ensure()
+
+    return component ? storyPage(found.address, entries, paths, kind) : found.address
+  }
+
   parity.subscriptions.push(
     parity.commands.register("storybook.open", async (target) => {
       const component = target?.type === "component" ? target.key : undefined
-      const paths = component ? (storybook.stories[component] ?? []).map((file) => file.path) : []
 
-      if (component && paths.length === 0) {
+      if (component && storyFiles(component).length === 0) {
         throw new Error(`${component} has no stories`)
       }
 
       const url = await parity.ui.progress("Opening Storybook…", async (progress) => {
         progress.report("If it isn't running yet, it starts first, which can take a minute.")
-        const { running: found, entries } = await ensure()
 
-        return component ? storyPage(found.address, entries, paths) : found.address
+        return pageOf(component)
       })
 
       // Where stories open is the person's choice, for every project (PAR-1090).
@@ -134,8 +167,17 @@ export function activate(parity: Parity): void {
       if (where === "browser") {
         void parity.ui.notify("Opened in your browser", { detail: url, tone: "success" })
       }
+
+      // What an agent that ran it gets back.
+      return { url }
     })
   )
+
+  return {
+    componentsWithStories: () => withStories,
+    storyFiles,
+    storyPage: pageOf
+  }
 }
 
 /** Finds the project's Storybook where it runs already, or starts it. */

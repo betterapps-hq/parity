@@ -166,7 +166,7 @@ describe("a new design of dropped images", () => {
   it("puts the images side by side in a frame that hugs them, at the drop point, named after the file", () => {
     const design = designOfMedia([image("a")], ["Hero banner.png"], ["dashboard"], { x: 120, y: -40 })
     expect(design).toMatchObject({
-      id: "hero-banner",
+      id: expect.stringMatching(/^hero-banner-[A-Za-z][A-Za-z0-9]{4}$/),
       name: "Hero banner",
       kind: "frame",
       position: { x: 120, y: -40 },
@@ -186,7 +186,7 @@ describe("a new design of dropped images", () => {
   it("is called Images with several, takes a free id, and gives the images fresh ids in order", () => {
     const design = designOfMedia([image("a"), image("b")], ["a.png", "b.svg"], ["images"], { x: 0, y: 0 })
     expect(design.name).toBe("Images")
-    expect(design.id).toBe("images-2")
+    expect(design.id).toMatch(/^images-[A-Za-z][A-Za-z0-9]{4}$/)
     const root = design.root
 
     if (root.type !== "layout") {

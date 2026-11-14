@@ -65,13 +65,19 @@ export function commandPaths(
 const cmdSpecial = /([()\][%!^"`<>&|;, *?])/g
 
 /**
- * The command line that runs a batch file, such as VS Code's `code.cmd`, with these arguments through `cmd.exe`, which
- * only a shell can on Windows. Each is quoted for the program and every character `cmd.exe` would act on, quotes
- * included, is escaped with `^`, so a folder named `100%PATH%` or `R&D` reaches the editor as it's spelled. Windows file
- * names can't hold `"`, so the arguments, a path and a line, need no escaping for the program beyond their quotes.
+ * The command line that runs a batch file, such as VS Code's `code.cmd` or a package manager's `pnpm.cmd`, with these
+ * arguments through `cmd.exe`, which only a shell can on Windows. Each is quoted for the program, with a `"` inside it
+ * escaped and the backslashes before one doubled, as Windows programs read their arguments. Then every character
+ * `cmd.exe` would act on, quotes included, is escaped with `^`, so a folder named `100%PATH%` or `R&D` reaches the
+ * program as it's spelled.
  */
 export function batchCommandLine(command: string, args: readonly string[]): string {
-  return [command, ...args].map((value) => `"${value}"`.replaceAll(cmdSpecial, "^$1")).join(" ")
+  return [command, ...args].map((value) => quoted(value).replaceAll(cmdSpecial, "^$1")).join(" ")
+}
+
+/** An argument quoted as Windows programs read one: backslashes doubled only before a quote, and quotes escaped. */
+function quoted(value: string): string {
+  return `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1")}"`
 }
 
 /**

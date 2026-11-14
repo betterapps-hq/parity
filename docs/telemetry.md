@@ -516,6 +516,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `preview.failed`          | warn  | all  | service                                 | A component's preview can't be made.                                                                                                                                       |
 | `preview.made`            | info  | all  | service                                 | A component's preview is drawn and kept.                                                                                                                                   |
 | `process.memory`          | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                                                                                        |
+| `processes.adopted`       | info  | all  | service                                 | An extension adopts a running server.                                                                                                                                      |
+| `processes.crashed`       | warn  | all  | service                                 | A running server stops by itself.                                                                                                                                          |
+| `processes.failed`        | warn  | all  | service                                 | A run fails before it's ready.                                                                                                                                             |
+| `processes.lost`          | warn  | all  | service                                 | An adopted server goes away.                                                                                                                                               |
+| `processes.refused`       | warn  | all  | service                                 | `start` or `adopt` is refused, before anything runs.                                                                                                                       |
+| `processes.restarted`     | info  | all  | service                                 | A process starts its next run.                                                                                                                                             |
+| `processes.started`       | info  | all  | service                                 | A process Parity started is ready: a server passes its ready check, a task has spawned.                                                                                    |
+| `processes.stopped`       | info  | all  | service                                 | A process is stopped on purpose.                                                                                                                                           |
+| `processes.taskFinished`  | info  | all  | service                                 | A task ends, and its owner has summarized it or 5 seconds have passed.                                                                                                     |
 | `project.closed`          | info  | all  | service                                 | An open project is closed.                                                                                                                                                 |
 | `project.detected`        | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done.                                                                           |
 | `project.drawn`           | info  | all  | renderer                                | A newly opened project's canvas first draws a frame, in the trace of `project.opening`.                                                                                    |
@@ -529,8 +538,6 @@ Some failures are recorded for you, so code doesn't record them again:
 | `renderer.long_task`      | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                                                                          |
 | `report.sent`             | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                                                                                   |
 | `request.handled`         | debug | all  | service, main                           | The service or main answers another process's request.                                                                                                                     |
-| `server.failed`           | warn  | all  | service                                 | A server the process manager started can't start.                                                                                                                          |
-| `server.started`          | info  | all  | service                                 | A server the process manager started answers at its address.                                                                                                               |
 | `service.degraded`        | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it.                                                          |
 | `service.exited`          | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.                                                                 |
 | `service.lag`             | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                                                                                   |
@@ -1070,6 +1077,124 @@ Some failures are recorded for you, so code doesn't record them again:
 | `totalBytes`   | `integer`              | Every process's private memory together, in bytes, counting builders, the GPU and helpers |
 | `processes`    | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it        |
 
+### `processes.adopted`
+
+| Attribute  | Type                                 | Meaning                                                         |
+| ---------- | ------------------------------------ | --------------------------------------------------------------- |
+| `name`     | `string`                             | Its name, as the processes list shows it                        |
+| `owner`    | `string`                             | `parity`, or the id of the extension that started or adopted it |
+| `foundBy`  | `"port" \| "provider" \| "endpoint"` | How it was found: a port check, a provider, or given            |
+| `provider` | `string`, optional                   | The discovery provider's extension, when one found it           |
+
+### `processes.crashed`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `uptimeMs`   | `number`                                            | How long it had been running, in milliseconds                                     |
+| `exitCode`   | `integer`, optional                                 | Its exit code, when it exited with one                                            |
+| `signal`     | `string`, optional                                  | The signal that ended it, when one did                                            |
+| `restarting` | `boolean`                                           | Whether it's started again, as its spec asks                                      |
+| `output`     | `string`                                            | The last of what it printed, up to 50 lines, with secrets replaced                |
+
+### `processes.failed`
+
+| Attribute    | Type                                                | Meaning                                                                             |
+| ------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                         |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                            |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                     |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty   |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                      |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments     |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                   |
+| `reason`     | `"exited" \| "timeout" \| "spawn"`                  | Whether it exited before it was ready, wasn't ready in time, or couldn't be spawned |
+| `exitCode`   | `integer`, optional                                 | Its exit code, when it exited with one                                              |
+| `signal`     | `string`, optional                                  | The signal that ended it, when one did                                              |
+| `output`     | `string`                                            | The last of what it printed, up to 50 lines, with secrets replaced                  |
+
+### `processes.lost`
+
+| Attribute      | Type                 | Meaning                                                         |
+| -------------- | -------------------- | --------------------------------------------------------------- |
+| `name`         | `string`             | Its name, as the processes list shows it                        |
+| `owner`        | `string`             | `parity`, or the id of the extension that started or adopted it |
+| `adoptedForMs` | `number`             | How long it was adopted, in milliseconds                        |
+| `checkedBy`    | `"pid" \| "connect"` | Whether its process id or a connection said it was gone         |
+
+### `processes.refused`
+
+| Attribute  | Type                                                                                                                                                                                                                         | Meaning                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `owner`    | `string`                                                                                                                                                                                                                     | `parity`, or the id of the extension that started or adopted it                 |
+| `runKind`  | `"bin" \| "script" \| "exec" \| "node" \| "parity"`, optional                                                                                                                                                                | What kind of command it runs; `parity` for one of Parity's own                  |
+| `command`  | `string`, optional                                                                                                                                                                                                           | The package, script, executable or module it runs, as `storybook`; no arguments |
+| `code`     | `"process_spec_invalid" \| "process_not_permitted" \| "process_not_found" \| "process_unsupported" \| "process_spec_differs" \| "process_adopted" \| "process_provider_failed" \| "process_id_taken" \| "process_not_local"` | Why it was refused                                                              |
+| `provider` | `string`, optional                                                                                                                                                                                                           | The extension whose environment or launcher failed, when one did                |
+
+### `processes.restarted`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                 |
+| `by`         | `"person" \| "extension" \| "crash"`                | Who started it again: the person, its extension, or a crash                       |
+| `outcome`    | `"ok" \| "error"`                                   | Whether its next run was ready                                                    |
+
+### `processes.started`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                 |
+| `ready`      | `"http" \| "tcp" \| "output" \| "none"`             | How Parity knew it was ready                                                      |
+| `portMoved`  | `boolean`                                           | Whether the port it asked for was taken, so it got another                        |
+| `run`        | `integer`                                           | Which run this is: 1, then one more each time it starts again                     |
+
+### `processes.stopped`
+
+| Attribute  | Type                                                                             | Meaning                                                                                                                                                      |
+| ---------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lifetime` | `"server" \| "task"`                                                             | Whether it runs until it's stopped, or once                                                                                                                  |
+| `name`     | `string`                                                                         | Its name, as the processes list shows it                                                                                                                     |
+| `owner`    | `string`                                                                         | `parity`, or the id of the extension that started or adopted it                                                                                              |
+| `role`     | `string`                                                                         | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty                                                                            |
+| `runKind`  | `"bin" \| "script" \| "exec" \| "node" \| "parity"`                              | What kind of command it runs; `parity` for one of Parity's own                                                                                               |
+| `command`  | `string`                                                                         | The package, script, executable or module it runs, as `storybook`; no arguments                                                                              |
+| `uptimeMs` | `number`                                                                         | How long it had been running, in milliseconds                                                                                                                |
+| `by`       | `"person" \| "extension" \| "project" \| "undetected" \| "service" \| "removed"` | Who stopped it: the person from the list, its extension, the project's closing, its tool no longer detected, the service exiting, or its extension's removal |
+
+### `processes.taskFinished`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                 |
+| `outcome`    | `"passed" \| "failed" \| "canceled"`                | How it ended                                                                      |
+| `how`        | `"exited" \| "timeout" \| "stopped"`                | Whether it exited, ran out of time, or was stopped                                |
+| `exitCode`   | `integer`, optional                                 | Its exit code, when it exited with one                                            |
+| `reported`   | `boolean`                                           | Whether its owner set progress or a summary by the time this was sent             |
+
 ### `project.closed`
 
 | Attribute | Type     | Meaning                                                 |
@@ -1202,24 +1327,6 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ------------------ | ------------------------------ |
 | `method`  | `string`           | The method asked for           |
 | `code`    | `string`, optional | The error code, when it failed |
-
-### `server.failed`
-
-| Attribute    | Type                    | Meaning                                                                                     |
-| ------------ | ----------------------- | ------------------------------------------------------------------------------------------- |
-| `kind`       | `string`                | The kind of server, as `builder`, or `extension` for one an extension started, as Storybook |
-| `name`       | `string`                | Its name, as the processes list shows it                                                    |
-| `durationMs` | `number`                | How long it took, in milliseconds                                                           |
-| `reason`     | `"exited" \| "timeout"` | Whether it stopped before it answered, or didn't answer in time                             |
-| `output`     | `string`                | The last of what it printed, up to 50 lines                                                 |
-
-### `server.started`
-
-| Attribute    | Type     | Meaning                                                                                     |
-| ------------ | -------- | ------------------------------------------------------------------------------------------- |
-| `kind`       | `string` | The kind of server, as `builder`, or `extension` for one an extension started, as Storybook |
-| `name`       | `string` | Its name, as the processes list shows it                                                    |
-| `durationMs` | `number` | How long it took, in milliseconds                                                           |
 
 ### `service.degraded`
 

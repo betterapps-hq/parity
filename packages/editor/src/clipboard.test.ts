@@ -400,25 +400,43 @@ describe("pasting layers", () => {
 })
 
 describe("pasting designs", () => {
-  it("keeps their ids unless they're taken, and moves them together in whole pixels", () => {
+  const suffixed = (stem: string) => new RegExp(`^${stem}-[A-Za-z][A-Za-z0-9]{4}$`)
+
+  it("gives each a new id from its name, and moves them together in whole pixels", () => {
     const designs = [form(), { ...form(), id: "settings", name: "Settings", position: { x: 1400, y: 0 } }]
     const copies = copyDesigns(designs, ["form"], { x: 10.6, y: -20 })
-    expect(copies.map((copy) => copy.id)).toEqual(["form-2", "settings"])
+    expect(copies[0]!.id).toMatch(suffixed("form"))
+    expect(copies[1]!.id).toMatch(suffixed("settings"))
     expect(copies.map((copy) => copy.position)).toEqual([
       { x: 11, y: -20 },
       { x: 1411, y: -20 }
     ])
   })
 
-  it("keeps an id that isn't made from the design's name", () => {
+  it("gives a new id even when the copied one is free", () => {
     const signup = { ...form(), id: "signup", name: "Sign up" }
-    expect(copyDesigns([signup], ["form"], { x: 0, y: 0 })[0]!.id).toBe("signup")
-    expect(copyDesigns([signup], ["signup"], { x: 0, y: 0 })[0]!.id).toBe("sign-up")
+    expect(copyDesigns([signup], ["form"], { x: 0, y: 0 })[0]!.id).toMatch(suffixed("sign-up"))
   })
 
   it("gives two copies of one design different ids", () => {
     const copies = copyDesigns([form(), form()], [], { x: 0, y: 0 })
-    expect(copies.map((copy) => copy.id)).toEqual(["form", "form-2"])
+    expect(copies[0]!.id).not.toBe(copies[1]!.id)
+  })
+
+  it("points instances among the copies at the copied component", () => {
+    const screen: ContainerSpec = {
+      id: "signup",
+      name: "Sign up",
+      kind: "screen",
+      position: { x: 1400, y: 0 },
+      root: { type: "layout", id: "page", children: [{ type: "instance", id: "card", design: "form" }] }
+    }
+
+    const [component, copy] = copyDesigns([form(), screen], [], { x: 0, y: 0 })
+    const [other] = copyDesigns([{ ...screen, id: "login", name: "Log in" }], [], { x: 0, y: 0 })
+
+    expect(copy!.root.type === "layout" && copy!.root.children?.[0]).toMatchObject({ design: component!.id })
+    expect(other!.root.type === "layout" && other!.root.children?.[0]).toMatchObject({ design: "form" })
   })
 })
 

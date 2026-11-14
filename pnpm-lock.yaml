@@ -435,6 +435,9 @@ importers:
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../../packages/extension-storybook
+      '@parity-app/extension-storybook-a11y':
+        specifier: workspace:*
+        version: link:../../packages/extension-storybook-a11y
       '@parity-app/extensions':
         specifier: workspace:*
         version: link:../../packages/extensions
@@ -835,6 +838,31 @@ importers:
         specifier: workspace:*
         version: link:../extensions
 
+  packages/extension-storybook-a11y:
+    dependencies:
+      '@storybook/addon-a11y':
+        specifier: ^9.0.0 || ^10.0.0
+        version: 10.6.5(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@parity-app/channel':
+        specifier: workspace:*
+        version: link:../channel
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      '@parity-app/extension-storybook':
+        specifier: workspace:*
+        version: link:../extension-storybook
+      '@parity-app/extensions':
+        specifier: workspace:*
+        version: link:../extensions
+      '@parity-app/processes':
+        specifier: workspace:*
+        version: link:../processes
+
   packages/extension-tanstack-router:
     dependencies:
       '@tanstack/react-router':
@@ -943,6 +971,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
 
   packages/project:
     dependencies:
@@ -11169,6 +11200,12 @@ snapshots:
       '@storybook/global': 5.0.0
       axe-core: 4.14.0
       storybook: 10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))
+
+  '@storybook/addon-a11y@10.6.5(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))':
+    dependencies:
+      '@storybook/global': 5.0.0
+      axe-core: 4.14.0
+      storybook: 10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
 
   '@storybook/addon-docs@10.6.5(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))':
     dependencies:

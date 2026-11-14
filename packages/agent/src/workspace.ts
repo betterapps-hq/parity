@@ -76,6 +76,7 @@ import {
   resolveModes,
   setOwnFields,
   type StateSpec,
+  designId,
   uniqueId,
   unknownReference,
   walkNodes
@@ -840,7 +841,7 @@ export class AgentWorkspace {
   private createDesign(spec: DesignInput): string {
     const kind = spec.kind ?? "screen"
     const taken = this.all().map((entry) => entry.container.id)
-    const id = uniqueId(spec.name, taken)
+    const id = designId(spec.name, taken)
     const path = spec.file ?? this.snapshot.mainDocument
     const size = frameSizeInput(spec, kind, spec.name)
     const ids = new Set<string>()
@@ -1929,7 +1930,7 @@ export class AgentWorkspace {
     const { path, container } = this.findDesign(reference)
     const occurrences = [nodes].flat().map((node) => resolveInDesign(container, node).id)
 
-    const id = uniqueId(
+    const id = designId(
       options.name,
       this.all().map((entry) => entry.container.id)
     )

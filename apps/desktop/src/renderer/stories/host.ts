@@ -591,16 +591,17 @@ function buildServer(info: ProjectInfo): ProjectProcess {
 
   return {
     id: `builder:${info.root}`,
-    kind: "builder",
+    owner: { kind: "parity", role: "builder" },
     lifetime: "server",
     name: info.builder.name,
     projectId: info.root,
     project: info.name,
-    status: "running",
+    state: "running",
+    run: 1,
     startedAt: started,
     pid: 3,
-    url: new URL(info.guestUrl).origin,
-    startedBy: "parity",
+    endpoint: { url: new URL(info.guestUrl).origin, port: Number(new URL(info.guestUrl).port || 80), protocol: "http" },
+    addresses: [],
     canStop: false,
     canRestart: false
   }
@@ -619,9 +620,9 @@ function settle(id: string, action: "stop" | "restart"): void {
 
   const task = process.lifetime === "task"
 
-  const move = (next: ProjectProcess["status"]) => {
+  const move = (next: ProjectProcess["state"]) => {
     const at = Date.now()
-    process.status = next
+    process.state = next
 
     if (next === "stopped" || next === "canceled" || next === "passed") {
       process.stoppedAt = at

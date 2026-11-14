@@ -27,6 +27,10 @@ import {
   describePlacedReferences,
   describeReferences,
   describeRemovedImage,
+  describeExtensionRun,
+  describeExtensions,
+  type ExtensionsResponse,
+  type RunExtensionResponse,
   describeReport,
   describeStatus,
   describeTokens
@@ -146,6 +150,33 @@ const imagesFound: ImagesResponse = {
 }
 
 const removedImage: RemoveImageResponse = { path: "public/images/unused.webp", label: "Remove image" }
+
+const extensionsFound: ExtensionsResponse = {
+  tab: { id: "tab-1", name: "Shop" },
+  extensions: [
+    {
+      id: "@parity-app/extension-storybook-a11y",
+      name: "Storybook accessibility",
+      state: "running",
+      commands: [{ id: "a11y.open", title: "Check accessibility in Storybook" }],
+      tools: [
+        {
+          name: "a11y.page",
+          description: "Gives the page.",
+          input: { type: "object", properties: { component: { type: "string" } }, required: ["component"] }
+        }
+      ],
+      nodeTypes: [],
+      facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }]
+    }
+  ]
+}
+
+const ranExtension: RunExtensionResponse = {
+  tab: { id: "tab-1", name: "Shop" },
+  name: "storybook.open",
+  result: { url: "http://localhost:6006/?path=/docs/button--docs" }
+}
 
 const reported: ReportResponse = {
   feedbackId: "0a1b2c",
@@ -459,6 +490,28 @@ const cases: Case[] = [
     result: removedImage,
     structured: removedImage,
     text: describeRemovedImage(removedImage)
+  },
+  {
+    name: "extensions",
+    cli: ["extensions"],
+    tool: "get_extensions",
+    method: "extensions",
+    input: {},
+    params: {},
+    result: extensionsFound,
+    structured: extensionsFound,
+    text: describeExtensions(extensionsFound)
+  },
+  {
+    name: "run an extension's command",
+    cli: ["run", "storybook.open", "--component", "Button"],
+    tool: "run_extension",
+    method: "runExtension",
+    input: { name: "storybook.open", component: "Button" },
+    params: { name: "storybook.open", component: "Button" },
+    result: ranExtension,
+    structured: ranExtension,
+    text: describeExtensionRun(ranExtension)
   }
 ]
 
@@ -1134,8 +1187,8 @@ describe("remaining transport contracts", processTests, () => {
     // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
     // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889),
     // 20.2 KB with get_tokens' nearest (PAR-833), 21.1 KB with a bare subagent on each tool that reaches the app
-    // (PAR-960), so 21.5 KB.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(21.5 * 1024)
+    // (PAR-960), 22.8 KB with get_extensions and run_extension (PAR-1096), so 23 KB.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(23 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {

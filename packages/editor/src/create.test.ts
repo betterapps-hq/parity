@@ -6,7 +6,7 @@ describe("a new design", () => {
   it("starts a screen as a padded page with its name as a heading", () => {
     const screen = newDesign("screen", ["home"], { x: 2000, y: 0 }, { viewport: "desktop" })
     expect(screen).toMatchObject({
-      id: "untitled-screen",
+      id: expect.stringMatching(/^untitled-screen-[A-Za-z][A-Za-z0-9]{4}$/),
       name: "Untitled screen",
       kind: "screen",
       position: { x: 2000, y: 0 },
@@ -35,7 +35,7 @@ describe("a new design", () => {
   it("starts a component small, on a narrower frame in the first viewport", () => {
     const component = newDesign("component", [], { x: 0, y: 0 }, { viewport: "desktop" })
     expect(component).toMatchObject({
-      id: "untitled-component",
+      id: expect.stringMatching(/^untitled-component-[A-Za-z][A-Za-z0-9]{4}$/),
       name: "Untitled component",
       kind: "component",
       root: {
@@ -52,7 +52,7 @@ describe("a new design", () => {
   it("starts a frame as an empty layout at its own size, with one state and nothing else", () => {
     const frame = newDesign("frame", [], { x: 0, y: 0 }, { viewport: "desktop", size: { width: 400, height: 300 } })
     expect(frame).toEqual({
-      id: "untitled-frame",
+      id: expect.stringMatching(/^untitled-frame-[A-Za-z][A-Za-z0-9]{4}$/),
       name: "Untitled frame",
       kind: "frame",
       position: { x: 0, y: 0 },
@@ -75,7 +75,7 @@ describe("a new design", () => {
 
   it("takes an id no design has, and gives its layers different ids", () => {
     const screen = newDesign("screen", ["untitled-screen", "untitled-screen-2"], { x: 0, y: 0 })
-    expect(screen.id).toBe("untitled-screen-3")
+    expect(screen.id).toMatch(/^untitled-screen-[A-Za-z][A-Za-z0-9]{4}$/)
     const heading = screen.root.type === "layout" ? screen.root.children[0] : undefined
     expect(heading?.id).not.toBe(screen.root.id)
   })
