@@ -5,9 +5,8 @@ and steps 1 to 3 below without the folder move: every adapter interface extends 
 TanStack Router and Storybook bring their logos, `packages/adapters` is the one list, Tailwind has a status item, and
 every adapter detects its own tool through one context and gives its own version facts, and adapters offer actions the
 app runs, as Open in Storybook, and step 4's node index in the window. Plugins, and how they're packaged and trusted,
-are in [extensions.md](extensions.md), and the API an extension's code gets, its settings, turning it off and where it
-can add UI are in [developer-api.md](developer-api.md); this page is only about where an adapter's content appears in
-the editor.
+are in [extensions.md](extensions.md), and the API an extension's code gets, its settings and where it can add UI are in
+[developer-api.md](developer-api.md); this page is only about where an adapter's content appears in the editor.
 
 ## In one line
 

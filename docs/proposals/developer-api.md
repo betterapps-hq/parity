@@ -12,6 +12,8 @@ packaging, with these changes to what those pages record:
 - **Extensions with the `edits` permission may change designs on their own,** which replaces adapter-registrations.md's
   "read-only to start".
 - **Connectors are providers** like the rest (below).
+- **No secrets yet,** so extensions.md's secret settings and keychain wait until an extension needs a token.
+- **Network hosts are shown, not enforced** (Trust), where extensions.md has them enforced.
 
 ## In one line
 
@@ -185,9 +187,10 @@ from the manifest alone. The code loads the first time the command runs.
 ## Lifecycle
 
 - **Found.** Extensions come built in, installed into the app by the person, or named in the project's `.par` file, as a
-  package the project depends on or a folder in it. When one id is found in several places, the project's copy wins over
-  the app's, which wins over the built-in one, and the Extensions page says which is running. One whose `engines.parity`
-  doesn't fit this Parity is listed with the reason and doesn't run.
+  package the project depends on, or a folder in it whose `path` its entry in the `extensions` field holds. When one id
+  is found in several places, the project's copy wins over the app's, which wins over the built-in one, and the
+  Extensions page says which is running. One whose `engines.parity` doesn't fit this Parity is listed with the reason
+  and doesn't run.
 - **Detected.** Parity reads the main project file's `extensions` field first, for the settings detection uses, then
   runs each extension's `detect`, before choosing the renderer and builder. Without a `detect`, an extension is found
   when one of its peer dependencies is installed (below). Detection runs again when a file its `watches` names changes,
@@ -197,7 +200,7 @@ from the manifest alone. The code loads the first time the command runs.
   - `onCommand:id`: one of its commands runs.
   - `onView:id`: one of its tabs or pages opens.
   - `onNodeType:type`: a node of that type appears, once a window has the project open.
-  - `onStartup`: always. It's discouraged, and the Extensions page says when one uses it.
+  - `onStartup`: as soon as it's detected. It's discouraged, and the Extensions page says when one uses it.
 - **Running.** Everything it registers or subscribes to returns a `Disposable`. Those it adds to `parity.subscriptions`
   go when it does.
 - **Deactivated** when its tool is no longer detected, the project closes, or it's reloaded during development. Its
@@ -214,8 +217,8 @@ Search actions. Each extension shows its logo, what it adds, what detection foun
 - **When one stops running,** because its tool is no longer detected or it crashed, its contributions disappear from
   every panel and menu, its servers and processes stop, and its canvas files close. Nodes of its types in saved designs
   stay in the file and show "From Route timings", so nothing is lost.
-- **Not installed.** A project whose `.par` names an extension the person doesn't have says so once, with Install. Its
-  nodes show the package name the `.par` saved with them.
+- **Not installed.** A project whose `.par` names an extension the person doesn't have says so once, with Install, which
+  opens the Extensions page. Its nodes show the package name the `.par` saved with them.
 - **Uninstalling** removes the extension's app state and app settings, and leaves what it saved in projects.
 
 ## Settings
@@ -249,8 +252,9 @@ project's, and Search actions finds each setting by its title.
   is a `.lib.par`). An `extensions` field in other `.par` files, and in a dependency's `.lib.par`, is ignored. A project
   with no `.par` yet gets its main file when a project setting is first changed, as with a first edit.
 - **The field.** `extensions` is one new optional field, keyed by extension id, holding each one's settings as an
-  unchecked record that the extension's own schema checks when it loads. So settings of an extension that isn't
-  installed are kept as they are, and after this one change to the file format, a new setting never changes it.
+  unchecked record that the extension's own schema checks when it loads, and the `path` of one kept in a folder of the
+  project. So settings of an extension that isn't installed are kept as they are, and after this one change to the file
+  format, a new setting never changes it.
 - **`formatVersion` stays at 4,** as it did when `images`, `sources`, `links` and `objects` were added. Today's Parity
   accepts only version 4, so it would reject a version 5 file just as it rejects an unknown field, and raising the
   version would reject every file saved so far. Separately, the reader should say "Saved by a newer version of Parity"
@@ -269,9 +273,9 @@ project's, and Search actions finds each setting by its title.
   by the extension, so there's one place to change it. Every other project setting goes in the main project file.
 - **The app's state.** How the app saves its state is being worked out separately. `app` settings need only a place
   keyed by extension and setting that survives updates and can be migrated when a setting is renamed.
-- **The API:** `parity.settings.get(key)`, `onChange(key, listener)` and `update(key, value)`, which writes where the
-  setting's scope says. A project setting's update goes through the window's history. A value that doesn't fit its
-  schema falls back to the default, with a note on the extension's page.
+- **The API:** `parity.settings.get(key)`, `onChange(key, listener)` and `update(key, value)`, which writes only project
+  settings, through the window's history. `app` settings are read-only to extensions, since only the Settings view
+  changes them. A value that doesn't fit its schema falls back to the default, with a note on the extension's page.
 - **Defaults come from the tool when they can.** Storybook's port defaults to the one its `storybook dev` script names,
   as it does today, so most people never open the page.
 
@@ -469,8 +473,8 @@ This is how an extension works with Parity's UX rather than beside it.
 3. **Web views, in a later release.** When a view needs its own drawing, such as a chart, a flame graph or a dashboard,
    it's a web view: a sandboxed frame in a tab, section, dialog or page, which can be built with React or anything else.
    It talks to the extension through a typed message channel, gets Parity's theme as CSS variables with a small
-   stylesheet so it looks native, can't reach Node or the network beyond its permissions, and keeps its state while
-   hidden if it asks. The first release has levels 1 and 2, so the declarative views are tried before the escape hatch.
+   stylesheet so it looks native, can't reach Node, and keeps its state while hidden if it asks. The first release has
+   levels 1 and 2, so the declarative views are tried before the escape hatch.
 
 Extensions don't put React components into Parity's window. That would tie them to Parity's React and kit versions, let
 one freeze the editor, and give their code the window's access. A web view gives the same freedom without those.
@@ -557,8 +561,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
 1. **An incremental node index,** sending differences as edits settle rather than rebuilding after a pause.
 2. **The extension host, `@parity-app/extension-api` and the manifest,** with `parity.ui`, state and the bottom panel's
    tabs, and Storybook's command and fact moved onto them.
-3. **Settings,** with Settings paged, the `extensions` field in the main project file, and the app's state once it has a
-   place for them.
+3. **Settings,** with Settings paged in a view that loads no project code, the `extensions` field in the main project
+   file, and the app's state once it has a place for them.
 4. **Versions from peer dependencies.**
 5. **Selection of any node, navigation, running Parity's commands, when and enablement, and keys.**
 6. **Changing designs and files,** with `parity.edits` and `parity.files.edit` and their undo labels.
@@ -567,8 +571,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
    onto them, and `packages/adapters` removed.
 9. **Extension APIs and agent tools.**
 10. **The scaffold, `parity dev`, the test harness and the reference.**
-11. **Third-party extensions** named in the project's `.par` and installed into the app, with permission prompts and the
-    file and process limits, then a registry.
+11. **Third-party extensions** named in the project's `.par` and installed into the app, with permission prompts, the
+    file and process limits and a switch to turn them off, then a registry.
 12. **Later:** web views and canvas tools.
 
 ## Decided
