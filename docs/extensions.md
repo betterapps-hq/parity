@@ -1,7 +1,7 @@
 # Extensions
 
 How Parity runs an extension: the manifest it reads first, the host each one runs in, and the `parity` object its code
-gets (PAR-1089). Storybook is the first, and so far the only, extension. It's built in. Installing others comes later.
+gets (PAR-1089). Storybook and TanStack Router are built in. Installing others comes later.
 
 ## The manifest
 
@@ -43,7 +43,9 @@ and other extensions carry on.
 window as arguments, so its tests run without Electron:
 
 - **Starting.** When a project opens, the extensions whose tool it has and which activate on detection start at once.
-  The others start the first time one of their commands runs or one of their tabs opens.
+  The others start the first time one of their commands runs, one of their tabs opens or Parity asks their provider.
+  Extensions found by their peer dependencies are found as soon as the project's package.json is read, before it has
+  opened, so a router's host reads the routes while the builder starts (PAR-1095); the rest are found once it has.
 - **Stopping.** Closing the project stops its hosts. A host disposes its subscriptions, newest first, then calls
   `deactivate`, and is ended if it hasn't finished within 2 seconds. Servers it started stop with it.
 - **Crashing.** A host that ends by itself starts again. After 3 crashes within a minute of each other it's left
@@ -90,6 +92,10 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   of Parity's own.
 - **`settings`:** the extension's settings, by their manifest keys (below): `get(key)`, `onChange(key, listener)` and
   `update(key, value)`, which sets only a `project` setting.
+- **`providers.register(kind, provider)`** (PAR-1095): gives behaviour to a provider the manifest's `providers`
+  declares. Parity calls it with plain data and reads its answer through a schema, so an answer that isn't what the
+  provider gives is refused and logged. So far there's `router`, whose `routes()` gives the app's routes, each parent
+  before its children; Parity asks once as the project opens.
 - **`edits.transact(label, operations)`:** changes designs, with the `edits` permission (below).
 - **`files.edit(label, files)`:** writes project files the `write` permission names (below).
 - **`state.app` and `state.project`:** values that persist, for every project or for this one.
@@ -186,7 +192,14 @@ Extensions change designs and files through Parity, never by writing them, so un
   refused, changes heard by the running code once each, a project setting's `update` sent to the window and an app
   setting's refused, and a value that doesn't fit listed with its note, with the activation time and permissions.
 - [hosts.test.ts](../packages/extensions/src/hosts.test.ts) also: renaming a layer from a command as one labelled
-  change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`.
+  change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`; and
+  (PAR-1095) a provider's host started the first time it's asked, with its answer read, nothing without one, an answer
+  that isn't a provider's refused and logged, a provider the manifest doesn't declare refused, and opening a project
+  again starting only the extensions found since.
+- [extension.test.ts](../packages/extension-tanstack-router/src/extension.test.ts) and
+  [routes.test.ts](../packages/extension-tanstack-router/src/routes.test.ts): TanStack Router's manifest, with its
+  router provider, route node type and Open in browser placed only for routes; its pages counted without the root; the
+  page a command was run for, or from Search, the page selected; and the routes it reads.
 - [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
   files and paths outside the project.
 - [settings.test.ts](../packages/extensions/src/settings.test.ts): settings kept by the key after the prefix, read from

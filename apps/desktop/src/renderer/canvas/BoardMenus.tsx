@@ -8,6 +8,7 @@ import { setLayout } from "../chrome/layout.ts"
 import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
 import { HeaderActions } from "../chrome/SelectionHeading.tsx"
 import { type ContainerEntry, useModeSettings } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { useProject } from "./context.ts"
 import { routePageTarget } from "./route-pages.ts"
 import { ModesList, StatesList, stateNouns } from "./view-lists.tsx"
@@ -57,9 +58,10 @@ export function BoardMenus({ entry }: { entry: ContainerEntry }) {
   )
 }
 
-/** What the project's adapters offer for a page of the app, as Open in browser, as icon buttons. */
+/** What the project's adapters and extensions offer for a page of the app, as Open in browser, as icon buttons. */
 function BoardActions({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
+  const { extensions } = useExtensions(session)
   const target = routePageTarget(session.id, entry.container)
 
   if (!target) {
@@ -68,7 +70,7 @@ function BoardActions({ entry }: { entry: ContainerEntry }) {
 
   return (
     <HeaderActions
-      adapterOffers={pageOffers(session.info, target.route)}
+      adapterOffers={pageOffers(session.info, target.route, { session, extensions, placement: "selectionHeading" })}
       page
       onAdapterAction={({ action }) => void runAction(session.id, action, undefined, target)}
     />

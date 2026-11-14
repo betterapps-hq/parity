@@ -223,7 +223,7 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
   const page = opened.target ? selectionPage(session) : undefined
 
   const offers = page
-    ? pageOffers(session.info, page.route)
+    ? pageOffers(session.info, page.route, { session, extensions, placement: "canvas" })
     : componentOffers(session.info, component, { session, extensions, placement: "canvas" })
 
   const items = canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(

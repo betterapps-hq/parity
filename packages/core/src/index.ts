@@ -25,7 +25,6 @@ export {
   type ProjectAction,
   type ProjectRoute,
   type RendererAdapter,
-  type RouterAdapter,
   type EntitiesAdapter,
   type FileWrite,
   type ActionContext,

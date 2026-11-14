@@ -70,6 +70,19 @@ const tidy = readExtension({
   }
 })
 
+const router = readExtension({
+  name: "@parity-app/extension-tanstack-router",
+  version: "1.0.0",
+  main: "src/extension.ts",
+  parity: {
+    displayName: "TanStack Router",
+    prefix: "tanstack-router",
+    icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+    activates: [],
+    contributes: { nodeTypes: [{ id: "route", name: "Route" }], providers: { router: {} } }
+  }
+})
+
 /** A store in memory, which a test can look into. */
 function memoryState(): ExtensionStateStore & { saved: Map<string, JsonValue> } {
   const saved = new Map<string, JsonValue>()
@@ -129,7 +142,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   })
 
   const hosts = extensionHosts<OpenedProject>({
-    extensions: [installed(storybook), installed(timings), installed(tidy)],
+    extensions: [installed(storybook), installed(timings), installed(tidy), installed(router)],
     start(extension) {
       const [service, host] = memoryPorts()
       let end: (ending: ChildEnd) => void = () => undefined
@@ -468,6 +481,7 @@ describe("extension hosts", () => {
       channel.serve({
         activate: () => undefined,
         run: () => undefined,
+        provide: () => [],
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
         "settings.changed": () => undefined,
         cancel: () => undefined,
@@ -811,5 +825,126 @@ describe("selection, navigation and commands (PAR-1092)", () => {
     await settle(20)
 
     expect(refused).toBeInstanceOf(Error)
+  })
+})
+
+describe("providers (PAR-1095)", () => {
+  const root = {
+    id: "__root__",
+    path: "/",
+    file: "src/routes/__root.tsx",
+    params: [],
+    index: false,
+    loads: false,
+    guards: false
+  }
+
+  const settings = { ...root, id: "/settings", path: "/settings", parent: "__root__", file: "src/routes/settings.tsx" }
+
+  it("starts the extension that declares a provider when it's first asked, and reads its answer", async () => {
+    const { hosts, started } = setUp({
+      "@parity-app/extension-tanstack-router": {
+        activate(parity) {
+          parity.providers.register("router", { routes: () => Promise.resolve([root, settings]) })
+        }
+      }
+    })
+
+    hosts.open(project)
+    await settle()
+    expect(started).toEqual([])
+
+    expect(await hosts.provide("shop", "router", "routes")).toEqual([root, settings])
+    expect(started.map((each) => each.extension)).toEqual(["@parity-app/extension-tanstack-router"])
+    expect(hosts.provider("shop", "router")).toEqual({ id: "tanstack-router", name: "TanStack Router" })
+  })
+
+  it("gives nothing when none of the project's extensions declares the provider", async () => {
+    const { hosts } = setUp({ "@parity-app/extension-storybook": { activate: () => undefined } })
+
+    hosts.open(project)
+
+    expect(await hosts.provide("shop", "router", "routes")).toBeUndefined()
+    expect(hosts.provider("shop", "router")).toBeUndefined()
+  })
+
+  it("refuses an answer that isn't what the provider gives, and logs it", async () => {
+    const { hosts, lines } = setUp({
+      "@parity-app/extension-tanstack-router": {
+        activate(parity) {
+          // SAFETY: an extension's code can answer anything; this one answers what a router doesn't.
+          parity.providers.register("router", { routes: () => Promise.resolve([{ id: 1 }] as never) })
+        }
+      }
+    })
+
+    hosts.open(project)
+
+    await expect(hosts.provide("shop", "router", "routes")).rejects.toThrow("/0/id: expected a string")
+    expect(lines.at(-1)?.line.text).toMatch(/^Its router failed to answer routes/)
+  })
+
+  it("refuses a provider the manifest doesn't declare", async () => {
+    const { hosts, latest } = setUp({
+      "@parity-app/extension-storybook": {
+        activate(parity) {
+          parity.providers.register("router", { routes: () => Promise.resolve([]) })
+        }
+      }
+    })
+
+    hosts.open(project)
+    await settle()
+
+    expect(latest("@parity-app/extension-storybook")?.reason).toBe(
+      "Couldn't activate: The manifest's providers don't name router"
+    )
+  })
+
+  it("finds the extensions it didn't find before when the project is opened again, starting only those", async () => {
+    const activate = vi.fn<() => void>()
+    let found = false
+    const started: string[] = []
+
+    const { hosts } = setUp(
+      {},
+      {
+        extensions: [
+          { package: storybook, main: "storybook", detect: () => (found ? {} : undefined) },
+          { package: timings, main: "timings", detect: () => ({}) }
+        ],
+        start(extension) {
+          const [service, host] = memoryPorts()
+          let end: (ending: ChildEnd) => void = () => undefined
+
+          const life = lifecycle({
+            onOutput: () => undefined,
+            onEnd: (listener) => (end = listener),
+            kill: () => end({ signal: "SIGTERM" })
+          })
+
+          serveExtensionHost({
+            port: host,
+            load: () => Promise.resolve({ activate }),
+            exit: () => end({ code: 0 })
+          })
+          started.push(extension.package.id)
+
+          return { port: service, life }
+        }
+      }
+    )
+
+    hosts.open(project)
+    await settle()
+    expect(started).toEqual([])
+
+    found = true
+    hosts.open(project)
+    hosts.open(project)
+    await settle()
+
+    expect(started).toEqual(["@parity-app/extension-storybook"])
+    expect(activate).toHaveBeenCalledOnce()
   })
 })

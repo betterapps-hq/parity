@@ -59,7 +59,8 @@ await build({
     "builder-process": join(appDir, "src/utility/builder-process.ts"),
     "extension-host": join(appDir, "src/utility/extension-host.ts"),
     // Parity's own extensions, which a host loads only when one activates.
-    "extensions/storybook": require.resolve("@parity-app/extension-storybook")
+    "extensions/storybook": require.resolve("@parity-app/extension-storybook"),
+    "extensions/tanstack-router": require.resolve("@parity-app/extension-tanstack-router")
   }
 })
 

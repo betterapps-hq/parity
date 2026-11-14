@@ -1598,7 +1598,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const { extensions } = useExtensions(session)
 
   const placed = { session, extensions, placement: "layers" as const }
-  let offers = page ? pageOffers(session.info, page.route) : componentOffers(session.info, component, placed)
+  let offers = page ? pageOffers(session.info, page.route, placed) : componentOffers(session.info, component, placed)
 
   // Any other layer offers the extensions' commands placed in Layers, run for the layer (PAR-1093).
   if (!page && !component && row.node && row.path === row.node.id) {

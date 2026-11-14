@@ -9,12 +9,14 @@ import {
   CommandShortcut,
   Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
-import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
+import { type ActionPage, designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { ExternalLink, FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
+import type { ExtensionStatus } from "../../shared/protocol.ts"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { routeRef } from "../canvas/route-pages.ts"
 import { commandsAt, extensionsOf, runCommand, whenFactsOf } from "../extensions.ts"
 import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
@@ -354,10 +356,16 @@ function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" 
  */
 function extensionItems(session: ProjectSession): Item[] {
   const component = selectionComponent(session)
-  const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
+  const page = component === undefined ? selectionPage(session) : undefined
   const { extensions } = extensionsOf(session).store.get()
-  // What a `when` reads: the selected component, or what's selected.
 
+  if (page) {
+    return pageItems(session, extensions, page)
+  }
+
+  const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
+
+  // What a `when` reads: the selected component, or what's selected.
   const facts = whenFactsOf(
     session,
     component === undefined ? undefined : { owner: session.info.renderer.id, type: "component", key: component }
@@ -376,6 +384,31 @@ function extensionItems(session: ProjectSession): Item[] {
       icon: <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />,
       available: () => placed.enabled,
       run: () => void runCommand(session, placed, acts ? target : undefined)
+    }
+  })
+}
+
+/**
+ * What the project's extensions place in Search with one of the app's pages selected: each run on the page, as Open in
+ * browser, with its path beside it where the command is placed for routes, and otherwise on the whole project.
+ */
+function pageItems(session: ProjectSession, extensions: readonly ExtensionStatus[], page: ActionPage): Item[] {
+  const target = { type: "route", key: page.route } as const
+  const forPage = commandsAt(extensions, "search", target, whenFactsOf(session, routeRef(session.info, page.route)))
+  const ids = new Set(forPage.map((placed) => placed.command.id))
+  const forProject = commandsAt(extensions, "search", undefined, whenFactsOf(session))
+
+  return [...forPage, ...forProject.filter((placed) => !ids.has(placed.command.id))].map((placed) => {
+    const forRoutes = ids.has(placed.command.id)
+
+    return {
+      id: `extension:${placed.command.id}`,
+      group: "Object",
+      label: placed.command.title,
+      detail: forRoutes ? new URL(page.url).pathname : placed.command.note,
+      icon: <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />,
+      available: () => placed.enabled,
+      run: () => void runCommand(session, placed, forRoutes ? target : undefined)
     }
   })
 }

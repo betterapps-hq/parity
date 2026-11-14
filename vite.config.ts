@@ -21,6 +21,7 @@ const edge = [
   "vite-adapter",
   "cli",
   "extension-storybook",
+  "extension-tanstack-router",
   "fixtures",
   "libgen",
   "media-player",

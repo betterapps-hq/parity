@@ -1,4 +1,5 @@
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import { readExtension } from "@parity-app/extensions"
 import { describe, expect, it } from "vite-plus/test"
 import type { ExtensionStatus } from "../shared/protocol.ts"
@@ -69,6 +70,31 @@ describe("commandsAt for a layer", () => {
   it("places what a when names for layers, as `layer`, and nothing placed for components", () => {
     expect(commandsAt([storybook(), tidy], "layers", title)).toMatchObject([{ command: { id: "tidy.rename" } }])
     expect(commandsAt([tidy], "layers", button)).toEqual([])
+  })
+})
+
+describe("commandsAt for a page (PAR-1095)", () => {
+  const pricing = { type: "route", key: "/pricing" } as const
+  const router = readExtension(routerPackage)
+
+  const tanstack = storybook({
+    id: router.id,
+    prefix: router.manifest.prefix,
+    contributes: router.manifest.contributes,
+    context: {}
+  })
+
+  it("places the router's Open in browser on a page, and nothing placed for components", () => {
+    expect(commandsAt([storybook(), tanstack], "layers", pricing)).toMatchObject([
+      { command: { id: "tanstack-router.open" }, enabled: true }
+    ])
+  })
+
+  it("leaves Open in browser off a component and a layer", () => {
+    const title = { type: "layer", design: "app.par#home", node: "title" } as const
+
+    expect(commandsAt([tanstack], "layers", button)).toEqual([])
+    expect(commandsAt([tanstack], "layers", title)).toEqual([])
   })
 })
 

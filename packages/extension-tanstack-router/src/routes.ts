@@ -1,5 +1,4 @@
-import type { ProjectRoute } from "@parity-app/core"
-import { checkData, jsonText } from "@parity-app/core/schema"
+import type { Route } from "@parity-app/extension-api"
 import ts from "typescript"
 import { z } from "zod"
 
@@ -39,7 +38,7 @@ interface RouteModule {
 }
 
 /** The part of `tsr.config.json` read here: where the route tree is generated. Other settings pass through. */
-const routerConfig = jsonText(z.looseObject({ generatedRouteTree: z.string().optional() }))
+const routerConfig = z.looseObject({ generatedRouteTree: z.string().optional() })
 
 /**
  * Every route of a project that uses TanStack Router's file-based routes, each parent before its children (PAR-1073).
@@ -47,7 +46,7 @@ const routerConfig = jsonText(z.looseObject({ generatedRouteTree: z.string().opt
  * which names each route's id, path, parent and file, then each route's file for what it draws, whether it loads data
  * and whether it guards the page. Empty without a route tree.
  */
-export function readRoutes(read: (path: string) => string | undefined): ProjectRoute[] {
+export function readRoutes(read: (path: string) => string | undefined): Route[] {
   const treeFile = routeTreeFile(read("tsr.config.json"))
   const tree = read(treeFile)
 
@@ -61,11 +60,11 @@ export function readRoutes(read: (path: string) => string | undefined): ProjectR
     return []
   }
 
-  const found: ProjectRoute[] = []
+  const found: Route[] = []
   const children = Map.groupBy(routes, (route) => route.parent)
 
   const add = (
-    route: Omit<ProjectRoute, "file" | "params" | "component" | "loads" | "guards" | "redirect">,
+    route: Omit<Route, "file" | "params" | "component" | "loads" | "guards" | "redirect">,
     module: string
   ) => {
     const { file, text } = resolveModule(module, read)
@@ -101,7 +100,7 @@ function routeTreeFile(config: string | undefined): string {
   }
 
   // A config that isn't JSON, or names no route tree, leaves the router at its default too.
-  const parsed = checkData(routerConfig, config)
+  const parsed = routerConfig.safeParse(jsonOf(config))
   const named = parsed.success ? parsed.data.generatedRouteTree : undefined
 
   return named === undefined ? defaultTree : resolvePath("", named)
@@ -300,14 +299,14 @@ function paramsOf(path: string): string[] {
  * `createRootRoute({…})`: the component it names, whether it has a `loader` or a `beforeLoad`, and where it always
  * redirects (see `alwaysRedirects`).
  */
-function routeOptions(text: string | undefined): Pick<ProjectRoute, "component" | "loads" | "guards" | "redirect"> {
+function routeOptions(text: string | undefined): Pick<Route, "component" | "loads" | "guards" | "redirect"> {
   const options = text === undefined ? undefined : exportedRouteOptions(text)
 
   if (!options) {
     return { loads: false, guards: false }
   }
 
-  const said: Pick<ProjectRoute, "component" | "loads" | "guards" | "redirect"> = {
+  const said: Pick<Route, "component" | "loads" | "guards" | "redirect"> = {
     loads: propertyValue(options, "loader") !== undefined,
     guards: propertyValue(options, "beforeLoad") !== undefined
   }
@@ -388,4 +387,14 @@ function exportedRouteOptions(text: string): ts.ObjectLiteralExpression | undefi
   }
 
   return undefined
+}
+
+/** A file's text as JSON, or nothing when it isn't JSON. */
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- a config file can hold anything; its schema reads it
+function jsonOf(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
 }

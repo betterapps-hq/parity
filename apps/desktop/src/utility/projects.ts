@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync, realpathSync, watch as watchFolder } from "node:fs"
+import { existsSync, realpathSync, watch as watchFolder } from "node:fs"
 import { readFile, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, isAbsolute, join, normalize, resolve } from "node:path"
@@ -23,6 +23,7 @@ import {
   type ComponentInfo,
   type ComponentSource,
   type DetectContext,
+  detectPeers,
   type EntitiesAdapter,
   libraryManifestExtension,
   type PackageManifest,
@@ -31,7 +32,6 @@ import {
   storybookConfigDir,
   type ProjectRoute,
   type RendererAdapter,
-  type RouterAdapter,
   type StylesAdapter,
   type ThemeVariable,
   withLibraryCanvas,
@@ -144,13 +144,30 @@ export interface DetectionCache {
   ) => Promise<void>
 }
 
+/** A tool an extension gives: its prefix and name, and where its version is installed, from its manifest. */
+export type ExtensionTool = Pick<Adapter, "id" | "name"> & { versions: NonNullable<Adapter["versions"]> }
+
+/** The app's routes, and the router that read them: the extension's prefix and name, which own the route nodes. */
+export interface ProvidedRoutes {
+  router: { id: string; name: string }
+  routes: ProjectRoute[]
+}
+
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
 export interface ProjectAdapters {
   renderers: RendererAdapter[]
   builders: BuilderAdapter[]
   styles: StylesAdapter[]
-  /** The routers whose routes Parity reads, so the canvas draws each page (PAR-1076). None unless given. */
-  routers?: RouterAdapter[]
+  /**
+   * The tools extensions give, each found when the project's package.json declares one of its packages, and listed with
+   * its version among what the project uses. None unless given.
+   */
+  tools?: ExtensionTool[]
+  /**
+   * The app's routes, from the router an extension provides (PAR-1095), which Parity asks for while the builder starts
+   * so the canvas draws each page. None unless given, or when no extension provides a router for the project.
+   */
+  routes?: (project: { root: string; name: string; pkg: PackageManifest }) => Promise<ProvidedRoutes | undefined>
   /** The tools whose files Parity reads as its own entities, as Storybook's stories as screens. None unless given. */
   entities?: EntitiesAdapter[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
@@ -188,11 +205,11 @@ export interface OpenProject {
   stylesheets: string[]
   /** What each project file last held, as read or written here, so the watcher only reports changes from outside. */
   known: Map<string, string>
+  /** Its package.json, as it was when it opened. */
+  pkg: PackageManifest
 }
 
 interface Project extends OpenProject {
-  /** Its package.json, as it was when it opened. */
-  pkg: PackageManifest
   /** The adapters it's opened with, those that found their tool, with what each found. */
   used: AdapterFound[]
   /**
@@ -359,7 +376,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     ...adapters.renderers,
     ...adapters.builders,
     ...adapters.styles,
-    ...(adapters.routers ?? []),
     ...(adapters.entities ?? [])
   ]
 
@@ -434,14 +450,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const name = pkg.name ?? basename(root)
     const usedBy = <A extends Adapter>(found: AdapterFound<A>[]) => found.filter(({ detection }) => detection.found)
 
-    const [styles, routers, entitiesFound] = await Promise.all([
+    const [styles, entitiesFound] = await Promise.all([
       detectAdapters(project, adapters.styles).then(usedBy),
-      detectAdapters(project, adapters.routers ?? []).then(usedBy),
       detectAdapters(project, adapters.entities ?? []).then(usedBy)
     ])
 
-    const others = [...styles, ...routers, ...entitiesFound]
-    const usedRouters = routers.map(({ adapter }) => adapter)
+    const others = [...styles, ...entitiesFound]
+
+    const tools = (adapters.tools ?? []).flatMap((tool) => {
+      const detection = detectPeers(pkg, tool.versions)
+
+      return detection.found ? [{ adapter: tool, detection }] : []
+    })
+
     const usedEntities = entitiesFound.map(({ adapter }) => adapter)
 
     const reading = await readProject(root, renderer, pkg, name, usedEntities, early).then(
@@ -452,7 +473,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
     const found = await findBuilder(adapters.builders, project).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
+      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others, ...tools]))
       throw cause
     })
 
@@ -462,7 +483,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       ...others
     ]
 
-    const detection = await detectProject(root, pkg, used)
+    const detection = await detectProject(root, pkg, [...used, ...tools])
 
     opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
@@ -482,7 +503,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const { read } = reading
     opening.cached = !!read.saved
-    const routes = projectRoutes(usedRouters, root)
+
+    // Asked now, so the router's extension reads them while the builder starts.
+    const routing = (adapters.routes?.({ root, name, pkg }) ?? Promise.resolve(undefined)).catch(
+      (cause: unknown): undefined => {
+        logNote(`[service] couldn't read the routes of ${name}: ${message(cause)}`)
+
+        return undefined
+      }
+    )
 
     return {
       ...read,
@@ -492,8 +521,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       inputs,
       name,
       renderer,
-      routes,
-      usedRouters,
+      routing,
       usedEntities,
       used,
       pkg
@@ -673,9 +701,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       name,
       opened,
       renderer,
-      routes,
+      routing,
       entities,
-      usedRouters,
       usedEntities,
       used,
       pkg,
@@ -697,11 +724,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       () => undefined
     )
 
-    const [session, styles] = await Promise.all([
+    const [session, styles, routed] = await Promise.all([
       serving.catch((cause: unknown) => {
         throw new Error(explain(message(cause)), { cause })
       }),
-      loadStyles(root, config.styles, detection)
+      loadStyles(root, config.styles, detection),
+      routing
     ]).catch((cause: unknown) => {
       void stopServing(root, serving)
       throw cause
@@ -712,7 +740,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       { adapter: renderer },
       { adapter: builder, version: session.toolVersion },
       ...adapters.styles.filter((adapter) => adapter.id === styles.info?.id).map((adapter) => ({ adapter })),
-      ...usedRouters.map((adapter) => ({ adapter })),
       ...usedEntities.map((adapter) => ({ adapter }))
     ]
 
@@ -721,13 +748,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       name,
       renderer: { id: renderer.id, name: renderer.name },
       builder: { id: builder.id, name: builder.name, toolVersion: session.toolVersion },
-      router: usedRouters[0] && { id: usedRouters[0].id, name: usedRouters[0].name },
+      router: routed?.router,
       styles,
       guestUrl: session.guestUrl,
-      routes,
+      routes: routed?.routes ?? [],
       entities,
-      actions: adapterActions(told, detection, entities, routes),
-      status: adapterStatus(told, detection, entities, routes),
+      actions: adapterActions(told, detection, entities),
+      status: adapterStatus(told, detection, entities),
       config,
       detection,
       documents,
@@ -1839,22 +1866,4 @@ async function findBuilder(
 
 export function message(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause)
-}
-
-/**
- * The app's routes, from the first router the project uses (PAR-1076), or none. A route file that can't be read counts
- * as missing, as the router's own tooling may not have written it yet.
- */
-function projectRoutes(routers: readonly RouterAdapter[], root: string): ProjectRoute[] {
-  const [router] = routers
-
-  return (
-    router?.readRoutes((path) => {
-      try {
-        return readFileSync(join(root, path), "utf8")
-      } catch {
-        return undefined
-      }
-    }) ?? []
-  )
 }

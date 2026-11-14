@@ -229,16 +229,16 @@ go.
 
 **Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
 tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. `adapters/`
-holds one package per tool, each named for it: `storybook-adapter`, `tanstack-router-adapter`, `tailwind-adapter`,
-`vite-adapter` and `react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a
-design of the story kind, its stories its states, a row each on its board. A story whose meta names a component and has
-no `render` of its own draws that component with the story's args as its props. A story that renders itself draws its
-`render` function, loaded from its file, with its args as props. Decorators and the `render` function's `context` aren't
-applied yet. Edits to a story's args are written back to its file, as the args that differ from its meta's; nothing else
-of a story file's design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of
-icon for a group, a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the
-mode's whole window, and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it,
-its modes and their scales are kept in the project's file, never in the story's.
+holds one package per tool, each named for it: `storybook-adapter`, `tailwind-adapter`, `vite-adapter` and
+`react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a design of the story
+kind, its stories its states, a row each on its board. A story whose meta names a component and has no `render` of its
+own draws that component with the story's args as its props. A story that renders itself draws its `render` function,
+loaded from its file, with its args as props. Decorators and the `render` function's `context` aren't applied yet. Edits
+to a story's args are written back to its file, as the args that differ from its meta's; nothing else of a story file's
+design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of icon for a group,
+a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the mode's whole window,
+and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it, its modes and their
+scales are kept in the project's file, never in the story's.
 
 ### Language
 
@@ -275,12 +275,13 @@ decision. Detail is in `proposals/web-and-backend.md`, `proposals/app-lenses.md`
 | Languages       | ICU messages                                     |                                            | ⏳     |
 | Deploy          | Better Apps' capability manifest                 | Cloudflare first, through Better Apps      | ⏳     |
 
-**Routes are read (PAR-1073), and each page is drawn as a screen (PAR-1076).** `RouterAdapter` in `@parity-app/core` is
-the route model: each route's id, URL pattern, parent, file, params, whether it's an index, the component it draws, and
-whether it loads data or guards the page. `adapters/tanstack-router-adapter` reads TanStack Router's file-based routes
-from the route tree its tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's
-file. Routes written in code without the generated tree aren't read. Each page is a screen, laid out in the router's
-tree, whose frames load the app itself at the page's URL (see editor.md), with each path param's value set in Props.
+**Routes are read (PAR-1073), and each page is drawn as a screen (PAR-1076).** A router extension's provider gives the
+routes (PAR-1095), as `Route` in `@parity-app/extension-api` describes them: each route's id, URL pattern, parent, file,
+params, whether it's an index, the component it draws, and whether it loads data or guards the page. The TanStack Router
+extension (`packages/extension-tanstack-router`) reads TanStack Router's file-based routes from the route tree its
+tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's file. Routes written in
+code without the generated tree aren't read. Each page is a screen, laid out in the router's tree, whose frames load the
+app itself at the page's URL (see editor.md), with each path param's value set in Props.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.

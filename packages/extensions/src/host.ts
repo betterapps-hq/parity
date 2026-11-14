@@ -6,11 +6,12 @@ import type {
   NodeRef,
   Parity,
   PickItem,
+  RouterProvider,
   SettingValue,
   State,
   StatusItem
 } from "@parity-app/extension-api"
-import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo } from "./protocol.ts"
+import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo, ProviderKind } from "./protocol.ts"
 
 /*
  * The host's side: the code that runs in an extension's own process, for one open project. It loads the extension's
@@ -51,8 +52,14 @@ interface HostSettings {
   listeners: Map<string, Set<(value: SettingValue) => void>>
 }
 
+/** The providers an extension's code registered, by kind. */
+interface Registered {
+  router?: RouterProvider
+}
+
 interface Activated {
   handlers: Map<string, CommandHandler>
+  providers: Registered
   subscriptions: Disposable[]
   module: ExtensionModule
 }
@@ -99,6 +106,20 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       }
 
       await handler(target)
+    },
+    async provide(call) {
+      if (!activated) {
+        throw new Error("The extension hasn't activated")
+      }
+
+      // A router is the only provider so far, and `routes` its only method.
+      const router = (await activated).providers[call.kind]
+
+      if (!router) {
+        throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
+      }
+
+      return await router.routes()
     },
     ping: () => (side.memory ? { memory: side.memory() } : undefined),
     "settings.changed"({ values }) {
@@ -172,6 +193,8 @@ async function activate(
   }
 
   const handlers = new Map<string, CommandHandler>()
+  const providers: Registered = {}
+  const declaredProviders = new Set<ProviderKind>(params.providers)
   const subscriptions: Disposable[] = []
   const { prefix } = params.extension
   const declaredCommands = new Set(params.commands)
@@ -318,6 +341,25 @@ async function activate(
         return paths
       }
     },
+    providers: {
+      register(kind, provider) {
+        if (!declaredProviders.has(kind)) {
+          throw new Error(`The manifest's providers don't name ${kind}`)
+        }
+
+        if (providers[kind]) {
+          throw new Error(`A ${kind} is registered already`)
+        }
+
+        providers[kind] = provider
+
+        return once(() => {
+          if (providers[kind] === provider) {
+            delete providers[kind]
+          }
+        })
+      }
+    },
     ui: {
       async notify(message, options = {}) {
         const { action } = await send("ui.notify", { message, ...options })
@@ -405,7 +447,7 @@ async function activate(
 
   await exports.activate(parity)
 
-  return { handlers, subscriptions, module: exports }
+  return { handlers, providers, subscriptions, module: exports }
 }
 
 /** Disposes of what the extension added to `parity.subscriptions`, newest first, then calls its `deactivate`. */
