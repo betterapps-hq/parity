@@ -1,6 +1,18 @@
 import type { Checks } from "@parity-app/channel"
 import { parseData } from "@parity-app/core"
-import type { CommandTarget, Fact, JsonValue, PickItem, ServerRequest, Tone } from "@parity-app/extension-api"
+import type {
+  CommandTarget,
+  ComponentTarget,
+  DesignOperation,
+  Fact,
+  FileEdit,
+  JsonValue,
+  OpenWhere,
+  PickItem,
+  ServerRequest,
+  SettingValue,
+  Tone
+} from "@parity-app/extension-api"
 import { z } from "zod"
 
 /*
@@ -25,6 +37,8 @@ export interface ActivateParams {
   commands: string[]
   statusItems: string[]
   state: StateValues
+  /** Its settings' values now, by key, and whose each one is: the person's (`app`) or the project's (`project`). */
+  settings: { values: Record<string, SettingValue>; scopes: Record<string, "app" | "project"> }
 }
 
 /** What the project service asks of a host. */
@@ -33,8 +47,10 @@ export interface HostMethods {
   activate: { params: ActivateParams; result: undefined }
   /** Runs one of its commands, once it has activated. */
   run: { params: { command: string; target?: CommandTarget }; result: undefined }
-  /** Answers at once, unless the extension's code is keeping the host busy. */
-  ping: { params: undefined; result: undefined }
+  /** Answers at once, unless the extension's code is keeping the host busy, with the memory its process holds. */
+  ping: { params: undefined; result: { memory?: number } | undefined }
+  /** Some of its settings changed, in Settings or by its own `update`: their values now, by key. */
+  "settings.changed": { params: { values: Record<string, SettingValue> }; result: undefined }
   /** The person cancelled a task under `ui.progress`. */
   cancel: { params: { progress: number }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
@@ -64,7 +80,7 @@ export interface HostServiceMethods {
   "status.set": { params: { id: string } & StatusValue; result: undefined }
   "status.remove": { params: { id: string }; result: undefined }
   "context.set": { params: { key: string; value: boolean | string[] }; result: undefined }
-  "facts.set": { params: { target: CommandTarget; facts: Fact[] }; result: undefined }
+  "facts.set": { params: { target: ComponentTarget; facts: Fact[] }; result: undefined }
   "ui.notify": {
     params: { message: string; detail?: string; tone?: Tone; actions?: string[] }
     result: { action?: string }
@@ -72,13 +88,19 @@ export interface HostServiceMethods {
   "ui.pick": { params: { items: PickItem[]; title?: string; placeholder?: string }; result: { index?: number } }
   "ui.input": { params: { title: string; value?: string; placeholder?: string }; result: { value?: string } }
   "ui.confirm": { params: { message: string; detail?: string; confirm?: string }; result: { confirmed: boolean } }
-  "ui.open": { params: { url: string }; result: undefined }
+  "ui.open": { params: { url: string; where?: OpenWhere }; result: undefined }
+  /** Sets one of its `project` settings, or puts it back to its default without `value`. */
+  "settings.update": { params: { key: string; value?: SettingValue }; result: undefined }
   /** Shows a task's progress, says what it's doing now, or ends it with `done`. */
   "ui.progress": { params: { id: number; title?: string; detail?: string; done?: boolean }; result: undefined }
   "servers.serve": { params: ServerRequest; result: { url: string } }
   "servers.adopt": { params: { id: string; name: string; url: string }; result: undefined }
   "servers.stop": { params: { id: string }; result: undefined }
   "servers.routed": { params: undefined; result: { url: string; address: string }[] }
+  /** Changes designs as one undo step, with the `edits` permission. */
+  "edits.transact": { params: { label: string; operations: DesignOperation[] }; result: undefined }
+  /** Writes project files the `write` permission names, never a `.par`. Answers with the paths it changed. */
+  "files.edit": { params: { label: string; files: FileEdit[] }; result: { paths: string[] } }
 }
 
 const text = z.string().max(20_000)
@@ -92,6 +114,50 @@ const checkOf =
     parseData(schema, params)
 
 const url = z.url({ protocol: /^https?$/ })
+
+const designKey = z.string().max(2000)
+
+const nodeId = z.string().max(500)
+
+const label = z.string().min(1).max(200)
+
+const designOperation: z.ZodType<DesignOperation> = z.discriminatedUnion("op", [
+  z.strictObject({
+    op: z.literal("insert"),
+    design: designKey,
+    parent: nodeId,
+    slot: nodeId.optional(),
+    before: nodeId.optional(),
+    node: jsonValue
+  }),
+  z.strictObject({ op: z.literal("remove"), design: designKey, node: nodeId }),
+  z.strictObject({
+    op: z.literal("move"),
+    design: designKey,
+    node: nodeId,
+    parent: nodeId,
+    slot: nodeId.optional(),
+    before: nodeId.optional()
+  }),
+  z.strictObject({
+    op: z.literal("set"),
+    design: designKey,
+    node: nodeId,
+    path: z.array(z.string().max(200)).min(1).max(10),
+    value: jsonValue.optional()
+  })
+])
+
+const filePath = z.string().min(1).max(1000)
+
+const fileText = z.string().max(10_000_000)
+
+const fileEdit: z.ZodType<FileEdit> = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("create"), path: filePath, content: fileText }),
+  z.strictObject({ kind: z.literal("replace"), path: filePath, expected: fileText, content: fileText }),
+  z.strictObject({ kind: z.literal("patch"), path: filePath, find: fileText.min(1), replace: fileText }),
+  z.strictObject({ kind: z.literal("delete"), path: filePath, expected: fileText })
+])
 
 /** Reads each of a host's requests before the service handles it. */
 export const hostChecks: Checks<HostServiceMethods> = {
@@ -143,7 +209,13 @@ export const hostChecks: Checks<HostServiceMethods> = {
       confirm: z.string().max(40).optional()
     })
   ),
-  "ui.open": checkOf(z.strictObject({ url })),
+  "ui.open": checkOf(z.strictObject({ url, where: z.enum(["browser", "parity"]).optional() })),
+  "settings.update": checkOf(
+    z.strictObject({
+      key: z.string().max(200),
+      value: z.union([z.string().max(20_000), z.number(), z.boolean()]).optional()
+    })
+  ),
   "ui.progress": checkOf(
     z.strictObject({
       id: z.int(),
@@ -165,5 +237,7 @@ export const hostChecks: Checks<HostServiceMethods> = {
   ),
   "servers.adopt": checkOf(z.strictObject({ id: z.string().max(100), name: z.string().max(100), url })),
   "servers.stop": checkOf(z.strictObject({ id: z.string().max(100) })),
-  "servers.routed": checkOf(z.undefined())
+  "servers.routed": checkOf(z.undefined()),
+  "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000) })),
+  "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000) }))
 }

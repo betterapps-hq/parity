@@ -39,6 +39,21 @@ describe("readExtension", () => {
     expect(found.manifest.contributes.commands?.[0]?.title).toBe("Measure route timings")
   })
 
+  it("reads its tool's versions from its peer dependencies, the main one first, with what the manifest adds", () => {
+    const found = readExtension({
+      ...packageJson({ versions: { scope: "@tanstack/" } }),
+      peerDependencies: { "@tanstack/react-router": "^1.0.0", "@tanstack/router-plugin": "^1.0.0" }
+    })
+
+    expect(found.versions).toEqual({
+      packages: ["@tanstack/react-router", "@tanstack/router-plugin"],
+      range: "^1.0.0",
+      scope: "@tanstack/"
+    })
+    expect(readExtension(packageJson()).versions).toBeUndefined()
+    expect(() => readExtension(packageJson({ versions: { majors: [] } }))).toThrow("/parity/versions")
+  })
+
   it("refuses a package without a manifest", () => {
     const { parity: _, ...plain } = packageJson()
 
@@ -108,5 +123,23 @@ describe("readExtension", () => {
     expect(() => readExtension(packageJson({ contributes: { commands } }))).toThrow(
       "/parity/contributes/commands/0/icon"
     )
+  })
+
+  it("refuses a setting whose choices, their titles or its default can't hold", () => {
+    const read = (setting: Record<string, JsonValue>) =>
+      readExtension(
+        packageJson({
+          activates: [],
+          contributes: { settings: { "timings.where": { scope: "app", title: "Where", ...setting } } }
+        })
+      )
+
+    expect(() => read({ type: "number", enum: ["1"] })).toThrow("only a string setting can have choices")
+    expect(() => read({ type: "string", enum: ["a", "b"], enumTitles: ["A"] })).toThrow("enumTitles must name each")
+    expect(() => read({ type: "string", enum: ["a", "b"], default: "c" })).toThrow(`its default, "c", doesn't fit`)
+    expect(() => read({ type: "boolean", default: "yes" })).toThrow("doesn't fit its type")
+    expect(
+      read({ type: "string", enum: ["a", "b"], enumTitles: ["A", "B"], default: "b" }).manifest.contributes.settings
+    ).toBeDefined()
   })
 })

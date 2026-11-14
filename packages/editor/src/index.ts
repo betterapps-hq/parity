@@ -73,6 +73,8 @@ export {
 
 export { designColors } from "./design-colors.ts"
 
+export { type DesignOperation, designOperationChanges, type FieldPath } from "./design-operations.ts"
+
 export { createEditSettler, type EditSettler, type SettleOptions } from "./edit-settler.ts"
 
 export { sameValue, withTidyView } from "./document-equality.ts"
@@ -541,5 +543,7 @@ export {
   readStyles,
   styleOfElement
 } from "./element-layers.ts"
+
+export { prunedDocument, prunedView, type ViewScope, withPrunedView } from "./prune-view.ts"
 
 export { codeDesignSettings, hasTriedSize, withCodeDesignSettings, withoutTriedSize } from "./tried-size.ts"

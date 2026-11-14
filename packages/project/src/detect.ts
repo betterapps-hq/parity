@@ -206,10 +206,12 @@ export interface Support {
 }
 
 /**
- * The version cutoff: a major released more than two years ago is dropped, counted from its own x.0.0, except the
- * tool's newest major, which is never dropped. Dropped means Parity doesn't test it; nothing is blocked.
+ * Whether Parity tests a version. A tool whose extension gives a range is tested in the majors the range reaches: a
+ * major above them is newer and one below is dropped. Otherwise it's the version cutoff: a major released more than two
+ * years ago is dropped, counted from its own x.0.0, except the tool's newest major, which is never dropped. Dropped
+ * means Parity doesn't test it; nothing is blocked.
  */
-export function cutoff(tool: Pick<Tool, "majors">, version: string, today = new Date()): Support {
+export function cutoff(tool: Pick<Tool, "majors" | "range">, version: string, today = new Date()): Support {
   const valid = semver.valid(version) ?? semver.coerce(version)?.version
 
   if (!valid) {
@@ -217,17 +219,29 @@ export function cutoff(tool: Pick<Tool, "majors">, version: string, today = new 
   }
 
   const major = semver.major(valid)
-  const newest = tool.majors.at(-1)![0]
+
+  if (tool.range !== undefined) {
+    const tested = rangeMajors(tool.range)
+
+    if (tested.includes(major)) {
+      return { status: "supported" }
+    }
+
+    return { status: tested.length > 0 && major > tested.at(-1)! ? "newer" : "dropped" }
+  }
+
+  const majors = tool.majors ?? []
+  const newest = majors.at(-1)?.[0]
+
+  if (newest === undefined || major === newest) {
+    return { status: "supported" }
+  }
 
   if (major > newest) {
     return { status: "newer" }
   }
 
-  if (major === newest) {
-    return { status: "supported" }
-  }
-
-  const released = tool.majors.find(([candidate]) => candidate === major)?.[1]
+  const released = majors.find(([candidate]) => candidate === major)?.[1]
 
   if (!released) {
     return { status: "dropped" }
@@ -238,10 +252,36 @@ export function cutoff(tool: Pick<Tool, "majors">, version: string, today = new 
   return drops <= today.toISOString().slice(0, 10) ? { status: "dropped" } : { status: "supported", drops }
 }
 
+/** How far past a range's lowest major {@link rangeMajors} looks, which no tool's range spans. */
+const majorsAhead = 100
+
+/** The majors a semver range reaches, oldest first, as `^9.0.0 || ^10.0.0` reaches 9 and 10. */
+function rangeMajors(range: string): number[] {
+  const lowest = semver.validRange(range) ? semver.minVersion(range) : null
+
+  if (!lowest) {
+    return []
+  }
+
+  return Array.from({ length: majorsAhead }, (_, offset) => lowest.major + offset).filter((major) =>
+    semver.intersects(range, `${major}.x`)
+  )
+}
+
 /** The majors Parity tests today, such as "React 19" or "Vite 6 or later". */
 function supported(tool: Tool, today: Date): string {
-  const kept = tool.majors.filter(([major]) => cutoff(tool, `${major}.0.0`, today).status !== "dropped")
-  const oldest = label(tool, kept[0]![0])
+  const kept =
+    tool.range === undefined
+      ? (tool.majors ?? [])
+          .map(([major]) => major)
+          .filter((major) => cutoff(tool, `${major}.0.0`, today).status !== "dropped")
+      : rangeMajors(tool.range)
+
+  if (kept.length === 0) {
+    return `${tool.name} ${tool.range ?? ""}`.trim()
+  }
+
+  const oldest = label(tool, kept[0]!)
 
   return kept.length === 1 ? `${tool.name} ${oldest}` : `${tool.name} ${oldest} or later`
 }

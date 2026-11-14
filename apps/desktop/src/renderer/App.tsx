@@ -14,7 +14,6 @@ import { closeQuickInsert, QuickInsert } from "./chrome/QuickInsert.tsx"
 import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
 import { restoreAsked } from "./chrome/restore.ts"
 import { RestorePrompt } from "./chrome/RestorePrompt.tsx"
-import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
 import { cancelUnsaved } from "./chrome/unsaved.ts"
@@ -24,6 +23,7 @@ import { startConsole } from "./console-feed.ts"
 import { closeLibraryBrowser } from "./library/library-browser.ts"
 import { LibraryBrowserHost } from "./library/LibraryBrowser.tsx"
 import { ProjectView } from "./ProjectView.tsx"
+import { SettingsBridge } from "./settings-project.ts"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
 import { useResolvedTheme } from "./theme.ts"
@@ -138,9 +138,8 @@ export function AppWindow() {
       <ErrorBoundary name="search" label="Search" kind="dialog" onClose={closeDialog}>
         <ActionsSearch />
       </ErrorBoundary>
-      <ErrorBoundary name="settings" label="Settings" kind="dialog" onClose={closeDialog}>
-        <SettingsDialog />
-      </ErrorBoundary>
+      {/* Settings is main's own view over the window, which this keeps up to date with the project (PAR-1090). */}
+      <SettingsBridge />
       <ErrorBoundary name="convert-to-frame" label="Convert to frame" kind="dialog" onClose={stopAskingToConvert}>
         <ConvertToFrameDialog />
         <ExtensionQuestion />

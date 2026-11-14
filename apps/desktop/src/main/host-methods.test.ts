@@ -2,15 +2,19 @@ import { describe, expect, it } from "vite-plus/test"
 import { type HostMethod, type HostSent, hostMethod, hostMethodNames } from "../shared/host-methods.ts"
 import { answerWindows, fromParityPage, type HostHandlers } from "./host-methods.ts"
 
-/** Who sent a request: the Parity window's own page, a guest frame in it, or an offscreen render window's page. */
+/**
+ * Who sent a request: the Parity window's own page, the Settings view over it, a guest frame in the page, or an
+ * offscreen render window's page.
+ */
 interface Sender {
-  page: "parity" | "guest" | "render"
+  page: "parity" | "settings" | "guest" | "render"
 }
 
 /** The Parity window, as the registration hands it to a handler. */
 const parityWindow = { id: 1 }
 
 const parity: Sender = { page: "parity" }
+const settings: Sender = { page: "settings" }
 const guest: Sender = { page: "guest" }
 const render: Sender = { page: "render" }
 
@@ -67,7 +71,8 @@ function main() {
       }
     },
     handlers,
-    appWindow: (event) => (event.page === "parity" ? parityWindow : undefined),
+    appWindow: (event) => (event.page === "parity" || event.page === "settings" ? parityWindow : undefined),
+    settingsView: (event) => event.page === "settings",
     around: (request, answer) => {
       spans.push(request)
 
@@ -89,11 +94,27 @@ function main() {
 /** An announcement `consoleAnnounce`'s schema takes. */
 const announcement: HostSent<"consoleAnnounce"> = { level: "warning", design: "Card" }
 
-/** Params a one-way method's schema takes: the announcement, or nothing for the close replies, which take none. */
-function toldParams(method: HostMethod): HostSent<"consoleAnnounce" | "stateSet" | "tabsSave"> | undefined {
+/** What Settings shows of a project, which `settingsProject`'s schema takes. */
+const shownProject: HostSent<"settingsProject"> = {
+  overrides: [],
+  extensions: {},
+  unsaved: false,
+  savesItself: false,
+  list: []
+}
+
+/**
+ * Params a one-way method's schema takes: the announcement, the project Settings shows, a value or tabs to keep, or
+ * nothing for the close replies, which take none.
+ */
+function toldParams(
+  method: HostMethod
+): HostSent<"consoleAnnounce" | "settingsProject" | "stateSet" | "tabsSave"> | undefined {
   switch (method) {
     case "consoleAnnounce":
       return announcement
+    case "settingsProject":
+      return shownProject
     case "stateSet":
       return { key: "layout", value: { left: false } }
     case "tabsSave":
@@ -161,8 +182,10 @@ describe("who may ask", () => {
       }
 
       // The sender is checked before the params, so a refused page learns nothing of what a method takes.
-      for (const { method } of gated.filter(({ oneWay }) => !oneWay)) {
-        await expect(ask(sender, method)).rejects.toThrow(`Only the Parity window can ask for ${method}.`)
+      for (const { method, only } of gated.filter(({ oneWay }) => !oneWay)) {
+        await expect(ask(sender, method)).rejects.toThrow(
+          only === "settings" ? `Only Settings can ask for ${method}.` : `Only the Parity window can ask for ${method}.`
+        )
       }
     }
 
@@ -174,6 +197,30 @@ describe("who may ask", () => {
     }
 
     expect(handled.map(({ method }) => method)).toEqual(told)
+  })
+
+  it("takes extensions' settings and changes to the project only from Settings, which loads no project code", async () => {
+    const { ask, handled } = main()
+    const change = { storybook: { openIn: "parity" } }
+
+    for (const method of ["extensionSettingsChange", "settingsProjectChange", "settingsClose"] as const) {
+      expect(hostMethod(method)?.only).toBe("settings")
+    }
+
+    await expect(ask(parity, "extensionSettingsChange", change)).rejects.toThrow(
+      "Only Settings can ask for extensionSettingsChange."
+    )
+    expect(handled).toEqual([])
+    expect(await ask(settings, "extensionSettingsChange", change)).toBe("extensionSettingsChange answered")
+    expect(handled).toEqual([{ method: "extensionSettingsChange", params: change, from: parityWindow }])
+  })
+
+  it("takes what Settings shows of the project only from the editor window's page", () => {
+    const { tell, handled } = main()
+    tell(settings, "settingsProject", shownProject)
+    expect(handled).toEqual([])
+    tell(parity, "settingsProject", shownProject)
+    expect(handled.map(({ method }) => method)).toEqual(["settingsProject"])
   })
 
   it("gives a handler the Parity window that asked", async () => {

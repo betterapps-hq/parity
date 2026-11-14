@@ -49,6 +49,19 @@ export interface Permissions {
   edits?: boolean
 }
 
+/**
+ * What an extension says of its tool's versions that its peer dependencies can't. The peer dependencies name the
+ * packages that carry the version, the main one first, and the range it supports.
+ */
+export interface ToolVersionFacts {
+  /** A scope every package of which is one of the tool's, as `@storybook/`. */
+  scope?: string
+  /** How the tool's majors are written, as Tailwind's `v` in `v4`. */
+  prefix?: string
+  /** Packages that ship the tool under another name and may be installed in its place, with their names for people. */
+  distributions?: Record<string, string>
+}
+
 /** The `parity` field of an extension's `package.json`. */
 export interface Manifest {
   /** The name people see. */
@@ -61,6 +74,8 @@ export interface Manifest {
   detect?: string
   /** Files whose change means detecting again, as globs relative to the project's root. */
   watches?: string[]
+  /** What its peer dependencies can't say of its tool's versions. */
+  versions?: ToolVersionFacts
   permissions?: Permissions
   /** Other extensions whose API it uses, by id. */
   extensionDependencies?: string[]

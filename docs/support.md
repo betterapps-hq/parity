@@ -223,21 +223,22 @@ go.
 | Version                 | Status | Notes                                                                   |
 | ----------------------- | ------ | ----------------------------------------------------------------------- |
 | Storybook 10            | ✅     | Detected, mapped to components, opened in your browser.                 |
-| Storybook 9             | ❔     | Same `index.json`; untested. Drops in May 2027.                         |
+| Storybook 9             | ❔     | Same `index.json`; untested. In the extension's range until May 2027.   |
 | Storybook 8 and earlier | ❌     | Dropped: Storybook 8 came out in March 2024. Untested, but not blocked. |
 | Ladle, Histoire         | ❌     | Not planned.                                                            |
 
-**Stories are read as screens (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a tool's own
-files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. `adapters/` holds one
-package per tool, each named for it: `storybook-adapter`, `tanstack-router-adapter`, `tailwind-adapter`, `vite-adapter`
-and `react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler: each story whose meta names a component
-and has no `render` of its own is a screen of that component with the story's args as its props. A story that renders
-itself draws its `render` function, loaded from its file, with its args as props. Decorators and the `render` function's
-`context` aren't applied yet. Edits to a story's args are written back to its file, as the args that differ from its
-meta's; nothing else of a story's screen is. Layers lists the stories in folders for each part of their titles, with
-Storybook's kinds of icon for a group, a component and a story. Each story draws a frame for each mode it shows, as wide
-as the story, in the mode's whole window, and its args show as Props in the Design panel. Sizes dragged on a story to
-test it, its modes and their scales are kept in the project's file, never in the story's.
+**Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
+tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. `adapters/`
+holds one package per tool, each named for it: `storybook-adapter`, `tanstack-router-adapter`, `tailwind-adapter`,
+`vite-adapter` and `react-adapter`. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a
+design of the story kind, its stories its states, a row each on its board. A story whose meta names a component and has
+no `render` of its own draws that component with the story's args as its props. A story that renders itself draws its
+`render` function, loaded from its file, with its args as props. Decorators and the `render` function's `context` aren't
+applied yet. Edits to a story's args are written back to its file, as the args that differ from its meta's; nothing else
+of a story file's design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of
+icon for a group, a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the
+mode's whole window, and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it,
+its modes and their scales are kept in the project's file, never in the story's.
 
 ### Language
 
@@ -364,7 +365,10 @@ support, I didn't mean prevent others from using those versions, just that we do
 project on a dropped version opens and works as far as it can. Parity reads the installed version of each tool an
 adapter finds (React, Vite, Tailwind CSS, TanStack Router and Storybook) and notes an untested one quietly, in the
 status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each major
-(`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out.
+(`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
+extension exists, Storybook and TanStack Router so far, takes its versions from the extension's peer dependencies
+instead: inside the range is supported, above it newer and below it dropped, and the range is widened or narrowed in the
+extension's `package.json` as this policy says.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.

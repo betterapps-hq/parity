@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import {
+  type ExtensionEdits,
   type ExtensionHosts,
   type ExtensionWindow,
   extensionHosts,
@@ -59,9 +60,13 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   })
 ]
 
-/** Every open project's extensions, telling `window` what changes and asking the person through it. */
-export function startExtensions(window: ExtensionWindow): ExtensionHosts<ExtensionProject> {
+/**
+ * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes
+ * to designs and files going through `edits`.
+ */
+export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits): ExtensionHosts<ExtensionProject> {
   return extensionHosts<ExtensionProject>({
+    edits,
     extensions: builtIns(),
     start(extension, project) {
       logNote(`[service] starting ${extension.package.manifest.displayName} for ${project.name}`)
@@ -146,11 +151,15 @@ export function startExtensions(window: ExtensionWindow): ExtensionHosts<Extensi
 /** The open projects hosts were told of, by id, for their servers' folders and names. */
 const projects = new Map<string, { root: string; name: string }>()
 
-/** Tells the hosts a project opened, which starts the extensions that activate when detected. */
+/**
+ * Tells the hosts a project opened, which starts the extensions that activate when detected, with the project's
+ * settings for them as its main `.par` saved them. The window sends them again as they change.
+ */
 export function openExtensions(hosts: ExtensionHosts<ExtensionProject>, open: OpenProject): void {
-  const { id, root, name } = open.info
+  const { id, root, name, mainDocument, documents } = open.info
   projects.set(id, { root, name })
-  hosts.open({ id, root, name, open })
+  const main = documents.find((entry) => entry.path === mainDocument)?.document
+  hosts.open({ id, root, name, open }, main?.extensions ?? {})
 }
 
 /** Ends a project's hosts as it closes. */

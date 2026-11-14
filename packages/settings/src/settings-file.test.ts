@@ -4,7 +4,7 @@ import { changedSettings, changeSettings, readSettings } from "./settings-file.t
 
 describe("reading settings.json", () => {
   it("gives the defaults when there's no file", () => {
-    expect(readSettings(undefined)).toEqual({ values: defaultSettings, badValues: [] })
+    expect(readSettings(undefined)).toEqual({ values: defaultSettings, badValues: [], extensions: {} })
   })
 
   it("reads each saved setting, and the rest at their defaults", () => {
@@ -33,7 +33,7 @@ describe("reading settings.json", () => {
   })
 
   it("says why a file that isn't an object couldn't be read", () => {
-    expect(readSettings("[]").problem).toBe("settings.json isn't an object.")
+    expect(readSettings("[]").problem).toBe("settings.json isn't an object of settings.")
   })
 })
 
@@ -87,5 +87,36 @@ describe("what changed", () => {
 
     expect(changedSettings(defaultSettings, after)).toEqual({ theme: "light", exportSizes: after.exportSizes })
     expect(changedSettings(defaultSettings, { ...defaultSettings })).toEqual({})
+  })
+})
+
+describe("extensions' settings in settings.json", () => {
+  it("reads each extension's settings unchecked, leaving out one that isn't an object", () => {
+    const text = JSON.stringify({ extensions: { storybook: { openIn: "parity", later: [1] }, broken: 3 } })
+
+    expect(readSettings(text).extensions).toEqual({ storybook: { openIn: "parity", later: [1] } })
+  })
+
+  it("reads none from an extensions entry that isn't an object", () => {
+    expect(readSettings(JSON.stringify({ extensions: [] })).extensions).toEqual({})
+  })
+
+  it("sets one key and keeps the extension's others and other extensions'", () => {
+    const text = JSON.stringify({ theme: "light", extensions: { storybook: { a: 1 }, tailwind: { b: true } } })
+
+    expect(JSON.parse(changeSettings(text, { extensions: { storybook: { openIn: "parity" } } }))).toEqual({
+      theme: "light",
+      extensions: { storybook: { a: 1, openIn: "parity" }, tailwind: { b: true } }
+    })
+  })
+
+  it("takes a key out with null, and the extension and the entry when they're left empty", () => {
+    const text = JSON.stringify({ extensions: { storybook: { openIn: "parity" } } })
+
+    expect(JSON.parse(changeSettings(text, { extensions: { storybook: { openIn: null } } }))).toEqual({})
+  })
+
+  it("isn't a change a window's settings change can carry", () => {
+    expect(settingsChange.safeParse({ extensions: { storybook: { openIn: "parity" } } }).success).toBe(false)
   })
 })

@@ -5,7 +5,7 @@ import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
-import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
+import { pickedStory, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { ModesList } from "../canvas/view-lists.tsx"
 import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
@@ -182,9 +182,15 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   })
 }
 
-/** A story's args, as the props of the layer that draws it, which edits write back to its file. */
+/**
+ * The picked story's args, as the props of the layer that draws it, which edits write back to its file: the story of
+ * the preview picked last, else the one its board shows.
+ */
 function StoryProps({ entry }: { entry: ContainerEntry }) {
-  const layer = useLayer(entry, storyLayer)
+  const session = useProject()
+  const selection = useSelection(session.selection)
+  const story = pickedStory(entry.container, selection)
+  const layer = useLayer(entry, story === undefined ? "" : storyLayer(story))
 
   return layer ? <PropsSection layer={layer} /> : null
 }

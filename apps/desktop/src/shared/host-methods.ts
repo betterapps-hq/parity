@@ -1,6 +1,13 @@
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type { UpdateState } from "@parity-app/processes"
-import { type Projects, projectsChange, type SavedTabs, settingsChange, stateKeys } from "@parity-app/settings"
+import {
+  extensionSettingsChange,
+  type Projects,
+  projectsChange,
+  type SavedTabs,
+  settingsChange,
+  stateKeys
+} from "@parity-app/settings"
 import { z } from "zod"
 import { type AccountState, accountEmail, organizationId, signInRequest } from "./account.ts"
 import { type ConnectorState, connectorPlaced, connectorSearch } from "./connectors.ts"
@@ -26,6 +33,7 @@ import type {
   ReportCrash,
   TelemetryState
 } from "./protocol.ts"
+import { parityWindowUrl, settingsOpening, settingsProject, settingsProjectChange } from "./settings-view.ts"
 import type { SettingsState } from "./settings.ts"
 
 /**
@@ -65,11 +73,12 @@ interface HostMethodSpec {
   /** The window doesn't wait for an answer, and one that's refused is dropped without a word. */
   oneWay?: true
   /**
-   * Who may ask. Without this, only the Parity window's own page: its main frame, at Parity's address, never a guest
-   * or an offscreen render window. `"any"` takes the method from every sender, for what the render windows' pages send
-   * too, and its handler gets the sender rather than a window.
+   * Who may ask. Without this, only Parity's own pages: the window's main frame at Parity's address, or the Settings
+   * view's, never a guest or an offscreen render window. `"any"` takes the method from every sender, for what the render
+   * windows' pages send too, and its handler gets the sender rather than a window. `"settings"` takes it only from the
+   * Settings view, which loads no project code (PAR-1090), and `"editor"` only from the editor window's page.
    */
-  from?: "any"
+  from?: "any" | "settings" | "editor"
 }
 
 export const hostMethods = {
@@ -134,11 +143,26 @@ export const hostMethods = {
   /** Changes `projects.json`, the recent and starred projects, which main then sends every window. */
   projectsChange: { params: projectsChange, result: answers<Projects>() },
   /** Saves one value in `state.json`, such as the layout, for the next window to start with. */
-  stateSet: { params: stateValue, oneWay: true },
+  stateSet: { params: stateValue, oneWay: true, from: "editor" },
   /** The tabs this window opens with: its own after a reload, or those of the newest copy that's gone. */
-  tabsClaim: { result: answers<SavedTabs>() },
+  tabsClaim: { result: answers<SavedTabs>(), from: "editor" },
   /** The window's tabs now, which main keeps saying while the copy runs. */
-  tabsSave: { params: savedTabs, oneWay: true },
+  tabsSave: { params: savedTabs, oneWay: true, from: "editor" },
+  /**
+   * Changes extensions' `app` settings in `settings.json` (PAR-1090). Only the Settings view may: the editor window runs
+   * the project's code, which mustn't change the person's settings for every project.
+   */
+  extensionSettingsChange: { params: extensionSettingsChange, result: answers<SettingsState>(), from: "settings" },
+  /** Opens Settings over the editor window, on a page and with a setting on it marked when asked. */
+  settingsOpen: { params: settingsOpening, from: "editor" },
+  /** What Settings shows of the editor window's open project, sent each time it changes. */
+  settingsProject: { params: settingsProject, oneWay: true, from: "editor" },
+  /** Settings changes the open project, which main passes to the editor window to make an undo step. */
+  settingsProjectChange: { params: settingsProjectChange, from: "settings" },
+  /** Closes Settings. */
+  settingsClose: { from: "settings" },
+  /** Opens a dev server's page or a web page in a window of Parity's own, as "Open stories in" can choose. */
+  openInParity: { params: parityWindowUrl },
   /** The shortcuts the person changed, in `keybindings.json` (PAR-1085), which main sends again whenever they change. */
   keybindingsState: { result: answers<KeybindingsState>() },
   /** Replaces commands' entries in `keybindings.json`, for what the file holds after. */
@@ -197,6 +221,8 @@ export interface HostMethodRead {
   oneWay: boolean
   /** Whether every sender may use it. */
   open: boolean
+  /** Whether only the Settings view may, or only the editor window's page. */
+  only?: "settings" | "editor"
 }
 
 /** The method a window named, or nothing when main has none by that name. */
@@ -212,7 +238,15 @@ export function hostMethod(name: unknown): HostMethodRead | undefined {
   const method = read.data as HostMethod
   const spec: HostMethodSpec = hostMethods[method]
 
-  return { method, params: spec.params ?? nothing, oneWay: spec.oneWay === true, open: spec.from === "any" }
+  const found: HostMethodRead = { method, params: spec.params ?? nothing, oneWay: spec.oneWay === true, open: false }
+
+  if (spec.from === "any") {
+    found.open = true
+  } else if (spec.from) {
+    found.only = spec.from
+  }
+
+  return found
 }
 
 /** Every method's name, for a test of what each one lets in. */

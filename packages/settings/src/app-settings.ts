@@ -63,3 +63,29 @@ export const settingsChange = z
   .strict()
 
 export type SettingsChange = z.infer<typeof settingsChange>
+
+/** A value an extension's setting takes: its manifest types each as a string, a number or a true or false. */
+export const extensionSettingValue = z.union([z.string(), z.number(), z.boolean()])
+
+export type ExtensionSettingValue = z.infer<typeof extensionSettingValue>
+
+/**
+ * Extensions' `app` settings, as `settings.json` keeps them under `extensions`: by extension, as its prefix names it,
+ * then by setting key, as `storybook` → `openIn`. Each extension's own schema checks its values when it reads them, so
+ * the values of one that isn't installed are kept as they are.
+ */
+export type ExtensionSettings = Record<string, Record<string, JsonValue>>
+
+/** A value as JSON writes it. */
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/**
+ * A change to extensions' `app` settings: by extension, then key, each to a value, or `null` to put it back to its
+ * default. Only the Settings view sends one, since the editor window runs the project's code.
+ */
+export const extensionSettingsChange = z.record(
+  z.string().min(1).max(100),
+  z.record(z.string().min(1).max(200), extensionSettingValue.nullable())
+)
+
+export type ExtensionSettingsChange = z.infer<typeof extensionSettingsChange>

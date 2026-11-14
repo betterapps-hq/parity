@@ -1,4 +1,5 @@
-import type { Adapters } from "@parity-app/core"
+import { type Adapters, peerVersions } from "@parity-app/core"
+import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { reactRenderer } from "@parity-app/react-adapter"
 import { storybookAdapter } from "@parity-app/storybook-adapter"
 import { tailwindStyles } from "@parity-app/tailwind-adapter"
@@ -14,5 +15,11 @@ export const adapters: Adapters = {
   builders,
   styles: [tailwindStyles],
   routers: [tanstackRouter],
-  entities: [storybookAdapter]
+  // Storybook's supported versions are its extension's peer dependencies.
+  entities: [
+    {
+      ...storybookAdapter,
+      versions: peerVersions(storybookExtension.peerDependencies, storybookExtension.parity.versions)
+    }
+  ]
 }

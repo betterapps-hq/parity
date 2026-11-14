@@ -244,3 +244,10 @@ export function routeListing(project: string): RouteListing[] {
 function designKey(id: string): string {
   return `${routePagesFile}#${id}`
 }
+
+/** The names of the params a page screen's route takes, or undefined for a design. */
+export function routeParams(info: Pick<ProjectInfo, "id" | "routes">, design: string): string[] | undefined {
+  const route = routePageRoute(info.id, design)
+
+  return route === undefined ? undefined : info.routes.find((each) => each.id === route)?.params
+}

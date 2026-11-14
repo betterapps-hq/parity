@@ -48,11 +48,12 @@ because it needs them to map stories.
 [detect.ts](../packages/project/src/detect.ts) lists Storybook with the other tools.
 
 - **Using Storybook** means any dependency named `storybook` or `@storybook/*`.
-- **The version** comes from the installed `storybook` package, or before Storybook 7 from `@storybook/react`,
-  `@storybook/react-vite` or `@storybook/core`.
-- **The support policy applies,** as for every tool (see [support.md](support.md)). Storybook 10 is supported, 9 drops
-  in May 2027, and 8 and earlier are dropped. Dropped means untested, never blocked: it's one quiet line in the status
-  bar's tooltips and `detection` in the agent API, and every Storybook feature stays on.
+- **The version** comes from the installed `storybook` package, or before Storybook 7 from `@storybook/react` or
+  `@storybook/react-vite`: the extension's peer dependencies, in that order.
+- **The support policy applies,** as for every tool (see [support.md](support.md)), through the range in the extension's
+  `peerDependencies`, `^9.0.0 || ^10.0.0`: Storybook 10 and 9 are supported, and 8 and earlier are dropped. 9 leaves the
+  range in May 2027. Dropped means untested, never blocked: it's one quiet line in the status bar's tooltips and
+  `detection` in the agent API, and every Storybook feature stays on.
 
 ### Opening stories
 
@@ -80,7 +81,10 @@ screens.
 - **Which page opens.** The index entries for the component's story files are found, and Parity opens the docs page if
   there is one, else the first story. Both open through Storybook's manager (`/?path=/docs/<id>` or
   `/?path=/story/<id>`), never `iframe.html`. With nothing matched, Storybook's home opens.
-- **Where it opens.** The system browser, through Electron's window-open handler.
+- **Where it opens.** Settings > Extensions > Storybook > Open stories in, the person's for every project: their
+  browser, through Electron's window-open handler, or a window of Parity's own (PAR-1090).
+- **Its config folder** is the project's setting, Config folder, kept in the main `.par`. Detection reads it before the
+  extension's code loads, and finds `.storybook` when it's unset.
 - **Stopping it.** When the project's tab closes, or the service exits, Parity stops the Storybook it started and every
   process that Storybook started. When main quits or replaces the service, it ends the service's whole process tree,
   Storybook included (PAR-980). A service that crashes can't stop anything, and its children can't be found from it once
@@ -272,8 +276,9 @@ the canvas.
 
 - Mapping stories to components in [project/src/index.test.ts](../packages/project/src/index.test.ts): a custom port and
   config folder, aliased and renamed imports, a stray story file, a story with only a title, and no config at all.
-- Version detection in [detect.test.ts](../packages/project/src/detect.test.ts): Storybook 8 and 6 dropped, 9 supported
-  until May 2027.
+- Version detection in [detect.test.ts](../packages/project/src/detect.test.ts): Storybook 8 and 6 dropped, 9 and 10
+  supported by the range, 11 newer. The range itself in
+  [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts).
 - Snapshot detection of the fixtures in [packages/fixtures](../packages/fixtures): `react-aria` on Storybook 9,
   `too-old` on 8, and `vite7-js` and `mantine` without one. The fixtures must be installed first.
 

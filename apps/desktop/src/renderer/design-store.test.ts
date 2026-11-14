@@ -412,6 +412,54 @@ describe("reverting to a checkpoint", () => {
   })
 })
 
+describe("an extension's operations", () => {
+  const titled = {
+    ...design("home"),
+    root: {
+      type: "layout" as const,
+      id: "root",
+      children: [{ type: "text" as const, id: "title", name: "Title", text: "Welcome" }]
+    }
+  }
+
+  const layerName = (store: DesignStore) => {
+    const root = store.getEntry("app.par#home")?.container.root
+
+    return root?.type === "layout" ? root.children[0]?.name : undefined
+  }
+
+  it("rename a layer as one undo step named after the extension, which Undo takes back", () => {
+    const { store } = setup({ home: titled })
+
+    store.applyOperations("Tidy: Rename layer", [
+      { op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Heading" }
+    ])
+
+    expect(layerName(store)).toBe("Heading")
+    expect(store.getHistory()).toMatchObject({ canUndo: true, undoLabel: "Tidy: Rename layer" })
+    expect(store.unsavedPaths()).toEqual(["app.par"])
+
+    store.undo()
+
+    expect(layerName(store)).toBe("Title")
+    expect(store.getHistory()).toMatchObject({ canUndo: false, redoLabel: "Tidy: Rename layer" })
+  })
+
+  it("are refused whole, changing nothing, when one names a layer that's gone", () => {
+    const { store } = setup({ home: titled })
+
+    expect(() =>
+      store.applyOperations("Tidy: Rename layers", [
+        { op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Heading" },
+        { op: "set", design: "app.par#home", node: "deleted", path: ["name"], value: "Lost" }
+      ])
+    ).toThrow('Operation 2: No layer "deleted" in this design')
+
+    expect(layerName(store)).toBe("Title")
+    expect(store.getHistory()).toMatchObject({ canUndo: false })
+  })
+})
+
 describe("token edits", () => {
   it("are saved with the project's other changes", async () => {
     const { store, writes, tokenWrites } = setup()

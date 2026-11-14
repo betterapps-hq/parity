@@ -300,9 +300,12 @@ each major for two years from its release. An extension package can say all of t
   For an extension installed into the app or built in, which npm never checks against the project, Parity's own check
   does it. The author widens the range when they've tested a new major, so the two-year rule becomes the author's policy
   and Parity no longer carries release dates.
-- **What peer dependencies can't say** stays in the manifest: `scope` for tools whose packages share a scope
-  (`@storybook/`), `distributions` for packages that ship the tool under another name, and `prefix` for how its majors
-  are written (`v4`). `ToolVersions` shrinks to those three fields.
+- **What peer dependencies can't say** stays in the manifest's `versions`: `scope` for tools whose packages share a
+  scope (`@storybook/`), `distributions` for packages that ship the tool under another name, and `prefix` for how its
+  majors are written (`v4`). `ToolVersions` shrinks to those three fields.
+- **Parity's own mark every peer optional,** since they come with the app rather than beside their tool. Storybook and
+  TanStack Router read theirs this way (PAR-1091); React, Vite and Tailwind keep their release dates until their
+  extensions come.
 
 ## The API
 

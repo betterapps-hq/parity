@@ -24,7 +24,7 @@ import { cacheUse, reportCacheUse } from "./cache-use.ts"
 import { ProjectChangeDetectors } from "./change-detectors.ts"
 import { reportRunningChildren } from "./children.ts"
 import { saveDetection, savedDetection } from "./detection-cache.ts"
-import { undoProjectEdit } from "./edits.ts"
+import { applyProjectEdit, undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
@@ -94,23 +94,46 @@ const projects = openProjects({
 })
 
 // Each open project's extensions, each in a host of its own (PAR-1089).
-const extensions = startExtensions({
-  changed: (projectId, list) => {
-    editor?.request("extensions.changed", { projectId, extensions: list }).catch(() => undefined)
-  },
-  logged: (projectId, extension, line) => {
-    editor?.request("extensions.logged", { projectId, extension, line }).catch(() => undefined)
-  },
-  async ui(projectId, extension, method, params) {
-    const window = await whenWindow()
-    // SAFETY: the window answers each of parity.ui's methods with that method's result (see `ExtensionUiAnswer`); the
-    // channel's one method can't say which from the request.
-    const request = { projectId, extension, method, params } as ExtensionUiRequest
+const extensions = startExtensions(
+  {
+    async updateSetting(projectId, extension, key, value) {
+      const window = await whenWindow()
+      await window.request(
+        "extensions.setting",
+        value === undefined ? { projectId, extension, key } : { projectId, extension, key, value }
+      )
+    },
+    changed: (projectId, list) => {
+      editor?.request("extensions.changed", { projectId, extensions: list }).catch(() => undefined)
+    },
+    logged: (projectId, extension, line) => {
+      editor?.request("extensions.logged", { projectId, extension, line }).catch(() => undefined)
+    },
+    async ui(projectId, extension, method, params) {
+      const window = await whenWindow()
+      // SAFETY: the window answers each of parity.ui's methods with that method's result (see `ExtensionUiAnswer`); the
+      // channel's one method can't say which from the request.
+      const request = { projectId, extension, method, params } as ExtensionUiRequest
 
-    // SAFETY: as above, the answer is this method's result.
-    return (await window.request("extensions.ui", request)) as never
+      // SAFETY: as above, the answer is this method's result.
+      return (await window.request("extensions.ui", request)) as never
+    }
+  },
+  {
+    // An extension's design changes go to the window, as an agent's do, and wait for one (PAR-1093).
+    async transact(projectId, _extension, label, operations) {
+      const window = await whenWindow()
+      await window.request("extensions.transact", { projectId, label, operations })
+    },
+    // Its file changes go through the project's one queued write, and the window shows them with Undo.
+    async files(projectId, _extension, label, files) {
+      const edit = await applyProjectEdit(projects.get(projectId), { label, files })
+      editor?.request("extensions.edited", { projectId, edit }).catch(() => undefined)
+
+      return edit.files.map((file) => file.path)
+    }
   }
-})
+)
 
 /** Opens a project and tells its extensions, which start the ones that activate when detected. */
 async function openProject(root: string, how?: { reopen?: boolean }) {
@@ -199,6 +222,7 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
+  "extensions.projectSettings": ({ projectId, settings }) => extensions.setProjectSettings(projectId, settings),
   "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
@@ -350,9 +374,18 @@ process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain
   }
 })
 
-mainProcess.serve({ builders: () => builderReadings() })
+mainProcess.serve({
+  builders: () => builderReadings(),
+  extensionSettings: (settings) => extensions.setAppSettings(settings)
+})
 
 mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
+
+// Extensions' app settings, which main keeps in settings.json and sends again as they change (PAR-1090).
+mainProcess.request("extensionSettings", undefined).then(
+  (settings) => extensions.setAppSettings(settings),
+  () => undefined
+)
 
 reportRunningChildren((pids) => {
   mainProcess.request("children", pids).catch(() => {

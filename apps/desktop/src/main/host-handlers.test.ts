@@ -66,9 +66,16 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
     installCli: () => Promise.resolve({ folder: "C:/bin", onPath: true, newTerminal: false }),
     quit: () => undefined,
     toggleDevTools: () => undefined,
-    settings: { change: () => Promise.resolve({ values: { ...defaultSettings }, badValues: [] }) },
     projects: { change: () => Promise.resolve({ recent: [], notes: {} }) },
     state: { set: () => undefined, claimTabs: () => Promise.resolve({ roots: [] }), saveTabs: () => undefined },
+    settings: { change: () => Promise.resolve({ values: { ...defaultSettings }, extensions: {}, badValues: [] }) },
+    settingsView: {
+      open: () => undefined,
+      close: () => undefined,
+      project: () => undefined,
+      changeProject: () => undefined
+    },
+    openInParity: () => undefined,
     keybindings: {
       state: () => ({ entries: [] }),
       replace: () => Promise.resolve({ entries: [] }),
@@ -208,7 +215,7 @@ describe("the system's dialogs", () => {
 describe("the settings", () => {
   it("passes a window's change to main's store, for what the settings are after", async () => {
     const change = vi.fn<HostNeeds<Sender, TestWindow>["settings"]["change"]>(() =>
-      Promise.resolve({ values: { ...defaultSettings, theme: "light" }, badValues: [] })
+      Promise.resolve({ values: { ...defaultSettings, theme: "light" }, extensions: {}, badValues: [] })
     )
 
     const handlers = hostHandlers(app({ settings: { change } }))

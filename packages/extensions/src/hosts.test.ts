@@ -4,6 +4,7 @@ import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
 import {
+  type ExtensionEdits,
   type ExtensionHostsOptions,
   type ExtensionStateStore,
   type ExtensionStatus,
@@ -27,7 +28,17 @@ const storybook = readExtension({
     activates: ["onDetect"],
     contributes: {
       commands: [{ id: "storybook.open", title: "Open in Storybook" }],
-      statusItems: [{ id: "storybook.stories", title: "Storybook", command: "storybook.open" }]
+      statusItems: [{ id: "storybook.stories", title: "Storybook", command: "storybook.open" }],
+      settings: {
+        "storybook.configDir": { type: "string", default: ".storybook", scope: "project", title: "Config folder" },
+        "storybook.openIn": {
+          type: "string",
+          enum: ["browser", "parity"],
+          default: "browser",
+          scope: "app",
+          title: "Open stories in"
+        }
+      }
     }
   }
 })
@@ -42,6 +53,20 @@ const timings = readExtension({
     icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
     activates: ["onCommand:timings.measure"],
     contributes: { commands: [{ id: "timings.measure", title: "Measure route timings" }] }
+  }
+})
+
+const tidy = readExtension({
+  name: "parity-tidy",
+  version: "1.0.0",
+  main: "dist/extension.js",
+  parity: {
+    displayName: "Tidy",
+    prefix: "tidy",
+    icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+    activates: ["onCommand:tidy.rename"],
+    permissions: { edits: true, write: ["**"] },
+    contributes: { commands: [{ id: "tidy.rename", title: "Rename layer" }] }
   }
 })
 
@@ -93,6 +118,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   const changes: ExtensionStatus[][] = []
   const lines: { extension: string; line: LogLine }[] = []
   const notified: string[] = []
+  const updated: { extension: string; key: string; value?: JsonValue }[] = []
   const started: Started[] = []
   const state = memoryState()
 
@@ -103,7 +129,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   })
 
   const hosts = extensionHosts<OpenedProject>({
-    extensions: [installed(storybook), installed(timings)],
+    extensions: [installed(storybook), installed(timings), installed(tidy)],
     start(extension) {
       const [service, host] = memoryPorts()
       let end: (ending: ChildEnd) => void = () => undefined
@@ -133,6 +159,9 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
     },
     state,
     window: {
+      async updateSetting(_projectId, extension, key, value) {
+        updated.push(value === undefined ? { extension, key } : { extension, key, value })
+      },
       changed: (_projectId, extensions) => changes.push(extensions),
       logged: (_projectId, extension, line) => lines.push({ extension, line }),
       async ui(_projectId, _extension, method, params) {
@@ -152,12 +181,18 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
       stopAll: vi.fn<() => void>(),
       routed: () => Promise.resolve([])
     },
+    edits: {
+      transact: vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve()),
+      files: vi.fn<ExtensionEdits["files"]>((_projectId, _extension, _label, files) =>
+        Promise.resolve(files.map((file) => file.path))
+      )
+    },
     ...options
   })
 
   const latest = (id: string) => changes.at(-1)?.find((extension) => extension.id === id)
 
-  return { hosts, changes, lines, notified, started, state, latest }
+  return { hosts, changes, lines, notified, updated, started, state, latest }
 }
 
 /** Waits for the memory ports to deliver what's in flight, a task at a time. */
@@ -434,6 +469,7 @@ describe("extension hosts", () => {
         activate: () => undefined,
         run: () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
+        "settings.changed": () => undefined,
         cancel: () => undefined,
         stop: () => undefined
       })
@@ -498,5 +534,158 @@ describe("extension hosts", () => {
     expect(deactivate).toHaveBeenCalledOnce()
     expect(stopAll).toHaveBeenCalledWith("shop", "@parity-app/extension-storybook")
     expect(hosts.list("shop").extensions).toEqual([])
+  })
+
+  it("renames a layer from a command as one change, labelled with the extension's name", async () => {
+    const transact = vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve())
+
+    const { hosts } = setUp(
+      {
+        "parity-tidy": {
+          activate(parity) {
+            parity.commands.register("tidy.rename", async (target) => {
+              if (target?.type === "layer") {
+                await parity.edits.transact("Rename layer", [
+                  { op: "set", design: target.design, node: target.node, path: ["name"], value: "Heading" }
+                ])
+              }
+            })
+          }
+        }
+      },
+      { edits: { transact, files: () => Promise.resolve([]) } }
+    )
+
+    hosts.open(project)
+    await hosts.run("shop", "tidy.rename", { type: "layer", design: "app.par#home", node: "title" })
+
+    expect(transact).toHaveBeenCalledWith("shop", "parity-tidy", "Tidy: Rename layer", [
+      { op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Heading" }
+    ])
+  })
+
+  it("refuses design changes from an extension without the edits permission", async () => {
+    const transact = vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve())
+
+    const { hosts } = setUp(
+      {
+        "parity-route-timings": {
+          activate(parity) {
+            parity.commands.register("timings.measure", () =>
+              parity.edits.transact("Badge", [{ op: "remove", design: "app.par#home", node: "title" }])
+            )
+          }
+        }
+      },
+      { edits: { transact, files: () => Promise.resolve([]) } }
+    )
+
+    hosts.open(project)
+
+    await expect(hosts.run("shop", "timings.measure")).rejects.toThrow("Route timings can't change designs")
+    expect(transact).not.toHaveBeenCalled()
+  })
+
+  it("writes files through the service, and refuses a .par whatever the permission names", async () => {
+    const files = vi.fn<ExtensionEdits["files"]>(() => Promise.resolve(["src/Button.stories.tsx"]))
+    let written: string[] = []
+
+    const { hosts } = setUp(
+      {
+        "parity-tidy": {
+          activate(parity) {
+            parity.commands.register("tidy.rename", async () => {
+              written = await parity.files.edit("Add story", [
+                { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
+              ])
+              await parity.files.edit("Rename", [{ kind: "patch", path: "app.par", find: "Title", replace: "Heading" }])
+            })
+          }
+        }
+      },
+      { edits: { transact: () => Promise.resolve(), files } }
+    )
+
+    hosts.open(project)
+
+    await expect(hosts.run("shop", "tidy.rename")).rejects.toThrow(
+      "Tidy can't write app.par: extensions change designs with parity.edits, never .par files"
+    )
+    expect(written).toEqual(["src/Button.stories.tsx"])
+    expect(files).toHaveBeenCalledOnce()
+    expect(files).toHaveBeenCalledWith("shop", "parity-tidy", "Tidy: Add story", [
+      { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
+    ])
+  })
+
+  it("gives activate each setting from its own scope, the rest at their defaults, and refuses an undeclared key", async () => {
+    let given: Parity | undefined
+    const { hosts } = setUp({ "@parity-app/extension-storybook": { activate: (parity) => void (given = parity) } })
+
+    hosts.setAppSettings({ storybook: { openIn: "parity", configDir: "ignored" } })
+    hosts.open(project)
+    await settle()
+
+    expect(given?.settings.get("storybook.openIn")).toBe("parity")
+    expect(given?.settings.get("storybook.configDir")).toBe(".storybook")
+    expect(() => given?.settings.get("storybook.port")).toThrow("isn't a setting the manifest declares")
+  })
+
+  it("tells the running code each setting that changes, from Settings or the project's file", async () => {
+    const heard: string[] = []
+
+    const { hosts } = setUp({
+      "@parity-app/extension-storybook": {
+        activate(parity) {
+          parity.settings.onChange("storybook.openIn", (value) => heard.push(`openIn ${value}`))
+          parity.settings.onChange("storybook.configDir", (value) => heard.push(`configDir ${value}`))
+        }
+      }
+    })
+
+    hosts.open(project)
+    await settle()
+    hosts.setAppSettings({ storybook: { openIn: "parity" } })
+    hosts.setProjectSettings("shop", { storybook: { configDir: "docs/.storybook" } })
+    // Values that don't change aren't sent again.
+    hosts.setAppSettings({ storybook: { openIn: "parity" } })
+    await settle()
+
+    expect(heard).toEqual(["openIn parity", "configDir docs/.storybook"])
+  })
+
+  it("sends a project setting's update to the window, and refuses an app setting's", async () => {
+    let given: Parity | undefined
+
+    const { hosts, updated } = setUp({
+      "@parity-app/extension-storybook": { activate: (parity) => void (given = parity) }
+    })
+
+    hosts.open(project)
+    await settle()
+    await given?.settings.update("storybook.configDir", "docs/.storybook")
+    await given?.settings.update("storybook.configDir", undefined)
+
+    expect(updated).toEqual([
+      { extension: "storybook", key: "configDir", value: "docs/.storybook" },
+      { extension: "storybook", key: "configDir" }
+    ])
+    await expect(given?.settings.update("storybook.openIn", "parity")).rejects.toThrow("only Settings changes it")
+    expect(updated).toHaveLength(2)
+  })
+
+  it("lists a value that doesn't fit with a note, how long activating took, and the manifest's permissions", async () => {
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": { activate: () => undefined } })
+
+    hosts.setAppSettings({ storybook: { openIn: "tab" } })
+    hosts.open(project)
+    await settle()
+
+    const listed = latest("@parity-app/extension-storybook")
+    expect(listed?.settingProblems).toEqual([
+      `Open stories in is set to "tab", which it can't take, so it's at its default.`
+    ])
+    expect(listed?.activatedIn).toBeGreaterThanOrEqual(0)
+    expect(listed).toMatchObject({ prefix: "storybook", permissions: {}, activates: ["onDetect"] })
   })
 })

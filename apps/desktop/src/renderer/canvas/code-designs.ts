@@ -1,5 +1,11 @@
 import type { CanvasDocument, CodeDesignSettings, ContainerSpec } from "@parity-app/core"
-import { codeDesignSettings, sameValue, withCodeDesignSettings } from "@parity-app/editor"
+import {
+  codeDesignSettings,
+  sameValue,
+  type ViewScope,
+  withCodeDesignSettings,
+  withPrunedView
+} from "@parity-app/editor"
 import type { DesignStore } from "../design-store.ts"
 import { storyScreensFile } from "./story-screens.ts"
 
@@ -24,6 +30,67 @@ export function withCodeDesigns(drawn: Drawn, saved: CanvasDocument["codeDesigns
 }
 
 /**
+ * What's set on a design drawn from code, unlike `drawn`, as its code draws it: what it shows, and for a story its tried
+ * sizes, since a page's and a board's layers are drawn afresh.
+ */
+function settingsFor(path: string, design: ContainerSpec, drawn: ContainerSpec): CodeDesignSettings | undefined {
+  return codeDesignSettings(path === storyScreensFile ? design : { ...design, root: drawn.root }, drawn)
+}
+
+/** A design's key among the project's designs: its file and its id. */
+function keyOf(path: string, design: ContainerSpec): string {
+  return `${path}#${design.id}`
+}
+
+/** The designs drawn from code as the project opens, and what the project file keeps for them. */
+interface OpenedCodeDesigns {
+  designs: Drawn
+  saved: CanvasDocument["codeDesigns"]
+}
+
+/**
+ * The designs drawn from code as the project opens, with what the person had set on them, and the project file's record
+ * of that with nothing stale left in it: each view names only what's still there (see `withPrunedView`), and an entry
+ * for a design its file no longer draws is dropped, as a story file taken away, unless nothing of that file was drawn
+ * this time, as when its tool couldn't be read.
+ */
+export function openCodeDesigns(
+  drawn: Drawn,
+  saved: CanvasDocument["codeDesigns"],
+  scopeOf: (path: string, design: ContainerSpec) => ViewScope
+): OpenedCodeDesigns {
+  const designs = withCodeDesigns(drawn, saved).map(({ path, document }) => ({
+    path,
+    document: {
+      ...document,
+      containers: document.containers.map((design) => withPrunedView(design, scopeOf(path, design)))
+    }
+  }))
+
+  const paths = new Set(drawn.map(({ path }) => path))
+  const kept: NonNullable<CanvasDocument["codeDesigns"]> = {}
+
+  for (const [key, settings] of Object.entries(saved ?? {})) {
+    if (!paths.has(key.slice(0, key.indexOf("#")))) {
+      kept[key] = settings
+    }
+  }
+
+  drawn.forEach(({ path, document }, at) => {
+    document.containers.forEach((was, index) => {
+      const now = designs[at]?.document.containers[index]
+      const settings = now && settingsFor(path, now, was)
+
+      if (settings) {
+        kept[keyOf(path, was)] = settings
+      }
+    })
+  })
+
+  return { designs, saved: Object.keys(kept).length > 0 ? kept : undefined }
+}
+
+/**
  * Keeps what's set on the designs drawn from code in the project file, as it changes: those designs are drawn again each
  * time the project opens, so it's the only place it lasts. Only a story keeps its tried sizes, since a page's and a
  * board's layers are drawn afresh, and a design missing for now, such as a story whose file fails, keeps what it had.
@@ -32,9 +99,7 @@ export function keepCodeDesigns(store: DesignStore, drawn: Drawn): void {
   const paths = new Set(drawn.map(({ path }) => path))
 
   const asDrawn = new Map<string, ContainerSpec>(
-    drawn.flatMap(({ path, document }) =>
-      document.containers.map((design) => [`${path}#${design.id}`, design] as const)
-    )
+    drawn.flatMap(({ path, document }) => document.containers.map((design) => [keyOf(path, design), design] as const))
   )
 
   const read = new WeakMap<ContainerSpec, CodeDesignSettings | undefined>()
@@ -47,7 +112,7 @@ export function keepCodeDesigns(store: DesignStore, drawn: Drawn): void {
     }
 
     if (!read.has(design)) {
-      read.set(design, codeDesignSettings(path === storyScreensFile ? design : { ...design, root: was.root }, was))
+      read.set(design, settingsFor(path, design, was))
     }
 
     return read.get(design)

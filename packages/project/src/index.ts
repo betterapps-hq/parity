@@ -450,7 +450,8 @@ export function adapterStatus(
 
 /**
  * Screens the project's tools describe, as edited in Parity, written back through the adapters that imported them:
- * the files each changes, and the entities as they are once written. Only a screen whose layers changed is written.
+ * the files each changes, and the entities as they are once written. Only a screen whose layers or states changed is
+ * written.
  */
 export async function exportEntities(
   root: string,
@@ -469,13 +470,16 @@ export async function exportEntities(
     const now = byId.get(screen.screen.id)
     const adapter = adapters.find((each) => each.id === screen.adapter)
 
-    if (!now || JSON.stringify(now.root) === JSON.stringify(screen.screen.root) || !adapter?.export) {
+    // What a tool's file holds is the screen's layers, and its states' patches, as a story file's stories' args.
+    const drawn = (design: ContainerSpec) => JSON.stringify([design.root, design.states])
+
+    if (!now || drawn(now) === drawn(screen.screen) || !adapter?.export) {
       screens.push(screen)
       continue
     }
 
     writes.push(...(await adapter.export(screen, now, source)))
-    screens.push({ ...screen, screen: { ...screen.screen, root: now.root } })
+    screens.push({ ...screen, screen: { ...screen.screen, root: now.root, ...(now.states && { states: now.states }) } })
   }
 
   return { writes, entities: { ...imported, screens } }

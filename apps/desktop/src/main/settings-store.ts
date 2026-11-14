@@ -3,9 +3,10 @@ import {
   changedSettings,
   changeSettings,
   defaultSettings,
+  type FileChange,
   readSettings,
-  type SettingsChange,
-  settingKeys
+  settingKeys,
+  withExtensionChange
 } from "@parity-app/settings"
 import type { SettingsState } from "../shared/settings.ts"
 import type { LockOptions } from "./file-lock.ts"
@@ -14,8 +15,11 @@ import { type FileFormat, sharedFile, type SharedFileState } from "./shared-file
 export interface SettingsStore {
   /** What every window is shown now, from memory: the file as last read, with changes not yet saved on top. */
   state(): SettingsState
-  /** Makes one change, in the file as it is now. Never fails: a change that can't be saved yet waits and is tried again. */
-  change(change: SettingsChange): Promise<SettingsState>
+  /**
+   * Makes one change, in the file as it is now: to Parity's own settings, or to extensions' under `extensions`. Never
+   * fails: a change that can't be saved yet waits and is tried again.
+   */
+  change(change: FileChange): Promise<SettingsState>
   /** Reads the file again, as when a window gains focus, in case a change from another copy was missed. */
   check(): void
   /** Stops watching and trying again. */
@@ -33,16 +37,16 @@ export interface SettingsStoreOptions {
   lock?: LockOptions
 }
 
-type Values = Pick<SettingsState, "values" | "badValues">
+type Values = Pick<SettingsState, "values" | "extensions" | "badValues">
 
-const settingsFormat: FileFormat<Values, SettingsChange> = {
+const settingsFormat: FileFormat<Values, FileChange> = {
   read(text) {
     const { problem, ...values } = readSettings(text)
 
     return problem === undefined ? { values } : { values, problem }
   },
   write: changeSettings,
-  apply({ values, badValues }, change) {
+  apply({ values, extensions, badValues }, change) {
     const entries = settingKeys.map((key) => {
       const value = change[key]
 
@@ -51,7 +55,11 @@ const settingsFormat: FileFormat<Values, SettingsChange> = {
     })
 
     // SAFETY: each value is one the file's schema read, a default, or one a change's schema read, for its own key.
-    return { values: Object.fromEntries(entries) as AppSettings, badValues }
+    return {
+      values: Object.fromEntries(entries) as AppSettings,
+      extensions: withExtensionChange(extensions, change.extensions),
+      badValues
+    }
   }
 }
 

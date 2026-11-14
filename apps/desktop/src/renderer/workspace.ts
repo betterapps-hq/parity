@@ -16,7 +16,9 @@ import {
   noBoardParents,
   openingDesigns,
   type RecoveryCopy,
-  redrawnBoards
+  redrawnBoards,
+  prunedDocument,
+  sameValue
 } from "@parity-app/editor"
 import {
   changeProjectsData,
@@ -30,10 +32,10 @@ import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
-import { keepCodeDesigns, withCodeDesigns } from "./canvas/code-designs.ts"
+import { keepCodeDesigns, openCodeDesigns } from "./canvas/code-designs.ts"
 import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
-import { routePages, routePagesFile } from "./canvas/route-pages.ts"
+import { routePages, routePagesFile, routeParams } from "./canvas/route-pages.ts"
 import { storyScreensDocument, storyScreensFile } from "./canvas/story-screens.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
@@ -1223,13 +1225,34 @@ async function createSession(
   const loaded = await loadGuest(info.guestUrl, info.theme)
   const drawn = drawImported(info, loaded)
 
-  const opening = openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings)
+  const modes = info.modes.settings
   const fromCode = [...routePages(info), ...componentBoardsDocument(info), ...storyScreensDocument(info)]
-  const kept = opening.find(({ path }) => path === info.mainDocument)?.document.codeDesigns
+
+  // What's stale goes as the project opens: views naming modes, states or params that are gone, and what was kept for
+  // designs drawn from code that no longer are. The file loses it at its next save.
+  const opening = openingDesigns(info.documents, info.mainDocument, info.sources, modes).map(({ path, document }) => ({
+    path,
+    document: prunedDocument(document, modes)
+  }))
+
+  const main = opening.find(({ path }) => path === info.mainDocument)
+
+  const code = openCodeDesigns(fromCode, main?.document.codeDesigns, (path, design) => ({
+    modes,
+    params: path === routePagesFile ? routeParams(info, design.id) : undefined
+  }))
+
+  if (main && !sameValue(code.saved, main.document.codeDesigns)) {
+    main.document = { ...main.document, codeDesigns: code.saved }
+
+    if (!code.saved) {
+      delete main.document.codeDesigns
+    }
+  }
 
   const store = new DesignStore(
-    [...opening, ...withCodeDesigns(fromCode, kept)],
-    info.modes.settings,
+    [...opening, ...code.designs],
+    modes,
     info.mainDocument,
     {
       // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its

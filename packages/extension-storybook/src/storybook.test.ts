@@ -19,6 +19,19 @@ describe("the Storybook extension", () => {
 
     expect(found.manifest.contributes.commands?.map((command) => command.id)).toEqual(["storybook.open"])
     expect(found.manifest.contributes.statusItems?.map((item) => item.id)).toEqual(["storybook.stories"])
+    // The config folder is the project's, where stories open the person's (PAR-1090).
+    expect(found.manifest.contributes.settings).toMatchObject({
+      "storybook.configDir": { scope: "project", default: ".storybook" },
+      "storybook.openIn": { scope: "app", enum: ["browser", "parity"], default: "browser" }
+    })
+  })
+
+  it("gives Storybook's supported versions by its peer dependencies, storybook first", () => {
+    expect(readExtension(packageJson).versions).toEqual({
+      packages: ["storybook", "@storybook/react", "@storybook/react-vite"],
+      range: "^9.0.0 || ^10.0.0",
+      scope: "@storybook/"
+    })
   })
 
   it("reads what detection found, and which components have stories", () => {

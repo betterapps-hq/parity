@@ -1,4 +1,4 @@
-import { parseData } from "@parity-app/core"
+import { parseData, peerVersions, type ToolVersions } from "@parity-app/core"
 import type {
   ActivationEvent,
   AgentToolContribution,
@@ -11,9 +11,11 @@ import type {
   MenuPlacement,
   PathIcon,
   Providers,
-  SettingContribution
+  SettingContribution,
+  ToolVersionFacts
 } from "@parity-app/extension-api"
 import { z } from "zod"
+import { fits } from "./settings.ts"
 
 /*
  * Reads an extension's manifest, the `parity` field of its `package.json`, and refuses one that breaks a rule: a field
@@ -176,6 +178,12 @@ const contributions = z.strictObject({
   settings: z.record(z.string(), setting).optional()
 }) satisfies z.ZodType<Contributions>
 
+const toolVersions = z.strictObject({
+  scope: z.string().min(1, "can't be blank").optional(),
+  prefix: z.string().min(1, "can't be blank").optional(),
+  distributions: z.record(z.string(), title).optional()
+}) satisfies z.ZodType<ToolVersionFacts>
+
 const manifest = z
   .strictObject({
     displayName: title,
@@ -184,6 +192,7 @@ const manifest = z
     activates: z.array(activationEvent),
     detect: z.string().optional(),
     watches: z.array(z.string()).optional(),
+    versions: toolVersions.optional(),
     permissions: z
       .strictObject({
         read: z.array(z.string()).optional(),
@@ -208,6 +217,7 @@ const extensionPackage = z.looseObject({
   version: z.string().min(1, "can't be blank"),
   main: z.string().min(1, "can't be blank"),
   engines: z.looseObject({ parity: z.string().optional() }).optional(),
+  peerDependencies: z.record(z.string(), z.string()).optional(),
   parity: manifest
 })
 
@@ -220,6 +230,11 @@ export interface ExtensionPackage {
   main: string
   /** The range of Parity versions it works with, from `engines.parity`. */
   engine?: string
+  /**
+   * Its tool's versions, from its peer dependencies: the packages that carry the version, the main one first, and the
+   * range it supports. Unset when it has none.
+   */
+  versions?: ToolVersions
   manifest: Manifest
 }
 
@@ -234,6 +249,12 @@ export function readExtension(packageJson: unknown): ExtensionPackage {
 
   if (read.engines?.parity) {
     found.engine = read.engines.parity
+  }
+
+  const versions = peerVersions(read.peerDependencies, read.parity.versions)
+
+  if (versions) {
+    found.versions = versions
   }
 
   return found
@@ -303,8 +324,9 @@ function ruleProblems(read: Manifest): Problem[] {
     needsPrefix(tool.name, ["contributes", "agentTools", index, "name"])
   }
 
-  for (const key of Object.keys(contributes.settings ?? {})) {
+  for (const [key, setting] of Object.entries(contributes.settings ?? {})) {
     needsPrefix(key, ["contributes", "settings", key])
+    problems.push(...settingProblems(setting).map((message) => ({ path: ["contributes", "settings", key], message })))
   }
 
   for (const [index, event] of read.activates.entries()) {
@@ -324,6 +346,25 @@ function ruleProblems(read: Manifest): Problem[] {
       needsPrefix(key.replace(/^!/, ""), path)
     }
   }
+}
+
+/** What a setting's schema says of itself that can't hold: choices for a number, or a default that isn't one of them. */
+function settingProblems(setting: SettingContribution): string[] {
+  const problems: string[] = []
+
+  if (setting.enum && setting.type !== "string") {
+    problems.push("only a string setting can have choices in enum")
+  }
+
+  if (setting.enumTitles && setting.enumTitles.length !== setting.enum?.length) {
+    problems.push("enumTitles must name each of enum's choices, in its order")
+  }
+
+  if (setting.default !== undefined && !fits(setting, setting.default)) {
+    problems.push(`its default, ${JSON.stringify(setting.default)}, doesn't fit its type and choices`)
+  }
+
+  return problems
 }
 
 function isPart(text: string): boolean {

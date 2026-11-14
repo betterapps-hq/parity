@@ -188,7 +188,7 @@ These are the document format, which document.md describes:
 ### DesignSummary
 
 ```ts
-/** A design as `Designs()` lists it. Only a component has states, so only a component lists them. */
+/** A design as `Designs()` lists it. Only a component and a story have states, so only they list them. */
 type DesignSummary = ScreenSummary | ComponentSummary
 ```
 
@@ -351,7 +351,7 @@ interface Selected {
 ```ts
 interface DesignInput {
   name: string
-  kind?: "component" | "frame" | "screen"
+  kind?: "component" | "frame" | "screen" | "story"
   file?: string
   x?: number
   y?: number
@@ -372,7 +372,7 @@ interface DesignInput {
 interface DesignUpdate {
   name?: string
   /** Becoming a frame drops what a frame doesn't have, and says so in the call's warnings. */
-  kind?: "component" | "frame" | "screen"
+  kind?: "component" | "frame" | "screen" | "story"
   x?: number
   y?: number
   /** A frame's own size, in pixels. */
@@ -401,7 +401,7 @@ interface PlaceOptions {
 ```ts
 interface DocumentPlacement {
   name?: string
-  kind?: "component" | "frame" | "screen"
+  kind?: "component" | "frame" | "screen" | "story"
   file?: string
   x?: number
   y?: number
@@ -741,8 +741,8 @@ interface ScreenSummary extends SummaryFields {
 ```ts
 /** A component, with the states it's shown in. */
 interface ComponentSummary extends SummaryFields {
-  kind: "component"
-  /** Each state, the base first, by the id other functions take and the name it shows. */
+  kind: "component" | "story"
+  /** Each state, the base first, by the id other functions take and the name it shows: a story file's stories. */
   states: { id: string; name: string }[]
   /** The state its board shows, its main frame's mode and the modes beside it. */
   showing: { state: string; mode: string; beside: string[] }

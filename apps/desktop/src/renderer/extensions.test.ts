@@ -11,8 +11,12 @@ function storybook(change: Partial<ExtensionStatus> = {}): ExtensionStatus {
   return {
     id,
     displayName: manifest.displayName,
+    prefix: manifest.prefix,
     icon: manifest.icon,
     contributes: manifest.contributes,
+    permissions: {},
+    activates: manifest.activates,
+    settingProblems: [],
     state: "running",
     status: {},
     context: { "storybook.hasStories": ["Button"] },
@@ -47,6 +51,24 @@ describe("commandsAt", () => {
     expect(commandsAt([storybook()], "media", button)).toEqual([])
     expect(commandsAt([storybook({ state: "crashed" })], "canvas", button)).toEqual([])
     expect(commandsAt([storybook({ state: "stuck" })], "canvas", button)).toHaveLength(1)
+  })
+})
+
+describe("commandsAt for a layer", () => {
+  const title = { type: "layer", design: "app.par#home", node: "title" } as const
+
+  const tidy = storybook({
+    id: "parity-tidy",
+    contributes: {
+      commands: [{ id: "tidy.rename", title: "Rename layer" }],
+      menus: { layers: [{ command: "tidy.rename", when: "layer" }] }
+    },
+    context: {}
+  })
+
+  it("places what a when names for layers, as `layer`, and nothing placed for components", () => {
+    expect(commandsAt([storybook(), tidy], "layers", title)).toMatchObject([{ command: { id: "tidy.rename" } }])
+    expect(commandsAt([tidy], "layers", button)).toEqual([])
   })
 })
 

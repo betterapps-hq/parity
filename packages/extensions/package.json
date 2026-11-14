@@ -6,7 +6,9 @@
   "type": "module",
   "description": "Extensions' manifests, and the hosts each one's code runs in.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./manifest": "./src/manifest.ts",
+    "./settings": "./src/settings.ts"
   },
   "dependencies": {
     "@parity-app/channel": "workspace:*",

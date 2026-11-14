@@ -19,8 +19,8 @@
         "src/main/index.ts",
         "src/preload/{index,render}.ts",
         "src/utility/{index,props-worker,builder-process,extension-host}.ts",
-        // The renderer's pages, index.html and render.html, load these.
-        "src/renderer/{main.tsx,render.ts}",
+        // The renderer's pages, index.html, render.html and settings.html, load these.
+        "src/renderer/{main.tsx,render.ts,settings.tsx}",
         // What the package's scripts and the docs run: dev, inspect, perf, drive, snap and icons.
         "scripts/*.ts",
         ".storybook/{main,preview}.ts",
