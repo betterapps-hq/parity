@@ -544,4 +544,6 @@ export {
   styleOfElement
 } from "./element-layers.ts"
 
+export { prunedDocument, prunedView, type ViewScope, withPrunedView } from "./prune-view.ts"
+
 export { codeDesignSettings, hasTriedSize, withCodeDesignSettings, withoutTriedSize } from "./tried-size.ts"

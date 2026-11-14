@@ -96,6 +96,13 @@ const projects = openProjects({
 // Each open project's extensions, each in a host of its own (PAR-1089).
 const extensions = startExtensions(
   {
+    async updateSetting(projectId, extension, key, value) {
+      const window = await whenWindow()
+      await window.request(
+        "extensions.setting",
+        value === undefined ? { projectId, extension, key } : { projectId, extension, key, value }
+      )
+    },
     changed: (projectId, list) => {
       editor?.request("extensions.changed", { projectId, extensions: list }).catch(() => undefined)
     },
@@ -218,6 +225,7 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
+  "extensions.projectSettings": ({ projectId, settings }) => extensions.setProjectSettings(projectId, settings),
   "extensions.viewOpened": ({ projectId, view }) => extensions.viewOpened(projectId, view),
   "extensions.viewChanged": ({ projectId, extension, view, key, value }) =>
     extensions.viewChanged(projectId, extension, { view, key, value }),
@@ -372,9 +380,18 @@ process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain
   }
 })
 
-mainProcess.serve({ builders: () => builderReadings() })
+mainProcess.serve({
+  builders: () => builderReadings(),
+  extensionSettings: (settings) => extensions.setAppSettings(settings)
+})
 
 mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
+
+// Extensions' app settings, which main keeps in settings.json and sends again as they change (PAR-1090).
+mainProcess.request("extensionSettings", undefined).then(
+  (settings) => extensions.setAppSettings(settings),
+  () => undefined
+)
 
 reportRunningChildren((pids) => {
   mainProcess.request("children", pids).catch(() => {

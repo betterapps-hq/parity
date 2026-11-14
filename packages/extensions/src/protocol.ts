@@ -7,8 +7,10 @@ import type {
   Fact,
   FileEdit,
   JsonValue,
+  OpenWhere,
   PickItem,
   ServerRequest,
+  SettingValue,
   Tone,
   ViewData,
   ViewKind
@@ -39,6 +41,8 @@ export interface ActivateParams {
   /** The tabs, sections and pages it declares, by id, with the kind of view each holds. */
   views: Record<string, ViewKind>
   state: StateValues
+  /** Its settings' values now, by key, and whose each one is: the person's (`app`) or the project's (`project`). */
+  settings: { values: Record<string, SettingValue>; scopes: Record<string, "app" | "project"> }
 }
 
 /** What the project service asks of a host. */
@@ -47,8 +51,10 @@ export interface HostMethods {
   activate: { params: ActivateParams; result: undefined }
   /** Runs one of its commands, once it has activated. */
   run: { params: { command: string; target?: CommandTarget }; result: undefined }
-  /** Answers at once, unless the extension's code is keeping the host busy. */
-  ping: { params: undefined; result: undefined }
+  /** Answers at once, unless the extension's code is keeping the host busy, with the memory its process holds. */
+  ping: { params: undefined; result: { memory?: number } | undefined }
+  /** Some of its settings changed, in Settings or by its own `update`: their values now, by key. */
+  "settings.changed": { params: { values: Record<string, SettingValue> }; result: undefined }
   /** The person cancelled a task under `ui.progress`. */
   cancel: { params: { progress: number }; result: undefined }
   /** The person changed a field of one of its forms. */
@@ -88,7 +94,9 @@ export interface HostServiceMethods {
   "ui.pick": { params: { items: PickItem[]; title?: string; placeholder?: string }; result: { index?: number } }
   "ui.input": { params: { title: string; value?: string; placeholder?: string }; result: { value?: string } }
   "ui.confirm": { params: { message: string; detail?: string; confirm?: string }; result: { confirmed: boolean } }
-  "ui.open": { params: { url: string }; result: undefined }
+  "ui.open": { params: { url: string; where?: OpenWhere }; result: undefined }
+  /** Sets one of its `project` settings, or puts it back to its default without `value`. */
+  "settings.update": { params: { key: string; value?: SettingValue }; result: undefined }
   /** Shows a task's progress, says what it's doing now, or ends it with `done`. */
   "ui.progress": { params: { id: number; title?: string; detail?: string; done?: boolean }; result: undefined }
   /** Draws one of its views with this data, replacing what it drew before. */
@@ -267,7 +275,13 @@ export const hostChecks: Checks<HostServiceMethods> = {
       confirm: z.string().max(40).optional()
     })
   ),
-  "ui.open": checkOf(z.strictObject({ url })),
+  "ui.open": checkOf(z.strictObject({ url, where: z.enum(["browser", "parity"]).optional() })),
+  "settings.update": checkOf(
+    z.strictObject({
+      key: z.string().max(200),
+      value: z.union([z.string().max(20_000), z.number(), z.boolean()]).optional()
+    })
+  ),
   "ui.progress": checkOf(
     z.strictObject({
       id: z.int(),

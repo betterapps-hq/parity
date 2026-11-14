@@ -62,6 +62,7 @@ import { createReports, offersCrashReports } from "./report.ts"
 import { localHistory } from "./search-history.ts"
 import { sessionStore } from "./session-store.ts"
 import { settingsStore } from "./settings-store.ts"
+import { settingsViews } from "./settings-view.ts"
 import { readStandIn, standInAccount } from "./stand-in-account.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
@@ -219,11 +220,27 @@ const settings = settingsStore(join(app.getPath("userData"), "settings.json"), {
         window.webContents.send(ipc.settingsChanged, state)
       }
     }
+
+    for (const contents of settingsView.contents()) {
+      contents.send(ipc.settingsChanged, state)
+    }
+
+    // Extensions read their app settings in the service's hosts, which hear each change (PAR-1090).
+    if (JSON.stringify(state.extensions) !== JSON.stringify(sentExtensions)) {
+      sentExtensions = state.extensions
+      void projectService
+        .channel()
+        ?.request("extensionSettings", state.extensions)
+        .catch(() => undefined)
+    }
   },
   problem: (message) => console.warn(message)
 })
 
 nativeTheme.themeSource = settings.state().values.theme
+
+/** Extensions' app settings as the service last heard them, which it also asks for as it starts. */
+let sentExtensions = settings.state().extensions
 
 // The preload waits for the settings before the page draws, so the first frame has them; main answers from memory.
 ipcMain.on(ipc.settingsNow, (event) => {
@@ -247,6 +264,10 @@ const keybindings = keybindingsFile(join(app.getPath("userData"), "keybindings.j
     if (!window.isDestroyed() && !isRenderWindow(window)) {
       window.webContents.send(ipc.keybindingsChanged, state)
     }
+  }
+
+  for (const contents of settingsView.contents()) {
+    contents.send(ipc.keybindingsChanged, state)
   }
 })
 
@@ -400,6 +421,11 @@ const projectService = createProjectService({
       return undefined
     },
     agentCalled: (caller) => agentCalled(caller),
+    extensionSettings: () => {
+      sentExtensions = settings.state().extensions
+
+      return sentExtensions
+    },
     // An agent's report, with the editor window's screenshot (PAR-646).
     report: (problem) => reports.sendForAgent(editorWindow(), problem)
   },
@@ -420,6 +446,53 @@ const projectService = createProjectService({
     crashed: serviceCrashed
   }
 })
+
+/** What the editor window's preload is started with, which Settings' is too. */
+function preloadArguments(): string[] {
+  return [
+    `--parity-version=${app.getVersion()}`,
+    `${telemetryRunArgument}${telemetryRun}`,
+    ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : []),
+    // Every copy needs someone signed in before anything else (PAR-1008). Storybook's host leaves it out.
+    "--parity-sign-in-required"
+  ]
+}
+
+/**
+ * Settings, its own web contents over each editor window, which loads no project code (PAR-1090). Only it may change
+ * extensions' app settings; `answerWindows` refuses them from the editor window's page.
+ */
+const settingsView = settingsViews({
+  page: new URL("settings.html", rendererUrl).href,
+  preload: join(import.meta.dirname, "preload.cjs"),
+  arguments: preloadArguments()
+})
+
+/** Windows Parity opens for a page, as "Open stories in: Parity's browser" asks. They're plain pages, not Parity's own. */
+const browserWindows = new WeakSet<BrowserWindow>()
+
+/** Opens a dev server's page or a web page in a window of its own, with no bridge to main. */
+function openInParity(url: string): void {
+  const window = new BrowserWindow({
+    width: 1280,
+    height: 860,
+    title: "Parity",
+    autoHideMenuBar: true,
+    backgroundColor: titleBarColors().background,
+    webPreferences: { contextIsolation: true, sandbox: true }
+  })
+
+  browserWindows.add(window)
+  // A link that opens a new window opens in the person's browser instead.
+  window.webContents.setWindowOpenHandler(({ url: opened }) => {
+    if (opensInBrowser(opened)) {
+      void shell.openExternal(opened)
+    }
+
+    return { action: "deny" }
+  })
+  void window.loadURL(url)
+}
 
 function createWindow(): void {
   const mac = process.platform === "darwin"
@@ -450,13 +523,7 @@ function createWindow(): void {
     // No overlay on macOS, whose traffic lights sit inset in the strip instead.
     titleBarOverlay: !mac && { color: background, symbolColor: symbols, height: 40 },
     webPreferences: {
-      additionalArguments: [
-        `--parity-version=${app.getVersion()}`,
-        `${telemetryRunArgument}${telemetryRun}`,
-        ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : []),
-        // Every copy needs someone signed in before anything else (PAR-1008). Storybook's host leaves it out.
-        "--parity-sign-in-required"
-      ],
+      additionalArguments: preloadArguments(),
       preload: join(import.meta.dirname, "preload.cjs"),
       contextIsolation: true,
       sandbox: true
@@ -587,6 +654,13 @@ type HostEvent = Electron.IpcMainInvokeEvent | Electron.IpcMainEvent
  * other page, which `answerWindows` then refuses.
  */
 function appWindowOf(event: HostEvent): BrowserWindow | undefined {
+  const mainFrame = event.senderFrame === event.sender.mainFrame
+  const under = settingsView.windowOf(event.sender, mainFrame)
+
+  if (under) {
+    return under
+  }
+
   const window = BrowserWindow.fromWebContents(event.sender)
 
   if (!window) {
@@ -594,17 +668,17 @@ function appWindowOf(event: HostEvent): BrowserWindow | undefined {
   }
 
   const page = {
-    render: isRenderWindow(window),
-    mainFrame: event.senderFrame === event.sender.mainFrame,
+    render: isRenderWindow(window) || browserWindows.has(window),
+    mainFrame,
     url: event.sender.getURL()
   }
 
   return fromParityPage(page, rendererUrl) ? window : undefined
 }
 
-/** The app's windows, as against the offscreen renderers. */
+/** The app's windows, as against the offscreen renderers and the windows Parity opens for a page. */
 function appWindows(): BrowserWindow[] {
-  return BrowserWindow.getAllWindows().filter((window) => !isRenderWindow(window))
+  return BrowserWindow.getAllWindows().filter((window) => !isRenderWindow(window) && !browserWindows.has(window))
 }
 
 /**
@@ -897,6 +971,8 @@ async function servePreview(request: Request): Promise<Response> {
 answerWindows<HostEvent, BrowserWindow>({
   ipc: ipcMain,
   appWindow: appWindowOf,
+  settingsView: (event) =>
+    settingsView.windowOf(event.sender, event.senderFrame === event.sender.mainFrame) !== undefined,
   around: handleInSpan,
   handlers: hostHandlers({
     account,
@@ -954,6 +1030,8 @@ answerWindows<HostEvent, BrowserWindow>({
     quit: () => app.quit(),
     toggleDevTools: (window) => window.webContents.toggleDevTools(),
     settings: { change: (change) => settings.change(change) },
+    settingsView,
+    openInParity,
     keybindings: {
       state: () => keybindings.state(),
       replace: (replacements) => keybindings.replace(replacements),
@@ -1006,10 +1084,12 @@ void app.whenReady().then(() => {
   updates = createUpdates((state) => {
     appLife.update(state)
 
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!isRenderWindow(window)) {
-        window.webContents.send(ipc.updateChanged, state)
-      }
+    for (const window of appWindows()) {
+      window.webContents.send(ipc.updateChanged, state)
+    }
+
+    for (const contents of settingsView.contents()) {
+      contents.send(ipc.updateChanged, state)
     }
   }, environment)
   projectService.start()

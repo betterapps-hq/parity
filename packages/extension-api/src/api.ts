@@ -32,6 +32,7 @@ export interface Parity {
   readonly edits: Edits
   readonly files: Files
   readonly ui: Ui
+  readonly settings: Settings
   readonly state: { readonly app: State; readonly project: State }
   readonly log: Log
   readonly views: Views
@@ -230,8 +231,33 @@ export interface Ui {
   input(title: string, options?: { value?: string; placeholder?: string }): Promise<string | undefined>
   /** A dialog with a confirm and a cancel button. Gives whether the person confirmed. */
   confirm(message: string, options?: { detail?: string; confirm?: string }): Promise<boolean>
-  /** Opens a page in the person's browser. */
-  open(url: string): Promise<void>
+  /**
+   * Opens a page: in the person's browser, or with `where: "parity"` in a window of Parity's own, as a setting such as
+   * "Open stories in" chooses.
+   */
+  open(url: string, options?: { where?: OpenWhere }): Promise<void>
+}
+
+/** Where `ui.open` opens a page: the person's browser, or a window of Parity's own. */
+export type OpenWhere = "browser" | "parity"
+
+/** A setting's value: a string, a number or a true or false, as its manifest types it. */
+export type SettingValue = string | number | boolean
+
+/**
+ * The extension's settings, as its manifest declares them, by key: `timings.runs`. Each reads as the person or the
+ * project set it, or as its default when it isn't set or doesn't fit its schema.
+ */
+export interface Settings {
+  /** A setting's value now. Throws for a key the manifest doesn't declare. */
+  get<T extends SettingValue = SettingValue>(key: string): T
+  /** Calls `listener` with the setting's new value each time it changes, in Settings or by `update`. */
+  onChange<T extends SettingValue = SettingValue>(key: string, listener: (value: T) => void): Disposable
+  /**
+   * Sets one of its `project` settings, as one undo step in the project's window, saved with the project. `undefined`
+   * puts it back to its default. `app` settings are the person's, changed only in Settings, so updating one is refused.
+   */
+  update(key: string, value: SettingValue | undefined): Promise<void>
 }
 
 /**

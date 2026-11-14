@@ -14,7 +14,7 @@ export type Preferences = AppSettings
 const preferences = windowStore((): Preferences => ({ ...defaultSettings }))
 
 /** What main last said, for Settings to show: a file that doesn't read, values that didn't, changes not saved yet. */
-const settingsState = windowStore((): Omit<SettingsState, "values"> => ({ badValues: [] }))
+const settingsState = windowStore((): Omit<SettingsState, "values"> => ({ badValues: [], extensions: {} }))
 
 function take(state: SettingsState): void {
   preferences.set(state.values)
@@ -61,6 +61,11 @@ export const subscribePreferences = preferences.subscribe
 
 export function usePreferences(): Preferences {
   return useStore(preferences)
+}
+
+/** Extensions' app settings from `settings.json`, as main last said, which only Settings changes (PAR-1090). */
+export function useExtensionAppSettings(): SettingsState["extensions"] {
+  return useStore(settingsState).extensions
 }
 
 /** Problems with `settings.json` for Settings to show, as main last said. */

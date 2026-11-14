@@ -177,6 +177,9 @@ export const serviceParams = {
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
+  "extensions.projectSettings": project.extend({
+    settings: z.record(z.string(), z.record(z.string(), z.json()))
+  }),
   "adapter.run": project.extend({
     adapter: z.string(),
     action: z.string(),

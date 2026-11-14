@@ -24,8 +24,12 @@ function storybook(change: Partial<ExtensionStatus> = {}): ExtensionStatus {
   return {
     id,
     displayName: manifest.displayName,
+    prefix: manifest.prefix,
     icon: manifest.icon,
     contributes: manifest.contributes,
+    permissions: {},
+    activates: manifest.activates,
+    settingProblems: [],
     state: "running",
     status: {},
     context: { "storybook.hasStories": ["Button"] },

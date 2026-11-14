@@ -1,5 +1,6 @@
 import type { AgentReport, ReportSent } from "@parity-app/agent"
 import type { Found, SearchAnswer } from "@parity-app/connectors"
+import type { StoredSettings } from "@parity-app/extensions/settings"
 import type { ConnectorFind, ConnectorPlaced } from "./connectors.ts"
 import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
 
@@ -73,12 +74,16 @@ export interface MainMethods {
    * replay and trace the service names.
    */
   report: { params: AgentReport & { replayId?: string; traceId?: string }; result: ReportSent }
+  /** Extensions' `app` settings from settings.json, which the service asks for as it starts (PAR-1090). */
+  extensionSettings: { params: undefined; result: StoredSettings }
 }
 
 /** Requests the main process sends to the project service. */
 export interface ServiceProcessMethods {
   /** Each builder's CPU and memory, for the performance stats: builders run in processes of their own. */
   builders: { params: undefined; result: BuilderReading[] }
+  /** Extensions' `app` settings changed in settings.json, in Settings or another copy: all of them, as they are now. */
+  extensionSettings: { params: StoredSettings; result: undefined }
 }
 
 /** A project's builder process, as the performance stats show it. */

@@ -44,7 +44,7 @@ describe("settings.json", () => {
     const file = setUp()
     const store = open(file)
 
-    expect(store.state()).toEqual({ values: defaultSettings, badValues: [] })
+    expect(store.state()).toEqual({ values: defaultSettings, extensions: {}, badValues: [] })
     expect(existsSync(file)).toBe(false)
   })
 
@@ -74,8 +74,36 @@ describe("settings.json", () => {
     await open(file).change({ theme: "system" })
 
     await vi.waitFor(() =>
-      expect(heard.mock.lastCall?.[0]).toEqual({ values: { ...defaultSettings, theme: "system" }, badValues: [] })
+      expect(heard.mock.lastCall?.[0]).toEqual({
+        values: { ...defaultSettings, theme: "system" },
+        extensions: {},
+        badValues: []
+      })
     )
+  })
+
+  it("keeps extensions' settings by extension, both copies' changes, and tells the other copy (PAR-1090)", async () => {
+    const file = setUp()
+    const heard = vi.fn<(state: SettingsState) => void>()
+    const one = open(file, heard)
+    const two = open(file)
+
+    await Promise.all([
+      one.change({ extensions: { storybook: { openIn: "parity" } } }),
+      two.change({ extensions: { tailwind: { strict: true } } })
+    ])
+
+    expect(saved(file)).toEqual({ extensions: { storybook: { openIn: "parity" }, tailwind: { strict: true } } })
+    await vi.waitFor(() =>
+      expect(heard.mock.lastCall?.[0].extensions).toEqual({
+        storybook: { openIn: "parity" },
+        tailwind: { strict: true }
+      })
+    )
+
+    await two.change({ extensions: { storybook: { openIn: null } } })
+    expect(saved(file)).toEqual({ extensions: { tailwind: { strict: true } } })
+    expect(two.state().extensions).toEqual({ tailwind: { strict: true } })
   })
 
   it("puts a setting back to its default", async () => {

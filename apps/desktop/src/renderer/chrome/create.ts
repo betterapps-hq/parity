@@ -1,4 +1,4 @@
-import { type ContainerKind, resolveModes } from "@parity-app/core"
+import { type MadeKind, resolveModes } from "@parity-app/core"
 import { newDesign, rightOfEverything } from "@parity-app/editor"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
@@ -12,7 +12,7 @@ import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
  */
 export function createDesign(
   session: ProjectDesigns & Pick<ProjectSession, "editor">,
-  kind: ContainerKind = "screen",
+  kind: MadeKind = "screen",
   at?: { x: number; y: number }
 ): string {
   const { store, editor } = session

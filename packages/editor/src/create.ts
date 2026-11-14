@@ -1,5 +1,5 @@
 import {
-  type ContainerKind,
+  type MadeKind,
   type ContainerSpec,
   type DesignNode,
   type FrameSize,
@@ -20,7 +20,7 @@ export interface NewDesignOptions {
  * empty layout, padded as a pasted design is, at its own `size`. Its id comes from its name, clear of the ids `taken`.
  */
 export function newDesign(
-  kind: ContainerKind,
+  kind: MadeKind,
   taken: Iterable<string>,
   position: { x: number; y: number },
   { viewport, size }: NewDesignOptions = {}
@@ -30,7 +30,7 @@ export function newDesign(
   const rootId = generateId(ids)
   ids.add(rootId)
 
-  const roots: Record<ContainerKind, DesignNode> = {
+  const roots: Record<MadeKind, DesignNode> = {
     screen: {
       type: "layout",
       id: rootId,

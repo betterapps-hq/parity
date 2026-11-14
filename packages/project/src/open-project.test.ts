@@ -37,7 +37,7 @@ describe("readDesigns", () => {
     }
 
     expect(() => readDesigns("shop.par", JSON.stringify({ version: 4, containers: [screen] }))).toThrow(
-      /^shop\.par doesn't match the design file format:\n\/containers\/0\/states: only a component has states/
+      /^shop\.par doesn't match the design file format:\n\/containers\/0\/states: only a component or a story has states/
     )
     expect(() => readDesigns("nova.lib.par", JSON.stringify({ version: 4, canvas: {} }))).toThrow(
       /^nova\.lib\.par doesn't match the library file format:\n\//

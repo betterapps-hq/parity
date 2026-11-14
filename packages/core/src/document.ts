@@ -467,15 +467,20 @@ export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: num
   }
 }
 
-export const containerKinds = ["screen", "component", "frame"] as const
+export const containerKinds = ["screen", "component", "frame", "story"] as const
 
 /**
  * What a design is. A screen is a whole page or view; a component is a reusable piece that screens place as instances.
  * A frame is the light kind, for sketching on the canvas: a layout drawn once, at its own `size`, in the project's
  * primary mode, with no params, no modes beside it, and no code written from it. Only a top-level design is a frame;
- * one placed inside another design becomes a layout there. Only a component has states (see `designStates`).
+ * one placed inside another design becomes a layout there. A story is a tool's file of stories, as a Storybook CSF file:
+ * its stories are its states, drawn a row each, and nothing places it as an instance. Only a component and a story have
+ * states (see `designStates`).
  */
 export type ContainerKind = (typeof containerKinds)[number]
+
+/** The kinds a person makes and converts between on the canvas: a story is read from a tool's files. */
+export type MadeKind = Exclude<ContainerKind, "story">
 
 const frameSize = fileObject({ width: finiteNumber.optional(), height: finiteNumber.optional() })
 
@@ -661,7 +666,7 @@ export const containerSpec = fileObject({
     checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
   }
 
-  if (container.kind !== "component") {
+  if (!hasStates(container.kind)) {
     checkNoStates(container, context)
   }
 
@@ -704,17 +709,25 @@ function checkPatchKeys(
   }
 }
 
-/** Only a component has states: a screen or a frame is drawn as its layers are, so it names no state to show. */
+/** Whether a kind of design has states of its own: a component's variations, or a story file's stories. */
+export function hasStates(kind: ContainerKind | undefined): boolean {
+  return kind === "component" || kind === "story"
+}
+
+/**
+ * Only a component and a story have states: a screen or a frame is drawn as its layers are, so it names no state to
+ * show.
+ */
 function checkNoStates(container: ContainerSpec, context: z.RefinementCtx): void {
   const kind = container.kind ?? "screen"
 
   if (container.states !== undefined) {
-    problem(context, ["states"], `only a component has states; a ${kind} is drawn as its layers are`)
+    problem(context, ["states"], `only a component or a story has states; a ${kind} is drawn as its layers are`)
   }
 
   for (const field of ["state", "allStates", "states", "stateOrder"] as const) {
     if (container.view?.[field] !== undefined) {
-      problem(context, ["view", field], `only a component has states; a ${kind} has none to show`)
+      problem(context, ["view", field], `only a component or a story has states; a ${kind} has none to show`)
     }
   }
 }

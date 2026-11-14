@@ -124,4 +124,22 @@ describe("readExtension", () => {
       "/parity/contributes/commands/0/icon"
     )
   })
+
+  it("refuses a setting whose choices, their titles or its default can't hold", () => {
+    const read = (setting: Record<string, JsonValue>) =>
+      readExtension(
+        packageJson({
+          activates: [],
+          contributes: { settings: { "timings.where": { scope: "app", title: "Where", ...setting } } }
+        })
+      )
+
+    expect(() => read({ type: "number", enum: ["1"] })).toThrow("only a string setting can have choices")
+    expect(() => read({ type: "string", enum: ["a", "b"], enumTitles: ["A"] })).toThrow("enumTitles must name each")
+    expect(() => read({ type: "string", enum: ["a", "b"], default: "c" })).toThrow(`its default, "c", doesn't fit`)
+    expect(() => read({ type: "boolean", default: "yes" })).toThrow("doesn't fit its type")
+    expect(
+      read({ type: "string", enum: ["a", "b"], enumTitles: ["A", "B"], default: "b" }).manifest.contributes.settings
+    ).toBeDefined()
+  })
 })

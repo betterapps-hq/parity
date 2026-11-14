@@ -5094,9 +5094,11 @@ lists them.
   `preferences`, as `{ "snapping": false }`. The project's value wins over the person's while it's open, in the active
   tab's canvas, its menus and its Export section, and autosave follows each project's own. They're kept in the order
   they were set, which is the order the page lists them; changing one keeps its place.
-- **Extensions' project settings,** in `extensions`, by extension id and then key, as
+- **Extensions' project settings,** in `extensions`, by the extension's prefix and then key, as
   `{ "storybook": { "configDir": "apps/web/.storybook" } }`. Each extension reads its own and takes one it can't read as
-  its default. Storybook's config folder is the one there is so far (see [storybook.md](storybook.md)).
+  its default; its manifest declares them (see [extensions.md](extensions.md#settings)). The window sends the field to
+  the project service whenever it changes, saved or not, so extensions see it at once, and an extension's
+  `parity.settings.update` comes back to the window as an undo step (PAR-1090).
 - **Each change is an undo step** on the main file, such as "Set snapping for the project" or "Use your own snapping",
   saved by Save, or a moment later with autosave on, as any edit is. A project with no `.par` yet gets one. Clearing the
   last value takes the field out of the file, so a project that sets nothing keeps the file it had.
@@ -6965,62 +6967,62 @@ valid layer style); `packages/layer-types/src/layer-types.test.ts` (37: each tag
 what an element describes as); `packages/layer-types/src/panel-data.test.ts` (6: a link's, a checkbox's, a switch's and
 a video's sections from their attributes, and sections with nothing set left out).
 
-### Each story as a screen (read-only viewer)
+### Each story file as a story design (read-only viewer)
 
-The project opens with a screen for each of its Storybook stories, listed in Layers under Stories, after Screens, and
-laid out in a row for each story file, left of everything else on the canvas, on a grid 440 apart each way, as component
-boards are. A story wider or taller than that overlaps the one beside or below it.
+The project opens with a design for each of its Storybook story files, listed in Layers under Stories, after Screens,
+and laid out down a column left of everything else on the canvas, each as far below the last as its stories need. A
+story file is a design of its own kind, a story (core's `containerKinds`), which nothing places as an instance and
+nothing converts to another kind. Its stories are its states, a row each on its board, every one shown at first.
 
-- **Listed as Storybook lists them.** Under Stories, each part of a story's title is a folder, as Storybook's sidebar
-  nests them: a group is a folder, a component holds its stories under a square split in four, in blue, and each story
-  is a teal bookmark named for itself, as `Outline` in UI, Button. Folders start closed; selecting a story on the canvas
-  opens the folders it's in. A click opens or closes a folder. The arrow keys move through folders and stories alike:
-  Right opens a folder or goes into it, Left closes it or goes up to the folder above, and Enter or Space opens or
-  closes it. A search opens every folder with something found in it and leaves out the rest. The adapter says which
-  folders each screen is in (`ImportedScreen.folders`); Layers draws any adapter's that way.
-
+- **Listed as Storybook lists them.** Under Stories, each part of a file's title but its last is a folder, as
+  Storybook's sidebar nests them, and the file is listed by its last part, as `Button` in UI, under Storybook's teal
+  square split in four, with how many stories it has. Its stories are the layers inside it, each a teal bookmark named
+  for itself, as `Outline`. Folders start closed; selecting a story file on the canvas opens the folders it's in. A
+  click opens or closes a folder. The arrow keys move through folders and rows alike: Right opens a folder or goes into
+  it, Left closes it or goes up to the folder above, and Enter or Space opens or closes it. A search opens every folder
+  with something found in it and leaves out the rest. The adapter says which folders each file is in
+  (`ImportedScreen.folders`); Layers draws any adapter's that way.
 - **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
   meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
-  the project depends on when it opens, and the screens come in the project's info.
-- **The component with its args.** A story is its meta's component, a library's or the project's own, with the meta's
-  args and its own over them as props, padded and at its own size on the page's background, as Storybook's default
-  layout draws it, inside a layer named Bounds. It's a screen whose root hugs the story (core's `fitsContent`): each
-  mode's frame is as wide as the story draws in that mode, which the canvas measures and doesn't save (`frames`), while
-  the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as in
-  Storybook's canvas. The frame shows only its own width of that window. Layers and the Design panel show it as a story,
-  with its bookmark. Each is named for its title's last part and its own name, as `Button / Outline`.
-- **Its props, modes and sizes in the Design panel.** Selecting a story shows its header, then Props, the args of what
-  it draws, which edit and are written back as below, then Modes, as a screen's: its board draws a frame for each mode
-  it shows, across, in the order the section sets, and the board's modes menu adds and takes away modes, as on any
-  screen. A story's modes, order and frame scales are kept in the project's file, as a page's are.
-- **Resized to test.** Dragging the Bounds layer's handles, or any layer's that takes a size, sets a width or height on
-  it, and the frame fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset
-  size, then shows at the end of the Design panel, for the story or any of its layers, and puts every layer back at the
-  size the story's file draws it (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never
-  written to the story's file; it's kept in the project's file until it's reset. A component that doesn't take a style,
-  as PlanCard, can't be sized itself, so Bounds is there to drag.
+  the project depends on when it opens, and the files come in the project's info, one `ImportedScreen` each.
+- **Each story its own layers, shown alone in its state.** Each story is its meta's component, a library's or the
+  project's own, with the meta's args and its own over them as props, inside bounds of its own named for the story
+  (`bounds:Outline` around `story:Outline`). Each state hides every other story's bounds, so a row draws its own story
+  only, and a story with its own `render` keeps its own tree. The file's root is padded and on the page's background, as
+  Storybook's default layout draws a story, and hugs it (core's `fitsContent`): each story's preview is as wide as it
+  draws in that mode, measured for each story apart (`frames`, by `Outline/desktop`, see `fittedKey`) and not saved,
+  while the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as
+  in Storybook's canvas.
+- **Its props, modes and sizes in the Design panel.** Selecting a story file shows its header, then Props, the args of
+  the story picked, the row of the preview picked last, else the first (`pickedStory`), which edit and are written back
+  as below, then Modes: its board draws each story's preview in each mode it shows, across. A story file's view, its
+  modes, scales, previews and which stories show, is kept in the project's file (see Kept in the project file).
+- **Resized to test.** Dragging a story's bounds, or any layer's that takes a size, sets a width or height on it, and
+  the preview fits the new size while the window stays the mode's, to see how the story responds. Size, with Reset size,
+  then shows at the end of the Design panel, and puts every layer back at the size the story's file draws it
+  (`withoutTriedSize`, against `drawnStory`), leaving its args. A tried size is never written to the story's file; it's
+  kept in the project's file until it's reset. A component that doesn't take a style, as PlanCard, can't be sized
+  itself, so its bounds are there to drag.
 - **Or its own `render`.** A story that renders itself, with its own `render`, the meta's, or as a function (CSF 2),
   draws that function with its args as props. The adapter gives it as a source of its own (`ProjectEntities.sources`, as
   `Invite.render` in the story's file), which the guest loads as it loads a component, and its layer takes the story's
   name.
 - **Args written back.** The props of what a story draws are its args, and they edit as any component's do. Saving sends
-  the stories' design file to the service (`entities.save`), which hands each screen whose layers changed to the adapter
-  that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes the args that differ from the meta's into the
-  story's `args` in its file, keeping code there, such as a function, as it's written.
-- **Otherwise read-only.** The rest of a story's screen is Storybook's to lay out: its other layers and sections show
-  their values without editing them, and nothing else of it is saved.
+  the stories' design file to the service (`entities.save`), which hands each file whose layers or states changed to the
+  adapter that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes each story's props, with what its
+  state sets over them, as the args that differ from the meta's into the story's `args` in its file, keeping code there,
+  such as a function, as it's written.
+- **Otherwise read-only.** The rest of a story file's design is Storybook's to lay out: its other layers and sections
+  show their values without editing them, and nothing else of it is saved.
 - **Not yet.** A story's decorators, loaders and the `context` its `render` is given aren't applied. A story file added
   while the project is open shows once it's opened again. A story that's a function, or whose args are a constant, isn't
   written to, nor can a story take away an arg its meta gives. A screen can't yet be saved as a new story.
 
-Tried in a development build on the example project: Layers listed Badge's three stories, Button's five and Plan card's
-two under Stories. Plan card / Default's frame fitted to 181 with its host 1280 wide, Desktop Dark shown beside it from
-Modes drew its own 181-wide frame, and its header's Zoom field set it to 50%. Dragging Bounds 90 pixels narrower made
-the frame 128 wide in a window still 1280 wide, and Reset size put it back at 181. Plan card / Popular drew the app's
-own PlanCard with the Popular badge, and Button / Outline its outline button at its own size. Card / Invite and Plan
-card / Team and Business drew their own `render` functions: the invite card, and two plan cards side by side. Setting
-Plan card / Popular's Price to $32 and saving wrote `price: "$32"` into the story's args, beside `popular: true`, and
-the screen drew $32.
+Tried in a development build on the example project: Layers listed Badge, Button, Card and Plan card under Stories, Plan
+card in App. Plan card's board drew Default, Popular and Team and Business a row each, each preview as wide as its own
+story, Team and Business's two cards wider than the others. Props showed the picked story's args, and setting Popular's
+Price to $32 and saving wrote `price: "$32"` into the Popular story's args alone, beside `popular: true`. Not tried this
+time: dragging a story's bounds and Reset size, and a story file shown in several modes.
 
 Code: `fitsContent`, `frameSize` and `frameGeometry` in `packages/core/src/render.ts`; `fittedFrame` and `fitsDrawn` in
 `packages/editor/src/frames.ts`, which `useFitToContent` in `apps/desktop/src/renderer/canvas/ContainerView.tsx` runs
@@ -7028,7 +7030,8 @@ for each mode's frame; `ModeView.tsx` and `render.ts` (a frame narrower than its
 `withoutTriedSize` in `packages/editor/src/tried-size.ts`, `TriedSize.tsx` and the story branch of `DesignPanel.tsx` in
 `apps/desktop/src/renderer/chrome`; `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and
 `importStoryScreens` in `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`;
-`storyScreensDocument` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in
+`storyScreensDocument` and `pickedStory` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `storyFileDesign` in
+`adapters/storybook-adapter/src/screens.ts`; `hasStates` in `packages/core/src/document.ts`; `drawImported` in
 `apps/desktop/src/renderer/workspace.ts`; `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`;
 `exportEntities` in `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts`
 writes; `writesProps` in `apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in
@@ -7041,12 +7044,34 @@ mode's whole window" (as wide as measured, as wide as the window before, not for
 others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its args kept, and
 a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're
 closed, an open folder's folders and a component's designs in order, a design without folders at the top, and a search
-opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and
-stories with args over the meta's, where a story's render function is, a file without a default export, a story's name
-in words, each story in a folder for each part of its title, stories imported as screens of their component, grouped by
-title, a story that renders itself drawing its function from its file, a story's own args written over the meta's with
-code kept, args added to a story without any and none for the meta's, a story that's a function left alone, and a
-screen's props written back to its file).
+opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (a file's meta and stories
+with args over the meta's, where a story's render function is, a file without a default export, a story's name in words,
+each file in a folder for each part of its title, each file a story design with a state for each story and every one
+shown, each story in bounds of its own and alone in its state, a story that renders itself drawing its function from its
+file, args written over the meta's with code kept, args added to a story without any, a story that's a function left
+alone, each story's props written back, what a story's state sets written back, and nothing written while nothing
+changed).
+
+### Stale views are pruned
+
+A design's view names modes, states and route params, and what it names can go: a mode taken out of the project, a story
+taken out of its file, a route's param renamed. Nothing stale is left to show in a menu or pile up in the file.
+
+- **When a mode is taken away in Parity,** the same step takes it out of every design's view: the modes it shows, its
+  order, its scales and the previews in it (`prunedDocument`, from `DesignStore.setModes`). Undo puts both back.
+- **When the project opens,** every design's view is pruned against the project's modes, its own states and, for a page
+  of the app, its route's params (`withPrunedView`), so what changed outside Parity, in the project file or the app's
+  code, goes too. What's kept for designs drawn from code (`codeDesigns`) loses the entry of a design its file no longer
+  draws, as a story file deleted, unless nothing of that file was drawn this time, as when its tool couldn't be read
+  (`openCodeDesigns`). The file loses what was pruned at its next save.
+- **A layer that's gone** loses its tried size the same way, since what's kept is read again from the design as it is.
+
+Code: `prunedView`, `withPrunedView` and `prunedDocument` in `packages/editor/src/prune-view.ts`; `setModes` in
+`apps/desktop/src/renderer/design-store.ts`; `openCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts` and
+`routeParams` in `route-pages.ts`, run from `createSession` in `workspace.ts`. Tests:
+`packages/editor/src/prune-view.test.ts` (modes gone wherever named, states gone as a story taken out, a screen's
+previews kept, a page's params gone and a design's kept, and a view naming nothing gone left as it is). Gaps: neither
+step was tried in the app, and `openCodeDesigns` has no unit test.
 
 ### Opening in seconds (PAR-179)
 
@@ -7490,6 +7515,11 @@ File > Settings or Ctrl+, opens every setting on pages in a sidebar: General, Ca
 open project's page, under its name and badge; Extensions; and Diagnostics and Updates. On the start page there's no
 project page.
 
+Settings is its own web contents over the window, owned by main, which loads no project code (PAR-1090). The editor
+window's page runs the project's code, so main takes extensions' settings for every project only from Settings. The
+window sends Settings what its project page shows each time it changes, and makes each change Settings sends back an
+undo step. Escape or the close button takes Settings away.
+
 - **The person's settings save as they change,** with a brief Saved in the page's heading, and apply in every window. A
   change main couldn't save leaves the control as it was and says so under the row. A setting something outside Settings
   decides, as `PARITY_TELEMETRY` decides Share diagnostics, is disabled and names it, and Get beta updates waits while
@@ -7506,11 +7536,13 @@ project page.
   Save, which Ctrl+S also does, unless the project saves itself. On the person's pages, a setting the project sets shows
   the project's value beside it, which goes to the project's page.
 - **Extensions** lists the built-in ones, those running in the open project first, each with what detection found.
-  There's no switch: each runs when its tool is found. An extension's page shows what it found, its settings for the
-  project while it runs there, and what it adds (PAR-1100), built from what its adapter and extension tell the window: a
-  phrase for its adapter's role (renderer, builder, styles, router, screens), with how many pages or screens it read;
-  its actions by name; its extension's commands; and a status bar item when it shows one. With no project open, an
-  extension adds nothing.
+  There's no switch: each runs when its tool is found. An extension's page shows what it found, why its code stopped
+  when it did, its settings from its manifest (the person's for every project always, the project's while it runs there,
+  each value that doesn't fit named under them), what it adds (PAR-1100), its permissions, and how long its code took to
+  activate and the memory it holds (PAR-1090). What it adds is built from what its adapter and extension tell the
+  window: a phrase for its adapter's role (renderer, builder, styles, router, screens), with how many pages or screens
+  it read; its actions by name; its extension's commands; and a status bar item when it shows one. With no project open,
+  an extension adds nothing.
 - **Keyboard shortcuts** lists every command in the keymap's groups with its keys as a button: press it, then the new
   keys. Escape stops without changing them and Backspace removes them. Keys another command had move to this one, and
   that command's row says where they went. Entries `keybindings.json` has that Parity skipped come first, with a button
@@ -7528,29 +7560,36 @@ Code: `readSettings`, `changeSettings` and `changedSettings` in `packages/settin
 `rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and return
 data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`; the
 view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
-`SettingsData` (`store.ts`); and `chrome/SettingsDialog.tsx`, which builds it from the preferences, the project's
-settings, the keybindings, telemetry and updates. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the
-keymap writes them. `extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the
-running extensions and returns what an extension adds.
+`SettingsData` (`store.ts`); `chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app
+settings, the keybindings, telemetry and updates, and what the window sent of its project; `extension-settings.ts`,
+`extension-details.ts` and `values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page;
+`main/settings-view.ts`, which lays it over the window; `renderer/settings-project.ts`, the window's side, which sends
+the project's page and applies Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in
+the page for Storybook. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them.
+`extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and
+returns what an extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a
 tool the project doesn't use. `packages/settings/src/settings-file.test.ts` (14): the defaults with no file, each saved
 setting read, one bad value at its default, unknown keys passed over, a file that isn't JSON or an object, only what
 changed written, unknown keys kept, a reset, text that doesn't parse never written over, a window's change read or
-refused, and what changed. `main/settings-store.test.ts` (10): nothing written until a change, a change read back by a
-new copy, two copies' changes at the same moment both kept, one copy told of another's, a reset, a file that can't be
-read never written over with the change held, a held change saved once the file reads without undoing another copy's, a
-stale lock taken, a held lock waited for, and the lock let go when the work fails.
-`packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for an empty search; a
-label's start before a word inside it; another word for a setting, and which; where it is before its description; and
-values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its place, named keys,
-Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
-`chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and checks the project's
-value beside the person's, saving the project, changing a setting for it, a save that fails, moving a shortcut's keys,
-an extension's project setting, search results and opening on a setting. `chrome/SettingsDialog.stories.tsx` opens it
-over the example project, on General and on the project's page; `chrome/TelemetrySetting.stories.tsx` and
-`chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
+refused, and what changed, and extensions' settings read unchecked, one key set or taken out, and refused from a
+window's change. `main/settings-store.test.ts` (11): nothing written until a change, extensions' settings from two
+copies both kept and the other copy told, a change read back by a new copy, two copies' changes at the same moment both
+kept, one copy told of another's, a reset, a file that can't be read never written over with the change held, a held
+change saved once the file reads without undoing another copy's, a stale lock taken, a held lock waited for, and the
+lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to the project and closing
+taken only from Settings, and the project's page only from the editor window. `packages/extensions/src/hosts.test.ts`:
+what the Extensions page shows of each extension's code. `packages/editor/src/settings-search.test.ts` (6): every typed
+word starting a word; nothing for an empty search; a label's start before a word inside it; another word for a setting,
+and which; where it is before its description; and values listed as a sentence. `chrome/keys.test.ts` (6): letters and
+modifiers, a key named by its place, named keys, Shift left off plus and minus, nothing for a modifier alone, and keys
+the event matches. `chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and
+checks the project's value beside the person's, saving the project, changing a setting for it, a save that fails, moving
+a shortcut's keys, an extension's project setting, search results and opening on a setting.
+`chrome/SettingsDialog.stories.tsx` opens it over the example project, on General and on the project's page;
+`chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
 
 ### Installed app updates (PAR-160)
 

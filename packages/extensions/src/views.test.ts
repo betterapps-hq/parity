@@ -56,7 +56,8 @@ function setUp(module: ExtensionModule) {
       changed: (_projectId, extensions) => changes.push(extensions),
       logged: () => undefined,
       ui: () => Promise.resolve(undefined),
-      reveal: (_projectId, _extension, view) => revealed.push(view)
+      reveal: (_projectId, _extension, view) => revealed.push(view),
+      updateSetting: () => Promise.resolve()
     },
     edits: { transact: () => Promise.resolve(), files: () => Promise.resolve([]) },
     servers: {

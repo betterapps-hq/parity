@@ -126,6 +126,28 @@
           "view": "list"
         }
       ],
+      "settings": {
+        "storybook.configDir": {
+          "type": "string",
+          "default": ".storybook",
+          "scope": "project",
+          "title": "Config folder"
+        },
+        "storybook.openIn": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "parity"
+          ],
+          "enumTitles": [
+            "Your browser",
+            "Parity's browser"
+          ],
+          "default": "browser",
+          "scope": "app",
+          "title": "Open stories in"
+        }
+      },
       "statusItems": [
         {
           "id": "storybook.stories",

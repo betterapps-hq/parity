@@ -54,7 +54,9 @@ export default defineConfig(({ mode }) => {
       rolldownOptions: {
         input: {
           index: resolve(import.meta.dirname, "src/renderer/index.html"),
-          render: resolve(import.meta.dirname, "src/renderer/render.html")
+          render: resolve(import.meta.dirname, "src/renderer/render.html"),
+          // Settings' own page, which main shows over the window and which loads no project code (PAR-1090).
+          settings: resolve(import.meta.dirname, "src/renderer/settings.html")
         }
       }
     }

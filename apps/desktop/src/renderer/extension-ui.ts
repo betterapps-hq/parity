@@ -113,7 +113,12 @@ export async function answerExtension(name: string, asked: ExtensionUiRequest): 
     }
 
     case "ui.open":
-      window.open(asked.params.url, "_blank")
+      // Where the extension asks, as a setting such as Storybook's "Open stories in" chooses (PAR-1090).
+      if (asked.params.where === "parity") {
+        await window.canvasHost.openInParity(asked.params.url)
+      } else {
+        window.open(asked.params.url, "_blank")
+      }
 
       return undefined
     case "ui.confirm": {

@@ -17,7 +17,7 @@ import {
   boardRoot,
   changeCount,
   type ComponentLibrary,
-  type ContainerKind,
+  type MadeKind,
   designStates,
   fitsContent,
   type FrameGeometry,
@@ -243,19 +243,19 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
         return current && findNodeElement(host, current.root.id)
       }
 
-      const { viewport } = host.dataset
+      const { viewport, state } = host.dataset
 
       const fit = () => {
         const width = contentWidth(rootElement())
         const current = store.getEntry(key)?.container
 
-        if (!width || !current || !fittedFrame(current, width, viewport)) {
+        if (!width || !current || !fittedFrame(current, width, viewport, state)) {
           return
         }
 
         // A component's board and a story are drawn from the project's code each time, so the width they're drawn at
         // isn't to be saved.
-        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width, viewport) ?? design, {
+        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width, viewport, state) ?? design, {
           history: false,
           persist: !key.startsWith(`${componentBoardsFile}#`) && !key.startsWith(`${storyScreensFile}#`)
         })
@@ -440,7 +440,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
     columns.map((mode, column) => {
       const own = previewSettingsOf(container, state.id, mode.id)
 
-      return previewGeometry(container, mode, own).width * previewScale(container, mode, column === 0, own)
+      return previewGeometry(container, mode, own, state.id).width * previewScale(container, mode, column === 0, own)
     })
   )
 
@@ -585,7 +585,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                       designKey={key}
                       self={self}
                       changing={picked.includes(preview) ? targets : [self]}
-                      width={previewGeometry(container, mode, own).width}
+                      width={previewGeometry(container, mode, own, state.id).width}
                       scale={scale}
                       narrowest={narrowest}
                       breakpoints={page ? breakpoints : undefined}
@@ -1094,7 +1094,7 @@ function TitleButton({
 }
 
 /** The kinds a design's title menu converts it to, leaving out its own, in the Frames exploration's order. */
-const convertKinds: readonly ContainerKind[] = ["component", "screen", "frame"]
+const convertKinds: readonly MadeKind[] = ["component", "screen", "frame"]
 
 /** Focuses a rename field when it appears and selects its text, ready to type over. */
 function focusAndSelect(element: HTMLInputElement | null): void {
@@ -1305,7 +1305,7 @@ const FrameTile = memo(function FrameTile({
   const own = previewSettingsOf(container, state.id, mode.id)
   const drawn = useMemo(() => previewOptionsMode(mode, variables, own), [mode, variables, own])
   // Its size and the window it stands for, which its bitmap and the live frame both draw at.
-  const frame = previewGeometry(container, drawn, own)
+  const frame = previewGeometry(container, drawn, own, state.id)
   const interactions = useInteractions(selection)
   const interactive = useInteracting(selection)
 

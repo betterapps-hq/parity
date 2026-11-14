@@ -1,7 +1,7 @@
-import type { ContainerSpec, DesignNode, EntitiesSource } from "@parity-app/core"
+import { type ContainerSpec, type EntitiesSource, findNode, mapNodes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { readStoryFile, storyName } from "./csf.ts"
-import { exportStoryScreen, importStoryScreens, titleFolders } from "./screens.ts"
+import { exportStoryScreen, importStoryScreens, storyBoundsId, storyLayerId, titleFolders } from "./screens.ts"
 import { writeStoryArgs } from "./write.ts"
 
 const button = `
@@ -92,64 +92,68 @@ describe("importStoryScreens", () => {
     componentFor: async (_file, specifier, name) => (specifier.endsWith("button") ? `ui/button/${name}` : undefined)
   }
 
-  it("lists each story in a folder for each part of its title, as Storybook's sidebar does", async () => {
+  it("lists each story file in a folder for each part of its title, as Storybook's sidebar does", async () => {
     const { screens = [] } = await importStoryScreens(source)
 
-    expect(screens.map(({ folders }) => folders)).toEqual([
-      ["UI", "Button"],
-      ["UI", "Button"],
-      ["UI", "Button"],
-      ["Card"],
-      ["Card"]
-    ])
+    expect(screens.map(({ folders }) => folders)).toEqual([["UI", "Button"], ["Card"]])
     expect(titleFolders(" App / Plan card /")).toEqual(["App", "Plan card"])
   })
 
-  it("imports each story as a screen of its component with its args, grouped by title", async () => {
+  it("imports each story file as a story design, named for its title's last part, a state for each story", async () => {
     const { screens = [] } = await importStoryScreens(source)
 
-    expect(screens.map(({ ref, group, screen }) => [ref, group, screen.name])).toEqual([
-      ["src/stories/button.stories.tsx#Default", "UI/Button", "Default"],
-      ["src/stories/button.stories.tsx#Outline", "UI/Button", "Outline"],
-      ["src/stories/button.stories.tsx#BigAndBold", "UI/Button", "Big and bold"],
-      ["src/stories/card.stories.tsx#Invite", "Card", "Invite"],
-      ["src/stories/card.stories.tsx#Plain", "Card", "Plain"]
+    expect(screens.map(({ ref, group, screen }) => [ref, group, screen.kind, screen.name])).toEqual([
+      ["src/stories/button.stories.tsx", "UI/Button", "story", "Button"],
+      ["src/stories/card.stories.tsx", "Card", "story", "Card"]
     ])
-    expect(screens[1]?.screen).toMatchObject({
-      // A screen hugging the story in each mode's window, as Storybook draws one at its own size.
-      kind: "screen",
-      root: {
-        type: "layout",
-        style: { width: { size: "hug" } },
-        // Inside bounds that can be dragged to another size, to see how the story responds.
-        children: [
-          {
-            type: "layout",
-            name: "Bounds",
-            children: [
-              {
-                type: "component",
-                component: "ui/button/Button",
-                props: { children: "Save changes", disabled: false, variant: "outline" }
-              }
-            ]
-          }
-        ]
-      }
+    // Every story shows, a row each.
+    expect(screens[0]?.screen.view).toEqual({ allStates: true })
+    expect(screens[0]?.screen.states?.map(({ id, name }) => [id, name])).toEqual([
+      ["Default", "Default"],
+      ["Outline", "Outline"],
+      ["BigAndBold", "Big and bold"]
+    ])
+  })
+
+  it("draws each story inside bounds of its own, its args as props, and shows it alone in its state", async () => {
+    const { screens = [] } = await importStoryScreens(source)
+    const button = screens[0]?.screen
+
+    expect(button?.root).toMatchObject({
+      type: "layout",
+      // Hugging the story in each mode's window, as Storybook draws one at its own size.
+      style: { width: { size: "hug" } }
+    })
+    expect(button && findNode(button.root, storyBoundsId("Outline"))).toMatchObject({
+      type: "layout",
+      name: "Outline",
+      children: [
+        {
+          type: "component",
+          id: storyLayerId("Outline"),
+          component: "ui/button/Button",
+          props: { children: "Save changes", disabled: false, variant: "outline" }
+        }
+      ]
+    })
+    expect(button?.states?.[1]?.overrides).toEqual({
+      [storyBoundsId("Default")]: { hidden: true },
+      [storyBoundsId("BigAndBold")]: { hidden: true }
     })
   })
 
   it("draws a story that renders itself with its function, loaded from the story file as a component", async () => {
     const { screens = [], sources } = await importStoryScreens(source)
+    const card = screens[1]?.screen
 
     expect(sources).toEqual({
       "story:src/stories/card.stories.tsx#Invite": { path: "src/stories/card.stories.tsx", export: "Invite.render" },
       "story:src/stories/card.stories.tsx#Plain": { path: "src/stories/card.stories.tsx", export: "Plain" }
     })
-    expect(screens[3]?.screen.root).toMatchObject({
-      children: [
-        { children: [{ type: "component", component: "story:src/stories/card.stories.tsx#Invite", name: "Invite" }] }
-      ]
+    expect(card && findNode(card.root, storyLayerId("Invite"))).toMatchObject({
+      type: "component",
+      component: "story:src/stories/card.stories.tsx#Invite",
+      name: "Invite"
     })
   })
 })
@@ -185,32 +189,71 @@ describe("writeStoryArgs", () => {
 })
 
 describe("exportStoryScreen", () => {
-  it("writes the props of what a story's screen draws back to its file as the story's args", async () => {
-    const files = new Map([["src/stories/button.stories.tsx", button]])
+  const files = new Map([["src/stories/button.stories.tsx", button]])
 
-    const source: EntitiesSource = {
-      files: async () => [...files.keys()],
-      read: async (path) => files.get(path),
-      componentFor: async (_file, _specifier, name) => `ui/button/${name}`
-    }
+  const source: EntitiesSource = {
+    files: async () => [...files.keys()],
+    read: async (path) => files.get(path),
+    componentFor: async (_file, _specifier, name) => `ui/button/${name}`
+  }
 
+  const imported = async () => {
     const [screen] = (await importStoryScreens(source)).screens ?? []
 
     if (!screen) {
       throw new Error("no screen")
     }
 
-    const drawn: DesignNode = {
-      type: "component",
-      id: "story",
-      component: "ui/button/Button",
-      props: { children: "Publish", disabled: false }
+    return screen
+  }
+
+  it("writes the props each story draws back to its file as the story's args", async () => {
+    const screen = await imported()
+
+    const edited: ContainerSpec = {
+      ...screen.screen,
+      root: mapNodes(screen.screen.root, (node) =>
+        node.id === storyLayerId("Default") && node.type === "component"
+          ? { ...node, props: { children: "Publish", disabled: false } }
+          : node
+      )
     }
 
-    const edited: ContainerSpec = { ...screen.screen, root: { type: "layout", id: "root", children: [drawn] } }
     const writes = await exportStoryScreen(screen, edited, source)
+    const stories = readStoryFile(writes[0]?.text ?? "").stories
 
     expect(writes.map((write) => write.path)).toEqual(["src/stories/button.stories.tsx"])
-    expect(readStoryFile(writes[0]?.text ?? "").stories[0]?.args).toEqual({ children: "Publish", disabled: false })
+    expect(stories[0]?.args).toEqual({ children: "Publish", disabled: false })
+    expect(stories[1]?.args).toEqual({ children: "Save changes", disabled: false, variant: "outline" })
+  })
+
+  it("writes what a story's state sets over its layer's props", async () => {
+    const screen = await imported()
+
+    const edited: ContainerSpec = {
+      ...screen.screen,
+      states: screen.screen.states?.map((state) =>
+        state.id === "Outline"
+          ? {
+              ...state,
+              overrides: { ...state.overrides, [storyLayerId("Outline")]: { props: { children: "Cancel" } } }
+            }
+          : state
+      )
+    }
+
+    const writes = await exportStoryScreen(screen, edited, source)
+
+    expect(readStoryFile(writes[0]?.text ?? "").stories[1]?.args).toEqual({
+      children: "Cancel",
+      disabled: false,
+      variant: "outline"
+    })
+  })
+
+  it("writes nothing while no story has changed", async () => {
+    const screen = await imported()
+
+    expect(await exportStoryScreen(screen, screen.screen, source)).toEqual([])
   })
 })

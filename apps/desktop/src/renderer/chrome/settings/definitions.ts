@@ -1,3 +1,6 @@
+import type { Permissions } from "@parity-app/extension-api"
+import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { readExtension } from "@parity-app/extensions/manifest"
 import { codeEditors } from "@parity-app/processes"
 import {
   Download,
@@ -12,6 +15,7 @@ import {
   SlidersHorizontal,
   Sun
 } from "lucide-react"
+import { extensionSettings } from "./extension-settings.ts"
 import { reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
 import { type Mark, markOf, projectMark } from "./marks.tsx"
 
@@ -61,6 +65,9 @@ export interface Page {
   group: number
 }
 
+/** Where an extension's code is in the open project: waiting to be needed, starting, running, stuck or crashed. */
+export type HostState = "waiting" | "starting" | "running" | "stuck" | "crashed"
+
 /**
  * A built-in extension as Settings shows it: in an open project, what detection found, whether it runs there, and what
  * it adds, from what its adapter and extension tell the window.
@@ -74,15 +81,41 @@ export interface Extension {
   /** What detection found, or why it isn't running. */
   found: string
   adds: string[]
+  /** Its settings, from its manifest (PAR-1090). */
+  settings: Setting[]
+  /** What keys its settings in settings.json and the project's file: its manifest's prefix. */
+  prefix?: string
+  /** What its manifest says it may read, write, reach and change. */
+  permissions?: Permissions
+  /** Where its code is in the open project, for one that runs in a host of its own. */
+  state?: HostState
+  /** Why it's stuck or crashed. */
+  reason?: string
+  /** How long its code took to activate, in milliseconds. */
+  activatedIn?: number
+  /** The memory its host held lately, in bytes. */
+  memory?: number
+  /** Whether its code starts as soon as its tool is detected. */
+  onStartup?: boolean
+  /** Its settings whose values didn't fit, one sentence each. */
+  problems?: string[]
 }
+
+const storybook = readExtension(storybookPackage).manifest
 
 /** The built-in extensions, before detection says whether each runs in a project. */
 export const builtInExtensions: Omit<Extension, "running" | "found" | "adds">[] = [
-  { id: "storybook", name: "Storybook", icon: markOf(storybookLogo, "Storybook") },
-  { id: "vite", name: "Vite", icon: markOf(viteLogo, "Vite") },
-  { id: "react", name: "React", icon: markOf(reactLogo, "React") },
-  { id: "tailwind", name: "Tailwind CSS", icon: markOf(tailwindLogo, "Tailwind") },
-  { id: "tanstack-router", name: "TanStack Router", icon: markOf(tanstackLogo, "TanStack") }
+  {
+    id: "storybook",
+    name: "Storybook",
+    icon: markOf(storybookLogo, "Storybook"),
+    prefix: storybook.prefix,
+    settings: extensionSettings("storybook", storybook.contributes.settings)
+  },
+  { id: "vite", name: "Vite", icon: markOf(viteLogo, "Vite"), settings: [] },
+  { id: "react", name: "React", icon: markOf(reactLogo, "React"), settings: [] },
+  { id: "tailwind", name: "Tailwind CSS", icon: markOf(tailwindLogo, "Tailwind"), settings: [] },
+  { id: "tanstack-router", name: "TanStack Router", icon: markOf(tanstackLogo, "TanStack"), settings: [] }
 ]
 
 /** What detection found of a tool: its id and, in a sentence, what and where. */
@@ -276,16 +309,13 @@ export const settings: Setting[] = [
     scope: "app",
     control: { kind: "switch" },
     default: false
-  },
-  {
-    id: "storybook.configDir",
-    page: "ext:storybook",
-    label: "Config folder",
-    scope: "project",
-    control: { kind: "text" },
-    default: ".storybook"
   }
 ]
+
+/** Every setting Settings shows: Parity's own, then each extension's. */
+export function allSettings(extensions: readonly Pick<Extension, "settings">[]): Setting[] {
+  return [...settings, ...extensions.flatMap((extension) => extension.settings)]
+}
 
 export function defaults(): Record<string, Value> {
   return Object.fromEntries(settings.map((setting) => [setting.id, setting.default]))

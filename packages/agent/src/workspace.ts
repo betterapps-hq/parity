@@ -524,7 +524,7 @@ export class AgentWorkspace {
       const showing = { mode: shown.main.id, beside: shown.beside.map((mode) => mode.id) }
       const nodes = nodeIds(container.root).size
 
-      if (container.kind !== "component") {
+      if (container.kind !== "component" && container.kind !== "story") {
         return { ...where, kind: container.kind ?? "screen", showing, nodes }
       }
 
@@ -532,7 +532,7 @@ export class AgentWorkspace {
 
       return {
         ...where,
-        kind: "component",
+        kind: container.kind,
         states: states.map((state) => ({ id: state.id, name: state.name })),
         showing: { state: container.view?.state ?? states[0]!.id, ...showing },
         nodes
