@@ -132,6 +132,8 @@ describe("starting a server", { timeout: 60_000 }, () => {
 
     expect(one).toBe(two)
     await expect(one.ready()).resolves.toMatchObject({ run: 1, state: "running" })
+    // Stopped here, so its stop isn't recorded in the next test's events.
+    await one.stop("extension")
   })
 
   it("stops everything it started for a project when the project closes", async () => {
