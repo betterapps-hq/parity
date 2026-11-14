@@ -160,7 +160,19 @@ export const serviceParams = {
   "extensions.list": project,
   "extensions.run": project.extend({
     command: z.string(),
-    target: z.object({ type: z.literal("component"), key: z.string() }).optional()
+    target: z
+      .discriminatedUnion("type", [
+        z.object({ type: z.literal("component"), key: z.string() }),
+        z.object({ type: z.literal("item"), view: z.string(), key: z.string() })
+      ])
+      .optional()
+  }),
+  "extensions.viewOpened": project.extend({ view: z.string() }),
+  "extensions.viewChanged": project.extend({
+    extension: z.string(),
+    view: z.string(),
+    key: z.string(),
+    value: z.union([z.string(), z.number(), z.boolean()])
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),

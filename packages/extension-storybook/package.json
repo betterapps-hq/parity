@@ -4,10 +4,11 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "Storybook in Parity: Open in Storybook, and how many components have stories.",
+  "description": "Storybook in Parity: Open in Storybook, how many components have stories, the Stories tab and a setup guide.",
   "main": "src/extension.ts",
   "exports": {
     ".": "./src/extension.ts",
+    "./views": "./src/views.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
@@ -54,6 +55,11 @@
           "title": "Open in Storybook",
           "icon": "book-open",
           "starts": "Starting Storybook…"
+        },
+        {
+          "id": "storybook.setup",
+          "title": "Show Storybook setup",
+          "icon": "list-checks"
         }
       ],
       "menus": {
@@ -88,9 +94,38 @@
         "search": [
           {
             "command": "storybook.open"
+          },
+          {
+            "command": "storybook.setup"
           }
         ]
       },
+      "tabs": [
+        {
+          "id": "storybook.stories",
+          "area": "left",
+          "title": "Stories",
+          "icon": "book-open",
+          "view": "tree"
+        }
+      ],
+      "sections": [
+        {
+          "id": "storybook.componentStories",
+          "title": "Stories",
+          "nodeType": "component",
+          "when": "storybook.hasStories",
+          "view": "list"
+        }
+      ],
+      "pages": [
+        {
+          "id": "storybook.setupGuide",
+          "title": "Storybook setup",
+          "icon": "list-checks",
+          "view": "list"
+        }
+      ],
       "statusItems": [
         {
           "id": "storybook.stories",

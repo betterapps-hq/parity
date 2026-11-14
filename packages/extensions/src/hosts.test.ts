@@ -143,7 +143,8 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
         }
 
         return undefined
-      }
+      },
+      reveal: () => undefined
     },
     servers: {
       serve: () => Promise.resolve({ url: "" }),
@@ -433,6 +434,7 @@ describe("extension hosts", () => {
       channel.serve({
         activate: () => undefined,
         run: () => undefined,
+        "view.changed": () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
         cancel: () => undefined,
         stop: () => undefined

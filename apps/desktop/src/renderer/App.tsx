@@ -9,6 +9,7 @@ import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
 import { closeDialog } from "./chrome/app-dialogs.ts"
 import { ConvertToFrameDialog, stopAskingToConvert } from "./chrome/ConvertToFrameDialog.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
+import { ExtensionPageView } from "./chrome/ExtensionPage.tsx"
 import { ExtensionQuestion } from "./chrome/ExtensionQuestion.tsx"
 import { closeQuickInsert, QuickInsert } from "./chrome/QuickInsert.tsx"
 import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
@@ -106,8 +107,22 @@ export function AppWindow() {
         <ErrorBoundary name="home" label="Home" kind="page" hidden={!home || signInScreen}>
           <HomePage active={home && !signInScreen} />
         </ErrorBoundary>
-        {tabs.map((tab) =>
-          tab.blank ? (
+        {tabs.map((tab) => {
+          if (tab.page) {
+            return (
+              <ErrorBoundary
+                key={tab.id}
+                name="extension-page"
+                label={tab.title}
+                kind="page"
+                hidden={tab.id !== active || signInScreen}
+              >
+                <ExtensionPageView page={tab.page} active={tab.id === active && !signInScreen} />
+              </ErrorBoundary>
+            )
+          }
+
+          return tab.blank ? (
             <ErrorBoundary
               key={tab.id}
               name="new-tab"
@@ -120,7 +135,7 @@ export function AppWindow() {
           ) : (
             <ProjectView key={tab.id} id={tab.id} active={tab.id === active && !signInScreen} />
           )
-        )}
+        })}
       </div>
       <SonnerToaster
         theme={theme}

@@ -109,6 +109,9 @@ const extensions = startExtensions({
 
     // SAFETY: as above, the answer is this method's result.
     return (await window.request("extensions.ui", request)) as never
+  },
+  reveal: (projectId, extension, view) => {
+    editor?.request("extensions.reveal", { projectId, extension, view }).catch(() => undefined)
   }
 })
 
@@ -199,6 +202,9 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
+  "extensions.viewOpened": ({ projectId, view }) => extensions.viewOpened(projectId, view),
+  "extensions.viewChanged": ({ projectId, extension, view, key, value }) =>
+    extensions.viewChanged(projectId, extension, { view, key, value }),
   "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),

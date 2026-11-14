@@ -181,6 +181,20 @@ export interface Tab {
   session?: ProjectSession
   /** A new tab, which shows the start page until a project opens in it. */
   blank?: boolean
+  /** A page an extension opened for an open project (PAR-1094), which closes with the project's tab. */
+  page?: ExtensionPage
+}
+
+/** An extension's page, in a tab at the top: the project it's for, the extension, and the page's id. */
+export interface ExtensionPage {
+  projectId: string
+  extension: string
+  page: string
+}
+
+/** The id of the tab at the top that shows an extension's page in a project. */
+export function pageTabId(projectId: string, page: string): string {
+  return `page:${projectId}:${page}`
 }
 
 /** The Home tab's id. It's pinned first in the tab strip and can't be closed, so it's never in the list of tabs. */
@@ -292,6 +306,36 @@ export class Workspace {
     void this.checkFolders()
     this.update([...this.tabs, tab])
     this.activate(tab.id)
+  }
+
+  /**
+   * Opens an extension's page in a tab after its project's tab and the project's other pages, or switches to it when
+   * it's open already. A page for a project that isn't open opens nothing.
+   */
+  openPage({ title, ...page }: ExtensionPage & { title: string }): void {
+    const id = pageTabId(page.projectId, page.page)
+
+    if (this.getTab(id)) {
+      this.activate(id)
+
+      return
+    }
+
+    const owner = this.tabs.findIndex((tab) => tab.session?.id === page.projectId)
+
+    if (owner === -1) {
+      return
+    }
+
+    let at = owner + 1
+
+    while (this.tabs[at]?.page?.projectId === page.projectId) {
+      at++
+    }
+
+    const tab: Tab = { id, title, status: "ready", page }
+    this.update([...this.tabs.slice(0, at), tab, ...this.tabs.slice(at)])
+    this.activate(id)
   }
 
   /**
@@ -523,9 +567,16 @@ export class Workspace {
     }
 
     if (tab.session) {
+      const projectId = tab.session.id
       tab.session.close()
-      void request("project.close", { projectId: tab.session.id })
+      void request("project.close", { projectId })
       releaseGuest(tab.session.info.guestUrl)
+      // Its extensions' pages go with it.
+      this.update(this.tabs.filter((candidate) => candidate.page?.projectId !== projectId))
+
+      if (this.activeId !== undefined && !this.getTab(this.activeId)) {
+        this.activeId = this.tabs[Math.min(index, this.tabs.length - 1)]?.id
+      }
     }
 
     this.save()
@@ -987,7 +1038,7 @@ export class Workspace {
   /** The tabs with a project in them, as agents see them. */
   summaries(): TabSummary[] {
     return this.tabs
-      .filter((tab) => !tab.blank)
+      .filter((tab) => !tab.blank && !tab.page)
       .map((tab) => {
         const summary: TabSummary = {
           id: tab.id,

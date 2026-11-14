@@ -12,10 +12,13 @@ import {
   servesStories,
   storyPage
 } from "./storybook.ts"
+import { componentStories, setupGuide, storiesTree } from "./views.ts"
 
 /*
  * Storybook as an extension (PAR-1089), using only Parity's public API: Open in Storybook on component cards, layers
  * and Search actions, greyed where a component has no stories, and the status bar's count of components with stories.
+ * Its declarative views (PAR-1094) are the Stories tab, a Stories section in the Design tab for the selected component,
+ * and a setup guide that Show Storybook setup opens.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
  * it already runs, by its Portless name or on its usual port, or starts it through Parity's process manager.
  */
@@ -59,6 +62,21 @@ export function activate(parity: Parity): void {
   })
   parity.subscriptions.push(count)
 
+  const tree = storiesTree(storybook)
+  const stories = parity.views.tree("storybook.stories", tree.options)
+  stories.set(tree.items)
+
+  const section = componentStories(storybook)
+  const selected = parity.views.list("storybook.componentStories", section.options)
+  selected.set(section.items)
+
+  const guide = setupGuide(storybook)
+  const setup = parity.views.list("storybook.setupGuide", guide.options)
+  setup.set(guide.items)
+  parity.subscriptions.push(stories, selected, setup)
+
+  parity.subscriptions.push(parity.commands.register("storybook.setup", () => setup.reveal()))
+
   let running: Promise<Running> | undefined
 
   /** The project's Storybook, found or started once and then reused while it answers. */
@@ -74,6 +92,8 @@ export function activate(parity: Parity): void {
       throw error
     }
 
+    setup.set(setupGuide(storybook, found).items)
+
     const entries = await storyIndex(found.url).catch(() => undefined)
 
     if (entries) {
@@ -84,6 +104,7 @@ export function activate(parity: Parity): void {
     parity.servers.stop("storybook")
     running = find(parity, storybook)
     const again = await running
+    setup.set(setupGuide(storybook, again).items)
 
     return { running: again, entries: await storyIndex(again.url) }
   }

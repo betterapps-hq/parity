@@ -91,7 +91,7 @@ export function useExtensions(session: Session): ProjectExtensions {
 }
 
 /** Whether an extension's contributions show: everywhere but while it's stopped after crashing. */
-function showing(extension: ExtensionStatus): boolean {
+export function showing(extension: ExtensionStatus): boolean {
   return extension.state !== "crashed"
 }
 
@@ -105,7 +105,7 @@ export interface PlacedCommand {
 }
 
 /** Whether a context key holds for `target`: `true`, or a list holding the target's key. `!key` turns it around. */
-function holds(extension: ExtensionStatus, key: string | undefined, target: CommandTarget | undefined): boolean {
+export function holds(extension: ExtensionStatus, key: string | undefined, target: CommandTarget | undefined): boolean {
   if (key === undefined) {
     return true
   }

@@ -13,6 +13,7 @@ import type {
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { askChangesAgain } from "../canvas/frame-changes.ts"
 import { answerExtension } from "../extension-ui.ts"
+import { revealView } from "../extension-views.ts"
 import { extensionsOf } from "../extensions.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
@@ -146,6 +147,15 @@ const handlers: Handlers = {
 
     if (session) {
       extensionsOf(session).logged(extension, line)
+    }
+
+    return undefined
+  },
+  "extensions.reveal": ({ projectId, extension, view }) => {
+    const session = sessionOf(projectId)
+
+    if (session) {
+      revealView(session, extension, view)
     }
 
     return undefined

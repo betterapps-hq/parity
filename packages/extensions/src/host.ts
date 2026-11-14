@@ -9,6 +9,7 @@ import type {
   StatusItem
 } from "@parity-app/extension-api"
 import type { ActivateParams, HostMethods, HostServiceMethods } from "./protocol.ts"
+import { type Form, viewsOf } from "./views.ts"
 
 /*
  * The host's side: the code that runs in an extension's own process, for one open project. It loads the extension's
@@ -37,6 +38,7 @@ type CommandHandler = (target: CommandTarget | undefined) => void | Promise<void
 
 interface Activated {
   handlers: Map<string, CommandHandler>
+  forms: Map<string, Form>
   subscriptions: Disposable[]
   module: ExtensionModule
 }
@@ -79,6 +81,19 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       }
 
       await handler(target)
+    },
+    async "view.changed"({ view, key, value }) {
+      if (!activated) {
+        throw new Error("The extension hasn't activated")
+      }
+
+      const form = (await activated).forms.get(view)
+
+      if (!form) {
+        throw new Error(`${view} isn't a form the extension filled`)
+      }
+
+      form.changed(key, value)
     },
     ping: () => undefined,
     cancel({ progress: id }) {
@@ -126,6 +141,7 @@ async function activate(
   const { prefix } = params.extension
   const declaredCommands = new Set(params.commands)
   const declaredItems = new Set(params.statusItems)
+  const forms = new Map<string, Form>()
 
   const send = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) =>
     channel.request(method, value)
@@ -153,7 +169,14 @@ async function activate(
     }
   }
 
+  const views = viewsOf(params.views, declaredCommands, forms, {
+    send: (id, data) => quietly("view.set", { id, data }),
+    clear: (id) => quietly("view.clear", { id }),
+    reveal: (id) => send("view.reveal", { id })
+  })
+
   const parity: Parity = {
+    views,
     extension: {
       id: params.extension.id,
       version: params.extension.version,
@@ -283,7 +306,7 @@ async function activate(
 
   await exports.activate(parity)
 
-  return { handlers, subscriptions, module: exports }
+  return { handlers, forms, subscriptions, module: exports }
 }
 
 /** Disposes of what the extension added to `parity.subscriptions`, newest first, then calls its `deactivate`. */

@@ -19,6 +19,7 @@ import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
+import { ExtensionSections } from "./ExtensionTabs.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
@@ -170,6 +171,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
       <>
         <DesignHeader entry={entry} />
         <ComponentSourceSection component={component} />
+        <ExtensionSections selected={{ nodeType: "component", target: { type: "component", key: component } }} />
         <DesignExport entry={entry} />
       </>
     )
