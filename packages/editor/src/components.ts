@@ -4,7 +4,7 @@ import {
   type ContainerSpec,
   componentLibrary,
   extractComponent,
-  uniqueId,
+  designId,
   walkNodes
 } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
@@ -53,7 +53,7 @@ export function makeComponent(
     throw new Error(`No design "${source.id}" in ${source.path}`)
   }
 
-  const id = uniqueId(
+  const id = designId(
     options.name,
     designs.map((design) => design.id)
   )

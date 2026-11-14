@@ -87,7 +87,7 @@ describe("layers with nothing to go into", () => {
   it("become a new frame there, named after them, laid out in a padded column that hugs them", () => {
     const design = designOfLayers([text("heading", "Welcome back")], ["form"], { x: 40, y: 60 })
     expect(design).toMatchObject({
-      id: "welcome-back",
+      id: expect.stringMatching(/^welcome-back-[A-Za-z][A-Za-z0-9]{4}$/),
       name: "Welcome back",
       kind: "frame",
       position: { x: 40, y: 60 },
@@ -108,7 +108,7 @@ describe("layers with nothing to go into", () => {
 
   it("takes an id clear of the designs', and gives every layer a fresh one", () => {
     const design = designOfLayers([text("heading"), text("heading")], ["heading-and-1-more"], { x: 0, y: 0 })
-    expect(design.id).toBe("heading-and-1-more-2")
+    expect(design.id).toMatch(/^heading-and-1-more-[A-Za-z][A-Za-z0-9]{4}$/)
     const ids = [...nodeIds(design.root)]
     expect(ids).toHaveLength(3)
     expect(ids).not.toContain("heading")
@@ -137,7 +137,12 @@ describe("an item with nothing to go into", () => {
       { x: 300, y: -120 }
     )
 
-    expect(design).toMatchObject({ id: "button-2", name: "Button", kind: "frame", position: { x: 300, y: -120 } })
+    expect(design).toMatchObject({
+      id: expect.stringMatching(/^button-[A-Za-z][A-Za-z0-9]{4}$/),
+      name: "Button",
+      kind: "frame",
+      position: { x: 300, y: -120 }
+    })
     expect(inside(design)).toEqual([findNode(design.root, node)])
     expect(findNode(design.root, node)).toMatchObject({ component: "nova/Button", props: { children: "Button" } })
   })
