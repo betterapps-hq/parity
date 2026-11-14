@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 10:25:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 10:41:18 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.82.5
+
+Sat, 14 Nov 2026 10:41:18 GMT
+
+### Patches
+
+- Load an open project's canvas and panels in a chunk of their own, so the window paints sooner (ajcraswell@gmail.com)
 
 ## 0.82.4
 

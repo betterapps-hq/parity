@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Load an open project's canvas and panels in a chunk of their own, so the window paints sooner",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
