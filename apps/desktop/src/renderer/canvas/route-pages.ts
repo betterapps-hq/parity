@@ -31,10 +31,12 @@ const pageLinks = new Map<string, readonly PageLink[]>()
 
 /**
  * A layout with no page of its own, drawn as a group around its pages (PAR-1076): its key, which lines to it name, its
- * name and path, the keys of the screens and groups inside it, and the page its index redirects to.
+ * layout route's id, its name and path, the keys of the screens and groups inside it, and the page its index redirects
+ * to.
  */
 export interface PageGroupPlace {
   key: string
+  route: string
   name: string
   path: string
   members: string[]
@@ -106,9 +108,10 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
   )
   pageGroups.set(
     info.id,
-    groups.map(({ id, name, path, redirect }) => {
+    groups.map(({ id, name, path, route, redirect }) => {
       const place: PageGroupPlace = {
         key: designKey(id),
+        route,
         name,
         path,
         members: hung.flatMap((member) => (member.parent === id ? [designKey(member.id)] : []))

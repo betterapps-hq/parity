@@ -6,7 +6,7 @@ import type { ComponentType, ReactNode } from "react"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { routePageRoute, routePageTarget } from "../canvas/route-pages.ts"
+import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
 import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
@@ -16,6 +16,7 @@ import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
+import { useStore } from "../store.ts"
 import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
@@ -27,7 +28,7 @@ import { Name } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
-import { RouteProps, RouteSection } from "./RoutePanel.tsx"
+import { PageGroupPanel, RouteProps, RouteSection } from "./RoutePanel.tsx"
 import { useLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
@@ -64,9 +65,12 @@ export function DesignTabFields({ children }: { children: ReactNode }) {
 }
 
 function SelectedPanel() {
-  const { store, selection } = useProject()
+  const { id, store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
+  const pickedGroup = useStore(selectedPageGroup)
+  // A layout group isn't a design, so the selection holds nothing while one is picked.
+  const group = entry ? undefined : routePageGroups(id).find(({ key }) => key === pickedGroup)
 
   if (selected.note) {
     return <NotePanel noteKey={selected.note} />
@@ -74,6 +78,10 @@ function SelectedPanel() {
 
   if (selected.reference) {
     return <ReferencePanel referenceKey={selected.reference} />
+  }
+
+  if (group) {
+    return <PageGroupPanel group={group} />
   }
 
   if (!entry) {

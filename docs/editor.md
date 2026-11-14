@@ -6485,9 +6485,12 @@ A screen is named for the component its route draws, else its path.
   pixels in from its sides. Its header, at a title's size, shows the layout icon, its name and path, and a chip with
   where its index redirects, Profile, whose tooltip says "Redirects to Profile"; clicking the chip selects Profile. The
   line from the page above ends at the group's top edge. Clicking the header selects the group, whose outline turns
-  solid in the page color, and brings forward its line up to App. Selecting a design takes the selection from it. A
-  group is named for its path's last part, or for its component when its path is its parent's, as a pathless layout's
-  is. The group's outline is drawn round its pages where they are now, so it follows a page that's moved.
+  solid in the page color, and brings forward its line up to App. Its panel shows the layout icon, its name and Layout,
+  then what the router says of its layout route, read-only: its path, file and component, where its index redirects as a
+  link that selects that page, and whether it loads data or can redirect. It has no frame of its own, so no modes or
+  Export (`PageGroupPanel`). Selecting a design takes the selection from it. A group is named for its path's last part,
+  or for its component when its path is its parent's, as a pathless layout's is. The group's outline is drawn round its
+  pages where they are now, so it follows a page that's moved.
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
