@@ -2,6 +2,45 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 22:45:30 GMT",
+      "version": "0.65.0",
+      "tag": "@parity-app/cli_v0.65.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3ad8f93d66c91031853b294eac6ffcf8f43519c2",
+            "comment": "Extensions with the edits permission change designs as one undo step named after them, and write project files through Parity, never .par files"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f2e2dd2065ac8dd2ff5d08ef16a2efa3834db548",
+            "comment": "Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands only where a when expression holds, and add keys, which Parity's own win (PAR-1092)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "896754c8bb70dab2511030d1c9bd19ea28fa277d",
+            "comment": "Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no longer exist"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dfef12b389613a21a930b8a3e74afa256bbdf698",
+            "comment": "Storybook and TanStack Router take their supported versions from their extensions' peer dependencies"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f16a4b9e4ba0e7a192efeef012ebc068aada1ef7",
+            "comment": "Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying that fades and selects, and a screen-sized preview ring"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 21:19:27 GMT",
       "version": "0.64.0",
       "tag": "@parity-app/cli_v0.64.0",

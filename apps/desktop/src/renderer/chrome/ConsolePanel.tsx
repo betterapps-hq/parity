@@ -39,7 +39,7 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource } from "./code-editor.ts"
 import { allLevels, consoleFilterOf, type Shown, useConsoleFilter } from "./console-filter.ts"
-import { BottomTabs, ExtensionLog, useBottomTab } from "./ExtensionLog.tsx"
+import { BottomTabs, BottomView, ExtensionLog, useBottomTab, useBottomView } from "./ExtensionLog.tsx"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { panelLimits, setLayout, useLayout } from "./layout.ts"
@@ -72,19 +72,29 @@ export function ConsolePanel() {
   const session = useProject()
   // An extension's log takes the panel while its tab is chosen (PAR-1089).
   const extension = useBottomTab(session)
+  // So does a tab an extension added for one of its views (PAR-1094).
+  const view = useBottomView(session)
 
   if (!layout.console) {
     return null
   }
 
+  let shown = <ConsoleView session={session} />
+
+  if (view) {
+    shown = <BottomView session={session} view={view} />
+  } else if (extension) {
+    shown = <ExtensionLog session={session} extension={extension} />
+  }
+
   return (
     <section
-      aria-label={extension ? `${extension.displayName} log` : "Console"}
+      aria-label={view?.title ?? (extension ? `${extension.displayName} log` : "Console")}
       className="relative flex shrink-0 flex-col border-t bg-background"
       style={{ height: layout.consoleHeight }}
     >
       <ResizeTop height={layout.consoleHeight} />
-      {extension ? <ExtensionLog session={session} extension={extension} /> : <ConsoleView session={session} />}
+      {shown}
     </section>
   )
 }

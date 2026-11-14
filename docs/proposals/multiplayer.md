@@ -84,14 +84,25 @@ and `@parity-app/multiplayer-loro` is the first provider that can merge, on [Lor
 ## What goes in the document
 
 One document per open project, holding every `.par` file the project edits. Libraries' `.lib.par` files are read only,
-and designs drawn from code (pages, component boards, stories) are drawn again each time a project opens, so neither is
-in it.
+so they aren't in it.
+
+**Designs drawn from code are in it, as files of their own,** as they're in `DesignStore` today: the app's pages
+`(pages)`, component boards `(components)` and stories `(stories)`. The canvas, the lookups and the node index read them
+like any other design, and people fit their frames and edit stories through the same functions.
+
+- **They're opened as drawn files** (`OpenOptions.files[].drawn`). A provider keeps a drawn file out of anything it
+  shares, since each window draws them from its own code.
+- **Drawing them again** (the component boards when components change) is a transaction with the `code` origin: never a
+  step, never written.
+- **Saving them goes where it goes now.** The saver writes each file through the `Persistence` it's given, which sends
+  `(stories)` to `entities.save` and skips pages and boards, as `workspace.ts` does today. What people change on pages
+  and boards is kept in the main file's `codeDesigns`, by `keepCodeDesigns` listening to the document.
 
 | Part                           | Where                                                                                                                         | Merges                                              |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | Designs                        | The backend: a node per design, in the order its file lists them                                                              | Per field; record fields per key (below)            |
 | Layers                         | The backend: a node per layer, inside its design, its parent layer or one of its parent's slots, in order                     | Per field; record fields per key; text by character |
-| Notes and references           | The backend: one entry per item, by id, with an order key                                                                     | Whole item                                          |
+| Notes and references           | The backend: an ordered list per file                                                                                         | Whole item                                          |
 | Modes                          | The backend: one entry per top-level field of `ModeSettings`, saved into the main file                                        | Whole field                                         |
 | A file's other fields          | The backend: `detection`, `objects`, `links`, `sources`, `images`, `preferences`, `extensions`, `codeDesigns`, one entry each | Whole field                                         |
 | Token values edited            | `ProjectDoc` itself: written to the stylesheet, never to `.par`, never shared                                                 | Not shared                                          |
@@ -111,15 +122,21 @@ and a param's options. Open questions has these.
   have them. A provider maps it to its own ids, which never leave it.
 - **Layers keep `generateId`,** which already gives random ids, and notes and references keep theirs.
 - **A new design's id keeps a readable stem and adds `generateId`'s five random characters:** a new
-  `designId(name, taken)` in core gives `pricing-k3f9q`, and the places that name a new design (`create.ts`,
-  `new-screen.ts`, `frames.ts`, `components.ts`, the agent's workspace) use it. `uniqueId` stays as it is for states,
+  `designId(name, taken)` in core gives `pricing-k3f9q`, and the places that name a new design use it: `create.ts`,
+  `new-screen.ts`, `frames.ts`, `components.ts`, the agent's workspace, duplicating a design (`chrome/designs.ts`), a
+  frame made from dropped media (`drop-files.ts`), and pasting (`clipboard.ts`), which gives a pasted design a new id
+  even when its copied one is free, so two people pasting one copy don't collide. `uniqueId` stays as it is for states,
   variant options, modes and viewports, which live inside values replaced whole.
 - **Ids an agent or extension chooses are checked as today,** and refused when taken.
-- **Merges are repaired.** After changes arrive from someone else, each design they touched is checked with
-  `containerSpec`, and what breaks it is repaired by named rules: two layers with one id (the later one gets a new id),
-  two layers that are one slot (the later one is renamed), a state or variant patch naming a layer that's gone (the
-  patch key is dropped, as `deleteNode` does today), states on a design that isn't a component (dropped). Each repair is
-  recorded (`projectDoc.repaired`). This can only happen once sync arrives.
+- **Merges are repaired, once sync arrives.** After changes arrive from someone else, each design they touched is
+  checked with `containerSpec`, and what breaks it is repaired by named rules: two layers with one id, two layers that
+  are one slot, two slot nodes for one slot of an instance (their children are joined into the first), a state or
+  variant patch naming a layer that's gone (the patch key is dropped, as `deleteNode` does today), and states on a
+  design that isn't a component (dropped).
+- **Every peer repairs the same way.** "The later one" is the later by the provider's own order of nodes (Loro's
+  `TreeID`), and a new id is derived from that node's provider id rather than drawn at random, so peers that repair the
+  same merge make the same repair and their repairs merge to one result. Each repair sends the `projectDoc.repaired`
+  event, defined with sync.
 
 ### Order
 
@@ -136,6 +153,11 @@ and a param's options. Open questions has these.
 
 ## `@parity-app/multiplayer`
 
+**Packages depend one way:** core ← tokens ← editor ← multiplayer ← multiplayer-local and multiplayer-loro ← the desktop
+app. The multiplayer package uses the editor's pure modules (`mergeAgentChanges`, `sameDesign`, `sameDocument`,
+`withTidyView`, `prunedDocument`, `designOperationChanges`, `TokenEdits`) and the editor never imports it: the editor's
+modules take plain files, modes and token edits, never a `ProjectDoc`. Only the desktop app holds a document.
+
 ### Addresses and values
 
 ```ts
@@ -146,9 +168,9 @@ import type {
   JsonValue,
   ModeSettings,
   NoteSpec,
-  ReferenceSpec,
-  TokenEdits // moves from @parity-app/editor to core, so the editor can use ProjectDoc
+  ReferenceSpec
 } from "@parity-app/core"
+import type { TokenEdit, TokenEdits } from "@parity-app/editor"
 
 /** A design's key: its file and its id, `app.par#home`. */
 export type DesignKey = string
@@ -209,8 +231,15 @@ export type DocOp =
   | { op: "editText"; design: DesignKey; node: string; edit: TextEdit }
   /** Replaces a design's root layer with a new tree, as Turn into frame wraps it in a layout. */
   | { op: "replaceRoot"; design: DesignKey; root: DesignNode }
+  /** Gives a component or instance layer a slot filled with nothing, before another of its slots or last. */
+  | { op: "addSlot"; design: DesignKey; node: string; slot: string; before?: string }
   /** Takes a slot away from a component or instance layer, which differs from leaving it filled with nothing. */
   | { op: "removeSlot"; design: DesignKey; node: string; slot: string }
+  // Files.
+  /** A new `.par` file with no designs, notes or references yet, and the other fields given. */
+  | { op: "addFile"; file: string; fields?: Partial<Record<FileField, JsonValue>> }
+  /** Takes a file out of the project, with everything in it. Never the main file. */
+  | { op: "removeFile"; file: string }
   // Designs.
   | { op: "addDesign"; file: string; design: ContainerSpec; before?: DesignKey }
   | { op: "removeDesign"; design: DesignKey }
@@ -225,12 +254,29 @@ export type DocOp =
   | { op: "removeReference"; file: string; id: string }
   | { op: "setFileField"; file: string; field: FileField; value?: JsonValue }
   | { op: "setModes"; modes: ModeSettings }
+  // Kept by ProjectDoc itself and never sent to the backend.
+  /** Token values edited on the canvas, which the saver writes to the stylesheet. Never shared. */
+  | { op: "setTokens"; tokens: TokenEdits }
 ```
 
-- **`set` can't change `id`, `type`, `children` or `slots`.** A layer whose type changes and keeps its id, as detaching
-  an instance does, is a `remove` and an `insert` with that id in one transaction, which is allowed since operations
-  apply in order. `set` on a text layer's `["text"]` is an `editText` replace.
-- **`setModes` changes the main file,** which carries the modes, so its change names the main file to write.
+- **`set` can't change `id`, `type`, `children` or `slots`,** and `setDesign` can't change `id` or `root`. A layer whose
+  type changes and keeps its id, as detaching an instance does, is a `remove` and an `insert` with that id in one
+  transaction, which is allowed since operations apply in order. `set` on a text layer's `["text"]` is an `editText`
+  replace.
+- **An `insert` into a slot the parent doesn't have yet creates it,** last among its slots. `addSlot` makes one filled
+  with nothing.
+- **`remove` drops the patches naming what it removed,** from every state and variant option, as `deleteNode` does
+  today, so removing a layer a state patches is allowed, as an extension's `remove` is now. Checking records the dropped
+  patches as changes to the design's `states` and `params`, so undo puts them back.
+- **`setModes` changes the main file,** which carries the modes, and prunes views that name modes that are gone in every
+  file, as `setModes` does today. Its change names each file it changed.
+- **`setNote` and `setReference` on an item that exists replace it in place,** unless `before` moves it.
+- **Removing a record field's last key removes the field,** rather than leaving `style: {}`, so comparing designs stays
+  exact.
+- **`addDesign` into a file that doesn't exist is refused;** the file is made first with `addFile` in the same
+  transaction. A file left with no designs stays until a `removeFile`.
+- **A transaction can mix them all,** so an agent's call (designs, modes, token values, references) or restoring a
+  recovery copy (files, deleted files, modes, token values) is one transaction and one step, as it is today.
 
 ### Checking a transaction
 
@@ -251,6 +297,8 @@ export type TransactProblem =
   | { kind: "intoItself"; op: number; address: LayerAddress; parent: string }
   | { kind: "notSibling"; op: number; address: LayerAddress; before: string }
   | { kind: "fixedField"; op: number; address: LayerAddress; field: string }
+  | { kind: "unknownFile"; op: number; file: string }
+  | { kind: "takenFile"; op: number; file: string }
   | { kind: "invalid"; op?: number; design?: DesignKey; pointer: string; message: string }
 ```
 
@@ -264,6 +312,7 @@ export type ChangeOrigin =
   | "extension" // an extension with the edits permission
   | "file" // a file changed outside Parity: git, an editor, an agent writing it
   | "view" // which state or modes a design shows: not undoable
+  | "code" // designs drawn again from code: not undoable, not written
   | "remote" // someone else, once sync arrives: never in this person's undo
 
 /** A gesture's id, which `beginGesture` makes. */
@@ -273,6 +322,8 @@ export interface TransactOptions {
   origin: ChangeOrigin
   /** The gesture this belongs to: the gesture's transactions are one undo step until it ends. */
   gesture?: GestureId
+  /** Whether it's a step for Undo. `false` for what follows from another change, as fitting a frame to its content. */
+  undoable?: boolean
   /** Whether the files it changes are written. `false` for changes that came from the files. Defaults to true. */
   persist?: boolean
   /** Kept with the undo step and given back when it's undone or redone, as the selection to restore. */
@@ -292,11 +343,19 @@ export interface Checkpoint {
 export interface UndoState {
   canUndo: boolean
   canRedo: boolean
-  /** The labels Edit > Undo and Redo show: `Move frame`, `Change padding`. */
-  undoLabel?: string
-  redoLabel?: string
-  /** Counts the step Undo would take back: different after a change, an undo, a redo or a gesture's end. */
-  step: number
+  /** The steps' labels, latest first: `Move frame`, `Change padding`. Edit > Undo and Redo show the first. */
+  undo: readonly string[]
+  redo: readonly string[]
+  /** The step Undo would take back, by an id that's never used again: equal only while it's the same step. */
+  step: number | undefined
+}
+
+/** What a gesture did, for `gesture.ended`. */
+export interface GestureEnded {
+  /** Whether it left an undo step. */
+  step: boolean
+  transactions: number
+  transactMs: number
 }
 
 export interface ProjectDoc {
@@ -320,8 +379,6 @@ export interface ProjectDoc {
   // Writing.
   /** Checks and applies a transaction. Its change is returned and also sent to subscribers. */
   transact(label: string, ops: readonly DocOp[], options: TransactOptions): TransactResult
-  /** Token values edited on the canvas, which the saver writes to the stylesheet. Undoable, never shared. */
-  setTokens(label: string, tokens: TokenEdits, options: TransactOptions): DocChange | undefined
   /**
    * A file changed outside Parity: one undoable step that makes the file what it now holds, not written back. The main
    * file's modes come with it.
@@ -331,10 +388,9 @@ export interface ProjectDoc {
   // Gestures: a drag, a resize, a scrub, a run of arrow presses or a change preview.
   beginGesture(): GestureId
   /**
-   * Ends a gesture. Returns whether it left an undo step: one that ends where it began leaves none, and Redo is as it
-   * was before it began.
+   * Ends a gesture. One that ends where it began leaves no step, and Redo is as it was before it began.
    */
-  endGesture(gesture: GestureId): boolean
+  endGesture(gesture: GestureId): GestureEnded
   inGesture(): boolean
   subscribeGestures(listener: () => void): () => void
   checkpoint(gesture: GestureId, design: DesignKey): Checkpoint | undefined
@@ -367,12 +423,21 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
 - **Gestures run side by side,** each by its id. `inGesture` is true while any is open, and `subscribeGestures` tells
   when the first begins and the last ends, which the node index (PAR-1088) waits for.
 - **A gesture that ends where it began leaves no step** and puts Redo back as it was. Whether it changed anything is
-  found by comparing the designs it touched with their values when it began, using `sameDesign`.
+  found by comparing everything it touched (designs with `sameDesign`, notes, references, file fields, modes and token
+  values) with their values when it began, as `sameSnapshot` compares the whole state today.
+- **A gesture split into several steps** by others' transactions is judged as a whole: when it ends where it began,
+  every one of its steps is dropped, the others' steps stay, and Redo is as it was before the gesture began. When it
+  changed something, each of its steps stays.
+- **Undo is current during a gesture.** A step the gesture has reverted to nothing, through `revert` or by putting
+  values back, doesn't show in `history()` from that moment, as `revertTo` drops it today, so a change preview's
+  `canUndo` stays right.
 - **`revert` is today's revert:** it puts the checkpoint's design back as it was, with `containerOps` from the design
   now to `checkpoint.container`, as a transaction inside the gesture's step. Other designs, other files and other
   people's transactions stay.
-- **`changedBesides` is true** when a transaction that isn't the gesture's has touched the checkpoint's design since the
-  checkpoint, which `DocChange` makes easy to keep.
+- **`changedBesides` is true** when an undoable transaction that isn't the gesture's, or a change from someone else, has
+  touched the checkpoint's design since the checkpoint, which `DocChange` makes easy to keep. Transactions that aren't
+  steps (`undoable: false`, `view`, `code`) don't count, as they don't today, so fitting a frame while it's being
+  resized doesn't stop a revert.
 
 ### Undo
 
@@ -382,27 +447,38 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
   is a transaction's inverses, or a gesture's, applied in reverse order. Undo applies them as a transaction; Redo
   applies the inverses of that.
 
-  | Operation                       | Its inverse                                                                 |
-  | ------------------------------- | --------------------------------------------------------------------------- |
-  | `insert`                        | `remove` of the layer                                                       |
-  | `remove`                        | `insert` of the whole layer, with its parent, slot and the sibling after it |
-  | `move`                          | `move` back to its parent, slot and the sibling after it                    |
-  | `set`, `setDesign`              | the same with the value before, or without a value when there was none      |
-  | `editText`                      | the opposite splice, or a `replace` with the text before                    |
-  | `replaceRoot`                   | `replaceRoot` with the root before                                          |
-  | `removeSlot`                    | `insert`s refilling the slot, or a `set` making it empty again              |
-  | `addDesign`, `removeDesign`     | each other, with the design whole and the design after it                   |
-  | `moveDesign`                    | `moveDesign` back to its file and the design after it                       |
-  | `setNote`, `setReference`       | the item before, or its `removeNote`/`removeReference`                      |
-  | `removeNote`, `removeReference` | `setNote`/`setReference` with the item and the item after it                |
-  | `setFileField`, `setModes`      | the same with the value before                                              |
-  | `setTokens`                     | the token values before                                                     |
+  | Operation                       | Its inverse                                                                                                                                             |
+  | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `insert`                        | `remove` of the layer                                                                                                                                   |
+  | `remove`                        | `insert` of the whole layer, with its parent, slot and the sibling after it, and `setDesign` of the `states` and `params` its patches were dropped from |
+  | `move`                          | `move` back to its parent, slot and the sibling after it                                                                                                |
+  | `set`, `setDesign`              | the same with the value before, or without a value when there was none                                                                                  |
+  | `editText`                      | the opposite splice, or a `replace` with the text before                                                                                                |
+  | `replaceRoot`                   | `replaceRoot` with the root before                                                                                                                      |
+  | `addSlot`                       | `removeSlot`                                                                                                                                            |
+  | `removeSlot`                    | `addSlot` in its place, then `insert`s refilling it                                                                                                     |
+  | `addFile`, `removeFile`         | each other, with the file whole: its designs, notes, references and fields                                                                              |
+  | `addDesign`, `removeDesign`     | each other, with the design whole and the design after it                                                                                               |
+  | `moveDesign`                    | `moveDesign` back to its file and the design after it                                                                                                   |
+  | `setNote`, `setReference`       | the item before, or its `removeNote`/`removeReference`                                                                                                  |
+  | `removeNote`, `removeReference` | `setNote`/`setReference` with the item and the item after it                                                                                            |
+  | `setFileField`, `setModes`      | the same with the value before                                                                                                                          |
+  | `setTokens`                     | `setTokens` with the values before                                                                                                                      |
 
-- **Undo leaves someone else's change.** Before applying an inverse, it checks the target is as the step left it: a
-  field still holds the value the step set, a layer the step inserted is still there, a parent it moved back to still
-  exists. One that isn't is skipped and counted, so undo never takes back what someone else did since. Without sync,
-  nothing is ever skipped, since steps are undone in order.
-- **Origins:** `view` changes are never steps; `remote` ones never are either, and arrive through the backend.
+- **Undo leaves someone else's change.** The inverses are checked one by one against a draft, in order. One whose target
+  isn't as the step left it (a field no longer holds the value the step set, a layer the step inserted is gone, a parent
+  to move back to is gone) is skipped and counted in `kept`, so undo never takes back what someone else did since:
+  - an inverse that targets something a skipped one would have made (a layer inside a layer that wasn't put back) is
+    skipped too;
+  - a `before` sibling that's gone falls back to last in that parent and slot, rather than refusing the step;
+  - Redo then holds the inverses of only what was applied.
+
+  Without sync, nothing is ever skipped, since steps are undone in order.
+
+- **Undo keeps what each design shows.** Inverses never change a design's `view`, so undo and redo leave each design
+  showing the state and modes it shows now, as `keepViews` does today.
+- **Origins:** `view` and `code` changes are never steps, nor are transactions with `undoable: false`; `remote` ones
+  never are either, and arrive through the backend.
 - **The limit** is `undoLimit`, `historyLimit` (200) as now.
 
 ### Changes
@@ -417,8 +493,13 @@ export interface DocChange {
   gesture?: GestureId
   /** The `meta` given with the step, on undo and redo. */
   meta?: JsonValue
-  /** Files whose `.par` content changed: the main file too when the modes did. Empty when `persist` was false. */
-  writes: readonly string[]
+  /** Files whose `.par` content changed: the main file too when the modes did. */
+  files: readonly string[]
+  /** Whether those files are to be written. False for a replaced file and `persist: false`: the saver takes them as saved. */
+  persist: boolean
+  /** Files added and removed. */
+  filesAdded: readonly string[]
+  filesRemoved: readonly string[]
   designs: {
     added: readonly DesignKey[]
     removed: readonly DesignKey[]
@@ -466,7 +547,16 @@ export interface DocBackend {
 /** What changed in the backend's state. `ProjectDoc` adds the label, the step and the token edits to make a `DocChange`. */
 export type BackendChange = Pick<
   DocChange,
-  "designs" | "layers" | "notes" | "references" | "fileFields" | "modes" | "version"
+  | "files"
+  | "filesAdded"
+  | "filesRemoved"
+  | "designs"
+  | "layers"
+  | "notes"
+  | "references"
+  | "fileFields"
+  | "modes"
+  | "version"
 >
 
 export interface DocProvider {
@@ -478,8 +568,8 @@ export interface DocProvider {
 }
 
 export interface OpenOptions {
-  /** The files without their modes. */
-  files: readonly { path: string; document: CanvasDocument }[]
+  /** The files without their modes. A drawn file is drawn from code by each window and never shared. */
+  files: readonly { path: string; document: CanvasDocument; drawn?: boolean }[]
   main: string
   modes: ModeSettings
 }
@@ -502,14 +592,15 @@ export function updateContainer(
 ): TransactResult
 export function updateContainers(
   doc: ProjectDoc,
-  keys: Iterable<DesignKey>,
+  keys: readonly DesignKey[],
   label: string,
-  update: (container: ContainerSpec, key: DesignKey) => ContainerSpec,
+  update: (containers: ContainerSpec[]) => ContainerSpec[],
   options?: Options
 ): TransactResult
 export function updateView(
   doc: ProjectDoc,
   key: DesignKey,
+  label: string,
   update: (view: ContainerViewSettings) => ContainerViewSettings
 ): void
 export function setPosition(
@@ -524,7 +615,14 @@ export function reorderContainer(doc: ProjectDoc, key: DesignKey, target: Design
 export function setModes(doc: ProjectDoc, modes: ModeSettings, label?: string): void
 export function changeTokens(doc: ProjectDoc, label: string, edits: readonly TokenEdit[], options?: Options): void
 export function addNote(doc: ProjectDoc, path: string, note: NoteSpec): string
-export function updateNote(doc: ProjectDoc, key: string, label: string, update: (note: NoteSpec) => NoteSpec): void
+/** Leaving the note out of `update`'s result removes it. */
+export function updateNote(
+  doc: ProjectDoc,
+  key: string,
+  label: string,
+  update: (note: NoteSpec) => NoteSpec | undefined,
+  options?: Options
+): void
 export function addReferences(
   doc: ProjectDoc,
   path: string,
@@ -535,7 +633,8 @@ export function updateReference(
   doc: ProjectDoc,
   key: string,
   label: string,
-  update: (reference: ReferenceSpec) => ReferenceSpec
+  update: (reference: ReferenceSpec) => ReferenceSpec | undefined,
+  options?: Options
 ): void
 
 /** For the six callers that change several files at once, with a function of the files and the modes. */
@@ -549,24 +648,40 @@ export function changeFiles(
   options?: Options
 ): TransactResult
 
-/** Agents' changes, merged three ways against what the agent read, as `mergeAgentChanges` does now. */
-export function applyAgentChanges(doc: ProjectDoc, label: string, changes: readonly DesignChange[]): AgentApplied
+/**
+ * Agents' changes, merged three ways against what the agent read, as `mergeAgentChanges` does now: designs, modes,
+ * token values and references, as one transaction.
+ */
+export function applyAgentChanges(
+  doc: ProjectDoc,
+  label: string,
+  designs: readonly DesignChange[],
+  modes?: ModeSettings,
+  tokens?: readonly TokenEdit[],
+  references?: readonly ReferenceChange[]
+): AgentApplied
 /** Extensions' operations, which are already `DocOp`s. */
 export function applyOperations(doc: ProjectDoc, label: string, operations: readonly DesignOperation[]): TransactResult
-/** Whole files replacing what's there, as one step: an agent writing files, or restoring a recovery copy. */
+/** Whole files replacing what's there, as one step: an agent writing files. `null` removes a file; a new path adds one. */
 export function applyDocuments(
   doc: ProjectDoc,
   label: string,
-  documents: readonly { path: string; document: CanvasDocument }[]
+  documents: readonly { path: string; document: CanvasDocument | null }[]
 ): TransactResult
+/** Restores a recovery copy as one transaction: its files, the files it deleted, its modes and token values. */
+export function restoreCopy(doc: ProjectDoc, copy: RecoveryCopy): TransactResult
 
 /** The operations that make `before` into `after`, comparing only what isn't the same object. */
 export function containerOps(key: DesignKey, before: ContainerSpec, after: ContainerSpec): DocOp[]
-/** The same for a whole file: its designs, notes, references and other fields. */
-export function fileOps(path: string, before: CanvasDocument, after: CanvasDocument): DocOp[]
+/** The same for a whole file: its designs, notes, references and other fields. `undefined` adds or removes the file. */
+export function fileOps(path: string, before: CanvasDocument | undefined, after: CanvasDocument | undefined): DocOp[]
 ```
 
 `AgentApplied` carries what `applyAgentChanges` returns today: the conflicts and the designs it changed.
+`ReferenceChange` is today's type from `design-changes.ts`.
+
+- **`updateContainers` keeps today's shape,** a function from the designs to the new designs, so its seven callers only
+  change their receiver.
 
 - **`containerOps` compares by object first,** as PAR-1088's collector does: a layer that's the same object, with
   everything inside it, is skipped, and only what an edit touched is compared field by field.
@@ -667,6 +782,12 @@ export interface BenchSession {
 /** The benchmark's scenarios against one kind of session, as a Vitest bench. */
 export function benchSession(open: (files: { path: string; document: CanvasDocument }[]) => BenchSession): void
 
+/**
+ * The scenarios only a provider has: comparing with `containerOps` against sending the operation, and, with a
+ * `ReplicaPair`, exchanging transactions with a replica.
+ */
+export function benchProvider(provider: DocProvider, options?: { replicas?: ReplicaPair }): void
+
 /** A project to load: `designs` designs of about `layers` layers each, `depth` deep, with text, instances and slots. */
 export function generateProject(options: {
   designs: number
@@ -713,8 +834,8 @@ LoroDoc (one per open project)
 │   │       └─ a slot node               text: LoroText, style: LoroMap, props: LoroMap, args: LoroMap,
 │   │           └─ its layers …          overrides: LoroMap, responsive: LoroMap }
 │   │                            a slot node's data: { slotOf: name }
-├─ "notes"       LoroMap: `path#id` → { file, note, order }
-├─ "references"  LoroMap: `path#id` → { file, reference, order }
+├─ "notes"       LoroMap: path → LoroMovableList of notes
+├─ "references"  LoroMap: path → LoroMovableList of references
 ├─ "files"       LoroMap: path → LoroMap of the file's other fields
 └─ "modes"       LoroMap: field of ModeSettings → value
 ```
@@ -723,21 +844,29 @@ LoroDoc (one per open project)
 - **A slot is a node of its own** under its component or instance, with the slot's layers inside it, so a layer's parent
   and slot change together in one move, a slot filled with nothing is a slot node with no children, and slots keep their
   order. A layout's `slot` field, which says the layout is a slot of its component, is a field like any other.
-- **Record fields are `LoroMap`s** created with the node, so per-key merging needs nothing more. Only the fields a node
-  has are created.
-- **Notes and references keep an order key** made with Loro's fractional index, since a `LoroMap` has no order.
+- **Record fields are `LoroMap`s,** so per-key merging needs nothing more, and a text layer's `text` is a `LoroText`.
+  Only the fields a node has are created, and each is created with `ensureMergeableMap` or `ensureMergeableText`, not
+  `getOrCreateContainer`: Loro warns that two peers first creating a container at one key can fork it and hide one side,
+  and two people setting the first `style` key on one layer is exactly that.
+- **Notes and references are a `LoroMovableList` per file,** which keeps their order, moves an item with `move`, and
+  replaces one with `set`. Loro's declarations export no fractional index outside the tree, so there's no order key to
+  make.
+- **Drawn files aren't in it.** The backend keeps them only as plain values, so they're never exported or sent.
 - **Token edits aren't in it,** so they're never in what's exported or sent.
 
 ### Each method
 
-| Method      | On Loro                                                                                                                                                                                                                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `open`      | `new LoroDoc()`, `getTree("designs").enableFractionalIndex(…)`, builds every node from the files, and `commit({ origin: "load" })`                                                                                                                                                          |
-| `files`     | The plain values the backend keeps (below), never read from Loro                                                                                                                                                                                                                            |
-| `apply`     | For each operation: `tree.createNode(parent)` then `moveBefore(sibling)` for a `before`; `moveBefore` or `move` for a move; `tree.delete`; `node.data.set`; a record's `LoroMap.set` or `delete`; `LoroText.insert`/`delete`, or `update` for a replace. Then `commit({ origin, message })` |
-| `subscribe` | With sync: `doc.subscribe`, turning an event batch with `by: "import"` into a `BackendChange` from its tree, map and text diffs                                                                                                                                                             |
-| `version`   | `doc.frontiers()`, encoded                                                                                                                                                                                                                                                                  |
-| `dispose`   | Drops the `LoroDoc` and the subscription                                                                                                                                                                                                                                                    |
+| Method      | On Loro                                                                                                                                                                                                                                                                                             |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open`      | `new LoroDoc()`, `getTree("designs").enableFractionalIndex(…)`, builds every node from the files, and `commit({ origin: "load" })`                                                                                                                                                                  |
+| `files`     | The plain values the backend keeps (below), never read from Loro                                                                                                                                                                                                                                    |
+| `apply`     | For each operation: `tree.createNode(parent)` then `moveBefore(sibling)` for a `before`; `moveBefore` or `move` for a move; `tree.delete`; `node.data.set`; a record's `LoroMap.set` or `delete`; `LoroText.insert`/`delete`, or `update` for a replace. Then `commit({ origin })`, with no message |
+| `subscribe` | With sync: `doc.subscribe`, turning an event batch with `by: "import"` into a `BackendChange` from its tree, map and text diffs                                                                                                                                                                     |
+| `version`   | `doc.frontiers()`, encoded                                                                                                                                                                                                                                                                          |
+| `dispose`   | Drops the `LoroDoc` and the subscription                                                                                                                                                                                                                                                            |
+
+**Commits carry no message.** Loro keeps a commit's `message` in its history and exports, unlike its `origin`, so undo
+labels, which can name what someone typed, stay in `ProjectDoc`.
 
 **Loro's `UndoManager` isn't used.** Its groups take in every local commit made while a group is open, not one
 gesture's, and `revertTo` goes back over the whole document, not one design. Undo kept in `ProjectDoc` avoids both and
@@ -791,6 +920,8 @@ export interface ProjectSaver {
   state(): SaveState
   unsaved(): string[]
   hasUnsaved(): boolean
+  /** A file's content as last written or read, which `getSavedView` and the status's unsaved designs compare with. */
+  saved(path: string): CanvasDocument | undefined
   /** Writes what's waiting now, as Save does. */
   flush(): Promise<void>
   /** Says how token values reach the stylesheet. The latest writer is used. */
@@ -804,47 +935,52 @@ export interface ProjectSaver {
 export function createProjectSaver(doc: ProjectDoc, persistence: Persistence): ProjectSaver
 ```
 
-- **It writes what each change's `writes` name,** after the delay saving waits for now. A file's content is
-  `doc.file(path)`, and the main file's adds the modes when they differ from the defaults, as `fileContent` does now.
-- **A file is unsaved** while its content isn't the value last written, nor the same as it (`sameDocument`).
+- **It writes the files each change names when `persist` is true,** after the same 300 ms delay saving waits for now. A
+  file's content is `doc.file(path)`, and the main file's adds the modes when they differ from the defaults, as
+  `fileContent` does now. Writes keep `keepTrace` (PAR-629).
+- **A change with `persist: false` makes its files' content the saved content,** so a file reloaded from disk isn't
+  unsaved, as `restore(…, persist=false)` does today, and a save waiting for that file is cancelled.
+- **A file is unsaved** while its content isn't the saved content, nor the same as it (`sameDocument`).
 - **It writes token values** to the stylesheet through the `TokenWriter`, with `tokenWrites` and the failure as today.
 - **It keeps the save state:** saved, unsaved, saving or failed, failures by file, and writes in flight, which leave
   `history.ts` for it.
 
 ### Every member of `DesignStore`
 
-| `DesignStore` today                                                       | After                                                                                                           |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| constructor (documents, modes, `mainPath`, persistence, `libraryDesigns`) | `provider.open`, `createProjectDoc`, `createProjectSaver`; `libraryDesigns` passed to the library lookups       |
-| `mainPath`                                                                | `doc.main`                                                                                                      |
-| `subscribe`                                                               | `doc.subscribe`, and `saver.subscribe` for the save state                                                       |
-| `getEntries`, `getEntry`, `getNotes`, `getReferences`, `getReference`     | `containerEntries`, `containerEntry`, `noteEntries`, `referenceEntries` (Lookups)                               |
-| `getLibrary`, `getComponentLibrary`, `getLibraryDesigns`                  | `reachableLibrary`, `componentLibrary`, and the session's `libraryDesigns`                                      |
-| `getModes`, `getTokenEdits`                                               | `doc.modes()`, `doc.tokens()`                                                                                   |
-| `getDocuments`, `getMainDocument`, `merged()`                             | `doc.files()`, `doc.file(doc.main)`, and `mergedDocument` over them, which stays a function                     |
-| `editFrame`                                                               | `editFrame(doc, picked)`                                                                                        |
-| `getHistory`, `getUndoStep`                                               | `doc.history()`, whose `step` replaces comparing step objects                                                   |
-| `undo`, `redo`, and the `edit.undone`/`edit.redone` they record           | `doc.undo()`, `doc.redo()`; the session records the events from the returned change                             |
-| `getSaveState`, `unsavedPaths`, `hasUnsaved`, `flush`                     | The saver's                                                                                                     |
-| `writeTokensWith`, `getTokenFailure`                                      | The saver's                                                                                                     |
-| `getRevision`, `status`                                                   | `doc.version()` and the saver's state, through `status(doc, saver)` in `status.ts`                              |
-| `change`                                                                  | `changeFiles`                                                                                                   |
-| `updateContainer`, `updateContainers`, `updateView`, `setPosition`        | The functions of the same names                                                                                 |
-| `addContainer`, `removeContainer`, `reorderContainer`                     | The functions of the same names                                                                                 |
-| `setModes`, `changeTokens`, `designsLabel`                                | The functions of the same names                                                                                 |
-| `addNote`, `updateNote`, `addReferences`, `updateReference`               | The functions of the same names                                                                                 |
-| `reloadDocument`                                                          | `doc.replaceFile`; a file with unsaved changes is still left alone unless forced, using the saver's `unsaved()` |
-| `applyDocuments`, `restoreRecovery`, `recoveryCopy`                       | `applyDocuments`; restoring a copy is `applyDocuments` with its files; the copy is the saver's                  |
-| `applyAgentChanges`                                                       | `applyAgentChanges`, with `mergeAgentChanges` working on `doc.files()`                                          |
-| `applyOperations`                                                         | `applyOperations`, sending the extension's operations as they are                                               |
-| `beginGesture`, `endGesture`, `inGesture`, `subscribeGestures`            | The document's                                                                                                  |
-| `checkpoint`, `revert`, `changedBesides`                                  | The document's, taking the design's key as now                                                                  |
-| `useContainerEntries` and the other hooks                                 | The same hooks over the lookups (Lookups)                                                                       |
+| `DesignStore` today                                                       | After                                                                                                                |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| constructor (documents, modes, `mainPath`, persistence, `libraryDesigns`) | `provider.open`, `createProjectDoc`, `createProjectSaver`; `libraryDesigns` passed to the library lookups            |
+| `mainPath`                                                                | `doc.main`                                                                                                           |
+| `subscribe`                                                               | `doc.subscribe`, and `saver.subscribe` for the save state                                                            |
+| `getEntries`, `getEntry`, `getNotes`, `getReferences`, `getReference`     | `containerEntries`, `containerEntry`, `noteEntries`, `referenceEntries` (Lookups)                                    |
+| `getLibrary`, `getComponentLibrary`, `getLibraryDesigns`                  | `reachableLibrary`, `componentLibrary`, and the session's `libraryDesigns`                                           |
+| `getModes`, `getTokenEdits`                                               | `doc.modes()`, `doc.tokens()`                                                                                        |
+| `getDocuments`, `getMainDocument`, `merged()`                             | `doc.files()`, `doc.file(doc.main)`, and `mergedDocument` over them, which stays a function                          |
+| `editFrame`                                                               | `editFrame(doc, picked)`                                                                                             |
+| `getHistory`, `getUndoStep`                                               | `doc.history()`, whose labels feed agents' status and whose `step` replaces comparing step objects                   |
+| `getSavedView`                                                            | `savedView(doc, saver, key, drawnFromCode)`, reading `saver.saved(path)` or the saved `codeDesigns`                  |
+| `undo`, `redo`, and the `edit.undone`/`edit.redone` they record           | `doc.undo()`, `doc.redo()`; the session records the events from the returned change                                  |
+| `getSaveState`, `unsavedPaths`, `hasUnsaved`, `flush`                     | The saver's                                                                                                          |
+| `writeTokensWith`, `getTokenFailure`                                      | The saver's                                                                                                          |
+| `getRevision`, `status`                                                   | `doc.version()`, `doc.history()` and the saver's state and saved content, passed as values to `status.ts`            |
+| `change`                                                                  | `changeFiles`; the board redraw is a `code` transaction, and `keepCodeDesigns` one with `undoable: false`            |
+| `updateContainer`, `updateContainers`, `updateView`, `setPosition`        | The functions of the same names                                                                                      |
+| `addContainer`, `removeContainer`, `reorderContainer`                     | The functions of the same names                                                                                      |
+| `setModes`, `changeTokens`, `designsLabel`                                | The functions of the same names                                                                                      |
+| `addNote`, `updateNote`, `addReferences`, `updateReference`               | The functions of the same names                                                                                      |
+| `reloadDocument`                                                          | `doc.replaceFile`; a file with unsaved changes is still left alone unless forced, using the saver's `unsaved()`      |
+| `applyDocuments`, `restoreRecovery`, `recoveryCopy`                       | `applyDocuments`; `restoreCopy`, one transaction with deleted files, modes and token values; the copy is the saver's |
+| `applyAgentChanges`                                                       | `applyAgentChanges` with today's inputs, `mergeAgentChanges` working on `doc.files()`                                |
+| `applyOperations`                                                         | `applyOperations`, sending the extension's operations as they are                                                    |
+| `beginGesture`, `endGesture`, `inGesture`, `subscribeGestures`            | The document's                                                                                                       |
+| `checkpoint`, `revert`, `changedBesides`                                  | The document's, taking the design's key as now                                                                       |
+| `useContainerEntries` and the other hooks                                 | The same hooks over the lookups (Lookups)                                                                            |
 
-The editor modules built on `DesignSnapshot` move with it: `design-changes.ts` merges agents' changes against
-`doc.files()`, `recovery.ts` makes and restores copies from files and token edits, `references.ts` works on files, and
-`status.ts` reads the document's version and the saver's state. `history.ts` loses `DesignSnapshot`, `HistoryEntry` and
-the snapshot undo, and what's left of it, the save state, becomes `ProjectSaver`'s.
+The editor modules built on `DesignSnapshot` stay in the editor and take plain values instead: `design-changes.ts`
+merges agents' changes against files, modes and token edits, `recovery.ts` makes and reads copies from them,
+`references.ts` works on files, and `status.ts` takes the version, the undo labels and the save state. `history.ts`
+loses `DesignSnapshot`, `HistoryEntry` and the snapshot undo, and what's left of it, the save state, becomes
+`ProjectSaver`'s.
 
 The node index from PAR-1088 keeps working, since unchanged designs and layers stay the same objects. Later,
 `DocChange.designs` can name the parts to gather again instead of comparing objects.
@@ -860,8 +996,14 @@ provider offers a `ReplicaPair`. Each case is a test:
 
 - Opening files and reading them back gives the same `.par` content, with the modes kept apart.
 - A transaction changes only the designs, layers and files it touched; everything else is the same object.
-- Each operation does what it says, including `before`, slots, a slot filled with nothing, `removeSlot`, `replaceRoot`
-  and leaving out `value`.
+- Each operation does what it says, including `before`, slots, a slot filled with nothing, `addSlot`, `removeSlot`,
+  `replaceRoot`, `addFile`, `removeFile`, `setTokens` and leaving out `value`.
+- `remove` drops the state and variant patches naming what it removed, and undo puts them back.
+- Removing a record field's last key removes the field.
+- `setNote` on an existing note keeps its place.
+- An agent's call with designs, modes, token values and references is one step; so is restoring a recovery copy with a
+  deleted file.
+- `files()` and `history()` return the same object until something changes, as `useSyncExternalStore` needs.
 - A layer's type changes with its id kept, through a `remove` and an `insert` in one transaction.
 - An insert followed by a `set` on the new layer applies.
 - A transaction with one bad operation changes nothing and says why: an unknown design or node, a taken id, a move into
@@ -874,12 +1016,19 @@ provider offers a `ReplicaPair`. Each case is a test:
 
 **Undo and gestures**
 
-- Undo and redo go back and forth through steps, with their labels and `meta`.
+- Undo and redo go back and forth through steps, with their labels and `meta`, on undo and on redo.
+- Undo and redo leave each design's `view` as it is now.
+- Undo across a `moveDesign` to another file finds the design under its new key.
 - A gesture's transactions are one step; two gestures side by side are a step each.
 - An agent's transaction during a drag is its own step, and the drag's next transaction starts a new one.
-- A gesture that ends where it began leaves no step, and Redo is as it was.
+- A gesture that ends where it began leaves no step, and Redo is as it was, including one that moved a note or a
+  reference and put it back.
+- A gesture reverted, then an agent's step, then another gesture transaction, ending where it began: the gesture's steps
+  go, the agent's stays.
+- `history()` drops a step as soon as the gesture reverts it to nothing.
 - `revert` puts the checkpoint's design back and keeps an agent's change to another design made meanwhile, in one step.
-- `changedBesides` is false while only the gesture has changed its design, and true after another transaction has.
+- `changedBesides` is false while only the gesture has changed its design, or a transaction with `undoable: false` has,
+  and true after another undoable transaction has.
 - `cancelGesture` leaves no step, with Redo as it was.
 - View changes and loading are never steps; token edits are.
 - Undo stops at `undoLimit`, and `step` changes with each step.
@@ -902,6 +1051,18 @@ provider offers a `ReplicaPair`. Each case is a test:
 - Two layers given one id, and two layers made the same slot, are repaired the same way on both.
 - Undo takes back only this person's step, and leaves the other person's later change to the same field, counted in
   `kept`.
+- Undo whose `before` sibling the other person removed puts the layer last; undo of a remove whose parent the other
+  person removed skips the layers inside it too.
+- Two people setting the first `style` key on a layer that had none both land.
+- Two people filling one empty instance slot end with one slot holding both, the same on both.
+- A repair made on both peers merges to one result.
+
+### `ProjectSaver`'s tests
+
+In the package, against `localProvider` and a `Persistence` in memory, covering what `history.ts`'s tests cover today:
+the save state through saved, unsaved, saving and failed; a write failing and the next succeeding; the stylesheet
+failing; a file reloaded while unsaved, and while a save waits; the saved content after `persist: false`; the modes
+written into the main file; recovery copies kept and read back.
 
 ## The benchmark
 
@@ -918,8 +1079,11 @@ The scenarios are written once, in `benchSession`, against `BenchSession`, and r
 | Local | `ProjectDoc` on `localProvider`, through the functions for callers | `packages/multiplayer-local`                                 |
 | Loro  | `ProjectDoc` on `loroProvider`, the same                           | `packages/multiplayer-loro`                                  |
 
-Today's run is recorded on this page with its commit at step 2. Its file goes at step 5 with `DesignStore`, and checking
-out that commit runs it again. They run as one-off commands, not `package.json` scripts:
+Today's run is recorded on this page with its commit at step 2. Its file goes at step 5 with `DesignStore`, so step 7
+compares with those numbers, and checking out that commit runs it again. Comparing against sending the operation, and
+exchanging with a replica, are `benchProvider`'s, since today's store has neither. Memory is read after a forced
+collection (`--expose-gc`) in a test beside the bench, since Vitest's bench measures only time. They run as one-off
+commands, not `package.json` scripts; Vitest's default picks up `*.bench.ts`:
 
 ```bash
 pnpm exec vp test bench apps/desktop/src/renderer/design-store.bench.ts
@@ -935,18 +1099,18 @@ pnpm exec vp test bench packages/multiplayer-local packages/multiplayer-loro
 | Large      |     200 |       1,000 |    10 |
 | Very large |     500 |       2,000 |    12 |
 
-| Scenario                                   | Measures                                  |
-| ------------------------------------------ | ----------------------------------------- |
-| Open the project                           | Time, memory after                        |
-| Set one field on one layer                 | Time per transaction                      |
-| A 300-frame drag of one layer, then end    | Time per frame, time to end, memory after |
-| Type 200 characters into a text layer      | Time per character                        |
-| Paste 500 layers                           | Time                                      |
-| Undo and redo 50 steps                     | Time per step                             |
-| Comparing on a one-field change            | Time, against sending the operation       |
-| Save one file                              | Time to produce its `.par`                |
-| 10,000 edits in a session                  | Memory growth                             |
-| Exchange 1,000 transactions with a replica | Bytes, time to apply (Loro only)          |
+| Scenario                                   | Measures                                              |
+| ------------------------------------------ | ----------------------------------------------------- |
+| Open the project                           | Time, memory after                                    |
+| Set one field on one layer                 | Time per transaction                                  |
+| A 300-frame drag of one layer, then end    | Time per frame, time to end, memory after             |
+| Type 200 characters into a text layer      | Time per character                                    |
+| Paste 500 layers                           | Time                                                  |
+| Undo and redo 50 steps                     | Time per step                                         |
+| Comparing on a one-field change            | Time, against sending the operation (`benchProvider`) |
+| Save one file                              | Time to produce its `.par`                            |
+| 10,000 edits in a session                  | Memory growth                                         |
+| Exchange 1,000 transactions with a replica | Bytes, time to apply (`benchProvider`, Loro only)     |
 
 ### What Loro costs to load
 
@@ -962,10 +1126,11 @@ directly, and whether long sessions need Loro's shallow snapshots.
 
 ## Telemetry
 
-Each event is defined with `defineEvent` in `packages/telemetry/src/document-events.ts`, added to `registeredEvents`,
-and listed in [docs/telemetry.md](../telemetry.md), as "Adding an event" there says. All are sent by the window, the
-only process that holds the document. None is sent per transaction or per frame: a session, a gesture and a run of
-refusals each send one.
+Durations use the `ms()` helper from `attributes.ts`, as other events do, where the code below says `z.number()`. Each
+event is defined with `defineEvent` in `packages/telemetry/src/document-events.ts`, added to `registeredEvents`, and
+listed in [docs/telemetry.md](../telemetry.md), as "Adding an event" there says. All are sent by the window, the only
+process that holds the document. None is sent per transaction or per frame: a session, a gesture and a run of refusals
+each send one.
 
 ### Added with the document
 
@@ -1006,9 +1171,19 @@ defineEvent(
   z.object({
     provider,
     label: z.string().describe("The transaction's label: `Move layer`"),
-    origin: z.enum(["edit", "agent", "extension", "file", "view", "remote"]).describe("Who made it"),
+    origin: z.enum(["edit", "agent", "extension", "file", "view", "code", "remote"]).describe("Who made it"),
     problem: z
-      .enum(["unknownDesign", "unknownNode", "takenId", "intoItself", "notSibling", "fixedField", "invalid"])
+      .enum([
+        "unknownDesign",
+        "unknownNode",
+        "takenId",
+        "intoItself",
+        "notSibling",
+        "fixedField",
+        "unknownFile",
+        "takenFile",
+        "invalid"
+      ])
       .describe("Why the first was refused"),
     op: z.string().describe("The kind of operation refused: `move`"),
     count: z.int().min(1).describe("Transactions refused in the run: one, or all of a gesture's")
@@ -1048,9 +1223,9 @@ defineEvent(
   z.object({
     provider,
     repair: z
-      .enum(["duplicateId", "duplicateSlot", "danglingPatch", "statesOnNonComponent", "orphan"])
+      .enum(["duplicateId", "duplicateSlot", "duplicateSlotNode", "danglingPatch", "statesOnNonComponent", "orphan"])
       .describe(
-        "What was repaired: two layers with one id, two layers that are one slot, a patch naming a layer that's gone, states on a design that isn't a component, or a layer whose parent was gone"
+        "What was repaired: two layers with one id, two layers that are one slot, two slot nodes for one slot, a patch naming a layer that's gone, states on a design that isn't a component, or a layer whose parent was gone"
       ),
     design: z.string().describe("The design, by key"),
     count: z.int().min(1).describe("Things repaired")
@@ -1108,11 +1283,11 @@ defineEvent(
 
 ### Changed
 
-| Event                        | Change                                                                                                                                                               |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gesture.ended`              | Adds `transactions` (`z.int().min(0)`, "Transactions the gesture applied") and `transactMs` (`z.number()`, "Time spent checking and applying them, in milliseconds") |
-| `document.saved`             | Adds `exportMs` (`z.number()`, "Time to produce the file's content from the document, in milliseconds")                                                              |
-| `edit.undone`, `edit.redone` | Keep their attributes, now filled from the returned `DocChange`. With sync, add `kept` (`z.int().min(0)`, "Changes left as someone else made them since")            |
+| Event                        | Change                                                                                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gesture.ended`              | Adds `transactions` (`z.int().min(0)`, "Transactions the gesture applied") and `transactMs` (`ms()`, "Time spent checking and applying them, in milliseconds"), from what `endGesture` returns |
+| `document.saved`             | Adds `exportMs` (`z.number()`, "Time to produce the file's content from the document, in milliseconds")                                                                                        |
+| `edit.undone`, `edit.redone` | Keep their attributes, now filled from the returned `DocChange`. With sync, add `kept` (`z.int().min(0)`, "Changes left as someone else made them since")                                      |
 
 ## Order of work
 
@@ -1123,15 +1298,15 @@ dependency. Loro then comes in where the provider is picked, which is also how i
 2. **Today's numbers:** `benchSession` and `generateProject` first, then `design-store.bench.ts` with an adapter over
    today's `DesignStore`, its numbers and commit on this page.
 3. **`@parity-app/multiplayer`:** the types, checking on a draft, undo and gestures, the functions for callers, lookups,
-   `diffFiles`, and the shared tests. `TokenEdits` moves to core.
+   `diffFiles`, `ProjectSaver`, and the shared tests, written here and first run against the local provider in step 4.
 4. **`@parity-app/multiplayer-local`,** passing the shared tests, and its bench run.
 5. **The session on the document, with the local provider:** `renderer/project-doc.ts`, `ProjectSaver`, `DesignStore`
    folded away and callers moved to the functions, the snapshot undo removed from `history.ts`, the events above, and
    [editor.md](../editor.md) updated.
 6. **`@parity-app/multiplayer-loro`,** passing every shared test, the concurrent ones with a replica pair, and checking
    which Loro build Vite takes.
-7. **The window on Loro:** `renderer/project-doc.ts` picks `loroProvider`, and the bench and load costs run on all
-   three, with the numbers here and a decision on hot paths.
+7. **The window on Loro:** `renderer/project-doc.ts` picks `loroProvider`, and the bench and load costs run on Local and
+   Loro, compared with step 2's numbers for Today, with the numbers here and a decision on hot paths.
 8. **Later, each its own piece:** sync through a relay in the cloud, presence, review links with `diffFiles`, and
    comments.
 
@@ -1151,3 +1326,9 @@ dependency. Loro then comes in where the provider is picked, which is also how i
   inserts would arrive several times. In a shared session, only the cloud applies commits, and the window's watcher
   leaves designs alone.
 - **The web review page and 3.4 MiB of WebAssembly.** The diff doesn't need Loro, so the page may not either.
+- **Undo of typing beside someone else's.** Undo skips an inverse whose field changed since, and a text layer's `text`
+  is one field, so if someone else typed in the same layer, undoing your own typing does nothing there. Undoing text
+  splices against Loro's positions would keep it; whether it's worth it is a judgement for when sync is built.
+- **What `DocBackend` needs for sync.** It has no way yet to export or import updates, share a snapshot or name peers;
+  `ReplicaPair.exchange` sits outside it. Those are added with sync, so the claim that a Liveblocks provider fits is
+  unproven until then.

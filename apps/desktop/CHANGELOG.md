@@ -1,8 +1,29 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sat, 14 Nov 2026 21:19:06 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 22:44:46 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.86.0
+
+Sat, 14 Nov 2026 22:44:46 GMT
+
+### Minor changes
+
+- Layout, open tabs, recent searches and recent and starred projects move into state.json and projects.json, which every
+  copy of Parity shares. (ajcraswell@gmail.com)
+- Storybook and TanStack Router take their supported versions from their extensions' peer dependencies
+  (ajcraswell@gmail.com)
+- Extensions with the edits permission change designs as one undo step named after them, and write project files through
+  Parity, never .par files (ajcraswell@gmail.com)
+- Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no
+  longer exist (ajcraswell@gmail.com)
+- Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands
+  only where a when expression holds, and add keys, which Parity's own win (PAR-1092) (ajcraswell@gmail.com)
+- Extensions get app and project settings from their manifests: Storybook's config folder and where stories open,
+  changed in Settings, now its own view that loads no project code (ajcraswell@gmail.com)
+- Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying
+  that fades and selects, and a screen-sized preview ring (ajcraswell@gmail.com)
 
 ## 0.85.0
 

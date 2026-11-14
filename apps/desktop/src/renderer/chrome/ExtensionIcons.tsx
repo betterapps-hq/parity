@@ -2,7 +2,7 @@ import type { PathIcon } from "@parity-app/extension-api"
 import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 
 /** Whether a name is one of the kit's icons. */
-function isIconName(name: string): name is IconName {
+export function isIconName(name: string): name is IconName {
   return iconNames.some((known) => known === name)
 }
 

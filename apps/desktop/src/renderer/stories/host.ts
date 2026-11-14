@@ -25,6 +25,7 @@ import {
   videosFolder
 } from "@parity-app/editor"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
 import { readExtension } from "@parity-app/extensions"
 import { defaultSettings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
@@ -513,6 +514,9 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
   }
 
   const { manifest } = storybookExtension
+  const tree = storiesTree(info.storybook)
+  const section = componentStories(info.storybook)
+  const guide = setupGuide(info.storybook)
 
   return [
     {
@@ -539,7 +543,12 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
           key,
           [{ id: "stories", label: files.length === 1 ? "story" : "stories", value: String(files.length) }]
         ])
-      )
+      ),
+      views: {
+        "storybook.stories": { kind: "tree", ...tree },
+        "storybook.componentStories": { kind: "list", ...section },
+        "storybook.setupGuide": { kind: "list", ...guide }
+      }
     }
   ]
 }
@@ -879,8 +888,16 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       return { extensions: standInExtensions(projectInfo(request.params.projectId)), logs: {} }
     case "extensions.run": {
       // Storybook's command, as its extension runs it: progress while it opens, then the page in the browser.
-      const { projectId } = request.params
+      const { projectId, command } = request.params
       const extension = storybookExtension.id
+
+      // Show Storybook setup opens its page, as the extension's code reveals it.
+      if (command === "storybook.setup") {
+        await windowHandler?.("extensions.reveal", { projectId, extension, view: "storybook.setupGuide" })
+
+        return undefined
+      }
+
       const url = "http://localhost:6006/?path=/docs/components-button--docs"
       await askWindow({ projectId, extension, method: "ui.progress", params: { id: 1, title: "Opening Storybook…" } })
       await new Promise((resolve) => setTimeout(resolve, service.latency))
@@ -898,6 +915,8 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
     case "extensions.restart":
     case "extensions.cancel":
+    case "extensions.viewOpened":
+    case "extensions.viewChanged":
       return undefined
     case "adapter.run":
       return { open: "http://localhost:6006/?path=/docs/components-button--docs" }

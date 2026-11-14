@@ -17,7 +17,13 @@ describe("the Storybook extension", () => {
   it("has a manifest Parity accepts", () => {
     const found = readExtension(packageJson)
 
-    expect(found.manifest.contributes.commands?.map((command) => command.id)).toEqual(["storybook.open"])
+    expect(found.manifest.contributes.commands?.map((command) => command.id)).toEqual([
+      "storybook.open",
+      "storybook.setup"
+    ])
+    expect(found.manifest.contributes.tabs?.map((tab) => tab.id)).toEqual(["storybook.stories"])
+    expect(found.manifest.contributes.sections?.map((section) => section.id)).toEqual(["storybook.componentStories"])
+    expect(found.manifest.contributes.pages?.map((page) => page.id)).toEqual(["storybook.setupGuide"])
     expect(found.manifest.contributes.statusItems?.map((item) => item.id)).toEqual(["storybook.stories"])
     // The config folder is the project's, where stories open the person's (PAR-1090).
     expect(found.manifest.contributes.settings).toMatchObject({

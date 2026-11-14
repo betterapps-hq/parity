@@ -92,6 +92,20 @@ screens.
   their trees when the service exits by itself (PAR-1019).
 - **Performance stats leave it out,** because it runs outside the app.
 
+### Views
+
+The extension draws three declarative views ([extensions.md](extensions.md#views),
+[views.ts](../packages/extension-storybook/src/views.ts)):
+
+- **The Stories tab** in the left panel: a tree of the components with stories, by name, each with its story count,
+  opening to its stories, named as Storybook names them (`PrimaryLarge` as Primary Large). With more than one story
+  file, each story says which file it's in. Open in Storybook is on every row.
+- **A Stories section** in the Design tab for a component's board when it has stories, listing them with Open in
+  Storybook.
+- **The Storybook setup page,** which Show Storybook setup opens from Search actions: whether Parity found the config
+  and stories, and whether Storybook is running and where, each a step that's done or says what's missing, with Open in
+  Storybook above them.
+
 ### What reaches the UI
 
 `ProjectInfo.storybook` carries the detection result to the service, which gives it to the extension's host as what
@@ -288,7 +302,8 @@ panel's button has no story.
 
 Covered too, in [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts): the manifest passes Parity's
 checks, reading what detection found, leaving out index entries of unknown kinds, telling the project's Storybook from
-another's, and which page opens.
+another's, and which page opens. [views.test.ts](../packages/extension-storybook/src/views.test.ts) covers story names,
+the Stories tab's tree, the Design tab's section and the setup guide's steps.
 
 **Not covered:** in [extension.ts](../packages/extension-storybook/src/extension.ts), reusing a server, starting one,
 choosing a port, restarting a stopped one and stopping it have no tests. A fake `index.json` server and a fake `bin`

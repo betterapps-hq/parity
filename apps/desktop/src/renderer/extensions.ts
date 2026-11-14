@@ -113,7 +113,7 @@ export function useExtensions(session: Session): ProjectExtensions {
 }
 
 /** Whether an extension's contributions show: everywhere but while it's stopped after crashing. */
-function showing(extension: ExtensionStatus): boolean {
+export function showing(extension: ExtensionStatus): boolean {
   return extension.state !== "crashed"
 }
 
@@ -219,22 +219,28 @@ export function holdsFor(
 }
 
 /**
- * What a context key's list holds for a target: a component's key, a layer's as `app.par#home/title`, or a page's
- * route id.
+ * What a context key's list holds for a target: a component's key, a layer's as `app.par#home/title`, a page's route
+ * id, or a view's item's key.
  */
 function targetKey(target: CommandTarget): string {
   return target.type === "layer" ? `${target.design}/${target.node}` : target.key
 }
 
-/** A command's target as a node, when the facts name none: a component, a page's route, or a layer of the designs'. */
-function targetNode(target: CommandTarget): NodeRef {
-  if (target.type === "route") {
-    return { owner: "", type: "route", key: target.key }
+/**
+ * A command's target as a node, when the facts name none: a component, a page's route, or a layer of the designs' own.
+ * A view's item isn't a node.
+ */
+function targetNode(target: CommandTarget): NodeRef | undefined {
+  switch (target.type) {
+    case "component":
+      return { owner: "", type: "component", key: target.key }
+    case "route":
+      return { owner: "", type: "route", key: target.key }
+    case "layer":
+      return { owner: "design", type: "layer", key: targetKey(target) }
+    case "item":
+      return undefined
   }
-
-  return target.type === "component"
-    ? { owner: "", type: "component", key: target.key }
-    : { owner: "design", type: "layer", key: targetKey(target) }
 }
 
 /** The commands extensions place at `placement`, for `target`, in the order their manifests list them. */

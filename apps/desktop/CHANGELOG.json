@@ -2,6 +2,57 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 22:44:46 GMT",
+      "version": "0.86.0",
+      "tag": "@parity-app/desktop_v0.86.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "93987a6ff2117bc98a6acf780071eaa5efe4152e",
+            "comment": "Layout, open tabs, recent searches and recent and starred projects move into state.json and projects.json, which every copy of Parity shares."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dfef12b389613a21a930b8a3e74afa256bbdf698",
+            "comment": "Storybook and TanStack Router take their supported versions from their extensions' peer dependencies"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3ad8f93d66c91031853b294eac6ffcf8f43519c2",
+            "comment": "Extensions with the edits permission change designs as one undo step named after them, and write project files through Parity, never .par files"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "896754c8bb70dab2511030d1c9bd19ea28fa277d",
+            "comment": "Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no longer exist"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f2e2dd2065ac8dd2ff5d08ef16a2efa3834db548",
+            "comment": "Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands only where a when expression holds, and add keys, which Parity's own win (PAR-1092)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d96e286fb112d9a76babec4e9fe464b5af2f90b1",
+            "comment": "Extensions get app and project settings from their manifests: Storybook's config folder and where stories open, changed in Settings, now its own view that loads no project code"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f16a4b9e4ba0e7a192efeef012ebc068aada1ef7",
+            "comment": "Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying that fades and selects, and a screen-sized preview ring"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 21:19:06 GMT",
       "version": "0.85.0",
       "tag": "@parity-app/desktop_v0.85.0",

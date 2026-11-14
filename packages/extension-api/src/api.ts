@@ -1,4 +1,4 @@
-import type { JsonValue } from "./manifest.ts"
+import type { IconName, JsonValue, ViewKind } from "./manifest.ts"
 
 /*
  * What an extension's code gets. Its module exports `activate`, which Parity calls with one `Parity` object when an
@@ -38,6 +38,7 @@ export interface Parity {
   readonly settings: Settings
   readonly state: { readonly app: State; readonly project: State }
   readonly log: Log
+  readonly views: Views
 }
 
 /** The extension itself, as its manifest names it. */
@@ -59,9 +60,10 @@ export interface Project {
 
 /**
  * What a command was run for: a component's card or one of its layers, a layer in Layers, by its design's key
- * (`app.par#home`) and its id, or one of the app's pages, by its route. Nothing when it's run from Search actions.
+ * (`app.par#home`) and its id, one of the app's pages, by its route, or an item of a view without a `target` of its
+ * own. Nothing when it's run from Search actions or a view's toolbar.
  */
-export type CommandTarget = ComponentTarget | LayerTarget | RouteTarget
+export type CommandTarget = ComponentTarget | LayerTarget | RouteTarget | ItemTarget
 
 /** A component of the project, by its key. */
 export type ComponentTarget = { type: "component"; key: string }
@@ -71,6 +73,9 @@ export type LayerTarget = { type: "layer"; design: string; node: string }
 
 /** One of the app's pages, by its route's id, as `/settings/billing`. */
 export type RouteTarget = { type: "route"; key: string }
+
+/** An item of one of the extension's views, by the view's id and the item's key. */
+export type ItemTarget = { type: "item"; view: string; key: string }
 
 export interface Commands {
   /** Gives behaviour to a command the manifest declares. A second handler for one command is refused. */
@@ -377,4 +382,113 @@ export interface Log {
   warn(message: string): void
   /** An error's stack shows under it. */
   error(message: string | Error): void
+}
+
+/*
+ * Declarative views (PAR-1094). A tab, Design tab section or page the manifest declares holds a view of the kind it
+ * names, which the extension fills with data. Parity draws it with its own kit, so it has the editor's spacing, keyboard
+ * use, themes and accessible names. Until the code fills it, it shows that its extension is starting.
+ */
+
+/** A command a view offers, on its toolbar or on each item. Its title and icon are the command's own. */
+export interface ViewAction {
+  command: string
+  /** A context key that must hold for it to show: on an item, for the item's `target` (see `parity.context`). */
+  when?: string
+}
+
+/** How a view looks around its items. */
+export interface ViewOptions {
+  /** A paragraph above the items, as a setup guide's introduction. */
+  description?: string
+  /** What shows while it has no items. */
+  empty?: { title: string; detail?: string }
+  /** Commands above the items, run with no target. */
+  toolbar?: ViewAction[]
+  /**
+   * Commands on each item, run for the item's `target`, or for the item itself when it has none. The first also runs
+   * when the person presses Enter on an item or double-clicks it.
+   */
+  itemActions?: ViewAction[]
+}
+
+/** A table's options: its columns' headings. The first column shows each row's `label`, the rest its `cells`. */
+export interface TableOptions extends ViewOptions {
+  columns: string[]
+}
+
+/** A row of a table, tree or list, or one of key-value pairs. */
+export interface ViewItem {
+  /** Names it among the view's items. */
+  key: string
+  /** Its name, also what screen readers call it. In key-value pairs, the key. */
+  label: string
+  /** A line beside or under its label. */
+  detail?: string
+  /** In key-value pairs, the value. */
+  value?: string
+  icon?: IconName
+  /** Colors its icon, as a setup guide's done and missing steps. */
+  tone?: Tone
+  /** In a table, the values of the columns after the first. */
+  cells?: string[]
+  /** In a tree, the key of the item it's under. Items without one are at the top. */
+  parent?: string
+  /**
+   * What it's about, which its actions run for. In a Design tab section, only items about what's selected, and items
+   * without a target, show.
+   */
+  target?: ComponentTarget
+}
+
+/** A field of a form, drawn with the kit's own controls. */
+export type FormField = {
+  key: string
+  label: string
+  /** A line under it. */
+  detail?: string
+} & (
+  | { type: "text"; value: string; placeholder?: string }
+  | { type: "number"; value: number }
+  | { type: "boolean"; value: boolean }
+  | { type: "select"; value: string; options: { value: string; label: string }[] }
+)
+
+/** A view the extension fills. Changes are sent together, once the extension's code has finished what it's doing. */
+export interface View<Item, Options = ViewOptions> extends Disposable {
+  /** Replaces every item. */
+  set(items: Item[]): void
+  /** Adds items, or replaces those with the same keys where they are. */
+  upsert(items: Item | Item[]): void
+  /** Removes items by key. */
+  remove(keys: string | string[]): void
+  /** Changes its options. What's left out stays as it was. */
+  update(options: Partial<Options>): void
+  /** Opens its tab or page. */
+  reveal(): Promise<void>
+}
+
+/** A form, which tells the extension when the person changes a field. */
+export interface FormView extends View<FormField> {
+  /** Called with a field's key and new value each time the person changes it. The form shows the new value at once. */
+  onChange(handler: (key: string, value: string | number | boolean) => void): Disposable
+}
+
+/**
+ * Fills the tabs, sections and pages the manifest declares. Each takes the id of one whose `view` is that kind, once;
+ * disposing of the view empties it again.
+ */
+export interface Views {
+  table(id: string, options: TableOptions): View<ViewItem, TableOptions>
+  tree(id: string, options?: ViewOptions): View<ViewItem>
+  list(id: string, options?: ViewOptions): View<ViewItem>
+  keyValue(id: string, options?: ViewOptions): View<ViewItem>
+  form(id: string, options?: ViewOptions): FormView
+}
+
+/** A view's kind, options and items, as Parity draws it. */
+export interface ViewData {
+  kind: ViewKind
+  options: ViewOptions & { columns?: string[] }
+  items: (ViewItem | FormField)[]
 }
