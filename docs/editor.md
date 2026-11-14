@@ -2372,8 +2372,8 @@ selected now.
 
 Code: `packages/editor/src/find-anything.ts` matches (`matchWords`), ranks, caps and groups (`findAnything`) and keeps
 the recent picks (`rememberPick`). `chrome/ActionsSearch.tsx` gathers the items and runs the one picked, remembering
-picks in `localStorage` (`parity.recentSearches`). Components come from the insert picker's offer (`offerOf` and
-`insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
+picks in `state.json` (`recentSearches`), which main keeps. Components come from the insert picker's offer (`offerOf`
+and `insertOption` in `QuickInsert.tsx`); `chrome/shown-token.ts` hands a token to the Tokens panel and
 `chrome/repeated-parts.ts` keeps each screen's repeated parts for `ComponentsSection.tsx`. Repeat is `repeat` in
 `chrome/keymap.ts`; the action list's one wrapper (`recordActions` in `chrome/record-actions.ts`) tells
 `rememberCommand` in `chrome/actions.ts` of each action that runs, and it remembers the repeatable ones in
@@ -6633,6 +6633,14 @@ at the end of the strip. Both are the start page from the explorations:
   greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
   says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
   checks the listed folders when the window starts, when the list changes, and each time Home or a new tab shows.
+- **Every copy of Parity lists the same projects,** kept in `projects.json` in the app's data folder. Opening, starring
+  or removing a project in one copy changes the start page in the others within a moment, and a change two copies make
+  at once keeps both.
+- **The tabs come back next time,** kept in `state.json` with the panel layout and Search's recent picks. Each window's
+  tabs have an entry of their own, which main writes as they change and every 10 seconds, so a copy that crashed loses
+  nothing: the next copy to start reopens the tabs of the newest copy that's gone, and a window that reloads keeps its
+  own. A copy started for one project, as `pnpm dev` is, opens that project and keeps no tabs. The layout is the one
+  last saved by any copy; a running copy doesn't follow another's.
 - **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
 - **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
 - **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
@@ -6656,42 +6664,55 @@ at the end of the strip. Both are the start page from the explorations:
   project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
-`StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home, new tabs and
-each project's notes, and asks the service which folders are gone and where the example is (`checkFolders`, through
-`start.check`, answered by `utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture;
-`chrome/TabBar.tsx` draws the Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
-`start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
-(`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
-started for each session by `keepPictureOf` in `workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
-`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
-`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
-in the folder main names as `PARITY_PICTURE_DIR`.
+`StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home and new tabs,
+claims its tabs from main (`restore`) and changes the projects with `changeProjectsData`, and asks the service which
+folders are gone and where the example is (`checkFolders`, through `start.check`, answered by
+`utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture; `chrome/TabBar.tsx` draws the
+Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures: `start/ProjectArt.tsx` draws one,
+`start/pictures.ts` reads them for the page, and `start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the
+screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`, started for each session by `keepPictureOf` in
+`workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in `canvas/frame-bitmaps.ts`; the
+service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`, through the `pictures.store`,
+`pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main names as
+`PARITY_PICTURE_DIR`.
+
+`readProjects`, `changeProjects`, `readState` and `changeState` in `packages/settings` take and return data;
+`appStateFiles` in `apps/desktop/src/main/app-state.ts` keeps both files with `sharedFile` (`main/shared-file.ts`), as
+`settings.json` is kept, and the window reads them through `renderer/saved.ts`.
 
 Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
 scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
-tabs" (8, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
+tabs" (7, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
 and picture through a code change and a reconnect, telling subscribers, the picture stopping when the tab closes, and a
-new session and picture on reopening), "starting the workspace" (Home on a fresh install, and staying there) and
-"checking the start page's folders" (2: gone folders flagged and the example kept; checked again when Home shows).
-`utility/start-folders.test.ts` (3: folders that aren't there or are files; the example found above where Parity runs
-once its packages are installed, and none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame
-first, then the rest, in Layers' order; no components or frames, and no more than the most; no second phone beside a
-phone; a phone by its device or its width) and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its
-window and read back; the latest in place of the one before; projects with none, or a file that can't be read, left out;
-a kept frame that isn't an image refused; the pictures of projects no longer listed let go, and partial files only once
-old; nothing kept without a folder). Stories: Parity/Start page (Home, signed in, a card flipping through screens, which
-plays, Home without pictures, the first time with and without the example, folders that are gone, which plays, Starred,
-Shared with you, a project's menu, New project, Open, a new tab), with the example project's pictures, Parity/App's On
-Home, New tab, No project open and Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip.
-Gaps: no end-to-end test drives Home or a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume.
-Taking a picture, which waits on the canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where
-opening the example kept its five screens (72 KB), Home showed Team members with Mobile Light, moving across its card
-flipped through Team members, Sign in and Pricing, and Team members' main frame set to Desktop Dark and saved with
-Ctrl+S showed dark on the card once taken again; chakra's Home screen, shorter than its window, was drawn as tall as its
-content. The first run and gone folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with
-the example's tab closed and Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme
-opened the example; a listed folder that wasn't there showed greyed with Folder not found, and Enter on it showed where
-it was with Remove.
+new session and picture on reopening), "starting the workspace" (4: Home on a fresh install, and staying there; a dev
+runner's project opened without keeping tabs; and the tabs told to main once claimed) and "checking the start page's
+folders" (2: gone folders flagged and the example kept; checked again when Home shows).
+`packages/settings/src/projects-file.test.ts` (7: nothing with no file, entries that don't read dropped, a file that
+isn't JSON, a project opened put first with its time and the list kept to its limit, a star kept after Remove all,
+unknown keys kept and text that doesn't parse never written over, and a window's change refused when it isn't one).
+`packages/settings/src/state-file.test.ts` (7: a window part's value kept as saved, unknown keys kept, tabs taken from
+the newest copy that's gone and not from one running, given to only one of two copies starting together, kept by a
+window that reloads, and forgotten after a week). `main/app-state.test.ts` (5: a star from a second copy kept after both
+close, one copy told of another's change, a crashed copy's tabs reopened in the next, a reload keeping its tabs while a
+copy beside it gets none, and no tabs kept for a window that never claimed any). `utility/start-folders.test.ts` (3:
+folders that aren't there or are files; the example found above where Parity runs once its packages are installed, and
+none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order;
+no components or frames, and no more than the most; no second phone beside a phone; a phone by its device or its width)
+and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place
+of the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
+the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
+Stories: Parity/Start page (Home, signed in, a card flipping through screens, which plays, Home without pictures, the
+first time with and without the example, folders that are gone, which plays, Starred, Shared with you, a project's menu,
+New project, Open, a new tab), with the example project's pictures, Parity/App's On Home, New tab, No project open and
+Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip. Gaps: no end-to-end test drives Home or
+a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume. Taking a picture, which waits on the
+canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where opening the example kept its five
+screens (72 KB), Home showed Team members with Mobile Light, moving across its card flipped through Team members, Sign
+in and Pricing, and Team members' main frame set to Desktop Dark and saved with Ctrl+S showed dark on the card once
+taken again; chakra's Home screen, shorter than its window, was drawn as tall as its content. The first run and gone
+folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with the example's tab closed and
+Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme opened the example; a listed
+folder that wasn't there showed greyed with Folder not found, and Enter on it showed where it was with Remove.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -7545,19 +7566,20 @@ undo step. Escape or the close button takes Settings away.
   `openSettings`.
 
 Code: `readSettings`, `changeSettings` and `changedSettings` in `packages/settings`, which take and return data;
-`settingsStore` in `apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` under `withFileLock`
-(`main/file-lock.ts`) and watches its folder; `chrome/preferences.ts`, which takes the settings from main;
-`rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and return
-data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`; the
-view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
-`SettingsData` (`store.ts`); `chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app
-settings, the keybindings, telemetry and updates, and what the window sent of its project; `extension-settings.ts`,
-`extension-details.ts` and `values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page;
-`main/settings-view.ts`, which lays it over the window; `renderer/settings-project.ts`, the window's side, which sends
-the project's page and applies Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in
-the page for Storybook. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them.
-`extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and
-returns what an extension adds.
+`settingsStore` in `apps/desktop/src/main/settings-store.ts`, which keeps `settings.json` with `sharedFile`
+(`main/shared-file.ts`), under `withFileLock` (`main/file-lock.ts`), watching its folder; `chrome/preferences.ts`, which
+takes the settings from main; `rankSettings`, `matchesWords` and `listInWords` in
+`packages/editor/src/settings-search.ts`, which take and return data; the settings, pages and built-in extensions in
+`apps/desktop/src/renderer/chrome/settings/definitions.ts`; the view in `chrome/settings/SettingsView.tsx`, `pages.tsx`,
+`rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a `SettingsData` (`store.ts`);
+`chrome/settings/settings-data.ts`, which builds it from the preferences, extensions' app settings, the keybindings,
+telemetry and updates, and what the window sent of its project; `extension-settings.ts`, `extension-details.ts` and
+`values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page; `main/settings-view.ts`, which
+lays it over the window; `renderer/settings-project.ts`, the window's side, which sends the project's page and applies
+Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in the page for Storybook.
+`keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them. `extensionAdds` in
+`packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and returns what an
+extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a

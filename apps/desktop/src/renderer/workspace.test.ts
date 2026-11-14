@@ -1,4 +1,5 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { changeProjectsData, type Projects, type ProjectsChange, type SavedTabs } from "@parity-app/settings"
 import {
   type Attributes,
   createTelemetry,
@@ -114,6 +115,15 @@ const saving = { answer: (): Promise<undefined> => Promise.resolve(undefined) }
 /** Whether the service says what detection reads of a project changed since it opened. */
 const detection = { changed: false }
 
+/** What main keeps for the window: the projects, the tabs it claims, and each list of tabs it was told. */
+interface MainKeeps {
+  projects: Projects
+  tabs: SavedTabs
+  saved: SavedTabs[]
+}
+
+let kept: MainKeeps
+
 beforeEach(() => {
   tracked.length = 0
   pictures.length = 0
@@ -126,8 +136,24 @@ beforeEach(() => {
   guest.loads.length = 0
   guest.failures.length = 0
   guest.released.length = 0
+  kept = { projects: { recent: [], notes: {} }, tabs: { roots: [] }, saved: [] }
   vi.stubGlobal("window", {
     canvasHost: {
+      // Main, keeping the projects and tabs as `projects.json` and `state.json` would.
+      saved: () => ({ values: {}, projects: kept.projects }),
+      projects: {
+        change: (change: ProjectsChange) => {
+          kept.projects = changeProjectsData(kept.projects, change, Date.now())
+
+          return Promise.resolve(kept.projects)
+        },
+        subscribe: () => () => undefined
+      },
+      state: {
+        set: () => undefined,
+        claimTabs: () => Promise.resolve(kept.tabs),
+        saveTabs: (tabs: SavedTabs) => void kept.saved.push(tabs)
+      },
       ask: preloadAnswers((method, answerParams) => {
         // SAFETY: each method below reads only what its params have: `projectId` closing a project, `roots` the others.
         const params = answerParams as { projectId?: string; roots?: string[] }
@@ -175,45 +201,39 @@ afterEach(() => vi.unstubAllGlobals())
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe("starting the workspace", () => {
-  it("leaves a fresh install on Home", () => {
-    vi.stubGlobal("localStorage", { getItem: () => null })
+  it("leaves a fresh install on Home", async () => {
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     expect(opens).toHaveLength(0)
     expect(workspace.getTabs()).toEqual([])
     expect(workspace.isHomeActive()).toBe(true)
   })
 
-  it("stays on Home when that's where the window was, reopening the tabs behind it", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) =>
-        key === "parity.workspace" ? JSON.stringify({ roots: [info.root], active: homeTab }) : null
-    })
+  it("stays on Home when that's where the window was, reopening the tabs behind it", async () => {
+    kept.tabs = { roots: [info.root], active: homeTab }
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     expect(opens).toHaveLength(1)
     expect(workspace.getTabs()[0]?.id).toBe(info.root)
     expect(workspace.isHomeActive()).toBe(true)
   })
 
-  it("opens the project requested by the dev runner", () => {
-    vi.stubGlobal("localStorage", { getItem: () => null })
+  it("opens only the project requested by the dev runner, and keeps no tabs for next time", async () => {
+    kept.tabs = { roots: ["/another/project"] }
     window.canvasHost.initialProject = info.root
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     expect(opens).toHaveLength(1)
-    expect(workspace.getTabs()).toHaveLength(1)
+    expect(workspace.getTabs().map((tab) => tab.id)).toEqual([info.root])
+    workspace.newTab()
+    expect(kept.saved).toEqual([])
   })
 
-  it("restores saved tabs ahead of the dev runner's default", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.workspace" ? JSON.stringify({ roots: [info.root] }) : null)
-    })
-    window.canvasHost.initialProject = "/another/project"
+  it("tells main its tabs once it has claimed some", async () => {
     const workspace = new Workspace()
-    workspace.restore()
-    expect(opens).toHaveLength(1)
-    expect(workspace.getTabs()[0]?.id).toBe(info.root)
+    await workspace.restore()
+    void workspace.open(info.root)
+    expect(kept.saved.at(-1)).toEqual({ roots: [info.root], active: info.root })
   })
 })
 
@@ -223,11 +243,8 @@ describe("recording a project as loaded (PAR-694)", () => {
     tracked.filter(({ name }) => name === "project.loaded").map(({ attributes }) => attributes.restored)
 
   it("marks a tab from last time as restored", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.workspace" ? JSON.stringify({ roots: [info.root] }) : null),
-      setItem: () => undefined
-    })
-    new Workspace().restore()
+    kept.tabs = { roots: [info.root] }
+    await new Workspace().restore()
     opens[0]!(info)
     await settle()
     guest.loads[0]!(loaded)
@@ -236,7 +253,6 @@ describe("recording a project as loaded (PAR-694)", () => {
   })
 
   it("marks a project the person opens as not restored", async () => {
-    vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined })
     const opening = new Workspace().open(info.root)
     opens[0]!(info)
     await settle()
@@ -259,13 +275,10 @@ describe("recording a project as loaded (PAR-694)", () => {
 
 describe("checking the start page's folders (PAR-188)", () => {
   it("flags listed projects whose folders are gone, and keeps the example's folder", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.recent" ? JSON.stringify(["/apps/site", "/apps/gone"]) : null),
-      setItem: () => undefined
-    })
+    kept.projects = { recent: ["/apps/site", "/apps/gone"], notes: {} }
     folders = { missing: ["/apps/gone"], example: "/parity/examples/shadcn-vite" }
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     await settle()
     expect(checked).toEqual([["/apps/site", "/apps/gone"]])
     expect(workspace.getProjects().map(({ root, missing }) => ({ root, missing }))).toEqual([
@@ -276,13 +289,10 @@ describe("checking the start page's folders (PAR-188)", () => {
   })
 
   it("checks again when Home shows, as a folder may come back", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.recent" ? JSON.stringify(["/apps/drive"]) : null),
-      setItem: () => undefined
-    })
+    kept.projects = { recent: ["/apps/drive"], notes: {} }
     folders = { missing: ["/apps/drive"] }
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     await settle()
     expect(workspace.getProjects()[0]?.missing).toBe(true)
     workspace.activate("somewhere")
@@ -743,12 +753,6 @@ describe("a tab closed while its project opens", () => {
 // docs/editor.md, The start page: Home and new tabs, and what the window remembers about each project (PAR-605).
 
 /** Storage that keeps what's set, as the window's does. */
-function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
-  const items = new Map<string, string>()
-
-  return { getItem: (key) => items.get(key) ?? null, setItem: (key, value) => void items.set(key, value) }
-}
-
 /** Opens the test's project and lets it finish. */
 async function openFully(workspace: InstanceType<typeof Workspace>): Promise<void> {
   const opening = workspace.open(info.root)
@@ -771,7 +775,6 @@ describe("Home and new tabs", () => {
   })
 
   it("switches to a project that's already open, closing the new tab it was picked from", async () => {
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     workspace.newTab()
@@ -804,7 +807,6 @@ describe("Home and new tabs", () => {
   })
 
   it("remembers when a project opened, and keeps a starred one after it leaves the recent list", async () => {
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     expect(workspace.getProjects()).toEqual([
@@ -821,7 +823,6 @@ describe("Home and new tabs", () => {
   })
 
   it("lets go of a project's picture once the start page stops listing it (PAR-607)", async () => {
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     expect(picturesKept.at(-1)).toEqual([info.root])
@@ -830,13 +831,6 @@ describe("Home and new tabs", () => {
     expect(picturesKept.at(-1)).toEqual([info.root])
     workspace.star(info.root, false)
     expect(picturesKept.at(-1)).toEqual([])
-  })
-
-  it("starts with no notes when the saved ones can't be read", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.projects" ? JSON.stringify({ "/a": { starred: "yes" } }) : null)
-    })
-    expect(new Workspace().getProjects()).toEqual([])
   })
 })
 
@@ -971,7 +965,6 @@ describe("recording a save", () => {
   async function saveWith(answer: () => Promise<undefined>) {
     sink.clear()
     saving.answer = answer
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     const { store } = workspace.getTab(info.id)!.session!
