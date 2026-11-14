@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 12:19:59 GMT",
+      "version": "0.63.0",
+      "tag": "@parity-app/cli_v0.63.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "955f18ff14584743dbeda47228dadbefe91b3f5d",
+            "comment": "Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from its host"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e5ce28a1746bb34d25a952e3a7fc62f2dc8a401b",
+            "comment": "Update the node index in place from what an edit touched, and tell watchers once per settled edit"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f14fd0904667f1c83c25ca4349e909105816fd87",
+            "comment": "Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 12:01:37 GMT",
       "version": "0.62.0",
       "tag": "@parity-app/cli_v0.62.0",

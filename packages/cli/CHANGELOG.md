@@ -1,8 +1,21 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 14 Nov 2026 12:01:37 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 12:19:59 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.63.0
+
+Sat, 14 Nov 2026 12:19:59 GMT
+
+### Minor changes
+
+- Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from
+  its host (ajcraswell@gmail.com)
+- Update the node index in place from what an edit touched, and tell watchers once per settled edit
+  (ajcraswell@gmail.com)
+- Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows
+  (ajcraswell@gmail.com)
 
 ## 0.62.0
 
