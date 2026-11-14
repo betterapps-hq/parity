@@ -8,4 +8,8 @@ export * from "./permissions.ts"
 
 export * from "./protocol.ts"
 
+export * from "./keys.ts"
+
+export * from "./when.ts"
+
 export * from "./settings.ts"

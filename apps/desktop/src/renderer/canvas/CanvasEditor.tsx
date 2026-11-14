@@ -87,16 +87,20 @@ class SelectionBox extends SelectionForegroundOverlayUtil {
 /** Whether the canvas is hovering a layer inside a design, by editor (see `HoverOutlines`). */
 const hoveringLayer = new WeakMap<Editor, Atom<boolean>>()
 
+/** Whether previews of the selected design are selected rather than the design itself, by editor (see `HoverOutlines`). */
+const pickingPreviews = new WeakMap<Editor, Atom<boolean>>()
+
 /**
  * Hovering outlines only what a click would select. With the pointer on a layer inside a design, a click selects that
  * layer, which the canvas's overlay outlines, so tldraw doesn't outline the board around it as hovered. Over the board's
- * background, or a frame's, it does.
+ * background, or a frame's, it does. While previews are selected, their rings mark them and the board has no outline
+ * of its own (PAR-1071).
  */
 class HoverOutlines extends IndicatorOverlayUtil {
   static override type = IndicatorOverlayUtil.type
 
   override getOverlays() {
-    const overlays = super.getOverlays()
+    const overlays = this.withoutPickedBoard(super.getOverlays())
     const hovered = this.editor.getHoveredShapeId()
 
     if (!hovered || !hoveringLayer.get(this.editor)?.get() || this.editor.getSelectedShapeIds().includes(hovered)) {
@@ -110,6 +114,19 @@ class HoverOutlines extends IndicatorOverlayUtil {
         ? [{ ...overlay, props: { ...overlay.props, idsToDisplay } }]
         : []
     })
+  }
+
+  private withoutPickedBoard(overlays: ReturnType<IndicatorOverlayUtil["getOverlays"]>) {
+    if (!pickingPreviews.get(this.editor)?.get()) {
+      return overlays
+    }
+
+    const selected = new Set(this.editor.getSelectedShapeIds())
+
+    return overlays.map((overlay) => ({
+      ...overlay,
+      props: { ...overlay.props, idsToDisplay: overlay.props.idsToDisplay.filter((id) => !selected.has(id)) }
+    }))
   }
 }
 
@@ -592,8 +609,12 @@ export function CanvasEditor({
         }
       })
 
+      const previewsPicked = atom("picking previews", false)
+      pickingPreviews.set(editor, previewsPicked)
+
       const followSelection = () => {
         const current = selection.get()
+        previewsPicked.set(!!current.design && !!current.mode && !current.node)
         let keys: string[]
 
         if (current.note) {
@@ -693,6 +714,7 @@ export function CanvasEditor({
         stopHover()
         stopOutline()
         hoveringLayer.delete(editor)
+        pickingPreviews.delete(editor)
         onEditor(undefined)
       }
     },

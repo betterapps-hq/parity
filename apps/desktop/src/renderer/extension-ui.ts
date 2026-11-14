@@ -162,5 +162,8 @@ export async function answerExtension(name: string, asked: ExtensionUiRequest): 
 
       return index === undefined ? {} : { index }
     }
+
+    default:
+      throw new Error(`${asked.method} is answered by the project's tab`)
   }
 }

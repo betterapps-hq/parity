@@ -15,9 +15,10 @@ import { ExternalLink, FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
-import { commandsAt, extensionsOf, runCommand } from "../extensions.ts"
+import { commandsAt, extensionsOf, runCommand, whenFactsOf } from "../extensions.ts"
 import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
+import { saved, saveState } from "../saved.ts"
 import { resetWithWindow } from "../store.ts"
 import {
   type ProjectSession,
@@ -158,31 +159,24 @@ function edgeFade({ top, bottom }: Edges): string | undefined {
   return `linear-gradient(to bottom, ${top ? "transparent, black 1.5rem" : "black"}, ${bottom ? "black calc(100% - 1.5rem), transparent" : "black"})`
 }
 
-const recentKey = "parity.recentSearches"
-
 /** What's saved as recent: a list of IDs, where anything that isn't one is skipped rather than losing the rest. */
 const recentPicks = z.array(z.string().nullable().catch(null)).catch([])
 
-function readRecent(): string[] {
-  try {
-    const saved = recentPicks.parse(JSON.parse(localStorage.getItem(recentKey) ?? "[]"))
+/** The picks kept in `state.json`, as this copy last saved them. */
+let recentNow: readonly string[] = recentPicks.parse(saved().values.recentSearches ?? []).filter((id) => id !== null)
 
-    return saved.filter((id) => id !== null)
-  } catch {
-    // Storage can be unavailable, or hold something else; nothing's recent then.
-    return []
-  }
+function readRecent(): readonly string[] {
+  return recentNow
 }
 
 // Nothing picked yet, as a first run starts, so each story starts from nothing picked.
-resetWithWindow(() => saveRecent([]))
+resetWithWindow(() => {
+  recentNow = []
+})
 
 function saveRecent(recent: readonly string[]): void {
-  try {
-    localStorage.setItem(recentKey, JSON.stringify(recent))
-  } catch {
-    // Storage can be unavailable; the picks are then forgotten.
-  }
+  recentNow = recent
+  saveState("recentSearches", [...recent])
 }
 
 /**
@@ -362,9 +356,16 @@ function extensionItems(session: ProjectSession): Item[] {
   const component = selectionComponent(session)
   const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
   const { extensions } = extensionsOf(session).store.get()
-  const forComponent = target ? commandsAt(extensions, "componentCard", target) : []
+  // What a `when` reads: the selected component, or what's selected.
 
-  return commandsAt(extensions, "search", target).map((placed) => {
+  const facts = whenFactsOf(
+    session,
+    component === undefined ? undefined : { owner: session.info.renderer.id, type: "component", key: component }
+  )
+
+  const forComponent = target ? commandsAt(extensions, "componentCard", target, facts) : []
+
+  return commandsAt(extensions, "search", target, facts).map((placed) => {
     const acts = forComponent.some((each) => each.command.id === placed.command.id && each.enabled)
 
     return {

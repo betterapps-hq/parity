@@ -19,6 +19,16 @@ a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id
   (`storybook.open`), as do settings, agent tools and the context keys that `when` and `enablement` test. Menus, keys
   and status items name declared commands. A contribution's icon is the name of an icon in the kit's set, such as
   `book-open`.
+- **`when` and `enablement`** (PAR-1092) are expressions: Parity's own keys, `node.type`, `node.owner`, `node.key`,
+  `selection.count`, `tool` and `fact.<id>`, compared with `==`, `!=`, `>`, `>=`, `<` or `<=` to a word, a number or a
+  quoted string; `project.uses(tool)`, true when the project has a tool by its extension's prefix or its adapter's id;
+  and the extension's own context keys on their own, joined with `&&`, `||`, `!` and parentheses. A key on its own holds
+  when it's true, or a list holding the key of what the command is shown for. One that doesn't read is refused, naming
+  what's wrong, as is an extension key in one that doesn't start with the prefix
+  ([`when.ts`](../packages/extensions/src/when.ts)).
+- **`keybindings`** write keys as VS Code does, `mod+shift+t`, with `mod` meaning Ctrl, or Cmd on a Mac. Keys Parity
+  can't read are refused. Parity's own keys win a clash, with the person's changes, and a key two extensions ask for
+  goes to neither; Settings' Keyboard shortcuts page names who has it ([`keys.ts`](../packages/extensions/src/keys.ts)).
 
 The types are in [`@parity-app/extension-api`](../packages/extension-api), a package of types only.
 
@@ -53,6 +63,20 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 - **`project`:** its root, its name, and what detection found of the extension's tool.
 - **`commands.register(id, handler)`:** handles a command the manifest declares. The handler gets what it was run on,
   such as a component.
+- **`commands.execute(id)`** (PAR-1092): runs one of Parity's own commands, by its id in the keymap (`zoomToSelection`,
+  `duplicate`, `wrap`), on what's selected in the project's tab, or any extension's command, which starts its extension
+  first. One of Parity's that doesn't apply to what's selected fails, saying so.
+- **`selection`** (PAR-1092): what's selected, by `NodeRef` (`get`, synchronous, from the copy the host keeps), told to
+  `onChange` listeners each time it changes. `set(refs)` selects nodes and brings them into view: designs, a route's
+  page among them, as designs; layers of one design as layers; a route without a page, which the canvas draws as a
+  group, a story or a mix, by ref. `highlight(refs)` points at a design or a layer as hovering its row does.
+- **`navigate`** (PAR-1092): `reveal(ref)` brings a node into view and `zoomTo(ref)` frames it; `openDesign(key)`;
+  `setMode(mode)` shows the selected design in a mode and `setState(design, state)` a design in a state, each by id or
+  name; `showTab(id)` opens a panel's tab, Parity's own (`layers`, `components`, `icons`, `media`, `tokens`, `design`,
+  `modes`, `accessibility`), the console, an extension's log by its id, or a tab an extension declares;
+  `openSettings(id?)` opens an extension's page in Settings; and `pageUrl(ref)` gives the URL the canvas draws a route's
+  page at. Each waits for a window with the project open. `pageUrl` is asynchronous, unlike the proposal's, since only
+  the window knows the pages.
 - **`context.set(key, value)`:** sets a context key that menus' `when` and `enablement` test. A list of keys is true for
   the things it lists, such as the components that have stories.
 - **`facts.set(target, facts)`:** what the extension knows about a component, shown on its card.
@@ -73,7 +97,7 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 - **`subscriptions`:** disposables Parity disposes as the host stops.
 
 The host checks each call against the manifest: a command, status item, setting or context key the manifest doesn't
-declare is refused.
+declare is refused. The service checks what the host sends, so a node that isn't one is refused too.
 
 ## Settings
 
@@ -145,15 +169,22 @@ Extensions change designs and files through Parity, never by writing them, so un
 ## Tests
 
 - [manifest.test.ts](../packages/extensions/src/manifest.test.ts): ids outside the prefix, undeclared commands, tabs and
-  activation events, context keys outside the prefix, unknown events, placements and keys, and icons that aren't path
-  data or icon names.
+  activation events, context keys outside the prefix, unknown events, placements and keys, icons that aren't path data
+  or icon names, `when` expressions over Parity's keys and the extension's own, ones that don't read, and keys Parity
+  can't read.
+- [when.test.ts](../packages/extensions/src/when.test.ts): comparisons, `project.uses`, list keys, `&&`, `||`, `!` and
+  parentheses, what's wrong with one that doesn't read, and the keys one looks up.
+- [keys.test.ts](../packages/extensions/src/keys.test.ts): keys as the keymap writes them, keys it can't read, and
+  Parity's keys winning a clash, with two extensions on one key both named.
 - [hosts.test.ts](../packages/extensions/src/hosts.test.ts): starting on detection and on a command, what `activate`
   gets, a command nobody handles, status items drawn before the code loads, undeclared ids, state between runs, logs and
   `parity.ui`, restarting after a crash and stopping after 3, one extension's crash leaving another running, a failed
-  activation, a stuck host, and stopping everything with the project. Hosts talk over in-memory ports there, and load
-  modules without a prototype, as Node's are. Settings: each read from its own scope with an undeclared key refused,
-  changes heard by the running code once each, a project setting's `update` sent to the window and an app setting's
-  refused, and a value that doesn't fit listed with its note, with the activation time and permissions.
+  activation, a stuck host, stopping everything with the project, and (PAR-1092) the selection from the start and as it
+  changes, selecting, highlighting and navigating through the window, a route's page URL, Parity's commands run in the
+  window and an extension's in its host, and a node that isn't one refused. Hosts talk over in-memory ports there, and
+  load modules without a prototype, as Node's are. Settings: each read from its own scope with an undeclared key
+  refused, changes heard by the running code once each, a project setting's `update` sent to the window and an app
+  setting's refused, and a value that doesn't fit listed with its note, with the activation time and permissions.
 - [hosts.test.ts](../packages/extensions/src/hosts.test.ts) also: renaming a layer from a command as one labelled
   change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`.
 - [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`

@@ -775,14 +775,14 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `command.ran`
 
-| Attribute | Type                                                                                  | Meaning                                                                                                                           |
-| --------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `action`  | `string`                                                                              | The action's ID in the keymap, as `chrome/actions.ts` names it                                                                    |
-| `from`    | `"key" \| "menu" \| "canvasMenu" \| "layersMenu" \| "search" \| "toolbar" \| "panel"` | What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, or a button in a panel or page |
-| `enabled` | `boolean`                                                                             | Whether it applied then. One that didn't is recorded as cancelled, without running                                                |
-| `layers`  | `integer`                                                                             | How many layers were selected                                                                                                     |
-| `designs` | `integer`                                                                             | How many designs were selected, with no layer inside one                                                                          |
-| `code`    | `string`, optional                                                                    | The error code, when it failed                                                                                                    |
+| Attribute | Type                                                                                                 | Meaning                                                                                                                                                                   |
+| --------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action`  | `string`                                                                                             | The action's ID in the keymap, as `chrome/actions.ts` names it                                                                                                            |
+| `from`    | `"key" \| "menu" \| "canvasMenu" \| "layersMenu" \| "search" \| "toolbar" \| "panel" \| "extension"` | What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, a button in a panel or page, or an extension's parity.commands.execute |
+| `enabled` | `boolean`                                                                                            | Whether it applied then. One that didn't is recorded as cancelled, without running                                                                                        |
+| `layers`  | `integer`                                                                                            | How many layers were selected                                                                                                                                             |
+| `designs` | `integer`                                                                                            | How many designs were selected, with no layer inside one                                                                                                                  |
+| `code`    | `string`, optional                                                                                   | The error code, when it failed                                                                                                                                            |
 
 ### `component.changed`
 

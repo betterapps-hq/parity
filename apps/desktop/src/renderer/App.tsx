@@ -39,7 +39,7 @@ export function App() {
 
     started = true
     serveAgents()
-    workspace.restore()
+    void workspace.restore()
     // Closing the window first asks about unsaved changes, and can be cancelled.
     window.canvasHost.onClosing(() => workspace.confirmQuit())
     window.canvasHost.onReconnect(() => void workspace.reconnect())

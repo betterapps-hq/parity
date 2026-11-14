@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Layout, open tabs, recent searches and recent and starred projects move into state.json and projects.json, which every copy of Parity shares.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

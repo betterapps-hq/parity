@@ -227,15 +227,15 @@ describe("the sections each selection gets", () => {
     return panelParts(selectionCapabilities(container, [{ id, node: layer, parent: undefined }], takesStyle))
   }
 
-  it("give a screen its components to make and its modes, and no style sections", () => {
-    expect(sectionsOf(screen("screen"))).toEqual(["header", "components", "modes", "export"])
+  it("give a screen its components to make, and no style sections or modes, which its board's title sets", () => {
+    expect(sectionsOf(screen("screen"))).toEqual(["header", "components", "export"])
   })
 
-  it("give a component design the props it defines and its modes", () => {
-    expect(sectionsOf(screen("component"))).toEqual(["header", "props", "modes", "export"])
+  it("give a component design the props it defines", () => {
+    expect(sectionsOf(screen("component"))).toEqual(["header", "props", "export"])
   })
 
-  it("give a frame its root's style sections, and no modes", () => {
+  it("give a frame its root's style sections", () => {
     expect(sectionsOf(screen("frame"))).toEqual(["header", "styles", "export"])
   })
 

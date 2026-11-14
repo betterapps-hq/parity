@@ -1,6 +1,14 @@
 import type { ConsoleEntry } from "@parity-app/agent"
 import type { UpdateState } from "@parity-app/processes"
-import type { ExtensionSettingsChange, SettingsChange } from "@parity-app/settings"
+import type {
+  ExtensionSettingsChange,
+  JsonValue,
+  Projects,
+  ProjectsChange,
+  SavedTabs,
+  SettingsChange,
+  StateKey
+} from "@parity-app/settings"
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import type { ProblemReport } from "../shared/ipc-checks.ts"
 import type { KeybindingsState, Replacement } from "../shared/keybindings.ts"
@@ -80,6 +88,16 @@ export interface HostNeeds<Event, Window> {
   /** `settings.json`, which main keeps for every window and copy. */
   settings: {
     change(change: SettingsChange & { extensions?: ExtensionSettingsChange }): Promise<SettingsState>
+  }
+  /** `projects.json`, the recent and starred projects every copy shares. */
+  projects: {
+    change(change: ProjectsChange): Promise<Projects>
+  }
+  /** `state.json`, what the app remembers for itself: the layout, recent searches and each window's tabs. */
+  state: {
+    set(key: StateKey, value: JsonValue): void
+    claimTabs(window: Window): Promise<SavedTabs>
+    saveTabs(window: Window, tabs: SavedTabs): void
   }
   /** Settings, its own web contents over `window`, which loads no project code (PAR-1090). */
   settingsView: {
@@ -185,6 +203,11 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
     quit: () => needs.quit(),
     toggleDevTools: (_nothing, window) => needs.toggleDevTools(window),
     settingsChange: (change) => needs.settings.change(change),
+    projectsChange: (change) => needs.projects.change(change),
+    stateSet: ({ key, value }) => needs.state.set(key, value),
+    tabsClaim: (_nothing, window) => needs.state.claimTabs(window),
+    tabsSave: ({ roots, active }, window) =>
+      needs.state.saveTabs(window, active === undefined ? { roots } : { roots, active }),
     extensionSettingsChange: (extensions) => needs.settings.change({ extensions }),
     settingsOpen: (opening, window) => needs.settingsView.open(window, opening),
     settingsProject: (project, window) => needs.settingsView.project(window, project),

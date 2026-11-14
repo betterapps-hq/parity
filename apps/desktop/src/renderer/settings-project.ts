@@ -4,9 +4,12 @@ import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { z } from "zod"
 import type { SettingsExtension, SettingsProject, SettingsProjectChange } from "../shared/settings-view.ts"
 import { actions } from "./chrome/actions.ts"
+import { keymap, keysOf } from "./chrome/keymap.ts"
 import { extensionsFrom } from "./chrome/settings/definitions.ts"
+import { isCommand } from "./chrome/settings/shortcuts.tsx"
+import type { ExtensionShortcut } from "./chrome/settings/store.ts"
 import { overrideOf, sizeText } from "./chrome/settings/values.ts"
-import { extensionsOf, type ProjectExtensions } from "./extensions.ts"
+import { extensionKeys, extensionsOf, type ProjectExtensions } from "./extensions.ts"
 import {
   clearProjectExtensionSetting,
   clearProjectPreference,
@@ -84,6 +87,49 @@ function listed(
   return entry
 }
 
+/**
+ * Each extension's keys, under its name, those that don't work saying which command has them: one of Parity's, which
+ * wins, or another extension's, when both ask for them (PAR-1092).
+ */
+function shortcutsOf(extensions: readonly ExtensionStatus[]): { extension: string; shortcuts: ExtensionShortcut[] }[] {
+  const { keys, clashes } = extensionKeys(extensions)
+  const nameOf = (id: string) => extensions.find((each) => each.id === id)?.displayName ?? id
+
+  const labelOf = (written: string) => {
+    const owner = Object.keys(keymap).find((command) => isCommand(command) && keysOf(command).includes(written))
+
+    return owner && isCommand(owner) ? keymap[owner].label : "Another command"
+  }
+
+  return extensions.flatMap((extension) => {
+    const titleOf = (command: string) =>
+      extension.contributes.commands?.find((declared) => declared.id === command)?.title ?? command
+
+    const shortcuts: ExtensionShortcut[] = [
+      ...keys.flatMap((key) =>
+        key.extension === extension.id ? [{ command: key.command, title: titleOf(key.command), keys: key.keys }] : []
+      ),
+      ...clashes.flatMap((clash) =>
+        clash.extension === extension.id
+          ? [
+              {
+                command: clash.command,
+                title: titleOf(clash.command),
+                keys: clash.keys,
+                clash:
+                  clash.with === "parity"
+                    ? `${labelOf(clash.keys)} has these keys`
+                    : `${clash.with.map(nameOf).join(" and ")} also asks for these keys`
+              }
+            ]
+          : []
+      )
+    ]
+
+    return shortcuts.length > 0 ? [{ extension: extension.displayName, shortcuts }] : []
+  })
+}
+
 /** What Settings shows of the active tab's project, the same object until something in it changes. */
 export function useSettingsProject(): SettingsProject {
   const project = useProjectSettings()
@@ -114,6 +160,12 @@ export function useSettingsProject(): SettingsProject {
 
     if (session && project) {
       shown.project = { name: session.info.name, file: session.store.mainPath }
+    }
+
+    const shortcuts = shortcutsOf(running.extensions)
+
+    if (shortcuts.length > 0) {
+      shown.shortcuts = shortcuts
     }
 
     return shown

@@ -14,6 +14,7 @@ import { answerPreviews } from "../stories/previews.ts"
 import { ComponentsPanel } from "./AssetsPanel.tsx"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
+import { getPreferences } from "./preferences.ts"
 
 /**
  * The Components tab: what can be dragged into designs, by source. The project's component designs, then its own
@@ -115,9 +116,7 @@ export const GridView: Story = {
     await showKit(canvasElement)
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Grid" }))
     await expect(within(canvasElement).getByRole("button", { name: "Grid" })).toHaveAttribute("aria-pressed", "true")
-    await expect(JSON.parse(localStorage.getItem("parity.preferences") ?? "{}")).toMatchObject({
-      componentsView: "grid"
-    })
+    await expect(getPreferences().componentsView).toBe("grid")
   }
 }
 

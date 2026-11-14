@@ -11,8 +11,10 @@ import {
   previewScale,
   previewValues,
   snapToBreakpoint,
+  unsavedPreviewValues,
   withoutPreviewValues,
-  withPreviewValues
+  withPreviewValues,
+  withSavedPreviewValues
 } from "./preview.ts"
 
 const [desktop, desktopDark, , mobile] = resolveModes(defaultModeSettings)
@@ -100,6 +102,32 @@ describe("withPreviewValues", () => {
     const view = withPreviewValues({}, "default/desktop-light", { scale: 0.75, width: 390, options: { locale: "ar" } })
 
     expect(containerSpec.safeParse(design({ view })).success).toBe(true)
+  })
+})
+
+describe("saved preview values", () => {
+  const saved = { width: 900, options: { theme: "dark" } }
+
+  it("finds what changed since the last save: set, set differently or unset", () => {
+    expect(unsavedPreviewValues(saved, saved)).toEqual([])
+    expect(unsavedPreviewValues({ width: 900, scale: 0.5, options: { theme: "light" } }, saved)).toEqual([
+      "option:theme",
+      "scale"
+    ])
+    expect(unsavedPreviewValues(undefined, saved)).toEqual(["width", "option:theme"])
+  })
+
+  it("puts a preview's values back as saved, those given or every one that changed", () => {
+    const key = previewKey("default", desktop!.id)
+    const view = withPreviewValues({}, key, { width: 1100, scale: 0.5, options: { theme: "light" } })
+
+    expect(withSavedPreviewValues(view, key, saved).previews?.[key]).toEqual(saved)
+    expect(withSavedPreviewValues(view, key, saved, ["width"]).previews?.[key]).toEqual({
+      width: 900,
+      scale: 0.5,
+      options: { theme: "light" }
+    })
+    expect(withSavedPreviewValues(view, key, undefined)).toEqual({})
   })
 })
 
