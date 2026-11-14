@@ -1,7 +1,5 @@
 import {
-  Atom,
   Download,
-  FileCode,
   Frame,
   Keyboard,
   type LucideIcon,
@@ -10,14 +8,12 @@ import {
   Folder,
   Puzzle,
   RefreshCw,
-  Route,
   ShieldCheck,
   SlidersHorizontal,
-  Sun,
-  Wind,
-  Zap,
-  BookOpen
+  Sun
 } from "lucide-react"
+import { nextLogo, reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
+import { type Mark, markOf } from "./marks.tsx"
 
 /** Whose a setting is: the person's, for every project, or everyone's who opens this project. */
 export type Scope = "app" | "project"
@@ -59,7 +55,7 @@ export type PageGroup = "app" | "system" | "project" | "extensions"
 export interface Page {
   id: string
   label: string
-  icon: LucideIcon
+  icon: Mark
   group: PageGroup
   /** An extension's page, listed under Extensions. */
   extension?: string
@@ -75,7 +71,7 @@ export interface Permission {
 export interface Extension {
   id: string
   name: string
-  icon: LucideIcon
+  icon: Mark
   running: boolean
   /** What detection found, or why it didn't run. */
   found: string
@@ -92,7 +88,7 @@ export const extensions: Extension[] = [
   {
     id: "storybook",
     name: "Storybook",
-    icon: BookOpen,
+    icon: markOf(storybookLogo, "Storybook"),
     running: true,
     found: "Storybook 9.1, config in .storybook",
     adds: ["Stories as screens", "Storybook server", "Storybook tab", "Open in Storybook"],
@@ -109,7 +105,7 @@ export const extensions: Extension[] = [
   {
     id: "vite",
     name: "Vite",
-    icon: Zap,
+    icon: markOf(viteLogo, "Vite"),
     running: true,
     found: "Vite 7.2, config in vite.config.ts",
     adds: ["Build server", "Production build"],
@@ -124,7 +120,7 @@ export const extensions: Extension[] = [
   {
     id: "react",
     name: "React",
-    icon: Atom,
+    icon: markOf(reactLogo, "React"),
     running: true,
     found: "React 19.2",
     adds: ["Draws components", "Props from TypeScript"],
@@ -135,7 +131,7 @@ export const extensions: Extension[] = [
   {
     id: "tailwind",
     name: "Tailwind CSS",
-    icon: Wind,
+    icon: markOf(tailwindLogo, "Tailwind"),
     running: true,
     found: "Tailwind CSS 4.1, theme in src/styles.css",
     adds: ["Tokens from the theme", "Styles as classes"],
@@ -150,7 +146,7 @@ export const extensions: Extension[] = [
   {
     id: "tanstack-router",
     name: "TanStack Router",
-    icon: Route,
+    icon: markOf(tanstackLogo, "TanStack"),
     running: true,
     found: "TanStack Router 1.131, routes in src/routes",
     adds: ["Pages as screens", "Route lines on the canvas"],
@@ -161,7 +157,7 @@ export const extensions: Extension[] = [
   {
     id: "next",
     name: "Next.js",
-    icon: FileCode,
+    icon: markOf(nextLogo, "Next"),
     running: false,
     found: "Not in this project",
     adds: ["Pages as screens", "Next.js server"],
