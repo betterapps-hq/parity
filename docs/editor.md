@@ -6553,8 +6553,8 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   component that takes children gets its own name as text. It starts without samples and takes them once the props have
   been read from the component's types, a moment after the project opens. The board hugs the component with 2px around
   it, so nothing at its edges is cut off, and has no fill, so the component sits on the canvas. Its title shows the
-  component's icon, its name, and its file underneath. At 100% a component is its own size: the example's Button is 65.7
-  × 32, as in a browser.
+  component's icon and its name, without its file. At 100% a component is its own size: the example's Button is 65.7 ×
+  32, as in a browser.
 - **Inside the parents a part needs.** A part that fails for want of a parent, as AvatarImage needs Avatar and
   TabsTrigger needs TabsList inside Tabs, is drawn again inside the next parents to try (`nextBoardParents`), until it
   draws: first the component its error names, then the components of its file whose names begin its own, outermost, then
@@ -6626,10 +6626,8 @@ a video's sections from their attributes, and sections with nothing set left out
 ### Each story as a screen (read-only viewer)
 
 The project opens with a screen for each of its Storybook stories, listed in Layers under Stories, after Screens, and
-laid out in a row for each story file, left of everything else on the canvas. Each row is as wide as its stories: once a
-story draws, the canvas measures its board and packs its row again, 120 apart, and the rows 200 apart under their
-tallest story, with the widest row ending 800 left of the boards and pages. Before a story is measured it's taken to be
-320 × 240. Where they go isn't saved.
+laid out in a row for each story file, left of everything else on the canvas, on a grid 440 apart each way, as component
+boards are. A story wider or taller than that overlaps the one beside or below it.
 
 - **Listed as Storybook lists them.** Under Stories, each part of a story's title is a folder, as Storybook's sidebar
   nests them: a group is a folder, a component holds its stories under a square split in four, in blue, and each story
@@ -6668,8 +6666,7 @@ card, and two plan cards side by side. Setting Plan card / Popular's Price to $3
 the story's args, beside `popular: true`, and the screen drew $32.
 
 Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and `importStoryScreens` in
-`adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`; `storyScreensDocument`,
-`storyPositions` and `followStoryLayout`, with `packRows` in `packages/editor/src/pack-rows.ts`, in
+`adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`; `storyScreensDocument` in
 `apps/desktop/src/renderer/canvas/story-screens.ts`; `drawImported` in `apps/desktop/src/renderer/workspace.ts`;
 `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`; `exportEntities` in
 `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts` writes; `writesProps` in
@@ -6677,15 +6674,14 @@ Code: `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and 
 `packages/editor/src/layers-folders.ts`, and `storyPlaces` and `FolderLine` in `story-screens.ts` and
 `apps/desktop/src/renderer/chrome/LayerTree.tsx`.
 
-Tests: `packages/editor/src/pack-rows.test.ts` (2: rows of boxes packed left to right and under the tallest, and no rows
-or an empty one). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're closed, an open
-folder's folders and a component's designs in order, a design without folders at the top, and a search opening the
-folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and stories with
-args over the meta's, where a story's render function is, a file without a default export, a story's name in words, each
-story in a folder for each part of its title, stories imported as screens of their component, grouped by title, a story
-that renders itself drawing its function from its file, a story's own args written over the meta's with code kept, args
-added to a story without any and none for the meta's, a story that's a function left alone, and a screen's props written
-back to its file).
+Tests: `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're closed, an open folder's
+folders and a component's designs in order, a design without folders at the top, and a search opening the folders with
+something found). `adapters/storybook-adapter/src/storybook.test.ts` (11: a file's meta and stories with args over the
+meta's, where a story's render function is, a file without a default export, a story's name in words, each story in a
+folder for each part of its title, stories imported as screens of their component, grouped by title, a story that
+renders itself drawing its function from its file, a story's own args written over the meta's with code kept, args added
+to a story without any and none for the meta's, a story that's a function left alone, and a screen's props written back
+to its file).
 
 ### Opening in seconds (PAR-179)
 
