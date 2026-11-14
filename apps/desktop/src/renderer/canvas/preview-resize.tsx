@@ -1,12 +1,13 @@
 import {
   breakpointAt,
   type ContainerSpec,
+  type ContainerViewSettings,
   type PreviewBreakpoint,
   previewGeometry,
   previewOf,
   snapToBreakpoint,
-  withoutPreviewValues,
-  withPreviewValues
+  withPreviewValues,
+  withSavedPreviewValues
 } from "@parity-app/core"
 import { labelLook, pickPreviews } from "@parity-app/editor"
 import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, useMemo, useRef } from "react"
@@ -64,6 +65,7 @@ export function useBreakpoints(): readonly PreviewBreakpoint[] {
  */
 export function PreviewResize({
   design,
+  saved,
   designKey,
   self,
   changing,
@@ -76,6 +78,8 @@ export function PreviewResize({
   onResizing
 }: {
   design: ContainerSpec
+  /** How the design was shown when last saved, which a double-click puts the width back to. */
+  saved: ContainerViewSettings | undefined
   designKey: string
   /** The preview it resizes, by key, with its mode. */
   self: PreviewTarget
@@ -164,9 +168,13 @@ export function PreviewResize({
     resizeTo(width + (event.shiftKey ? 10 : 1) * (event.key === "ArrowLeft" ? -1 : 1), false)
   }
 
+  // Back to the width each was last saved at, or its mode's where none was saved.
   const reset = () =>
     store.updateView(designKey, "Reset preview width", (view) =>
-      changing.reduce((each, preview) => withoutPreviewValues(each, preview.key, ["width"]), view)
+      changing.reduce(
+        (each, preview) => withSavedPreviewValues(each, preview.key, saved?.previews?.[preview.key], ["width"]),
+        view
+      )
     )
 
   return (
