@@ -252,11 +252,21 @@ project's, and Search actions finds each setting by its title.
   with no `.par` yet gets its main file when a project setting is first changed, as with a first edit.
 - **The field.** `extensions` is one new optional field, keyed by extension id, holding each one's settings as an
   unchecked record that the extension's own schema checks when it loads. So settings of an extension that isn't
-  installed are kept as they are, and after this one change to the file format, a new setting never changes it. Whether
-  adding the field raises `formatVersion`, which today rejects every older file, is decided when it's built.
+  installed are kept as they are, and after this one change to the file format, a new setting never changes it.
+- **`formatVersion` stays at 4,** as it did when `images`, `sources`, `links` and `objects` were added. Today's Parity
+  accepts only version 4, so it would reject a version 5 file just as it rejects an unknown field, and raising the
+  version would reject every file saved so far. Separately, the reader should say "Saved by a newer version of Parity"
+  for an unknown field or a newer version, rather than a schema error.
 - **Saving and undo.** Changing a project setting is one undo step and marks the file unsaved, as a modes change does,
   and Save writes it. The window sends the field to the project service whenever it changes, so extensions see values
   before they're saved.
+- **Where each is changed.** The project's own code runs in the editor window, so the window may change only what that
+  code could already change: project settings, which live in the project's files. App settings, secrets and permission
+  grants are changed only in a Settings view that loads no project code. It's its own web contents inside the window,
+  owned by main, which sends each change to the project service. Otherwise a project could change a person's settings
+  for every project, read a secret or grant an extension a permission. The view shows project settings too, and sends a
+  change to one to the window, which applies it as one undo step. The settings proposal (`docs/proposals/settings.md`,
+  on its own branch) asks for the same view.
 - **The tool's own config wins** for what it keeps there: Storybook's port stays in its `storybook dev` script, written
   by the extension, so there's one place to change it. Every other project setting goes in the main project file.
 - **The app's state.** How the app saves its state is being worked out separately. `app` settings need only a place
@@ -521,12 +531,17 @@ write, network hosts, processes, secrets, and `edits` for changing designs.
 
 - **Asked once, for an extension installed into the app,** before it first runs, and again when an update asks for more.
   A project's own extensions are trusted with the project, and built-in ones run with what they declare.
-- **Taken back one at a time.** The Extensions page can withdraw a permission, such as `edits` or `network`, while the
-  extension keeps running; calls that need it then fail with an error the extension can handle.
-- **Held to in the host.** Each host runs under Node's permission model, with file reads and writes limited to the
-  declared paths, no child processes outside `parity.processes`, and network limited to the declared hosts. Until that
-  holds, the Extensions page says plainly that permissions are shown but not enforced, and that installing an extension
-  trusts it fully.
+- **Taken back one at a time.** The Extensions page can withdraw a permission that goes through Parity's API, such as
+  `edits` or `secrets`, while the extension keeps running; calls that need it then fail with an error the extension can
+  handle.
+- **Files and processes are limited, as a guard against mistakes.** Each host runs under Node's permission model, with
+  file reads and writes limited to the declared paths and no child processes outside `parity.processes`. Node's own
+  documentation says the model doesn't protect against malicious code, so it catches an extension's mistakes, not a
+  hostile extension.
+- **Network hosts are shown, not enforced.** Electron 45 runs Node 24.22, which has no network permission, and newer
+  Node's `--allow-net` allows all network access or none, never a list of hosts.
+- **Installing an extension trusts its publisher,** as in VS Code. The Extensions page never calls permissions a
+  sandbox. It shows what each extension declared and says that installing one trusts it fully.
 
 ## Moving Parity's own over
 
@@ -557,8 +572,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
    onto them, and `packages/adapters` removed.
 9. **Extension APIs and agent tools.**
 10. **The scaffold, `parity dev`, the test harness and the reference.**
-11. **Third-party extensions** named in the project's `.par` and installed into the app, with permission prompts and
-    their enforcement, then a registry.
+11. **Third-party extensions** named in the project's `.par` and installed into the app, with permission prompts and the
+    file and process limits, then a registry.
 12. **Later:** web views and canvas tools.
 
 ## Decided
@@ -576,8 +591,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
   language, framework or builder, so each runs whenever its tool is detected. A switch comes when third-party ones do.
 - **No `parity.config.ts`.** [extensions.md](extensions.md) planned it for a project's extensions and settings, and both
   are in the `.par` now. Code a project needs, such as decorators, stays in its preview file.
-
-## Decisions needed
-
-- **Raising `formatVersion` for `extensions`.** Raising it lets an older Parity say the file is newer rather than
-  failing on an unknown field, but rejects every file saved before it.
+- **`extensions` doesn't raise `formatVersion`,** as no optional field before it has.
+- **Settings a project mustn't touch are changed in a view that loads no project code:** app settings, secrets and
+  permission grants.
+- **Permissions limit files and processes but aren't a sandbox.** Network hosts are shown, not enforced, and installing
+  an extension trusts its publisher.
