@@ -6488,6 +6488,11 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   A builder that detection doesn't confirm is closed, and the one it finds is started instead.
   `apps/desktop/src/utility/projects.test.ts` (2: the builder starts before detection confirms it and serves from there,
   and one detection can't confirm is closed).
+- **A builder process waits ready before a project opens (PAR-1079).** Starting a builder's process and loading the
+  builders' code took about 0.4 seconds before the builder itself began. The service starts one process as it starts,
+  and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
+  A waiting process that ended is replaced by a new one. `packages/processes/src/spare.test.ts` (3: the waiting child is
+  handed over and the next starts only when asked, and one that ended is replaced when taken or prepared).
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's

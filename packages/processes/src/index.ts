@@ -12,6 +12,8 @@ export * from "./preview-order.ts"
 
 export * from "./service-restarts.ts"
 
+export * from "./spare.ts"
+
 export * from "./turns.ts"
 
 export * from "./updates.ts"
