@@ -81,7 +81,10 @@ screens.
 - **Which page opens.** The index entries for the component's story files are found, and Parity opens the docs page if
   there is one, else the first story. Both open through Storybook's manager (`/?path=/docs/<id>` or
   `/?path=/story/<id>`), never `iframe.html`. With nothing matched, Storybook's home opens.
-- **Where it opens.** The system browser, through Electron's window-open handler.
+- **Where it opens.** Settings > Extensions > Storybook > Open stories in, the person's for every project: their
+  browser, through Electron's window-open handler, or a window of Parity's own (PAR-1090).
+- **Its config folder** is the project's setting, Config folder, kept in the main `.par`. Detection reads it before the
+  extension's code loads, and finds `.storybook` when it's unset.
 - **Stopping it.** When the project's tab closes, or the service exits, Parity stops the Storybook it started and every
   process that Storybook started. When main quits or replaces the service, it ends the service's whole process tree,
   Storybook included (PAR-980). A service that crashes can't stop anything, and its children can't be found from it once

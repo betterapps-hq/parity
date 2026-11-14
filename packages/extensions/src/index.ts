@@ -7,3 +7,5 @@ export * from "./manifest.ts"
 export * from "./permissions.ts"
 
 export * from "./protocol.ts"
+
+export * from "./settings.ts"

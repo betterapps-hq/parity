@@ -50,6 +50,11 @@ export interface HostOptions<Event, Window> {
    * Nothing for a guest, an offscreen render window or any other page.
    */
   appWindow: (event: Event) => Window | undefined
+  /**
+   * Whether `event` came from the Settings view's own page, which loads no project code (PAR-1090). `appWindow` gives
+   * the window it's over. Without this, nothing is.
+   */
+  settingsView?: (event: Event) => boolean
   /** Runs a handler, given its method and the trace the request came with, as a span that times it does. */
   around: <Result>(request: { method: string; trace: unknown }, answer: () => Result) => Result | Promise<Result>
 }
@@ -90,10 +95,29 @@ export function answerWindows<Event, Window>({
   ipc: wire,
   handlers,
   appWindow,
+  settingsView = () => false,
   around
 }: HostOptions<Event, Window>): void {
-  /** Who a method's handler is given: the sender for an open method, else the Parity window, or nothing to refuse it. */
-  const asker = ({ open }: HostMethodRead, event: Event) => (open ? event : appWindow(event))
+  /**
+   * Who a method's handler is given: the sender for an open method, else the Parity window, or nothing to refuse it. A
+   * method only the Settings view may send is refused from the editor window's page, and one only that page may send
+   * from Settings.
+   */
+  const asker = ({ open, only }: HostMethodRead, event: Event) => {
+    if (open) {
+      return event
+    }
+
+    if (only === "settings" && !settingsView(event)) {
+      return undefined
+    }
+
+    if (only === "editor" && settingsView(event)) {
+      return undefined
+    }
+
+    return appWindow(event)
+  }
 
   /** Runs a method's handler with params its schema read, for an answer that goes back to the window as it is. */
   // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- params and an answer that only the method's name types
@@ -113,7 +137,11 @@ export function answerWindows<Event, Window>({
       const from = asker(found, event)
 
       if (from === undefined) {
-        throw new Error(`Only the Parity window can ask for ${found.method}.`)
+        throw new Error(
+          found.only === "settings"
+            ? `Only Settings can ask for ${found.method}.`
+            : `Only the Parity window can ask for ${found.method}.`
+        )
       }
 
       return run(found, parseData(found.params, sent), from)

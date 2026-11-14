@@ -15,6 +15,7 @@ import { askChangesAgain } from "../canvas/frame-changes.ts"
 import { announceEdit } from "../chrome/project-edits.tsx"
 import { answerExtension } from "../extension-ui.ts"
 import { extensionsOf } from "../extensions.ts"
+import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../project-settings.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
@@ -176,6 +177,21 @@ const handlers: Handlers = {
   },
   "extensions.edited": ({ projectId, edit }) => {
     announceEdit(projectId, edit)
+
+    return undefined
+  },
+  "extensions.setting": ({ projectId, extension, key, value }) => {
+    const store = sessionOf(projectId)?.store
+
+    if (!store) {
+      throw new Error(`No project ${projectId} is open in this window`)
+    }
+
+    if (value === undefined) {
+      clearProjectExtensionSetting(extension, key, store)
+    } else {
+      setProjectExtensionSetting(extension, key, value, store)
+    }
 
     return undefined
   },

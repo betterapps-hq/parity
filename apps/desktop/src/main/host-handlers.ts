@@ -1,6 +1,6 @@
 import type { ConsoleEntry } from "@parity-app/agent"
 import type { UpdateState } from "@parity-app/processes"
-import type { SettingsChange } from "@parity-app/settings"
+import type { ExtensionSettingsChange, SettingsChange } from "@parity-app/settings"
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import type { ProblemReport } from "../shared/ipc-checks.ts"
 import type { KeybindingsState, Replacement } from "../shared/keybindings.ts"
@@ -16,6 +16,7 @@ import type {
   SaveDialogOptions,
   TelemetryState
 } from "../shared/protocol.ts"
+import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "../shared/settings-view.ts"
 import type { SettingsState } from "../shared/settings.ts"
 import type { Account } from "./account.ts"
 import type { ConnectorHub } from "./connectors.ts"
@@ -78,8 +79,19 @@ export interface HostNeeds<Event, Window> {
   toggleDevTools(window: Window): void
   /** `settings.json`, which main keeps for every window and copy. */
   settings: {
-    change(change: SettingsChange): Promise<SettingsState>
+    change(change: SettingsChange & { extensions?: ExtensionSettingsChange }): Promise<SettingsState>
   }
+  /** Settings, its own web contents over `window`, which loads no project code (PAR-1090). */
+  settingsView: {
+    open(window: Window, opening: SettingsOpening): void
+    close(window: Window): void
+    /** What Settings shows of the window's open project. */
+    project(window: Window, project: SettingsProject): void
+    /** A change Settings made to the window's open project, for the window to make an undo step. */
+    changeProject(window: Window, change: SettingsProjectChange): void
+  }
+  /** Opens a page in a window of Parity's own. */
+  openInParity(url: string): void
   /** `keybindings.json`, which main keeps for every window (PAR-1085). */
   keybindings: {
     state(): KeybindingsState
@@ -173,6 +185,12 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
     quit: () => needs.quit(),
     toggleDevTools: (_nothing, window) => needs.toggleDevTools(window),
     settingsChange: (change) => needs.settings.change(change),
+    extensionSettingsChange: (extensions) => needs.settings.change({ extensions }),
+    settingsOpen: (opening, window) => needs.settingsView.open(window, opening),
+    settingsProject: (project, window) => needs.settingsView.project(window, project),
+    settingsProjectChange: (change, window) => needs.settingsView.changeProject(window, change),
+    settingsClose: (_nothing, window) => needs.settingsView.close(window),
+    openInParity: (url) => needs.openInParity(url),
     keybindingsState: () => needs.keybindings.state(),
     keybindingsReplace: (replacements) => needs.keybindings.replace(replacements),
     keybindingsOpen: () => needs.keybindings.open(),

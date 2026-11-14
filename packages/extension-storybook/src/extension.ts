@@ -16,6 +16,8 @@ import {
 /*
  * Storybook as an extension (PAR-1089), using only Parity's public API: Open in Storybook on component cards, layers
  * and Search actions, greyed where a component has no stories, and the status bar's count of components with stories.
+ * Its settings (PAR-1090) are the project's config folder, which detection reads from the main `.par` before this code
+ * loads, and where stories open, the person's choice for every project.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
  * it already runs, by its Portless name or on its usual port, or starts it through Parity's process manager.
  */
@@ -104,8 +106,13 @@ export function activate(parity: Parity): void {
         return component ? storyPage(found.address, entries, paths) : found.address
       })
 
-      await parity.ui.open(url)
-      void parity.ui.notify("Opened in your browser", { detail: url, tone: "success" })
+      // Where stories open is the person's choice, for every project (PAR-1090).
+      const where = parity.settings.get("storybook.openIn") === "parity" ? "parity" : "browser"
+      await parity.ui.open(url, { where })
+
+      if (where === "browser") {
+        void parity.ui.notify("Opened in your browser", { detail: url, tone: "success" })
+      }
     })
   )
 }
