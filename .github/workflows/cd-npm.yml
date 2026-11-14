@@ -94,7 +94,7 @@ jobs:
       # npm's trusted publishing lets the production environment's publisher change dist-tags through OIDC.
       id-token: write
     steps:
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Make the published version latest
