@@ -216,7 +216,7 @@ Search actions. Each extension shows its logo, what it adds, what detection foun
   stay in the file and show "From Route timings", so nothing is lost.
 - **Not installed.** A project whose `.par` names an extension the person doesn't have says so once, with Install. Its
   nodes show the package name the `.par` saved with them.
-- **Uninstalling** removes the extension's app state, app settings and secrets, and leaves what it saved in projects.
+- **Uninstalling** removes the extension's app state and app settings, and leaves what it saved in projects.
 
 ## Settings
 
@@ -234,8 +234,7 @@ project's, and Search actions finds each setting by its title.
     "default": "browser",
     "scope": "app",
     "title": "Open stories in"
-  },
-  "storybook.chromaticToken": { "type": "string", "scope": "secret", "title": "Chromatic token" }
+  }
 }
 ```
 
@@ -243,7 +242,6 @@ project's, and Search actions finds each setting by its title.
 | --------- | ---------------------------------------------------------------------------------------------- |
 | `app`     | The person's, for every project, saved with the app's state                                    |
 | `project` | Everyone's who opens the project, written where the tool keeps it, or in the main project file |
-| `secret`  | The person's, in the system keychain, never in the project or the app's state                  |
 
 - **No team scope.** A team shares a setting by putting it in the project, where it's committed with the code.
 - **Project settings live in the main project file,** the `.par` that already keeps what the person chose for the whole
@@ -261,12 +259,12 @@ project's, and Search actions finds each setting by its title.
   and Save writes it. The window sends the field to the project service whenever it changes, so extensions see values
   before they're saved.
 - **Where each is changed.** The project's own code runs in the editor window, so the window may change only what that
-  code could already change: project settings, which live in the project's files. App settings, secrets and permission
-  grants are changed only in a Settings view that loads no project code. It's its own web contents inside the window,
-  owned by main, which sends each change to the project service. Otherwise a project could change a person's settings
-  for every project, read a secret or grant an extension a permission. The view shows project settings too, and sends a
-  change to one to the window, which applies it as one undo step. The settings proposal (`docs/proposals/settings.md`,
-  on its own branch) asks for the same view.
+  code could already change: project settings, which live in the project's files. App settings and permission grants are
+  changed only in a Settings view that loads no project code. It's its own web contents inside the window, owned by
+  main, which sends each change to the project service. Otherwise a project could change a person's settings for every
+  project or grant an extension a permission. The view shows project settings too, and sends a change to one to the
+  window, which applies it as one undo step. The settings proposal (`docs/proposals/settings.md`, on its own branch)
+  asks for the same view.
 - **The tool's own config wins** for what it keeps there: Storybook's port stays in its `storybook dev` script, written
   by the extension, so there's one place to change it. Every other project setting goes in the main project file.
 - **The app's state.** How the app saves its state is being worked out separately. `app` settings need only a place
@@ -408,14 +406,12 @@ This is how an extension works with Parity's UX rather than beside it.
 - `parity.log`: lines in the extension's own tab in the bottom panel, with errors linked to the line that threw them.
   The Console stays the designs' messages, as agents read them with `parity console`.
 
-### State and secrets
+### State
 
 - `parity.state.app` and `parity.state.project`: small values an extension keeps for itself, saved with the app's state
   for the person. They aren't settings and aren't shared.
-- `parity.secrets`, and `secret` settings, share the keychain and need the `secrets` permission. Only the main process
-  can use the keychain, so it keeps them with Electron's safeStorage and gives a host only its own extension's secrets,
-  on request through the service. When the keychain can't keep them safely, as with Linux's `basic_text`, the
-  extension's page says so. Secret values are scrubbed from telemetry as `.env` values are.
+- **No secrets yet.** Parity keeps no secret but the account today, so there's no `secret` scope, `parity.secrets` or
+  `secrets` permission. They come when an extension needs a token.
 
 ### Working with other extensions and agents
 
@@ -527,13 +523,12 @@ one freeze the editor, and give their code the window's access. A web view gives
 ## Trust
 
 As [extensions.md](extensions.md#trust) sets out, an extension asks for what it needs in its manifest: paths to read and
-write, network hosts, processes, secrets, and `edits` for changing designs.
+write, network hosts, processes, and `edits` for changing designs.
 
 - **Asked once, for an extension installed into the app,** before it first runs, and again when an update asks for more.
   A project's own extensions are trusted with the project, and built-in ones run with what they declare.
 - **Taken back one at a time.** The Extensions page can withdraw a permission that goes through Parity's API, such as
-  `edits` or `secrets`, while the extension keeps running; calls that need it then fail with an error the extension can
-  handle.
+  `edits`, while the extension keeps running; calls that need it then fail with an error the extension can handle.
 - **Files and processes are limited, as a guard against mistakes.** Each host runs under Node's permission model, with
   file reads and writes limited to the declared paths and no child processes outside `parity.processes`. Node's own
   documentation says the model doesn't protect against malicious code, so it catches an extension's mistakes, not a
@@ -560,8 +555,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
 ## Order of work
 
 1. **An incremental node index,** sending differences as edits settle rather than rebuilding after a pause.
-2. **The extension host, `@parity-app/extension-api` and the manifest,** with `parity.ui`, state, secrets and the bottom
-   panel's tabs, and Storybook's command and fact moved onto them.
+2. **The extension host, `@parity-app/extension-api` and the manifest,** with `parity.ui`, state and the bottom panel's
+   tabs, and Storybook's command and fact moved onto them.
 3. **Settings,** with Settings paged, the `extensions` field in the main project file, and the app's state once it has a
    place for them.
 4. **Versions from peer dependencies.**
@@ -581,8 +576,8 @@ entry modules; then the connectors. Then `packages/adapters` goes.
 - **"Extension" is the only word** for what a developer builds. The jobs adapters do today are providers it registers.
 - **Extensions can change designs** with the `edits` permission, from a command or on their own, each change one undo
   step named after the extension.
-- **Settings are the app's or the project's,** plus secrets. A team shares settings through the project, and the
-  project's are kept in its main `.par` file.
+- **Settings are the app's or the project's,** with no secrets until an extension needs one. A team shares settings
+  through the project, and the project's are kept in its main `.par` file.
 - **The manifest is required.** Every contribution is listed in `package.json` with where it shows, so Parity draws it
   before the code loads. Behaviour (what a command does, a provider, facts, overlays) is code.
 - **A host for each extension,** so one that blocks or crashes affects only itself.
@@ -592,7 +587,7 @@ entry modules; then the connectors. Then `packages/adapters` goes.
 - **No `parity.config.ts`.** [extensions.md](extensions.md) planned it for a project's extensions and settings, and both
   are in the `.par` now. Code a project needs, such as decorators, stays in its preview file.
 - **`extensions` doesn't raise `formatVersion`,** as no optional field before it has.
-- **Settings a project mustn't touch are changed in a view that loads no project code:** app settings, secrets and
-  permission grants.
+- **Settings a project mustn't touch are changed in a view that loads no project code:** app settings and permission
+  grants.
 - **Permissions limit files and processes but aren't a sandbox.** Network hosts are shown, not enforced, and installing
   an extension trusts its publisher.
