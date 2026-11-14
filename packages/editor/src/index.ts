@@ -493,7 +493,8 @@ export {
   boardComponentLayer,
   boardComponentNode,
   boardWithInternals,
-  componentBoards
+  componentBoards,
+  redrawnBoards
 } from "./component-boards.ts"
 
 export { type BoardParents, nextBoardParents, noBoardParents } from "./board-parents.ts"

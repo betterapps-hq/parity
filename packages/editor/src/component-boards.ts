@@ -84,16 +84,17 @@ export function componentBoards(
   return boardGroups(sources).flatMap((group, row) =>
     group.ids.map((component, column) => {
       const id = componentBoardId(component)
-      const taken = new Set(["root"])
+      const chain = parents[component] ?? []
+      const nodeId = (role: string) => boardNodeId(role, chain)
 
       // Each parent holds the one inside it as its only child, in place of the sample text it'd hold alone.
-      const node = (parents[component] ?? []).reduceRight<DesignNode>(
-        (inner, parent) => {
-          const outer = componentNode(parent, components[parent], taken)
+      const node = chain.reduceRight<DesignNode>(
+        (inner, parent, index) => {
+          const outer = { ...componentNode(parent, components[parent], new Set()), id: nodeId(`around-${index}`) }
 
           return outer.type === "component" ? { ...outer, slots: { children: [inner] } } : inner
         },
-        componentNode(component, components[component], taken, samples[component])
+        { ...componentNode(component, components[component], new Set(), samples[component]), id: nodeId("part") }
       )
 
       return {
@@ -111,6 +112,41 @@ export function componentBoards(
       }
     })
   )
+}
+
+/**
+ * The id of a layer on a board: the same each time the board's drawn inside the same parents, so drawing it again
+ * changes nothing and its frame keeps what it drew, and different inside other parents, so what the canvas said about
+ * the layers it had before isn't taken for news about these.
+ */
+function boardNodeId(role: string, chain: readonly string[]): string {
+  return chain.length === 0 ? role : `${role}-in-${chain.join("-")}`
+}
+
+/**
+ * The boards drawn again (`componentBoards`) as they're to go on the canvas: each drawn as it was last time (`before`)
+ * stays as it is now (`current`), with what's been read inside it and the size it's been fitted to, so it draws nothing
+ * again. One drawn differently keeps the size it had, so it doesn't jump while it's fitted again.
+ */
+export function redrawnBoards(
+  drawn: readonly ContainerSpec[],
+  before: ReadonlyMap<string, ContainerSpec>,
+  current: ReadonlyMap<string, ContainerSpec>
+): ContainerSpec[] {
+  return drawn.map((board) => {
+    const now = current.get(board.id)
+    const last = before.get(board.id)
+
+    if (!now) {
+      return board
+    }
+
+    if (last && JSON.stringify(last) === JSON.stringify(board)) {
+      return now
+    }
+
+    return now.size ? { ...board, size: now.size } : board
+  })
 }
 
 /** How tall the boards' rows are together. */

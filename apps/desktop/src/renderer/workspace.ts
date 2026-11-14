@@ -17,7 +17,8 @@ import {
   nextBoardParents,
   noBoardParents,
   openingDesigns,
-  type RecoveryCopy
+  type RecoveryCopy,
+  redrawnBoards
 } from "@parity-app/editor"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
@@ -1410,23 +1411,49 @@ function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
 }
 
 /**
- * Redraws the component boards with a sample for each prop once the service has said what each takes, as a change
- * that's neither undone nor saved.
+ * Redraws the component boards with a sample for each prop once the service has said what each takes, and each inside
+ * the parents it's found to need, as a change that's neither undone nor saved. Only a board drawn differently changes
+ * (`redrawnBoards`): the rest keep what's been read inside them and their size, so nothing they show draws again.
  */
 function sampleBoards(info: ProjectInfo, store: DesignStore, components: ComponentStore): void {
   const parents = new Map<string, BoardParents>()
 
+  const designs = (drawn: ReturnType<typeof componentBoardsDocument>) =>
+    new Map((drawn[0]?.document.containers ?? []).map((board) => [board.id, board]))
+
+  // What was drawn last, as the store began with.
+  let before = designs(componentBoardsDocument(info))
+
   const draw = () => {
     const chains = Object.fromEntries([...parents].map(([component, state]) => [component, state.chain]))
-    const [boards] = componentBoardsDocument(info, components.get(), chains)
+    const drawn = componentBoardsDocument(info, components.get(), chains)
+    const [boards] = drawn
 
     if (!boards) {
       return
     }
 
+    const current = new Map(
+      boards.document.containers.flatMap((board) => {
+        const now = store.getEntry(`${boards.path}#${board.id}`)?.container
+
+        return now ? [[board.id, now] as const] : []
+      })
+    )
+
+    const containers = redrawnBoards(boards.document.containers, before, current)
+    before = designs(drawn)
+
+    if (containers.every((board) => board === current.get(board.id))) {
+      return
+    }
+
     store.change(
       "Draw components",
-      (snapshot) => ({ ...snapshot, documents: new Map(snapshot.documents).set(boards.path, boards.document) }),
+      (snapshot) => ({
+        ...snapshot,
+        documents: new Map(snapshot.documents).set(boards.path, { ...boards.document, containers })
+      }),
       { history: false, persist: false }
     )
   }
