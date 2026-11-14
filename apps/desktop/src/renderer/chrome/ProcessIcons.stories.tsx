@@ -19,7 +19,7 @@ type Story = StoryObj<typeof meta>
 /** Each kind by name. Typed by the kinds the service reports, so a new kind can't be left out. */
 const servers: Record<ServerKind, string> = {
   builder: "Build server",
-  extension: "Runs for an extension, as Storybook"
+  tool: "Storybook"
 }
 
 const tasks: Record<TaskKind, string> = {

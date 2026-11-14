@@ -7,7 +7,7 @@ import {
   snapToEdges,
   withFrameSize
 } from "@parity-app/editor"
-import { getPreferences } from "../chrome/preferences.ts"
+import { getEffectivePreferences } from "../project-settings.ts"
 import { useStore, windowStore } from "../store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
@@ -98,7 +98,7 @@ export function drawFrame(
     cursor: "crosshair",
     move(moveEvent) {
       const free = toPage(moveEvent)
-      const snapping = snaps(moveEvent, getPreferences().snapping)
+      const snapping = snaps(moveEvent, getEffectivePreferences(store).snapping)
 
       const { point, guides } = snapping
         ? snapToEdges(free, boxes, snapReach / editor.getZoomLevel())

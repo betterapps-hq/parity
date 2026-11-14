@@ -1,0 +1,20 @@
+{
+  "name": "@parity-app/vite-adapter",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./dependency-maps": "./src/dependency-maps.ts"
+  },
+  "dependencies": {
+    "@parity-app/code": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "@parity-app/tokens": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}

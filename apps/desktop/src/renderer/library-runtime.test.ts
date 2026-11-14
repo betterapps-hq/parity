@@ -1,6 +1,6 @@
 import { createRequire } from "node:module"
-import { guestModuleSource } from "@parity-app/builder-vite"
 import { componentLibrary, type ContainerSpec, type ProjectConfig, resolveDesign } from "@parity-app/core"
+import { guestModuleSource } from "@parity-app/vite-adapter"
 import { build } from "esbuild"
 import { chromium } from "playwright-core"
 import { expect, it } from "vite-plus/test"
@@ -65,7 +65,7 @@ it("renders a library design whose factory modules appear in no sample or decora
         name: "library-fixture",
         setup(builder) {
           builder.onResolve({ filter: /^virtual:canvas\/renderer$/ }, () => ({
-            path: require.resolve("@parity-app/renderer-react/guest")
+            path: require.resolve("@parity-app/react-adapter/guest")
           }))
           builder.onResolve({ filter: /^(fixture|kit|design-values|nested-values)$/ }, ({ path }) => ({
             path,

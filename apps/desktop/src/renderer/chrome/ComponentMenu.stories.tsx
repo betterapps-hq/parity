@@ -1,24 +1,30 @@
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { BookOpen, Component } from "lucide-react"
+import { Component } from "lucide-react"
 import type { ReactNode } from "react"
 import { expect, fireEvent, fn, userEvent, within } from "storybook/test"
 import { kindColors } from "../canvas/kinds.tsx"
-import { ComponentMenu } from "./ComponentMenu.tsx"
+import { projectInfo, roots } from "../stories/host.ts"
+import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
 
-/** Open in Storybook as the Storybook extension places it on component cards (PAR-1089). */
-const openInStorybook = { id: "storybook.open", title: "Open in Storybook", icon: <BookOpen />, run: fn() }
+/** The example project's Storybook logo, as its adapter offers Open in Storybook with it. */
+const storybook = projectInfo(roots.example).actions.find((action) => action.adapter === "storybook")
+
+/** Open in Storybook, as the Components panel offers it, changed as a story needs. */
+const openInStorybook = (change: Partial<MenuOffer> = {}): MenuOffer[] => [
+  { id: "storybook:open", name: "Open in Storybook", logo: storybook?.icon, run: fn(), ...change }
+]
 
 /**
- * A component's right-click menu in the Components panel (PAR-527): extensions' commands, as Open in Storybook, and
- * View code, each greyed with why when it can't act, then what else the row offers. Each story opens it on a row, as a
- * right-click does.
+ * A component's right-click menu in the Components panel (PAR-527): what the project's adapters offer, as Open in
+ * Storybook, and View code, each greyed with why when it can't act, then what else the row offers. Each story opens it
+ * on a row, as a right-click does.
  */
 const meta = {
   title: "Parity/Left panel/Component menu",
   component: ComponentMenu,
   args: {
-    commands: [openInStorybook],
+    offers: openInStorybook(),
     code: { file: true, open: fn() }
   },
   render: (args) => <Opened name="Button">{<ComponentMenu {...args} />}</Opened>,
@@ -57,7 +63,7 @@ function Opened({ name, children }: { name: string; children: ReactNode }) {
   )
 }
 
-/** A component with stories: both ways to open it. */
+/** A component with stories, while Storybook runs: both ways to open it. */
 export const WithStories: Story = {
   play: async (context) => {
     await meta.play(context)
@@ -72,24 +78,33 @@ export const ChoosingViewCode: Story = {
     await meta.play(context)
     await userEvent.click(await within(document.body).findByRole("menuitem", { name: "View code" }))
     await expect(context.args.code?.open).toHaveBeenCalledOnce()
-    await expect(openInStorybook.run).not.toHaveBeenCalled()
+    await expect(context.args.offers?.[0]?.run).not.toHaveBeenCalled()
+  }
+}
+
+/** Storybook isn't running yet: Open in Storybook still opens it, starting Storybook first, and says so. */
+export const StorybookNotRunning: Story = {
+  args: { offers: openInStorybook({ starts: "Starts Storybook" }) },
+  play: async (context) => {
+    await meta.play(context)
+    await within(document.body).findByText("Starts Storybook")
   }
 }
 
 /** A component without stories: Open in Storybook is greyed, saying why, rather than left out. */
 export const WithoutStories: Story = {
-  args: { commands: [{ ...openInStorybook, disabledReason: "No stories" }] },
+  args: { offers: openInStorybook({ unavailable: "No story found" }) },
   play: async (context) => {
     await meta.play(context)
     const item = await within(document.body).findByRole("menuitem", { name: /Open in Storybook/ })
     await expect(item).toHaveAttribute("aria-disabled", "true")
-    await expect(item).toHaveTextContent("No stories")
+    await expect(item).toHaveTextContent("No story found")
   }
 }
 
 /** A library component without type declarations: there's no code of it in the project, so View code is greyed. */
 export const NoCodeInTheProject: Story = {
-  args: { commands: [], code: { file: false, open: fn() } },
+  args: { offers: undefined, code: { file: false, open: fn() } },
   play: async (context) => {
     await meta.play(context)
     const item = await within(document.body).findByRole("menuitem", { name: /View code/ })
@@ -100,7 +115,7 @@ export const NoCodeInTheProject: Story = {
 
 /** A library's component design: its two ways to insert, and no code to open. */
 export const LibraryDesign: Story = {
-  args: { commands: [], code: undefined },
+  args: { offers: undefined, code: undefined },
   render: (args) => (
     <Opened name="Pricing card">
       <ComponentMenu {...args}>

@@ -17,8 +17,8 @@ import {
   useValue
 } from "tldraw"
 import { moveDesigns } from "../chrome/arrange.ts"
-import { getPreferences } from "../chrome/preferences.ts"
 import { useContainerEntry } from "../design-store.ts"
+import { getEffectivePreferences } from "../project-settings.ts"
 import { isRestingFar, isTabHidden, isZoomSettled, canvasIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
@@ -352,7 +352,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
         const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
         const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
         // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
-        const snapping = snaps(moveEvent, getPreferences().snapping)
+        const snapping = snaps(moveEvent, getEffectivePreferences(session.store).snapping)
         const next = snapping ? snapPosition(editor, container.id, free, others) : free
 
         if (!snapping) {

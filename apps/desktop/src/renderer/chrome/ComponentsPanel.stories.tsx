@@ -300,7 +300,7 @@ export const ListedByHand: Story = {
 }
 
 /**
- * Right-clicking a component: View in Storybook and View code, here for Button, which has stories. Its menu on its own,
+ * Right-clicking a component: Open in Storybook and View code, here for Button, which has stories. Its menu on its own,
  * in each state, is in Component menu.
  */
 export const ComponentMenu: Story = {
@@ -377,7 +377,7 @@ export const StorybookLink: Story = {
   decorators: [
     (Story) => (
       <>
-        <style>{'[aria-label="Open Button in Storybook"] { opacity: 1 }'}</style>
+        <style>{'[aria-label="Open in Storybook: Button"] { opacity: 1 }'}</style>
         <Story />
       </>
     )
@@ -394,7 +394,7 @@ export const OpeningStorybook: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
     service.latency = forever
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Open Button in Storybook" }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Open in Storybook: Button" }))
     await within(document.body).findByText("Opening Storybook…")
   }
 }

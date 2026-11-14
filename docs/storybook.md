@@ -25,10 +25,12 @@ All four are optional, and none needs a Storybook package inside Parity.
 because it needs them to map stories.
 
 - **The config.** `storybookConfig` takes the first `package.json` script that runs `storybook dev` and reads its
-  `-c`/`--config-dir` and `-p`/`--port`. The folder defaults to `.storybook`. A `main` file must be there, with any
-  extension Storybook accepts, found through the shared config search in
+  `-c`/`--config-dir` and `-p`/`--port`. The folder defaults to `.storybook`. A folder the project's main `.par` sets,
+  in `extensions.storybook.configDir` (PAR-1085), wins over both, and Parity starts Storybook with it. A `main` file
+  must be there, with any extension Storybook accepts, found through the shared config search in
   [configs.ts](../packages/project/src/configs.ts). Without one, the project has no Storybook as far as Parity is
-  concerned.
+  concerned, even when another folder has one. The service reads the project's `.par` files before discovery for this,
+  and changing the folder, from the window or on disk, opens the project again, as a changed dependency does.
 - **The story files.** Every `*.stories.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` under the root, skipping `node_modules`, build
   folders, `storybook-static` and every dot folder. The `stories` globs in `main` aren't read, and `.mdx` files aren't
   looked at.
@@ -56,10 +58,12 @@ because it needs them to map stories.
 
 Storybook is Parity's first extension ([extensions.md](extensions.md)):
 [packages/extension-storybook](../packages/extension-storybook), which runs in a host of its own for each open project.
-Its manifest declares `storybook.open`, Open in Storybook, which the book buttons in the Components panel and the layer
-panel, a component's menu and card, Search and the Storybook item in the status bar all run. Its code
+Its manifest declares `storybook.open`, Open in Storybook, which shows wherever a code component offers what adapters
+and extensions do (its layer's header, its right-click menus in Layers, on the canvas and in the Components panel, its
+row's button and card, and Search actions), and which the Storybook item in the status bar runs. Its code
 ([extension.ts](../packages/extension-storybook/src/extension.ts)) sets which components have stories, each one's story
-count on its card, and the status item's count.
+count on its card, and the status item's count. The Storybook adapter still detects Storybook and imports its stories as
+screens.
 
 - **Reusing a server.** Parity fetches `http://localhost:<port>/index.json`, using the script's port or 6006, with a
   3-second timeout. It reuses the server when one of the index's `importPath`s is one of the project's mapped story
@@ -88,9 +92,9 @@ count on its card, and the status item's count.
 
 `ProjectInfo.storybook` carries the detection result to the service, which gives it to the extension's host as what
 detection found. The extension starts only for a project with a Storybook, and sets the context key
-`storybook.hasStories` to the components with stories, so the UI shows its buttons only for them. The agent API returns
-the version entry in `detection`, but not the story mapping, and none of the MCP tools in
-[packages/cli](../packages/cli) touch Storybook.
+`storybook.hasStories` to the components with stories, so the UI offers Open in Storybook only for them and greys it
+with "No story found" elsewhere. The agent API returns the version entry in `detection`, but not the story mapping, and
+none of the MCP tools in [packages/cli](../packages/cli) touch Storybook.
 
 ### Parity's own Storybook
 
@@ -129,8 +133,8 @@ components open on their docs page.
 - **`.parity/preview.tsx` for projects without Storybook,** decided on 2026-10-28. It has the same exports as
   Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx` unchanged. With no
   Parity file, Storybook's preview is used as it is. When both exist, Parity's file wins and replaces Storybook's on the
-  canvas; it can import `.storybook/preview` and spread its decorators to build on them. Adapters, plugins and settings
-  go in `parity.config.ts` at the project root instead, which runs in Node, while the preview file runs in the frames.
+  canvas; it can import `.storybook/preview` and spread its decorators to build on them. A project's extensions and
+  their settings go in its `.par` file instead, as [developer-api.md](proposals/developer-api.md) sets out.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
@@ -159,11 +163,11 @@ These rules keep Storybook optional and replaceable. A change that breaks one ne
 
    It never reads Storybook's internal modules, its cache, the manager's state, or `iframe.html`.
 
-3. **Everything Storybook-specific lives in one adapter,** behind an interface Parity owns. Today it's split between
-   [packages/project/src/storybook.ts](../packages/project/src/storybook.ts) and
-   [apps/desktop/src/utility/storybook.ts](../apps/desktop/src/utility/storybook.ts), with `StorybookInfo` in core and a
-   `storybook.open` call in the protocol. The canvas, `.par`, the agent API and the UI talk to the interface, never to
-   Storybook.
+3. **Everything Storybook-specific lives in one adapter,** behind an interface Parity owns. Detecting it, importing
+   stories, writing args back and opening it are in [adapters/storybook-adapter](../adapters/storybook-adapter); which
+   components have stories is still read by [packages/project/src/storybook.ts](../packages/project/src/storybook.ts)
+   into `StorybookInfo`, until adapters give facts about components. The canvas, `.par`, the agent API and the UI talk
+   to the interface, never to Storybook.
 4. **Parity's models are Parity's.** `.par`, modes, decorators, parameters and states are shaped so they translate to
    and from Storybook's (a mode value is a global, a state can be a story), but they're defined by Parity and never
    imported from Storybook's types.

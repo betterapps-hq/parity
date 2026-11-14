@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { type BuilderAdapter, type CodeChange, type ComponentSource, parseCanvasDocument } from "@parity-app/core"
 import type { BuilderProcessSession } from "@parity-app/processes"
-import { reactRenderer } from "@parity-app/renderer-react"
+import { reactRenderer } from "@parity-app/react-adapter"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
@@ -66,7 +66,7 @@ function fakeBuilder() {
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
-    configFiles: ["fake.config.ts"],
+    watches: ["fake.config.ts"],
     detect: async () => {
       await hooks.detecting
 
@@ -530,6 +530,27 @@ describe("an open project's files", () => {
       writeFileSync(join(root, "components.json"), JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
     await projects.open(root)
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+  })
+
+  it("find Storybook in the config folder the main file sets, and open again when it changes", async () => {
+    const { projects, detectionChanged } = setUp()
+    await write(".config/storybook/main.ts", "export default {}")
+    expect((await projects.open(root)).storybook).toBeUndefined()
+
+    const document = { ...designs("Sketch"), extensions: { storybook: { configDir: ".config/storybook" } } }
+    await projects.saveDocument({ projectId: root, path: "shop.par", document })
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+
+    // Saving it again with the same folder isn't a change.
+    await projects.saveDocument({ projectId: root, path: "shop.par", document })
+    await new Promise((done) => setImmediate(done))
+    expect(detectionChanged).toHaveLength(1)
+
+    await projects.close(root)
+    expect((await projects.open(root)).storybook).toMatchObject({
+      configDir: ".config/storybook",
+      main: ".config/storybook/main.ts"
+    })
   })
 
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {

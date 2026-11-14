@@ -93,6 +93,14 @@ export interface BoardBox {
 /** How tall a board's title is at screen size, with the gap below it. */
 const titleHeight = 42
 
+/**
+ * Where the top of a board's title is on the canvas at a zoom, in page pixels: `titleHeight` on screen above the board,
+ * at the size `labelLook` draws a name. Zoomed out, that's more of the canvas.
+ */
+export function titleTop(board: Pick<BoardBox, "y">, zoom: number): number {
+  return board.y - (titleHeight * labelLook("name", zoom).scale) / zoom
+}
+
 /** The screen pixels a title that reaches past its board keeps clear of the next board. */
 const titleClearance = 8
 

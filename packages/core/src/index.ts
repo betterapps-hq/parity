@@ -1,6 +1,8 @@
 export {
   type BuilderAdapter,
   type BuilderDetection,
+  declares,
+  type DetectContext,
   type BuilderRenderer,
   type BuilderSession,
   type BuilderStartOptions,
@@ -20,16 +22,45 @@ export {
   packageManifest,
   type PackageManifest,
   parseManifest,
+  type ProjectAction,
   type ProjectRoute,
   type RendererAdapter,
   type RouterAdapter,
+  type EntitiesAdapter,
+  type FileWrite,
+  type ActionContext,
+  type ActionPage,
+  type ActionResult,
+  type Adapter,
+  type AdapterAction,
+  type AdapterDetection,
+  type AdapterIcon,
+  type Adapters,
+  type AdapterStatusItem,
+  type StatusFacts,
+  type StatusItem,
+  type EntitiesSource,
+  type ImportedScreen,
+  type ProjectEntities,
   scriptConfigExtensions,
   type StylesAdapter,
   type ThemeVariable,
-  type TokenWrite
+  type ServedTool,
+  type TokenWrite,
+  type ToolServer,
+  type ToolServers,
+  type ToolVersions
 } from "./adapters.ts"
 
-export { boardLayoutAt, boardSize, companionScale, gutterScale, shrinkBelow } from "./board.ts"
+export {
+  besideScale,
+  besideScales,
+  boardLayoutAt,
+  boardSize,
+  companionScale,
+  gutterScale,
+  shrinkBelow
+} from "./board.ts"
 
 export {
   bodyAttribute,
@@ -53,6 +84,19 @@ export {
 export { extractComponent, findRepeats, type RepeatCandidate } from "./decompose.ts"
 
 export { addDesigns, emptyDocument, removeDesigns } from "./designs.ts"
+
+export {
+  designOwner,
+  type NodeData,
+  type NodeEvent,
+  type NodeQuery,
+  type NodeRef,
+  nodeRefId,
+  type NodesChange,
+  type ProjectNode,
+  type ProjectNodes,
+  type ScreenData
+} from "./nodes.ts"
 
 export { type ChangeConflict, describeConflicts, type DesignChange, type ModesChange } from "./design-change.ts"
 
@@ -92,6 +136,7 @@ export {
   patchUnset,
   type PropValues,
   type ReferenceSpec,
+  type RouteNode,
   type StateSpec,
   type TextNode,
   textTags,
@@ -99,6 +144,20 @@ export {
   type VideoNode,
   walkNodes
 } from "./document.ts"
+
+export {
+  clearExtensionSetting,
+  clearPreferenceOverride,
+  defaultStorybookConfigDir,
+  type PreferenceOverride,
+  preferenceOverrides,
+  type ProjectExtensions,
+  type ProjectPreferenceKey,
+  setExtensionSetting,
+  setPreferenceOverride,
+  storybookConfigDir,
+  withProjectPreferences
+} from "./project-settings.ts"
 
 export {
   addState,
@@ -313,6 +372,7 @@ export {
   emptyLayoutAttribute,
   type EvalContext,
   type EvalScope,
+  fitsContent,
   frameGeometry,
   type FrameGeometry,
   frameSize,

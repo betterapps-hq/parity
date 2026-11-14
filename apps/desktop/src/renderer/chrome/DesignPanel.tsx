@@ -3,28 +3,38 @@ import type { ResolvedMode } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { Crown, GripVertical, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
+import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
+import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
+import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { moved } from "../inspector/controls/list-parts.tsx"
 import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
+import { useStore } from "../store.ts"
+import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
+import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
-import { renameAndRecord } from "./inspector-events.ts"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
-import { Name, NameInput } from "./Name.tsx"
+import { Name } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
+import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
-import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { PageGroupPanel, RouteProps, RouteSection } from "./RoutePanel.tsx"
+import { useLayer } from "./selected-layer.ts"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
+import { TriedSize } from "./TriedSize.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
 
 /**
@@ -56,9 +66,12 @@ export function DesignTabFields({ children }: { children: ReactNode }) {
 }
 
 function SelectedPanel() {
-  const { store, selection } = useProject()
+  const { id, store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
+  const pickedGroup = useStore(selectedPageGroup)
+  // A layout group isn't a design, so the selection holds nothing while one is picked.
+  const group = entry ? undefined : routePageGroups(id).find(({ key }) => key === pickedGroup)
 
   if (selected.note) {
     return <NotePanel noteKey={selected.note} />
@@ -66,6 +79,10 @@ function SelectedPanel() {
 
   if (selected.reference) {
     return <ReferencePanel referenceKey={selected.reference} />
+  }
+
+  if (group) {
+    return <PageGroupPanel group={group} />
   }
 
   if (!entry) {
@@ -89,7 +106,26 @@ function SelectedPanel() {
   }
 
   if (selected.node) {
-    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+    const panel = <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+
+    // A story's layers can be dragged to another size, to see how it responds, which is put back from here.
+    const tried = entry.path === storyScreensFile && <TriedSize entry={entry} />
+
+    // A layer of a page, a component's board or a story is read from the project's code: its values show, and nothing
+    // edits them.
+    return readFromCode(entry.path) && !writesProps(entry.path, selected.node) ? (
+      <>
+        <fieldset disabled className="contents">
+          {panel}
+        </fieldset>
+        {tried}
+      </>
+    ) : (
+      <>
+        {panel}
+        {tried}
+      </>
+    )
   }
 
   return <DesignPanel entry={entry} />
@@ -100,12 +136,60 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const components = useComponents(session.components)
   const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
+  // A page of the app (PAR-1076): its header, its path params as props, its route, its modes and Export; nothing of it
+  // is designed.
+  const route = routePageRoute(session.id, entry.container.id)
+
+  if (route !== undefined) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <RouteProps entry={entry} route={route} />
+        <RouteSection route={route} />
+        <ModesSection entry={entry} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
+  // A story: its header, the props it draws its component with, which are its args, its modes and Export.
+  if (entry.path === storyScreensFile) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <StoryProps entry={entry} />
+        <TriedSize entry={entry} />
+        <ModesSection entry={entry} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
+  // One of the project's components on its board: its header, what its code says of it, and Export.
+  const component = boardComponent(session.id, entry.container.id)
+
+  if (component !== undefined) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <ComponentSourceSection component={component} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
 
   return panelParts(can).map((section) => {
     const Section = designSections[section]
 
     return Section && <Section key={section} entry={entry} />
   })
+}
+
+/** A story's args, as the props of the layer that draws it, which edits write back to its file. */
+function StoryProps({ entry }: { entry: ContainerEntry }) {
+  const layer = useLayer(entry, storyLayer)
+
+  return layer ? <PropsSection layer={layer} /> : null
 }
 
 /** What draws each of a design's sections; a layer's own, as Content and Attributes, aren't a design's. */
@@ -131,41 +215,64 @@ function DesignExport({ entry }: { entry: ContainerEntry }) {
 /** A design's name and kind, and for a frame, the mode it's drawn in and that it isn't written to code. */
 function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
+  const { extensions } = useExtensions(session)
   const { store } = session
   const settings = useModeSettings(store)
-  const { container, key } = entry
+  const { container } = entry
   const { primary } = containerModes(settings, container)
+  // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
+  const target = routePageTarget(session.id, container)
+  const page = target !== undefined
+  const component = boardComponent(session.id, container.id)
+  const board = component !== undefined
+  const story = entry.path === storyScreensFile
+  let kind = kindTitle(container.kind)
+  let detail = `${kind}, saved in ${entry.path}`
+
+  if (page) {
+    kind = "Route"
+    detail = "Route, read from the app's router"
+  } else if (board) {
+    kind = "Component"
+    detail = "Component, drawn from the project's code"
+  } else if (story) {
+    kind = "Story"
+    detail = "Story, read from its Storybook file"
+  }
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={<DesignIcon kind={container.kind} className={headingIcon} />}
-          color={designColor(container.kind)}
-          kind={kindTitle(container.kind)}
-          detail={`${kindTitle(container.kind)}, saved in ${entry.path}`}
-          name={
-            <NameInput
-              key={container.name}
-              defaultValue={container.name}
-              aria-label={`${kindTitle(container.kind)} name`}
-              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
-              onBlur={(event) => {
-                const name = event.currentTarget.value.trim()
-
-                if (name && name !== container.name) {
-                  renameAndRecord(store, key, name)
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur()
-                }
-              }}
+          icon={
+            <DesignIcon
+              kind={board ? "component" : container.kind}
+              route={page}
+              story={story}
+              className={headingIcon}
             />
           }
+          color={designColor(board ? "component" : container.kind)}
+          kind={kind}
+          detail={detail}
+          action={
+            // What the project's adapters offer for a board's component, as Open in Storybook, or for a page, as Open
+            // in browser.
+            (board || target) && (
+              <HeaderActions
+                adapterOffers={
+                  target
+                    ? pageOffers(session.info, target.route)
+                    : componentOffers(session.info, component, { session, extensions, placement: "selectionHeading" })
+                }
+                page={target !== undefined}
+                onAdapterAction={({ action }) => void runAction(session.id, action, component, target)}
+              />
+            )
+          }
+          name={<Name className={`px-1.5 ${headingName}`}>{container.name}</Name>}
         />
-        {container.kind === "frame" && (
+        {container.kind === "frame" && !board && !story && (
           <div className="mt-2 flex flex-col gap-2 pl-1.5">
             <Hint label="Frames are drawn in the project's primary mode" wait>
               <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">

@@ -10,7 +10,7 @@ import { findLibraries } from "./libraries.ts"
 const renderer: RendererAdapter = {
   id: "test",
   name: "Test",
-  detect: () => true,
+  detect: () => Promise.resolve({ found: true, summary: "" }),
   guestModule: "",
   runtimePackages: [],
   runtimeImports: [],
@@ -78,7 +78,7 @@ describe("library files", () => {
       "node_modules/@acme/ui/index.d.ts",
       "export function Button(): unknown\nexport function Chip(): unknown"
     )
-    await write("registry/acme.lib.par", {
+    await write("registry/@acme+ui.lib.par", {
       version: 4,
       id: "acme",
       name: "Acme UI",

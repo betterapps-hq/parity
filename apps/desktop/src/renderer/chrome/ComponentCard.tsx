@@ -1,4 +1,5 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import type { AdapterIcon } from "@parity-app/core"
 import {
   CircleAlert,
   Component,
@@ -16,6 +17,7 @@ import { type CSSProperties, type ReactElement, type ReactNode, useState } from 
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import type { useHoverCard } from "./hover-card.ts"
 import { Name } from "./Name.tsx"
@@ -38,11 +40,14 @@ export interface CardVariant {
   preview: PreviewState | undefined
 }
 
-/** An extension's command on a component's card. */
-export interface CardCommand {
+/** One of the project's adapters' actions for a component, as its card's bar offers it. */
+export interface CardOffer {
+  /** Its adapter and id, to tell it from the rest. */
   id: string
-  title: string
-  icon: ReactNode
+  name: string
+  logo?: AdapterIcon
+  /** Why it can't act on this component, as `No story found`; its button stays, faded, its hint saying why. */
+  unavailable?: string | undefined
   run: () => void
 }
 
@@ -65,21 +70,21 @@ export interface ComponentCardProps {
   variants?: { prop: string; options: CardVariant[] }
   /** How many times the project's designs place it. */
   uses?: number
-  /** What extensions say about it, each read as its value then its label, as "3 stories". */
+  /** What the project's extensions know of it, as `1 story` from Storybook's (PAR-1089). */
   facts?: readonly { value: string; label: string }[]
   /** Inserts it where the selection is; none where something else inserts, as Enter in the insert picker does. */
   onInsert?: () => void
   /** Opens its file in the person's editor; none for a component without one. */
   onOpenFile?: () => void
-  /** Extensions' commands for it, as Open in Storybook, each a button in the bar. */
-  commands?: readonly CardCommand[]
+  /** What the project's adapters offer for it, as Open in Storybook on one with stories, each an icon button. */
+  offers?: readonly CardOffer[]
   /** Something else pressing or dragging it does, said last. */
   actions?: ReactNode
 }
 
 /**
  * A component's card: its preview, large, on the project's own background, small previews of its variants, then its
- * name, where it's from, how often it's used and its stories, and a bar with what to do with it (PAR-208). It's the
+ * name, where it's from, how often it's used and what extensions know of it, and a bar with what to do with it (PAR-208). It's the
  * panel's surface, a step up from the panel in either theme, so the pictures are the only things on it in the project's
  * colors (PAR-515).
  */
@@ -96,7 +101,7 @@ export function ComponentCard({
   facts: told = [],
   onInsert,
   onOpenFile,
-  commands = [],
+  offers = [],
   actions
 }: ComponentCardProps) {
   const [shown, setShown] = useState<CardVariant>()
@@ -115,7 +120,7 @@ export function ComponentCard({
     ...told.map((fact) => `${fact.value} ${fact.label}`)
   ].filter(Boolean)
 
-  const bar = onInsert || onOpenFile || commands.length > 0
+  const bar = onInsert || onOpenFile || offers.length > 0
 
   return (
     <div className="flex flex-col">
@@ -190,13 +195,27 @@ export function ComponentCard({
               </Button>
             </Hint>
           )}
-          {commands.map((command) => (
-            <Hint key={command.id} label={command.title}>
-              <Button size="icon" variant="ghost" className="size-7" aria-label={command.title} onClick={command.run}>
-                {command.icon}
-              </Button>
-            </Hint>
-          ))}
+          {offers.map((offer) =>
+            offer.unavailable === undefined ? (
+              <Hint key={offer.id} label={offer.name}>
+                <Button size="icon" variant="ghost" className="size-7" aria-label={offer.name} onClick={offer.run}>
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            ) : (
+              <Hint key={offer.id} label={offer.unavailable}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 opacity-50"
+                  aria-disabled
+                  aria-label={`${offer.name}, unavailable: ${offer.unavailable}`}
+                >
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            )
+          )}
         </div>
       )}
     </div>

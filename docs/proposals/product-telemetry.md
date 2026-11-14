@@ -120,8 +120,8 @@ Every event is tagged so a test pass can be found, filtered and compared:
 It's either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does, and the
 local copy is still written. PAR-626 dropped an Errors level between the two.
 
-- Set in Settings > Privacy > Share diagnostics, or by `PARITY_TELEMETRY=all|off`. The CLI reads the same setting and
-  variables.
+- Set in Settings > Diagnostics > Share diagnostics, or by `PARITY_TELEMETRY=all|off`. The CLI reads the same setting
+  and variables.
 - On in development and CI too, with their own `environment`. Only unit tests (Vitest) leave it off, through the test
   sink.
 - About shows the level and the install ID, with a button to copy them.

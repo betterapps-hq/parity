@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
@@ -21,6 +23,16 @@ import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -61,6 +73,8 @@ const SettingsProfileRoute = SettingsProfileRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -71,6 +85,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/settings/billing': typeof SettingsBillingRoute
@@ -81,6 +97,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRouteWithChildren
   '/projects/$projectId': typeof ProjectsProjectIdRoute
@@ -93,6 +111,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dashboard'
+    | '/login'
     | '/pricing'
     | '/settings'
     | '/projects/$projectId'
@@ -103,6 +123,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/dashboard'
+    | '/login'
     | '/pricing'
     | '/projects/$projectId'
     | '/settings/billing'
@@ -112,6 +134,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/dashboard'
+    | '/login'
     | '/pricing'
     | '/settings'
     | '/projects/$projectId'
@@ -123,6 +147,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
@@ -136,6 +162,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -208,6 +248,8 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   SettingsRoute: SettingsRouteWithChildren,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,

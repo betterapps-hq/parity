@@ -16,9 +16,10 @@ const savedPreferences = z.object({
   theme: z.enum(["light", "dark", "system"]).catch("dark"),
   /** Designs lock to the edges and centers of the designs around them while dragged. */
   snapping: z.boolean().catch(true),
-  /** How many pixels each CSS pixel becomes in exported images. */
-  exportScale: z.union([z.literal(1), z.literal(2), z.literal(3)]).catch(2),
-  /** The sizes the Export section writes each layer at: PNGs or JPGs, at 1x to 3x (PAR-185). */
+  /**
+   * The sizes the Export section writes each layer at, and File > Export all each design: PNGs or JPGs, at 1x to 3x
+   * (PAR-185).
+   */
   exportSizes: z
     .array(z.object({ format: z.enum(["png", "jpg"]), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) }))
     .min(1)
@@ -38,8 +39,6 @@ const savedPreferences = z.object({
 })
 
 export type Preferences = z.infer<typeof savedPreferences>
-
-export type ThemePreference = Preferences["theme"]
 
 /** The preferences saved as `text`, each one that's missing or doesn't read at its default. */
 export function readPreferences(text: string | null): Preferences {

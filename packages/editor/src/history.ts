@@ -463,7 +463,7 @@ export function saveFailure(history: DesignHistory): string | undefined {
 
 /**
  * The documents and modes as one project file, as Save a copy writes it: every file's designs, notes, references, canvas
- * objects and links, with the main file's component corrections and lens sources.
+ * objects and links, with the main file's component corrections, lens sources and project settings.
  */
 export function mergedDocument(history: DesignHistory): CanvasDocument {
   const { documents, modes } = history.current
@@ -486,6 +486,8 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
   const main = documents.get(history.mainPath)
   const detection = main?.detection
   const sources = main?.sources
+  const preferences = main?.preferences
+  const extensions = main?.extensions
 
   const merged = addDesigns(
     undefined,
@@ -518,6 +520,14 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
 
   if (sources) {
     merged.sources = sources
+  }
+
+  if (preferences) {
+    merged.preferences = preferences
+  }
+
+  if (extensions) {
+    merged.extensions = extensions
   }
 
   return merged

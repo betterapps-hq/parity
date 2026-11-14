@@ -148,7 +148,8 @@ async function rightClick(target: HTMLElement): Promise<void> {
 }
 
 /**
- * Every design closed: component designs first, then screens, those with more than one state saying how many. Each
+ * Every design closed: the screens, those with more than one state saying how many; component designs are listed in the
+ * Components panel. Each
  * heading has a + that makes a new one, always showing (PAR-546).
  */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
@@ -164,7 +165,6 @@ export const EmptyProject: Story = {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await expect(within(tree).getByRole("button", { name: "New screen" })).toBeVisible()
     await expect(within(tree).getByRole("button", { name: "No screens yet. New screen" })).toBeVisible()
-    await expect(within(tree).getByRole("button", { name: "No components yet. New component" })).toBeVisible()
   }
 }
 

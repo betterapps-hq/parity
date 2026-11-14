@@ -81,10 +81,10 @@ describe("the window's requests to the project service", () => {
 
   it("gives the window a plain failure as an Error with its message", async () => {
     const request = connected({
-      "extensions.run": () => Promise.reject(new Error("Storybook didn't start"))
+      "adapter.run": () => Promise.reject(new Error("Storybook didn't start"))
     })
 
-    const failed = request("extensions.run", { projectId: "D:/shop", command: "storybook.open" })
+    const failed = request("adapter.run", { projectId: "D:/shop", adapter: "storybook", action: "open" })
     await expect(failed).rejects.toThrow("Storybook didn't start")
     await expect(failed).rejects.not.toBeInstanceOf(CodedError)
   })

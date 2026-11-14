@@ -52,6 +52,14 @@ export function layerKind(
     }
   }
 
+  if (node.type === "route") {
+    const route = node.route === "__root__" ? "the app's root route" : `the ${node.route} route`
+
+    return node.component
+      ? { label: "Component instance", description: `${node.component} component, drawn by ${route}` }
+      : { label: "Route", description: `Drawn by ${route}` }
+  }
+
   let layout = node.style?.flexDirection === "row" ? "Horizontal layout" : "Vertical layout"
 
   if (node.style?.display === "grid") {
@@ -72,20 +80,25 @@ export function layerKind(
  */
 export type HeaderAction = "open-in-editor" | "go-to-component"
 
+/** What the project has for a layer's component: a design of it to go to. */
+export interface ComponentHas {
+  design: boolean
+}
+
 /**
- * What a layer's header offers of Parity's own: an instance of a design goes to the component, when the project has the
- * design. Open in editor was set aside with the code side (Explorations, Code, Open in editor). Extensions add their own
- * buttons for a code component (`headingComponent`).
+ * What a layer's header offers of its own: an instance of a design goes to the component. A code component's are its
+ * adapters' actions (`layerComponent`). Open in editor was set aside with the code side (Explorations › Code › Open in
+ * editor).
  */
-export function layerActions(node: DesignNode, has: { design: boolean }): HeaderAction[] {
+export function layerActions(node: DesignNode, has: ComponentHas): HeaderAction[] {
   return node.type === "instance" && has.design ? ["go-to-component"] : []
 }
 
 /**
- * The code component a layer places, which extensions' heading buttons act on, as Open in Storybook: none for an icon
- * or a layer that isn't a component.
+ * The project's component a layer draws, whose adapters' actions it offers, as Open in Storybook: a code component's,
+ * but not an icon's.
  */
-export function headingComponent(
+export function layerComponent(
   node: DesignNode,
   libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
 ): string | undefined {

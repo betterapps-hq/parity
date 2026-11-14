@@ -53,7 +53,7 @@ function rowButton(flyout: HTMLElement, name: string, button: string): Promise<H
 function storybook(overrides: Partial<ProjectProcess> = {}): ProjectProcess {
   return {
     id: `storybook:${roots.example}`,
-    kind: "extension",
+    kind: "tool",
     lifetime: "server",
     name: "Storybook",
     projectId: roots.example,

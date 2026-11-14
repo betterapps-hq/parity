@@ -95,7 +95,7 @@ export function startExtensions(window: ExtensionWindow): ExtensionHosts<Extensi
 
         const started = startServer({
           id,
-          kind: "extension",
+          kind: "tool",
           name: server.name,
           projectId,
           project: project.name,
@@ -118,7 +118,7 @@ export function startExtensions(window: ExtensionWindow): ExtensionHosts<Extensi
         if (project) {
           adoptServer({
             id: serverId(projectId, extension, server.id),
-            kind: "extension",
+            kind: "tool",
             name: server.name,
             projectId,
             project: project.name,

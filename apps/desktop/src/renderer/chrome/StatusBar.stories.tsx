@@ -77,7 +77,7 @@ export const Everything: Story = {
         {
           ...base,
           id: `storybook:${roots.example}`,
-          kind: "extension",
+          kind: "tool",
           lifetime: "server",
           name: "Storybook",
           status: "starting",
@@ -207,7 +207,12 @@ export const SmallProjectWithoutStorybook: Story = {
     async () => {
       await openProjects()
       preferring({ performanceStats: false })
-      await openAlso({ ...projectAt("D:/projects/landing-page"), componentCount: 1, storybook: undefined })
+      await openAlso({
+        ...projectAt("D:/projects/landing-page"),
+        componentCount: 1,
+        storybook: undefined,
+        status: projectAt("D:/projects/landing-page").status.filter((item) => item.adapter !== "storybook")
+      })
       workspace.activate("D:/projects/landing-page")
     }
   ]
@@ -252,7 +257,7 @@ export const ShowsComponents: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    await userEvent.click(statusBar().getByRole("button", { name: /components in code$/ }))
+    await userEvent.click(statusBar().getByRole("button", { name: /components$/ }))
     await expect(await body().findByRole("tab", { name: /Components/, selected: true })).toBeVisible()
   }
 }

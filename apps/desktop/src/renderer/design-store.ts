@@ -203,6 +203,12 @@ export class DesignStore {
   getDocuments = (): { path: string; document: CanvasDocument }[] =>
     [...this.state.current.documents].map(([path, document]) => ({ path, document }))
 
+  /**
+   * The main project file as it is now, which holds the modes and the project's settings, or nothing while the project
+   * has none yet. The same object until it changes.
+   */
+  getMainDocument = (): CanvasDocument | undefined => this.state.current.documents.get(this.mainPath)
+
   /** Applies one change to the documents and modes, recording it for undo unless told not to. */
   change(label: string, update: (snapshot: DesignSnapshot) => DesignSnapshot, options: ChangeOptions = {}): void {
     this.take(recordChange(this.state, label, update(this.state.current), options))

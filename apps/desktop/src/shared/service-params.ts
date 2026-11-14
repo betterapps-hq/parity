@@ -149,6 +149,7 @@ export const serviceParams = {
   "library.add": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
+  "entities.save": project.extend({ document: canvasDocument }),
   "recovery.keep": project.extend({ copy: recoveryCopy.optional() }),
   "recovery.read": project,
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
@@ -163,11 +164,17 @@ export const serviceParams = {
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
+  "adapter.run": project.extend({
+    adapter: z.string(),
+    action: z.string(),
+    component: z.string().optional(),
+    page: z.object({ route: z.string(), url: z.url() }).optional()
+  }),
   "document.saveCopy": z.object({ path: z.string(), document: canvasDocument }),
   "designs.export": project.extend({
     folder: z.string(),
     designs: z.array(z.string()),
-    scale: finiteNumber.positive()
+    sizes: z.array(exportSize).min(1)
   }),
   "layers.export": project.extend({
     folder: z.string(),

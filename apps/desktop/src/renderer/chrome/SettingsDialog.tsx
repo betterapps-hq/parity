@@ -1,284 +1,295 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Switch,
-  ToggleGroup,
-  ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+import type { JsonValue, PreferenceOverride, ProjectPreferenceKey } from "@parity-app/core"
+import type { ExportSize } from "@parity-app/editor"
 import { type CodeEditorChoice, codeEditors } from "@parity-app/processes"
-import { Monitor, Moon, Sun } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { useSyncExternalStore } from "react"
+import { z } from "zod"
+import {
+  clearProjectExtensionSetting,
+  clearProjectPreference,
+  setProjectExtensionSetting,
+  setProjectPreference,
+  useEffectivePreferences,
+  useProjectSettings
+} from "../project-settings.ts"
+import { useStore, windowStore } from "../store.ts"
 import { workspace } from "../workspace.ts"
-import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
-import { AppSelect } from "./AppSelect.tsx"
-import { DialogGroupTitle } from "./PanelSection.tsx"
-import { type Preferences, setPreferences, type ThemePreference, usePreferences } from "./preferences.ts"
+import { actions } from "./actions.ts"
+import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
+import { openKeybindings, setKeys, useKeybindings } from "./keybindings.ts"
+import { keymap, keysOf } from "./keymap.ts"
+import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
+import { extensionsFrom, type Setting, type Value } from "./settings/definitions.ts"
+import { SettingsView } from "./settings/SettingsView.tsx"
+import { isCommand } from "./settings/shortcuts.tsx"
+import type { SettingsData } from "./settings/store.ts"
 import { setTelemetryLevel, useTelemetry } from "./telemetry-setting.ts"
-import { setBetaUpdates, useUpdates } from "./updates.tsx"
+import { checkForUpdates, setBetaUpdates, useUpdates } from "./updates.tsx"
 
-const themes: Option<ThemePreference>[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor }
-]
+/** Where Settings opens: a page, and a setting on it to mark. */
+interface Opening {
+  page?: string
+  setting?: string
+}
 
-const scales: Option<`${Preferences["exportScale"]}`>[] = [
-  { value: "1", label: "1x" },
-  { value: "2", label: "2x" },
-  { value: "3", label: "3x" }
-]
+const opening = windowStore<Opening>(() => ({}))
 
-const scaleValues = { "1": 1, "2": 2, "3": 3 } as const satisfies Record<
-  `${Preferences["exportScale"]}`,
-  Preferences["exportScale"]
->
+/** Opens Settings, on a page and with a setting on it marked when asked, as a link to a setting does. */
+export function openSettings(page?: string, setting?: string): void {
+  opening.set({ page, setting })
+  openDialog("settings")
+}
 
-/** What the switch shares. It reads the same on and off, so turning it doesn't move the dialog (PAR-703). */
-const telemetryDetail = "Errors and crashes, sent to the Parity team to help fix bugs."
+/** The person's preferences Settings shows, by setting id. */
+const preferenceIds = [
+  "theme",
+  "autosave",
+  "codeEditor",
+  "componentsView",
+  "snapping",
+  "layoutGrid",
+  "exportSizes",
+  "performanceStats"
+] as const satisfies readonly (keyof Preferences)[]
 
-/** Where View code opens a file: the first editor installed, a named one, or the system's choice. */
-const editorChoices: { value: CodeEditorChoice; label: string }[] = [
-  { value: "auto", label: "Automatic" },
-  ...codeEditors.map((editor) => ({ value: editor.id, label: editor.name })),
-  { value: "system", label: "System default" }
-]
+type PreferenceId = (typeof preferenceIds)[number]
 
-/** Every preference in one place, from Edit > Settings or Ctrl+,. The View menu keeps the ones flipped while working. */
+function isPreference(id: string): id is PreferenceId {
+  return preferenceIds.some((key) => key === id)
+}
+
+function isProjectPreference(id: string): id is ProjectPreferenceKey {
+  return id === "autosave" || id === "snapping" || id === "layoutGrid" || id === "exportSizes"
+}
+
+function isEditorChoice(value: Value): value is CodeEditorChoice {
+  return value === "auto" || value === "system" || codeEditors.some((editor) => editor.id === value)
+}
+
+/** An export size as Settings' choices write it: `png 2x`. */
+function sizeText(size: ExportSize): string {
+  return `${size.format} ${size.scale}x`
+}
+
+/** Every export size, by how Settings' choices write it. */
+const sizeChoices = new Map(
+  (["png", "jpg"] as const).flatMap((format) =>
+    ([1, 2, 3] as const).map((scale): [string, ExportSize] => [sizeText({ format, scale }), { format, scale }])
+  )
+)
+
+/** The export sizes Settings' choices name, in the order they're listed, leaving out any it can't read. */
+function sizesOf(value: Value): ExportSize[] {
+  return (Array.isArray(value) ? value : []).flatMap((text) => sizeChoices.get(text) ?? [])
+}
+
+/** A preference's value as Settings shows it. */
+function shownValue(preferences: Pick<Preferences, PreferenceId>, id: PreferenceId): Value {
+  return id === "exportSizes" ? preferences.exportSizes.map(sizeText) : preferences[id]
+}
+
+const flag = z.boolean()
+
+/** A value from one of Settings' controls for one of the person's preferences, as the preference takes it. */
+const preferenceValue = z.discriminatedUnion("id", [
+  z.object({ id: z.literal("theme"), value: z.enum(["light", "dark", "system"]) }),
+  z.object({ id: z.literal("componentsView"), value: z.enum(["names", "list", "grid"]) }),
+  z.object({ id: z.enum(["autosave", "snapping", "layoutGrid", "performanceStats"]), value: flag })
+])
+
+/** One of the person's preferences, from a value Settings' control gave. */
+function preferenceChange(id: PreferenceId, value: Value): Partial<Preferences> | undefined {
+  if (id === "exportSizes") {
+    const sizes = sizesOf(value)
+
+    return sizes.length > 0 ? { exportSizes: sizes } : undefined
+  }
+
+  if (id === "codeEditor") {
+    return isEditorChoice(value) ? { codeEditor: value } : undefined
+  }
+
+  const read = preferenceValue.safeParse({ id, value })
+
+  if (!read.success) {
+    return undefined
+  }
+
+  switch (read.data.id) {
+    case "theme":
+      return { theme: read.data.value }
+    case "componentsView":
+      return { componentsView: read.data.value }
+    default:
+      return { [read.data.id]: read.data.value }
+  }
+}
+
+/** A project's own value for a preference, from a value Settings' control gave. */
+function overrideOf(key: ProjectPreferenceKey, value: Value): PreferenceOverride | undefined {
+  if (key === "exportSizes") {
+    const sizes = sizesOf(value)
+
+    return sizes.length > 0 ? { key, value: sizes } : undefined
+  }
+
+  const read = flag.safeParse(value)
+
+  return read.success ? { key, value: read.data } : undefined
+}
+
+/** An extension's project setting by Settings' id, `storybook.configDir`: its extension and key. */
+function extensionKey(id: string): { extension: string; key: string } | undefined {
+  const [extension, key] = id.split(".")
+
+  return extension && key ? { extension, key } : undefined
+}
+
+/** A value an extension keeps in the project's file, as Settings' controls take it. */
+function asValue(value: JsonValue | undefined): Value | undefined {
+  const read = plainValue.safeParse(value)
+
+  return read.success ? read.data : undefined
+}
+
+const plainValue = z.union([z.string(), z.number(), z.boolean()])
+
+/** Updates can't change the beta setting while it checks, downloads or installs. */
+const updatesBusy = new Set(["disabled", "checking", "downloading", "installing"])
+
+/** The active tab's project, or nothing on Home or while it opens. */
+function useActiveSession() {
+  return useSyncExternalStore(workspace.subscribe, () => workspace.getActive()?.session)
+}
+
+/** Settings for the app, from File > Settings or Ctrl+,: the person's settings, and the open project's. */
 export function SettingsDialog() {
   const open = useOpenDialog() === "settings"
+  const { page, setting } = useStore(opening)
   const preferences = usePreferences()
-  const updates = useUpdates()
-  const [updateError, setUpdateError] = useState("")
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && closeDialog()}>
-      <DialogContent className="max-h-[calc(100%-2rem)] gap-0 overflow-y-auto sm:max-w-lg">
-        <DialogHeader className="pb-2">
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>For every project, and remembered between runs.</DialogDescription>
-        </DialogHeader>
-        <Section title="Appearance">
-          <Row label="Theme" detail="Parity's own look. Previews show whichever theme their mode picks.">
-            <Choice
-              label="Theme"
-              options={themes}
-              value={preferences.theme}
-              onChange={(theme) => setPreferences({ theme })}
-            />
-          </Row>
-        </Section>
-        <Section title="Saving">
-          <Row
-            label="Save automatically"
-            detail="Each change saves itself a moment after it's made, instead of waiting for Save."
-          >
-            <Switch
-              checked={preferences.autosave}
-              onCheckedChange={(autosave) => {
-                setPreferences({ autosave })
-
-                // Turning it on saves what's waiting now, rather than at the next edit.
-                if (autosave) {
-                  void workspace.flush().catch(() => undefined)
-                }
-              }}
-              aria-label="Save automatically"
-            />
-          </Row>
-        </Section>
-        <Section title="Canvas">
-          <Row
-            label="Snap to screens and components"
-            detail="Screens and components line up with the edges and centers of those around them while dragged."
-          >
-            <Switch
-              checked={preferences.snapping}
-              onCheckedChange={(snapping) => setPreferences({ snapping })}
-              aria-label="Snap to screens and components"
-            />
-          </Row>
-          <Row label="Layout grid" detail="Column grids over every preview, sized for its viewport.">
-            <Switch
-              checked={preferences.layoutGrid}
-              onCheckedChange={(layoutGrid) => setPreferences({ layoutGrid })}
-              aria-label="Layout grid"
-            />
-          </Row>
-          <Row label="Performance stats" detail="Frame rate, memory and CPU in the status bar.">
-            <Switch
-              checked={preferences.performanceStats}
-              onCheckedChange={(performanceStats) => setPreferences({ performanceStats })}
-              aria-label="Performance stats"
-            />
-          </Row>
-        </Section>
-        <Section title="Code">
-          <Row
-            label="Editor"
-            detail="Where View code opens a component's file. Automatic uses the first one installed."
-          >
-            <AppSelect<CodeEditorChoice>
-              variant="dialog"
-              size="sm"
-              aria-label="Editor"
-              className="w-36"
-              items={editorChoices}
-              value={preferences.codeEditor}
-              onValueChange={(codeEditor) => codeEditor && setPreferences({ codeEditor })}
-            />
-          </Row>
-        </Section>
-        <Section title="Export">
-          <Row label="Image scale" detail="How many pixels each CSS pixel becomes in exported PNGs.">
-            <Choice
-              label="Image scale"
-              options={scales}
-              value={`${preferences.exportScale}`}
-              onChange={(scale) => setPreferences({ exportScale: scaleValues[scale] })}
-            />
-          </Row>
-        </Section>
-        <Section title="Updates">
-          <Row label="Get beta updates" detail="Include early releases. They may be less stable.">
-            <Switch
-              checked={updates.beta}
-              disabled={["disabled", "checking", "downloading", "installing"].includes(updates.phase)}
-              aria-label="Get beta updates"
-              onCheckedChange={(beta) => {
-                setUpdateError("")
-                void setBetaUpdates(beta).catch(() => setUpdateError("Couldn't save the beta setting. Try again."))
-              }}
-            />
-          </Row>
-          <Problem message={updateError} />
-        </Section>
-        <TelemetrySection open={open} />
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/**
- * Whether Parity shares diagnostics to help fix bugs (PAR-626): on is everything, off is nothing. Main keeps the level;
- * a variable set when Parity started decides it for that run, so the switch shows it and can't be changed until the
- * variable is removed.
- */
-function TelemetrySection({ open }: { open: boolean }) {
+  const effective = useEffectivePreferences()
+  const project = useProjectSettings()
+  const session = useActiveSession()
   const telemetry = useTelemetry(open)
-  const [error, setError] = useState("")
+  const updates = useUpdates()
+  const keybindings = useKeybindings()
 
-  if (!telemetry) {
-    return null
+  const locked: Record<string, string> = {}
+
+  if (telemetry?.overriddenBy) {
+    locked.telemetry = telemetry.overriddenBy
   }
 
-  const detail = (
-    <>
-      {telemetryDetail}
-      {telemetry.overriddenBy && (
-        <>
-          {" "}
-          Set by <code className="font-mono">{telemetry.overriddenBy}</code> for this run.
-        </>
-      )}
-    </>
-  )
+  const lost: Record<string, string> = {}
 
-  return (
-    <Section title="Privacy">
-      <Row label="Share diagnostics" detail={detail}>
-        <Switch
-          checked={telemetry.level !== "off"}
-          disabled={telemetry.overriddenBy !== undefined}
-          aria-label="Share diagnostics"
-          onCheckedChange={(on) => {
-            setError("")
-            void setTelemetryLevel(on ? "all" : "off").catch(() => setError("Couldn't save this setting. Try again."))
-          }}
-        />
-      </Row>
-      <Problem message={error} />
-    </Section>
-  )
-}
+  for (const [command, taker] of Object.entries(keybindings.lost)) {
+    lost[command] = keymap[taker].label
+  }
 
-interface Option<T extends string> {
-  value: T
-  label: string
-  icon?: typeof Sun
-}
+  const projectValue = (entry: Setting): Value | undefined => {
+    if (isProjectPreference(entry.id)) {
+      const override = project?.overrides.find((item) => item.key === entry.id)
 
-/** One of a few values, as a row of buttons: the theme, the export scale. */
-function Choice<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-  disabled
-}: {
-  label: string
-  options: Option<T>[]
-  value: T
-  onChange: (value: T) => void
-  disabled?: boolean
-}) {
-  return (
-    <ToggleGroup
-      variant="outline"
-      size="sm"
-      spacing={0}
-      value={[value]}
-      disabled={disabled}
-      // SAFETY: the group's items are the options, whose values are all T.
-      onValueChange={([next]) => next && onChange(next as T)}
-      aria-label={label}
-    >
-      {options.map(({ value: option, label: name, icon: Icon }) => (
-        <ToggleGroupItem
-          key={option}
-          value={option}
-          className="gap-1.5 px-2.5 text-muted-foreground aria-pressed:text-foreground"
-        >
-          {Icon && <Icon />}
-          {name}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
-  )
-}
+      return override && (override.key === "exportSizes" ? override.value.map(sizeText) : override.value)
+    }
 
-/** A save that failed, under the section it belongs to. */
-function Problem({ message }: { message: string }) {
-  if (!message) {
-    return null
+    const place = entry.scope === "project" ? extensionKey(entry.id) : undefined
+
+    return place && asValue(project?.extensions[place.extension]?.[place.key])
+  }
+
+  const data: SettingsData = {
+    project: session && project ? { name: session.info.name, file: session.store.mainPath } : undefined,
+    locked,
+    extensions: extensionsFrom(session ? session.info.detection.tools : undefined),
+    mine(entry) {
+      if (isPreference(entry.id)) {
+        return shownValue(preferences, entry.id)
+      }
+
+      if (entry.id === "telemetry") {
+        return telemetry ? telemetry.level !== "off" : true
+      }
+
+      if (entry.id === "installId") {
+        return telemetry?.installId ?? ""
+      }
+
+      return entry.id === "betaUpdates" ? updates.beta : entry.default
+    },
+    theirs: (entry) => (project ? projectValue(entry) : undefined),
+    setMine(entry, value) {
+      if (entry.id === "telemetry") {
+        return setTelemetryLevel(value === true ? "all" : "off").then(() => undefined)
+      }
+
+      if (entry.id === "betaUpdates") {
+        return setBetaUpdates(value === true)
+      }
+
+      const change = isPreference(entry.id) ? preferenceChange(entry.id, value) : undefined
+
+      if (!change) {
+        return Promise.reject(new TypeError(`Settings can't save ${entry.id}`))
+      }
+
+      setPreferences(change)
+
+      // Turning autosave on saves what's waiting now, rather than at the next edit.
+      if (change.autosave) {
+        void workspace.flush().catch(() => undefined)
+      }
+
+      return Promise.resolve()
+    },
+    setTheirs(entry, value) {
+      const override = isProjectPreference(entry.id) ? overrideOf(entry.id, value) : undefined
+      const place = extensionKey(entry.id)
+
+      if (override) {
+        setProjectPreference(override)
+      } else if (entry.scope === "project" && place) {
+        setProjectExtensionSetting(place.extension, place.key, value)
+      }
+    },
+    resetTheirs(entry) {
+      const place = extensionKey(entry.id)
+
+      if (isProjectPreference(entry.id)) {
+        clearProjectPreference(entry.id)
+      } else if (entry.scope === "project" && place) {
+        clearProjectExtensionSetting(place.extension, place.key)
+      }
+    },
+    overrides: project?.overrides.map((override) => override.key) ?? [],
+    unsaved: project?.unsaved ?? false,
+    savesItself: effective.autosave,
+    save: () => void actions.save.run("panel"),
+    keysOf: (command) => (isCommand(command) ? (keysOf(command)[0] ?? "") : ""),
+    bind: (command, keys) =>
+      isCommand(command)
+        ? setKeys(command, keys).then(() => undefined)
+        : Promise.reject(new TypeError(`No command ${command}`)),
+    lost,
+    skipped: keybindings.skipped,
+    version: window.canvasHost.appVersion,
+    checkForUpdates,
+    busy: { betaUpdates: updatesBusy.has(updates.phase) },
+    openKeybindings: () => void openKeybindings().catch(() => undefined)
   }
 
   return (
-    <p role="alert" className="type-message text-destructive">
-      {message}
-    </p>
-  )
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="border-t pt-4 pb-2 first-of-type:border-t-0">
-      <DialogGroupTitle>{title}</DialogGroupTitle>
-      {children}
-    </section>
-  )
-}
-
-function Row({ label, detail, children }: { label: string; detail: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-6 py-2">
-      <div className="min-w-0">
-        <div className="text-sm">{label}</div>
-        <div className="type-description text-muted-foreground">{detail}</div>
-      </div>
-      <div className="shrink-0">{children}</div>
-    </div>
+    <SettingsView
+      key={open ? `${page}:${setting}` : "closed"}
+      data={data}
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          opening.set({})
+          closeDialog()
+        }
+      }}
+      initialPage={page}
+      initialSetting={setting}
+    />
   )
 }

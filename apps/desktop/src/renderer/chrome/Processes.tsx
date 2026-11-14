@@ -9,7 +9,6 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   Accessibility,
-  Puzzle,
   Braces,
   Check,
   Drama,
@@ -21,6 +20,7 @@ import {
   Package,
   RotateCw,
   SearchCheck,
+  Server,
   ShieldCheck,
   Square,
   WandSparkles,
@@ -46,11 +46,11 @@ import {
 /**
  * Each kind's icon, the color its tile is tinted, and what it is, for a process with no address to show. Each hue sits at
  * least 25 degrees from any other, so tiles side by side don't read as the same kind: the build server is the canvas's
- * blue, Format its component purple, and extensions' servers, as Storybook's, keep Storybook's pink.
+ * blue, Format its component purple, and a tool's server, as Storybook, keeps Storybook's pink.
  */
 const kinds: Record<ProjectProcess["kind"], { icon: typeof Hammer; tint: string; role: string }> = {
   builder: { icon: Zap, tint: "var(--canvas-screen)", role: "Renders the canvas" },
-  extension: { icon: Puzzle, tint: "oklch(0.68 0.2 2)", role: "Runs for an extension" },
+  tool: { icon: Server, tint: "oklch(0.68 0.2 2)", role: "Serves a tool" },
   install: { icon: Package, tint: "oklch(0.76 0.15 65)", role: "Installs packages" },
   typecheck: { icon: Braces, tint: "oklch(0.66 0.15 230)", role: "Checks types" },
   test: { icon: FlaskConical, tint: "oklch(0.72 0.17 140)", role: "Runs unit tests" },
@@ -250,7 +250,7 @@ interface Group {
 
 /** A group for each open project, the active one first: its servers, then its tasks running, oldest first. */
 function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] {
-  const order: ProjectProcess["kind"][] = ["builder", "extension"]
+  const order: ProjectProcess["kind"][] = ["builder", "tool"]
   const rank = (process: ProjectProcess) => (process.lifetime === "task" ? order.length : order.indexOf(process.kind))
   const sorted = [...processes].sort((a, b) => rank(a) - rank(b) || a.startedAt - b.startedAt)
   const groups = new Map<string, Group>()
@@ -599,7 +599,11 @@ function StatusWord({ status, children }: { status: ProcessStatus; children: Rea
 /** Where it serves: its Portless name when it has one, its subdomain bright, or its local port. */
 function Address({ process }: { process: ProjectProcess }) {
   if (!process.domain && !process.url) {
-    return <div className="mt-0.5 text-2xs text-muted-foreground">{kinds[process.kind].role}</div>
+    return (
+      <div className="mt-0.5 text-2xs text-muted-foreground">
+        {process.kind === "tool" ? process.name : kinds[process.kind].role}
+      </div>
+    )
   }
 
   const content = process.domain ? <Domain domain={process.domain} url={process.url} /> : <Port url={process.url!} />
@@ -778,7 +782,7 @@ function ago(milliseconds: number): string {
 
 /** Whether it serves something worth opening: the build server only serves the canvas its modules. */
 function canOpen(process: ProjectProcess): boolean {
-  return process.kind === "extension" && !!(process.domain ?? process.url) && process.status === "running"
+  return process.kind === "tool" && !!(process.domain ?? process.url) && process.status === "running"
 }
 
 function describe(process: ProjectProcess): string {

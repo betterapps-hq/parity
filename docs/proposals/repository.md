@@ -72,14 +72,14 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
 - **Three departures from the template:**
   - **Workspace packages stay source-only** (`exports: ./src/index.ts`). The app bundles them and Node strips their
     types, so they need no build. Only what's published gets `vp pack`: the CLI (see npm packages).
-  - **The example project, the fixtures and `@parity-app/builder-vite` stay on stock Vite.** `examples/shadcn-vite`
-    stands in for a customer's project, and builder-vite drives the customer's own Vite, so the override mustn't reach
-    them. The `prefer-vite-plus-imports` lint rule skips builder-vite for the same reason.
+  - **The example project, the fixtures and `@parity-app/vite-adapter` stay on stock Vite.** `examples/shadcn-vite`
+    stands in for a customer's project, and vite-adapter drives the customer's own Vite, so the override mustn't reach
+    them. The `prefer-vite-plus-imports` lint rule skips vite-adapter for the same reason.
   - **`pnpm verify` keeps its name** and runs `vp check` and `vp test`, since AGENTS.md, work.md and every running
     session use it. Every repo using the shared pipelines has a `pnpm verify`, which is what the shared CI runs.
 - **Two steps, so running sessions aren't broken.** The configuration goes first (PAR-1), made in a worktree, because
   `vp migrate` reinstalls `node_modules` under any running `pnpm dev`. The test files' imports moved to `vite-plus/test`
-  afterwards (PAR-393), and `prefer-vite-plus-imports` is on everywhere but builder-vite.
+  afterwards (PAR-393), and `prefer-vite-plus-imports` is on everywhere but vite-adapter.
 
 ## Checks on commit and push
 

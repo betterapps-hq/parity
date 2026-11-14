@@ -67,6 +67,11 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
     quit: () => undefined,
     toggleDevTools: () => undefined,
     theme: { get: () => "dark", set: () => undefined, remember: () => undefined },
+    keybindings: {
+      state: () => ({ entries: [] }),
+      replace: () => Promise.resolve({ entries: [] }),
+      open: () => Promise.resolve()
+    },
     metrics: () => Promise.resolve([]),
     console: { announce: () => undefined, read: () => [], clear: () => undefined },
     closing: () => undefined,

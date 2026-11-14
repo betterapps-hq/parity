@@ -46,7 +46,10 @@ function parse(keys: string): Parsed {
 }
 
 /** Whether a key event is the keys written, as `Ctrl Shift Z`. Ctrl takes Cmd too, so the keys work on a Mac. */
-export function matches(event: KeyboardEvent, keys: string): boolean {
+export function matches(
+  event: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">,
+  keys: string
+): boolean {
   const { ctrl, shift, alt, key } = parse(keys)
 
   if ((event.ctrlKey || event.metaKey) !== ctrl || event.altKey !== alt) {
@@ -81,6 +84,45 @@ export function matches(event: KeyboardEvent, keys: string): boolean {
   }
 
   return named.get(key)?.includes(event.key) ?? event.key === key
+}
+
+/** The keys a key event is, written as the keymap writes them (`Ctrl Shift K`, `Alt ←`); nothing for a modifier alone. */
+export function keysFromEvent(
+  event: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">
+): string | undefined {
+  const key = keyFromEvent(event)
+
+  if (key === undefined) {
+    return undefined
+  }
+
+  // Plus and minus are Shift's characters on some keyboards, so Shift isn't written with them, as `matches` ignores it.
+  const shift = event.shiftKey && key !== "+" && key !== "-"
+
+  return [event.ctrlKey || event.metaKey ? "Ctrl" : "", event.altKey ? "Alt" : "", shift ? "Shift" : "", key]
+    .filter(Boolean)
+    .join(" ")
+}
+
+/** The key itself, as `matches` reads it: the letter typed, or the key's place, or its name. */
+function keyFromEvent(event: Pick<KeyboardEvent, "key" | "code">): string | undefined {
+  if (/^[a-z]$/i.test(event.key)) {
+    return event.key.toUpperCase()
+  }
+
+  const place = /^Key([A-Z])$|^(?:Digit|Numpad)([0-9])$/.exec(event.code)
+
+  if (place) {
+    return place[1] ?? place[2]
+  }
+
+  if (/^F[0-9]{1,2}$/.test(event.key)) {
+    return event.key
+  }
+
+  const physical = [...codes].find(([, found]) => found.includes(event.code))
+
+  return physical?.[0] ?? [...named].find(([, found]) => found.includes(event.key))?.[0]
 }
 
 /**

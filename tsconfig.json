@@ -31,6 +31,8 @@
     "packages/*/src",
     "packages/*/scripts",
     "packages/*/*.ts",
+    "adapters/*/src",
+    "adapters/*/*.ts",
     "scripts",
     "vite.config.ts"
   ]

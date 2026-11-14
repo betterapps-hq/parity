@@ -65,27 +65,23 @@ import {
   useSyncExternalStore
 } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, type DesignStore, useContainerEntries } from "../design-store.ts"
-import { commandsAt, runCommand, useExtensions } from "../extensions.ts"
+import { useExtensions } from "../extensions.ts"
 import type { LoadedGuest } from "../guest.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
+import { componentOffers, type PlacedExtensions, runAction } from "./adapter-actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
-import {
-  type CardCommand,
-  type ComponentCardProps,
-  ComponentPopover,
-  PreviewThumb,
-  StatusLine
-} from "./ComponentCard.tsx"
-import { ComponentMenu } from "./ComponentMenu.tsx"
+import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
+import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
 import type { Attributes } from "./event-attributes.ts"
-import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
@@ -94,7 +90,9 @@ import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
+import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
+import { revealSelection } from "./reveal.ts"
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
@@ -447,6 +445,23 @@ export function ComponentsPanel() {
   )
 }
 
+/**
+ * Pressing a component: one of the project's own selects its board on the canvas, which shows what it is, and any
+ * other is added where the selection is.
+ */
+function pick(session: ProjectSession, item: InsertItem, component: string | undefined): void {
+  const board = component === undefined ? undefined : boardKeyOf(session.id, component)
+
+  if (board === undefined) {
+    addAtSelection(session, item)
+
+    return
+  }
+
+  session.selection.set({ design: board })
+  revealSelection(session)
+}
+
 /** The app's exports that aren't listed as components: what the type checker left out, less what the person listed. */
 function notListed(info: ProjectInfo): LeftOutExport[] {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
@@ -516,6 +531,15 @@ function SourceSection({
   const session = useProject()
   const statuses = useRenderStatus(session.loaded)
 
+  // The tools' servers running for the project, by process id, so an action that starts one says so.
+  const processes = useProcesses(false)
+
+  const running = new Set(
+    processes
+      .filter((process) => process.kind === "tool" && process.projectId === session.id && process.status === "running")
+      .map((process) => process.id)
+  )
+
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
@@ -553,6 +577,7 @@ function SourceSection({
                   view={view}
                   uses={uses.get(entry.key) ?? 0}
                   status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
+                  running={running}
                 />
               ))}
             </div>
@@ -568,35 +593,41 @@ const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height
 /**
  * An item of a source: a component, whose card opens beside it when the pointer rests on it or the right arrow is
  * pressed on it (PAR-515, PAR-208), or a library's component design, with a hint. In the List and Grid views a
- * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): View in
- * Storybook, and View code in the person's editor, each greyed with why when it can't. A library's design offers its
- * two ways to insert.
+ * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): what the
+ * project's adapters offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
+ * why when it can't. A library's design offers its two ways to insert.
  */
 function AssetEntry({
   entry,
   source,
   view,
   uses,
-  status
+  status,
+  running
 }: {
   entry: Family["items"][number]
   source: Source
   view: ComponentsView
   uses: number
   status: ComponentRenderStatus | undefined
+  /** The tools' servers running for the project, by process id. */
+  running: ReadonlySet<string>
 }) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
+
+  const placed: PlacedExtensions = {
+    session,
+    extensions: useExtensions(session).extensions,
+    placement: "componentCard"
+  }
+
+  const offers = componentOffers(session.info, component, placed)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
   const file = about.onOpenFile !== undefined
-  const { extensions } = useExtensions(session)
-  const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
-  const placed = target ? commandsAt(extensions, "componentCard", target) : []
-  // The first command that can run for it is a button on the row, as Open in Storybook is.
-  const quick = about.commands?.[0]
   // Pressing it, to add or drag it, or right-clicking it puts the card away.
   const putAway = () => card.setOpen(false)
 
@@ -671,7 +702,7 @@ function AssetEntry({
     <button
       type="button"
       {...dragItem(item)}
-      onClick={() => addAtSelection(session, item)}
+      onClick={() => pick(session, item, component)}
       {...(component
         ? {
             onPointerEnter: card.enter,
@@ -700,13 +731,7 @@ function AssetEntry({
 
   const menu = (component || instance) && (
     <ComponentMenu
-      commands={placed.map((each) => ({
-        id: each.command.id,
-        title: each.command.title,
-        icon: <ContributionIcon name={each.command.icon} logo={each.extension.icon} />,
-        disabledReason: each.enabled ? undefined : (each.disabledReason ?? "Unavailable"),
-        run: () => void runCommand(session, each, target)
-      }))}
+      offers={component ? menuOffers(session, component, running, placed) : undefined}
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
@@ -760,26 +785,66 @@ function AssetEntry({
       ) : (
         row
       )}
-      {quick && (
-        <Hint label={quick.title}>
-          <button
-            type="button"
-            aria-label={`${quick.title}: ${entry.label}`}
-            onClick={quick.run}
-            className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
-          >
-            <span className="grid size-3.5 place-items-center [&>svg]:size-3.5">{quick.icon}</span>
-          </button>
-        </Hint>
+      {offers.length > 0 && (
+        <div
+          className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
+        >
+          {offers.map(({ action, unavailable }) => (
+            // One that can't act stays, faded and focusable, its hint saying why.
+            <Hint key={`${action.adapter}:${action.id}`} label={unavailable ?? action.name}>
+              <button
+                type="button"
+                aria-label={
+                  unavailable === undefined
+                    ? `${action.name}: ${entry.label}`
+                    : `${action.name}: ${entry.label}, unavailable: ${unavailable}`
+                }
+                aria-disabled={unavailable !== undefined || undefined}
+                onClick={unavailable === undefined ? () => void runAction(session.id, action, component) : undefined}
+                className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
+              >
+                <AdapterLogo logo={action.icon} className="size-3.5" />
+              </button>
+            </Hint>
+          ))}
+        </div>
       )}
     </AssetRow>
   )
 }
 
 /**
+ * What a component's menu offers from the project's adapters: each action offered for components, greyed with why on
+ * one it isn't for, and saying what it starts first while its tool's server isn't running.
+ */
+function menuOffers(
+  session: ProjectSession,
+  component: string,
+  running: ReadonlySet<string>,
+  placed: PlacedExtensions
+): MenuOffer[] {
+  return componentOffers(session.info, component, placed).map(({ action, unavailable }) => {
+    const offer: MenuOffer = {
+      id: `${action.adapter}:${action.id}`,
+      name: action.name,
+      logo: action.icon,
+      run: () => void runAction(session.id, action, component)
+    }
+
+    if (unavailable !== undefined) {
+      offer.unavailable = unavailable
+    } else if (action.starts && !running.has(`${action.adapter}:${session.id}`)) {
+      offer.starts = action.starts
+    }
+
+    return offer
+  })
+}
+
+/**
  * What a component's card shows, beyond its name (PAR-208): its file, its preview and why it has none, its variants'
- * previews, made only while `shown`, what extensions say of it, as how many stories it has, and opening its file or
- * running their commands for it, as Open in Storybook. `pictured` is its preview's status, for its row.
+ * previews, made only while `shown`, what extensions know of it, as its stories, and opening its file or its stories. `pictured` is its
+ * preview's status, for its row.
  */
 export function useComponentCard(
   session: ProjectSession,
@@ -810,23 +875,9 @@ export function useComponentCard(
     return { pictured: previewStatus(undefined), about: { preview: undefined } }
   }
 
-  const target = { type: "component", key: component } as const
   const facts = extensions.flatMap((extension) => extension.facts[component] ?? [])
 
-  const commands = commandsAt(extensions, "componentCard", target)
-    .filter((placed) => placed.enabled)
-    .map((placed): CardCommand => ({
-      id: placed.command.id,
-      title: placed.command.title,
-      icon: <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />,
-      run: () => void runCommand(session, placed, target)
-    }))
-
   const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, facts }
-
-  if (commands.length > 0) {
-    about.commands = commands
-  }
 
   if (variants) {
     about.variants = {
@@ -839,13 +890,27 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
+  const placed: PlacedExtensions = { session, extensions, placement: "componentCard" }
+
+  const offers = componentOffers(session.info, component, placed).map(({ action, unavailable }) => ({
+    id: `${action.adapter}:${action.id}`,
+    name: action.name,
+    logo: action.icon,
+    unavailable,
+    run: () => void runAction(session.id, action, component)
+  }))
+
+  if (offers.length > 0) {
+    about.offers = offers
+  }
+
   return { pictured: previewStatus(preview, missing), about }
 }
 
 /** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
 export interface ComponentCard {
   pictured: PreviewStatus
-  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "facts" | "onOpenFile" | "commands">
+  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "facts" | "onOpenFile" | "offers">
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */

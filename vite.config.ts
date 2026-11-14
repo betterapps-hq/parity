@@ -12,22 +12,23 @@ import { defineConfig } from "vite-plus"
 const readers = ["code", "project", "registry"]
 
 /**
- * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters, Parity's own
- * extensions, which run in Node hosts of their own, the media player and fixtures.
+ * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and their list,
+ * Parity's own extensions, which run in Node hosts of their own, the media player and fixtures.
  */
 const edge = [
+  "adapters",
   "agent",
-  "builder-vite",
+  "vite-adapter",
   "cli",
   "extension-storybook",
   "fixtures",
   "libgen",
   "media-player",
-  "renderer-react",
-  "styles-tailwind"
+  "react-adapter",
+  "tailwind-adapter"
 ]
 
-const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
+const packageFiles = (names: string[]) => names.flatMap((name) => [`packages/${name}/**`, `adapters/${name}/**`])
 const packageImports = (names: string[]) => names.flatMap((name) => [`@parity-app/${name}`, `@parity-app/${name}/**`])
 
 /** What no package imports. */
@@ -151,7 +152,7 @@ export default defineConfig({
     overrides: [
       {
         // Node runs these with its type stripping, which rejects parameter properties and namespaces.
-        files: ["packages/**", "apps/*/scripts/**", "scripts/**"],
+        files: ["packages/**", "adapters/**", "apps/*/scripts/**", "scripts/**"],
         rules: {
           "typescript/parameter-properties": "error",
           "typescript/no-namespace": "error"
@@ -159,7 +160,7 @@ export default defineConfig({
       },
       {
         // Every package is pure unless a later entry names it. `node:` on every builtin keeps the patterns whole.
-        files: ["packages/**"],
+        files: ["packages/**", "adapters/**"],
         rules: {
           "unicorn/prefer-node-protocol": "error",
           "eslint/no-restricted-imports": [
@@ -218,15 +219,15 @@ export default defineConfig({
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
       },
       {
-        // builder-vite drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
+        // vite-adapter drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
         // (pnpm-workspace.yaml), so it keeps stock `vite` and `vitest` imports.
-        files: ["packages/builder-vite/**"],
+        files: ["adapters/vite-adapter/**"],
         rules: { "vite-plus/prefer-vite-plus-imports": "off" }
       },
       {
-        // The test runs the module builder-vite generates, which it has as a string. A disable comment for a type-aware
+        // The test runs the module vite-adapter generates, which it has as a string. A disable comment for a type-aware
         // rule would fail `vp check`, which lints without types and so reports it unused.
-        files: ["packages/builder-vite/src/index.test.ts"],
+        files: ["adapters/vite-adapter/src/index.test.ts"],
         rules: { "typescript/no-implied-eval": "off" }
       },
       {
@@ -287,7 +288,7 @@ export default defineConfig({
       },
       {
         // Tests may use Node to set up files and folders.
-        files: ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
+        files: ["packages/**/*.test.ts", "packages/**/*.test.tsx", "adapters/**/*.test.ts", "adapters/**/*.test.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
       }
     ]
@@ -295,6 +296,7 @@ export default defineConfig({
   test: {
     include: [
       "packages/*/src/**/*.test.ts",
+      "adapters/*/src/**/*.test.ts",
       "apps/*/src/**/*.test.ts",
       "apps/*/.storybook/*.test.ts",
       "apps/*/scripts/*.test.ts",

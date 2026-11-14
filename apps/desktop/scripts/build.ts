@@ -76,7 +76,7 @@ await build({
 
 // The project's Vite compiles the guest with the project's own React, never Parity's copy.
 await build({
-  entryPoints: { guest: require.resolve("@parity-app/renderer-react/guest") },
+  entryPoints: { guest: require.resolve("@parity-app/react-adapter/guest") },
   bundle: true,
   platform: "browser",
   format: "esm",

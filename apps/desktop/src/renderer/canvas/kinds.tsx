@@ -5,8 +5,10 @@ import {
   type LibraryInfo,
   nodeLabel
 } from "@parity-app/core"
+import { describeElement, elementFamilies } from "@parity-app/layer-types"
 import {
   AppWindow,
+  Bookmark,
   Columns3,
   Component,
   Diamond,
@@ -15,6 +17,7 @@ import {
   Grid3x3,
   Image as ImageIcon,
   type LucideProps,
+  Route,
   Rows3,
   Smile,
   SquareDashed,
@@ -23,7 +26,9 @@ import {
 import { useContext } from "react"
 import { isIconLayer, unnamedIconLabel } from "../chrome/layer-kind.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { componentBoardsFile } from "./component-boards.ts"
 import { ProjectContext } from "./context.ts"
+import { elementFamilyColors, elementFamilyTextColors, LayerIcon } from "./element-kinds.tsx"
 
 /**
  * Each kind of thing on the canvas has its own selection color and icon, so a glance tells a screen from a component,
@@ -81,12 +86,20 @@ const textColors: Partial<Record<keyof typeof kindColors, string>> = {
 /** The text color that goes with a selection color from `kindColors`, or the color itself for one without. */
 export function textFor(color: string): string {
   const kind = kindOf(color)
+  const family = elementFamilies.find((each) => elementFamilyColors[each] === color)
 
-  return (kind && textColors[kind]) ?? color
+  return (kind && textColors[kind]) ?? (family && elementFamilyTextColors[family]) ?? color
 }
 
-/** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */
-export function designColor(kind: ContainerKind | undefined): string {
+/**
+ * A design's color. A frame is a layout on the canvas, so it's selected in the layer color; a board of one of the
+ * project's components, though it's a frame, is the component's, given its design's `key`.
+ */
+export function designColor(kind: ContainerKind | undefined, key?: string): string {
+  if (key?.startsWith(`${componentBoardsFile}#`)) {
+    return kindColors.component
+  }
+
   if (kind === "frame") {
     return kindColors.layer
   }
@@ -94,9 +107,18 @@ export function designColor(kind: ContainerKind | undefined): string {
   return kind === "component" ? kindColors.component : kindColors.screen
 }
 
-/** Library components and instances of component designs are purple, text is green, and plain layout is a layer. */
+/**
+ * Library components and instances of component designs are purple, text is green, and plain layout is a layer; a
+ * layer read from an element is its family's color.
+ */
 export function nodeColor(node: DesignNode): string {
-  if (node.type === "component" || node.type === "instance") {
+  // A layer read from a component's element is in its type's family color (`@parity-app/layer-types`).
+  if (node.element) {
+    return elementFamilyColors[describeElement(node.element).family]
+  }
+
+  // What a route draws is its component (PAR-1076).
+  if (node.type === "component" || node.type === "instance" || (node.type === "route" && node.component)) {
     return kindColors.component
   }
 
@@ -125,8 +147,25 @@ export function designNamer(
   return (id) => entries.find((entry) => entry.container.id === id)?.container.name ?? library?.get(id)?.name
 }
 
-/** Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. */
-export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKind | undefined }) {
+/**
+ * Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. A page of
+ * the app shows its route, and a story Storybook's teal bookmark.
+ */
+export function DesignIcon({
+  kind,
+  route = false,
+  story = false,
+  ...props
+}: LucideProps & { kind: ContainerKind | undefined; route?: boolean; story?: boolean }) {
+  // A page of the app shows the route it's drawn at (PAR-1076).
+  if (route) {
+    return <Route {...props} />
+  }
+
+  if (story) {
+    return <Bookmark {...props} style={{ ...props.style, color: "var(--canvas-story)" }} />
+  }
+
   if (kind === "frame") {
     return <Frame {...props} />
   }
@@ -147,6 +186,11 @@ export function NodeIcon({
 }: LucideProps & { node: DesignNode; libraries?: readonly LibraryInfo[] }) {
   const project = useContext(ProjectContext)
 
+  // A layer read from a component's element shows its type's icon, as Button or Link (`@parity-app/layer-types`).
+  if (node.element) {
+    return <LayerIcon {...props} name={describeElement(node.element).icon} />
+  }
+
   if (node.type === "text") {
     return <Type {...props} />
   }
@@ -165,6 +209,11 @@ export function NodeIcon({
 
   if (node.type === "instance") {
     return <Diamond {...props} />
+  }
+
+  // What a route draws shows as the component it is; a route that names none, as a redirecting index, as a route.
+  if (node.type === "route") {
+    return node.component ? <Diamond {...props} /> : <Route {...props} />
   }
 
   // A slot is a hole each instance fills.

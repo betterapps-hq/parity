@@ -1,11 +1,12 @@
 import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { BookOpen, Component } from "lucide-react"
+import { Component } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
+import { projectInfo, roots } from "../stories/host.ts"
 import accordion from "../stories/previews/accordion.png?inline"
 import attachmentGroup from "../stories/previews/attachment-group.png?inline"
 import button from "../stories/previews/button.png?inline"
@@ -23,6 +24,9 @@ import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { formatKeys } from "./keys.ts"
 import { Name } from "./Name.tsx"
+
+/** The example project's Storybook logo, as its adapter offers Open in Storybook with it. */
+const storybookLogo = projectInfo(roots.example).actions.find((action) => action.adapter === "storybook")?.icon
 
 /**
  * A component's card in the Assets panel: its preview, large, with its name, file and what to do with it. It opens
@@ -229,7 +233,7 @@ export const VariantsAndActions: Story = {
           facts={[{ value: "1", label: "story" }]}
           onInsert={() => undefined}
           onOpenFile={() => undefined}
-          commands={[{ id: "storybook.open", title: "Open in Storybook", icon: <BookOpen />, run: () => undefined }]}
+          offers={[{ id: "storybook:open", name: "Open in Storybook", logo: storybookLogo, run: () => undefined }]}
         />
       </Surface>
       <Surface label="Variants still being made">

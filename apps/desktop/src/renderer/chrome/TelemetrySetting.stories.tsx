@@ -5,14 +5,19 @@ import type { TelemetryState } from "../../shared/protocol.ts"
 import { defaultTelemetry, setStoryTelemetry } from "../stories/host.ts"
 import { AboutDialog } from "./AboutDialog.tsx"
 import { closeDialog, openDialog } from "./app-dialogs.ts"
-import { SettingsDialog } from "./SettingsDialog.tsx"
+import { openSettings, SettingsDialog } from "./SettingsDialog.tsx"
 import { receiveTelemetry } from "./telemetry-setting.ts"
 
 /** The real Settings and About dialogs, with a stand-in for main's Telemetry setting (PAR-626). */
 function Preview({ telemetry, dialog }: { telemetry: TelemetryState; dialog: "settings" | "about" }) {
   useEffect(() => {
     setStoryTelemetry(telemetry)
-    openDialog(dialog)
+
+    if (dialog === "settings") {
+      openSettings("diagnostics")
+    } else {
+      openDialog(dialog)
+    }
 
     return () => {
       closeDialog()

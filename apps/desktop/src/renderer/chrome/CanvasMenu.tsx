@@ -21,10 +21,13 @@ import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
 import { useContainerEntries, useNotes } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
 import { allFrames } from "../frame.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
+import { componentOffers, selectionComponent } from "./adapter-actions.ts"
+import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
 import { iconFor } from "./command-icons.ts"
@@ -213,8 +216,12 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
   const entries = useContainerEntries(session.store)
   // Select all and Zoom to fit have something to act on once the canvas holds a note.
   useNotes(session.store)
+  // Over a code component's layer or board, what the project's adapters offer for it ends the menu, as in Layers.
+  const component = opened.target && selectionComponent(session)
+  const { extensions } = useExtensions(session)
+  const offers = componentOffers(session.info, component, { session, extensions, placement: "canvas" })
 
-  return canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(
+  const items = canvasMenu(opened.target, commandsFor(session), selection, entries, session.info.libraries).map(
     (entry, index) => {
       if (entry.kind === "separator") {
         return <ContextMenuSeparator key={`line-${index}`} />
@@ -250,6 +257,13 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
         </ContextMenuItem>
       )
     }
+  )
+
+  return (
+    <>
+      {items}
+      <AdapterMenuItems offers={offers} projectId={session.id} component={component} />
+    </>
   )
 }
 

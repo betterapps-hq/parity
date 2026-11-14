@@ -681,7 +681,9 @@ export function pasteStyle(session: ProjectDesigns): void {
 
   if (!style || !frame || ids.length === 0) {
     if (!style) {
-      toast.info(`Copy a layer's style first, with ${shortcutOf("copyStyle")}`)
+      const keys = shortcutOf("copyStyle")
+
+      toast.info(keys ? `Copy a layer's style first, with ${keys}` : "Copy a layer's style first")
     }
 
     return

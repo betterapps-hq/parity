@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Settings is a paged dialog with a page for the open project's own settings, shortcut rebinding saved in keybindings.json, and a page for each built-in extension",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

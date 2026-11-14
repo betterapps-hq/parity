@@ -62,7 +62,7 @@ const noModule = /(?!)/
 /**
  * What the UI's Vite config adds for a build: nothing for the development build. For the production build, the
  * prebundled dependencies, React's among them, are built with `process.env.NODE_ENV` set to `production`, as
- * builder-vite's `productionDependencies` builds a project's for its frames (PAR-198). The app's own modules are still
+ * vite-adapter's `productionDependencies` builds a project's for its frames (PAR-198). The app's own modules are still
  * served as in development and their JSX still calls `jsxDEV`, so `react/jsx-dev-runtime` goes to a stand-in that is
  * React's `jsx`. Fast Refresh is off, since it reaches React through its development build alone: an edited component
  * would be taken in and never drawn again, where without it the page reloads.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { boardLayoutAt, boardSize, companionScale } from "./board.ts"
+import { besideScale, boardLayoutAt, boardSize, companionScale } from "./board.ts"
 import type { ContainerSpec } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 
@@ -99,6 +99,14 @@ describe("boardSize", () => {
       width: Math.ceil(390 + 640 + 62.5 + 60),
       height: 90 + 844 + 30
     })
+  })
+
+  it("draws a companion at the scale its view sets for its mode, and others shrunk to fit", () => {
+    const scaled = design({ view: { modes: [desktopDark!.id], scales: { [desktopDark!.id]: 0.25 } } })
+
+    expect(besideScale(scaled, desktopDark!)).toBe(0.25)
+    expect(besideScale(scaled, desktop!)).toBe(0.5)
+    expect(boardSize(scaled, [mobile!, desktopDark!]).width).toBe(Math.ceil(390 + 320 + 62.5 + 60))
   })
 
   it("has a row per state when every state shows, with a divider between rows", () => {

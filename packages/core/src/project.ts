@@ -145,7 +145,7 @@ export interface LibraryInfo {
   breakpoints?: LibraryBreakpoint[]
   /**
    * Its `.lib.par`, relative to the project, when it has one; for a library Parity's registry describes, `registry:`
-   * and the file's name, as in `registry:mui.lib.par`.
+   * and the file's name, as in `registry:@mui+material.lib.par`.
    */
   manifest?: string
   /** How its icons are imported and drawn, for an icon set. Module specifiers are the project's own, as `importName`. */

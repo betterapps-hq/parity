@@ -252,12 +252,16 @@ export function ModeView({
 
   const message = error?.key === renderKey ? error.message : undefined
 
+  // A frame narrower than its window, as a story hugging what it draws, lays out across the whole window, as Storybook
+  // does, and shows only its own width of it.
+  const narrower = viewportWidth > width
+
   // A frame is a browser's viewport: square corners, and nothing cut off except below a device's height, where a browser
   // would scroll. A frame that grows with its content shows all of it, shadows and popups included.
   return (
     <div
       ref={frameRef}
-      className={`mode-frame relative shadow-lg ring-1 ring-black/15 ${height === undefined ? "" : "overflow-hidden"}`}
+      className={`mode-frame relative shadow-lg ring-1 ring-black/15 ${height === undefined ? "" : "overflow-hidden"} ${narrower ? "overflow-x-clip" : ""}`}
       style={{
         width: Math.round(width * scale),
         height: height === undefined ? undefined : Math.round(height * scale)
@@ -272,7 +276,7 @@ export function ModeView({
         data-primary={primary}
         data-viewport={mode.viewport}
         inert={!interactive}
-        style={{ width, height, zoom: scale }}
+        style={{ width: narrower ? viewportWidth : width, height, zoom: scale }}
       />
       {/* Across the top, so whatever the frame still drew, as when a decorator failed, stays in view below it. */}
       {message && (

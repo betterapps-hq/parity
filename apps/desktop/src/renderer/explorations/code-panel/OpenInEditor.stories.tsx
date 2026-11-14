@@ -1,6 +1,8 @@
+import type { ProjectAction } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../../canvas/kinds.tsx"
+import type { ComponentOffer } from "../../chrome/adapter-actions.ts"
 import { PanelColumn } from "../../chrome/inspector-stories.tsx"
 import type { HeaderAction } from "../../chrome/layer-kind.ts"
 import { panelEnd } from "../../chrome/PanelSection.tsx"
@@ -21,19 +23,30 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
+/** Storybook's action, as its adapter offers it for a component with stories. */
+const openInStorybook: ProjectAction = {
+  adapter: "storybook",
+  id: "open",
+  name: "Open in Storybook",
+  progress: "Opening Storybook…",
+  failed: "Couldn't open Storybook"
+}
+
 /** A header as the inspector draws it, with the actions it had. */
 function Header({
   icon,
   color,
   kind,
   name,
-  actions
+  actions,
+  adapterOffers
 }: {
   icon: ReactNode
   color: string
   kind: string
   name: string
   actions: HeaderAction[]
+  adapterOffers?: ComponentOffer[]
 }) {
   return (
     <PanelColumn>
@@ -43,7 +56,7 @@ function Header({
           color={color}
           kind={kind}
           name={<span className={`truncate px-1.5 ${headingName}`}>{name}</span>}
-          action={<HeaderActions actions={actions} onAction={() => undefined} />}
+          action={<HeaderActions actions={actions} onAction={() => undefined} adapterOffers={adapterOffers} />}
         />
       </div>
     </PanelColumn>
@@ -52,7 +65,7 @@ function Header({
 
 const signInCard = { type: "component", id: "card", component: "nova/Card" } as const
 
-/** A code component placed in a design: Open in editor at its file. */
+/** A code component placed in a design: Open in Storybook, then Open in editor at its file. */
 export const CodeComponentInstance: Story = {
   render: () => (
     <Header
@@ -61,6 +74,7 @@ export const CodeComponentInstance: Story = {
       kind="Component instance"
       name="Sign in card"
       actions={["open-in-editor"]}
+      adapterOffers={[{ action: openInStorybook }]}
     />
   )
 }

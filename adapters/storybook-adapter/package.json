@@ -1,0 +1,14 @@
+{
+  "name": "@parity-app/storybook-adapter",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "typescript": "6.0.3"
+  }
+}

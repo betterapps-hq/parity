@@ -42,13 +42,28 @@
           {
             "command": "storybook.open",
             "enablement": "storybook.hasStories",
-            "disabledReason": "No stories"
+            "disabledReason": "No story found"
           }
         ],
         "selectionHeading": [
           {
             "command": "storybook.open",
-            "when": "storybook.hasStories"
+            "enablement": "storybook.hasStories",
+            "disabledReason": "No story found"
+          }
+        ],
+        "layers": [
+          {
+            "command": "storybook.open",
+            "enablement": "storybook.hasStories",
+            "disabledReason": "No story found"
+          }
+        ],
+        "canvas": [
+          {
+            "command": "storybook.open",
+            "enablement": "storybook.hasStories",
+            "disabledReason": "No story found"
           }
         ],
         "search": [

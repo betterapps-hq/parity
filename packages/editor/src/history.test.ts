@@ -756,4 +756,20 @@ describe("the merged project file", () => {
     const written = JSON.stringify(merged)
     expect(parseCanvasDocument(JSON.parse(written))).toEqual(merged)
   })
+
+  it("holds the main file's project settings", () => {
+    const preferences = { snapping: false }
+    const extensions = { storybook: { configDir: "web/.storybook" } }
+
+    const history = openDesigns(
+      [
+        { path: "app.par", document: { version: 4, containers: [], preferences, extensions } },
+        { path: "more.par", document: { version: 4, containers: [], preferences: { autosave: true } } }
+      ],
+      defaultModeSettings,
+      "app.par"
+    )
+
+    expect(mergedDocument(history)).toEqual({ version: 4, containers: [], preferences, extensions })
+  })
 })

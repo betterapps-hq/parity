@@ -11,6 +11,7 @@ import type { CopyReport } from "@parity-app/agent/routing"
 import type { FrameChange } from "@parity-app/change-detection"
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
+  ActionResult,
   CanvasDocument,
   ChangeConflict,
   CodeChange,
@@ -31,6 +32,7 @@ import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+import type { KeybindingsState, Replacement } from "./keybindings.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
 
 /**
@@ -89,6 +91,8 @@ export interface ServiceMethods {
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
   "library.importStyles": { params: ServiceParams["library.importStyles"]; result: ProjectEditResult | undefined }
   "document.save": { params: ServiceParams["document.save"]; result: undefined }
+  /** Writes the screens the project's tools describe, as edited, back to the tools' files, as a story's args. */
+  "entities.save": { params: ServiceParams["entities.save"]; result: undefined }
   /**
    * Keeps a recovery copy of the project's unsaved changes in Parity's app data, or removes it when there's none, so a
    * crash or a forced quit doesn't lose them (PAR-905).
@@ -135,10 +139,16 @@ export interface ServiceMethods {
   "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
   /** The person cancelled an extension's task shown with `parity.ui.progress`. */
   "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
+  /**
+   * Does one of an adapter's actions for the project, or for one of its components, as opening a component's stories in
+   * Storybook, which starts it first if needed. Returns an address to open in the browser when it gives one.
+   */
+  "adapter.run": { params: ServiceParams["adapter.run"]; result: ActionResult }
   /** Writes a copy of the project's designs to a `.par` file anywhere, chosen by the person. */
   "document.saveCopy": { params: ServiceParams["document.saveCopy"]; result: undefined }
   /**
-   * Renders designs to PNG files in a folder: each design in every state, in its main mode and the modes beside it.
+   * Renders designs to files in a folder at each of `sizes`, a PNG or JPG at its scale: each design in every state, in
+   * its main mode and the modes beside it, named as `exportPictures` names them.
    */
   "designs.export": {
     params: ServiceParams["designs.export"]
@@ -251,8 +261,8 @@ export interface ServiceMethods {
  */
 export type ProcessStatus = "starting" | "running" | "stopping" | "stopped" | "failed" | "passed" | "canceled"
 
-/** What a server is: a project's build server, which the canvas renders through, or an extension's, such as Storybook. */
-export type ServerKind = "builder" | "extension"
+/** What a server is: a project's build server, which the canvas renders through, or a tool's, as its Storybook. */
+export type ServerKind = "builder" | "tool"
 
 /**
  * What a task does: installs packages, checks types, runs unit tests or Playwright, formats, lints, verifies the whole
@@ -595,6 +605,15 @@ export interface CanvasHost {
   toggleDevTools(): Promise<void>
   /** The app's theme, so the window's title bar buttons and system dialogs match it. */
   setTheme(theme: ThemeSource): Promise<void>
+  /** `keybindings.json`, the shortcuts the person changed, which main keeps (PAR-1085). */
+  keybindings: {
+    get: () => Promise<KeybindingsState>
+    /** Replaces commands' entries in the file, for what it holds after. Fails when it can't be read or written. */
+    replace: (replacements: Replacement[]) => Promise<KeybindingsState>
+    /** Opens the file in the system's app for it, making it first when there's none. */
+    open: () => Promise<void>
+    subscribe: (listener: (state: KeybindingsState) => void) => () => void
+  }
   /**
    * Runs when the window is asked to close, which waits for it: true closes it, false keeps it open, as when the
    * person cancels on being asked about unsaved changes.

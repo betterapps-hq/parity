@@ -1,10 +1,9 @@
-import { portFree, viteBuilder } from "@parity-app/builder-vite"
+import { adapters } from "@parity-app/adapters"
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
-import { reactRenderer } from "@parity-app/renderer-react"
-import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
+import { portFree } from "@parity-app/vite-adapter"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
@@ -65,9 +64,7 @@ function whenWindow(): Promise<Channel<ServiceMethods, WindowMethods>> {
 }
 
 const projects = openProjects({
-  renderers: [reactRenderer],
-  builders: [viteBuilder],
-  styles: [tailwindStyles],
+  ...adapters,
   startBuilder,
   checker,
   detections: { saved: savedDetection, save: saveDetection },
@@ -189,6 +186,7 @@ const handlers: Handlers<ServiceMethods> = {
     }),
   "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
   "document.save": projects.saveDocument,
+  "entities.save": projects.saveEntities,
   "recovery.keep": ({ projectId, copy }) => recovery.keep(projectId, copy),
   "recovery.read": ({ projectId }) => recovery.read(projectId),
   "document.saveCopy": saveDocumentCopy,
@@ -201,6 +199,7 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
+  "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
   "layers.picture": (params) => layersPicture(editorWindow(), params),

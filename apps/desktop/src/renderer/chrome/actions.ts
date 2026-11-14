@@ -17,6 +17,7 @@ import { parentLayer, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { findReferences, referenceLibrary } from "../references/find-references.ts"
 import { errorMessage, reportError } from "../report-error.ts"
 import type { Tool } from "../selection.ts"
@@ -46,7 +47,6 @@ import { createDesign } from "./create.ts"
 import { duplicateDesign, setDesignKind } from "./designs.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { setLayout, toggleConsole, togglePanels } from "./layout.ts"
-import { getPreferences, setPreferences } from "./preferences.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
 import { type RecordedAction, recordActions } from "./record-actions.ts"
 import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
@@ -210,7 +210,7 @@ async function exportSelected(
     return
   }
 
-  await exportLayers(session.id, targets, getPreferences().exportSizes)
+  await exportLayers(session.id, targets, getEffectivePreferences(session.store).exportSizes)
 }
 
 /**
@@ -540,7 +540,7 @@ function zoomToFit(session: Pick<ProjectSession, "editor"> | undefined): void {
 }
 
 function toggleLayoutGrid(): void {
-  setPreferences({ layoutGrid: !getPreferences().layoutGrid })
+  setEffectivePreference({ key: "layoutGrid", value: !getEffectivePreferences().layoutGrid })
 }
 
 /** Opens a side panel on one of its tabs, as Figma's Alt+1 opens Layers and Alt+2 Assets. */

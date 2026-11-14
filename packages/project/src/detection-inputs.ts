@@ -17,8 +17,9 @@ export interface DetectionInputs {
 }
 
 /**
- * What detection reads of the project at `root` now. `builderConfigs` are the config files the registered builders
- * look for (`BuilderAdapter.configFiles`, PAR-826), relative to the root, so a new builder needs no change here. Throws when its package.json is missing or can't be read, or its
+ * What detection reads of the project at `root` now. `builderConfigs` are the files the registered adapters watch
+ * (`Adapter.watches`, PAR-826), relative to the root, such as a builder's config files, so a new adapter needs no change
+ * here. Throws when its package.json is missing or can't be read, or its
  * components.json is there but can't be read, as while an editor or package manager rewrites them, so a moment
  * without them never reads as a change.
  */

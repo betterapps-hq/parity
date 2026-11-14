@@ -25,7 +25,7 @@ export { parseJsonc } from "./jsonc.ts"
  * the package it describes and the versions it covers.
  */
 export interface RegistryEntry {
-  /** The file's name, as in `mui.lib.par`. */
+  /** The file's name, as in `@mui+material.lib.par` (see `registryFileName`). */
   file: string
   /** Its absolute path. */
   path: string
@@ -64,6 +64,26 @@ export function registryDir(): string {
 }
 
 let cache: Promise<RegistryEntry[]> | undefined
+let listing: Promise<string[]> | undefined
+const entryCache = new Map<string, Promise<RegistryEntry | undefined>>()
+
+/**
+ * The name of a package's registry file: its npm name with `+` for the `/` after its scope, which no package name has,
+ * as in `@mui+material.lib.par`. Another file for an older major version adds it, as in `@mui+material@7.lib.par`.
+ * Named for their packages, the files for a project's packages are found without opening the rest (PAR-1086).
+ */
+export function registryFileName(packageName: string, major?: number): string {
+  return `${packageName.replace("/", "+")}${major === undefined ? "" : `@${major}`}${libraryManifestExtension}`
+}
+
+/** The package a registry file is named for, or nothing for a file that isn't a library's. */
+export function registryFilePackage(file: string): string | undefined {
+  if (!file.endsWith(libraryManifestExtension)) {
+    return undefined
+  }
+
+  return file.slice(0, -libraryManifestExtension.length).replace(/@\d+$/, "").replace("+", "/")
+}
 
 /** Every file in the registry, read once. One that doesn't parse is skipped with a warning. */
 export function registryEntries(dir = registryDir()): Promise<RegistryEntry[]> {
@@ -84,17 +104,59 @@ async function readEntries(dir: string): Promise<RegistryEntry[]> {
   const entries: RegistryEntry[] = []
 
   for (const file of files) {
-    const path = join(dir, file)
+    const entry = await readEntry(dir, file)
 
-    try {
-      const { $schema: _schema, ...manifest } = parseData(registryManifest, JSON.parse(await readFile(path, "utf8")))
-      entries.push({ file, path, manifest })
-    } catch (error) {
-      console.warn(`Skipping registry file ${file}: ${errorText(error)}`)
+    if (entry) {
+      entries.push(entry)
     }
   }
 
   return entries
+}
+
+/** One registry file, or nothing, with a warning, when it doesn't parse. */
+async function readEntry(dir: string, file: string): Promise<RegistryEntry | undefined> {
+  const path = join(dir, file)
+
+  try {
+    const { $schema: _schema, ...manifest } = parseData(registryManifest, JSON.parse(await readFile(path, "utf8")))
+
+    return { file, path, manifest }
+  } catch (error) {
+    console.warn(`Skipping registry file ${file}: ${errorText(error)}`)
+
+    return undefined
+  }
+}
+
+/**
+ * The registry's files for a package, found by their names, so only those are opened: the registry is tens of
+ * megabytes, most of it libraries a project doesn't use, and each of a project's dependencies is looked up as it opens
+ * (PAR-1086). A file that turns out to describe another package is left out.
+ */
+async function entriesFor(packageName: string, dir = registryDir()): Promise<RegistryEntry[]> {
+  const shared = dir === registryDir()
+  const list = () => readdir(dir).catch((): string[] => [])
+
+  const files = (await (shared ? (listing ??= list()) : list()))
+    .filter((file) => registryFilePackage(file) === packageName)
+    .sort()
+
+  const read = (file: string) => {
+    if (!shared) {
+      return readEntry(dir, file)
+    }
+
+    const path = join(dir, file)
+    const kept = entryCache.get(path) ?? readEntry(dir, file)
+    entryCache.set(path, kept)
+
+    return kept
+  }
+
+  return (await Promise.all(files.map(read))).filter(
+    (entry): entry is RegistryEntry => entry?.manifest.package?.name === packageName
+  )
 }
 
 /**
@@ -108,7 +170,7 @@ export async function registryEntryFor(
   version: string | undefined,
   dir?: string
 ): Promise<RegistryEntry | undefined> {
-  const candidates = (await registryEntries(dir)).filter((entry) => entry.manifest.package?.name === packageName)
+  const candidates = await entriesFor(packageName, dir)
   const covering = candidates.filter((entry) => covers(entry.manifest, version))
   const best = covering.sort((a, b) => compareGenerated(b.manifest, a.manifest))[0]
 

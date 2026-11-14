@@ -4,7 +4,16 @@ import { join } from "node:path"
 import { applyLibraryEdits, isSampleText, type JsonValue, jsonValue, type LibraryEdits } from "@parity-app/core"
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
-import { covers, newestEntries, registryDir, registryEntries, registryEntryFor, withEdits } from "./index.ts"
+import {
+  covers,
+  newestEntries,
+  registryDir,
+  registryEntries,
+  registryEntryFor,
+  registryFileName,
+  registryFilePackage,
+  withEdits
+} from "./index.ts"
 
 let dir: string
 
@@ -18,8 +27,8 @@ beforeAll(async () => {
     package: { name: "@mui/material", version, range }
   })
 
-  await writeFile(join(dir, "mui.lib.par"), JSON.stringify(file("9.5.0", "^9.0.0")))
-  await writeFile(join(dir, "mui-7.lib.par"), JSON.stringify(file("7.3.4", "^7.0.0")))
+  await writeFile(join(dir, "@mui+material.lib.par"), JSON.stringify(file("9.5.0", "^9.0.0")))
+  await writeFile(join(dir, "@mui+material@7.lib.par"), JSON.stringify(file("7.3.4", "^7.0.0")))
   await writeFile(join(dir, "broken.lib.par"), JSON.stringify({ version: 4, name: "No package" }))
 })
 
@@ -27,15 +36,15 @@ afterAll(() => rm(dir, { recursive: true, force: true }))
 
 describe("registryEntryFor", () => {
   it("picks the file whose range covers the installed version", async () => {
-    expect((await registryEntryFor("@mui/material", "9.1.2", dir))?.file).toBe("mui.lib.par")
-    expect((await registryEntryFor("@mui/material", "7.0.0", dir))?.file).toBe("mui-7.lib.par")
+    expect((await registryEntryFor("@mui/material", "9.1.2", dir))?.file).toBe("@mui+material.lib.par")
+    expect((await registryEntryFor("@mui/material", "7.0.0", dir))?.file).toBe("@mui+material@7.lib.par")
   })
 
   it("uses the newest older file for a version newer than every file, marked as older", async () => {
     const entry = await registryEntryFor("@mui/material", "10.1.0", dir)
-    expect(entry?.file).toBe("mui.lib.par")
+    expect(entry?.file).toBe("@mui+material.lib.par")
     expect(entry?.older).toBe(true)
-    expect((await registryEntryFor("@mui/material", "8.0.0", dir))?.file).toBe("mui-7.lib.par")
+    expect((await registryEntryFor("@mui/material", "8.0.0", dir))?.file).toBe("@mui+material@7.lib.par")
     expect((await registryEntryFor("@mui/material", "9.1.0", dir))?.older).toBeUndefined()
   })
 
@@ -52,6 +61,53 @@ describe("registryEntryFor", () => {
       "Skipping registry file broken.lib.par: /package: a registry file names the package it describes"
     )
     warn.mockRestore()
+  })
+})
+
+describe("registry files named for their packages (PAR-1086)", () => {
+  it("names a file for its package, with a major version for another file of the same package", () => {
+    expect(registryFileName("@mui/material")).toBe("@mui+material.lib.par")
+    expect(registryFileName("@mui/material", 7)).toBe("@mui+material@7.lib.par")
+    expect(registryFileName("recharts")).toBe("recharts.lib.par")
+    expect(registryFilePackage("@mui+material@7.lib.par")).toBe("@mui/material")
+    expect(registryFilePackage("recharts.lib.par")).toBe("recharts")
+    expect(registryFilePackage("buildkit-baseui.edits.json")).toBeUndefined()
+  })
+
+  it("names each of Parity's own files for the package it describes", async () => {
+    const entries = await registryEntries()
+    expect(entries.map((entry) => [entry.file, registryFilePackage(entry.file)])).toEqual(
+      entries.map((entry) => [entry.file, entry.manifest.package?.name])
+    )
+  })
+
+  it("finds a package's file without opening the files of other packages", async () => {
+    const named = await mkdtemp(join(tmpdir(), "parity-registry-named-"))
+    const mui = { version: 4, id: "mui", name: "Material UI", package: { name: "@mui/material", version: "9.5.0" } }
+    await writeFile(join(named, "@mui+material.lib.par"), JSON.stringify(mui))
+    // Opened, it would be skipped with a warning.
+    await writeFile(join(named, "@chakra-ui+react.lib.par"), "not JSON")
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    try {
+      expect((await registryEntryFor("@mui/material", "9.1.0", named))?.manifest.name).toBe("Material UI")
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+      await rm(named, { recursive: true, force: true })
+    }
+  })
+
+  it("leaves out a file named for one package that describes another", async () => {
+    const misnamed = await mkdtemp(join(tmpdir(), "parity-registry-misnamed-"))
+    const chakra = { version: 4, id: "chakra", name: "Chakra UI", package: { name: "@chakra-ui/react" } }
+    await writeFile(join(misnamed, "@mui+material.lib.par"), JSON.stringify(chakra))
+
+    try {
+      expect(await registryEntryFor("@mui/material", "9.1.0", misnamed)).toBeUndefined()
+    } finally {
+      await rm(misnamed, { recursive: true, force: true })
+    }
   })
 })
 

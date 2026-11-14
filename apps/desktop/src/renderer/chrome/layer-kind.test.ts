@@ -1,6 +1,6 @@
 import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { headingComponent, iconName, isIconLayer, layerActions, layerKind, unnamedIconLabel } from "./layer-kind.ts"
+import { iconName, isIconLayer, layerActions, layerComponent, layerKind, unnamedIconLabel } from "./layer-kind.ts"
 
 const designs = new Map([["plan-card", "Plan card"]])
 const designName = (id: string) => designs.get(id)
@@ -73,28 +73,32 @@ describe("layerKind", () => {
   })
 })
 
-describe("layerActions", () => {
-  it("goes to the component from an instance of a design, when the design is the project's", () => {
-    expect(layerActions({ type: "instance", id: "i", design: "plan-card" }, { design: true })).toEqual([
-      "go-to-component"
-    ])
-    expect(layerActions({ type: "instance", id: "i", design: "plan-card" }, { design: false })).toEqual([])
-  })
-
-  it("offers nothing of Parity's own for a code component, and never the editor", () => {
-    expect(layerActions({ type: "component", id: "n", component: "nova/Card" }, { design: true })).toEqual([])
+describe("layerComponent", () => {
+  it("names the code component a layer draws, for its adapters' actions, but not an icon or any other layer", () => {
+    expect(layerComponent({ type: "component", id: "n", component: "nova/Card" }, libraries)).toBe("nova/Card")
+    expect(layerComponent({ type: "component", id: "l", component: "lucide/Check" }, libraries)).toBeUndefined()
+    expect(layerComponent({ type: "instance", id: "i", design: "plan-card" }, libraries)).toBeUndefined()
   })
 })
 
-describe("headingComponent", () => {
-  it("is a code component's, for extensions' heading buttons", () => {
-    expect(headingComponent({ type: "component", id: "n", component: "nova/Card" }, libraries)).toBe("nova/Card")
+describe("layerActions", () => {
+  const all = { design: true }
+  const none = { design: false }
+  const actions = (node: DesignNode, has = all) => layerActions(node, has)
+
+  it("goes to the component from an instance of a design, when the design is the project's", () => {
+    expect(actions({ type: "instance", id: "i", design: "plan-card" })).toEqual(["go-to-component"])
+    expect(actions({ type: "instance", id: "i", design: "plan-card" }, none)).toEqual([])
   })
 
-  it("is nothing for an icon or a layer that isn't a component", () => {
-    expect(headingComponent({ type: "component", id: "l", component: "lucide/Check" }, libraries)).toBeUndefined()
-    expect(headingComponent({ type: "text", id: "t", text: "Plans" }, libraries)).toBeUndefined()
-    expect(headingComponent({ type: "layout", id: "a", children: [] }, libraries)).toBeUndefined()
+  it("offers nothing of its own for a code component, whose adapters offer their actions, and never the editor", () => {
+    expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual([])
+  })
+
+  it("offers nothing for an icon or a layer that isn't a component", () => {
+    expect(actions({ type: "component", id: "l", component: "lucide/Check" })).toEqual([])
+    expect(actions({ type: "text", id: "t", text: "Plans" })).toEqual([])
+    expect(actions({ type: "layout", id: "a", children: [] })).toEqual([])
   })
 })
 
