@@ -143,30 +143,101 @@ Opening a project runs every adapter's detector, all at once, and registers only
    takes its registrations with it. An adapter also registers afresh when the tool's own files change, as when a story
    is added.
 
+## Node identity
+
+Every node an adapter can read, add or say something about has one address, a `NodeRef`, whatever made it. Whoever
+creates a node owns its key: the designs, or the adapter that added it.
+
+```ts
+interface NodeRef {
+  /** Who made it and keeps its key: `design`, or an adapter's id. */
+  owner: string
+  type: string
+  /** Unique within its owner and type, and kept across edits by its owner. */
+  key: string
+}
+```
+
+| Node                           | Owner and type             | Key                                                                       | Stable today?                                    |
+| ------------------------------ | -------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------ |
+| A layer in a design            | `design`, its kind         | design key and node id, or path inside an instance (`pricing/card/title`) | Yes: saved in the `.par`                         |
+| A component                    | `react`, `component`       | `nova/Button`, `marketing/Card`                                           | Yes, unless its file moves or a namesake appears |
+| A route                        | `tanstack-router`, `route` | the router's route id (`/settings/billing`)                               | Yes, while the route keeps its path              |
+| A story                        | `storybook`, `story`       | `file#Export`                                                             | Yes, while the export keeps its name             |
+| An element a component renders | `react`, `element`         | today only `button.tsx:12:5`                                              | No: it moves with every edit above it            |
+
+- **Unique by construction.** A key need only be unique within its owner and type, and the owner leads, so two adapters,
+  or an adapter and the designs, can't collide. A component's key is already unique: a library's is `library/Export`,
+  and the app's own share a name only with folders added (`marketing/Card`, `billing/Card`). Adapters match their tool's
+  files to components by file and export, never by name (`componentFor`, tested in
+  `packages/project/src/component-for.test.ts` with same-named components across folders and libraries).
+- **Stable is the owner's promise.** A router has it easy. The code adapter keys an element by its place in its
+  component's JSX rather than its line: the component's key, then each element's tag and index among its siblings
+  (`marketing/Card>div.0>Button.1`). That survives edits elsewhere in the file; when the element itself moves, the code
+  adapter reports the old key renamed to the new one, so whatever points at it follows, or removed.
+
+## Querying nodes
+
+Adapters, and the app's own panels, find nodes through one index instead of each walking designs, routes and code its
+own way. The designs, each adapter that adds nodes and the code adapter keep their nodes in it as they change.
+
+```ts
+interface ProjectNodes {
+  get(ref: NodeRef): ProjectNode | undefined
+  /** Every node of a type, from any owner unless one is named: all routes, all text layers. */
+  ofType(type: string, options?: { owner?: string }): ProjectNode[]
+  /** Nodes matching a filter: inside a design, placing a component, carrying a fact. */
+  query(filter: NodeQuery): ProjectNode[]
+  children(ref: NodeRef): ProjectNode[]
+  parent(ref: NodeRef): ProjectNode | undefined
+  /** Links besides parent and child: an instance to its component, a route to what its page places. */
+  links(ref: NodeRef, kind?: string): NodeRef[]
+  /** Told of every change to nodes a query matches, after edits settle. */
+  watch(filter: NodeQuery, listener: (change: NodeChange) => void): () => void
+  /** Told when one node changes, gets a new ref, or goes. */
+  subscribe(ref: NodeRef, listener: (event: NodeEvent) => void): () => void
+}
+
+interface ProjectNode {
+  ref: NodeRef
+  name: string
+  /** Its own data: a layer's style, a route's path, a component's props. */
+  data: unknown
+  /** What adapters have said about it. */
+  facts: NodeFact[]
+}
+
+type NodeEvent =
+  | { kind: "added"; node: ProjectNode }
+  | { kind: "changed"; node: ProjectNode; fields: string[] }
+  | { kind: "renamed"; from: NodeRef; to: NodeRef }
+  | { kind: "removed"; ref: NodeRef }
+  /** One its type declares, sent by its owner: `route:visited`, `component:failed`. */
+  | { kind: "type"; name: string; ref: NodeRef; data: unknown }
+```
+
+- **Subscriptions follow a node.** When its owner renames its key, as when an element moves in its file, a subscription
+  and the facts on it move with it; when it goes, they're told and dropped. `fields` lets an adapter skip changes it
+  doesn't read, such as a layer's colour when it only reads its text.
+- **Each type has its own events too.** Every node has added, changed, renamed and removed. A node type also declares
+  events of its own, with what each carries, and its owner sends them: a route visited in the preview or its loader
+  failing, a component drawing or failing to draw, a story's args changing, a layer selected. An adapter subscribes to
+  them by name, as `route:visited`, the same way.
+- **After edits settle.** Events come once an edit lands, not on every frame of a drag.
+- **Read-only to start.** An adapter adds nodes only under its own owner and attaches facts; it changes designs only
+  through an action the person runs, which goes through the app's own edits and undo. Direct writes wait until plugins
+  and trust are settled ([extensions.md](extensions.md)).
+- **One API for everyone.** Layers, Search actions and the agent API walk designs one way and routes another today;
+  they'd query the index too.
+- **Where it runs.** Adapters run in the utility process and designs live in the window, so the window sends design
+  changes across as data. That's the largest cost.
+
 ## Facts about any node
 
-An adapter can say things about nodes of any type, not only components: Storybook gives a component's stories, and a
-plugin could measure a route and give its load time or bundle size. A fact names its node by type and key
-(`{ type: "component", key: "PlanCard" }`, `{ type: "route", key: "/settings" }`), so it never relies on a name alone.
-The app shows facts in the node's card and inspector, and an adapter can ask for one to be drawn on the canvas, as a
-badge on the node or a line between nodes, in the canvas's own styles.
-
-Keys must be sturdy. A component's key is unique by construction: a library's is `library/Export`, and the app's own
-components share a name only with folders added (`marketing/Card`, `billing/Card`). Adapters match their tool's files to
-components by file and export, never by name (`componentFor`, tested in `packages/project/src/component-for.test.ts`
-with same-named components across folders and libraries).
-
-## Adapters read the designs too
-
-An adapter that adds nodes, or facts about them, needs to read nodes back and hear when they change: a plugin that
-annotates routes recomputes when a page's design changes, and one that checks components against a design system reads
-which components the designs place. So the context an adapter gets includes the project's designs, read-only:
-
-- **Read:** the designs and their nodes as data, the same `.par` model the app saves, walked by type.
-- **Watch:** a change event naming the designs and nodes that changed, after each edit settles, so an adapter recomputes
-  only what it needs. Its facts and canvas files register afresh from there.
-- **No writes yet.** An adapter changes designs only through an action the person runs, which goes through the app's own
-  edits and undo. Direct writes wait until plugins and trust are settled ([extensions.md](extensions.md)).
+An adapter says things about nodes of any type by their `NodeRef`: Storybook gives a component's stories, and a plugin
+could measure a route and give its load time or bundle size. The app shows facts in the node's card and inspector, and
+an adapter can ask for one to be drawn on the canvas, as a badge on the node or a line between nodes, in the canvas's
+own styles. A fact follows its node when the node is renamed, and goes with it.
 
 ## Data, not React
 
@@ -222,13 +293,21 @@ since packages will be published to a registry. The workspace lists `adapters/*`
    offered for, and a code component offers them wherever it's picked, with the adapter's logo: its layer's header, its
    right-click menus in Layers, on the canvas and in the Components panel, its row's button and card, and Search
    actions. Only the stories count on a component's card still reads `info.storybook`, until node facts in step 5.
-4. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
+4. **Node identity and the index.** `NodeRef`, and `ProjectNodes` with `get`, `ofType`, `watch` and `subscribe`, read
+   only, over the designs and the nodes adapters already make (components, routes, stories). Elements' structural keys
+   come with the code adapter. `query` and `links` grow as adapters need them.
+5. **Node facts,** attached by `NodeRef`, starting with Storybook's stories count, which lets `findStorybook` and
+   `info.storybook` go.
+6. **Canvas files and node types.** Stories and pages become canvas files, and routes a node type TanStack Router
    registers.
-5. **Node facts and reading the designs,** starting with Storybook's stories count, which lets `findStorybook` and
-   `info.storybook` go; then reading and watching designs when the first adapter needs them.
-6. **Panel tabs, inspector rows and servers,** each when an adapter first needs it.
+7. **Panel tabs, inspector rows and servers,** each when an adapter first needs it.
 
 ## Decisions needed
+
+- **Elements' keys.** A structural key (`marketing/Card>div.0>Button.1`) needs nothing written into the person's code
+  but changes when the element moves; an id attribute written into the source survives moves but edits their code.
+- **Whether designs can save other owners' refs.** A design that saves a fact, or points at a route or element, needs
+  that owner's key kept for good, not only while the project is open.
 
 - **Logos as path data (decided in step 1).** An `AdapterIcon` is a `viewBox`, one path and its fill rule, which the app
   fills with the text's colour. It can't run script or load anything, so nothing needs stripping; a logo in several
