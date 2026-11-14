@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sat, 14 Nov 2026 09:46:47 GMT",
+      "version": "0.82.3",
+      "tag": "@parity-app/desktop_v0.82.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aac067e676a9b1901707265e6a18a53b0d3fca23",
+            "comment": "Keep the window's compiled code between launches, so it paints sooner"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 08:53:51 GMT",
       "version": "0.82.2",
       "tag": "@parity-app/desktop_v0.82.2",
