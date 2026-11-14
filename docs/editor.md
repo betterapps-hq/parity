@@ -7676,14 +7676,14 @@ Manual checks show checking, no-update and retryable-error feedback in the same 
 interrupting work (PAR-490). Startup checks remain quiet when no update is available or the check fails. A menu check
 also restores a previously dismissed download or restart notice. About stays available separately through Help.
 
-Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. A beta check names electron-updater's beta channel, so it takes the newest version tag in GitHub's
-releases feed and passes over the `@parity-app/*` tags the release workflows push without release files; taking the
-feed's first entry made every beta check fail while one of those came first (PAR-825). A failure records its first line
-and electron-updater's error code, as Sentry redacts the whole message when its HTTP headers follow. About labels
-installed beta builds with `(Beta)` independently of the selected Update channel; the preference describes which future
-releases to accept. It also shows the available version. Development builds and extracted Linux folders do not download
-or install updates.
+Settings > Get beta updates is off by default and kept in `settings.json` as `betaUpdates`, which only main writes. It
+includes GitHub pre-releases without allowing downgrades. A beta check names electron-updater's beta channel, so it
+takes the newest version tag in GitHub's releases feed and passes over the `@parity-app/*` tags the release workflows
+push without release files; taking the feed's first entry made every beta check fail while one of those came first
+(PAR-825). A failure records its first line and electron-updater's error code, as Sentry redacts the whole message when
+its HTTP headers follow. About labels installed beta builds with `(Beta)` independently of the selected Update channel;
+the preference describes which future releases to accept. It also shows the available version. Development builds and
+extracted Linux folders do not download or install updates.
 
 The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
 release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
@@ -7726,10 +7726,15 @@ Turning it off also starts a new install ID. Settings shows the install ID under
 Diagnostics and the Install ID with the versions, and Copy details includes them.
 
 `@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
-`telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
-run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
-`chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
-turns it off with the pointer, checking its description stays put.
+`settings.json`'s `diagnostics` and `installId` and finding the app's data folder on each system. The setting and the
+install ID are in `settings.json` with the person's other settings, written only by main: a window's change can't name
+them. The first run's install ID is written only if the file has none yet, under its lock, so two copies starting
+together keep one. `main/telemetry-setting.test.ts` covers the first run's install ID, saving the switch, a variable
+deciding the run, a new ID on turning off, and an ID that couldn't be saved.
+`packages/settings/src/settings-file.test.ts` covers main's keys: their defaults, only what a change names written, a
+new install ID kept from the first copy, and refused from a window. `chrome/TelemetrySetting.stories.tsx` shows the
+switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and turns it off with the pointer, checking its
+description stays put.
 
 ### Report a problem (PAR-635)
 

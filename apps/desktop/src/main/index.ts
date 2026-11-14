@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, watch, writeFileSync } from "node:fs"
 import { readFile, utimes } from "node:fs/promises"
 import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
@@ -7,7 +7,6 @@ import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/regis
 import { keysFromEnvironment, keyVariable, offered, placeableKinds, withoutKeys } from "@parity-app/connectors"
 import { CodedError, type JsonValue, parseData } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
-import { telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -95,24 +94,41 @@ const environment = readEnvironment(process.env)
 // is read from it.
 app.setPath("userData", environment.PARITY_USER_DATA ?? join(app.getPath("appData"), "@parity", "desktop"))
 
-/** The Telemetry setting and install ID, in a file the CLI reads too (PAR-626). */
-const telemetryFile = join(app.getPath("userData"), telemetryFileName)
+/**
+ * `settings.json`, the settings every copy of Parity shares (`docs/proposals/settings.md`), read before the window
+ * opens and sent to every window as they change, here or in another copy. The theme sets the title bar's buttons and
+ * system dialogs too.
+ */
+const settings = settingsStore(join(app.getPath("userData"), "settings.json"), {
+  changed: (state) => {
+    nativeTheme.themeSource = state.values.theme
 
-const telemetrySetting = new TelemetrySetting({
-  env: process.env,
-  read: () => {
-    try {
-      return readFileSync(telemetryFile, "utf8")
-    } catch {
-      return undefined
+    for (const window of appWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(ipc.settingsChanged, state)
+      }
+    }
+
+    for (const contents of settingsView.contents()) {
+      contents.send(ipc.settingsChanged, state)
+    }
+
+    // Extensions read their app settings in the service's hosts, which hear each change (PAR-1090).
+    if (JSON.stringify(state.extensions) !== JSON.stringify(sentExtensions)) {
+      sentExtensions = state.extensions
+      void projectService
+        .channel()
+        ?.request("extensionSettings", state.extensions)
+        .catch(() => undefined)
     }
   },
-  save: (text) => {
-    mkdirSync(app.getPath("userData"), { recursive: true })
-    writeFileSync(telemetryFile, text)
-  },
-  newId: () => randomUUID()
+  problem: (message) => console.warn(message)
 })
+
+nativeTheme.themeSource = settings.state().values.theme
+
+/** The Telemetry setting and install ID, in `settings.json`, which the CLI reads too (PAR-626). */
+const telemetrySetting = new TelemetrySetting({ env: process.env, store: settings, newId: () => randomUUID() })
 
 /** The app's own package.json: the build's, or the checkout's when run from source. */
 const appManifest = (): JsonValue => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8"))
@@ -190,9 +206,11 @@ const events = startEvents({
 const telemetryRun = writeTelemetryRun(events.run)
 
 // An install ID that couldn't be saved changes every start; say why, once there's somewhere to say it (PAR-811).
-if (telemetrySetting.unsaved) {
-  events.telemetry.track("installId.unsaved", telemetrySetting.unsaved)
-}
+void telemetrySetting.unsaved.then((unsaved) => {
+  if (unsaved) {
+    events.telemetry.track("installId.unsaved", unsaved)
+  }
+})
 
 // What main does for the service is a span in the trace the service's request came with (PAR-629).
 traceWith(events.telemetry)
@@ -206,39 +224,6 @@ let updates: UpdateSession | undefined
 
 /** Closing windows and quitting, which each window's page decides on, and restarting to install an update. */
 const closeFlow = createCloseFlow({ quit: () => app.quit(), updates: () => updates, quitCancelled })
-
-/**
- * `settings.json`, the settings every copy of Parity shares (`docs/proposals/settings.md`), read before the window
- * opens and sent to every window as they change, here or in another copy. The theme sets the title bar's buttons and
- * system dialogs too.
- */
-const settings = settingsStore(join(app.getPath("userData"), "settings.json"), {
-  changed: (state) => {
-    nativeTheme.themeSource = state.values.theme
-
-    for (const window of appWindows()) {
-      if (!window.isDestroyed()) {
-        window.webContents.send(ipc.settingsChanged, state)
-      }
-    }
-
-    for (const contents of settingsView.contents()) {
-      contents.send(ipc.settingsChanged, state)
-    }
-
-    // Extensions read their app settings in the service's hosts, which hear each change (PAR-1090).
-    if (JSON.stringify(state.extensions) !== JSON.stringify(sentExtensions)) {
-      sentExtensions = state.extensions
-      void projectService
-        .channel()
-        ?.request("extensionSettings", state.extensions)
-        .catch(() => undefined)
-    }
-  },
-  problem: (message) => console.warn(message)
-})
-
-nativeTheme.themeSource = settings.state().values.theme
 
 /** Extensions' app settings as the service last heard them, which it also asks for as it starts. */
 let sentExtensions = settings.state().extensions
@@ -1120,17 +1105,24 @@ void app.whenReady().then(() => {
   // Otherwise the dock shows the icon of the app Parity runs as, which is Electron.
   app.dock?.setIcon(join(import.meta.dirname, "resources", "dock.png"))
   Menu.setApplicationMenu(applicationMenu())
-  updates = createUpdates((state) => {
-    appLife.update(state)
+  updates = createUpdates(
+    (state) => {
+      appLife.update(state)
 
-    for (const window of appWindows()) {
-      window.webContents.send(ipc.updateChanged, state)
-    }
+      for (const window of appWindows()) {
+        window.webContents.send(ipc.updateChanged, state)
+      }
 
-    for (const contents of settingsView.contents()) {
-      contents.send(ipc.updateChanged, state)
+      for (const contents of settingsView.contents()) {
+        contents.send(ipc.updateChanged, state)
+      }
+    },
+    environment,
+    {
+      get: () => settings.system().betaUpdates,
+      save: (betaUpdates) => void settings.changeSystem({ betaUpdates })
     }
-  }, environment)
+  )
   projectService.start()
   createWindow()
   // The keychain is only ready once the app is.

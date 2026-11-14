@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Settings' diagnostics level, Get beta updates and the install ID are kept in settings.json, which the CLI reads too",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

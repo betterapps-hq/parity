@@ -1,10 +1,6 @@
-import { readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import { jsonText } from "@parity-app/core"
 import type { UpdateState } from "@parity-app/processes"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
-import { z } from "zod"
 import type { MainEnvironment } from "./environment.ts"
 import { noStableRelease } from "./github-releases.ts"
 import { isPackaged } from "./packaged.ts"
@@ -12,29 +8,19 @@ import { tagUpdateChannel } from "./telemetry.ts"
 import { updateChannel } from "./update-channel.ts"
 import { UpdateSession } from "./update-session.ts"
 
-/** The update preference, as `updates.json` keeps it. A missing or malformed file is the stable channel. */
-const updatesFile = jsonText(z.object({ beta: z.boolean().catch(false) }))
-
-/** Whether `updates.json`'s text, if there is a file, asks for betas. */
-export function savedBeta(text: string | undefined): boolean {
-  return updatesFile.safeParse(text).data?.beta ?? false
+/** Get beta updates, as `settings.json` keeps it (`docs/proposals/settings.md`): off on a fresh install. */
+export interface BetaSetting {
+  get(): boolean
+  save(beta: boolean): void
 }
 
 /** Installed builds use electron-builder's embedded app-update.yml. Tests can package their own local feed. */
 export function createUpdates(
   changed: (state: UpdateState) => void,
-  environment: Pick<MainEnvironment, "PARITY_DEV_RUNNER" | "APPIMAGE">
+  environment: Pick<MainEnvironment, "PARITY_DEV_RUNNER" | "APPIMAGE">,
+  betaSetting: BetaSetting
 ): UpdateSession {
-  const file = join(app.getPath("userData"), "updates.json")
-  let text: string | undefined
-
-  try {
-    text = readFileSync(file, "utf8")
-  } catch {
-    /* A fresh install starts on the stable channel. */
-  }
-
-  const beta = savedBeta(text)
+  const beta = betaSetting.get()
 
   const enabled =
     isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER) &&
@@ -68,7 +54,7 @@ export function createUpdates(
     beta,
     changed,
     saveBeta: (next) => {
-      writeFileSync(file, JSON.stringify({ beta: next }))
+      betaSetting.save(next)
 
       if (autoUpdater) {
         tagUpdateChannel(next)

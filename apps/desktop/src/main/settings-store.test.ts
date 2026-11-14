@@ -116,6 +116,20 @@ describe("settings.json", () => {
     expect(store.state().values.theme).toBe("dark")
   })
 
+  it("keeps main's own keys, and doesn't tell the windows when only they change (PAR-1117)", async () => {
+    const file = setUp()
+    writeFileSync(file, JSON.stringify({ snapping: false, theme: "light" }))
+    const changed = vi.fn<(state: SettingsState) => void>()
+    const store = open(file, changed)
+
+    await expect(store.changeSystem({ diagnostics: "off", betaUpdates: true })).resolves.toBe(true)
+
+    expect(store.system()).toEqual({ diagnostics: "off", betaUpdates: true })
+    expect(saved(file)).toEqual({ snapping: false, theme: "light", diagnostics: "off", betaUpdates: true })
+    expect(store.state()).not.toHaveProperty("system")
+    expect(changed).not.toHaveBeenCalled()
+  })
+
   it("never writes over a file it can't read, and keeps the change for this run", async () => {
     const file = setUp()
     writeFileSync(file, "{ half")

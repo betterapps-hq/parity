@@ -226,8 +226,9 @@ since its end-to-end runs sent nine in ten of `parity-desktop`'s spans (PAR-777,
 leave it off.
 
 - **Settings > Diagnostics > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
-  install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
-  `@parity-app/telemetry` finds the folder). Before the app has run, the CLI sends, as install `none`.
+  install ID in `<userData>/settings.json`, under `diagnostics` and `installId`, which the CLI reads too, as each
+  command starts (`desktopDataFolder` in `@parity-app/telemetry` finds the folder). Before the app has run, the CLI
+  sends, as install `none`.
 - **`PARITY_TELEMETRY=all` or `off`** decides a run whatever the setting says, and **`DO_NOT_TRACK=1`** turns it off.
   Settings then shows the variable and leaves the switch disabled. Any other `PARITY_TELEMETRY` value stops the app, and
   fails a `parity` command.
@@ -504,7 +505,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `gesture.ran`             | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                                                                                 |
 | `insert.done`             | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                                                                                     |
 | `inspector.changed`       | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                                                                                             |
-| `installId.unsaved`       | warn  | all  | main                                    | A new install ID can't be saved to `telemetry.json`, so the next start makes another.                                                                                      |
+| `installId.unsaved`       | warn  | all  | main                                    | A new install ID can't be saved to `settings.json` yet, so a start before it's saved makes another.                                                                        |
 | `ipc.failed`              | warn  | all  | renderer                                | A request to the project service fails.                                                                                                                                    |
 | `library.added`           | info  | all  | renderer                                | A catalog library is installed into the project.                                                                                                                           |
 | `library.failed`          | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                                                                                   |

@@ -95,6 +95,8 @@ export function sharedFile<Values, Change>(
   let queue: Promise<unknown> = Promise.resolve()
   let retry: ReturnType<typeof setTimeout> | undefined
   let retryGap = retryMs
+  /** The last try to save failed, so the changes waiting are held, not just on their way. */
+  let failed = false
   let settle: ReturnType<typeof setTimeout> | undefined
   let lastProblem: string | undefined
   let closed = false
@@ -116,7 +118,7 @@ export function sharedFile<Values, Change>(
       state.problem = fileProblem
     }
 
-    if (unsaved.length > 0) {
+    if (failed && unsaved.length > 0) {
       state.unsaved = true
     }
 
@@ -186,8 +188,10 @@ export function sharedFile<Values, Change>(
     try {
       await writeUnsaved()
       retryGap = retryMs
+      failed = false
       report(undefined)
     } catch (error) {
+      failed = true
       report(error instanceof Error ? error.message : String(error))
 
       if (!closed && retry === undefined) {

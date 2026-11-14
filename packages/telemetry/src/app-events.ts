@@ -278,7 +278,7 @@ export const installIdUnsaved = defineEvent(
   {
     level: "warn",
     sentBy: ["main"],
-    when: "A new install ID can't be saved to `telemetry.json`, so the next start makes another."
+    when: "A new install ID can't be saved to `settings.json` yet, so a start before it's saved makes another."
   }
 )
 

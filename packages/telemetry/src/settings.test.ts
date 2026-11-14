@@ -68,18 +68,21 @@ describe("readSavedTelemetry", () => {
   const id = "0b8f4c3e-2d1a-4f6b-9c7e-5a4d3b2c1e0f"
 
   it("reads the level and install ID", () => {
-    expect(readSavedTelemetry(JSON.stringify({ level: "off", installId: id }))).toEqual({ level: "off", installId: id })
+    expect(readSavedTelemetry(JSON.stringify({ diagnostics: "off", installId: id }))).toEqual({
+      level: "off",
+      installId: id
+    })
   })
 
   it("treats a missing, unreadable or unknown value as unset, keeping what does read", () => {
     expect(readSavedTelemetry(undefined)).toEqual({ level: "all" })
     expect(readSavedTelemetry("{not json")).toEqual({ level: "all" })
     expect(readSavedTelemetry("[]")).toEqual({ level: "all" })
-    expect(readSavedTelemetry(JSON.stringify({ level: "errors", installId: id }))).toEqual({
+    expect(readSavedTelemetry(JSON.stringify({ diagnostics: "errors", installId: id }))).toEqual({
       level: "all",
       installId: id
     })
-    expect(readSavedTelemetry(JSON.stringify({ level: "off", installId: "mine" }))).toEqual({ level: "off" })
+    expect(readSavedTelemetry(JSON.stringify({ diagnostics: "off", installId: "mine" }))).toEqual({ level: "off" })
   })
 })
 

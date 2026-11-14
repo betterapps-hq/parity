@@ -23,6 +23,8 @@ export {
   withExtensionChange
 } from "./settings-file.ts"
 
+export { type SystemChange, type SystemSettings, withSystemChange } from "./system-settings.ts"
+
 export {
   changeProjects,
   changeProjectsData,
