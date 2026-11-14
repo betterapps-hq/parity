@@ -124,7 +124,10 @@ const builds: BuildContext[] = [
     entryPoints: {
       utility: join(appDir, "src/utility/index.ts"),
       "props-worker": join(appDir, "src/utility/props-worker.ts"),
-      "builder-process": join(appDir, "src/utility/builder-process.ts")
+      "builder-process": join(appDir, "src/utility/builder-process.ts"),
+      "extension-host": join(appDir, "src/utility/extension-host.ts"),
+      // Parity's own extensions, which a host loads only when one activates.
+      "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts")
     },
     format: "esm",
     outExtension: { ".js": ".mjs" },

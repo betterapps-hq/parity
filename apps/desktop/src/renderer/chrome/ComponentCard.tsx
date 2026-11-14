@@ -1,6 +1,5 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  BookOpen,
   CircleAlert,
   Component,
   Diamond,
@@ -39,6 +38,14 @@ export interface CardVariant {
   preview: PreviewState | undefined
 }
 
+/** An extension's command on a component's card. */
+export interface CardCommand {
+  id: string
+  title: string
+  icon: ReactNode
+  run: () => void
+}
+
 export interface ComponentCardProps {
   /** Its name in the panel, as `nova/InputGroupText`: the part before the last slash is where it's from. */
   name: string
@@ -58,14 +65,14 @@ export interface ComponentCardProps {
   variants?: { prop: string; options: CardVariant[] }
   /** How many times the project's designs place it. */
   uses?: number
-  /** How many stories the project's Storybook has of it. */
-  stories?: number
+  /** What extensions say about it, each read as its value then its label, as "3 stories". */
+  facts?: readonly { value: string; label: string }[]
   /** Inserts it where the selection is; none where something else inserts, as Enter in the insert picker does. */
   onInsert?: () => void
   /** Opens its file in the person's editor; none for a component without one. */
   onOpenFile?: () => void
-  /** Opens its stories in Storybook; none for a component without any. */
-  onOpenStorybook?: () => void
+  /** Extensions' commands for it, as Open in Storybook, each a button in the bar. */
+  commands?: readonly CardCommand[]
   /** Something else pressing or dragging it does, said last. */
   actions?: ReactNode
 }
@@ -86,10 +93,10 @@ export function ComponentCard({
   status,
   variants,
   uses,
-  stories,
+  facts: told = [],
   onInsert,
   onOpenFile,
-  onOpenStorybook,
+  commands = [],
   actions
 }: ComponentCardProps) {
   const [shown, setShown] = useState<CardVariant>()
@@ -105,10 +112,10 @@ export function ComponentCard({
 
   const facts = [
     uses !== undefined && (uses === 0 ? "Not used yet" : `Used ${uses} ${uses === 1 ? "time" : "times"}`),
-    stories !== undefined && stories > 0 && `${stories} ${stories === 1 ? "story" : "stories"}`
+    ...told.map((fact) => `${fact.value} ${fact.label}`)
   ].filter(Boolean)
 
-  const bar = onInsert || onOpenFile || onOpenStorybook
+  const bar = onInsert || onOpenFile || commands.length > 0
 
   return (
     <div className="flex flex-col">
@@ -183,19 +190,13 @@ export function ComponentCard({
               </Button>
             </Hint>
           )}
-          {onOpenStorybook && (
-            <Hint label="Open in Storybook">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-7"
-                aria-label="Open in Storybook"
-                onClick={onOpenStorybook}
-              >
-                <BookOpen />
+          {commands.map((command) => (
+            <Hint key={command.id} label={command.title}>
+              <Button size="icon" variant="ghost" className="size-7" aria-label={command.title} onClick={command.run}>
+                {command.icon}
               </Button>
             </Hint>
-          )}
+          ))}
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
 import { closeDialog } from "./chrome/app-dialogs.ts"
 import { ConvertToFrameDialog, stopAskingToConvert } from "./chrome/ConvertToFrameDialog.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
+import { ExtensionQuestion } from "./chrome/ExtensionQuestion.tsx"
 import { closeQuickInsert, QuickInsert } from "./chrome/QuickInsert.tsx"
 import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
 import { restoreAsked } from "./chrome/restore.ts"
@@ -142,6 +143,7 @@ export function AppWindow() {
       </ErrorBoundary>
       <ErrorBoundary name="convert-to-frame" label="Convert to frame" kind="dialog" onClose={stopAskingToConvert}>
         <ConvertToFrameDialog />
+        <ExtensionQuestion />
       </ErrorBoundary>
       <ErrorBoundary name="shortcuts" label="Keyboard shortcuts" kind="dialog" onClose={closeDialog}>
         <ShortcutsDialog />

@@ -70,33 +70,26 @@ export function layerKind(
  * What a selection's header does at the end of its row, before a layer's eye. `open-in-editor` is only drawn by the
  * Open in editor exploration, since the code side was set aside (PAR-1027).
  */
-export type HeaderAction = "open-in-storybook" | "open-in-editor" | "go-to-component"
+export type HeaderAction = "open-in-editor" | "go-to-component"
 
-/** What the project has for a layer's component: stories for it, and a design of it to go to. */
-export interface ComponentHas {
-  stories: boolean
-  design: boolean
+/**
+ * What a layer's header offers of Parity's own: an instance of a design goes to the component, when the project has the
+ * design. Open in editor was set aside with the code side (Explorations, Code, Open in editor). Extensions add their own
+ * buttons for a code component (`headingComponent`).
+ */
+export function layerActions(node: DesignNode, has: { design: boolean }): HeaderAction[] {
+  return node.type === "instance" && has.design ? ["go-to-component"] : []
 }
 
 /**
- * What a layer's header offers: an instance of a design goes to the component, and a code component opens in Storybook
- * where it has stories. Open in editor was set aside with the code side (Explorations › Code › Open in editor). An icon and a layer that isn't a component
- * offer nothing but the eye.
+ * The code component a layer places, which extensions' heading buttons act on, as Open in Storybook: none for an icon
+ * or a layer that isn't a component.
  */
-export function layerActions(
+export function headingComponent(
   node: DesignNode,
-  has: ComponentHas,
   libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
-): HeaderAction[] {
-  if (node.type === "instance") {
-    return has.design ? ["go-to-component"] : []
-  }
-
-  if (node.type !== "component" || isIconLayer(node, libraries)) {
-    return []
-  }
-
-  return has.stories ? ["open-in-storybook"] : []
+): string | undefined {
+  return node.type === "component" && !isIconLayer(node, libraries) ? node.component : undefined
 }
 
 /** The library a component comes from: the one whose id begins the component's, as `lucide` begins `lucide/Check`. */

@@ -1,5 +1,5 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowUpRight, BookOpen, Code } from "lucide-react"
+import { ArrowUpRight, Code } from "lucide-react"
 import type { ReactNode } from "react"
 import { textFor } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
@@ -65,7 +65,6 @@ export function SelectionHeading({
 }
 
 const actionLooks: Record<HeaderAction, { label: string; icon: ReactNode }> = {
-  "open-in-storybook": { label: "Open in Storybook", icon: <BookOpen /> },
   "open-in-editor": { label: "Open in editor", icon: <Code /> },
   "go-to-component": { label: "Go to component", icon: <ArrowUpRight /> }
 }

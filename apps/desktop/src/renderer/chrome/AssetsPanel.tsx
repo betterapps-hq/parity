@@ -40,7 +40,6 @@ import {
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
-  BookOpen,
   ChevronRight,
   CircleAlert,
   Component,
@@ -70,15 +69,23 @@ import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, type DesignStore, useContainerEntries } from "../design-store.ts"
+import { commandsAt, runCommand, useExtensions } from "../extensions.ts"
 import type { LoadedGuest } from "../guest.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
-import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
+import {
+  type CardCommand,
+  type ComponentCardProps,
+  ComponentPopover,
+  PreviewThumb,
+  StatusLine
+} from "./ComponentCard.tsx"
 import { ComponentMenu } from "./ComponentMenu.tsx"
 import type { Attributes } from "./event-attributes.ts"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
@@ -87,9 +94,7 @@ import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
-import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
-import { hasStories, openInStorybook } from "./storybook.ts"
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
@@ -511,10 +516,6 @@ function SourceSection({
   const session = useProject()
   const statuses = useRenderStatus(session.loaded)
 
-  const storybookRunning = useProcesses(false).some(
-    (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
-  )
-
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
@@ -552,7 +553,6 @@ function SourceSection({
                   view={view}
                   uses={uses.get(entry.key) ?? 0}
                   status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                  storybookRunning={storybookRunning}
                 />
               ))}
             </div>
@@ -577,24 +577,26 @@ function AssetEntry({
   source,
   view,
   uses,
-  status,
-  storybookRunning
+  status
 }: {
   entry: Family["items"][number]
   source: Source
   view: ComponentsView
   uses: number
   status: ComponentRenderStatus | undefined
-  storybookRunning: boolean
 }) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const stories = component !== undefined && hasStories(session.info, component)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
   const file = about.onOpenFile !== undefined
+  const { extensions } = useExtensions(session)
+  const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
+  const placed = target ? commandsAt(extensions, "componentCard", target) : []
+  // The first command that can run for it is a button on the row, as Open in Storybook is.
+  const quick = about.commands?.[0]
   // Pressing it, to add or drag it, or right-clicking it puts the card away.
   const putAway = () => card.setOpen(false)
 
@@ -698,11 +700,13 @@ function AssetEntry({
 
   const menu = (component || instance) && (
     <ComponentMenu
-      storybook={
-        component && session.info.storybook
-          ? { stories, running: storybookRunning, open: () => void openInStorybook(session.id, component) }
-          : undefined
-      }
+      commands={placed.map((each) => ({
+        id: each.command.id,
+        title: each.command.title,
+        icon: <ContributionIcon name={each.command.icon} logo={each.extension.icon} />,
+        disabledReason: each.enabled ? undefined : (each.disabledReason ?? "Unavailable"),
+        run: () => void runCommand(session, each, target)
+      }))}
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
@@ -756,15 +760,15 @@ function AssetEntry({
       ) : (
         row
       )}
-      {stories && (
-        <Hint label="Open in Storybook">
+      {quick && (
+        <Hint label={quick.title}>
           <button
             type="button"
-            aria-label={`Open ${entry.label} in Storybook`}
-            onClick={() => void openInStorybook(session.id, entry.key)}
+            aria-label={`${quick.title}: ${entry.label}`}
+            onClick={quick.run}
             className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
           >
-            <BookOpen className="size-3.5" />
+            <span className="grid size-3.5 place-items-center [&>svg]:size-3.5">{quick.icon}</span>
           </button>
         </Hint>
       )}
@@ -774,8 +778,8 @@ function AssetEntry({
 
 /**
  * What a component's card shows, beyond its name (PAR-208): its file, its preview and why it has none, its variants'
- * previews, made only while `shown`, how many stories it has, and opening its file or its stories. `pictured` is its
- * preview's status, for its row.
+ * previews, made only while `shown`, what extensions say of it, as how many stories it has, and opening its file or
+ * running their commands for it, as Open in Storybook. `pictured` is its preview's status, for its row.
  */
 export function useComponentCard(
   session: ProjectSession,
@@ -783,6 +787,7 @@ export function useComponentCard(
   shown: boolean
 ): ComponentCard {
   const preview = useComponentPreview(session, component ?? "")
+  const { extensions } = useExtensions(session)
   const info = component ? session.components.get()[component] : undefined
   // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
   const lacking = preview?.state === "failed" || preview?.state === "empty"
@@ -805,9 +810,23 @@ export function useComponentCard(
     return { pictured: previewStatus(undefined), about: { preview: undefined } }
   }
 
-  const stories = session.info.storybook?.stories[component]?.length ?? 0
+  const target = { type: "component", key: component } as const
+  const facts = extensions.flatMap((extension) => extension.facts[component] ?? [])
 
-  const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, stories }
+  const commands = commandsAt(extensions, "componentCard", target)
+    .filter((placed) => placed.enabled)
+    .map((placed): CardCommand => ({
+      id: placed.command.id,
+      title: placed.command.title,
+      icon: <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />,
+      run: () => void runCommand(session, placed, target)
+    }))
+
+  const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, facts }
+
+  if (commands.length > 0) {
+    about.commands = commands
+  }
 
   if (variants) {
     about.variants = {
@@ -820,20 +839,13 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
-  if (stories > 0) {
-    about.onOpenStorybook = () => void openInStorybook(session.id, component)
-  }
-
   return { pictured: previewStatus(preview, missing), about }
 }
 
 /** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
 export interface ComponentCard {
   pictured: PreviewStatus
-  about: Pick<
-    ComponentCardProps,
-    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
-  >
+  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "facts" | "onOpenFile" | "commands">
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */

@@ -12,7 +12,7 @@ import {
   preferring,
   projectAt
 } from "../stories/fixtures.tsx"
-import { answering, roots, running, service } from "../stories/host.ts"
+import { answering, askWindow, roots, running, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { AtBottom, olderProjectAt, renameDesign, Window } from "./chrome-fixtures.tsx"
@@ -77,7 +77,7 @@ export const Everything: Story = {
         {
           ...base,
           id: `storybook:${roots.example}`,
-          kind: "storybook",
+          kind: "extension",
           lifetime: "server",
           name: "Storybook",
           status: "starting",
@@ -280,7 +280,23 @@ export const OpeningStorybook: Story = {
     async () => {
       await openProjects("example")
       preferring({ performanceStats: false })
-      answering({ "storybook.open": () => never() })
+      // Its extension shows progress, and the command doesn't finish while Storybook starts.
+      answering({
+        "extensions.run": async ({ projectId }) => {
+          await askWindow({
+            projectId,
+            extension: "@parity-app/extension-storybook",
+            method: "ui.progress",
+            params: {
+              id: 1,
+              title: "Opening Storybook…",
+              detail: "If it isn't running yet, it starts first, which can take a minute."
+            }
+          })
+
+          return never()
+        }
+      })
     }
   ],
   play: async () => {
@@ -311,7 +327,7 @@ export const StorybookFailed: Story = {
       await openProjects("example")
       preferring({ performanceStats: false })
       answering({
-        "storybook.open": () => {
+        "extensions.run": () => {
           throw new Error("storybook dev exited with code 1: Port 6006 is in use by another program")
         }
       })
@@ -319,6 +335,6 @@ export const StorybookFailed: Story = {
   ],
   play: async () => {
     await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
-    await holdToast("Couldn't open Storybook")
+    await holdToast("Open in Storybook didn't work")
   }
 }

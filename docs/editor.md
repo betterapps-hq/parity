@@ -894,15 +894,14 @@ press taking 31ms and the frame after it 18ms.
 
 ### A component's stories and code from its menu (PAR-527)
 
-Right-clicking a component in the Components panel opens its menu: **View in Storybook**, then **View code**, which
-opens the component's file in the person's editor at the line of its export. Each is greyed with why when it can't act,
-rather than left out, so the menu is the same for every component: View in Storybook says "No stories" for one without
-any, and View code "Not in the project" for a library component without type declarations, whose declarations are
-otherwise its code. With stories, View in Storybook stays enabled while Storybook isn't running and says "Starts
-Storybook": choosing it starts the project's Storybook, reusing one already serving it, and opens the component's docs
-or first story once it's up, as the row's book button does. Whether it's running is the service's process list, which
-the status bar polls. A project without a Storybook has no View in Storybook. A library's component design offers Insert
-linked instance and Insert detached copy after them.
+Right-clicking a component in the Components panel opens its menu: the commands extensions add there, today **Open in
+Storybook**, then **View code**, which opens the component's file in the person's editor at the line of its export. Each
+is greyed with why when it can't act, rather than left out, so the menu is the same for every component: Open in
+Storybook says "No stories" for one without any, and View code "Not in the project" for a library component without type
+declarations, whose declarations are otherwise its code. Open in Storybook comes from the Storybook extension's manifest
+and runs in its host ("Extensions", below): it starts the project's Storybook, reusing one already serving it, and opens
+the component's docs or first story once it's up, as the row's book button does. A project without a Storybook has no
+Open in Storybook. A library's component design offers Insert linked instance and Insert detached copy after them.
 
 Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
 and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
@@ -936,11 +935,10 @@ root, and a library component's declarations, or none). `apps/desktop/src/shared
 file's absolute path and an editor Settings lists, and nothing more; every listed editor is taken) and
 `apps/desktop/src/main/host-methods.test.ts` (a good request reaches its handler; a path that isn't absolute, an editor
 Settings doesn't list, an unknown field or a request that isn't an object is refused before it, with the field at
-fault). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode, StorybookNotRunning, WithoutStories,
-NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and FailingToDraw in
-`chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in `main/code-editor.ts`
-have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
-`function Button`, and Badge's menu said "Starts Storybook" with none running.
+fault). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode, WithoutStories, NoCodeInTheProject and
+LibraryDesign; and ComponentMenu, ListedByHand and FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps:
+launching the editor and the system's default app in `main/code-editor.ts` have no test of their own. They were tried in
+a debug copy: View code on Button opened VS Code at `button.tsx:43`, its `function Button`.
 
 ## Reading the code
 
@@ -1065,6 +1063,38 @@ Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's entries 
 app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted
 on Members' board and listed under Members in the panel, which covers the window's announcement reaching main ahead of
 Electron's `console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
+
+### Extensions in the editor (PAR-1089)
+
+An extension adds commands, status bar items and facts that the editor draws from its manifest before its code loads,
+and runs its code in a host of its own ([extensions.md](extensions.md)). Storybook is the first.
+
+- **Commands** show where the manifest places them: a component's menu and card in the Components panel, the selection's
+  heading in the layer panel, and Search under Extensions. A command greyed by its `enablement` says why, as Open in
+  Storybook says "No stories". Running one shows its progress in a toast with Cancel, and a failure in a toast titled
+  "Open in Storybook didn't work", with Restart when its extension has stopped.
+- **Status bar items** show their last value at once, then what the code sets, as "3 in Storybook", with the tooltip the
+  code gives. Clicking one runs its command.
+- **Facts** on a component's card, as "1 story".
+- **The bottom panel's tabs.** Each extension that has logged something, or has run into trouble, gets a tab beside
+  Console, named with its logo, and a warning sign while it's stopped or not answering. The tab shows its log, newest
+  last, each line with its time and level, an error's stack folded under it; whether the host is running, starting,
+  stopped or not answering; Restart; Clear the log; and why it stopped. Arrow keys move between the tabs. Without any
+  extension tab, the panel's header is Console's title alone, as before. The tab chosen is kept in the layout.
+- **Trouble** is named once, in a warning toast with Restart: "Storybook stopped" after crashing 3 times in a row, or
+  "Storybook isn't answering". A stopped extension's commands and status items are hidden until it restarts.
+- **Questions** an extension asks, a confirmation, a field or a list to pick from, open a dialog saying which extension
+  asks. Escape cancels.
+
+Code: `renderer/extensions.ts` (the store, `commandsAt`, `statusItems`, `runCommand`), `renderer/extension-ui.ts`,
+`chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`; `extensions.*` in
+`shared/protocol.ts`; the service's side in `utility/extensions.ts`.
+
+Tests: `packages/extensions/src/hosts.test.ts` and `manifest.test.ts` ([extensions.md](extensions.md)), and
+`chrome/layout.test.ts` (the bottom tab kept with the rest of the layout, Console by default). Stories:
+`chrome/StatusBar.stories.tsx` OpeningStorybook, OpenedStorybook and StorybookFailed, and
+`chrome/ComponentMenu.stories.tsx`. Gaps: the tabs, toasts and dialogs have no tests of their own. They were tried in
+the running app on 2026-11-14 with the mouse and keyboard ([extensions.md](extensions.md) says how).
 
 ### Previews in the Components panel and the insert picker (PAR-208)
 

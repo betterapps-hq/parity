@@ -15,6 +15,7 @@ import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { commandsAt, extensionsOf, runCommand } from "../extensions.ts"
 import { resetWithWindow } from "../store.ts"
 import {
   type ProjectDesigns,
@@ -28,6 +29,7 @@ import {
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { type Command as KeyCommand, type Group, groups, keymap, shortcutOf } from "./keymap.ts"
 import { setLayout } from "./layout.ts"
 import { Name } from "./Name.tsx"
@@ -38,7 +40,7 @@ import { findRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
 import { showToken } from "./shown-token.ts"
 
-type Heading = Group | "Designs" | "Layers" | "Components" | "Tokens" | "Projects"
+type Heading = Group | "Extensions" | "Designs" | "Layers" | "Components" | "Tokens" | "Projects"
 
 interface Item extends FindItem<Heading> {
   run(): ActionResult
@@ -201,13 +203,31 @@ function commandItems(): Item[] {
     }))
 }
 
-/** The open project's designs, their layers, the components it can insert and its tokens. */
-function projectItems(
-  session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">
-): Item[] {
+/** What a project's session gives the search. */
+type SearchedSession = ProjectDesigns &
+  Pick<ProjectSession, "id" | "untilClosed" | "components" | "editor" | "info" | "tokens">
+
+/**
+ * The open project's designs, their layers, the components it can insert, its tokens, and the commands its extensions
+ * place in Search actions, from their manifests.
+ */
+function projectItems(session: SearchedSession): Item[] {
   const entries = session.store.getEntries()
   const library = session.store.getComponentLibrary()
   const items: Item[] = []
+
+  for (const placed of commandsAt(extensionsOf(session).store.get().extensions, "search")) {
+    items.push({
+      id: `extension:${placed.command.id}`,
+      group: "Extensions",
+      label: placed.command.title,
+      keywords: placed.extension.displayName,
+      detail: placed.command.note ?? placed.extension.displayName,
+      icon: <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />,
+      available: () => placed.enabled,
+      run: () => void runCommand(session, placed)
+    })
+  }
 
   for (const entry of entries) {
     items.push({
@@ -291,7 +311,7 @@ function projectItems(
 
 /** Everything the search can find now: the actions, the active project's contents and the remembered projects. */
 function gatherItems(
-  session: (ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "info" | "tokens">) | undefined,
+  session: SearchedSession | undefined,
   projects: readonly { root: string; name: string }[]
 ): Item[] {
   return [
@@ -343,8 +363,8 @@ export function ActionsSearch() {
   }
 
   const order: Heading[] = starting
-    ? ["Projects", "Designs", "Layers", ...groups, "Components", "Tokens"]
-    : ["Designs", "Layers", ...groups, "Components", "Tokens", "Projects"]
+    ? ["Projects", "Designs", "Layers", ...groups, "Extensions", "Components", "Tokens"]
+    : ["Designs", "Layers", ...groups, "Extensions", "Components", "Tokens", "Projects"]
 
   const found = findAnything(items, query, { recent, groups: order, limits })
   // A new search lists other rows from the top, so the edges are measured again once they're drawn.

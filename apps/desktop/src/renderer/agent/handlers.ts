@@ -12,6 +12,8 @@ import type {
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { askChangesAgain } from "../canvas/frame-changes.ts"
+import { answerExtension } from "../extension-ui.ts"
+import { extensionsOf } from "../extensions.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
@@ -129,6 +131,36 @@ const handlers: Handlers = {
     askChangesAgain(projectId)
 
     return undefined
+  },
+  "extensions.changed": ({ projectId, extensions }) => {
+    const session = sessionOf(projectId)
+
+    if (session) {
+      extensionsOf(session).changed(extensions)
+    }
+
+    return undefined
+  },
+  "extensions.logged": ({ projectId, extension, line }) => {
+    const session = sessionOf(projectId)
+
+    if (session) {
+      extensionsOf(session).logged(extension, line)
+    }
+
+    return undefined
+  },
+  "extensions.ui": (asked) => {
+    const session = sessionOf(asked.projectId)
+
+    const name =
+      (session &&
+        extensionsOf(session)
+          .store.get()
+          .extensions.find((extension) => extension.id === asked.extension)?.displayName) ??
+      asked.extension
+
+    return answerExtension(name, asked)
   },
   "project.guestMoved": async ({ projectId, guestUrl }) => {
     // A tab that couldn't load it says so, and the service tries again when the builder is started again.
@@ -332,4 +364,9 @@ async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
   const tokens = session.tokens.edits(changes.tokens ?? [])
 
   return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens, changes.references)
+}
+
+/** The open project's session, in whichever tab has it. */
+function sessionOf(projectId: string): ProjectSession | undefined {
+  return workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session
 }

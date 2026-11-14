@@ -552,7 +552,7 @@ function PickerCard({ session, component, uses }: { session: ProjectSession; com
         {...about}
         uses={uses}
         onOpenFile={close(about.onOpenFile)}
-        onOpenStorybook={close(about.onOpenStorybook)}
+        commands={about.commands?.map((command) => ({ ...command, run: close(command.run) ?? command.run }))}
       />
     </aside>
   )

@@ -27,6 +27,7 @@ import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon 
 import { projectLibrary } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { commandsAt, runCommand, useExtensions } from "../extensions.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
@@ -38,12 +39,13 @@ import { BaseDesignNote } from "./BaseDesignNote.tsx"
 import { pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { ExportSection } from "./ExportSection.tsx"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
-import { type HeaderAction, layerActions, layerKind } from "./layer-kind.ts"
+import { type HeaderAction, headingComponent, layerActions, layerKind } from "./layer-kind.ts"
 import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -52,7 +54,6 @@ import { revealSelection } from "./reveal.ts"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
-import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
@@ -121,34 +122,44 @@ const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
 }
 
 /**
- * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and opens a code
- * component in Storybook.
+ * What a layer's header does before its eye (`layerActions`): goes to the component an instance is of, and runs the
+ * commands extensions place in the heading for a code component, as Open in Storybook where it has stories.
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
   const entries = useContainerEntries(session.store)
-  const component = node.type === "component" ? node.component : undefined
+  const { extensions } = useExtensions(session)
+  const component = headingComponent(node, session.info.libraries)
   const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
-
-  const actions = layerActions(
-    node,
-    {
-      stories: component !== undefined && hasStories(session.info, component),
-      design: design !== undefined
-    },
-    session.info.libraries
-  )
+  const actions = layerActions(node, { design: design !== undefined })
+  const target = component === undefined ? undefined : ({ type: "component", key: component } as const)
+  const placed = target ? commandsAt(extensions, "selectionHeading", target).filter((each) => each.enabled) : []
 
   const act = (action: HeaderAction) => {
     if (action === "go-to-component" && design) {
       session.selection.set({ design: design.key })
       revealSelection(session)
-    } else if (action === "open-in-storybook" && component) {
-      void openInStorybook(session.id, component)
     }
   }
 
-  return <HeaderActions actions={actions} onAction={act} />
+  return (
+    <>
+      <HeaderActions actions={actions} onAction={act} />
+      {placed.map((each) => (
+        <Hint key={each.command.id} label={each.command.title}>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-6 shrink-0 text-muted-foreground"
+            aria-label={each.command.title}
+            onClick={() => void runCommand(session, each, target)}
+          >
+            <ContributionIcon name={each.command.icon} logo={each.extension.icon} />
+          </Button>
+        </Hint>
+      ))}
+    </>
+  )
 }
 
 /**

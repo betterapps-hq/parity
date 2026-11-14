@@ -24,6 +24,8 @@ import {
   mediumOfType,
   videosFolder
 } from "@parity-app/editor"
+import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { readExtension } from "@parity-app/extensions"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
@@ -31,12 +33,17 @@ import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut 
 import type { ConnectorSearch } from "../../shared/connectors.ts"
 import type {
   CanvasHost,
+  ExtensionStatus,
+  ExtensionUiRequest,
   ProjectEditResult,
   ProjectInfo,
   ProjectProcess,
+  ServeAnswer,
   ServiceMethod,
   ServiceMethods,
-  TelemetryState
+  TelemetryState,
+  WindowMethod,
+  WindowParams
 } from "../../shared/protocol.ts"
 import { receiveAccount, resetAccountView } from "../account/account.ts"
 import { preloadAnswers } from "../service.ts"
@@ -403,7 +410,9 @@ export function installHost(): void {
     }),
     account: storyAccount,
     connectors: storyConnectors,
-    serve: () => undefined,
+    serve: (handler) => {
+      windowHandler = handler
+    },
     onReconnect: () => undefined,
     ...cancelled,
     showItem: () => Promise.resolve(),
@@ -436,6 +445,54 @@ export function installHost(): void {
   window.canvasHost = host
   // Each story starts signed out, with main's answer in, as `resetWindowStores` puts the rest back.
   resetWithWindow(resetAccountView)
+}
+
+/** What the window answers the service with, once it serves: agents' requests, and extensions' changes and questions. */
+let windowHandler: ((method: WindowMethod, params: WindowParams) => Promise<ServeAnswer>) | undefined
+
+const storybookExtension = readExtension(storybookPackage)
+
+/**
+ * The Storybook extension as the service lists it for a project: running, with what its code sets, as a host would
+ * after activating with what detection found. None for a project without a Storybook.
+ */
+export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
+  const stories = info.storybook?.stories ?? {}
+  const withStories = Object.entries(stories).filter(([, files]) => files.length > 0)
+
+  if (!info.storybook) {
+    return []
+  }
+
+  const { manifest } = storybookExtension
+
+  return [
+    {
+      id: storybookExtension.id,
+      displayName: manifest.displayName,
+      icon: manifest.icon,
+      contributes: manifest.contributes,
+      state: "running",
+      status: {
+        "storybook.stories": {
+          value: String(withStories.length),
+          tooltip: `${withStories.length} components with stories. Click to open it`
+        }
+      },
+      context: { "storybook.hasStories": withStories.map(([key]) => key) },
+      facts: Object.fromEntries(
+        withStories.map(([key, files]) => [
+          key,
+          [{ id: "stories", label: files.length === 1 ? "story" : "stories", value: String(files.length) }]
+        ])
+      )
+    }
+  ]
+}
+
+/** Shows what an extension shows through `parity.ui`, as the service passes it on to the window. */
+export async function askWindow(asked: ExtensionUiRequest): Promise<void> {
+  await windowHandler?.("extensions.ui", asked)
 }
 
 /** A fresh copy of a project, as opening it again reads it again. */
@@ -763,8 +820,30 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       return { path, edit }
     }
 
-    case "storybook.open":
-      return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
+    case "extensions.list":
+      return { extensions: standInExtensions(projectInfo(request.params.projectId)), logs: {} }
+    case "extensions.run": {
+      // Storybook's command, as its extension runs it: progress while it opens, then the page in the browser.
+      const { projectId } = request.params
+      const extension = storybookExtension.id
+      const url = "http://localhost:6006/?path=/docs/components-button--docs"
+      await askWindow({ projectId, extension, method: "ui.progress", params: { id: 1, title: "Opening Storybook…" } })
+      await new Promise((resolve) => setTimeout(resolve, service.latency))
+      await askWindow({ projectId, extension, method: "ui.progress", params: { id: 1, done: true } })
+      await askWindow({ projectId, extension, method: "ui.open", params: { url } })
+      void askWindow({
+        projectId,
+        extension,
+        method: "ui.notify",
+        params: { message: "Opened in your browser", detail: url, tone: "success" }
+      })
+
+      return undefined
+    }
+
+    case "extensions.restart":
+    case "extensions.cancel":
+      return undefined
     case "layers.export":
       return {
         files: request.params.files.map((file) => `D:/exports/${file.name}`),

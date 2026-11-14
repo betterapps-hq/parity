@@ -52,7 +52,7 @@ function Header({
 
 const signInCard = { type: "component", id: "card", component: "nova/Card" } as const
 
-/** A code component placed in a design: Open in Storybook, then Open in editor at its file. */
+/** A code component placed in a design: Open in editor at its file. */
 export const CodeComponentInstance: Story = {
   render: () => (
     <Header
@@ -60,7 +60,7 @@ export const CodeComponentInstance: Story = {
       color={nodeColor(signInCard)}
       kind="Component instance"
       name="Sign in card"
-      actions={["open-in-storybook", "open-in-editor"]}
+      actions={["open-in-editor"]}
     />
   )
 }

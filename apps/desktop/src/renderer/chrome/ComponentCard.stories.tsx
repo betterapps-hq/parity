@@ -1,6 +1,6 @@
 import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { Component } from "lucide-react"
+import { BookOpen, Component } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { expect, userEvent, within } from "storybook/test"
 import type { PreviewImage } from "../../shared/protocol.ts"
@@ -226,10 +226,10 @@ export const VariantsAndActions: Story = {
             ]
           }}
           uses={153}
-          stories={1}
+          facts={[{ value: "1", label: "story" }]}
           onInsert={() => undefined}
           onOpenFile={() => undefined}
-          onOpenStorybook={() => undefined}
+          commands={[{ id: "storybook.open", title: "Open in Storybook", icon: <BookOpen />, run: () => undefined }]}
         />
       </Surface>
       <Surface label="Variants still being made">
