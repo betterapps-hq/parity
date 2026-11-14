@@ -1,6 +1,7 @@
-import { type ContainerSpec, designStates } from "./document.ts"
+import type { ContainerSpec } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
 import { frameSize, frameViewport } from "./render.ts"
+import { shownStates } from "./rows.ts"
 
 /** The space on either side of a dashed line on a board, and the line. */
 export interface BoardDivider {
@@ -102,6 +103,37 @@ export function besideScale(
 }
 
 /**
+ * How far a board's row runs before it wraps onto another line: two and a half times its widest preview, or 1600
+ * pixels where that's more, so a design showing many modes doesn't run on across the canvas.
+ */
+export function rowWrapWidth(widths: readonly number[]): number {
+  return Math.max(1600, 2.5 * Math.max(0, ...widths))
+}
+
+/**
+ * A row's previews, by index, on lines no wider than `most`: each one beside the last unless it would run past it. The
+ * gaps are taken up close, where they're narrowest on the canvas, so zooming never moves a preview onto another line.
+ */
+export function wrapRow(widths: readonly number[], most: number): number[][] {
+  const lines: number[][] = []
+  let used = 0
+
+  for (const [index, width] of widths.entries()) {
+    const line = lines.at(-1)
+
+    if (line && used + boardLayout.between + width <= most) {
+      line.push(index)
+      used += boardLayout.between + width
+    } else {
+      lines.push([index])
+      used = width
+    }
+  }
+
+  return lines
+}
+
+/**
  * The size of a design's board when the canvas hasn't drawn it: its frames for the modes it shows (`modes`, the main
  * frame's first), companions shrunk as the canvas shrinks them, each preview at its own width and scale, in one row per
  * state shown, with the board's gutter,
@@ -115,14 +147,8 @@ export function boardSize(
   design: ContainerSpec,
   modes: readonly Pick<ResolvedMode, "id" | "viewport" | "width" | "options">[]
 ) {
-  const states = designStates(design)
-
-  const shown = design.view?.allStates
-    ? states
-    : [states.find((state) => state.id === design.view?.state) ?? states[0]!]
-
   // Each preview at its own width and scale where it sets them (see `PreviewSettings`).
-  const rows = shown.map((state) =>
+  const rows = shownStates(design).map((state) =>
     modes.map((mode, column) => {
       const own = design.view?.previews?.[`${state.id}/${mode.id}`]
       const size = frameSize(design, mode)
@@ -137,12 +163,30 @@ export function boardSize(
   )
 
   const { side, caption, between, divider, rowDivider } = boardLayoutAt(shrinkBelow)
-  const companions = modes.length > 1 ? divider.before + divider.line + divider.after + (modes.length - 2) * between : 0
-  const widest = Math.max(0, ...rows.map((row) => row.reduce((total, frame) => total + frame.width, 0)))
-  const width = widest + companions + 2 * side
-  const tallest = rows.map((row) => Math.max(0, ...row.map((frame) => frame.height)))
+  const most = rowWrapWidth(rows.flat().map((frame) => frame.width))
+
+  // Each row on its lines, as wide as its previews and the gaps between them, and as tall as its tallest.
+  const lines = rows.map((row) =>
+    wrapRow(
+      row.map((frame) => frame.width),
+      most
+    ).map((line) => ({
+      width:
+        line.reduce((total, index) => total + row[index]!.width, 0) +
+        line
+          .slice(1)
+          .reduce((total, index) => total + (index === 1 ? divider.before + divider.line + divider.after : between), 0),
+      height: Math.max(0, ...line.map((index) => row[index]!.height))
+    }))
+  )
+
+  const width = Math.max(0, ...lines.flat().map((line) => line.width)) + 2 * side
   const rowGap = rowDivider.before + rowDivider.line + rowDivider.after
-  const height = caption + tallest.reduce((total, row) => total + row, 0) + (rows.length - 1) * rowGap + side
+  const lineGap = between + caption
+
+  const tall = lines.map((row) => row.reduce((total, line) => total + line.height, 0) + (row.length - 1) * lineGap)
+
+  const height = caption + tall.reduce((total, row) => total + row, 0) + (rows.length - 1) * rowGap + side
 
   return { width: Math.ceil(width), height: Math.ceil(height) }
 }

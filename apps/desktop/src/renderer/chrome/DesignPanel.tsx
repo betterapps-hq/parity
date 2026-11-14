@@ -1,19 +1,16 @@
-import { Switch } from "@buildkitgg/shadcn-baseui-kit"
-import type { ResolvedMode } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
-import { Crown, GripVertical, MousePointerClick } from "lucide-react"
+import { Crown, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
 import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
-import { containerModes, withModeOrder } from "../canvas/view.ts"
+import { ModesList } from "../canvas/view-lists.tsx"
+import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
-import { moved } from "../inspector/controls/list-parts.tsx"
-import { useSortable } from "../inspector/controls/sortable.ts"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
@@ -298,127 +295,19 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
 }
 
 /**
- * A screen's or component's modes in its own order, each put in place by its handle. The first is the one it shows
- * first, so it always shows; each other's switch shows it beside the first.
+ * A screen's or component's modes in its own order, each put in place by its handle, each shown by its switch: any can
+ * be off while another shows, and the first shown is drawn at full size (see `ModesList`).
  */
 export function ModesSection({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
+  const { store } = useProject()
   const settings = useModeSettings(store)
-  const selected = useSelection(selection)
-  const { container, key } = entry
-  const { all, ordered } = containerModes(settings, container)
-  const shown = new Set(container.view?.modes ?? [])
-
-  const move = (from: number, to: number) => {
-    const order = moved(ordered, from, to)
-    const label = order[0] === ordered[0] ? `Move ${ordered[from]!.name}` : `Show ${order[0]!.name} first`
-
-    store.updateView(key, label, (view) =>
-      withModeOrder(
-        view,
-        order.map((mode) => mode.id),
-        all
-      )
-    )
-  }
-
-  const show = (mode: ResolvedMode, on: boolean) => {
-    const modes = ordered.filter((each, index) => index > 0 && (each === mode ? on : shown.has(each.id)))
-
-    store.updateView(key, on ? `Show ${mode.name}` : `Hide ${mode.name}`, (view) => ({
-      ...view,
-      modes: modes.map((each) => each.id)
-    }))
-  }
+  const { ordered } = containerModes(settings, entry.container)
 
   return (
     <PanelSection title="Modes" count={ordered.length}>
-      <div className="flex flex-col">
-        {ordered.map((mode, index) => (
-          <ModeRow
-            key={mode.id}
-            mode={mode}
-            first={index === 0}
-            shown={index === 0 || shown.has(mode.id)}
-            selected={selected.mode === mode.id}
-            onMove={ordered.length > 1 ? move : undefined}
-            onShow={(on) => show(mode, on)}
-          />
-        ))}
-      </div>
+      <ModesList entry={entry} group="modes" />
     </PanelSection>
   )
-}
-
-/** One mode: its handle, its viewport and name with what it's set to, and whether it shows beside the first. */
-function ModeRow({
-  mode,
-  first,
-  shown,
-  selected,
-  onMove,
-  onShow
-}: {
-  mode: ResolvedMode
-  first: boolean
-  shown: boolean
-  /** Selected on the canvas. */
-  selected: boolean
-  onMove: ((from: number, to: number) => void) | undefined
-  onShow: (on: boolean) => void
-}) {
-  const sort = useSortable({ group: "modes", label: mode.name, onMove })
-
-  return (
-    <div
-      {...sort.item}
-      className={`flex min-h-11 items-center gap-1.5 rounded-md py-1 pr-3 ${selected ? "bg-accent/60" : ""}`}
-    >
-      {onMove ? (
-        // No hint: the grip and its grab cursor say what it does, as a list's handle does (list-parts.tsx).
-        <button
-          type="button"
-          aria-label={`Move ${mode.name}`}
-          aria-keyshortcuts="ArrowUp ArrowDown"
-          onPointerDown={sort.handle.onPointerDown}
-          onKeyDown={sort.handle.onKeyDown}
-          className="grid h-7 w-3 shrink-0 cursor-grab touch-none place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <GripVertical className="size-3" />
-        </button>
-      ) : (
-        <span className="w-3 shrink-0" />
-      )}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex min-w-0 items-center gap-1.5 text-xs">
-          <ModeViewportIcon of={mode} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <Name>{mode.name}</Name>
-        </span>
-        <span className="flex flex-wrap gap-1">
-          <OptionChip>{mode.width}px</OptionChip>
-          {mode.options.slice(1).map(({ variable, option }) => (
-            <OptionChip key={variable.id}>{option.name}</OptionChip>
-          ))}
-        </span>
-      </div>
-      <Hint label={first ? "The first mode always shows" : `Show ${mode.name} beside the first`}>
-        <span className="inline-flex">
-          <Switch
-            size="sm"
-            aria-label={`Show ${mode.name}`}
-            checked={shown}
-            disabled={first}
-            onCheckedChange={onShow}
-          />
-        </span>
-      </Hint>
-    </div>
-  )
-}
-
-/** A tag on a mode's row, its width or a variable's option: a Caption. */
-function OptionChip({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-muted px-1.5 py-px text-2xs text-muted-foreground">{children}</span>
 }
 
 function NotePanel({ noteKey }: { noteKey: string }) {

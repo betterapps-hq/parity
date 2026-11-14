@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

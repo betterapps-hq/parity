@@ -569,6 +569,10 @@ const containerViewSettings = fileObject({
   state: z.string().optional(),
   /** Show every state of a component, one row each, instead of only the active one. */
   allStates: z.boolean().optional(),
+  /** The states shown, a row each, where it's some of them and not one or every one (see `withShownStates`). */
+  states: z.array(z.string()).optional(),
+  /** The design's own order of its states, by id, as its rows are drawn; states it doesn't name follow. */
+  stateOrder: z.array(z.string()).optional(),
   /** The option the board shows for each variant param, by option id. Unset ones show their default. */
   variants: z.record(z.string(), z.string()).optional()
 })
@@ -708,7 +712,7 @@ function checkNoStates(container: ContainerSpec, context: z.RefinementCtx): void
     problem(context, ["states"], `only a component has states; a ${kind} is drawn as its layers are`)
   }
 
-  for (const field of ["state", "allStates"] as const) {
+  for (const field of ["state", "allStates", "states", "stateOrder"] as const) {
     if (container.view?.[field] !== undefined) {
       problem(context, ["view", field], `only a component has states; a ${kind} has none to show`)
     }
