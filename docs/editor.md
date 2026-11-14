@@ -6469,20 +6469,40 @@ route file's default export, `App` by export or file and the nearest one, never 
 ### Each page of the app as a screen, in its tree (PAR-1076)
 
 An app whose router Parity reads (TanStack Router, see support.md) opens with each of its pages as a screen above the
-designs, laid out as the router's tree, top down. A page is a route the router draws on its own. A layout's index stands
-for the layout, so the layout's other pages hang from it: the example's App, at `/`, holds Pricing, Projects,
-ProjectDetail and `/settings`, which holds Billing and Profile. A layout with no index adds no page, and its pages hang
-from the page above. Each page is centered over the pages under it, and pages side by side go by path. A screen is named
-for the component its route draws, else its path.
+designs, laid out as the router's tree, top down. A page is a route the router draws on its own. A layout's index that
+draws stands for the layout, so the layout's other pages hang from it: the example's App, at `/`, holds Pricing,
+Projects, Project detail and Settings. Each page is centered over the pages under it, and pages side by side go by path.
+A screen is named for the component its route draws, else its path.
 
-- **Layers.** Layers lists the app's pages under Routes, before Screens and Frames; component designs are listed in the
-  Components panel. A page shows the route icon, in Layers and on its title, and its title shows its route's path under
-  its name; selecting it shows its route's path, params, file and component, and whether it loads data or can redirect,
-  read-only. Its layers are what each route that draws it draws, the root's outermost, each inside the one before as it
-  draws at that route's outlet, as children passed to it: Billing's are RootLayout, SettingsLayout, Billing. Each shows
-  as the component its route draws, with the component's icon and color, and its panel shows its route too; a route that
-  names no component, as a redirecting index, shows as a route, named for its path. What each component draws inside
-  comes with React's tree (step 4).
+- **Layouts without a page.** A layout with no page of its own, because it has no index or its index draws nothing and
+  only redirects, is a group around its pages instead of a page: the example's `/settings` index only redirects to
+  Profile, so Settings is a dashed, rounded outline around Billing and Profile, side by side on its level, 48 canvas
+  pixels in from its sides. Its header, at a title's size, shows the layout icon, its name and path, and a chip with
+  where its index redirects, Profile; clicking the chip selects Profile. The line from the page above ends at the
+  group's top edge. Clicking the header selects the group, whose outline turns solid in the page color, and brings
+  forward its line up to App. Selecting a design takes the selection from it. A group is named for its path's last part,
+  or for its component when its path is its parent's, as a pathless layout's is. The group's outline is drawn round its
+  pages where they are now, so it follows a page that's moved.
+- **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
+  the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
+  an `if` is a sometimes, and doesn't count.
+- **Where a page lands.** The script the builder's server puts first in the app's `index.html` also posts the path the
+  page opened on, `{ parity: "page-landed", path }`, and again whenever the app's router moves it, until someone uses
+  the page with the pointer or keys. When the path isn't the page's own, ignoring a trailing slash, an amber "Lands on
+  /x" warning shows under the page's frame, at its left, sized for the zoom as a frame's caption is, so a redirect
+  Parity couldn't read still shows.
+
+- **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
+  page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
+  the layout icon and, at its right, where its index redirects, holding its pages: Settings holds Billing and Profile.
+  It's open until it's closed with its arrow, or Left and Right; clicking it selects its group, on the canvas too. A
+  search lists the pages flat. Component designs are listed in the Components panel. A page shows the route icon, in
+  Layers and on its title, and its title shows its route's path under its name; selecting it shows its route's path,
+  params, file and component, and whether it loads data or can redirect, read-only. Its layers are what each route that
+  draws it draws, the root's outermost, each inside the one before as it draws at that route's outlet, as children
+  passed to it: Billing's are RootLayout, SettingsLayout, Billing. Each shows as the component its route draws, with the
+  component's icon and color, and its panel shows its route too; a route that names no component, as a redirecting
+  index, shows as a route, named for its path. What each component draws inside comes with React's tree (step 4).
 - **Names.** A page is named for its component in words, as ProjectDetail is "Project detail", else its path's last
   part, as the `/settings` index is "Settings", else Home.
 - **Lines.** A dashed line runs from the middle of each page's bottom edge to the middle of the top edge of each page
@@ -6493,9 +6513,9 @@ for the component its route draws, else its path.
   the way down. Its dashes flow slowly down the tree, at any zoom, so the tree shows which way it runs. Lines are faint
   until a page is selected or hovered, on the canvas or in Layers: then its way up to the top of the tree and its lines
   to the pages right under it come forward in the page color, drawn over the rest. Selecting Billing brings forward
-  Billing's line and Settings', and selecting Settings brings forward its line up to App and its lines to Billing and
-  Profile. The lines are drawn from where the boards are now, so they follow a page that's moved, and they sit behind
-  every board.
+  Billing's line and Settings' group's, and selecting Settings' group brings forward its line up to App. A line into a
+  group curves straight down to the group's top, since a group's header isn't a title it passes behind. The lines are
+  drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
@@ -6523,33 +6543,46 @@ for the component its route draws, else its path.
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
 
-Tried in a development build on the example project, opened cold: seven page screens in three levels with six lines
-between them, each showing its page, `/settings` redirected to Profile, with no errors; the lines' dashes moved from
-each page toward the pages under it.
+Tried in a development build on the example project, opened cold: six page screens in two levels, Billing and Profile in
+Settings' group with its Profile chip, four lines from App to Pricing, Projects, Project detail and the group, each page
+showing its page, with no errors; the lines' dashes moved from each page toward the pages under it. Layers listed App,
+its four pages a level in, and Billing and Profile in the Settings folder; clicking the folder selected the group on the
+canvas. Moving Pricing's page with `history.replaceState` showed "Lands on /pricing/annual" under its frame.
 
-Code: `pageTree`, `placePages`, `routeScreens`, `pageLinkLine` and `pageLinksLit` in
-`packages/editor/src/route-boards.ts`, with `titleTop` in `canvas-labels.ts`; `projectRoutes` in
-`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`;
-`PageFrame` and the title's backdrop in `ContainerView.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`, and
-`appPageModeScript` in `app-page.ts`, whose message `pageHeightMessage` in `route-boards.ts` reads.
+Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
+`pageLandedMessage` and `landedElsewhere` in `packages/editor/src/route-boards.ts`, with `titleTop` in
+`canvas-labels.ts`; `routeOptions` in `adapters/tanstack-router-adapter/src/routes.ts`; `projectRoutes` in
+`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
+`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`; `routeLines` in
+`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`, and
+`appPageModeScript` in `app-page.ts`, whose messages `pageHeightMessage` and `pageLandedMessage` read.
 
-Tests: `packages/editor/src/route-boards.test.ts` (16: each layout's pages hung from its index, the root's index at the
-top, and an index of a deeper path as a page; a layout without an index hanging its pages from the page above; a forest
-without a root index, and nothing without routes; each page centered over the pages under it, a level below; each page's
-URL with its params' samples; a splat's empty sample; a screen for each page, named for its component, with the screen
-it hangs from, ending above the designs; a page's frames with no size of their own; the page's height read from its
-frame's message, rounded up, and no other message or a height that isn't a positive number; a line curving across above
-the lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
-title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
-under it, for several pages at once, and none for no page or a page outside the tree), and `canvas-labels.test.ts`
-(`titleTop`, up close and zoomed out), and `adapters/vite-adapter/src/app-page.test.ts` (4: the page's height told once
-it loads and again when it grows, nothing told once the frame is taller than its screen, the scrollbar hidden while it
-is and given back otherwise, and nothing told outside a page's frame). Gaps: reading routes when the project opens, the
-page frames, drawing the lines and the titles' backdrop, and the bundling have no test of their own; all were tried in
-the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each
-line meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no
-scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
-(`PageLines.stories.tsx`, the example opened with its own routes) at 5% and 10%, by selecting Settings and Billing and
+Tests: `packages/editor/src/route-boards.test.ts` (34: each layout's pages hung from its index, the root's index at the
+top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
+that redirects but draws staying a page, and a layout without an index a group; a forest without a root index, and
+nothing without routes; each page centered over the pages under it, a level below; a group's pages side by side inside
+it on its own level, with the page above centered over the group; each page's URL with its params' samples; a splat's
+empty sample; a screen for each page, named for its component, with the screen it hangs from, ending above the designs;
+a group for a layout without a page, hanging from the page above, with the page its index redirects to, its pages
+hanging from it and no screen for the layout; a pathless layout's group named for its component; a page's frames with no
+size of their own; the page's height read from its frame's message, rounded up, and no other message or a height that
+isn't a positive number; the path a page landed on read from its frame's message, and no other message or a path that
+isn't one; the landed path given when it isn't the page's own, and nothing for its own with or without a trailing slash;
+a group's box round its pages' titles; a line curving across above the lower page's title and dropping to its board,
+turning down higher zoomed out, and curving all the way down once the title reaches the page above; the lines a page
+brings forward, up to the top of the tree and down to the pages right under it, for several pages at once, and none for
+no page or a page outside the tree; a line into a group curving straight to its top), `canvas-labels.test.ts`
+(`titleTop`, up close and zoomed out), `adapters/tanstack-router-adapter/src/routes.test.ts` (the example's `/settings`
+index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
+`adapters/vite-adapter/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
+told once the frame is taller than its screen, the scrollbar hidden while it is and given back otherwise, the path the
+page opens on and where the router moves it told, nothing told once someone uses the page, and nothing told outside a
+page's frame). Gaps: reading routes when the project opens, the page frames, drawing the lines, groups, landing warning
+and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
+lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
+its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
+rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
+opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
 hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)

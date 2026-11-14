@@ -25,6 +25,7 @@ import {
   closedTree,
   designsSelection,
   expandedRows,
+  folderId,
   folderIds,
   type FolderRow,
   folderTree,
@@ -50,11 +51,13 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   ChevronRight,
+  CornerDownRight,
   Folder,
   ChevronsDownUp,
   Eye,
   EyeOff,
   Grid2x2,
+  LayoutTemplate,
   Lock,
   LockOpen,
   Plus,
@@ -78,11 +81,18 @@ import { componentBoardsFile } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
-import { routePagesFile } from "../canvas/route-pages.ts"
+import {
+  type PageGroupPlace,
+  type RouteListing,
+  routeListing,
+  routePagesFile,
+  selectedPageGroup
+} from "../canvas/route-pages.ts"
 import { storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
+import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { componentOffers } from "./adapter-actions.ts"
 import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
@@ -133,10 +143,109 @@ interface Group {
 type Line =
   | { type: "heading" | "empty"; key: string; group: Group }
   | { type: "row"; key: string; row: Row; level: number; parent?: string }
-  | { type: "folder"; key: string; folder: FolderRow }
+  | { type: "folder"; key: string; folder: FolderRow; layout?: PageGroupPlace }
   | { type: "gap" | "none"; key: string }
 
 const lineHeights: Record<Line["type"], number> = { heading: 28, empty: 28, row: 28, folder: 28, gap: 8, none: 28 }
+
+/** What a route layout's folder is listed under, which its id starts with. */
+const routesScope = "routes"
+
+/**
+ * The expansion id that closes a route layout's folder: they're open until closed, so the app's pages show in their
+ * tree from the start.
+ */
+function closedRouteFolder(id: string): string {
+  return `closed:${id}`
+}
+
+/**
+ * The app's pages as Layers lists them, in their tree (PAR-1076): each page under the page above it, and a layout with no
+ * page of its own as a folder holding its pages, which closes. A page that isn't in the tree, as the only page of an app,
+ * comes after it at the top.
+ */
+function routeLines(
+  listing: readonly RouteListing[],
+  entries: readonly ContainerEntry[],
+  rowsOf: (designs: readonly ContainerEntry[]) => Row[],
+  expanded: ReadonlySet<string>
+): Line[] {
+  const lines: Line[] = []
+  const folderOf = (key: string | undefined) => (key === undefined ? undefined : folderId(routesScope, [key]))
+  // Where each item is among the ones beside it, under the same item above.
+  const above: (string | undefined)[] = []
+  const counts = new Map<string | undefined, number>()
+
+  const placed = listing.map((item) => {
+    above[item.level] = item.key
+    const parent = item.level > 0 ? above[item.level - 1] : undefined
+    const position = (counts.get(parent) ?? 0) + 1
+    counts.set(parent, position)
+
+    return { item, parent, position }
+  })
+
+  let closedAt: number | undefined
+
+  for (const { item, parent, position } of placed) {
+    if (closedAt !== undefined && item.level > closedAt) {
+      continue
+    }
+
+    closedAt = undefined
+
+    if (item.group) {
+      const id = folderId(routesScope, [item.key])
+      const open = !expanded.has(closedRouteFolder(id))
+
+      const folder: FolderRow = {
+        type: "folder",
+        id,
+        label: item.group.name,
+        kind: "group",
+        level: item.level,
+        expanded: open,
+        position,
+        siblings: counts.get(parent) ?? 1
+      }
+
+      const inside = folderOf(item.parent)
+
+      if (inside) {
+        folder.parent = inside
+      }
+
+      lines.push({ type: "folder", key: id, folder, layout: item.group })
+
+      if (!open) {
+        closedAt = item.level
+      }
+
+      continue
+    }
+
+    const entry = entries.find((each) => each.key === item.key)
+
+    if (entry) {
+      const parentFolder = folderOf(item.parent)
+
+      lines.push(
+        ...rowsOf([entry]).map((row): Line =>
+          parentFolder
+            ? { type: "row", key: row.id, row, level: item.level, parent: parentFolder }
+            : { type: "row", key: row.id, row, level: item.level }
+        )
+      )
+    }
+  }
+
+  const listed = new Set(listing.map((item) => item.key))
+  const rest = entries.filter((entry) => !listed.has(entry.key))
+
+  lines.push(...rowsOf(rest).map((row): Line => ({ type: "row", key: row.id, row, level: 0 })))
+
+  return lines
+}
 
 /** The folder a line is in, or undefined at the top. */
 function folderOfLine(line: Line): string | undefined {
@@ -294,15 +403,22 @@ export function LayerTree() {
           : treeRows(designs, expanded, library, boardOpensTo)
 
       const folderOf = group.folderOf
+      const listing = group.id === "routes" && !search ? routeListing(session.info.id) : undefined
 
-      const shown: Line[] = folderOf
-        ? folderTree(group.entries, { scope: group.id, folderOf, rowsOf, expanded, searching: !!search }).map(
-            (line): Line =>
-              line.type === "folder"
-                ? { type: "folder", key: line.id, folder: line }
-                : { type: "row", key: line.row.id, row: line.row, level: line.level, parent: line.parent }
-          )
-        : rowsOf(group.entries).map((row): Line => ({ type: "row", key: row.id, row, level: 0 }))
+      let shown: Line[]
+
+      if (listing) {
+        shown = routeLines(listing, group.entries, rowsOf, expanded)
+      } else if (folderOf) {
+        shown = folderTree(group.entries, { scope: group.id, folderOf, rowsOf, expanded, searching: !!search }).map(
+          (line): Line =>
+            line.type === "folder"
+              ? { type: "folder", key: line.id, folder: line }
+              : { type: "row", key: line.row.id, row: line.row, level: line.level, parent: line.parent }
+        )
+      } else {
+        shown = rowsOf(group.entries).map((row): Line => ({ type: "row", key: row.id, row, level: 0 }))
+      }
 
       const found = shown.flatMap((line) => (line.type === "row" ? [line.row] : []))
 
@@ -327,7 +443,7 @@ export function LayerTree() {
     }
 
     return { rows: all, lines: list }
-  }, [groups, expanded, search, entries, store, session.info.libraries])
+  }, [groups, expanded, search, entries, store, session.info.libraries, session.info.id])
 
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 
@@ -352,6 +468,14 @@ export function LayerTree() {
   }
 
   const toggle = (id: string, open?: boolean) => setExpansion((current) => toggleRow(current, id, open))
+
+  // A route layout's folder is open until it's closed, so it's opened by taking its closing away.
+  const toggleFolder = (id: string, open?: boolean) =>
+    id.startsWith(folderId(routesScope, []))
+      ? toggle(closedRouteFolder(id), open === undefined ? undefined : !open)
+      : toggle(id, open)
+
+  const pickedGroup = useStore(selectedPageGroup)
 
   // Alt+click on an arrow opens or closes the row with everything inside it, as Finder does.
   const toggleBranch = (row: Row) =>
@@ -596,7 +720,7 @@ export function LayerTree() {
       event.preventDefault()
 
       if (!folder.expanded && !search) {
-        toggle(folder.id, true)
+        toggleFolder(folder.id, true)
       } else if (next && folderOfLine(next) === folder.id) {
         go(next)
       }
@@ -604,13 +728,13 @@ export function LayerTree() {
       event.preventDefault()
 
       if (folder.expanded && !search) {
-        toggle(folder.id, false)
+        toggleFolder(folder.id, false)
       } else {
         go(folderLine(folder.parent))
       }
     } else if ((event.key === "Enter" || event.key === " ") && !search) {
       event.preventDefault()
-      toggle(folder.id)
+      toggleFolder(folder.id)
     }
   }
 
@@ -819,13 +943,24 @@ export function LayerTree() {
                   {line.type === "folder" && (
                     <FolderLine
                       folder={line.folder}
+                      layout={line.layout}
                       active={activeFolder === line.folder.id}
+                      picked={line.layout !== undefined && pickedGroup === line.layout.key}
                       searching={!!search}
                       onClick={() => {
                         setActiveFolder(line.folder.id)
-                        toggle(line.folder.id)
+
+                        // A layout's folder selects its group, on the canvas too; its arrow opens or closes it.
+                        if (line.layout) {
+                          selection.set({})
+                          selectedPageGroup.set(line.layout.key)
+                        } else {
+                          toggle(line.folder.id)
+                        }
+
                         treeRef.current?.focus()
                       }}
+                      onToggle={() => toggleFolder(line.folder.id)}
                     />
                   )}
                   {line.type === "row" && (
@@ -915,27 +1050,36 @@ function GroupHeading({ group }: { group: Group }) {
 
 /**
  * A folder's row, as Storybook's sidebar draws one: a folder for a group, and a square split in four, in blue, for a
- * component's, which holds the component's stories. A click opens or closes it.
+ * component's, which holds the component's stories. A click opens or closes it. A route layout with no page of its own
+ * is a folder of its pages, drawn as a layout, with an arrow where its index redirects; a click selects its group, and
+ * its arrow opens or closes it.
  */
 function FolderLine({
   folder,
+  layout,
   active,
+  picked,
   searching,
-  onClick
+  onClick,
+  onToggle
 }: {
   folder: FolderRow
+  layout?: PageGroupPlace | undefined
   /** Picked with the keys or a click, which the keys move from. */
   active: boolean
+  /** Its layout's group is selected. */
+  picked: boolean
   searching: boolean
   onClick: () => void
+  onToggle: () => void
 }) {
-  const Icon = folder.kind === "component" ? Grid2x2 : Folder
+  const iconStyle = { color: layout || folder.kind === "component" ? kindColors.screen : "var(--muted-foreground)" }
 
   return (
     <div
       id={`layer-${folder.id}`}
       role="treeitem"
-      aria-selected={false}
+      aria-selected={picked}
       aria-expanded={folder.expanded}
       aria-level={folder.level + 1}
       aria-posinset={folder.position}
@@ -949,7 +1093,7 @@ function FolderLine({
           onClick()
         }
       }}
-      className={`relative flex h-7 cursor-default items-center gap-1.5 pr-2 hover:bg-accent/40 ${
+      className={`relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${picked ? "bg-accent" : "hover:bg-accent/40"} ${
         active ? "ring-1 ring-ring ring-inset" : ""
       }`}
       style={{ paddingLeft: 8 + folder.level * 14 }}
@@ -965,14 +1109,26 @@ function FolderLine({
       <span
         aria-hidden
         className={`grid size-4 shrink-0 place-items-center text-muted-foreground ${searching ? "invisible" : ""}`}
+        onClick={(event) => {
+          if (layout) {
+            event.stopPropagation()
+            onToggle()
+          }
+        }}
       >
         <ChevronRight className={`size-3.5 transition-transform ${folder.expanded ? "rotate-90" : ""}`} />
       </span>
-      <Icon
-        className="size-3.5 shrink-0"
-        style={{ color: folder.kind === "component" ? kindColors.screen : "var(--muted-foreground)" }}
-      />
+      {layout && <LayoutTemplate className="size-3.5 shrink-0" style={iconStyle} />}
+      {!layout && folder.kind === "component" && <Grid2x2 className="size-3.5 shrink-0" style={iconStyle} />}
+      {!layout && folder.kind !== "component" && <Folder className="size-3.5 shrink-0" style={iconStyle} />}
       <Name className="min-w-0 flex-1">{folder.label}</Name>
+      {layout?.redirect && (
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <CornerDownRight aria-hidden className="size-3" />
+          <span className="sr-only">Redirects to</span>
+          {layout.redirect.name}
+        </span>
+      )}
     </div>
   )
 }

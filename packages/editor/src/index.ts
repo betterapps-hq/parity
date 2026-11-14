@@ -130,6 +130,7 @@ export {
   draggedBox,
   drawnFrame,
   fittedFrame,
+  fitsDrawn,
   frameOfText,
   type FramePreset,
   framePresets,
@@ -467,7 +468,10 @@ export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"
 
 export {
   pageFrameName,
+  pageGroupBox,
   pageHeightMessage,
+  pageLandedMessage,
+  landedElsewhere,
   type PageLayout,
   pageLinkLine,
   pageLinksLit,
@@ -478,9 +482,12 @@ export {
   type PlacedPage,
   placePages,
   routeLayers,
+  type RouteGroup,
   type RouteScreen,
+  type RouteTree,
   routeScreenId,
   routeScreens,
+  routeTree,
   samplePath,
   treeDepth
 } from "./route-boards.ts"

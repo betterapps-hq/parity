@@ -2,7 +2,10 @@ import { defaultModeSettings, type ProjectRoute, resolveMode } from "@parity-app
 import { describe, expect, it } from "vite-plus/test"
 import {
   pageFrameName,
+  pageGroupBox,
   pageHeightMessage,
+  pageLandedMessage,
+  landedElsewhere,
   pageLinkLine,
   pageLinksLit,
   pageName,
@@ -11,6 +14,7 @@ import {
   placePages,
   routeLayers,
   routeScreens,
+  routeTree,
   samplePath
 } from "./route-boards.ts"
 
@@ -31,6 +35,11 @@ const example = [
   route("/projects/$projectId", "/projects/$projectId", "__root__")
 ]
 
+/** The example's routes with its `/settings` index's redirect, which the adapter reads from its `beforeLoad`. */
+const redirecting = example.map((each) =>
+  each.id === "/settings/" ? { ...each, redirect: "/settings/profile" } : each
+)
+
 /** A tree as each page's route id, with the pages under it. */
 function pageIds(tree: readonly PageNode[]): unknown[] {
   return tree.map((node) => (node.children.length === 0 ? node.route.id : [node.route.id, pageIds(node.children)]))
@@ -48,7 +57,25 @@ describe("pageTree", () => {
     ])
   })
 
-  it("hangs a layout's pages from the page above when it has no index", () => {
+  it("makes a layout a group around its pages when its index only redirects", () => {
+    const tree = pageTree(redirecting)
+
+    expect(pageIds(tree)).toEqual([
+      [
+        "/",
+        ["/pricing", "/projects/", "/projects/$projectId", ["/settings", ["/settings/billing", "/settings/profile"]]]
+      ]
+    ])
+    expect(tree[0]?.children[3]?.group).toEqual({ redirect: "/settings/profile" })
+  })
+
+  it("keeps an index that redirects but draws something as the layout's page", () => {
+    const drawing = redirecting.map((each) => (each.id === "/settings/" ? { ...each, component: "Settings" } : each))
+
+    expect(pageTree(drawing)[0]?.children[3]?.route.id).toBe("/settings/")
+  })
+
+  it("makes a layout without an index a group around its pages", () => {
     const routes = [
       route("__root__", "/", undefined),
       route("/", "/", "__root__", true),
@@ -56,7 +83,10 @@ describe("pageTree", () => {
       route("/_auth/team", "/team", "/_auth")
     ]
 
-    expect(pageIds(pageTree(routes))).toEqual([["/", ["/_auth/team"]]])
+    const tree = pageTree(routes)
+
+    expect(pageIds(tree)).toEqual([["/", [["/_auth", ["/_auth/team"]]]]])
+    expect(tree[0]?.children[0]?.group).toEqual({})
   })
 
   it("is a forest when the root has no index, and empty without routes", () => {
@@ -75,6 +105,19 @@ describe("placePages", () => {
       ["/settings/", 1650, 1100, "/"],
       ["/settings/billing", 1100, 2200, "/settings/"],
       ["/settings/profile", 2200, 2200, "/settings/"]
+    ])
+  })
+
+  it("puts a group's pages side by side inside it, on its own level, and centers the page above over the group", () => {
+    const routes = redirecting.filter((each) => !each.id.startsWith("/p"))
+    const placed = placePages(pageTree(routes), layout)
+
+    // The group is as wide as its two pages, 100 apart, and 48 more on each side: 2196.
+    expect(placed.map(({ route, x, y, parent, group }) => [route.id, x, y, parent, group?.width])).toEqual([
+      ["/", 598, 0, undefined, undefined],
+      ["/settings", 0, 1100, "/", 2196],
+      ["/settings/billing", 48, 1100, "/settings", undefined],
+      ["/settings/profile", 1148, 1100, "/settings", undefined]
     ])
   })
 
@@ -115,6 +158,83 @@ describe("routeScreens", () => {
   })
 })
 
+describe("routeTree", () => {
+  const { screens, groups } = routeTree(
+    redirecting.filter((each) => !each.id.startsWith("/p")),
+    { ...layout, bottom: -400 }
+  )
+
+  it("makes a group for a layout without a page, hanging from the page above, with the page its index redirects to", () => {
+    expect(groups).toEqual([
+      {
+        id: "route:/settings",
+        name: "Settings",
+        path: "/settings",
+        route: "/settings",
+        x: 0,
+        y: -1500,
+        width: 2196,
+        parent: "route:/",
+        redirect: { screen: "route:/settings/profile", path: "/settings/profile" }
+      }
+    ])
+  })
+
+  it("hangs the group's pages from the group, and makes no screen for the layout", () => {
+    expect(screens.map(({ screen, parent }) => [screen.id, parent])).toEqual([
+      ["route:/", undefined],
+      ["route:/settings/billing", "route:/settings"],
+      ["route:/settings/profile", "route:/settings"]
+    ])
+  })
+
+  it("names a pathless layout's group for its component, since its path is its parent's", () => {
+    const routes = [
+      route("__root__", "/", undefined),
+      route("/", "/", "__root__", true),
+      { ...route("/_auth", "/", "__root__"), component: "AuthLayout" },
+      route("/_auth/team", "/team", "/_auth")
+    ]
+
+    expect(routeTree(routes, { ...layout, bottom: 0 }).groups.map(({ name, path }) => [name, path])).toEqual([
+      ["Auth layout", "/"]
+    ])
+  })
+})
+
+describe("pageGroupBox", () => {
+  const billing = { x: 48, y: 1100, w: 1280, h: 800 }
+  const profile = { x: 1488, y: 1100, w: 1280, h: 2000 }
+
+  it("goes round its pages and their titles, 48 from its sides and bottom, with its header above", () => {
+    // Up close a title is 42 above its board and the header 56 above that.
+    expect(
+      pageGroupBox(
+        [
+          { box: billing, titled: true },
+          { box: profile, titled: true }
+        ],
+        1
+      )
+    ).toEqual({
+      x: 0,
+      y: 1100 - 42 - 56,
+      w: 2816,
+      h: 3100 + 48 - (1100 - 98)
+    })
+  })
+
+  it("goes round a group inside it at its own top, which has its name inside", () => {
+    const inner = { x: 100, y: 500, w: 400, h: 400 }
+
+    expect(pageGroupBox([{ box: inner, titled: false }], 1)).toEqual({ x: 52, y: 444, w: 496, h: 504 })
+  })
+
+  it("is no box with nothing inside", () => {
+    expect(pageGroupBox([], 1)).toBeUndefined()
+  })
+})
+
 describe("pageHeightMessage", () => {
   it("reads the height a page's frame posts, rounded up", () => {
     expect(pageHeightMessage.parse({ parity: "page-height", height: 1240.4 })).toBe(1241)
@@ -130,6 +250,33 @@ describe("pageHeightMessage", () => {
     ]) {
       expect(pageHeightMessage.safeParse(message).success).toBe(false)
     }
+  })
+})
+
+describe("pageLandedMessage", () => {
+  it("reads the path a page's frame posts", () => {
+    expect(pageLandedMessage.parse({ parity: "page-landed", path: "/settings/profile" })).toBe("/settings/profile")
+  })
+
+  it("takes no other message, nor a path that isn't one", () => {
+    for (const message of [
+      { parity: "page-height", path: "/" },
+      { parity: "page-landed", path: "settings" },
+      { parity: "page-landed" }
+    ]) {
+      expect(pageLandedMessage.safeParse(message).success).toBe(false)
+    }
+  })
+})
+
+describe("landedElsewhere", () => {
+  it("gives the path a page landed on when it isn't the page's own", () => {
+    expect(landedElsewhere("http://localhost:5173/settings", "/settings/profile")).toBe("/settings/profile")
+  })
+
+  it("gives nothing for the page's own path, with or without a trailing slash", () => {
+    expect(landedElsewhere("http://localhost:5173/projects/", "/projects")).toBeUndefined()
+    expect(landedElsewhere("http://localhost:5173/", "/")).toBeUndefined()
   })
 })
 
@@ -215,6 +362,10 @@ describe("pageLinkLine", () => {
     // At 10% a name draws at 60%, so a title is 25.2 screen pixels tall: 252 pixels of the canvas, and 8 screen
     // pixels are 80. The curve ends at 1568.
     expect(pageLinkLine(above, below, 0.1)).toMatch(/2080 1568(\.\d+)? L 2080 1900$/)
+  })
+
+  it("curves all the way to a group's top edge, as a group has its name inside it", () => {
+    expect(pageLinkLine(above, below, 1, true)).toBe("M 640 800 C 640 1350, 2080 1350, 2080 1900")
   })
 
   it("curves all the way to the page once its title reaches up to the page above", () => {

@@ -34,15 +34,18 @@ import {
   activeState,
   type BoardBox,
   fittedFrame,
+  fitsDrawn,
   hugsContent,
   kindName,
   kindTitle,
   pageFrameName,
+  landedElsewhere,
   pageHeightMessage,
+  pageLandedMessage,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
-import { ChevronDown, Rows3 } from "lucide-react"
+import { ChevronDown, Rows3, TriangleAlert } from "lucide-react"
 import {
   type CSSProperties,
   memo,
@@ -184,7 +187,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
  */
 function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: ContainerEntry): void {
   const { store } = useProject()
-  const hugs = hugsContent(entry.container)
+  const hugs = fitsDrawn(entry.container)
   const { key } = entry
   useEffect(() => {
     const container = board.current
@@ -193,23 +196,24 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
       return undefined
     }
 
-    // A board far from view is a picture, so its frame comes and goes: each time it's drawn live, it's measured.
-    let detach: (() => void) | undefined
-    let attached: HTMLElement | undefined
+    // A board far from view is a picture, so its frames come and go: each time one is drawn live, it's measured. A
+    // screen that fits its content, as a story, is measured in each mode's frame, which it fits apart.
+    const attached = new Map<HTMLElement, () => void>()
 
     const attach = () => {
-      const host = container.querySelector<HTMLElement>("[data-frame]") ?? undefined
+      const hosts = new Set(container.querySelectorAll<HTMLElement>("[data-frame]"))
 
-      if (host === attached) {
-        return
+      for (const [host, detach] of attached) {
+        if (!hosts.has(host)) {
+          detach()
+          attached.delete(host)
+        }
       }
 
-      detach?.()
-      detach = undefined
-      attached = host
-
-      if (host) {
-        detach = fitFrame(host)
+      for (const host of hosts) {
+        if (!attached.has(host) && (attached.size === 0 || host.dataset.viewport)) {
+          attached.set(host, fitFrame(host))
+        }
       }
     }
 
@@ -220,17 +224,19 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
         return current && findNodeElement(host, current.root.id)
       }
 
+      const { viewport } = host.dataset
+
       const fit = () => {
         const width = contentWidth(rootElement())
         const current = store.getEntry(key)?.container
 
-        if (!width || !current || !fittedFrame(current, width)) {
+        if (!width || !current || !fittedFrame(current, width, viewport)) {
           return
         }
 
         // A component's board and a story are drawn from the project's code each time, so the width they're drawn at
         // isn't to be saved.
-        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, {
+        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width, viewport) ?? design, {
           history: false,
           persist: !key.startsWith(`${componentBoardsFile}#`) && !key.startsWith(`${storyScreensFile}#`)
         })
@@ -291,7 +297,10 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
 
     return () => {
       frames.disconnect()
-      detach?.()
+
+      for (const detach of attached.values()) {
+        detach()
+      }
     }
   }, [board, hugs, key, store])
 }
@@ -1213,7 +1222,8 @@ const FrameTile = memo(function FrameTile({
  * A page of the app in a screen's frame (PAR-1076): the app's own entry at the page's URL, in a document of its own, so
  * its router, layouts, loaders and redirects run as they do in a browser. It takes no pointer, so the canvas pans and
  * selects over it. It's as tall as the page says it is (see `pageHeightMessage`), and never shorter than the frame's
- * window, unless the frame has been given a height, which it then clips to.
+ * window, unless the frame has been given a height, which it then clips to. When the page lands somewhere other than its
+ * own path, as a route that redirects sends it (see `pageLandedMessage`), it says where under the frame, at its left.
  */
 function PageFrame({
   url,
@@ -1234,12 +1244,24 @@ function PageFrame({
   const page = useRef<HTMLIFrameElement>(null)
   // How tall the page says it is, for the page it was said for, so another page starts from the window again.
   const [told, setTold] = useState<{ page: string; height: number }>()
+  // Where the page last said it is, for the page it was said for.
+  const [landed, setLanded] = useState<{ page: string; path: string }>()
   useEffect(() => {
     const heard = (event: MessageEvent) => {
+      if (event.source === null || event.source !== page.current?.contentWindow) {
+        return
+      }
+
       const said = pageHeightMessage.safeParse(event.data)
 
-      if (said.success && event.source !== null && event.source === page.current?.contentWindow) {
+      if (said.success) {
         setTold({ page: `${name} ${url}`, height: said.data })
+      }
+
+      const went = pageLandedMessage.safeParse(event.data)
+
+      if (went.success) {
+        setLanded({ page: `${name} ${url}`, path: went.data })
       }
     }
 
@@ -1249,18 +1271,42 @@ function PageFrame({
   }, [name, url])
   const content = told?.page === `${name} ${url}` ? told.height : 0
   const height = frame.height ?? Math.max(frame.viewport.height, content)
+  const elsewhere = landed?.page === `${name} ${url}` ? landedElsewhere(url, landed.path) : undefined
 
   return (
-    <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
-      <iframe
-        ref={page}
-        key={name}
-        name={name}
-        title={url}
-        src={url}
-        className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
-        style={{ width: frame.width, height, transform: `scale(${scale})` }}
-      />
+    <>
+      <div className="overflow-hidden" style={{ width: frame.width * scale, height: height * scale }}>
+        <iframe
+          ref={page}
+          key={name}
+          name={name}
+          title={url}
+          src={url}
+          className={`${interactive ? "pointer-events-auto" : "pointer-events-none"} block origin-top-left border-0 bg-white`}
+          style={{ width: frame.width, height, transform: `scale(${scale})` }}
+        />
+      </div>
+      {/* Under the frame, in its tile, which it's placed against: the frame clips what's in it. */}
+      {elsewhere !== undefined && <LandedElsewhere path={elsewhere} width={frame.width * scale} />}
+    </>
+  )
+}
+
+/**
+ * Where a page landed instead of its own path, under its frame at the left, sized for the zoom as a frame's caption is:
+ * a warning, since the page drawn isn't the route's own.
+ */
+function LandedElsewhere({ path, width }: { path: string; width: number }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useCanvasLabel(ref, "detail", { width })
+
+  return (
+    <div
+      ref={ref}
+      className="absolute top-full left-0 mt-6 flex origin-top-left items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm whitespace-nowrap text-amber-700 dark:text-amber-400"
+    >
+      <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+      Lands on {path}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { addDesigns, type CanvasDocument } from "@parity-app/core"
-import { routeScreens } from "@parity-app/editor"
+import { routeTree } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
+import { windowStore } from "../store.ts"
 import { componentBoardsTop } from "./component-boards.ts"
 
 /**
@@ -29,14 +30,36 @@ export interface PageLink {
 const pageLinks = new Map<string, readonly PageLink[]>()
 
 /**
- * The app's pages as a design file, above the project's components and designs, or none without routes. Remembers each page's URL
- * for its frames to draw.
+ * A layout with no page of its own, drawn as a group around its pages (PAR-1076): its key, which lines to it name, its
+ * name and path, the keys of the screens and groups inside it, and the page its index redirects to.
+ */
+export interface PageGroupPlace {
+  key: string
+  name: string
+  path: string
+  members: string[]
+  redirect?: { key: string; name: string }
+}
+
+/** Each open project's layout groups, in the tree's order: a group before the groups inside it. */
+const pageGroups = new Map<string, readonly PageGroupPlace[]>()
+
+/**
+ * The layout group selected, by its key: a group isn't a design, so it's selected here rather than in the project's
+ * selection, which holds nothing while it is.
+ */
+export const selectedPageGroup = windowStore<string | undefined>(() => undefined)
+
+/**
+ * The app's pages as a design file, above the project's components and designs, or none without routes. Remembers each
+ * page's URL for its frames to draw, the lines between pages, and the groups of layouts without pages. A page or group
+ * inside a group has no line to it: the group holds it.
  */
 export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" | "documents" | "modes" | "sources">): {
   path: string
   document: CanvasDocument
 }[] {
-  const screens = routeScreens(info.routes, info.modes.settings, {
+  const { screens, groups } = routeTree(info.routes, {
     origin: new URL(info.guestUrl).origin,
     x: 0,
     bottom: componentBoardsTop(info) - 600,
@@ -47,11 +70,33 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
   })
 
   pagePlaces.set(info.id, new Map(screens.map(({ screen, url, path, route }) => [screen.id, { url, path, route }])))
+  const grouped = new Set(groups.map((group) => group.id))
+  const hung = [...screens.map(({ screen, parent }) => ({ id: screen.id, parent })), ...groups]
+
   pageLinks.set(
     info.id,
-    screens.flatMap(({ screen, parent }) =>
-      parent === undefined ? [] : [{ from: designKey(parent), to: designKey(screen.id) }]
+    hung.flatMap(({ id, parent }) =>
+      parent === undefined || grouped.has(parent) ? [] : [{ from: designKey(parent), to: designKey(id) }]
     )
+  )
+  pageGroups.set(
+    info.id,
+    groups.map(({ id, name, path, redirect }) => {
+      const place: PageGroupPlace = {
+        key: designKey(id),
+        name,
+        path,
+        members: hung.flatMap((member) => (member.parent === id ? [designKey(member.id)] : []))
+      }
+
+      const target = redirect && screens.find(({ screen }) => screen.id === redirect.screen)
+
+      if (target) {
+        place.redirect = { key: designKey(target.screen.id), name: target.screen.name }
+      }
+
+      return place
+    })
   )
 
   return screens.length === 0
@@ -82,9 +127,69 @@ export function routePagePath(project: string, design: string): string | undefin
   return pagePlaces.get(project)?.get(design)?.path
 }
 
-/** The lines between a project's pages, parent to child. */
+/** The lines between a project's pages, parent to child, a line to a group ending at the group. */
 export function routePageLinks(project: string): readonly PageLink[] {
   return pageLinks.get(project) ?? []
+}
+
+/** A project's layout groups, in the tree's order. */
+export function routePageGroups(project: string): readonly PageGroupPlace[] {
+  return pageGroups.get(project) ?? []
+}
+
+/** A page or a layout group as Layers lists it among the routes: its key, how deep it is in the tree, and the group. */
+export interface RouteListing {
+  key: string
+  level: number
+  /** The group it's in, by key, when it's in one. */
+  parent?: string
+  group?: PageGroupPlace
+}
+
+/**
+ * A project's pages and layout groups in the tree's order, each before what's under it, with how deep each is: App at
+ * the top, its pages and Settings' group under it, and Billing and Profile in the group.
+ */
+export function routeListing(project: string): RouteListing[] {
+  const links = routePageLinks(project)
+  const groups = routePageGroups(project)
+
+  const keys = [
+    ...new Set([...links.flatMap(({ from, to }) => [from, to]), ...groups.flatMap((g) => [g.key, ...g.members])])
+  ]
+
+  const parentOf = new Map<string, string>([
+    ...links.map(({ from, to }): [string, string] => [to, from]),
+    ...groups.flatMap((group) => group.members.map((member): [string, string] => [member, group.key]))
+  ])
+
+  const listed: RouteListing[] = []
+
+  const visit = (key: string, level: number) => {
+    const group = groups.find((each) => each.key === key)
+    const parent = parentOf.get(key)
+    const item: RouteListing = { key, level }
+
+    if (parent !== undefined && groups.some((each) => each.key === parent)) {
+      item.parent = parent
+    }
+
+    if (group) {
+      item.group = group
+    }
+
+    listed.push(item)
+
+    for (const child of keys.filter((other) => parentOf.get(other) === key)) {
+      visit(child, level + 1)
+    }
+  }
+
+  for (const top of keys.filter((key) => !parentOf.has(key))) {
+    visit(top, 0)
+  }
+
+  return listed
 }
 
 /** A page screen's key among the project's designs: its file and its id. */

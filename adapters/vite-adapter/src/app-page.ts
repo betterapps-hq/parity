@@ -7,7 +7,10 @@ import type * as Vite from "vite"
  * the mode's scheme, so an app that follows the system's theme, as shadcn's theme provider does, follows the mode's.
  * It also tells the canvas how tall the page is, posting `{ parity: "page-height", height }` to the frame's parent
  * whenever the document's height changes while the frame is still as tall as its screen, so the frame draws the whole
- * page, with no scrollbar once it's grown. Opened anywhere else, it does nothing.
+ * page, with no scrollbar once it's grown. And it tells the canvas where the page lands, posting
+ * `{ parity: "page-landed", path }` with the path it opened on and again whenever the app's router moves it, until
+ * someone uses the page, so a route that redirects shows where it sends the browser. Opened anywhere else, it does
+ * nothing.
  */
 export const appPageModeScript = `(() => {
   if (!window.name.startsWith("parity:")) return
@@ -41,6 +44,26 @@ export const appPageModeScript = `(() => {
   window.addEventListener("resize", () => {
     root.style.scrollbarWidth = window.innerHeight > screen ? "none" : ""
   })
+  let landed
+  let used = false
+  const land = () => {
+    if (used) return
+    const path = window.location.pathname
+    if (path === landed) return
+    landed = path
+    window.parent.postMessage({ parity: "page-landed", path }, "*")
+  }
+  for (const method of ["pushState", "replaceState"]) {
+    const moved = window.history[method].bind(window.history)
+    window.history[method] = (...args) => {
+      moved(...args)
+      land()
+    }
+  }
+  window.addEventListener("popstate", land)
+  window.addEventListener("pointerdown", () => (used = true), true)
+  window.addEventListener("keydown", () => (used = true), true)
+  land()
   for (const name of mode.classes ?? []) root.classList.add(name)
   for (const [name, value] of Object.entries(mode.attributes ?? {})) root.setAttribute(name, value)
   if (mode.scheme !== "dark" && mode.scheme !== "light") return
