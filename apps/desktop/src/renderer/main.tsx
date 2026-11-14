@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import { App } from "./App.tsx"
 import { keepFilesFromOpening } from "./canvas/drop-files.ts"
 import { setBoundaryReporter } from "./chrome/ErrorBoundary.tsx"
+import { startKeybindings } from "./chrome/keybindings.ts"
 import { openReport } from "./chrome/ReportProblemDialog.tsx"
 import { receiveTelemetry } from "./chrome/telemetry-setting.ts"
 import { installClassMerger } from "./class-merger.ts"
@@ -51,6 +52,9 @@ watchTabs({
 void window.canvasHost.telemetry.get().then(receiveTelemetry, () => undefined)
 
 startTheme()
+
+// The shortcuts the person changed, from keybindings.json, which main sends as they change (PAR-1085).
+startKeybindings()
 
 // The kit's components merge classes knowing the app's type roles (docs/typography.md).
 installClassMerger()

@@ -10,7 +10,7 @@ import {
   snaps
 } from "@parity-app/editor"
 import type { Editor, GapsSnapIndicator, PointsSnapIndicator } from "tldraw"
-import { getPreferences } from "../chrome/preferences.ts"
+import { getEffectivePreferences } from "../project-settings.ts"
 import { type FrameGeometry, toScreen } from "./frame-geometry.ts"
 import { snapScene } from "./layer-measure.ts"
 import { clearSnaps } from "./snap.ts"
@@ -64,7 +64,7 @@ export class LayerSnapping implements LayerSnapStart {
 
   /** Whether the layer snaps with these keys held: when snapping is turned on, unless Ctrl (Cmd on a Mac) is held. */
   snaps(held: { ctrlKey: boolean; metaKey: boolean }): boolean {
-    return snaps(held, getPreferences().snapping)
+    return snaps(held, getEffectivePreferences().snapping)
   }
 
   /** Shows where the layer snapped, the guides, spacing marks and distances, or nothing when it didn't. */

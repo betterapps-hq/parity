@@ -2,6 +2,7 @@ import type { ConsoleEntry } from "@parity-app/agent"
 import type { UpdateState } from "@parity-app/processes"
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import type { ProblemReport, ThemeSource } from "../shared/ipc-checks.ts"
+import type { KeybindingsState, Replacement } from "../shared/keybindings.ts"
 import type {
   BuildInfo,
   CliInstall,
@@ -78,6 +79,13 @@ export interface HostNeeds<Event, Window> {
     set(theme: ThemeSource): void
     /** Keeps the theme for the next start. May throw, as when the file can't be written. */
     remember(theme: ThemeSource): void
+  }
+  /** `keybindings.json`, which main keeps for every window (PAR-1085). */
+  keybindings: {
+    state(): KeybindingsState
+    replace(replacements: Replacement[]): Promise<KeybindingsState>
+    /** Opens the file, making it first when there's none. */
+    open(): Promise<void>
   }
   metrics(window: Window): Promise<ProcessUsage[]>
   console: {
@@ -177,6 +185,9 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
         console.error("The theme couldn't be remembered", error)
       }
     },
+    keybindingsState: () => needs.keybindings.state(),
+    keybindingsReplace: (replacements) => needs.keybindings.replace(replacements),
+    keybindingsOpen: () => needs.keybindings.open(),
     metrics: (_nothing, window) => needs.metrics(window),
 
     consoleAnnounce: ({ level, ...context }, window) => needs.console.announce(window, level, context),

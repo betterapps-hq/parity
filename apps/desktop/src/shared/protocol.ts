@@ -30,6 +30,7 @@ import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+import type { KeybindingsState, Replacement } from "./keybindings.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
 
 /**
@@ -131,7 +132,8 @@ export interface ServiceMethods {
   /** Writes a copy of the project's designs to a `.par` file anywhere, chosen by the person. */
   "document.saveCopy": { params: ServiceParams["document.saveCopy"]; result: undefined }
   /**
-   * Renders designs to PNG files in a folder: each design in every state, in its main mode and the modes beside it.
+   * Renders designs to files in a folder at each of `sizes`, a PNG or JPG at its scale: each design in every state, in
+   * its main mode and the modes beside it, named as `exportPictures` names them.
    */
   "designs.export": {
     params: ServiceParams["designs.export"]
@@ -569,6 +571,15 @@ export interface CanvasHost {
   toggleDevTools(): Promise<void>
   /** The app's theme, so the window's title bar buttons and system dialogs match it. */
   setTheme(theme: ThemeSource): Promise<void>
+  /** `keybindings.json`, the shortcuts the person changed, which main keeps (PAR-1085). */
+  keybindings: {
+    get: () => Promise<KeybindingsState>
+    /** Replaces commands' entries in the file, for what it holds after. Fails when it can't be read or written. */
+    replace: (replacements: Replacement[]) => Promise<KeybindingsState>
+    /** Opens the file in the system's app for it, making it first when there's none. */
+    open: () => Promise<void>
+    subscribe: (listener: (state: KeybindingsState) => void) => () => void
+  }
   /**
    * Runs when the window is asked to close, which waits for it: true closes it, false keeps it open, as when the
    * person cancels on being asked about unsaved changes.

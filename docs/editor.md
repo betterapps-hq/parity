@@ -908,9 +908,9 @@ Resting the pointer on a component opens its card beside the row (PAR-515, "Comp
 and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
 says so.
 
-- **Which editor:** Settings > Code > Editor. The choices are Automatic, VS Code, Cursor, Windsurf, Zed or System
-  default. Automatic tries them in that order and opens the first one installed, or the system's default app for the
-  file when none is. A named editor that isn't installed says so in a toast, with where to choose another.
+- **Which editor:** Settings > General > Code editor. The choices are Automatic, VS Code, Cursor, Windsurf, Zed or
+  System default. Automatic tries them in that order and opens the first one installed, or the system's default app for
+  the file when none is. A named editor that isn't installed says so in a toast, with where to choose another.
 - **Finding one:** each editor's command on PATH (`code`, `cursor`, `windsurf`, `zed`), on Windows with PATHEXT's
   extensions, as `code` is `code.cmd`. On macOS and Linux the usual folders are searched too, since an app the Dock
   starts has only the system's PATH. It's started apart from Parity, so it stays open when Parity quits. On Windows the
@@ -924,7 +924,7 @@ Code: `codeEditors`, `editorsFor`, `commandPaths`, `batchCommandLine` and `expor
 `packages/processes/src/code-editors.ts`; `openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind
 `hostMethods`' `openInEditor`, whose request `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592);
 `componentFile` and `viewCode` in `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used
-by `chrome/AssetsPanel.tsx`; the setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
+by `chrome/AssetsPanel.tsx`; the setting in `chrome/settings/definitions.ts` and `chrome/preferences.ts`.
 
 Tests: `packages/processes/src/code-editors.test.ts` (12: the editors each choice tries; VS Code's and Zed's arguments;
 the paths on PATH on Windows and elsewhere; the batch file's command line, escaped for `cmd.exe`, and on Windows a path
@@ -2198,6 +2198,42 @@ keys passed in, and allows explorations and stories. End to end (PAR-202), `apps
 the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard shortcuts
 dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
 
+### Shortcuts the person changes (PAR-1085)
+
+The keymap is the defaults. The person's changes are in `keybindings.json` in the app's data folder, a list of
+`{ "command": "save", "keys": ["Ctrl Alt S"] }`, written as the keymap writes keys, where Ctrl is Cmd on a Mac.
+
+- **An entry's `keys` replace all of that command's keys,** and `keys: []` removes them. Modifiers can be written in any
+  order or case (`shift ctrl k` reads as `Ctrl Shift K`). Control on a Mac and chords aren't supported.
+- **An entry for a command that doesn't exist, or with keys that don't read, is skipped.** It isn't applied, stays in
+  the file, and Settings lists it with its command and keys as written.
+- **Keys two commands have go to the one an entry gives them,** the later entry when two do. Changing a command's keys
+  in Settings takes them from the command that had them, which keeps its other keys, or gets `keys: []` when it had no
+  others, and Settings says where they went. Giving a command the keymap's keys again removes its entry.
+- **Every place that shows or matches keys follows the file:** the key handlers, menus, tooltips, Search actions and the
+  Keyboard shortcuts dialog read `keysOf` as they draw or as a key is pressed. A command with no keys shows none.
+- **The application menu doesn't change.** macOS's Edit menu keeps Cmd X, C, V and A whatever the file says, since
+  they're its roles' own keys, and the app's own menus are drawn by the window.
+- **A file that isn't a JSON list** leaves the keymap's keys in place, is logged, and is never written over: a change
+  fails until it's fixed by hand.
+- **Main reads the file when it starts,** before the window opens, writes each change whole one at a time, and sends
+  what the file holds to every window. Other running copies don't see a change until they start again.
+
+Code: `readKeys`, `readKeybindings`, `resolveBindings`, `changeKeys` and `applyReplacements` in
+`apps/desktop/src/shared/keybindings.ts`, which take and return data; `keybindingsFile` in `main/keybindings.ts`, which
+reads and writes the file; the `keybindingsState`, `keybindingsReplace` and `keybindingsOpen` methods in
+`shared/host-methods.ts`, and `ipc.keybindingsChanged`; and `chrome/keybindings.ts` in the window, which applies the
+file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`, `resetKeys` and
+`openKeybindings`.
+
+Tests: `shared/keybindings.test.ts` (20): keys read in the keymap's order and refused when they don't read; no file, a
+malformed entry and text that isn't a list; replaced, removed, skipped and clashing keys, and which command lost them;
+the replacements a change writes, taking keys and giving the keymap's back; and entries kept as written, in place.
+`main/keybindings.test.ts` (5), on a temp folder: nothing written until a change, the file read at start, changes made
+one at a time keeping skipped entries, a file that can't be read never written over, and the file made to be opened.
+`chrome/keybindings.test.ts` (6): every key in the keymap reads as itself, and the window's keys, `shortcutOf` and
+`shortcutFor` following the file, a change, a removal, a reset and keys that don't read.
+
 ### Whether a command applies, and what it's called (PAR-971)
 
 Every place that offers a command agrees on whether it can run now and what it's called: its keys, the menubar, Search
@@ -3094,27 +3130,34 @@ or design selected. The sizes are remembered for every export, not per layer.
 - **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
   left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
   first.
+- **File > Export all** writes every design at the same sizes, in every state and mode it shows, each drawn once at each
+  scale. Its files are named by the design, with the state and mode when it has more than one
+  (`Sign up Error Mobile Light@2x.jpg`), and numbered as layers' are. A design or frame that doesn't draw is left out
+  with a warning toast.
 - **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05; the icon set's dialog is kept as an
-  exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state and mode it
-  shows, at Settings' export scale. Copy as PNG is below.
+  exploration, Parity/Explorations/Icon export. Copy as PNG is below.
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
 `MultiPanel.tsx`; `exportLayers` in `chrome/commands.ts` and the command's `exportSelected` in `chrome/actions.ts`; the
 menus' items in `chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`;
 `framePictures` in `packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers`
-in `utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
+in `utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`. Export all is
+`exportAllImages` in `chrome/commands.ts`, `exportPictures` in `packages/agent/src/dispatch.ts`, which names its files
+through `exportFiles`, and `exportDesigns` in `utility/agent.ts`, which makes a JPG with `cutPicture`, behind the
+service's `designs.export`.
 
 Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's suffix and format, numbering alike names,
 a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
 reasons a file can't be written, and a crop kept inside the picture). `apps/desktop/src/utility/webp.test.ts` (2 more: a
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
-`chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
-`chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; OneLayer and Design
-in `chrome/CanvasMenu.items.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
-`chrome/AppMenu.file.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
-drawing offscreen and writing the files run in the desktop app's service, which no test opens; the e2e suite covers the
-window's export, not this.
+`chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back and
+ignores a saved export scale. `packages/agent/src/dispatch.test.ts` ("exportPictures") names Export all's files at each
+size, with a size asked for twice written once and each scale drawn once. `chrome/ExportSection.stories.tsx`: Layer,
+SeveralSizes, AddingASize, SeveralLayers and WholeDesign; OneLayer and Design in `chrome/CanvasMenu.items.stories.tsx`
+check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in `chrome/AppMenu.file.stories.tsx` checks
+File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps: drawing offscreen and writing the files
+run in the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
 
 ### Copy as PNG (PAR-190)
 
@@ -3132,8 +3175,7 @@ the selected designs, to the clipboard as one PNG at 2x, to paste into a chat, a
 - **Too big to copy:** a picture over 16,384 pixels wide or tall at 2x, such as every design in a project spread over
   the canvas, isn't copied, and a toast says to select less or export it. That's only known once the designs are drawn,
   which for 61 designs took about 13 seconds.
-- **Not here:** no menu item yet, and no other scale or format; copying uses neither the Export section's sizes nor
-  Settings' export scale.
+- **Not here:** no menu item yet, and no other scale or format; copying doesn't use the export sizes.
 
 Code: `planPicture`, `copyScale` and `largestPicture` in `packages/editor/src/export-files.ts`; `copySelectedAsPng` in
 `chrome/actions.ts`, sharing `selectedTargets` from `chrome/commands.ts` with `exportSelected`, which writes the
@@ -4938,6 +4980,48 @@ Tests:
   nothing read from a copy cut short or from another version, nothing kept without a folder.
 - `apps/desktop/src/renderer/chrome/report-time.test.ts`: how the time reads ("6:35 PM today").
 - `chrome/RestorePrompt.stories.tsx`: Offered, Restored (the tab's dot, and the undo step) and Discarded.
+
+### Settings saved with the project (PAR-1085)
+
+A project can keep settings of its own in its main `.par`, so everyone who opens it gets them. Settings' project page
+lists them.
+
+- **Its own preferences.** Autosave, snapping, the layout grid and the export sizes can be set for the project, in
+  `preferences`, as `{ "snapping": false }`. The project's value wins over the person's while it's open, in the active
+  tab's canvas, its menus and its Export section, and autosave follows each project's own. They're kept in the order
+  they were set, which is the order the page lists them; changing one keeps its place.
+- **Extensions' project settings,** in `extensions`, by extension id and then key, as
+  `{ "storybook": { "configDir": "apps/web/.storybook" } }`. Each extension reads its own and takes one it can't read as
+  its default. Storybook's config folder is the one there is so far (see [storybook.md](storybook.md)).
+- **Each change is an undo step** on the main file, such as "Set snapping for the project" or "Use your own snapping",
+  saved by Save, or a moment later with autosave on, as any edit is. A project with no `.par` yet gets one. Clearing the
+  last value takes the field out of the file, so a project that sets nothing keeps the file it had.
+- **The View menu's Layout grid and Snap toggles, Search actions and the Export section change the value in effect:**
+  the project's when it sets one, as an undo step, and the person's otherwise. What they show is what they change.
+- **A value that doesn't fit is refused** when the file is read, as any field is: a preference a project can't set, or a
+  value of the wrong type, such as an empty list of export sizes. Save a copy keeps the main file's settings.
+
+Code: the schema and `preferenceOverrides`, `withProjectPreferences`, `setPreferenceOverride`,
+`clearPreferenceOverride`, `setExtensionSetting`, `clearExtensionSetting` and `storybookConfigDir` in
+`packages/core/src/project-settings.ts`, which take and return data; `mergedDocument` in
+`packages/editor/src/history.ts`; and in the window, `renderer/project-settings.ts`: `useProjectSettings`,
+`setProjectPreference`, `clearProjectPreference`, `setProjectExtensionSetting`, `clearProjectExtensionSetting`,
+`useEffectivePreferences`, `getEffectivePreferences` and `setEffectivePreference`. The service reads the Storybook
+folder in `utility/projects.ts`.
+
+Tests:
+
+- `packages/core/src/project-settings.test.ts` (8): preferences kept in the order they were set and read back, the file
+  as it was once the last is cleared, the project's values over the person's, values and preferences refused; extension
+  settings read back, cleared down to nothing, and Storybook's folder unset when it isn't one; and a file from before
+  project settings reading and saving without them.
+- `packages/editor/src/history.test.ts`: Save a copy keeps the main file's settings.
+- `apps/desktop/src/renderer/project-settings.test.ts` (5): each change an undoable, saved step on the main file, the
+  file made when there's none, clearing what isn't set leaving the history alone, the preferences in effect, and a
+  toggle changing the project's value or the person's.
+- `packages/project/src/index.test.ts`: Storybook found in the folder the project sets, and none when it has no config.
+- `apps/desktop/src/utility/projects.test.ts`: the service finds Storybook there, and asks the windows to open the
+  project again when the folder changes.
 
 ## Tokens
 
@@ -6879,6 +6963,53 @@ screen"), `dropping.e2e.ts` and `inserting.e2e.ts` (Local components). The stori
 menu, the inspector's Design tab, the board and the status bar. Gaps: the strings themselves are checked by reading
 them, not by tests, as [conventions.md](conventions.md) says of prose.
 
+### Settings (PAR-1081, PAR-1085)
+
+File > Settings or Ctrl+, opens every setting on pages in a sidebar: General, Canvas, Export and Keyboard shortcuts; the
+open project's page, under its name and badge; Extensions; and Diagnostics and Updates. On the start page there's no
+project page.
+
+- **The person's settings save as they change,** with a brief Saved in the page's heading, and apply in every window. A
+  change main couldn't save leaves the control as it was and says so under the row. A setting something outside Settings
+  decides, as `PARITY_TELEMETRY` decides Share diagnostics, is disabled and names it, and Get beta updates waits while
+  an update is checked, downloaded or installed.
+- **The project's page lists what its `.par` sets** (see Settings saved with the project): its own values for the
+  person's settings, each with every project's value under it, which goes to that setting, and an X that takes the
+  project's value off; Change a setting for the project, which starts a switch at its other value; and its extensions'
+  settings. Each change is an undo step in its window. While the project has changes Save hasn't written, a bar offers
+  Save, which Ctrl+S also does, unless the project saves itself. On the person's pages, a setting the project sets shows
+  the project's value beside it, which goes to the project's page.
+- **Extensions** lists the built-in ones, those running in the open project first, each with what detection found.
+  There's no switch: each runs when its tool is found. An extension's page shows what it found, its settings for the
+  project while it runs there, and what it adds.
+- **Keyboard shortcuts** lists every command in the keymap's groups with its keys as a button: press it, then the new
+  keys. Escape stops without changing them and Backspace removes them. Keys another command had move to this one, and
+  that command's row says where they went. Entries `keybindings.json` has that Parity skipped come first, with a button
+  that opens the file (see Shortcuts the person changes).
+- **Search** finds pages and extensions by name, settings by name, another word for them, where they are or their
+  description, and shortcuts by their command's name. Results keep their controls, so a setting changes where it's
+  found. Ctrl+F goes to the search, Down moves through the results, Enter opens the first, and Escape clears the search
+  before it closes Settings.
+- **Another part of the app can open Settings on a page,** with a setting on it marked and focused, through
+  `openSettings`.
+
+Code: `rankSettings`, `matchesWords` and `listInWords` in `packages/editor/src/settings-search.ts`, which take and
+return data; the settings, pages and built-in extensions in `apps/desktop/src/renderer/chrome/settings/definitions.ts`;
+the view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.tsx` and `search.ts`, which take a
+`SettingsData` (`store.ts`); and `chrome/SettingsDialog.tsx`, which builds it from the preferences, the project's
+settings, the keybindings, telemetry and updates. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the
+keymap writes them.
+
+Tests: `packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for an empty search;
+a label's start before a word inside it; another word for a setting, and which; where it is before its description; and
+values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its place, named keys,
+Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
+`chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and checks the project's
+value beside the person's, saving the project, changing a setting for it, a save that fails, moving a shortcut's keys,
+an extension's project setting, search results and opening on a setting. `chrome/SettingsDialog.stories.tsx` opens it
+over the example project, on General and on the project's page; `chrome/TelemetrySetting.stories.tsx` and
+`chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
+
 ### Installed app updates (PAR-160)
 
 Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
@@ -6935,12 +7066,12 @@ cancellation, Save, installation and relaunch as the newer version. It refuses t
 
 ### Sharing diagnostics (PAR-626)
 
-Settings > Privacy > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on, errors,
-crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart, and is
-remembered between runs. Its description stays the same on and off, so the row keeps its height (PAR-703). When
+Settings > Diagnostics > Share diagnostics is on by default. Off, nothing Parity records leaves the computer; on,
+errors, crashes, traces and a recording of the window go to the Parity team. It takes effect at once, without a restart,
+and is remembered between runs. Its description stays the same on and off, so the row keeps its height (PAR-703). When
 `PARITY_TELEMETRY` or `DO_NOT_TRACK` is set, the switch shows what that run does, is disabled, and names the variable.
-Turning it off also starts a new install ID. About lists Diagnostics and the Install ID with the versions, and Copy
-details includes them. Settings scrolls when it's taller than the window.
+Turning it off also starts a new install ID. Settings shows the install ID under the switch, to copy. About lists
+Diagnostics and the Install ID with the versions, and Copy details includes them.
 
 `@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
 `telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
@@ -7883,9 +8014,9 @@ without a snippet's time limit; a design that isn't there fails with its coded e
 a warning. A workspace is built in `perform` for a call and in `reader` in `dispatch.ts` for a read, which needs the
 workspace itself and no call around it.
 
-`packages/agent/src/dispatch.test.ts` ("exportPictures", "framePictures", "report") exports one state and mode, every
-state in each mode shown, a frame that fails to draw and a design missing partway through the list; draws a design at
-two scales; and reports a frame per mode shown, sending nothing when a frame fails partway through.
+`packages/agent/src/dispatch.test.ts` ("exportPictures", "framePictures", "report") exports one state and mode, at
+several sizes, every state in each mode shown, a frame that fails to draw and a design missing partway through the list;
+draws a design at two scales; and reports a frame per mode shown, sending nothing when a frame fails partway through.
 
 `packages/cli/src/operations.test.ts` launches both real entry points against local RPC, covering each operation's
 defaults, explicit tab/options, human and JSON output, invalid inputs, RPC errors, image blocks, audit and screenshot

@@ -6,7 +6,8 @@ import {
   guestChanges,
   jsonText,
   parseData,
-  versionedSources
+  versionedSources,
+  withProjectPreferences
 } from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
 import type { TokenWrite } from "@parity-app/tokens"
@@ -1277,7 +1278,8 @@ async function createSession(
     info.mainDocument,
     {
       saveDocument: (path, document) => saveDocument(info.id, path, document),
-      autosave: () => getPreferences().autosave
+      // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
+      autosave: (): boolean => withProjectPreferences(getPreferences(), store.getMainDocument()).autosave
     },
     info.libraries.flatMap((library) => library.designs ?? [])
   )

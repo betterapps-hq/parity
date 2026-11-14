@@ -1,6 +1,7 @@
 import { nodeStyle, styleKey } from "@parity-app/style-schema"
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
+import { projectExtensions, projectPreferences } from "./project-settings.ts"
 import { type DataParser, fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
 import { sampleProps } from "./values/grammar.ts"
@@ -708,7 +709,14 @@ export const canvasDocument = fileObject({
    * stock picture shows and who made it, kept as it's added to the project, so the Media tab can credit it before any
    * layer shows it.
    */
-  images: z.record(z.string().min(1), imageDetails).optional()
+  images: z.record(z.string().min(1), imageDetails).optional(),
+  /**
+   * The person's preferences the project sets for itself, which win while it's open: autosave, snapping, the layout
+   * grid and the export sizes, in the order they were set. Unset while it follows the person's own.
+   */
+  preferences: projectPreferences.optional(),
+  /** Extensions' project settings, by extension id and then key, as `storybook` → `configDir`. Unset while there are none. */
+  extensions: projectExtensions.optional()
 })
 
 /**

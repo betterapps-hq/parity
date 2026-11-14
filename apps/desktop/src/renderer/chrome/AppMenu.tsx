@@ -33,6 +33,7 @@ import {
   Terminal
 } from "lucide-react"
 import { createContext, type ReactNode, useContext } from "react"
+import { setEffectivePreference, useEffectivePreferences } from "../project-settings.ts"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
@@ -249,7 +250,7 @@ function EditItems() {
 /** Home, zoom, and what the window shows. */
 function ViewItems() {
   const layout = useLayout()
-  const preferences = usePreferences()
+  const preferences = useEffectivePreferences()
 
   return (
     <>
@@ -280,12 +281,16 @@ function ViewItems() {
       <Toggle
         icon={Grid3x3}
         checked={preferences.layoutGrid}
-        onChange={(layoutGrid) => setPreferences({ layoutGrid })}
+        onChange={(layoutGrid) => setEffectivePreference({ key: "layoutGrid", value: layoutGrid })}
         command="layoutGrid"
       >
         Layout grid
       </Toggle>
-      <Toggle icon={Magnet} checked={preferences.snapping} onChange={(snapping) => setPreferences({ snapping })}>
+      <Toggle
+        icon={Magnet}
+        checked={preferences.snapping}
+        onChange={(snapping) => setEffectivePreference({ key: "snapping", value: snapping })}
+      >
         Snap to screens and components
       </Toggle>
     </>

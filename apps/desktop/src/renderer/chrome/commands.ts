@@ -91,12 +91,7 @@ export async function exportLayers(
     sizes
   )
 
-  const exported: Exported = {
-    kind: "layers",
-    formats: [...new Set(sizes.map((size) => size.format))],
-    scales: [...new Set(sizes.map((size) => size.scale))],
-    designs: targets.length
-  }
+  const exported: Exported = { kind: "layers", ...writtenAt(sizes), designs: targets.length }
 
   const answer = await serviceCall({
     progress: files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`,
@@ -134,6 +129,14 @@ export async function exportLayers(
 /** What an export wrote, for `export.done` and `export.failed`, which add how long it took. */
 type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code" | "durationMs">
 
+/** The formats and scales an export at `sizes` writes, each once. */
+function writtenAt(sizes: readonly ExportSize[]): Pick<Exported, "formats" | "scales"> {
+  return {
+    formats: [...new Set(sizes.map((size) => size.format))],
+    scales: [...new Set(sizes.map((size) => size.scale))]
+  }
+}
+
 function trackExportFailed(exported: Exported & { durationMs: number }, cause: unknown): void {
   const failed: EventAttributes<typeof registeredEvents, "export.failed"> = { ...exported }
   const code = errorCode(cause)
@@ -146,8 +149,8 @@ function trackExportFailed(exported: Exported & { durationMs: number }, cause: u
 }
 
 /**
- * File > Export all: renders every design, in each of its states and the modes shown beside it, to PNGs at the export
- * scale, in a folder the person picks.
+ * File > Export all: renders every design, in each of its states and the modes shown beside it, at each of the export
+ * sizes the Export section writes layers at, in a folder the person picks.
  */
 export async function exportAllImages(
   session: Pick<ProjectSession, "id" | "store"> | undefined = activeSession()
@@ -171,14 +174,14 @@ export async function exportAllImages(
     return
   }
 
-  const scale = getPreferences().exportScale
+  const sizes = getPreferences().exportSizes
   const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
-  const exported: Exported = { kind: "designs", formats: ["png"], scales: [scale], designs: designs.length }
+  const exported: Exported = { kind: "designs", ...writtenAt(sizes), designs: designs.length }
 
   const answer = await serviceCall({
     progress: `Exporting ${named ?? store.designsLabel(designs)}…`,
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
-    run: () => request("designs.export", { projectId: session.id, folder, designs, scale }),
+    run: () => request("designs.export", { projectId: session.id, folder, designs, sizes }),
     done({ files, warnings }, took) {
       track("export.done", { ...exported, durationMs: took, files: files.length, warnings: warnings.length })
 

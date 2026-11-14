@@ -10,11 +10,11 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, X } from "lucide-react"
 import { Fragment, type ReactNode, useEffect, useId, useRef } from "react"
-import { AppSelect } from "../../chrome/AppSelect.tsx"
-import { CopyButton } from "../../chrome/Copy.tsx"
-import { Hint } from "../../chrome/Hint.tsx"
-import { DialogGroupTitle } from "../../chrome/PanelSection.tsx"
-import { type Option, project, type Setting, type Value } from "./data.ts"
+import { AppSelect } from "../AppSelect.tsx"
+import { CopyButton } from "../Copy.tsx"
+import { Hint } from "../Hint.tsx"
+import { DialogGroupTitle } from "../PanelSection.tsx"
+import type { Option, Setting, Value } from "./definitions.ts"
 import { ProjectBadge } from "./marks.tsx"
 import { type Store, valueText } from "./store.ts"
 
@@ -42,12 +42,6 @@ export function Group({ title, icon, children }: { title?: ReactNode; icon?: Rea
   )
 }
 
-/** What went wrong with a row's value, under it: a save that failed, or a value in the file Parity can't use. */
-interface Problem {
-  tone: "error" | "warning"
-  text: ReactNode
-}
-
 interface RowProps {
   /** The setting it shows, which search and links mark it by. */
   id?: string
@@ -57,7 +51,8 @@ interface RowProps {
   /** Beside the label: the project's tag, or a link to the project's value. */
   aside?: ReactNode
   detail?: ReactNode
-  problem?: Problem
+  /** Why its last change couldn't be saved. */
+  problem?: string
   /** A wide control, as a select is, goes under the label when the page is narrow; a small one stays beside it. */
   wide?: boolean
   marked?: boolean
@@ -97,11 +92,6 @@ export function Row({
   }, [marked])
 
   const labelClass = "text-sm font-medium"
-  let problemClass = "text-amber-600 dark:text-amber-400"
-
-  if (problem?.tone === "error") {
-    problemClass = "text-destructive"
-  }
 
   return (
     <div
@@ -124,8 +114,8 @@ export function Row({
         </div>
         {detail && <div className="mt-0.5 type-description text-muted-foreground">{detail}</div>}
         {problem && (
-          <p role={problem.tone === "error" ? "alert" : undefined} className={`mt-1 type-message ${problemClass}`}>
-            {problem.text}
+          <p role="alert" className="mt-1 type-message text-destructive">
+            {problem}
           </p>
         )}
       </div>
@@ -161,26 +151,26 @@ function RowAction({
 }
 
 /** What's saved in the project's file, tagged with its badge and name where Settings lists it among the person's. */
-function ProjectTag() {
+function ProjectTag({ name }: { name: string }) {
   return (
     <span className="inline-flex h-5 items-center gap-1 rounded-md bg-muted px-1.5 text-2xs text-muted-foreground">
-      <ProjectBadge name={project.name} size={12} />
+      <ProjectBadge name={name} size={12} />
       <span className="sr-only">Saved in </span>
-      {project.name}
+      {name}
     </span>
   )
 }
 
 /** The project's own value beside one of the person's that it changes, which goes to it on the project's page. */
-function ProjectValue({ setting, value, store }: { setting: Setting; value: Value; store: Store }) {
+function ProjectValue({ name, setting, value, store }: { name: string; setting: Setting; value: Value; store: Store }) {
   return (
     <button
       type="button"
       onClick={() => store.go("project", setting.id)}
       className="inline-flex h-5 items-center gap-1 rounded-md bg-muted px-1.5 text-2xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
     >
-      <ProjectBadge name={project.name} size={12} />
-      {project.name}: {valueText(setting, value)}
+      <ProjectBadge name={name} size={12} />
+      {name}: {valueText(setting, value)}
     </button>
   )
 }
@@ -218,7 +208,8 @@ export function SettingRow({
   const fallback = override ? store.mine(setting) : setting.default
   const value = theirs ? (store.theirs(setting) ?? fallback) : store.mine(setting)
   const lockedBy = store.locked[setting.id]
-  const projectValue = theirs ? undefined : store.theirs(setting)
+  const project = store.project?.name
+  const projectValue = theirs || !project ? undefined : store.theirs(setting)
   const change = (next: Value) => (theirs ? store.setTheirs(setting, next) : store.setMine(setting, next))
 
   return (
@@ -229,12 +220,14 @@ export function SettingRow({
       label={found ? <ResultLink setting={setting} found={found} store={store} /> : setting.label}
       aside={
         <>
-          {tagged && setting.scope === "project" && <ProjectTag />}
-          {projectValue !== undefined && <ProjectValue setting={setting} value={projectValue} store={store} />}
+          {tagged && project && setting.scope === "project" && <ProjectTag name={project} />}
+          {project && projectValue !== undefined && (
+            <ProjectValue name={project} setting={setting} value={projectValue} store={store} />
+          )}
         </>
       }
       detail={detailOf(setting, { lockedBy, found, override: override ? fallback : undefined, store })}
-      problem={problemOf(setting, store)}
+      problem={store.failed[setting.id]}
       marked={store.marked === setting.id}
       action={
         override && (
@@ -247,7 +240,13 @@ export function SettingRow({
         )
       }
     >
-      <Control id={controlId} setting={setting} value={value} disabled={!!lockedBy} onChange={change} />
+      <Control
+        id={controlId}
+        setting={setting}
+        value={value}
+        disabled={!!lockedBy || !!store.busy?.[setting.id]}
+        onChange={change}
+      />
     </Row>
   )
 }
@@ -303,26 +302,6 @@ function detailOf(
   }
 
   return found && setting.detail ? <Highlight text={setting.detail} query={found.query} /> : setting.detail
-}
-
-/** What went wrong with a setting: its last change couldn't be saved, or the file holds a value Parity can't use. */
-function problemOf(setting: Setting, store: Store): Problem | undefined {
-  const failed = store.failed[setting.id]
-
-  if (failed) {
-    return { tone: "error", text: failed }
-  }
-
-  const invalid = store.invalid[setting.id]
-
-  if (invalid === undefined) {
-    return undefined
-  }
-
-  return {
-    tone: "warning",
-    text: `Parity can't use “${invalid}” from settings.json, so this uses the default until you pick another.`
-  }
 }
 
 function Control({

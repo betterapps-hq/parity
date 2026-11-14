@@ -1,6 +1,6 @@
+import { codeEditors } from "@parity-app/processes"
 import {
   Download,
-  FlaskConical,
   Frame,
   Keyboard,
   type LucideIcon,
@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   Sun
 } from "lucide-react"
-import { reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
+import { reactLogo, storybookLogo, tailwindLogo, viteLogo } from "./logos.ts"
 import { type Mark, markOf, projectMark } from "./marks.tsx"
 
 /**
@@ -61,175 +61,85 @@ export interface Page {
   group: number
 }
 
-export interface Permission {
-  label: string
-  detail: string
-  /** Goes through Parity's API, so it can be withdrawn while the extension keeps running. */
-  grant?: boolean
-}
-
+/**
+ * A built-in extension as Settings shows it: what it adds, which its adapter says, and, in an open project, what
+ * detection found and whether it runs there.
+ */
 export interface Extension {
   id: string
   name: string
   icon: Mark
+  /** Whether it runs in the open project. */
   running: boolean
   /** What detection found, or why it isn't running. */
   found: string
   adds: string[]
-  permissions: Permission[]
-  activation?: { event: string; ms: number }
-  memoryMb?: number
 }
 
-/** The project the window has open. */
-export const project = { name: "Kestrel", file: "kestrel.par" }
-
-export const extensions: Extension[] = [
+/** The built-in extensions and what each adds, before detection says whether it runs in a project. */
+export const builtInExtensions: Omit<Extension, "running" | "found">[] = [
   {
     id: "storybook",
     name: "Storybook",
     icon: markOf(storybookLogo, "Storybook"),
-    running: true,
-    found: "Storybook 9.1, config in .storybook",
-    adds: ["Stories as screens", "Storybook server", "Open in Storybook"],
-    permissions: [
-      { label: "Read files", detail: ".storybook/**, src/**/*.stories.tsx" },
-      { label: "Write files", detail: "src/**/*.stories.tsx" },
-      { label: "Run processes", detail: "storybook dev" },
-      { label: "Connect to", detail: "localhost" },
-      { label: "Change designs", detail: "Writes stories back when a screen changes", grant: true }
-    ],
-    activation: { event: "When Storybook was found", ms: 38 },
-    memoryMb: 21
+    adds: ["Stories as screens", "Storybook server", "Open in Storybook"]
   },
-  {
-    id: "vite",
-    name: "Vite",
-    icon: markOf(viteLogo, "Vite"),
-    running: true,
-    found: "Vite 7.2, config in vite.config.ts",
-    adds: ["Build server"],
-    permissions: [
-      { label: "Read files", detail: "vite.config.ts, src/**" },
-      { label: "Run processes", detail: "vite" },
-      { label: "Connect to", detail: "localhost" }
-    ],
-    activation: { event: "When Vite was found", ms: 12 },
-    memoryMb: 34
-  },
-  {
-    id: "react",
-    name: "React",
-    icon: markOf(reactLogo, "React"),
-    running: true,
-    found: "React 19.2",
-    adds: ["Finds components", "Draws components"],
-    permissions: [{ label: "Read files", detail: "src/**" }],
-    activation: { event: "When React was found", ms: 9 },
-    memoryMb: 16
-  },
+  { id: "vite", name: "Vite", icon: markOf(viteLogo, "Vite"), adds: ["Build server"] },
+  { id: "react", name: "React", icon: markOf(reactLogo, "React"), adds: ["Finds components", "Draws components"] },
   {
     id: "tailwind",
     name: "Tailwind CSS",
     icon: markOf(tailwindLogo, "Tailwind"),
-    running: true,
-    found: "Tailwind CSS 4.1, theme in src/styles.css",
-    adds: ["Tokens from the theme", "Styles as classes"],
-    permissions: [
-      { label: "Read files", detail: "src/**/*.css" },
-      { label: "Write files", detail: "src/styles.css" },
-      { label: "Change designs", detail: "Writes classes when a style changes", grant: true }
-    ],
-    activation: { event: "When Tailwind CSS was found", ms: 17 },
-    memoryMb: 12
-  },
-  {
-    id: "tanstack-router",
-    name: "TanStack Router",
-    icon: markOf(tanstackLogo, "TanStack"),
-    running: true,
-    found: "TanStack Router 1.131, routes in src/routes",
-    adds: ["Routes on the canvas", "Open in browser"],
-    permissions: [{ label: "Read files", detail: "src/routes/**" }],
-    activation: { event: "When a page opened", ms: 21 },
-    memoryMb: 9
+    adds: ["Tokens from the theme", "Styles as classes"]
   }
 ]
 
-/** Names for a long list of installed extensions, to see how the Extensions page holds up with 40. */
-const moreNames = [
-  "Angular",
-  "Astro",
-  "Chakra UI",
-  "Chromatic",
-  "Electron",
-  "Emotion",
-  "ESLint",
-  "Expo",
-  "Framer Motion",
-  "Heroicons",
-  "i18next",
-  "Jotai",
-  "Lingui",
-  "Lucide",
-  "Mobbin",
-  "MUI",
-  "Nuxt",
-  "Phosphor",
-  "Playwright",
-  "PostCSS",
-  "Prettier",
-  "Qwik",
-  "React Native",
-  "React Router",
-  "Redux",
-  "Remix",
-  "Sass",
-  "Solid",
-  "styled-components",
-  "SvelteKit",
-  "TanStack Query",
-  "Tauri",
-  "Unsplash",
-  "Vitest"
-]
+/** What detection found of a tool: its id and, in a sentence, what and where. */
+interface Found {
+  id: string
+  summary: string
+}
 
-/** Which of the extra extensions run in the project, as tools a project like Kestrel also has. */
-const runningMore = new Set(["ESLint", "Lucide", "Prettier", "TanStack Query", "Vitest", "Playwright", "Unsplash"])
+/**
+ * The built-in extensions as Settings lists them: each runs in the open project when detection found its tool, and
+ * says what it found. With no project open, each says what it runs in.
+ */
+export function extensionsFrom(found: readonly Found[] | undefined): Extension[] {
+  return builtInExtensions.map((extension) => {
+    const tool = found?.find((entry) => entry.id === extension.id)
 
-export const manyExtensions: Extension[] = [
-  ...extensions,
-  ...moreNames.map((name) => {
-    const extension: Extension = {
-      id: name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"),
-      name,
-      icon: Puzzle,
-      running: runningMore.has(name),
-      found: runningMore.has(name) ? `${name} in package.json` : "Not in this project",
-      adds: [],
-      permissions: [{ label: "Read files", detail: "src/**" }]
+    if (tool) {
+      return { ...extension, running: true, found: tool.summary }
     }
 
-    if (extension.running) {
-      extension.activation = { event: `When ${name} was found`, ms: 8 }
-      extension.memoryMb = 6
+    return {
+      ...extension,
+      running: false,
+      found: found ? `No ${extension.name} in this project` : `Runs in projects that use ${extension.name}`
     }
-
-    return extension
   })
-]
+}
 
 export const pages: Page[] = [
   { id: "general", label: "General", icon: SlidersHorizontal, group: 0 },
   { id: "canvas", label: "Canvas", icon: Frame, group: 0 },
   { id: "export", label: "Export", icon: Download, group: 0 },
   { id: "shortcuts", label: "Keyboard shortcuts", icon: Keyboard, group: 0 },
-  { id: "project", label: project.name, icon: projectMark(project.name), group: 1 },
   { id: "extensions", label: "Extensions", icon: Puzzle, group: 1 },
-  { id: "experiments", label: "Experiments", icon: FlaskConical, group: 2 },
   { id: "diagnostics", label: "Diagnostics", icon: ShieldCheck, group: 2 },
   { id: "updates", label: "Updates", icon: RefreshCw, group: 2 }
 ]
+
+/** Parity's pages, with the open project's among them. */
+export function pagesFor(project: { name: string } | undefined): Page[] {
+  if (!project) {
+    return pages
+  }
+
+  const page: Page = { id: "project", label: project.name, icon: projectMark(project.name), group: 1 }
+
+  return [...pages.filter((entry) => entry.group < 1), page, ...pages.filter((entry) => entry.group >= 1)]
+}
 
 const themes: Option[] = [
   { value: "dark", label: "Dark", icon: Moon },
@@ -237,12 +147,10 @@ const themes: Option[] = [
   { value: "system", label: "System", icon: Monitor }
 ]
 
+/** Where View code opens a file: the first editor installed, a named one, or the system's choice. */
 const editors: Option[] = [
   { value: "auto", label: "Automatic" },
-  { value: "vscode", label: "VS Code" },
-  { value: "cursor", label: "Cursor" },
-  { value: "windsurf", label: "Windsurf" },
-  { value: "zed", label: "Zed" },
+  ...codeEditors.map((editor) => ({ value: editor.id, label: editor.name })),
   { value: "system", label: "System default" }
 ]
 
@@ -322,7 +230,6 @@ export const settings: Setting[] = [
     control: { kind: "switch" },
     default: false
   },
-
   {
     id: "exportSizes",
     page: "export",
@@ -332,26 +239,6 @@ export const settings: Setting[] = [
     scope: "either",
     control: { kind: "multi", options: sizes },
     default: ["png 1x", "png 2x"]
-  },
-  {
-    id: "flag.npmExtensions",
-    page: "experiments",
-    label: "Install extensions from npm",
-    detail: "Adds Install to the Extensions page.",
-    keywords: ["feature flag", "extensions"],
-    scope: "app",
-    control: { kind: "switch" },
-    default: false
-  },
-  {
-    id: "flag.lenses",
-    page: "experiments",
-    label: "App lenses",
-    detail: "Shows each layer of the app as its own view, read from the project as Storybook is.",
-    keywords: ["feature flag", "routes", "views"],
-    scope: "app",
-    control: { kind: "switch" },
-    default: false
   },
   {
     id: "telemetry",
@@ -372,7 +259,7 @@ export const settings: Setting[] = [
     group: "Sharing",
     scope: "app",
     control: { kind: "fixed" },
-    default: "3f9c2a71-6b0e-4d8a-9e15-c4a7d2b08f63"
+    default: ""
   },
   {
     id: "performanceStats",
@@ -402,27 +289,9 @@ export const settings: Setting[] = [
     scope: "project",
     control: { kind: "text" },
     default: ".storybook"
-  },
-  {
-    id: "storybook.openIn",
-    page: "ext:storybook",
-    label: "Open stories in",
-    keywords: ["browser"],
-    scope: "app",
-    control: {
-      kind: "select",
-      options: [
-        { value: "browser", label: "Your browser" },
-        { value: "parity", label: "Parity" }
-      ]
-    },
-    default: "browser"
   }
 ]
 
 export function defaults(): Record<string, Value> {
   return Object.fromEntries(settings.map((setting) => [setting.id, setting.default]))
 }
-
-/** The Parity version Updates shows, as the app's package.json has it. */
-export const version = "0.82.1"

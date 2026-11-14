@@ -10,152 +10,72 @@ import {
   InputGroupInput,
   Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
-import { Check, ChevronRight, FileJson, Search, X } from "lucide-react"
+import { Check, ChevronRight, Search, X } from "lucide-react"
 import { Fragment, type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react"
-import { keymap } from "../../chrome/keymap.ts"
-import { formatKeys } from "../../chrome/keys.ts"
-import {
-  defaults,
-  type Extension,
-  extensions as builtIn,
-  type Page,
-  pages,
-  project,
-  settings,
-  type Value
-} from "./data.ts"
+import { shortcutFor, shortcutOf } from "../keymap.ts"
+import { type Page, pagesFor, type Setting, type Value } from "./definitions.ts"
 import { ProjectBadge } from "./marks.tsx"
-import { arrows, ExtensionPage, ExtensionsPage, ProjectPage, Results, SettingsPage } from "./pages.tsx"
-import { isCommand, keysIn, ShortcutsPage } from "./shortcuts.tsx"
-import { type Bindings, same, type Skipped, type Store } from "./store.ts"
+import { arrows, Content } from "./pages.tsx"
+import type { SettingsData, Store } from "./store.ts"
 
-export interface SettingsModalProps {
+export interface SettingsViewProps {
+  data: SettingsData
+  open: boolean
+  onOpenChange: (open: boolean) => void
   /** The page it opens on, as Search actions or a menu asks: a page's id, or `ext:` and an extension's. */
   initialPage?: string
   /** What's typed in its search as it opens. */
   initialQuery?: string
   /** A setting to scroll to and mark as it opens, as picking one in Search actions does. */
   initialSetting?: string
-  /** The person's values that differ from the defaults. */
-  initialValues?: Record<string, Value>
-  /** The project's values: its own settings, and the person's it changes for itself. */
-  initialProject?: Record<string, Value>
-  /** Settings something outside Settings decides, by setting id, naming what decides it. */
-  locked?: Record<string, string>
-  /** Values in settings.json that Parity can't use, as the file has them, by setting id. */
-  invalid?: Record<string, string>
-  /** Settings whose changes can't be saved, to show what Settings says when a save fails. */
-  failing?: string[]
-  /** Entries in keybindings.json that Parity skipped. */
-  skipped?: Skipped[]
-  /** The extensions installed. */
-  extensions?: Extension[]
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
 }
 
-/** What Settings says when a change couldn't be written, as the dialog in the app says it. */
+/** What Settings says when a change couldn't be written. */
 const notSaved = "Couldn't save this setting. Try again."
 
 /**
- * The Settings view: every setting, Parity's own and each extension's, on pages in a sidebar. The person's settings
- * apply and save as they change. The project's page holds what's saved in its file: the person's settings it changes
- * for itself and its extensions' settings. Those changes are undo steps in its window, saved with the project, so a bar
- * offers Save while there are any, unless the project saves itself. Main owns the view and it loads no project code,
- * so it's the one place app settings and permission grants change.
+ * Settings: every setting, Parity's own and each extension's, on pages in a sidebar. The person's settings apply and
+ * save as they change, with a brief Saved. The project's page holds what's saved in its file: the person's settings it
+ * changes for itself and its extensions' settings. Those changes are undo steps in its window, saved with the project,
+ * so a bar offers Save while there are any, unless the project saves itself.
  */
-export function SettingsModal({
+export function SettingsView({
+  data,
+  open,
+  onOpenChange,
   initialPage = "general",
   initialQuery = "",
-  initialSetting,
-  initialValues = {},
-  initialProject = {},
-  locked = {},
-  invalid: initialInvalid = {},
-  failing = [],
-  skipped = [],
-  extensions = builtIn,
-  open = true,
-  onOpenChange
-}: SettingsModalProps) {
+  initialSetting
+}: SettingsViewProps) {
   const [page, setPage] = useState(initialPage)
   const [query, setQuery] = useState(initialQuery)
-  const [mine, setMine] = useState<Record<string, Value>>(() => ({ ...defaults(), ...initialValues }))
-  const [own, setOwn] = useState(initialProject)
-  // What the project file holds: its values as last saved, so Save knows whether there's anything to write.
-  const [saved, setSaved] = useState(initialProject)
-  const [invalid, setInvalid] = useState(initialInvalid)
-  const [failed, setFailed] = useState<Record<string, string>>({})
-  const [bindings, setBindings] = useState<Bindings>({ changed: {}, lost: {} })
-  const [grants, setGrants] = useState<Record<string, boolean>>({})
   const [marked, setMarked] = useState(initialSetting)
+  const [failed, setFailed] = useState<Record<string, string>>({})
   const [wroteAt, setWroteAt] = useState<number>()
   const [scrolled, setScrolled] = useState(false)
   const pane = useRef<HTMLDivElement>(null)
   const searchBox = useRef<HTMLInputElement>(null)
-
-  const unsaved = !same(own, saved)
-  const savesItself = (own.autosave ?? mine.autosave) === true
-  const wrote = () => setWroteAt(Date.now())
-
-  const save = () => {
-    setSaved(own)
-    wrote()
-  }
-
-  const forget = (id: string) => {
-    setFailed(({ [id]: _, ...rest }) => rest)
-    setInvalid(({ [id]: _, ...rest }) => rest)
-  }
+  const pages = pagesFor(data.project)
+  const wrote = () => setWroteAt((count) => (count ?? 0) + 1)
+  const forget = (id: string) => setFailed(({ [id]: _, ...rest }) => rest)
 
   const store: Store = {
-    locked,
+    ...data,
     marked,
-    extensions,
     failed,
-    invalid,
-    bindings,
-    skipped,
-    mine: (setting) => mine[setting.id]!,
-    theirs: (setting) => own[setting.id],
-    setMine(setting, value) {
-      if (failing.includes(setting.id)) {
-        setFailed((current) => ({ ...current, [setting.id]: notSaved }))
-
-        return
-      }
-
+    setMine(setting: Setting, value: Value) {
       forget(setting.id)
-      setMine((current) => ({ ...current, [setting.id]: value }))
-      wrote()
+
+      void Promise.resolve(data.setMine(setting, value)).then(wrote, () =>
+        setFailed((current) => ({ ...current, [setting.id]: notSaved }))
+      )
     },
-    setTheirs(setting, value) {
-      setOwn((current) => ({ ...current, [setting.id]: value }))
-    },
-    resetTheirs(setting) {
-      setOwn(({ [setting.id]: _, ...rest }) => rest)
-    },
-    overrides: Object.keys(own).filter((id) =>
-      settings.some((setting) => setting.id === id && setting.scope === "either")
-    ),
     bind(command, keys) {
-      setBindings((current) => {
-        const changed = { ...current.changed, [command]: keys }
-        const { [command]: _, ...lost } = current.lost
-        const label = isCommand(command) ? keymap[command].label : command
+      const id = `key:${command}`
 
-        const holder = Object.keys(keymap).find(
-          (other) => other !== command && keys !== "" && keysIn(other, current.changed) === keys
-        )
+      forget(id)
 
-        if (holder) {
-          changed[holder] = ""
-          lost[holder] = label
-        }
-
-        return { changed, lost }
-      })
-      wrote()
+      return data.bind(command, keys).then(wrote, () => setFailed((current) => ({ ...current, [id]: notSaved })))
     },
     go(to, setting) {
       setQuery("")
@@ -168,19 +88,16 @@ export function SettingsModal({
     }
   }
 
-  // A project that saves itself saves Settings' changes to it a moment after each, as it does every other change.
+  // Saving the project, by its bar, Ctrl S or itself, says Saved as the person's settings do.
+  const wasUnsaved = useRef(data.unsaved)
+
   useEffect(() => {
-    if (!unsaved || !savesItself) {
-      return
+    if (wasUnsaved.current && !data.unsaved) {
+      setWroteAt((count) => (count ?? 0) + 1)
     }
 
-    const timer = setTimeout(() => {
-      setSaved(own)
-      setWroteAt(Date.now())
-    }, 800)
-
-    return () => clearTimeout(timer)
-  }, [own, unsaved, savesItself])
+    wasUnsaved.current = data.unsaved
+  }, [data.unsaved])
 
   useEffect(() => {
     if (wroteAt === undefined) {
@@ -212,19 +129,20 @@ export function SettingsModal({
     return () => clearTimeout(timer)
   }, [marked, page])
 
-  const shown = page.startsWith("ext:") || pages.some((entry) => entry.id === page) ? page : "general"
-  const heading = headingOf(shown, query, extensions)
+  const known = (id: string) => data.extensions.some((entry) => `ext:${entry.id}` === id)
+  const shown = known(page) || pages.some((entry) => entry.id === page) ? page : "general"
+  const heading = headingOf(shown, query, data)
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) {
       return
     }
 
-    if (event.key.toLowerCase() === "s") {
+    if (shortcutFor(event.nativeEvent, ["save"])) {
       event.preventDefault()
 
-      if (unsaved) {
-        save()
+      if (data.unsaved) {
+        data.save()
       }
     }
 
@@ -244,7 +162,7 @@ export function SettingsModal({
           return setQuery("")
         }
 
-        onOpenChange?.(next)
+        onOpenChange(next)
       }}
     >
       <DialogContent
@@ -298,14 +216,10 @@ export function SettingsModal({
               </div>
             </header>
             <div className="mx-auto w-full max-w-2xl px-8 pt-2 pb-16">
-              {query ? (
-                <Results query={query} store={store} onClear={() => setQuery("")} />
-              ) : (
-                <Content page={shown} grants={grants} setGrants={setGrants} store={store} />
-              )}
+              <Content page={shown} query={query} store={store} onClear={() => setQuery("")} />
             </div>
           </div>
-          {unsaved && !savesItself && <SaveBar onSave={save} />}
+          {data.project && data.unsaved && !data.savesItself && <SaveBar name={data.project.name} onSave={data.save} />}
           <DialogClose
             render={
               <Button variant="ghost" size="icon-sm" aria-label="Close" className="absolute top-3 right-3 z-20" />
@@ -325,18 +239,18 @@ interface Heading {
   parent?: { id: string; label: string }
 }
 
-function headingOf(page: string, query: string, installed: readonly Extension[]): Heading {
+function headingOf(page: string, query: string, data: SettingsData): Heading {
   if (query) {
     return { title: `Results for “${query.trim()}”` }
   }
 
-  const extension = installed.find((entry) => `ext:${entry.id}` === page)
+  const extension = data.extensions.find((entry) => `ext:${entry.id}` === page)
 
   if (extension) {
     return { title: extension.name, parent: { id: "extensions", label: "Extensions" } }
   }
 
-  return { title: pages.find((entry) => entry.id === page)?.label ?? "" }
+  return { title: pagesFor(data.project).find((entry) => entry.id === page)?.label ?? "" }
 }
 
 /** The sidebar's page for a page: Extensions for an extension's. */
@@ -344,46 +258,14 @@ function sidebarPage(page: string): string {
   return page.startsWith("ext:") ? "extensions" : page
 }
 
-function Content({
-  page,
-  grants,
-  setGrants,
-  store
-}: {
-  page: string
-  grants: Record<string, boolean>
-  setGrants: (grants: Record<string, boolean>) => void
-  store: Store
-}) {
-  if (page === "project") {
-    return <ProjectPage store={store} />
-  }
-
-  if (page === "extensions") {
-    return <ExtensionsPage store={store} />
-  }
-
-  if (page === "shortcuts") {
-    return <ShortcutsPage store={store} />
-  }
-
-  const extension = store.extensions.find((entry) => `ext:${entry.id}` === page)
-
-  if (extension) {
-    return <ExtensionPage extension={extension} grants={grants} setGrants={setGrants} store={store} />
-  }
-
-  return <SettingsPage page={page} store={store} />
-}
-
 /** While the project has changes Settings made that aren't saved: Save, as the editor's Save does, or Ctrl S. */
-function SaveBar({ onSave }: { onSave: () => void }) {
+function SaveBar({ name, onSave }: { name: string; onSave: () => void }) {
   return (
     <div className="shrink-0 animate-in border-t bg-muted/40 duration-200 fade-in slide-in-from-bottom-2">
       <div className="mx-auto flex h-14 w-full max-w-2xl items-center gap-3 px-8">
-        <ProjectBadge name={project.name} size={16} />
-        <span className="min-w-0 flex-1 truncate text-sm">{project.name} has unsaved changes</span>
-        <Kbd>{formatKeys("Ctrl S", false)}</Kbd>
+        <ProjectBadge name={name} size={16} />
+        <span className="min-w-0 flex-1 truncate text-sm">{name} has unsaved changes</span>
+        <Kbd>{shortcutOf("save")}</Kbd>
         <Button size="sm" onClick={onSave}>
           Save
         </Button>
@@ -393,7 +275,7 @@ function SaveBar({ onSave }: { onSave: () => void }) {
 }
 
 function Sidebar({
-  pages: shown,
+  pages,
   page,
   query,
   setQuery,
@@ -407,8 +289,8 @@ function Sidebar({
   searchBox: RefObject<HTMLInputElement | null>
   store: Store
 }) {
-  const sections = [...new Set(shown.map((entry) => entry.group))].map((group) =>
-    shown.filter((entry) => entry.group === group)
+  const sections = [...new Set(pages.map((entry) => entry.group))].map((group) =>
+    pages.filter((entry) => entry.group === group)
   )
 
   return (
@@ -460,11 +342,6 @@ function Sidebar({
           </Fragment>
         ))}
       </nav>
-      <div className="hidden border-t p-2 sm:block">
-        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 font-normal text-muted-foreground">
-          <FileJson aria-hidden /> Open settings.json
-        </Button>
-      </div>
     </div>
   )
 }

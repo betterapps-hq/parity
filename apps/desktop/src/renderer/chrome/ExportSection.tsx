@@ -2,11 +2,11 @@ import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { describeFiles, type ExportSize, exportFiles, nextExportSize } from "@parity-app/editor"
 import { Download, Minus, Plus } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
+import { setEffectivePreference, useEffectivePreferences } from "../project-settings.ts"
 import { AppSelect } from "./AppSelect.tsx"
 import { type ExportTarget, exportLayers } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { setPreferences, usePreferences } from "./preferences.ts"
 
 /**
  * The Export section (PAR-185), at the foot of the Design tab for a design, a layer or several: the sizes to write,
@@ -15,7 +15,7 @@ import { setPreferences, usePreferences } from "./preferences.ts"
  */
 export function ExportSection({ targets, label }: { targets: ExportTarget[]; label: string }) {
   const session = useProject()
-  const { exportSizes: sizes } = usePreferences()
+  const { exportSizes: sizes } = useEffectivePreferences(session.store)
 
   const files = exportFiles(
     targets.map((target) => target.name),
@@ -23,7 +23,9 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
   )
 
   const next = nextExportSize(sizes)
-  const setSizes = (exportSizes: ExportSize[]) => setPreferences({ exportSizes })
+
+  const setSizes = (exportSizes: ExportSize[]) =>
+    setEffectivePreference({ key: "exportSizes", value: exportSizes }, session.store)
 
   const change = (index: number, size: Partial<ExportSize>) =>
     setSizes(sizes.map((current, at) => (at === index ? { ...current, ...size } : current)))

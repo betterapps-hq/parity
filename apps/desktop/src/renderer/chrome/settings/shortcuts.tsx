@@ -1,33 +1,15 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { FileJson } from "lucide-react"
 import { type KeyboardEvent, useId, useState } from "react"
-import { groups, keymap } from "../../chrome/keymap.ts"
-import { formatKeys } from "../../chrome/keys.ts"
+import { groups, keymap } from "../keymap.ts"
+import { formatKeys, keysFromEvent } from "../keys.ts"
 import { type Found, Group, Highlight, Row } from "./rows.tsx"
 import type { Store } from "./store.ts"
 
 type Command = keyof typeof keymap
 
-/** The keys a key event makes, written as the keymap writes them: `Ctrl Shift K`. Modifiers alone make none. */
-function keysOf(event: KeyboardEvent): string | undefined {
-  if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) {
-    return undefined
-  }
-
-  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
-
-  return [event.ctrlKey || event.metaKey ? "Ctrl" : "", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", key]
-    .filter(Boolean)
-    .join(" ")
-}
-
 export function isCommand(command: string): command is Command {
   return command in keymap
-}
-
-/** The keys a command has with these changes: the person's, or the keymap's first. */
-export function keysIn(command: string, changed: Record<string, string>): string {
-  return changed[command] ?? (isCommand(command) ? keymap[command].keys[0] : undefined) ?? ""
 }
 
 /**
@@ -48,11 +30,13 @@ export function ShortcutsPage({ store }: { store: Store }) {
               <Kbd>{entry.keys}</Kbd>
             </Row>
           ))}
-          <div className="px-2 py-1.5">
-            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-              <FileJson aria-hidden /> Open keybindings.json
-            </Button>
-          </div>
+          {store.openKeybindings && (
+            <div className="px-2 py-1.5">
+              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={store.openKeybindings}>
+                <FileJson aria-hidden /> Open keybindings.json
+              </Button>
+            </div>
+          )}
         </Group>
       )}
       {groups.map((group) => (
@@ -81,8 +65,8 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
   }
 
   const binding = keymap[command]
-  const keys = keysIn(command, store.bindings.changed)
-  const lostTo = store.bindings.lost[command]
+  const keys = store.keysOf(command)
+  const lostTo = store.lost[command]
 
   const record = (event: KeyboardEvent) => {
     event.preventDefault()
@@ -94,13 +78,13 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
       return
     }
 
-    const next = event.key === "Backspace" ? "" : keysOf(event)
+    const next = event.key === "Backspace" ? "" : keysFromEvent(event.nativeEvent)
 
     if (next === undefined) {
       return
     }
 
-    store.bind(command, next)
+    void store.bind(command, next)
     setListening(false)
   }
 
@@ -123,6 +107,7 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
         )
       }
       detail={lostTo && `Its keys went to ${lostTo}.`}
+      problem={store.failed[`key:${command}`]}
       marked={store.marked === `key:${command}`}
     >
       <Button

@@ -27,22 +27,22 @@ Random sign-outs had a different cause, a failed read of the `account` file dele
 
 ## What's stored today
 
-| Where                                                                       | What                                                                                                     | After this                                     |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `localStorage` `parity.preferences`                                         | Theme, snapping, export scale and sizes, Components view, grid, autosave, performance stats, code editor | `settings.json`                                |
-| `theme.json` (main)                                                         | The theme again, so the window opens in it                                                               | `settings.json`; no longer read or written     |
-| `localStorage` `parity.layout`                                              | Panel sizes, which panels and tabs show                                                                  | `state.json`                                   |
-| `localStorage` `parity.workspace`                                           | The open tabs, to reopen next time                                                                       | `state.json`                                   |
-| `localStorage` `parity.recent`                                              | Recent projects                                                                                          | `projects.json`                                |
-| `localStorage` `parity.projects`                                            | When each project last opened, and stars                                                                 | `projects.json`                                |
-| `localStorage` `parity.recentSearches`                                      | Recent picks in Search actions                                                                           | `state.json`                                   |
-| tldraw's own `localStorage`                                                 | tldraw's user preferences (color scheme, snap mode)                                                      | Set from `settings.json` before tldraw draws   |
-| `keymap.ts`                                                                 | Every shortcut, fixed in code                                                                            | The defaults; changes go in `keybindings.json` |
-| `open-projects.json` (project service)                                      | Projects to open at once when the service starts; the CLI reads it too                                   | Stays: a head start the window's tabs correct  |
-| `telemetry.json`, `updates.json`                                            | Diagnostics level and install ID; Get beta updates                                                       | `settings.json`; no longer read or written     |
-| `account`                                                                   | The signed-in account, encrypted                                                                         | Stays as it is                                 |
-| `recent-searches.json`, `connector-placements.json`, `installed-build.json` | Main's own lists and counts                                                                              | Stay as they are                               |
-| `logs/`, `hangs/`, `recovery/`, `pictures/`, `bitmaps/`                     | Logs, recovery copies and caches                                                                         | Stay as they are                               |
+| Where                                                                       | What                                                                                           | After this                                     |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `localStorage` `parity.preferences`                                         | Theme, snapping, export sizes, Components view, grid, autosave, performance stats, code editor | `settings.json`                                |
+| `theme.json` (main)                                                         | The theme again, so the window opens in it                                                     | `settings.json`; no longer read or written     |
+| `localStorage` `parity.layout`                                              | Panel sizes, which panels and tabs show                                                        | `state.json`                                   |
+| `localStorage` `parity.workspace`                                           | The open tabs, to reopen next time                                                             | `state.json`                                   |
+| `localStorage` `parity.recent`                                              | Recent projects                                                                                | `projects.json`                                |
+| `localStorage` `parity.projects`                                            | When each project last opened, and stars                                                       | `projects.json`                                |
+| `localStorage` `parity.recentSearches`                                      | Recent picks in Search actions                                                                 | `state.json`                                   |
+| tldraw's own `localStorage`                                                 | tldraw's user preferences (color scheme, snap mode)                                            | Set from `settings.json` before tldraw draws   |
+| `keymap.ts`                                                                 | Every shortcut, fixed in code                                                                  | The defaults; changes go in `keybindings.json` |
+| `open-projects.json` (project service)                                      | Projects to open at once when the service starts; the CLI reads it too                         | Stays: a head start the window's tabs correct  |
+| `telemetry.json`, `updates.json`                                            | Diagnostics level and install ID; Get beta updates                                             | `settings.json`; no longer read or written     |
+| `account`                                                                   | The signed-in account, encrypted                                                               | Stays as it is                                 |
+| `recent-searches.json`, `connector-placements.json`, `installed-build.json` | Main's own lists and counts                                                                    | Stay as they are                               |
+| `logs/`, `hangs/`, `recovery/`, `pictures/`, `bitmaps/`                     | Logs, recovery copies and caches                                                               | Stay as they are                               |
 
 ## The files
 

@@ -8,6 +8,7 @@ import {
   consoleAnnouncement,
   consoleOrigin,
   folderPickerTitle,
+  keybindingReplacements,
   openInEditorRequest,
   problemReport,
   saveDialogOptions,
@@ -15,6 +16,7 @@ import {
   telemetrySetting,
   themeSource
 } from "./ipc-checks.ts"
+import type { KeybindingsState } from "./keybindings.ts"
 import type {
   BuildInfo,
   CliInstall,
@@ -121,6 +123,12 @@ export const hostMethods = {
   quit: {},
   toggleDevTools: {},
   setTheme: { params: themeSource },
+  /** The shortcuts the person changed, in `keybindings.json` (PAR-1085), which main sends again whenever they change. */
+  keybindingsState: { result: answers<KeybindingsState>() },
+  /** Replaces commands' entries in `keybindings.json`, for what the file holds after. */
+  keybindingsReplace: { params: keybindingReplacements, result: answers<KeybindingsState>() },
+  /** Opens `keybindings.json` in the system's app for it, making it first when there's none. */
+  keybindingsOpen: {},
   metrics: { result: answers<ProcessUsage[]>() },
 
   /** Which frame the window's next console message comes from (PAR-147). One that isn't an announcement is ignored. */

@@ -289,21 +289,23 @@ async function renderFrame(
 }
 
 /**
- * Renders designs to PNG files in a folder the person picked, through the same offscreen renderer agents use, without
- * showing agent activity on the canvas.
+ * Renders designs to files in a folder the person picked, at each size asked for, through the same offscreen renderer
+ * agents use, without showing agent activity on the canvas. A PNG is written as drawn; a JPG is made from it as the
+ * Export section makes one, its see-through parts white.
  */
 export async function exportDesigns(
   window: WindowChannel,
-  { projectId, folder, designs, scale }: ServiceMethods["designs.export"]["params"]
+  { projectId, folder, designs, sizes }: ServiceMethods["designs.export"]["params"]
 ): Promise<ServiceMethods["designs.export"]["result"]> {
   const host = desktopHost(window)
-  const { files, warnings } = await exportPictures(host, await host.snapshot(projectId), designs, scale)
+  const { files, warnings } = await exportPictures(host, await host.snapshot(projectId), designs, sizes)
   await mkdir(folder, { recursive: true })
   const paths: string[] = []
 
-  for (const { name, png } of files) {
+  for (const { name, size, png, crop } of files) {
     const path = join(folder, name)
-    await writeFile(path, Buffer.from(png, "base64"))
+    const picture = Buffer.from(png, "base64")
+    await writeFile(path, size.format === "jpg" ? await cutPicture(picture, crop, "jpg") : picture)
     paths.push(path)
   }
 

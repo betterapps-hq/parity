@@ -8,15 +8,14 @@ import {
   Empty,
   EmptyContent,
   EmptyHeader,
-  EmptyTitle,
-  Switch
+  EmptyTitle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronRight, Plus } from "lucide-react"
-import type { KeyboardEvent, ReactNode } from "react"
-import { type Extension, pages, project, type Setting, settings, version } from "./data.ts"
+import type { KeyboardEvent } from "react"
+import { type Extension, pages, type Setting, settings } from "./definitions.ts"
 import { Group, Row, SettingRow } from "./rows.tsx"
 import { type Hit, type Place, placeOf, search } from "./search.ts"
-import { ShortcutRow } from "./shortcuts.tsx"
+import { ShortcutRow, ShortcutsPage } from "./shortcuts.tsx"
 import { type Store, valueText } from "./store.ts"
 
 /** Up and down move between the items a selector finds, as in a list; Tab leaves the list. */
@@ -32,6 +31,43 @@ export function arrows(event: KeyboardEvent<HTMLElement>, selector: string) {
   items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus()
 }
 
+/** What the pane shows: search results while there's a search, or the page. */
+export function Content({
+  page,
+  query,
+  store,
+  onClear
+}: {
+  page: string
+  query: string
+  store: Store
+  onClear: () => void
+}) {
+  if (query.trim()) {
+    return <Results query={query} store={store} onClear={onClear} />
+  }
+
+  if (page === "project" && store.project) {
+    return <ProjectPage name={store.project.name} store={store} />
+  }
+
+  if (page === "extensions") {
+    return <ExtensionsPage store={store} />
+  }
+
+  if (page === "shortcuts") {
+    return <ShortcutsPage store={store} />
+  }
+
+  const extension = store.extensions.find((entry) => `ext:${entry.id}` === page)
+
+  if (extension) {
+    return <ExtensionPage extension={extension} store={store} />
+  }
+
+  return <SettingsPage page={page} store={store} />
+}
+
 /** Settings in their groups, in the order each group first comes. */
 function grouped(list: readonly Setting[]): { title?: string; items: Setting[] }[] {
   const titles = [...new Set(list.map((setting) => setting.group))]
@@ -40,7 +76,7 @@ function grouped(list: readonly Setting[]): { title?: string; items: Setting[] }
 }
 
 /** One of Parity's own pages: its settings in their groups, each group a panel. */
-export function SettingsPage({ page, store }: { page: string; store: Store }) {
+function SettingsPage({ page, store }: { page: string; store: Store }) {
   const onPage = settings.filter((setting) => setting.page === page && setting.scope !== "project")
   const sections = grouped(onPage)
   const titled = sections.length > 1
@@ -48,10 +84,12 @@ export function SettingsPage({ page, store }: { page: string; store: Store }) {
   return sections.map((section, index) => (
     <Group key={section.title ?? index} title={titled ? section.title : undefined}>
       {page === "updates" && index === 0 && (
-        <Row label="Version" detail={`Parity ${version}`}>
-          <Button variant="outline" size="sm">
-            Check for updates
-          </Button>
+        <Row label="Version" detail={`Parity ${store.version}`}>
+          {store.checkForUpdates && (
+            <Button variant="outline" size="sm" disabled={store.busy?.betaUpdates} onClick={store.checkForUpdates}>
+              Check for updates
+            </Button>
+          )}
         </Row>
       )}
       {section.items.map((setting) => (
@@ -65,7 +103,7 @@ export function SettingsPage({ page, store }: { page: string; store: Store }) {
  * The project's page: everything saved in its file. First, the person's settings it changes for itself, each with every
  * project's value under it, and a menu to change another; then each extension's settings for the project.
  */
-export function ProjectPage({ store }: { store: Store }) {
+function ProjectPage({ name, store }: { name: string; store: Store }) {
   const changed = store.overrides.flatMap((id) => settings.filter((setting) => setting.id === id))
   const addable = settings.filter((setting) => setting.scope === "either" && !store.overrides.includes(setting.id))
 
@@ -77,11 +115,11 @@ export function ProjectPage({ store }: { store: Store }) {
 
   return (
     <>
-      <Group title={`Changed for ${project.name}`}>
+      <Group title={`Changed for ${name}`}>
         {changed.map((setting) => (
           <SettingRow key={setting.id} setting={setting} store={store} forProject />
         ))}
-        {addable.length > 0 && <AddChange addable={addable} store={store} />}
+        {addable.length > 0 && <AddChange name={name} addable={addable} store={store} />}
       </Group>
       {owned.map(({ extension, own }) => (
         <Group key={extension.id} title={extension.name} icon={<extension.icon className="size-3.5" />}>
@@ -98,14 +136,14 @@ export function ProjectPage({ store }: { store: Store }) {
  * Starts the project changing one of the person's settings for itself. A switch starts at the other value, since that's
  * the only change there is; anything else starts at every project's, focused to pick another.
  */
-function AddChange({ addable, store }: { addable: Setting[]; store: Store }) {
+function AddChange({ name, addable, store }: { name: string; addable: Setting[]; store: Store }) {
   return (
     <div className="px-2 py-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger
           render={<Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground" />}
         >
-          <Plus aria-hidden /> Change a setting for {project.name}
+          <Plus aria-hidden /> Change a setting for {name}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuGroup>
@@ -132,15 +170,25 @@ function AddChange({ addable, store }: { addable: Setting[]; store: Store }) {
   )
 }
 
-/** Every extension installed, those running in the project first. Search finds one by name when there are many. */
-export function ExtensionsPage({ store }: { store: Store }) {
+/** Every built-in extension, those running in the open project first. */
+function ExtensionsPage({ store }: { store: Store }) {
   const running = store.extensions.filter((extension) => extension.running)
   const idle = store.extensions.filter((extension) => !extension.running)
+
+  if (!store.project) {
+    return (
+      <Group>
+        {store.extensions.map((extension) => (
+          <ExtensionRow key={extension.id} extension={extension} store={store} />
+        ))}
+      </Group>
+    )
+  }
 
   return (
     <>
       {running.length > 0 && (
-        <Group title={`Running in ${project.name}`}>
+        <Group title={`Running in ${store.project.name}`}>
           {running.map((extension) => (
             <ExtensionRow key={extension.id} extension={extension} store={store} />
           ))}
@@ -197,20 +245,9 @@ function Logo({ extension, large = false }: { extension: Extension; large?: bool
 
 /**
  * An extension's page: what detection found and whether it runs in the project, then its settings (the project's
- * tagged), what it may do, with a switch for each permission Parity's API grants, what it adds, and what it costs.
- * There's no on and off: built-in extensions run whenever their tool is found.
+ * tagged) and what it adds. There's no on and off: built-in extensions run whenever their tool is found.
  */
-export function ExtensionPage({
-  extension,
-  grants,
-  setGrants,
-  store
-}: {
-  extension: Extension
-  grants: Record<string, boolean>
-  setGrants: (grants: Record<string, boolean>) => void
-  store: Store
-}) {
+function ExtensionPage({ extension, store }: { extension: Extension; store: Store }) {
   const own = settings.filter((setting) => setting.page === `ext:${extension.id}`)
 
   return (
@@ -219,41 +256,24 @@ export function ExtensionPage({
         <Logo extension={extension} large />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm">{extension.found}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              aria-hidden
-              className={`size-1.5 rounded-full ${extension.running ? "bg-emerald-500" : "bg-muted-foreground/50"}`}
-            />
-            {extension.running ? `Running in ${project.name}` : "Not running"}
-          </p>
+          {store.project && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                aria-hidden
+                className={`size-1.5 rounded-full ${extension.running ? "bg-emerald-500" : "bg-muted-foreground/50"}`}
+              />
+              {extension.running ? `Running in ${store.project.name}` : "Not running"}
+            </p>
+          )}
         </div>
       </div>
-      {own.length > 0 && (
+      {store.project && extension.running && own.length > 0 && (
         <Group title="Settings">
           {own.map((setting) => (
             <SettingRow key={setting.id} setting={setting} store={store} tagged />
           ))}
         </Group>
       )}
-      <Group title="Permissions">
-        {extension.permissions.map((permission) => {
-          const key = `${extension.id}:${permission.label}`
-
-          return permission.grant ? (
-            <Row key={permission.label} label={permission.label} detail={permission.detail}>
-              <Switch
-                checked={grants[key] ?? true}
-                onCheckedChange={(granted) => setGrants({ ...grants, [key]: granted })}
-                aria-label={`${permission.label}, for ${extension.name}`}
-              />
-            </Row>
-          ) : (
-            <Row key={permission.label} label={permission.label} wide>
-              <code className="truncate font-mono text-xs text-muted-foreground">{permission.detail}</code>
-            </Row>
-          )
-        })}
-      </Group>
       {extension.adds.length > 0 && (
         <Group title="Adds">
           {extension.adds.map((item) => (
@@ -263,22 +283,7 @@ export function ExtensionPage({
           ))}
         </Group>
       )}
-      {extension.activation && (
-        <Group title="Performance">
-          <Fact label="Started">{extension.activation.event}</Fact>
-          <Fact label="Activation time">{extension.activation.ms} ms</Fact>
-          <Fact label="Memory">{extension.memoryMb} MB</Fact>
-        </Group>
-      )}
     </>
-  )
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Row label={label}>
-      <span className="text-sm text-muted-foreground tabular-nums">{children}</span>
-    </Row>
   )
 }
 
@@ -288,8 +293,8 @@ type SettingHit = Extract<Hit, { kind: "setting" }>
  * Search results: pages and extensions by name, to go to; then settings, in a group for each place they're in, each
  * with its control, to change it here; then shortcuts, to change their keys here. A result's name goes to it.
  */
-export function Results({ query, store, onClear }: { query: string; store: Store; onClear: () => void }) {
-  const hits = search(query, store.extensions)
+function Results({ query, store, onClear }: { query: string; store: Store; onClear: () => void }) {
+  const hits = search(query, store)
 
   if (hits.length === 0) {
     return (

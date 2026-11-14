@@ -646,3 +646,11 @@ textarea,
     animation: none !important;
   }
 }
+
+/*
+ * A command whose keys were all taken off in Settings has none to show, so its key chip goes rather than draw an empty
+ * box. Outside the layers, so it wins over the chip's own display.
+ */
+kbd:empty {
+  display: none;
+}

@@ -46,6 +46,7 @@ import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } fr
 import { readEnvironment } from "./environment.ts"
 import { hostHandlers } from "./host-handlers.ts"
 import { answerWindows, fromParityPage } from "./host-methods.ts"
+import { keybindingsFile } from "./keybindings.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
@@ -216,6 +217,26 @@ function readThemeFile(): string | undefined {
 }
 
 nativeTheme.themeSource = savedTheme(readThemeFile())
+
+/**
+ * The shortcuts the person changed (PAR-1085), read before the window opens and sent to every window as they change. The
+ * application menu has no keys of the keymap's to follow: macOS's Edit menu keeps its roles' Cmd X, C, V and A.
+ */
+const keybindings = keybindingsFile(join(app.getPath("userData"), "keybindings.json"), (state) => {
+  if (state.problem !== undefined) {
+    console.warn(state.problem)
+  }
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed() && !isRenderWindow(window)) {
+      window.webContents.send(ipc.keybindingsChanged, state)
+    }
+  }
+})
+
+if (keybindings.state().problem !== undefined) {
+  console.warn(keybindings.state().problem)
+}
 
 /** The title bar's colors, which the system's window buttons sit on, matching the tab strip. */
 function titleBarColors(): { background: string; symbols: string } {
@@ -920,6 +941,17 @@ answerWindows<HostEvent, BrowserWindow>({
         nativeTheme.themeSource = theme
       },
       remember: (theme) => writeFileSync(themeFile, JSON.stringify({ theme }))
+    },
+    keybindings: {
+      state: () => keybindings.state(),
+      replace: (replacements) => keybindings.replace(replacements),
+      open: async () => {
+        const failed = await shell.openPath(await keybindings.ensure())
+
+        if (failed) {
+          throw new Error(failed)
+        }
+      }
     },
     metrics: (window) => processUsage(window.webContents),
     // The editor says which frame's event it's handling just before a console message is written there (PAR-147).

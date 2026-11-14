@@ -118,6 +118,8 @@ export {
   exportFiles,
   type ExportSize,
   nextExportSize,
+  type PictureCrop,
+  pictureCrop,
   planExport,
   planPicture
 } from "./export-files.ts"
@@ -455,3 +457,11 @@ export {
 } from "./token-edits.ts"
 
 export { holdZoom, zoomHeldFrom, zoomSettled } from "./zoom-settle.ts"
+
+export {
+  listInWords,
+  matchesWords,
+  rankSettings,
+  type SearchableSetting,
+  type SettingMatch
+} from "./settings-search.ts"

@@ -15,6 +15,7 @@ import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { resetWithWindow } from "../store.ts"
 import {
   type ProjectDesigns,
@@ -63,7 +64,7 @@ const extras: Item[] = [
     id: "action:snapping",
     group: "View",
     label: "Snap to screens and components",
-    run: () => setPreferences({ snapping: !getPreferences().snapping })
+    run: () => setEffectivePreference({ key: "snapping", value: !getEffectivePreferences().snapping })
   },
   {
     id: "action:performanceStats",
