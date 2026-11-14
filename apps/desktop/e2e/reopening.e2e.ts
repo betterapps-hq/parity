@@ -79,10 +79,14 @@ describe("closing a project", () => {
     // The files after this one need the project open, so it opens again however this one ends.
     try {
       const closed = await nodes()
+      // The nodes while it's open and after each close, so a failure says whether they grow each round.
+      const rounds: string[] = []
 
       for (let round = 0; round < 3; round++) {
         await openProject(count)
+        const open = await nodes()
         await closeProject()
+        rounds.push(`${open.nodes} open, ${(await nodes()).nodes} closed`)
       }
 
       // tldraw sometimes keeps the editor closed last, with its canvas, until another replaces it: about 3,600 nodes on
@@ -90,9 +94,9 @@ describe("closing a project", () => {
       // often the project opens, so it's allowed for. A canvas kept on each reopen comes to three of them.
       // The documents say whether what's kept is a page's frame, each of which is one.
       const after = await nodes()
-      expect(after.nodes, `documents went from ${closed.documents} to ${after.documents}`).toBeLessThan(
-        closed.nodes + 5000
-      )
+      const kept = after.nodes - closed.nodes
+      const said = `from ${closed.nodes} closed: ${rounds.join("; ")}; documents ${closed.documents} to ${after.documents}`
+      expect(kept < 5000 ? "under 5,000 kept" : `${kept} kept, ${said}`).toBe("under 5,000 kept")
     } finally {
       await restoreProject(count)
     }
