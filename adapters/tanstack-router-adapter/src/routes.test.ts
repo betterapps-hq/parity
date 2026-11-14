@@ -48,6 +48,28 @@ describe("readRoutes", () => {
         guards: false
       },
       {
+        id: "/dashboard",
+        path: "/dashboard",
+        parent: "__root__",
+        file: "src/routes/dashboard.tsx",
+        params: [],
+        index: false,
+        component: "Dashboard",
+        loads: false,
+        guards: true
+      },
+      {
+        id: "/login",
+        path: "/login",
+        parent: "__root__",
+        file: "src/routes/login.tsx",
+        params: [],
+        index: false,
+        component: "Login",
+        loads: false,
+        guards: false
+      },
+      {
         id: "/pricing",
         path: "/pricing",
         parent: "__root__",

@@ -51,6 +51,31 @@ const pageGroups = new Map<string, readonly PageGroupPlace[]>()
 export const selectedPageGroup = windowStore<string | undefined>(() => undefined)
 
 /**
+ * Where each page landed instead of its own path, by its design's key, as its frames say (see `pageLandedMessage`): a
+ * route that redirects or guards sends its page elsewhere. Layers shows it on the page's row.
+ */
+export const pageLandings = windowStore<ReadonlyMap<string, string>>(() => new Map())
+
+/** Notes where a page landed, or that it landed on its own path. */
+export function setPageLanding(design: string, path: string | undefined): void {
+  const now = pageLandings.get()
+
+  if (now.get(design) === path) {
+    return
+  }
+
+  const next = new Map(now)
+
+  if (path === undefined) {
+    next.delete(design)
+  } else {
+    next.set(design, path)
+  }
+
+  pageLandings.set(next)
+}
+
+/**
  * The app's pages as a design file, above the project's components and designs, or none without routes. Remembers each
  * page's URL for its frames to draw, the lines between pages, and the groups of layouts without pages. A page or group
  * inside a group has no line to it: the group holds it.

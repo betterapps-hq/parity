@@ -64,7 +64,8 @@ import {
   MonitorSmartphone,
   OctagonAlert,
   PenLine,
-  StickyNote
+  StickyNote,
+  TriangleAlert
 } from "lucide-react"
 import {
   type DragEvent,
@@ -82,6 +83,7 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import {
+  pageLandings,
   type PageGroupPlace,
   type RouteListing,
   routeListing,
@@ -1123,11 +1125,13 @@ function FolderLine({
       {!layout && folder.kind !== "component" && <Folder className="size-3.5 shrink-0" style={iconStyle} />}
       <Name className="min-w-0 flex-1">{folder.label}</Name>
       {layout?.redirect && (
-        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-          <CornerDownRight aria-hidden className="size-3" />
-          <span className="sr-only">Redirects to</span>
-          {layout.redirect.name}
-        </span>
+        <Hint label={`Redirects to ${layout.redirect.name}`} wait>
+          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+            <CornerDownRight aria-hidden className="size-3" />
+            <span className="sr-only">Redirects to</span>
+            {layout.redirect.name}
+          </span>
+        </Hint>
       )}
     </div>
   )
@@ -1249,6 +1253,8 @@ const LayerRow = memo(function LayerRow({
   // instance the canvas names it by its path.
   const failing = useLayerFailure(session.id, row.design.key, row.path ?? "")
   const failure = row.node ? failing : undefined
+  const landings = useStore(pageLandings)
+  const landed = row.node ? undefined : landings.get(row.design.key)
   const viewports = row.node ? Object.keys(row.node.responsive ?? {}) : []
   // Whether the board hides it in the state it shows, as Hide and Show read it: inside an instance, as this copy shows
   // it there.
@@ -1407,6 +1413,16 @@ const LayerRow = memo(function LayerRow({
                   </button>
                 </Hint>
               )}
+              {landed !== undefined && (
+                <Hint label={`Lands on ${landed}`}>
+                  <span className="flex">
+                    <TriangleAlert
+                      className="size-3 text-amber-600 dark:text-amber-400"
+                      aria-label={`Lands on ${landed}`}
+                    />
+                  </span>
+                </Hint>
+              )}
               {/* A component's slot says which: children, or the prop that takes it. */}
               {row.node?.type === "layout" && row.node.slot !== undefined && container.kind === "component" && (
                 <span className="font-mono text-2xs" style={{ color: kindColors.component }}>
@@ -1414,11 +1430,15 @@ const LayerRow = memo(function LayerRow({
                 </span>
               )}
               {changed && (
-                <PenLine
-                  className="size-3"
-                  style={{ color: kindColors.component }}
-                  aria-label={`Changed in ${state.name}`}
-                />
+                <Hint label={`Changed in ${state.name}`} wait>
+                  <span className="flex">
+                    <PenLine
+                      className="size-3"
+                      style={{ color: kindColors.component }}
+                      aria-label={`Changed in ${state.name}`}
+                    />
+                  </span>
+                </Hint>
               )}
               {viewports.length > 0 && (
                 <Hint label="Changes at some screen sizes" wait>

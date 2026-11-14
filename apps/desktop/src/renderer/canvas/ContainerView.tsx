@@ -90,7 +90,7 @@ import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
-import { routePagePath, routePageUrl } from "./route-pages.ts"
+import { routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
@@ -1264,7 +1264,7 @@ const FrameTile = memo(function FrameTile({
         data-asleep={awake && !waiting ? undefined : ""}
       >
         {page ? (
-          <PageFrame url={page} frame={frame} mode={mode} scale={scale} interactive={interactive} />
+          <PageFrame url={page} design={entry.key} frame={frame} mode={mode} scale={scale} interactive={interactive} />
         ) : (
           <ModeView
             project={session.id}
@@ -1300,12 +1300,15 @@ const FrameTile = memo(function FrameTile({
  */
 function PageFrame({
   url,
+  design,
   frame,
   mode,
   scale,
   interactive
 }: {
   url: string
+  /** The page's design, by key, which Layers notes where it landed under. */
+  design: string
   frame: FrameGeometry
   mode: ResolvedMode
   scale: number
@@ -1345,6 +1348,14 @@ function PageFrame({
   const content = told?.page === `${name} ${url}` ? told.height : 0
   const height = frame.height ?? Math.max(frame.viewport.height, content)
   const elsewhere = landed?.page === `${name} ${url}` ? landedElsewhere(url, landed.path) : undefined
+  const heardLanding = landed?.page === `${name} ${url}`
+
+  // Layers says where the page landed too, once a frame has said.
+  useEffect(() => {
+    if (heardLanding) {
+      setPageLanding(design, elsewhere)
+    }
+  }, [design, elsewhere, heardLanding])
 
   return (
     <>
