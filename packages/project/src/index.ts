@@ -271,7 +271,9 @@ async function addWorkspacePackages(
 
 /**
  * The UI kit folder: the one `components.json` names, else the usual places. Its components keep their bare names
- * when another has the same name, since it was the only folder Parity read before it read the whole app.
+ * when another has the same name, since it was the only folder Parity read before it read the whole app. The folder
+ * `components.json` names is the kit even while it's empty, as in an app that takes its kit from a package: the usual
+ * places would take the app's own components folder for it.
  */
 async function findUiKit(
   root: string,
@@ -280,20 +282,16 @@ async function findUiKit(
   renderer: RendererAdapter,
   notes: string[]
 ): Promise<string | undefined> {
-  const candidates: string[] = []
   const alias = shadcn?.aliases?.ui
+  const named = alias === undefined ? undefined : resolveAlias(root, tsconfig, alias)
 
-  if (alias !== undefined) {
-    const resolved = resolveAlias(root, tsconfig, alias)
+  if (named) {
+    notes.push(`the UI kit is in ${named}`)
 
-    if (resolved) {
-      candidates.push(resolved)
-    }
+    return named
   }
 
-  candidates.push("src/components/ui", "components/ui", "src/components")
-
-  for (const folder of candidates) {
+  for (const folder of ["src/components/ui", "components/ui", "src/components"]) {
     if ((await listFiles(join(root, folder), renderer.componentExtensions)).length === 0) {
       continue
     }

@@ -55,6 +55,15 @@ describe("discoverProject", () => {
     expect(project.documents).toEqual(["designs/team.par"])
   })
 
+  it("keeps the UI kit folder components.json names while it's empty, rather than taking the app's components", async () => {
+    await write("components.json", JSON.stringify({ aliases: { ui: "@/components/ui" } }))
+    await write("src/components/status-badge.tsx", "export function StatusBadge() {}")
+
+    const project = await discoverProject(root, renderer)
+    expect(project.uiKit).toBe("src/components/ui")
+    expect(project.notes).toContain("the UI kit is in src/components/ui")
+  })
+
   it("falls back to the app entry's CSS imports and conventional folders", async () => {
     await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     await write("src/main.tsx", 'import "./styles/app.css"\nimport App from "./App"')
