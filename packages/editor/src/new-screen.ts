@@ -5,7 +5,7 @@ import {
   type NodeStyle,
   generateId,
   nodeLabel,
-  uniqueId
+  designId
 } from "@parity-app/core"
 import { copiesFor } from "./clipboard.ts"
 import type { NewFrame } from "./frames.ts"
@@ -79,7 +79,7 @@ export function designOfLayers(
   const name = layersName(nodes, designName)
 
   const design: ContainerSpec = {
-    id: uniqueId(name, taken),
+    id: designId(name, taken),
     name,
     kind: "frame",
     position: at,
@@ -108,5 +108,5 @@ export function designOfItem(
   const placed = findNode(container.root, node)
   const name = layersName(placed ? [placed] : [], designName)
 
-  return { design: { ...container, id: uniqueId(name, taken), name }, node }
+  return { design: { ...container, id: designId(name, taken), name }, node }
 }

@@ -84,6 +84,11 @@ function snapshot(): AgentSnapshot {
   }
 }
 
+/** A new design's id: `stem` and five random characters. */
+function fresh(stem: string) {
+  return expect.stringMatching(new RegExp(`^${stem}-[A-Za-z][A-Za-z0-9]{4}$`))
+}
+
 function hooks(events: AgentEvent[] = []): AgentHooks {
   return {
     presence: (batch) => events.push(...batch),
@@ -343,13 +348,13 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
     )
 
     expect(result.ok).toBe(true)
-    expect(result.output).toEqual(["pricing true"])
+    expect(result.output).toEqual([expect.stringMatching(/^pricing-[A-Za-z][A-Za-z0-9]{4} true$/)])
     expect(result.changes.designs).toHaveLength(1)
     expect(result.changes.designs[0]).toMatchObject({
       path: "app.par",
-      id: "pricing",
+      id: fresh("pricing"),
       base: null,
-      after: { id: "pricing", kind: "screen", position: { x: 1640, y: 0 } }
+      after: { id: fresh("pricing"), kind: "screen", position: { x: 1640, y: 0 } }
     })
   })
 
@@ -375,7 +380,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
     expect(result.error).toBeUndefined()
     expect(result.changes.designs.map(({ id, base, after }) => [id, base?.name ?? null, after?.name ?? null])).toEqual([
       ["signup", "Sign up", "Register"],
-      ["pricing", null, "Plans"],
+      [fresh("pricing"), null, "Plans"],
       ["about", "About", null]
     ])
     expect(result.changes.modes).toBeUndefined()
@@ -419,7 +424,7 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       {
         label: "Tidy up",
         code: `CreateDesign({name: "Pricing", x: 2000, y: 0})
-UpdateDesign("pricing", {x: 600, y: 300})
+UpdateDesign("Pricing", {x: 600, y: 300})
 Print(JSON.stringify(Overlaps("signup")))`
       },
       snapshot(),
@@ -427,7 +432,7 @@ Print(JSON.stringify(Overlaps("signup")))`
     )
 
     expect(result.ok).toBe(true)
-    expect(events.flatMap((event) => (event.design === "app.par#pricing" ? [event.kind] : []))).toEqual([
+    expect(events.flatMap((event) => (event.design?.startsWith("app.par#pricing-") ? [event.kind] : []))).toEqual([
       "write",
       "move"
     ])
@@ -436,13 +441,13 @@ Print(JSON.stringify(Overlaps("signup")))`
       to: { x: 600, y: 300 }
     })
     expect(JSON.parse(result.output[0]!)).toEqual([
-      { designs: ["signup", "pricing"], names: ["Sign up", "Pricing"], width: 800, height: 760, estimated: true }
+      { designs: ["signup", fresh("pricing")], names: ["Sign up", "Pricing"], width: 800, height: 760, estimated: true }
     ])
     expect(result.warningGroups).toContainEqual(
       expect.objectContaining({
         category: "overlap",
-        message: expect.stringContaining(
-          "Sign up (signup) and Pricing (pricing) overlap by 800x760 (estimated, as Pricing isn't drawn yet)"
+        message: expect.stringMatching(
+          /Sign up \(signup\) and Pricing \(pricing-\w{5}\) overlap by 800x760 \(estimated, as Pricing isn't drawn yet\)/
         )
       })
     )
@@ -453,18 +458,18 @@ Print(JSON.stringify(Overlaps("signup")))`
       {
         label: "Stack",
         code: `CreateDesign({name: "Below", x: 0, y: 1000})
-Print(JSON.stringify(Overlaps("below")))`
+Print(JSON.stringify(Overlaps("Below")))`
       },
       snapshot(),
       hooks()
     )
 
-    expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", "below"], titleOnly: true }])
+    expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", fresh("below")], titleOnly: true }])
     expect(result.warningGroups).toContainEqual(
       expect.objectContaining({
         category: "title_clearance",
-        message: expect.stringContaining(
-          "The title of Below (below) would cover Sign up (signup): the boards are clear, but Below starts less than 160 below it"
+        message: expect.stringMatching(
+          /The title of Below \(below-\w{5}\) would cover Sign up \(signup\): the boards are clear, but Below starts less than 160 below it/
         )
       })
     )
@@ -543,7 +548,7 @@ Print(JSON.stringify(Overlaps()))`
     // The 3000 frame and the board's gutter, 30 each side as it's drawn at 40%, reach to 3060, past the new design's left
     // edge at 1800.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
-      { designs: ["signup", "pricing"], width: 3060 - 1800, estimated: true }
+      { designs: ["signup", fresh("pricing")], width: 3060 - 1800, estimated: true }
     ])
   })
 
@@ -569,8 +574,8 @@ Print(JSON.stringify(Overlaps()))`
     // title band. The dark companion is drawn at half size after a divider of 30, 2.5 and 30, so the board is
     // 1280 + 640 + 62.5 + 60, rounded up to 2043 wide, past 2000.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
-      { designs: ["signup", "below"], titleOnly: true, estimated: true },
-      { designs: ["signup", "beside"], width: 43, estimated: true }
+      { designs: ["signup", fresh("below")], titleOnly: true, estimated: true },
+      { designs: ["signup", fresh("beside")], width: 43, estimated: true }
     ])
     expect(result.warnings).toContainEqual(expect.stringContaining("estimated, as Sign up and Below aren't drawn yet"))
   })
@@ -1796,7 +1801,7 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
     )
 
     expect(result.error).toBeUndefined()
-    expect(result.screenshots).toMatchObject([{ design: "sketch", mode: "desktop-light", width: 480 }])
+    expect(result.screenshots).toMatchObject([{ design: fresh("sketch"), mode: "desktop-light", width: 480 }])
     expect(result.changes.designs[0]!.after).toMatchObject({
       kind: "screen",
       frames: { desktop: { width: 480, height: 320 } }
