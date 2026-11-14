@@ -389,7 +389,8 @@ the account: WorkOS's answer goes as its status and code.
 - **A session that ends** without the person signing out is `account.sessionEnded`, and signing out, here or in another
   copy, is `account.signedOut`.
 - **The file that keeps accounts** going unreadable is `account.storeFailed`, with the step that failed and the error's
-  name, never its message, which can quote what was decrypted. Reading it clears the file, signing every account out.
+  name, never its message, which can quote what was decrypted. The file stays for other copies; only this one starts
+  signed out.
 - **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
   but not the answer itself.
 
@@ -609,12 +610,12 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `account.storeFailed`
 
-| Attribute | Type                                                                 | Meaning                                                                                                                                              |
-| --------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept accounts or writing them                                                                                         |
-| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file is cleared, signing every account out |
-| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                                                                               |
-| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                                                                 |
+| Attribute | Type                                                                 | Meaning                                                                                                                                                |
+| --------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept accounts or writing them                                                                                           |
+| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file stays; only this copy starts signed out |
+| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                                                                                 |
+| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                                                                   |
 
 ### `agent.called`
 

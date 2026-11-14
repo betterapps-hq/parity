@@ -40,7 +40,8 @@ export interface SessionStore {
   read(): Promise<StoredAccounts | undefined>
   /**
    * Changes what's kept, starting from what's in the file now, since other copies of Parity share it and each refresh
-   * replaces a token. With no account left, the file goes. Says whether the accounts could be kept.
+   * replaces a token. With no account left, the file goes, unless this copy couldn't read it: then it stays for the
+   * copies that can. Says whether the accounts could be kept.
    */
   update(change: (kept: StoredAccounts) => StoredAccounts): Promise<boolean>
   clear(): void
@@ -84,11 +85,8 @@ export function sessionStore(
     await writeWhole(file, await encryption.encryptStringAsync(JSON.stringify(kept)), 0o600)
   }
 
-  const read = async () => {
-    if (!(await persistent())) {
-      return undefined
-    }
-
+  /** What's kept, nothing when there's no file, or `unreadable` when there's one this copy can't read. */
+  const load = async (): Promise<StoredAccounts | "unreadable" | undefined> => {
     let encrypted: Buffer
 
     try {
@@ -99,6 +97,8 @@ export function sessionStore(
 
       if (thrown.code !== "ENOENT") {
         failed(storeProblem("read", thrown, "file"))
+
+        return "unreadable"
       }
 
       return undefined
@@ -121,12 +121,22 @@ export function sessionStore(
 
       return kept
     } catch (error) {
-      // Unreadable, as after the keychain changed or from a build that kept one account: sign in again.
+      // Unreadable here, as from a build with other accounts or a different keychain key. Other copies share the file
+      // and may read it, so it stays, and only this copy starts signed out.
       failed(storeProblem("read", thrownError.parse(error), stage))
-      clear()
 
+      return "unreadable"
+    }
+  }
+
+  const read = async () => {
+    if (!(await persistent())) {
       return undefined
     }
+
+    const kept = await load()
+
+    return kept === "unreadable" ? undefined : kept
   }
 
   return {
@@ -137,7 +147,15 @@ export function sessionStore(
         return false
       }
 
-      await write(change((await read()) ?? { accounts: [] }))
+      const kept = await load()
+      const changed = change(kept === "unreadable" || kept === undefined ? { accounts: [] } : kept)
+
+      // Removing a file this copy can't read would sign out every copy that can.
+      if (kept === "unreadable" && changed.accounts.length === 0) {
+        return true
+      }
+
+      await write(changed)
 
       return true
     },

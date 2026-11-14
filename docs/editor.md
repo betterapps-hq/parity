@@ -7191,9 +7191,10 @@ client ID and never its API key, and the window never sees a token.
   access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
   minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
   after 5 seconds, doubling to 5 minutes. The file is written whole, beside it then renamed over it, so a write cut
-  short leaves the accounts it held; one that can't be decrypted, or from a build that kept one account, isn't read, so
-  you sign in once more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit
-  Parity", the accounts panel keeps saying so, and both explain why.
+  short leaves the accounts it held. A copy that can't decrypt or read it, such as a build from another branch, starts
+  signed out and leaves the file for the copies that can; signing out there leaves it too, and signing in replaces it.
+  On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts panel
+  keeps saying so, and both explain why.
 - **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
   `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
   in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
