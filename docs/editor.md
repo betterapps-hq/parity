@@ -3775,12 +3775,12 @@ Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen S
 
 ### What's selected, above its name (PAR-723)
 
-The Design tab starts with what's selected: its kind's icon on a tile in the kind's tint, its name beside it, to rename
-it, and under the name its kind in the kind's color. What it does sits at the end of the row. The kind is a word or two
-that never repeats the name: Screen, Component or Frame for a design; Text, Image, Video, Horizontal layout, Vertical
-layout, Grid layout, Slot, Icon or Component instance for a layer. A placed component is a Component instance whether
-its component is code or a design, with the instance's Diamond, in Layers too. Hovering the kind says more, and screen
-readers hear that instead of the kind:
+The Design tab starts with what's selected: its kind's icon on a tile in the kind's tint, its name beside it as text,
+renamed in Layers or on the canvas rather than here, and under the name its kind in the kind's color. What it does sits
+at the end of the row. The kind is a word or two that never repeats the name: Screen, Component or Frame for a design;
+Text, Image, Video, Horizontal layout, Vertical layout, Grid layout, Slot, Icon or Component instance for a layer. A
+placed component is a Component instance whether its component is code or a design, with the instance's Diamond, in
+Layers too. Hovering the kind says more, and screen readers hear that instead of the kind:
 
 - **Which component.** An instance says which design it's of ("Instance of Plan card"), a component its name ("Button
   component"), and a library's component or icon which library, without its prefix ("Check icon from Lucide").
@@ -3789,8 +3789,7 @@ readers hear that instead of the kind:
 
 Where a layer sits isn't said, since Layers shows it, nor a text layer's tag. A layout's word follows its direction, as
 the insert picker names it, so it agrees with the icon; a grid gets the Layout section's grid icon, in Layers too. A
-layer inside an instance has the header its kind has, in its kind's color; only its name can't change there, since the
-component's design names it.
+layer inside an instance has the header its kind has, in its kind's color.
 
 The actions at the end of the row are icon buttons named by their hints, without the layer's name, before a layer's eye:
 
@@ -3847,10 +3846,10 @@ and dark.
 
 A layer's name, a text's tag, a code component's name, and an image's or a video's file, alt text, fit, credit and
 controls are its own fields: only the design sets them, never a state. One core function, `setOwnFields`, writes them
-for a rename in Layers or the header's name field, the Content section and an agent's `Update`, wherever the layer sits,
-a slot an instance fills included. An empty name or alt text, a cleared tag and controls turned off take the field away,
-so an agent's `""` does what clearing the field does. A field the layer's kind doesn't have is refused with the field
-named, and a change that leaves every field as it was gives back the same design, so nothing is saved.
+for a rename in Layers or on the canvas, the Content section and an agent's `Update`, wherever the layer sits, a slot an
+instance fills included. An empty name or alt text, a cleared tag and controls turned off take the field away, so an
+agent's `""` does what clearing the field does. A field the layer's kind doesn't have is refused with the field named,
+and a change that leaves every field as it was gives back the same design, so nothing is saved.
 
 Code: `packages/core/src/own-fields.ts`; `renameAndRecord` in `apps/desktop/src/renderer/chrome/inspector-events.ts`;
 `MediaSection` in `chrome/LayerPanel.tsx`; `update` in `packages/agent/src/workspace.ts`.

@@ -47,7 +47,7 @@ import { extractIntoComponent } from "./components.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
-import { type LayerChange, renameAndRecord, updateAndRecord } from "./inspector-events.ts"
+import { type LayerChange, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
 import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
@@ -232,7 +232,7 @@ export function LayerHeader() {
   }
 
   const { entry, nodeId, node, override, change, reset, state, target, inner } = layer
-  const { container, key } = entry
+  const { container } = entry
   // A layer read from the project's code shows its name as text and has no eye, since nothing edits it.
   const fromCode = readFromCode(entry.path)
 
@@ -269,29 +269,7 @@ export function LayerHeader() {
 
   return (
     <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-      {heading(
-        <NameInput
-          key={`${nodeId}:${layer.layer.name ?? ""}`}
-          defaultValue={layer.layer.name ?? ""}
-          placeholder={label}
-          aria-label="Layer name"
-          className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
-          onBlur={(event) => {
-            const name = event.currentTarget.value.trim()
-
-            if (name === (layer.layer.name ?? "")) {
-              return
-            }
-
-            renameAndRecord(store, key, name || undefined, nodeId)
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur()
-            }
-          }}
-        />
-      )}
+      {heading(<Name className={`px-1.5 ${headingName}`}>{layer.layer.name ?? label}</Name>)}
       <ComponentStateSelector entry={entry} state={state} target={target} />
       {/*
         A component or an instance is already one, and a route or a layer read from an element is the app's code, so

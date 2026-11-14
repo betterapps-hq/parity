@@ -21,10 +21,9 @@ import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { Hint } from "./Hint.tsx"
-import { renameAndRecord } from "./inspector-events.ts"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
-import { Name, NameInput } from "./Name.tsx"
+import { Name } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
@@ -209,7 +208,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { store } = session
   const settings = useModeSettings(store)
-  const { container, key } = entry
+  const { container } = entry
   const { primary } = containerModes(settings, container)
   // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
   const page = routePageRoute(session.id, container.id) !== undefined
@@ -254,26 +253,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
               />
             )
           }
-          name={
-            <NameInput
-              key={container.name}
-              defaultValue={container.name}
-              aria-label={`${kindTitle(container.kind)} name`}
-              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
-              onBlur={(event) => {
-                const name = event.currentTarget.value.trim()
-
-                if (name && name !== container.name) {
-                  renameAndRecord(store, key, name)
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur()
-                }
-              }}
-            />
-          }
+          name={<Name className={`px-1.5 ${headingName}`}>{container.name}</Name>}
         />
         {container.kind === "frame" && !board && !story && (
           <div className="mt-2 flex flex-col gap-2 pl-1.5">
