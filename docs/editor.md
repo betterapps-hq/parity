@@ -6525,8 +6525,15 @@ A screen is named for the component its route draws, else its path.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
-- **A sample for each param.** A param's value is its name for now, so `/projects/$projectId` opens on
-  `/projects/projectId`, and the example's page says it's not found.
+- **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
+  text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
+  view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, so
+  `/projects/$projectId` opens on `/projects/projectId` until it's given one. The values are how the canvas shows the
+  page, never the app's code, and aren't saved yet, since a page isn't. Tried in a development build: Project detail
+  opened on `/projects/projectId`, which the example says it can't find, and setting ProjectId to `atlas` drew the Atlas
+  project at `/projects/atlas`. Code: `samplePath` in `packages/editor/src/route-boards.ts`, the view's `params` in
+  `packages/core/src/document.ts`, and `RouteProps` in `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests:
+  `packages/editor/src/route-boards.test.ts`, "fills a param with the value given for it, written as a URL writes it".
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,

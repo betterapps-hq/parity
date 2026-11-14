@@ -1217,7 +1217,7 @@ const FrameTile = memo(function FrameTile({
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
   // A page of the app draws the app itself at its URL, rather than a design (PAR-1076).
-  const page = routePageUrl(session.id, entry.container.id)
+  const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
   const tileStyle: CSSProperties = {}
 
   if (selected) {

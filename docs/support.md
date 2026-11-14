@@ -279,7 +279,7 @@ the route model: each route's id, URL pattern, parent, file, params, whether it'
 whether it loads data or guards the page. `adapters/tanstack-router-adapter` reads TanStack Router's file-based routes
 from the route tree its tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's
 file. Routes written in code without the generated tree aren't read. Each page is a screen, laid out in the router's
-tree, whose frames load the app itself at the page's URL (see editor.md).
+tree, whose frames load the app itself at the page's URL (see editor.md), with each path param's value set in Props.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.

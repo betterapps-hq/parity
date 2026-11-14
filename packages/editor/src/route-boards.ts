@@ -179,18 +179,32 @@ export function treeDepth(tree: readonly PageNode[]): number {
   return Math.max(0, ...tree.map((node) => (node.group ? 0 : 1) + treeDepth(node.children)))
 }
 
-/** A route's URL with a sample for each param: its name for now, and nothing for a splat. */
-export function samplePath(route: Pick<ProjectRoute, "path">): string {
-  return route.path.split("/").map(sampleSegment).join("/")
+/**
+ * A route's URL with a value for each param: the one `values` gives it, by the param's name, or else its name, and
+ * nothing for a splat unless `values` gives one as `_splat`, as TanStack Router names it. Values are written as a URL
+ * writes them, so one with a slash or a space stays one segment.
+ */
+export function samplePath(route: Pick<ProjectRoute, "path">, values: Readonly<Record<string, string>> = {}): string {
+  return route.path
+    .split("/")
+    .map((segment) => sampleSegment(segment, values))
+    .join("/")
 }
 
-/** A param's name for its value, nothing for a splat, and any other segment as it is. */
-function sampleSegment(segment: string): string {
-  if (segment === "$") {
-    return ""
+/** A param's value, its name without one, nothing for a splat without one, and any other segment as it is. */
+function sampleSegment(segment: string, values: Readonly<Record<string, string>>): string {
+  if (!segment.startsWith("$")) {
+    return segment
   }
 
-  return segment.startsWith("$") ? segment.slice(1) : segment
+  const name = segment === "$" ? "_splat" : segment.slice(1)
+  const value = values[name]
+
+  if (value !== undefined && value !== "") {
+    return encodeURIComponent(value)
+  }
+
+  return segment === "$" ? "" : name
 }
 
 /**

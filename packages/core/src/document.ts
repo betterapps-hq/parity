@@ -540,6 +540,11 @@ const containerViewSettings = fileObject({
    * name is shrunk to fit beside the main frame (see `companionScale`).
    */
   scales: z.record(z.string(), z.number().min(0.1).max(1)).optional(),
+  /**
+   * The value a page of the app is drawn with for each of its route's path params, by name. One it doesn't give is
+   * drawn with the param's name.
+   */
+  params: z.record(z.string(), z.string()).optional(),
   /** A component's state the canvas shows. Defaults to the first. */
   state: z.string().optional(),
   /** Show every state of a component, one row each, instead of only the active one. */

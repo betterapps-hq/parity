@@ -1,5 +1,5 @@
 import { addDesigns, type CanvasDocument } from "@parity-app/core"
-import { routeTree } from "@parity-app/editor"
+import { routeTree, samplePath } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import { windowStore } from "../store.ts"
 import { componentBoardsTop } from "./component-boards.ts"
@@ -112,9 +112,18 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
       ]
 }
 
-/** The URL a page screen's frames draw, or undefined for a design. */
-export function routePageUrl(project: string, design: string): string | undefined {
-  return pagePlaces.get(project)?.get(design)?.url
+/**
+ * The URL a page screen's frames draw, with the values its view gives its route's path params (see `samplePath`), or
+ * undefined for a design.
+ */
+export function routePageUrl(
+  project: string,
+  design: string,
+  params: Readonly<Record<string, string>> = {}
+): string | undefined {
+  const place = pagePlaces.get(project)?.get(design)
+
+  return place && new URL(samplePath(place, params), place.url).href
 }
 
 /** The id of the route a page screen draws, or undefined for a design. */

@@ -28,7 +28,7 @@ import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
-import { RouteSection } from "./RoutePanel.tsx"
+import { RouteProps, RouteSection } from "./RoutePanel.tsx"
 import { useLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
@@ -128,13 +128,15 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const components = useComponents(session.components)
   const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
-  // A page of the app (PAR-1076): its header, its route, its modes and Export; nothing of it is designed.
+  // A page of the app (PAR-1076): its header, its path params as props, its route, its modes and Export; nothing of it
+  // is designed.
   const route = routePageRoute(session.id, entry.container.id)
 
   if (route !== undefined) {
     return (
       <>
         <DesignHeader entry={entry} />
+        <RouteProps entry={entry} route={route} />
         <RouteSection route={route} />
         <ModesSection entry={entry} />
         <DesignExport entry={entry} />

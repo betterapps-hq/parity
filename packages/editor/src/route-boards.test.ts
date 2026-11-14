@@ -133,6 +133,13 @@ describe("samplePath", () => {
   it("fills each param with its name and leaves a splat empty", () => {
     expect(samplePath({ path: "/team/$teamId/files/$" })).toBe("/team/teamId/files/")
   })
+
+  it("fills a param with the value given for it, written as a URL writes it", () => {
+    expect(samplePath({ path: "/team/$teamId/files/$" }, { teamId: "acme co", _splat: "a/b" })).toBe(
+      "/team/acme%20co/files/a%2Fb"
+    )
+    expect(samplePath({ path: "/projects/$projectId" }, { projectId: "" })).toBe("/projects/projectId")
+  })
 })
 
 describe("routeScreens", () => {
