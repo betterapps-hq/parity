@@ -246,8 +246,6 @@ interface Host<Project> {
   extension: InstalledExtension<Project>
   /** The names of the functions its `activate` returned, once it has. */
   api?: string[]
-  /** The agents whose calls into it are running, the latest last, which its changes are named after. */
-  agents: string[]
   detected?: JsonValue
   state: HostState
   reason?: string
@@ -287,6 +285,12 @@ export function extensionHosts<Project extends OpenedProject>(
   options: ExtensionHostsOptions<Project>
 ): ExtensionHosts<Project> {
   const timing = { ...defaultTiming, ...options.timing }
+  /** Agents' calls running now, by the id each was given, which hosts send back with what their code asks. */
+  const calls = new Map<number, string>()
+  let nextCall = 1
+
+  /** The agent whose call an id names, if it's one running now. Any other id, as one a host made up, names nobody. */
+  const agentOf = (call: number | undefined) => (call === undefined ? undefined : calls.get(call))
   const projects = new Map<string, OpenProject<Project>>()
   let appSettings: StoredSettings = {}
 
@@ -416,22 +420,23 @@ export function extensionHosts<Project extends OpenedProject>(
       (params: HostServiceMethods[M]["params"]) =>
         options.window.ui(projectId, id, method, params)
 
-    // While an agent runs it, there's nobody to answer a question.
+    // During an agent's call, there's nobody to answer a question.
     const ask =
       <M extends "ui.pick" | "ui.input" | "ui.confirm">(method: M) =>
-      (params: HostServiceMethods[M]["params"]) => {
-        const agent = host.agents.at(-1)
+      ({ call, ...params }: HostServiceMethods[M]["params"]) => {
+        const agent = agentOf(call)
 
         if (agent !== undefined) {
           throw new Error(`There's nobody to ask: ${agent} is running ${displayName}, so ${method} can't be answered`)
         }
 
-        return options.window.ui(projectId, id, method, params)
+        // SAFETY: the params less `call`, which only the service reads.
+        return options.window.ui(projectId, id, method, params as HostServiceMethods[M]["params"])
       }
 
-    // A change while an agent runs it is named after both, as "Claude Code via Tidy: Rename layers".
-    const named = (label: string) => {
-      const agent = host.agents.at(-1)
+    // A change made during an agent's call is named after both, as "Claude Code via Tidy: Rename layers".
+    const named = (label: string, call: number | undefined) => {
+      const agent = agentOf(call)
 
       return agent === undefined ? `${displayName}: ${label}` : `${agent} via ${displayName}: ${label}`
     }
@@ -531,23 +536,23 @@ export function extensionHosts<Project extends OpenedProject>(
         options.servers.stop(projectId, id, server)
       },
       "servers.routed": () => options.servers.routed(),
-      async "edits.transact"({ label, operations }: HostServiceMethods["edits.transact"]["params"]) {
+      async "edits.transact"({ label, operations, call }: HostServiceMethods["edits.transact"]["params"]) {
         const refused = editsRefusal(displayName, permissions)
 
         if (refused) {
           throw new Error(refused)
         }
 
-        await options.edits.transact(projectId, id, named(label), operations)
+        await options.edits.transact(projectId, id, named(label, call), operations)
       },
-      async "files.edit"({ label, files }: HostServiceMethods["files.edit"]["params"]) {
+      async "files.edit"({ label, files, call }: HostServiceMethods["files.edit"]["params"]) {
         const refused = files.map((file) => writeRefusal(displayName, permissions, file.path)).filter(Boolean)
 
         if (refused.length > 0) {
           throw new Error(refused.join("\n"))
         }
 
-        return { paths: await options.edits.files(projectId, id, named(label), files) }
+        return { paths: await options.edits.files(projectId, id, named(label, call), files) }
       },
       "selection.set": ui("selection.set"),
       "selection.highlight": ui("selection.highlight"),
@@ -560,27 +565,31 @@ export function extensionHosts<Project extends OpenedProject>(
           await options.window.ui(projectId, id, "commands.execute", params)
         }
       },
-      async "extensions.call"({ extension, method, args }: HostServiceMethods["extensions.call"]["params"]) {
+      async "extensions.call"({ extension, method, args, call }: HostServiceMethods["extensions.call"]["params"]) {
         if (!host.extension.package.manifest.extensionDependencies?.includes(extension)) {
           throw new Error(`${extension} isn't in ${displayName}'s extensionDependencies`)
         }
 
+        // A call made during an agent's call is the agent's too, so it carries the same id.
+        const known = agentOf(call) === undefined ? undefined : call
         const other = hostOf(open, extension)
-        const running = await ensureRunning(open, other)
+        const running = await ensureRunning(open, other, [], known)
 
         if (!other.api?.includes(method)) {
           throw new Error(`${other.extension.package.manifest.displayName}'s API has no ${method}`)
         }
 
-        // A call made while an agent runs this extension is the agent's too.
-        return as(other, host.agents.at(-1), async () =>
-          readReturned(await running.channel.request("api.call", { method, args }))
+        return readReturned(
+          await running.channel.request(
+            "api.call",
+            known === undefined ? { method, args } : { method, args, call: known }
+          )
         )
       }
     }
   }
 
-  const start = (open: OpenProject<Project>, host: Host<Project>, chain: string[] = []) => {
+  const start = (open: OpenProject<Project>, host: Host<Project>, chain: string[] = [], call?: number) => {
     const { extension } = host
     const { package: found } = extension
     const link = options.start(extension, open.project)
@@ -634,7 +643,12 @@ export function extensionHosts<Project extends OpenedProject>(
     delete host.api
 
     // The extensions it builds on activate first, so their APIs are ready when it does.
-    const activated = dependenciesOf(open, host, [...chain, found.id]).then(async (dependencies) => {
+    // An agent's call that starts it starts it as the agent's, so its `activate` can't ask the person either.
+    if (call !== undefined) {
+      params.call = call
+    }
+
+    const activated = dependenciesOf(open, host, [...chain, found.id], call).then(async (dependencies) => {
       if (dependencies.length > 0) {
         params.dependencies = dependencies
       }
@@ -775,7 +789,8 @@ export function extensionHosts<Project extends OpenedProject>(
   async function dependenciesOf(
     open: OpenProject<Project>,
     host: Host<Project>,
-    chain: string[]
+    chain: string[],
+    call?: number
   ): Promise<Dependency[]> {
     const ids = host.extension.package.manifest.extensionDependencies ?? []
 
@@ -791,7 +806,7 @@ export function extensionHosts<Project extends OpenedProject>(
           throw new Error(`It needs ${id}, which isn't in ${open.project.name}`)
         }
 
-        await ensureRunning(open, other, chain)
+        await ensureRunning(open, other, chain, call)
         const { package: found } = other.extension
 
         return { id, version: found.version, displayName: found.manifest.displayName, api: other.api ?? [] }
@@ -800,7 +815,7 @@ export function extensionHosts<Project extends OpenedProject>(
   }
 
   /** A host's process once it has activated, starting it first when it isn't running. */
-  async function ensureRunning(open: OpenProject<Project>, host: Host<Project>, chain: string[] = []) {
+  async function ensureRunning(open: OpenProject<Project>, host: Host<Project>, chain: string[] = [], call?: number) {
     const name = host.extension.package.manifest.displayName
 
     if (host.state === "crashed" || host.state === "stuck") {
@@ -810,7 +825,7 @@ export function extensionHosts<Project extends OpenedProject>(
     }
 
     if (!host.running) {
-      start(open, host, chain)
+      start(open, host, chain, call)
     }
 
     const running = host.running
@@ -826,18 +841,23 @@ export function extensionHosts<Project extends OpenedProject>(
     return running
   }
 
-  /** Runs `task` as `agent`'s, when one is running it, so the host's changes are named after the agent too. */
-  async function as<T>(host: Host<Project>, agent: string | undefined, task: () => Promise<T>): Promise<T> {
+  /**
+   * Runs `task` as `agent`'s call, when an agent makes it: under an id of its own, which the host carries through the
+   * extension's code and sends with what that code asks, so each change is named after the agent whose call made it,
+   * whatever other calls run meanwhile.
+   */
+  async function as<T>(agent: string | undefined, task: (call: number | undefined) => Promise<T>): Promise<T> {
     if (agent === undefined) {
-      return task()
+      return task(undefined)
     }
 
-    host.agents.push(agent)
+    const call = nextCall++
+    calls.set(call, agent)
 
     try {
-      return await task()
+      return await task(call)
     } finally {
-      host.agents.splice(host.agents.lastIndexOf(agent), 1)
+      calls.delete(call)
     }
   }
 
@@ -860,13 +880,16 @@ export function extensionHosts<Project extends OpenedProject>(
       throw new Error(`No extension running for ${open.project.name} declares ${command}`)
     }
 
-    const running = await ensureRunning(open, host)
-
     try {
-      return await as(host, agent, async () => {
-        const { result } = readReturned(
-          await running.channel.request("run", target ? { command, target } : { command })
-        )
+      return await as(agent, async (call) => {
+        const running = await ensureRunning(open, host, [], call)
+        const params: HostMethods["run"]["params"] = target ? { command, target } : { command }
+
+        if (call !== undefined) {
+          params.call = call
+        }
+
+        const { result } = readReturned(await running.channel.request("run", params))
 
         return result
       })
@@ -889,11 +912,17 @@ export function extensionHosts<Project extends OpenedProject>(
     }
 
     const checked = readToolInput(tool, input)
-    const running = await ensureRunning(open, host)
 
     try {
-      return await as(host, agent, async () => {
-        const { result } = readReturned(await running.channel.request("tool", { name, input: checked }))
+      return await as(agent, async (call) => {
+        const running = await ensureRunning(open, host, [], call)
+
+        const { result } = readReturned(
+          await running.channel.request(
+            "tool",
+            call === undefined ? { name, input: checked } : { name, input: checked, call }
+          )
+        )
 
         return result
       })
@@ -921,7 +950,6 @@ export function extensionHosts<Project extends OpenedProject>(
 
         const host: Host<Project> = {
           extension,
-          agents: [],
           state: "waiting",
           status: options.state.read(extension.package.id, project.root).status,
           context: {},

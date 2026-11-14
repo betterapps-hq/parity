@@ -35,7 +35,31 @@ export interface HostSide {
   exit(): void
   /** The memory the process holds, in bytes, which the Extensions page shows. */
   memory?(): number
+  /**
+   * Carries the id of the agent's call that ran the extension's code through that code, across its awaits, as Node's
+   * `AsyncLocalStorage` does. Without it, nothing the code asks says which agent's call it's part of.
+   */
+  calls?: CallContext
 }
+
+/** Carries a value through code and everything it awaits. */
+export interface CallContext {
+  run<T>(call: number | undefined, task: () => T): T
+  current(): number | undefined
+}
+
+/** For a host that can't carry calls through code: none is ever current. */
+const noCalls: CallContext = { run: (_call, task) => task(), current: () => undefined }
+
+/** What the host sends with the id of the agent's call it's part of. */
+const called = new Set<keyof HostServiceMethods>([
+  "edits.transact",
+  "files.edit",
+  "ui.pick",
+  "ui.input",
+  "ui.confirm",
+  "extensions.call"
+])
 
 /** The host's link to the service, which its script uses to send what the extension's code prints to the log. */
 export interface ExtensionHost {
@@ -74,6 +98,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const progress = new Map<number, AbortController>()
   const selected: Selected = { refs: [], listeners: new Set() }
   const settings: HostSettings = { values: new Map(), listeners: new Map() }
+  const calls = side.calls ?? noCalls
   let activated: Promise<Activated> | undefined
   let stopping = false
 
@@ -95,12 +120,12 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
 
       selected.refs = params.selection
       settings.values = new Map(Object.entries(params.settings.values))
-      activated = activate(params, channel, progress, selected, settings, side)
+      activated = calls.run(params.call, () => activate(params, channel, progress, selected, settings, side, calls))
       const { api } = await activated
 
       return { api: Object.keys(api) }
     },
-    async run({ command, target }) {
+    async run({ command, target, call }) {
       if (!activated) {
         throw new Error("The extension hasn't activated")
       }
@@ -111,9 +136,9 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error(`Nothing handles ${command}. Its extension registers it with parity.commands.register.`)
       }
 
-      return returned(await handler(target))
+      return returned(await calls.run(call, () => handler(target)))
     },
-    async tool({ name, input }) {
+    async tool({ name, input, call }) {
       if (!activated) {
         throw new Error("The extension hasn't activated")
       }
@@ -124,24 +149,24 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error(`Nothing handles ${name}. Its extension registers it with parity.agentTools.register.`)
       }
 
-      return returned(await handler(input))
+      return returned(await calls.run(call, () => handler(input)))
     },
-    async "api.call"({ method, args }) {
+    async "api.call"({ method, args, call }) {
       if (!activated) {
         throw new Error("The extension hasn't activated")
       }
 
       const { api } = await activated
-      const called = Object.hasOwn(api, method) ? api[method] : undefined
+      const found = Object.hasOwn(api, method) ? api[method] : undefined
 
-      if (!called) {
+      if (!found) {
         throw new Error(`Its API has no ${method}`)
       }
 
       // SAFETY: an API's functions take JSON, as `ExtensionApi` says; `never` only lets each name the types it takes.
-      return returned(
-        await (called as (...given: JsonValue[]) => void | JsonValue | Promise<void | JsonValue>)(...args)
-      )
+      const run = found as (...given: JsonValue[]) => void | JsonValue | Promise<void | JsonValue>
+
+      return returned(await calls.run(call, () => run(...args)))
     },
     async "view.changed"({ view, key, value }) {
       if (!activated) {
@@ -219,7 +244,8 @@ async function activate(
   progress: Map<number, AbortController>,
   selected: Selected,
   settings: HostSettings,
-  side: HostSide
+  side: HostSide,
+  calls: CallContext
 ): Promise<Activated> {
   const exports = await side.load(params.main)
 
@@ -237,8 +263,12 @@ async function activate(
   const declaredItems = new Set(params.statusItems)
   const forms = new Map<string, Form>()
 
-  const send = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) =>
-    channel.request(method, value)
+  // What the code asks during an agent's call says which call, for the service to name or refuse.
+  const send = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) => {
+    const call = called.has(method) ? calls.current() : undefined
+
+    return channel.request(method, call === undefined ? value : { ...value, call })
+  }
 
   const quietly = <M extends keyof HostServiceMethods>(method: M, value: HostServiceMethods[M]["params"]) =>
     void send(method, value).catch(() => undefined)

@@ -221,7 +221,8 @@ An extension can offer an API to other extensions, and its commands and tools to
   Storybook gives `{ url }`. The agent API reaches the same hosts the person's clicks do.
 - **One undo step named after both.** While an agent's call runs an extension, its changes are named after the agent and
   the extension, as "Claude Code via Tidy: Rename layer", and so are changes made through another extension's API during
-  that call.
+  that call. Each agent's call has an id the host carries through the extension's code across its awaits, so two agents'
+  calls that overlap keep their own names. An extension an agent's call starts activates as part of that call.
 - **Nobody to ask.** While an agent's call runs it, an extension's `ui.pick`, `ui.input` and `ui.confirm` fail with an
   error it can handle. Its toasts, progress and opened pages still show to the person.
 - **Agent tools** are declared in the manifest's `contributes.agentTools`, each named with the prefix, with a
@@ -265,9 +266,10 @@ An extension can offer an API to other extensions, and its commands and tools to
   with its project and app settings, and a component's page is its docs first, or its first story when asked.
 - [agents.test.ts](../packages/extensions/src/agents.test.ts) (PAR-1096): the extension one builds on activated first
   and its API called in its own host, one the manifest doesn't name refused, one whose dependency is missing left out, a
-  command run for an agent giving back what it returned with its change named after both, the same through another
-  extension's API, a tool's input checked against its schema, questions failing while an agent runs it, and what agents
-  read of each extension.
+  command run for an agent giving back what it returned with its change named after both, two agents' overlapping calls
+  each named after its own agent, an extension started by an agent's call activating as the agent's, the same through
+  another extension's API, a tool's input checked against its schema, questions failing while an agent runs it, and what
+  agents read of each extension.
 - [extension-storybook-a11y's extension.test.ts](../packages/extension-storybook-a11y/src/extension.test.ts): its
   manifest, Check accessibility in Storybook opening the panel through the Storybook extension's API, and its agent
   tool.

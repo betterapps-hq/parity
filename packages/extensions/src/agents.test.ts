@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks"
 import { memoryPorts } from "@parity-app/channel"
 import type { AgentToolInput, ExtensionModule, Parity } from "@parity-app/extension-api"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
@@ -53,6 +54,9 @@ const checks = readExtension({
   }
 })
 
+/** Carries an agent's call through an extension's code, as the host script does with Node's own. */
+const calls = new AsyncLocalStorage<number | undefined>()
+
 /** Hosts whose processes are in memory, each running the module given here through the real host code. */
 function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPackage[] = [stories, checks]) {
   const changes: ExtensionStatus[][] = []
@@ -80,7 +84,8 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
       serveExtensionHost({
         port: host,
         load: (main) => Promise.resolve(Object.assign(Object.create(null), modules[main])),
-        exit: () => end({ code: 0 })
+        exit: () => end({ code: 0 }),
+        calls: { run: (call, task) => calls.run(call, task), current: () => calls.getStore() }
       })
 
       return { port: service, life }
@@ -194,6 +199,56 @@ describe("extensions for agents", () => {
     expect(transact).toHaveBeenCalledWith("shop", "parity-stories", "Claude Code via Stories: Add a story", [
       { op: "remove", design: "app.par#home", node: "a" }
     ])
+  })
+
+  it("names each change after the agent whose call made it, while two agents' calls overlap", async () => {
+    const gates: (() => void)[] = []
+
+    const { hosts, transact } = setUp({
+      "parity-stories": {
+        activate(parity) {
+          parity.commands.register("stories.open", async () => {
+            // Each call waits until the test lets it go on, so both are running when the first makes its change.
+            await new Promise<void>((resolve) => gates.push(resolve))
+            await parity.edits.transact("Add a story", [{ op: "remove", design: "app.par#home", node: "a" }])
+          })
+        }
+      }
+    })
+
+    hosts.open(project)
+    const codex = hosts.runForAgent("shop", { name: "stories.open" }, "Codex")
+    await vi.waitFor(() => expect(gates).toHaveLength(1))
+    const claude = hosts.runForAgent("shop", { name: "stories.open" }, "Claude Code")
+    await vi.waitFor(() => expect(gates).toHaveLength(2))
+    gates[0]?.()
+    await codex
+    gates[1]?.()
+    await claude
+
+    expect(transact.mock.calls.map(([, , label]) => label)).toEqual([
+      "Codex via Stories: Add a story",
+      "Claude Code via Stories: Add a story"
+    ])
+  })
+
+  it("starts an extension for an agent as the agent's, so its activation's changes are named and it can't ask", async () => {
+    const { hosts, transact, asked } = setUp({
+      "parity-stories": { activate: () => undefined },
+      "parity-checks": {
+        async activate(parity) {
+          await parity.edits.transact("Set up", [{ op: "remove", design: "app.par#home", node: "a" }])
+          await parity.ui.confirm("Set up checks?").catch(() => false)
+          parity.commands.register("checks.run", () => undefined)
+        }
+      }
+    })
+
+    hosts.open(project)
+    await hosts.runForAgent("shop", { name: "checks.run" }, "Claude Code")
+
+    expect(transact).toHaveBeenCalledWith("shop", "parity-checks", "Claude Code via Checks: Set up", expect.any(Array))
+    expect(asked).toEqual([])
   })
 
   it("names a change after the agent when it comes through another extension's API", async () => {
