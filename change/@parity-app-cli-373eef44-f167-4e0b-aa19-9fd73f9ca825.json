@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Find a project's library files by an index, so a project opens sooner",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -4,7 +4,16 @@ import { join } from "node:path"
 import { applyLibraryEdits, isSampleText, type JsonValue, jsonValue, type LibraryEdits } from "@parity-app/core"
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
-import { covers, newestEntries, registryDir, registryEntries, registryEntryFor, withEdits } from "./index.ts"
+import {
+  buildRegistryIndex,
+  covers,
+  newestEntries,
+  registryDir,
+  registryEntries,
+  registryEntryFor,
+  registryIndexFile,
+  withEdits
+} from "./index.ts"
 
 let dir: string
 
@@ -52,6 +61,54 @@ describe("registryEntryFor", () => {
       "Skipping registry file broken.lib.par: /package: a registry file names the package it describes"
     )
     warn.mockRestore()
+  })
+})
+
+describe("the registry's index (PAR-1085)", () => {
+  it("names the package each file describes, leaving out a file that doesn't parse", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    expect(await buildRegistryIndex(dir)).toEqual([
+      { file: "mui-7.lib.par", package: { name: "@mui/material", version: "7.3.4", range: "^7.0.0" } },
+      { file: "mui.lib.par", package: { name: "@mui/material", version: "9.5.0", range: "^9.0.0" } }
+    ])
+    warn.mockRestore()
+  })
+
+  it("finds a package's file by the index, without parsing the files of other packages", async () => {
+    const indexed = await mkdtemp(join(tmpdir(), "parity-registry-indexed-"))
+    const mui = { version: 4, id: "mui", name: "Material UI", package: { name: "@mui/material", version: "9.5.0" } }
+    await writeFile(join(indexed, "mui.lib.par"), JSON.stringify(mui))
+    // Read, it would be skipped with a warning.
+    await writeFile(join(indexed, "chakra.lib.par"), "not JSON")
+    await writeFile(
+      join(indexed, registryIndexFile),
+      JSON.stringify([
+        { file: "chakra.lib.par", package: { name: "@chakra-ui/react" } },
+        { file: "mui.lib.par", package: mui.package }
+      ])
+    )
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+    try {
+      expect((await registryEntryFor("@mui/material", "9.1.0", indexed))?.manifest.name).toBe("Material UI")
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+      await rm(indexed, { recursive: true, force: true })
+    }
+  })
+
+  it("reads every file when the index can't be read", async () => {
+    const unreadable = await mkdtemp(join(tmpdir(), "parity-registry-unreadable-"))
+    const mui = { version: 4, id: "mui", name: "Material UI", package: { name: "@mui/material", version: "9.5.0" } }
+    await writeFile(join(unreadable, "mui.lib.par"), JSON.stringify(mui))
+    await writeFile(join(unreadable, registryIndexFile), "{")
+
+    try {
+      expect((await registryEntryFor("@mui/material", "9.1.0", unreadable))?.file).toBe("mui.lib.par")
+    } finally {
+      await rm(unreadable, { recursive: true, force: true })
+    }
   })
 })
 
