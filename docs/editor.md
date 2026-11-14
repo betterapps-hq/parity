@@ -6505,6 +6505,11 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   built app, main was ready in 750 ms rather than 890, the builder in 1.83 seconds rather than 2.06, and the project
   opened in 2.90 seconds rather than 3.12. A development build doesn't start at `start.mjs`, so it's unchanged. No test:
   it's measured in the built app.
+- **An open project's canvas and panels load in a chunk of their own (PAR-1084).** None of them is drawn until a project
+  has opened, seconds after the window paints, so `OpenProject.tsx` is loaded lazily. The window loads that chunk once
+  it's idle after its first paint, so a project opening finds it ready, and shows the opening state while it loads.
+  That's 600 KB out of the 3.6 MB the window runs before it paints. tldraw stays in the main chunk: agent handlers, the
+  project picture and quick insert import it eagerly. No test: the end-to-end tests open projects through it.
 - **tldraw's hatched fill is left out.** tldraw draws the pattern its arrows, drawings and geo shapes can be filled with
   as an image for every power of two up to the farthest zoom in over the farthest out, and the canvas's 1% to 800% made
   that 1,024 times: a canvas over 8,000 pixels square for each theme, painted and encoded as a PNG on the window's
