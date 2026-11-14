@@ -105,11 +105,12 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
-import { PreviewHeader, type PreviewTarget } from "./preview-parts.tsx"
+import { PreviewHeader, type PreviewTarget, useSavedView } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
 import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
+import { useZoomStyle } from "./zoom-style.ts"
 
 interface ContainerViewProps {
   /** The board's element, which the canvas sizes its shape by. */
@@ -372,6 +373,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
+  const saved = useSavedView(key, entry.path)
 
   // Kept while the modes and the design are, so frames that show nothing new aren't drawn again.
   const { primary, companions, all, ordered } = useMemo(
@@ -523,7 +525,11 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
       data-changed={change.state === "changed" ? "" : undefined}
     >
       {/* No card of its own: its edge shows while it's hovered or selected, as a frame's does. */}
-      {(hovered || isSelected) && <BoardEdge color={isSelected && picked.length === 0 ? color : undefined} />}
+      {/* With previews selected, they have the ring and the board no edge of its own, as a frame has none while a layer
+          in it is selected. */}
+      {(hovered || (isSelected && picked.length === 0)) && (
+        <BoardEdge color={isSelected && picked.length === 0 ? color : undefined} />
+      )}
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -561,6 +567,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                 header={
                   <PreviewHeader
                     design={container}
+                    saved={saved}
                     designKey={key}
                     state={state}
                     mode={mode}
@@ -582,6 +589,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                   (hovered || isSelected || resizing === preview) && (
                     <PreviewResize
                       design={container}
+                      saved={saved}
                       designKey={key}
                       self={self}
                       changing={picked.includes(preview) ? targets : [self]}
@@ -611,6 +619,11 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             tabbable: isSelected,
             selected: columns.every((mode) => picked.includes(previewKey(state.id, mode.id))),
             onSelect: (add: boolean) => selectRow(state, add),
+            onStart: () => {
+              if (!isSelected) {
+                selection.set({ design: key })
+              }
+            },
             onMove: moveRow
           }
 
@@ -772,11 +785,13 @@ interface RowControls {
   /** Every preview in it is selected. */
   selected: boolean
   onSelect: (add: boolean) => void
+  /** Carrying it starts, which selects its design. */
+  onStart: () => void
   onMove: (from: number, to: number) => void
 }
 
 /** A row's name or label as a control: clicking selects its row, Shift adds it, and carrying it moves it. */
-function useRowControls(ref: RefObject<HTMLElement | null>, { index, color, onSelect, onMove }: RowControls) {
+function useRowControls(ref: RefObject<HTMLElement | null>, { index, color, onSelect, onStart, onMove }: RowControls) {
   const carry = useCarry({
     axis: "y",
     items: () => [
@@ -784,11 +799,14 @@ function useRowControls(ref: RefObject<HTMLElement | null>, { index, color, onSe
     ],
     from: () => index,
     color,
+    carried: () => [...(ref.current?.closest(".state-row")?.querySelectorAll<HTMLElement>(".mode-tile") ?? [])],
+    onStart,
     onDrop: (to) => onMove(index, to)
   })
 
   return {
     marker: carry.marker,
+    cursor: carry.carrying ? "cursor-grabbing" : "cursor-default",
     props: {
       "aria-keyshortcuts": "ArrowUp ArrowDown",
       onPointerDown: carry.onPointerDown,
@@ -824,11 +842,11 @@ function RowName({
   const ref = useRef<HTMLButtonElement>(null)
   useGutterStyle(band, first ? "firstRowName" : "nextRowName")
   useCanvasLabel(ref, "name", { fit: true, width: boardWidth })
-  const { marker, props } = useRowControls(ref, controls)
+  const { marker, cursor, props } = useRowControls(ref, controls)
 
   return (
     <div ref={band} className="absolute inset-x-0">
-      <Hint label={`Select ${state.name}`} detail="Shift+click to add it, drag to move it" wait>
+      <Hint label={`Select ${state.name}`} detail="Drag to reorder" wait>
         <button
           ref={ref}
           type="button"
@@ -836,7 +854,7 @@ function RowName({
           data-canvas-control
           aria-pressed={controls.selected}
           {...props}
-          className="pointer-events-auto absolute bottom-1 left-0 flex origin-bottom-left items-center text-sm font-medium whitespace-nowrap outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+          className={`pointer-events-auto absolute bottom-1 left-0 flex h-6 origin-bottom-left items-center rounded px-0.5 text-sm font-medium whitespace-nowrap outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 ${cursor} ${controls.selected ? "" : "text-foreground/90"}`}
           style={controls.selected ? { color: kindColors.mode } : undefined}
         >
           <Name>{state.name}</Name>
@@ -929,9 +947,9 @@ function TitleControls({ children }: { children: ReactNode }) {
 
   return (
     <div
-      // Out of the layout while the name runs past a narrow board, where they'd sit beyond its edge and take the name's
-      // room (see useTitleReach).
-      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex group-data-past-edge/title:hidden! @max-[22rem]:hidden!"
+      // At the board's right edge, or, while the name runs past a narrow board, after the name, out over the canvas
+      // beside it (see useTitleReach).
+      className="ml-auto hidden shrink-0 items-center gap-1 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex group-data-past-edge/title:ml-0 @max-[14rem]:hidden!"
       // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
       data-canvas-control
       onPointerDown={stopEventPropagation}
@@ -1103,7 +1121,7 @@ function focusAndSelect(element: HTMLInputElement | null): void {
 }
 
 const menuTrigger =
-  "flex h-8 items-center gap-1.5 rounded-md border bg-background/80 px-2.5 text-sm shadow-xs backdrop-blur hover:bg-accent aria-expanded:bg-accent"
+  "flex h-6 items-center gap-1 rounded-md bg-muted/50 px-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-accent aria-expanded:text-foreground dark:bg-input/40"
 
 /**
  * Which option of each variant the board shows. Edits on the board in its base state go to the options picked here,
@@ -1128,7 +1146,7 @@ function VariantMenu({
     <DropdownMenu>
       <DropdownMenuTrigger className={menuTrigger} aria-label="Variant">
         <span className="max-w-48 truncate">{label}</span>
-        <ChevronDown className="size-3.5 opacity-60" />
+        <ChevronDown className="-ml-0.5 size-3 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {variants.map(([name, param], index) => (
@@ -1178,10 +1196,10 @@ function StateLabel({
   const height = useLabelSpace(ref, first)
   useCanvasLabel(ref, "name", { width: boardWidth, height })
   useGutterStyle(ref, first ? "firstStateLabel" : "nextStateLabel")
-  const { marker, props } = useRowControls(ref, controls)
+  const { marker, cursor, props } = useRowControls(ref, controls)
 
   return (
-    <Hint label={`Select ${state.name}`} detail="Shift+click to add it, drag to move it" wait>
+    <Hint label={`Select ${state.name}`} detail="Drag to reorder" wait>
       <button
         ref={ref}
         type="button"
@@ -1189,7 +1207,7 @@ function StateLabel({
         data-canvas-control
         aria-pressed={controls.selected}
         {...props}
-        className="state-label pointer-events-auto absolute right-full flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap"
+        className={`state-label pointer-events-auto absolute right-full flex origin-top-right flex-col items-end pr-4 text-right whitespace-nowrap ${cursor}`}
         style={controls.selected ? { color: kindColors.mode } : undefined}
       >
         <Name className="text-sm font-medium text-foreground">{state.name}</Name>
@@ -1236,7 +1254,16 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
  * too narrow on screen. It sits at the band's foot, so a header with a line under its name grows up into the room its
  * row makes for it. The band shrinks with it past 40%.
  */
-function FrameCaption({ width, children }: { width: number; children: ReactNode }) {
+function FrameCaption({
+  width,
+  onPoint,
+  children
+}: {
+  width: number
+  /** Says when the pointer comes onto its header and leaves it. */
+  onPoint: (on: boolean) => void
+  children: ReactNode
+}) {
   const band = useRef<HTMLElement>(null)
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(band, "caption")
@@ -1245,11 +1272,32 @@ function FrameCaption({ width, children }: { width: number; children: ReactNode 
   return (
     <figcaption ref={band} className="relative">
       {/* Out of the flow, so a long caption doesn't widen a narrow frame's board. */}
-      <div ref={ref} className="absolute bottom-1 left-0 flex origin-bottom-left items-end text-sm">
+      <div
+        ref={ref}
+        className="absolute bottom-1 left-0 flex origin-bottom-left items-end text-sm"
+        onPointerEnter={() => onPoint(true)}
+        onPointerLeave={() => onPoint(false)}
+      >
         {children}
       </div>
     </figcaption>
   )
+}
+
+/**
+ * A preview's ring in the mode color, at its screen size whatever the zoom: 2 pixels while it's selected, and 1, faint,
+ * while its header's pointed at.
+ */
+function PreviewRing({ selected }: { selected: boolean }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useZoomStyle(ref, (style, zoom) => {
+    style.boxShadow = selected
+      ? `0 0 0 ${2 / zoom}px ${kindColors.mode}`
+      : `0 0 0 ${1 / zoom}px color-mix(in oklab, ${kindColors.mode} 60%, transparent)`
+  })
+
+  return <div ref={ref} aria-hidden className="pointer-events-none absolute inset-0" />
 }
 
 interface FrameTileProps {
@@ -1321,6 +1369,8 @@ const FrameTile = memo(function FrameTile({
   const figure = useRef<HTMLElement>(null)
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
+  // Its header's pointed at, so it's outlined faintly.
+  const [pointed, setPointed] = useState(false)
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, drawn, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
@@ -1416,10 +1466,6 @@ const FrameTile = memo(function FrameTile({
   const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
   const tileStyle: CSSProperties = {}
 
-  if (selected) {
-    tileStyle.boxShadow = `0 0 0 3px ${kindColors.mode}`
-  }
-
   // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has noted its
   // size.
   if (height !== undefined) {
@@ -1429,15 +1475,20 @@ const FrameTile = memo(function FrameTile({
   return (
     <figure
       ref={figure}
-      className="mode-tile relative m-0"
+      // Faded while its column or its row is carried to another place.
+      className="mode-tile relative m-0 transition-opacity data-carried:opacity-50"
       data-mode={mode.id}
       data-primary={primary}
       data-column={column}
     >
-      {header && <FrameCaption width={frame.width * scale}>{header}</FrameCaption>}
+      {header && (
+        <FrameCaption width={frame.width * scale} onPoint={setPointed}>
+          {header}
+        </FrameCaption>
+      )}
       <div
         ref={tile}
-        className="relative transition-shadow"
+        className="relative"
         style={tileStyle}
         data-bitmap={showing ? "" : undefined}
         data-skeleton={skeleton ? "" : undefined}
@@ -1465,6 +1516,7 @@ const FrameTile = memo(function FrameTile({
           />
         )}
         {!page && skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
+        {(selected || pointed) && <PreviewRing selected={selected} />}
         {!page && placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
         {!page && showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
         {resize}

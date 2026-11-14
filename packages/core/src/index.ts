@@ -350,8 +350,10 @@ export {
   type PreviewValue,
   previewValues,
   snapToBreakpoint,
+  unsavedPreviewValues,
   withoutPreviewValues,
-  withPreviewValues
+  withPreviewValues,
+  withSavedPreviewValues
 } from "./preview.ts"
 
 export {

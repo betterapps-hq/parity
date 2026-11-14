@@ -3,7 +3,6 @@ import { ShowList } from "../chrome/ShowList.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import { type ContainerEntry, useModeSettings } from "../design-store.ts"
 import { moved } from "../inspector/controls/list-parts.tsx"
-import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
@@ -18,9 +17,8 @@ export function stateNouns(entry: Pick<ContainerEntry, "path">): { one: string; 
  * shows it, and the first shown is drawn at full size, the rest beside it (PAR-1071).
  */
 export function ModesList({ entry, group }: { entry: ContainerEntry; group: string }) {
-  const { store, selection } = useProject()
+  const { store } = useProject()
   const settings = useModeSettings(store)
-  const selected = useSelection(selection)
   const { container, key } = entry
   const { all, ordered, primary, companions } = containerModes(settings, container)
   const order = ordered.map((mode) => mode.id)
@@ -33,10 +31,12 @@ export function ModesList({ entry, group }: { entry: ContainerEntry; group: stri
         id: mode.id,
         name: mode.name,
         icon: <ModeViewportIcon of={mode} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />,
-        chips: [`${mode.width}px`, ...mode.options.slice(1).map(({ option }) => option.name)]
+        chips: [
+          `${mode.width}px`,
+          ...mode.options.filter(({ variable }) => variable.kind !== "viewport").map(({ option }) => option.name)
+        ]
       }))}
       shown={shown}
-      selected={selected.design === key && selected.node === undefined ? selected.mode : undefined}
       only="At least one mode always shows"
       onMove={(from, to) =>
         store.updateView(key, `Move ${ordered[from]!.name}`, (view) =>

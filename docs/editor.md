@@ -6393,63 +6393,81 @@ settings change how the canvas draws it, never the design.
 
 - **The header names its mode,** and its state too in its accessible name where the board shows every state, as "Popular
   in Desktop Light". Clicking the name selects the preview alone; Shift+click adds it to the previews selected, or takes
-  it away. Selected previews have a ring in the mode color, and their names take it. Picking a mode in the Modes list
-  still selects its column in every row shown.
+  it away. Selected previews have a 2-pixel ring in the mode color at any zoom, and their names take it; pointing at a
+  header outlines its preview faintly. While any are selected, the board has no edge of its own, as a frame has none
+  while a layer in it is selected.
 - **The last preview picked holds the settings** of every one selected: a Zoom field and a settings button. Zoom is a
   percentage from 10 to 400, typed or scrubbed, with Fit, 100%, 75%, 50% and 25% in its menu; Fit is there only for a
   preview beside the first, which fits it to at most 640 wide. The settings button opens Preview settings above the
   preview: Width, in pixels, and a select for each of the project's variables other than its viewport, such as Theme and
   Locale. Values that differ across the previews selected read Mixed.
-- **A preview that sets anything** shows the settings button with a change dot beside its name, and a reset ("Reset
-  preview settings", with the hint "Reset to Desktop Light"), whether or not it's selected. There are no chips for its
-  values. Preview settings has the same reset beside its title, which keeps its place whether or not the reset shows.
+- **A preview that sets anything** shows the settings button beside its name, whether or not it's selected. There are no
+  chips for its values.
+- **Saving makes what's set the baseline.** A value changed since the last save marks the settings button (or the Zoom
+  field, for a zoom) with the change dot, and the header shows a reset ("Reset preview settings"), which puts it back as
+  saved: its hint says "Reset to saved values", or "Reset to Desktop Light" where nothing was saved. After a save the
+  dot and the reset go, and the settings button stays. Preview settings has the same reset beside its title, which keeps
+  its place whether or not the reset shows, and each field's reset arrow names the saved value it goes back to.
 - **Nothing is cut off.** Where the name and what follows it don't fit over the preview, what follows goes on a line
   under the name, and its row makes room for it.
 - **The handle resizes the preview,** while the board's hovered or selected: dragging it sets the preview's width, and
-  every selected preview's where it's one of them. Double-clicking it puts the width back to the mode's, and Left and
-  Right nudge it, by 10 with Shift. A page is between 320 and 1920 wide and a story or a component between 80 and 1920.
-  A page lands on the app's breakpoints within 6 screen pixels, unless Alt is held, and shows them under it while it's
-  resized, the one it's at lit up to the next. The breakpoints are the project's breakpoint tokens, such as Tailwind
-  CSS's `--breakpoint-sm`, and its libraries' breakpoints. A story keeps its own size: more width shows the canvas
-  behind it.
+  every selected preview's where it's one of them. Double-clicking it puts the width back as saved, or to the mode's
+  where none was saved, and Left and Right nudge it, by 10 with Shift. A page is between 320 and 1920 wide and a story
+  or a component between 80 and 1920. A page lands on the app's breakpoints within 6 screen pixels, unless Alt is held,
+  and shows them under it while it's resized, the one it's at lit up to the next. The breakpoints are the project's
+  breakpoint tokens, such as Tailwind CSS's `--breakpoint-sm`, and its libraries' breakpoints. A story keeps its own
+  size: more width shows the canvas behind it.
 - **The file keeps them** in the view's `previews`, by `state/mode`: `width`, `scale` and `options`, by variable id. A
   value set back to its mode's is dropped, and an empty entry with it. They're view changes, so they aren't undoable.
   The board's size follows each row's own previews (`boardSize`).
 
 Code: `packages/core/src/preview.ts` (`previewKey`, `previewSettingsOf`, `previewOptionsMode`, `previewGeometry`,
-`previewScale`, `withPreviewValues`, `withoutPreviewValues`, `breakpointAt`, `snapToBreakpoint`), the view's `previews`
-in `document.ts`, and `boardSize` in `board.ts`; `pickPreviews` and `selectedPreviews` in
-`packages/editor/src/selection.ts`; in the app, `PreviewHeader`, `ZoomField` and `SettingsMenu` in
-`canvas/preview-parts.tsx`, `PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView` and
-`FrameTile` in `canvas/ContainerView.tsx`. The canvas leaves presses on a `data-canvas-control` to the control
-(`CanvasOverlay`).
+`previewScale`, `withPreviewValues`, `withoutPreviewValues`, `unsavedPreviewValues`, `withSavedPreviewValues`,
+`breakpointAt`, `snapToBreakpoint`), the view's `previews` in `document.ts`, and `boardSize` in `board.ts`;
+`pickPreviews` and `selectedPreviews` in `packages/editor/src/selection.ts`, and `savedView` in `history.ts` (in the
+design's file, or the project file's `codeDesigns` for a design drawn from code); in the app, `getSavedView` in
+`design-store.ts`, `useSavedView`, `PreviewHeader`, `ZoomField` and `SettingsMenu` in `canvas/preview-parts.tsx`,
+`PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView`, `FrameTile` and `PreviewRing` in
+`canvas/ContainerView.tsx`. The canvas leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
 
-Tests: `packages/core/src/preview.test.ts` (11: a preview's key read back, its options drawn over its mode's viewport,
-its width with the window it stands for, its scale, setting and dropping values, what a design file holds, a board sized
-by each row's previews, the breakpoint a width is at, and landing on a breakpoint);
-`packages/editor/src/selection.test.ts`, "selecting previews" (6: one preview as a mode and state, a click selecting it
-alone, Shift adding and removing it, a row added and removed, the design left once the last is removed, and selections
-told apart). Gaps: the header's stacking, the popover and the handle have no automated test. They were tried in a
-development build on the example project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan card
-/ Default, Preview settings set Desktop Dark to 900 wide and its header then showed the change dot and reset, the handle
-dragged Desktop Light from 181 to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and Pricing's
-page reflowed as it was dragged from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than
-the window.
+Tests: `packages/core/src/preview.test.ts` (13: a preview's key read back, its options drawn over its mode's viewport,
+its width with the window it stands for, its scale, setting and dropping values, what a design file holds, what changed
+since the last save, values put back as saved, a board sized by each row's previews, the breakpoint a width is at, and
+landing on a breakpoint); `packages/editor/src/history.test.ts`, "a design's view as saved" (2: from its file as saved
+rather than as it is, and from the project file for a design drawn from code); `packages/editor/src/selection.test.ts`,
+"selecting previews" (6: one preview as a mode and state, a click selecting it alone, Shift adding and removing it, a
+row added and removed, the design left once the last is removed, and selections told apart). Gaps: the header's
+stacking, the popover and the handle have no automated test. They were tried in a development build on the example
+project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan card / Default, Preview settings set
+Desktop Dark to 900 wide and its header then showed the change dot and reset, the handle dragged Desktop Light from 181
+to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and Pricing's page reflowed as it was dragged
+from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than the window. In Storybook's
+Parity/Canvas/Boards Every state on 2026-11-14, Button / Default in Desktop Dark set to 900 wide showed the dot and the
+reset, a save took both away and left the settings button, and 950 then reset to 900; pointing at a header outlined its
+preview.
 
 ### A board's rows and columns, in order (PAR-1071)
 
 A board shows a row for each state it shows and a column for each mode, in the design's own order. Both can be shown,
 hidden and put in order on the canvas.
 
-- **The title has a menu for each,** while the board's hovered or selected: States (Stories on a Storybook file's board)
-  with how many show, and Modes, with Edit modes beside its heading, which opens the inspector's Modes tab. A design
-  with one state has no States menu, and a project with one mode no Modes menu. Each menu lists every one with a handle
-  and a switch, as the Modes section does, and the one left showing can't be switched off.
+- **The title has a menu for each,** while the board's hovered or selected or a menu's open: a small button with an
+  icon, how many show and a chevron, named "States, 4 shown" (Stories on a Storybook file's board). Its heading counts
+  them all, and the Modes menu has Edit modes beside its heading, which opens the inspector's Modes tab. A design with
+  one state has no States menu; the Modes menu is there with one mode, for Edit modes. Each menu lists every one with a
+  handle and a switch, as the Modes section does, a mode with its width and its variables' values as chips, and the one
+  left showing can't be switched off. A long list scrolls.
+- **A page's title adds Open in browser,** what the project's adapters offer for it, as the Design tab's heading does.
+- **On a narrow board the controls follow the name,** out over the canvas beside it where the name runs past the board,
+  rather than hiding; zoomed so far out that there's no room for them, they hide.
+- **A page's and a story's Design tab has no Modes section:** their modes are set on the canvas, from the title.
 - **A row's label selects it.** Clicking it selects every preview in the row; Shift+click adds the row or takes it away.
   A component's label names its state, and every state but the base one says how many changes it makes. A Storybook
   file's board names each story over its row instead.
-- **A row's label or a column's header moves it.** Dragging it shows a line where it would land, and letting go puts it
-  there. Up and Down on a label, or Left and Right on a header, move it a place. A press that doesn't move is a click.
+- **A row's label or a column's header moves it** (their hints say "Drag to reorder"). Dragging it shows a line where it
+  would land and fades the previews it carries, and letting go puts it there. Dragging a header selects its preview
+  unless it's selected already, and dragging a label selects the design. Up and Down on a label, or Left and Right on a
+  header, move it a place. A press that doesn't move is a click.
 - **A long row wraps.** Its previews go onto another line once it's wider than two and a half times its widest preview,
   or 1600, whichever is more.
 - **The file keeps them** in the view: `states`, the states shown, where not every one is, and `stateOrder`, where it
@@ -6459,8 +6477,9 @@ hidden and put in order on the canvas.
 Code: `packages/core/src/rows.ts` (`orderedStates`, `shownStates`, `withShownStates`, `withStateOrder`, `reorderShown`),
 `rowWrapWidth` and `wrapRow` in `board.ts`, and the view's `states` and `stateOrder` in `document.ts`; in the app,
 `BoardMenus` in `canvas/BoardMenus.tsx`, `StatesList` and `ModesList` in `canvas/view-lists.tsx`, `ShowList` in
-`chrome/ShowList.tsx`, `useCarry` in `canvas/board-carry.tsx`, `PreviewHeader` in `canvas/preview-parts.tsx`, and
-`BoardView`, `StateLabel` and `RowName` in `canvas/ContainerView.tsx`.
+`chrome/ShowList.tsx`, `useCarry` in `canvas/board-carry.tsx`, `PreviewHeader` in `canvas/preview-parts.tsx`,
+`BoardView`, `StateLabel`, `RowName` and `TitleControls` in `canvas/ContainerView.tsx`, and the page's and story's
+sections in `chrome/DesignPanel.tsx`.
 
 Tests: `packages/core/src/rows.test.ts` (9: the states shown by default, by the view's state, every state or a list, in
 the design's order; the fewest words written, never none, and what a file can hold; an order of its own kept and the
@@ -6470,7 +6489,10 @@ design's modes in its own order"). Gaps: the menus, the labels and carrying have
 Storybook's Parity/Canvas/Boards Every state on Button: switching off Outline, Destructive and Default left Disabled
 alone with its switch locked, Down on Default's handle moved its row second, Shift+click selected the Destructive and
 Disabled rows, Up on Disabled's label moved it above Destructive, dragging Destructive's label put it second, Right on
-Desktop Light's header drew Desktop Dark first, and turning on Tablet Light wrapped each row onto two lines.
+Desktop Light's header drew Desktop Dark first, and turning on Tablet Light wrapped each row onto two lines. Then, after
+matching the approved sketch: the menus showed as chips with their icons and chevrons, the Modes heading counted 4, and
+carrying Desktop Dark's header faded its four previews, showed the marker and the grab cursor, selected it and drew it
+first.
 
 ## What the editor itself loads
 

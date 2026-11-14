@@ -170,6 +170,7 @@ export {
   reloadFile,
   revertTo,
   saveFailure,
+  savedView,
   type SaveState,
   startSave,
   type TokenFailure,

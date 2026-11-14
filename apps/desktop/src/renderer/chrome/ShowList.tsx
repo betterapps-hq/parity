@@ -23,7 +23,6 @@ export function ShowList({
   group,
   entries,
   shown,
-  selected,
   only,
   onMove,
   onShow
@@ -31,8 +30,6 @@ export function ShowList({
   group: string
   entries: readonly ShowEntry[]
   shown: ReadonlySet<string>
-  /** The entry selected on the canvas, which its row marks. */
-  selected?: string | undefined
   /** What the hint of the switch that can't go off says: "At least one mode always shows". */
   only: string
   onMove: (from: number, to: number) => void
@@ -49,7 +46,6 @@ export function ShowList({
           entry={entry}
           shown={shown.has(entry.id)}
           last={showing.length === 1 && showing[0] === entry}
-          selected={selected === entry.id}
           only={only}
           onMove={entries.length > 1 ? onMove : undefined}
           onShow={(on) => onShow(entry.id, on)}
@@ -64,7 +60,6 @@ function ShowRow({
   entry,
   shown,
   last,
-  selected,
   only,
   onMove,
   onShow
@@ -74,7 +69,6 @@ function ShowRow({
   shown: boolean
   /** It's the only one showing, so it stays on. */
   last: boolean
-  selected: boolean
   only: string
   onMove: ((from: number, to: number) => void) | undefined
   onShow: (on: boolean) => void
@@ -84,7 +78,7 @@ function ShowRow({
   return (
     <div
       {...sort.item}
-      className={`flex items-center gap-1.5 rounded-md py-1 pr-3 ${entry.chips ? "min-h-11" : "min-h-8"} ${selected ? "bg-accent/60" : ""}`}
+      className={`flex items-center gap-1.5 rounded-md py-1 pr-3 ${entry.chips ? "min-h-11" : "min-h-8"}`}
     >
       {onMove ? (
         // No hint: the grip and its grab cursor say what it does, as a list's handle does (list-parts.tsx).

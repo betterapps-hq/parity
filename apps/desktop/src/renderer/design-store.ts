@@ -64,6 +64,7 @@ import {
   type TokenFailure,
   type TokenWrite,
   undoChange,
+  savedView,
   unsavedPaths,
   withStylesheet,
   withTidyView,
@@ -171,6 +172,15 @@ export class DesignStore {
   getReferences = () => this.references
   getReference = (key: string) => this.references.find((entry) => entry.key === key)
   getModes = (): ModeSettings => this.state.current.modes
+  /**
+   * How a design was shown when last saved, which a preview's reset puts back (`savedView`); `drawnFromCode` for a page,
+   * a component's board or a story, whose views the project file keeps.
+   */
+  getSavedView = (key: string, drawnFromCode: boolean): ContainerViewSettings | undefined => {
+    const entry = this.getEntry(key)
+
+    return entry && savedView(this.state, entry.path, entry.container.id, drawnFromCode)
+  }
   /** What an edit to what's `picked` lands on: its design, in the state and viewport of the frame it was picked in. */
   editFrame = (picked: Picked): EditFrame | undefined =>
     editFrame(picked, (key) => this.getEntry(key)?.container, this.getModes())

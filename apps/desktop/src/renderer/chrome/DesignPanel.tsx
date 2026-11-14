@@ -133,8 +133,8 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const components = useComponents(session.components)
   const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
-  // A page of the app (PAR-1076): its header, its path params as props, its route, its modes and Export; nothing of it
-  // is designed.
+  // A page of the app (PAR-1076): its header, its path params as props, its route and Export; nothing of it is designed,
+  // and its modes are set on the canvas, from its title (PAR-1071).
   const route = routePageRoute(session.id, entry.container.id)
 
   if (route !== undefined) {
@@ -143,20 +143,19 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
         <DesignHeader entry={entry} />
         <RouteProps entry={entry} route={route} />
         <RouteSection route={route} />
-        <ModesSection entry={entry} />
         <DesignExport entry={entry} />
       </>
     )
   }
 
-  // A story: its header, the props it draws its component with, which are its args, its modes and Export.
+  // A story: its header, the props it draws its component with, which are its args, and Export. Its modes are set on the
+  // canvas, from its title (PAR-1071).
   if (entry.path === storyScreensFile) {
     return (
       <>
         <DesignHeader entry={entry} />
         <StoryProps entry={entry} />
         <TriedSize entry={entry} />
-        <ModesSection entry={entry} />
         <DesignExport entry={entry} />
       </>
     )
