@@ -8,7 +8,8 @@ import {
   type GuestComponentSource,
   type ImportedScreen,
   isMadeValue,
-  type ProjectEntities
+  type ProjectEntities,
+  type StateSpec
 } from "@parity-app/core"
 import { readStoryFile, type Story, type StoryArgs, type StoryFile } from "./csf.ts"
 import { writeStoryArgs } from "./write.ts"
@@ -20,10 +21,10 @@ export const storyFilePattern = /\.stories\.(?:[cm]?[jt]sx?)$/
 export const storybookId = "storybook"
 
 /**
- * Each story in the project's story files as a screen, grouped by its file's title. A story without a `render` of its
- * own draws the component its meta names with its args as props, as Storybook draws one; one with a `render` draws
- * that function, loaded from the story file, with its args as props. A story drawing a component that isn't one of the
- * project's isn't imported.
+ * Each of the project's story files as a design of its own, its stories its states, listed by the file's title. A story
+ * without a `render` of its own draws the component its meta names with its args as props, as Storybook draws one; one
+ * with a `render` draws that function, loaded from the story file, with its args as props. A story drawing a component
+ * that isn't one of the project's isn't imported, nor is a file with none left.
  */
 export async function importStoryScreens(source: EntitiesSource): Promise<ProjectEntities> {
   const screens: ImportedScreen[] = []
@@ -40,60 +41,94 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Projec
     const component = file.component && (await source.componentFor(path, file.component.specifier, file.component.name))
     const group = file.title ?? titleFromPath(path, file)
 
-    for (const story of file.stories) {
-      const ref = `${path}#${story.exportName}`
+    const stories = file.stories.flatMap((story) => {
       // A story that renders itself draws its function, as a component of its own, by the story's ref.
-      const drawn = story.render ? `story:${ref}` : component
+      const drawn = story.render ? `story:${path}#${story.exportName}` : component
 
       if (!drawn) {
-        continue
+        return []
       }
 
       if (story.render) {
         sources[drawn] = { path, export: story.render }
       }
 
-      const screen: ImportedScreen = {
-        adapter: storybookId,
-        ref,
-        group,
-        folders: titleFolders(group),
-        screen: storyScreen(path, story, drawn)
-      }
+      return [{ story, drawn }]
+    })
 
-      if (component) {
-        screen.component = component
-      }
-
-      screens.push(screen)
+    if (stories.length === 0) {
+      continue
     }
+
+    const screen: ImportedScreen = {
+      adapter: storybookId,
+      ref: path,
+      group,
+      folders: titleFolders(group),
+      screen: storyFileDesign(path, group, stories)
+    }
+
+    if (component) {
+      screen.component = component
+    }
+
+    screens.push(screen)
   }
 
   return { screens, sources }
 }
 
+/** The id of the layer that draws a story in its file's design, by the story's export. */
+export function storyLayerId(exportName: string): string {
+  return `story:${exportName}`
+}
+
+/** The id of the layer around a story, which can be dragged to another size, by the story's export. */
+export function storyBoundsId(exportName: string): string {
+  return `bounds:${exportName}`
+}
+
 /**
- * A story's screen: what it draws at its own size, with its args as props, on the page's background. Its root hugs the
- * story, padded as Storybook's default layout draws one, so each mode's frame is only as wide as the story, while the
- * story lays out in the mode's whole window, as in Storybook's canvas.
+ * A story file's design: each story what it draws at its own size, with its args as props, inside bounds of its own,
+ * on the page's background, and a state for each story that shows its bounds alone, each a row on its board. Its root hugs the story, padded as
+ * Storybook's default layout draws one, so each mode's frame is only as wide as the story, while the story lays out in
+ * the mode's whole window, as in Storybook's canvas.
  */
-export function storyScreen(path: string, story: Story, component: string): ContainerSpec {
-  const node: DesignNode = { type: "component", id: "story", component }
+export function storyFileDesign(
+  path: string,
+  title: string,
+  stories: readonly { story: Story; drawn: string }[]
+): ContainerSpec {
+  const children = stories.map(({ story, drawn }): DesignNode => {
+    const node: DesignNode = { type: "component", id: storyLayerId(story.exportName), component: drawn }
 
-  // A story's own render function has no name of its own to show, so its layer takes the story's.
-  if (story.render) {
-    node.name = story.name
-  }
+    // A story's own render function has no name of its own to show, so its layer takes the story's.
+    if (story.render) {
+      node.name = story.name
+    }
 
-  if (Object.keys(story.args).length > 0) {
-    node.props = story.args
-  }
+    if (Object.keys(story.args).length > 0) {
+      node.props = story.args
+    }
+
+    // Around what the story draws, at its size until it's dragged to another, to see how the story responds there,
+    // whether or not its component takes a size of its own.
+    return {
+      type: "layout",
+      id: storyBoundsId(story.exportName),
+      name: story.name,
+      style: { alignItems: "start" },
+      children: [node]
+    }
+  })
 
   return {
-    id: `story:${path}#${story.exportName}`,
-    name: story.name,
-    kind: "screen",
+    id: `story:${path}`,
+    name: title.split("/").at(-1)?.trim() || title,
+    kind: "story",
     position: { x: 0, y: 0 },
+    // Every story shows, a row each, as Storybook's sidebar lists them all.
+    view: { allStates: true },
     root: {
       type: "layout",
       id: "root",
@@ -106,33 +141,59 @@ export function storyScreen(path: string, story: Story, component: string): Cont
         fills: [{ type: "solid", color: { token: "background" } }],
         color: { token: "foreground" }
       },
-      // Around what the story draws, at its size until it's dragged to another, to see how the story responds there,
-      // whether or not its component takes a size of its own.
-      children: [{ type: "layout", id: "bounds", name: "Bounds", style: { alignItems: "start" }, children: [node] }]
-    }
+      children
+    },
+    states: stories.map(({ story }) => ({
+      id: story.exportName,
+      name: story.name,
+      overrides: Object.fromEntries(
+        stories.flatMap((other) =>
+          other.story === story ? [] : [[storyBoundsId(other.story.exportName), { hidden: true }] as const]
+        )
+      )
+    }))
   }
 }
 
 /**
- * A story's screen, as edited, written back to its file: the props of what it draws as the story's args. The rest of
- * the screen is Storybook's to lay out, so nothing else is written.
+ * A story file's design, as edited, written back to its file: the props each story draws, in its own state, as the
+ * story's args. The rest of the design is Storybook's to lay out, so nothing else is written.
  */
 export async function exportStoryScreen(
   screen: ImportedScreen,
   edited: ContainerSpec,
   source: EntitiesSource
 ): Promise<FileWrite[]> {
-  const [path, exportName] = splitRef(screen.ref)
-  const drawn = findNode(edited.root, "story")
-  const text = path && (await source.read(path))
+  const path = screen.ref
+  const text = await source.read(path)
 
-  if (!exportName || !text || drawn?.type !== "component") {
+  if (text === undefined) {
     return []
   }
 
-  const written = writeStoryArgs(text, exportName, storyArgs(drawn.props ?? {}), path)
+  const written = (edited.states ?? []).reduce((current, state) => {
+    const drawn = findNode(edited.root, storyLayerId(state.id))
+
+    if (drawn?.type !== "component") {
+      return current
+    }
+
+    return writeStoryArgs(current, state.id, storyArgs(stateProps(drawn, state, storyLayerId(state.id))), path)
+  }, text)
 
   return written === text ? [] : [{ path, text: written }]
+}
+
+/** A layer's props as a state draws it: its own, with what the state's patch sets over them and takes away. */
+function stateProps(node: ComponentNode, state: StateSpec, id: string): NonNullable<ComponentNode["props"]> {
+  const patch = state.overrides?.[id]
+  const props = { ...node.props, ...patch?.props }
+
+  for (const name of patch?.unset?.props ?? []) {
+    delete props[name]
+  }
+
+  return props
 }
 
 /** Props as a story's args: their JSON values, leaving out values the package makes (`$call`) and dates (`$date`). */
@@ -146,13 +207,6 @@ function storyArgs(props: NonNullable<ComponentNode["props"]>): StoryArgs {
 /** Whether a prop is a date, which a story's args can't hold as JSON. */
 function dateValue(value: NonNullable<ComponentNode["props"]>[string]): boolean {
   return JSON.stringify(value)?.startsWith('{"$date"') ?? false
-}
-
-/** A story's ref as its file and its export's name. */
-function splitRef(ref: string): [string, string | undefined] {
-  const at = ref.lastIndexOf("#")
-
-  return at === -1 ? [ref, undefined] : [ref.slice(0, at), ref.slice(at + 1)]
 }
 
 /**

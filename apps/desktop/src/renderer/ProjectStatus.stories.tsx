@@ -64,7 +64,7 @@ export const FailedOnAnInvalidDesignFile: Story = failed({
   id: roots.example,
   title: "shadcn-vite",
   message:
-    "shadcn-vite.par doesn't match the design file format:\n/containers/0/states: only a component has states; a screen is drawn as its layers are"
+    "shadcn-vite.par doesn't match the design file format:\n/containers/0/states: only a component or a story has states; a screen is drawn as its layers are"
 })
 
 /** A design file that isn't JSON, as when a merge left a stray brace. */

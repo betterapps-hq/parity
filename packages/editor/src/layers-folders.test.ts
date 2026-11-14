@@ -26,11 +26,11 @@ const stories = [
 
 const folderOf = (design: (typeof stories)[number]) => design.title.split("/")
 
-/** Each line as text: a folder's kind and label, or a design's key, indented by how many folders it's inside. */
+/** Each line as text: a folder's label, or a design's key, indented by how many folders it's inside. */
 function outline(lines: FolderTreeRow[]): string[] {
   return lines.map((line) =>
     line.type === "folder"
-      ? `${"  ".repeat(line.level)}${line.kind} ${line.label}${line.expanded ? " (open)" : ""}`
+      ? `${"  ".repeat(line.level)}${line.label}${line.expanded ? " (open)" : ""}`
       : `${"  ".repeat(line.level)}${line.row.design.key}`
   )
 }
@@ -44,11 +44,11 @@ describe("folderTree", () => {
       expanded: new Set()
     })
 
-    expect(outline(lines)).toEqual(["group UI", "group App"])
+    expect(outline(lines)).toEqual(["UI", "App"])
     expect(lines[1]).toMatchObject({ position: 2, siblings: 2 })
   })
 
-  it("lists an open folder's folders, and a component's designs, in the order the designs come", () => {
+  it("lists an open folder's folders and designs, in the order the designs come", () => {
     const expanded = new Set([...folderIds("stories", ["UI", "Button"]), folderId("stories", ["UI", "Badge"])])
 
     const lines = folderTree(stories, {
@@ -59,13 +59,13 @@ describe("folderTree", () => {
     })
 
     expect(outline(lines)).toEqual([
-      "group UI (open)",
-      "  component Button (open)",
+      "UI (open)",
+      "  Button (open)",
       "    Button / Default",
       "    Button / Outline",
-      "  component Badge (open)",
+      "  Badge (open)",
       "    Badge / Default",
-      "group App"
+      "App"
     ])
 
     const outlineRow = lines.find((line) => line.type === "row" && line.row.design.key === "Button / Outline")
@@ -85,7 +85,7 @@ describe("folderTree", () => {
       expanded: new Set()
     })
 
-    expect(outline(lines)).toEqual(["Loose", "group UI", "group App"])
+    expect(outline(lines)).toEqual(["Loose", "UI", "App"])
     expect(lines[0]).toMatchObject({ row: { position: 1, siblings: 3 } })
   })
 
@@ -98,6 +98,6 @@ describe("folderTree", () => {
       searching: true
     })
 
-    expect(outline(lines)).toEqual(["group UI (open)", "  component Button (open)", "    Button / Outline"])
+    expect(outline(lines)).toEqual(["UI (open)", "  Button (open)", "    Button / Outline"])
   })
 })

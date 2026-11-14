@@ -1,6 +1,6 @@
 import { componentBoardsFile } from "../canvas/component-boards.ts"
 import { routePagesFile } from "../canvas/route-pages.ts"
-import { storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
+import { isStoryLayer, storyScreensFile } from "../canvas/story-screens.ts"
 
 /**
  * Whether a design file is read from the project's code, as its pages, its components' boards and its stories are:
@@ -12,8 +12,8 @@ export function readFromCode(path: string): boolean {
 
 /**
  * Whether a layer read from the project's code takes edits to its props, which go back to the code: what a story
- * draws, whose props are the story's args.
+ * draws, whose props are the story's args, a layer for each story in its file's design.
  */
 export function writesProps(path: string, node: string): boolean {
-  return path === storyScreensFile && node === storyLayer
+  return path === storyScreensFile && isStoryLayer(node)
 }

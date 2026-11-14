@@ -63,11 +63,13 @@ function screenSamples(info: BoardsInfo) {
   const samples: Record<string, PropValues> = {}
 
   for (const { screen } of info.entities?.screens ?? []) {
-    // What a story draws, inside its bounds (see `storybook-adapter`'s `storyScreen`).
-    const node = findNode(screen.root, storyLayer)
+    // What each story draws, inside its bounds (see `storybook-adapter`'s `storyFileDesign`).
+    for (const state of screen.states ?? []) {
+      const node = findNode(screen.root, storyLayer(state.id))
 
-    if (node?.type === "component" && node.props && !(node.component in samples)) {
-      samples[node.component] = node.props
+      if (node?.type === "component" && node.props && !(node.component in samples)) {
+        samples[node.component] = node.props
+      }
     }
   }
 
