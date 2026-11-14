@@ -829,9 +829,24 @@ export class App {
       throw new Error(`${design}'s title isn't drawn`)
     }
 
+    // What's on top where the click lands, for a click that takes the window away from the project.
+    const under = await this.page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y)
+
+      return element ? element.outerHTML.slice(0, 300) : "nothing"
+    }, center(box))
+
     await this.click(center(box))
 
-    if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
+    const selected = until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key }))
+
+    if (
+      !(await selected.catch((error: Error) => {
+        throw new Error(`Clicking ${design}'s title at ${JSON.stringify(box)}, over ${under}: ${error.message}`, {
+          cause: error
+        })
+      }))
+    ) {
       throw new Error(
         `Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}. ` +
           `There: ${await this.describe(center(box))}`

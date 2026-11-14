@@ -79,24 +79,35 @@ describe("closing a project", () => {
     // The files after this one need the project open, so it opens again however this one ends.
     try {
       const closed = await nodes()
-      // The nodes while it's open and after each close, so a failure says whether they grow each round.
-      const rounds: string[] = []
+      // The nodes while it's open and after each close.
+      const open: number[] = []
+      const shut: number[] = []
 
       for (let round = 0; round < 3; round++) {
         await openProject(count)
-        const open = await nodes()
+        open.push((await nodes()).nodes)
         await closeProject()
-        rounds.push(`${open.nodes} open, ${(await nodes()).nodes} closed`)
+        shut.push((await nodes()).nodes)
       }
 
-      // tldraw sometimes keeps the editor closed last, with its canvas, until another replaces it: about 3,600 nodes on
-      // the example project, whose frames showing bitmaps hold none of their own (PAR-445). That's one canvas however
-      // often the project opens, so it's allowed for. A canvas kept on each reopen comes to three of them.
-      // The documents say whether what's kept is a page's frame, each of which is one.
+      // tldraw sometimes keeps the editor closed last, with its canvas, until another replaces it (PAR-445). That's one
+      // canvas however often the project opens, so it's allowed for: what's kept after the third close is the same as
+      // after the first, and less than an open canvas and a half. A canvas kept on each reopen adds one each round. The
+      // example's canvas is about 19,000 nodes since its boards gained the app's pages, components and stories, and a
+      // closed one keeps about 16,000 of them. The documents say whether what's kept is a page's frame, each of which
+      // is one.
       const after = await nodes()
+      const canvas = open[0]! - closed.nodes
       const kept = after.nodes - closed.nodes
-      const said = `from ${closed.nodes} closed: ${rounds.join("; ")}; documents ${closed.documents} to ${after.documents}`
-      expect(kept < 5000 ? "under 5,000 kept" : `${kept} kept, ${said}`).toBe("under 5,000 kept")
+      const grew = after.nodes - shut[0]!
+
+      const problems = [
+        kept >= canvas * 1.5 && `kept ${kept} nodes, past an open canvas and a half (${canvas})`,
+        grew >= 5000 && `kept ${grew} more nodes after the third close than after the first`
+      ].filter((problem) => problem !== false)
+
+      const said = `from ${closed.nodes}: ${open.map((nodes, round) => `${nodes} open, ${shut[round]} closed`).join("; ")}; documents ${closed.documents} to ${after.documents}`
+      expect(problems.length === 0 ? [] : [...problems, said]).toEqual([])
     } finally {
       await restoreProject(count)
     }

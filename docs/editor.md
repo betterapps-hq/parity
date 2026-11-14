@@ -5670,16 +5670,17 @@ and sleeps once; and 64 frames, each slow to draw, all do so through one change 
 exceeded", which React reported there before the fix). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a
 failed capture isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not
 drawn again). Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that
-frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry
-delays, and that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked
-by reading `useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in
-`e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
-so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
-checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy,
-not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken
-again after a repaint until it works, gives up after three tries, and any other failure is thrown at once). That a
-repaint is what lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI
-run, and Sentry's count from CI after the change is the check.
+frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. It waits for
+every design's frame to be inside a tile with a bitmap, rather than comparing counts, since a page's tile has a bitmap
+and no design's frame (PAR-1106). The retry delays, and that a frame which leaves the canvas or changes stops retrying,
+have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four times under
+extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design
+into view before finding a layer in it, so the other files' tests work on frames that slept. Gaps: the order frames wake
+in has no test of its own; it was checked by reading `wakeNext`. The memory it gives back and the time waking takes were
+measured by hand in a debug copy, not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing
+with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and any other failure
+is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the failure came from
+about one capture in each CI run, and Sentry's count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
@@ -7372,21 +7373,24 @@ Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/u
 `apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
 reopened guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
-Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
-within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The
-allowance is for tldraw, which sometimes keeps the editor closed last, with its canvas, until another replaces it: about
-3,600 nodes, since frames showing bitmaps hold none of their own. That's one canvas however often the project opens, so
-a canvas kept on each reopen still fails the test (PAR-445). `apps/desktop/src/utility/guest-ports.test.ts` covers which
-port a builder takes, skipping ports guests had, and when the windows are told a guest moved, and told again after a
-move they couldn't load; `apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still
-loading, one reopened meanwhile and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project
-folder through `openProjects`, with its builder, type checker and watcher standing in: its files, components and guest
-are read and served, what the type checker found is saved and taken on a reopen with nothing changed, a project file
-changed outside the canvas is told to the windows while the canvas's own save isn't, a `.par` outside the root (even in
-a sibling folder whose name starts with the root's) isn't saved, and closing stops the builder and the watcher before a
-reopen serves the project on a new port. Gaps: the offscreen renderer's side has no automated test, nor has
-`restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
-the window keeps what it loaded from them.
+Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window keeps
+no more DOM nodes after the third close than after the first, give or take 5,000, and less than an open canvas and a
+half over where it started; with the old address on reopen it ended about 69,000 over after two. The allowance is for
+tldraw, which sometimes keeps the editor closed last, with its canvas, until another replaces it. That's one canvas
+however often the project opens, so a canvas kept on each reopen still fails the test (PAR-445). It was about 3,600
+nodes, since frames showing bitmaps hold none of their own; since the boards gained the app's pages, components and
+stories an open canvas is about 19,000 and a closed one keeps about 16,000, so the allowance follows the canvas measured
+in the run (PAR-1106). `apps/desktop/src/utility/guest-ports.test.ts` covers which port a builder takes, skipping ports
+guests had, and when the windows are told a guest moved, and told again after a move they couldn't load;
+`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still loading, one reopened meanwhile
+and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project folder through `openProjects`,
+with its builder, type checker and watcher standing in: its files, components and guest are read and served, what the
+type checker found is saved and taken on a reopen with nothing changed, a project file changed outside the canvas is
+told to the windows while the canvas's own save isn't, a `.par` outside the root (even in a sibling folder whose name
+starts with the root's) isn't saved, and closing stops the builder and the watcher before a reopen serves the project on
+a new port. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
+`project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
+loaded from them.
 
 ### Detected again when what detection reads changes (PAR-820)
 

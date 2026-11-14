@@ -10,10 +10,11 @@ beforeAll(async () => {
   app = await App.connect()
 
   // Bitmaps are taken one frame at a time in the background, and a frame without one stays drawn, so a run that starts
-  // with this file waits for them all.
+  // with this file waits for them all. A page's frame has a bitmap too, though it draws the app rather than a design
+  // (`[data-frame]`), so each design's frame is checked rather than the counts compared.
   try {
     await app.page.waitForFunction(
-      () => document.querySelectorAll("[data-bitmap]").length === document.querySelectorAll("[data-frame]").length,
+      () => [...document.querySelectorAll("[data-frame]")].every((host) => host.closest("[data-bitmap]")),
       undefined,
       { timeout: 150_000, polling: 500 }
     )
