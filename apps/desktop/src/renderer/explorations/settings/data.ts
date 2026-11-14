@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   Sun
 } from "lucide-react"
-import { nextLogo, reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
+import { reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
 import { type Mark, markOf } from "./marks.tsx"
 
 /**
@@ -39,8 +39,6 @@ export type Control =
   | { kind: "multi"; options: Option[] }
   /** A value Parity sets, shown to copy. */
   | { kind: "fixed" }
-  /** A file that holds what Settings can't change yet. */
-  | { kind: "file"; file: string }
 
 export type Value = string | number | boolean | string[]
 
@@ -94,7 +92,7 @@ export const extensions: Extension[] = [
     icon: markOf(storybookLogo, "Storybook"),
     running: true,
     found: "Storybook 9.1, config in .storybook",
-    adds: ["Stories as screens", "Storybook server", "Storybook tab", "Open in Storybook"],
+    adds: ["Stories as screens", "Storybook server", "Open in Storybook"],
     permissions: [
       { label: "Read files", detail: ".storybook/**, src/**/*.stories.tsx" },
       { label: "Write files", detail: "src/**/*.stories.tsx" },
@@ -111,7 +109,7 @@ export const extensions: Extension[] = [
     icon: markOf(viteLogo, "Vite"),
     running: true,
     found: "Vite 7.2, config in vite.config.ts",
-    adds: ["Build server", "Production build"],
+    adds: ["Build server"],
     permissions: [
       { label: "Read files", detail: "vite.config.ts, src/**" },
       { label: "Run processes", detail: "vite" },
@@ -126,7 +124,7 @@ export const extensions: Extension[] = [
     icon: markOf(reactLogo, "React"),
     running: true,
     found: "React 19.2",
-    adds: ["Draws components", "Props from TypeScript"],
+    adds: ["Finds components", "Draws components"],
     permissions: [{ label: "Read files", detail: "src/**" }],
     activation: { event: "When React was found", ms: 9 },
     memoryMb: 16
@@ -152,23 +150,10 @@ export const extensions: Extension[] = [
     icon: markOf(tanstackLogo, "TanStack"),
     running: true,
     found: "TanStack Router 1.131, routes in src/routes",
-    adds: ["Pages as screens", "Route lines on the canvas"],
+    adds: ["Routes on the canvas", "Open in browser"],
     permissions: [{ label: "Read files", detail: "src/routes/**" }],
     activation: { event: "When a page opened", ms: 21 },
     memoryMb: 9
-  },
-  {
-    id: "next",
-    name: "Next.js",
-    icon: markOf(nextLogo, "Next"),
-    running: false,
-    found: "Not in this project",
-    adds: ["Pages as screens", "Next.js server"],
-    permissions: [
-      { label: "Read files", detail: "app/**, pages/**, next.config.*" },
-      { label: "Run processes", detail: "next dev" },
-      { label: "Connect to", detail: "localhost" }
-    ]
   }
 ]
 
@@ -352,16 +337,6 @@ export const settings: Setting[] = [
     default: ["png 1x", "png 2x"]
   },
   {
-    id: "keybindings",
-    page: "shortcuts",
-    label: "Your shortcuts",
-    detail: "Change a shortcut by editing this file.",
-    keywords: ["keys", "keybindings", "hotkeys"],
-    scope: "app",
-    control: { kind: "file", file: "keybindings.json" },
-    default: ""
-  },
-  {
     id: "flag.npmExtensions",
     page: "experiments",
     label: "Install extensions from npm",
@@ -435,15 +410,6 @@ export const settings: Setting[] = [
     default: ".storybook"
   },
   {
-    id: "storybook.port",
-    page: "ext:storybook",
-    label: "Port",
-    detail: "Kept in the storybook script in package.json.",
-    scope: "project",
-    control: { kind: "number" },
-    default: 6006
-  },
-  {
     id: "storybook.openIn",
     page: "ext:storybook",
     label: "Open stories in",
@@ -457,58 +423,6 @@ export const settings: Setting[] = [
       ]
     },
     default: "browser"
-  },
-  {
-    id: "vite.config",
-    page: "ext:vite",
-    label: "Config file",
-    scope: "project",
-    control: { kind: "text" },
-    default: "vite.config.ts"
-  },
-  {
-    id: "vite.openOnStart",
-    page: "ext:vite",
-    label: "Open the build server's page when it starts",
-    keywords: ["browser"],
-    scope: "app",
-    control: { kind: "switch" },
-    default: false
-  },
-  {
-    id: "tailwind.stylesheet",
-    page: "ext:tailwind",
-    label: "Theme stylesheet",
-    keywords: ["css", "tokens"],
-    scope: "project",
-    control: { kind: "text" },
-    default: "src/styles.css"
-  },
-  {
-    id: "tailwind.classOrder",
-    page: "ext:tailwind",
-    label: "Sort classes",
-    detail: "Writes classes in the order Prettier's Tailwind plugin uses.",
-    scope: "project",
-    control: { kind: "switch" },
-    default: true
-  },
-  {
-    id: "router.routesDir",
-    page: "ext:tanstack-router",
-    label: "Routes folder",
-    scope: "project",
-    control: { kind: "text" },
-    default: "src/routes"
-  },
-  {
-    id: "router.lines",
-    page: "ext:tanstack-router",
-    label: "Route lines",
-    detail: "Lines between pages that link to each other.",
-    scope: "either",
-    control: { kind: "switch" },
-    default: true
   }
 ]
 

@@ -23,6 +23,7 @@ import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { CopyButton } from "../../chrome/Copy.tsx"
 import { groups, keymap } from "../../chrome/keymap.ts"
 import { formatKeys } from "../../chrome/keys.ts"
+import { ChangeMark, Changed, useChanged } from "../../inspector/controls/field-parts.tsx"
 import {
   defaults,
   type Extension,
@@ -89,6 +90,8 @@ export function SettingsModal({
   const [query, setQuery] = useState(initialQuery)
   const [app, setApp] = useState<Record<string, Value>>(() => ({ ...defaults(), ...initialValues }))
   const [own, setOwn] = useState(initialProject)
+  // What the project file holds: its values as last saved, so Save knows whether there's anything to write.
+  const [saved, setSaved] = useState(initialProject)
   const [grants, setGrants] = useState<Record<string, boolean>>({})
   const [marked, setMarked] = useState(initialSetting)
   const pane = useRef<HTMLDivElement>(null)
@@ -187,10 +190,15 @@ export function SettingsModal({
           />
           {view === "project" && (
             <span className="truncate text-xs text-muted-foreground">
-              Saved in {project.file}. Each change is an undo step.
+              {same(own, saved) ? `Saved in ${project.file}` : `Unsaved changes in ${project.file}`}
             </span>
           )}
           <span className="flex-1" />
+          {view === "project" && (
+            <Button size="sm" disabled={same(own, saved)} onClick={() => setSaved(own)}>
+              Save
+            </Button>
+          )}
           <DialogClose render={<Button variant="ghost" size="icon-sm" aria-label="Close" />}>
             <X />
           </DialogClose>
@@ -203,7 +211,7 @@ export function SettingsModal({
             setQuery={setQuery}
             store={store}
           />
-          <div ref={pane} className="min-h-0 flex-1 overflow-y-auto px-4 pb-10 sm:px-8">
+          <div ref={pane} className="@container min-h-0 flex-1 overflow-y-auto px-4 pb-10 sm:px-8">
             {query ? (
               <Results query={query} store={store} />
             ) : (
@@ -249,6 +257,10 @@ function sidebarPage(page: string): string {
 
 /** Whether a page has anything for a view. Extensions always show, for what each one is and does. */
 function pageShows(page: Page, view: View): boolean {
+  if (page.id === "shortcuts") {
+    return view === "app"
+  }
+
   return page.id === "extensions" || settings.some((setting) => setting.page === page.id && shownIn(setting, view))
 }
 
@@ -458,6 +470,7 @@ function Rows({ children, label }: { children: ReactNode; label?: string }) {
  */
 function Row({
   id,
+  inline,
   above,
   label,
   detail,
@@ -467,6 +480,8 @@ function Row({
   children
 }: {
   id?: string
+  /** Keeps a small control, such as a switch, beside the label however narrow the page; wide ones go under it. */
+  inline?: boolean
   /** Where it is, over the label, as search results show it. */
   above?: ReactNode
   label: ReactNode
@@ -480,9 +495,9 @@ function Row({
   return (
     <div
       data-setting={id}
-      className={`flex flex-wrap items-center gap-x-4 gap-y-2 py-3 ${marked ? "-mx-3 rounded-md bg-accent/40 px-3" : ""}`}
+      className={`flex gap-2 py-3 ${inline ? "flex-row items-center gap-4" : "flex-col @lg:flex-row @lg:items-center @lg:gap-4"} ${marked ? "-mx-3 rounded-md bg-accent/40 px-3" : ""}`}
     >
-      <div className="min-w-0 flex-1 basis-56">
+      <div className={`min-w-0 ${inline ? "flex-1" : "@lg:flex-1"}`}>
         {above}
         <div className="flex items-center gap-2 text-sm font-medium">
           {label}
@@ -491,7 +506,7 @@ function Row({
         {detail && <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>}
       </div>
       <div className="flex items-center gap-1">
-        <div data-control className="flex min-w-48 justify-end">
+        <div data-control className="flex @lg:min-w-48 @lg:justify-end">
           {children}
         </div>
         <span className="flex size-7 items-center justify-center">
@@ -523,6 +538,7 @@ function SettingRow({
   return (
     <Row
       id={setting.id}
+      inline={setting.control.kind === "switch"}
       above={hit && <Place setting={setting} where={where} store={store} />}
       label={
         hit ? (
@@ -542,11 +558,7 @@ function SettingRow({
       detail={detailOf(setting, lockedBy, hit)}
       note={
         <>
-          {differs && (
-            <span className="size-1.5 shrink-0 rounded-full bg-primary">
-              <span className="sr-only">{projectChange ? `Changed for ${project.name}` : "Changed"}</span>
-            </span>
-          )}
+          {differs && <span className="sr-only">{projectChange ? `Changed for ${project.name}` : "Changed"}</span>}
           {projectChange && !differs && (
             <span className="text-xs font-normal text-muted-foreground">From every project</span>
           )}
@@ -571,12 +583,14 @@ function SettingRow({
           : undefined
       }
     >
-      <Control
-        setting={setting}
-        value={store.value(setting, where)}
-        disabled={!!lockedBy}
-        onChange={(next) => store.change(setting, where, next)}
-      />
+      <Changed when={differs}>
+        <Control
+          setting={setting}
+          value={store.value(setting, where)}
+          disabled={!!lockedBy}
+          onChange={(next) => store.change(setting, where, next)}
+        />
+      </Changed>
     </Row>
   )
 }
@@ -635,7 +649,9 @@ function Control({
   switch (control.kind) {
     case "switch":
       return (
-        <Switch checked={value === true} disabled={disabled} onCheckedChange={onChange} aria-label={setting.label} />
+        <Marked>
+          <Switch checked={value === true} disabled={disabled} onCheckedChange={onChange} aria-label={setting.label} />
+        </Marked>
       )
     case "select":
       return (
@@ -653,25 +669,29 @@ function Control({
     case "text":
     case "number":
       return (
-        <Input
-          type={control.kind}
-          value={String(value)}
-          disabled={disabled}
-          onChange={(event) =>
-            onChange(control.kind === "number" ? Number(event.currentTarget.value) : event.currentTarget.value)
-          }
-          aria-label={setting.label}
-          className="h-8 w-48 font-mono text-xs"
-        />
+        <Marked>
+          <Input
+            type={control.kind}
+            value={String(value)}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange(control.kind === "number" ? Number(event.currentTarget.value) : event.currentTarget.value)
+            }
+            aria-label={setting.label}
+            className="h-8 w-48 font-mono text-xs"
+          />
+        </Marked>
       )
     case "multi":
       return (
-        <Multi
-          setting={setting}
-          options={control.options}
-          value={Array.isArray(value) ? value : []}
-          onChange={onChange}
-        />
+        <Marked>
+          <Multi
+            setting={setting}
+            options={control.options}
+            value={Array.isArray(value) ? value : []}
+            onChange={onChange}
+          />
+        </Marked>
       )
     case "fixed":
       return (
@@ -680,13 +700,19 @@ function Control({
           <CopyButton text={String(value)} label={`Copy ${setting.label}`} />
         </span>
       )
-    case "file":
-      return (
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <FileJson aria-hidden /> Open {control.file}
-        </Button>
-      )
   }
+}
+
+/** A control with the app's change mark on its corner when `Changed` around it says so (PAR-1020). */
+function Marked({ children }: { children: ReactNode }) {
+  const changed = useChanged()
+
+  return (
+    <span className="relative inline-flex">
+      {children}
+      {changed && <ChangeMark />}
+    </span>
+  )
 }
 
 function OptionLabel({ option }: { option: Option }) {
@@ -745,7 +771,70 @@ function Multi({
   )
 }
 
+/** The keys a key event makes, written as the keymap writes them: `Ctrl Shift K`. Modifiers alone make none. */
+function keysOf(event: KeyboardEvent): string | undefined {
+  if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) {
+    return undefined
+  }
+
+  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
+
+  return [event.ctrlKey || event.metaKey ? "Ctrl" : "", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", key]
+    .filter(Boolean)
+    .join(" ")
+}
+
+/**
+ * Every shortcut, to change here: pick one and press the new keys. Escape stops without changing it; Backspace removes
+ * it. Keys another command had move to this one, and that command's row says so. Changes go in keybindings.json.
+ */
 function Shortcuts() {
+  const [changed, setChanged] = useState<Record<string, string>>({})
+  const [recording, setRecording] = useState<string>()
+  const [lost, setLost] = useState<Record<string, string>>({})
+  const keysFor = (id: string, defaults: readonly string[]) => changed[id] ?? defaults[0] ?? ""
+
+  const record = (id: string, label: string, event: KeyboardEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (event.key === "Escape" && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+      setRecording(undefined)
+
+      return
+    }
+
+    const keys = event.key === "Backspace" ? "" : keysOf(event)
+
+    if (keys === undefined) {
+      return
+    }
+
+    const holder = Object.entries(keymap).find(
+      ([other, binding]) => other !== id && keys !== "" && keysFor(other, binding.keys) === keys
+    )?.[0]
+
+    setChanged((current) => {
+      const next = { ...current, [id]: keys }
+
+      if (holder) {
+        next[holder] = ""
+      }
+
+      return next
+    })
+    setLost((current) => {
+      const { [id]: _, ...rest } = current
+
+      if (holder) {
+        rest[holder] = label
+      }
+
+      return rest
+    })
+    setRecording(undefined)
+  }
+
   return groups.map((group) => (
     <section key={group} aria-labelledby={`keys-${group}`}>
       <Heading>
@@ -754,24 +843,63 @@ function Shortcuts() {
       <Rows>
         {Object.entries(keymap)
           .filter(([, binding]) => binding.group === group)
-          .map(([id, binding]) => (
-            <div key={id} className="flex items-center justify-between gap-6 py-2 pr-8">
-              <span className="text-sm">{binding.label}</span>
-              <Kbd>{formatKeys(binding.keys[0]!, false)}</Kbd>
-            </div>
-          ))}
+          .map(([id, binding]) => {
+            const keys = keysFor(id, binding.keys)
+            const differs = id in changed && changed[id] !== binding.keys[0]
+            const listening = recording === id
+
+            return (
+              <Row
+                key={id}
+                inline
+                label={binding.label}
+                detail={lost[id] && `Its keys went to ${lost[id]}.`}
+                note={differs && <span className="sr-only">Changed</span>}
+                reset={
+                  differs
+                    ? {
+                        label: `Reset ${binding.label}`,
+                        onClick: () => {
+                          setChanged(({ [id]: _, ...rest }) => rest)
+                          setLost(({ [id]: _, ...rest }) => rest)
+                        }
+                      }
+                    : undefined
+                }
+              >
+                <Changed when={differs}>
+                  <Marked>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Change ${binding.label}, now ${keys ? formatKeys(keys, false) : "none"}`}
+                      aria-pressed={listening}
+                      onClick={() => setRecording(listening ? undefined : id)}
+                      onKeyDown={(event) => {
+                        if (listening) {
+                          record(id, binding.label, event)
+                        }
+                      }}
+                      onBlur={() => listening && setRecording(undefined)}
+                      className={`min-w-28 font-mono text-xs ${listening ? "ring-2 ring-ring" : ""}`}
+                    >
+                      {listening && <span className="font-sans text-muted-foreground">Press keys</span>}
+                      {!listening && keys && <Kbd>{formatKeys(keys, false)}</Kbd>}
+                      {!listening && !keys && <span className="font-sans text-muted-foreground">None</span>}
+                    </Button>
+                  </Marked>
+                </Changed>
+              </Row>
+            )
+          })}
       </Rows>
     </section>
   ))
 }
 
-/** Every extension installed, those running in this project first, with a filter for when there are many. */
+/** Every extension installed, those running in this project first. Search finds one by name when there are many. */
 function ExtensionsPage({ store }: { store: Store }) {
-  const [filter, setFilter] = useState("")
-
-  const listed = store.extensions.filter((extension) =>
-    extension.name.toLowerCase().includes(filter.trim().toLowerCase())
-  )
+  const listed = store.extensions
 
   const sections = [
     { title: `Running in ${project.name}`, items: listed.filter((extension) => extension.running) },
@@ -781,18 +909,6 @@ function ExtensionsPage({ store }: { store: Store }) {
   return (
     <>
       <PageHeader title="Extensions" />
-      <InputGroup className="h-8 max-w-72">
-        <InputGroupAddon>
-          <Search />
-        </InputGroupAddon>
-        <InputGroupInput
-          value={filter}
-          onChange={(event) => setFilter(event.currentTarget.value)}
-          placeholder="Filter"
-          aria-label="Filter extensions"
-        />
-      </InputGroup>
-      {listed.length === 0 && <p className="pt-6 text-sm text-muted-foreground">No extensions match “{filter}”.</p>}
       {sections.flatMap((section) =>
         section.items.length === 0
           ? []
@@ -917,6 +1033,7 @@ function ExtensionPage({
               return (
                 <Row
                   key={permission.label}
+                  inline
                   label={permission.label}
                   detail={permission.grant ? permission.detail : <code className="font-mono">{permission.detail}</code>}
                 >
@@ -1025,6 +1142,6 @@ function Highlight({ text, query }: { text: string; query: string }) {
   })
 }
 
-function same(a: Value, b: Value): boolean {
+function same(a: Value | Record<string, Value>, b: Value | Record<string, Value>): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }

@@ -109,9 +109,24 @@ export const DiagnosticsSetByEnvironment: Story = {
   )
 }
 
-/** Shortcuts, with the file that changes them until they can be changed here. */
+/** Every shortcut, each a button: pick one and press the new keys. */
 export const KeyboardShortcuts: Story = {
   render: () => <Demo initialPage="shortcuts" />
+}
+
+/**
+ * Giving Hand the V that Move and select had: V moves to Hand, Move and select is left with none and says where its
+ * keys went, and both carry the change dot with a reset beside them. Escape stops without changing; Backspace removes.
+ */
+export const RebindAShortcut: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const dialog = await screen.findByRole("dialog", { name: "Settings" })
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await expect(within(dialog).getByText("Its keys went to Hand.")).toBeInTheDocument()
+  }
 }
 
 /**
@@ -129,32 +144,31 @@ export const ExtensionPage: Story = {
 
 /** The same extension's page for Kestrel: its project settings, and none of the person's. */
 export const ExtensionInProject: Story = {
-  render: () => <Demo initialView="project" initialPage="ext:storybook" initialProject={{ "storybook.port": 6007 }} />
+  render: () => (
+    <Demo initialView="project" initialPage="ext:storybook" initialProject={{ "storybook.configDir": "storybook" }} />
+  )
 }
 
-/** An extension whose tool isn't in the project. */
-export const ExtensionNotRunning: Story = {
-  render: () => <Demo initialPage="ext:next" />
-}
-
-/** The Extensions page with the six Parity has today. */
+/** The Extensions page with the five Parity has today. */
 export const Extensions: Story = {
   render: () => <Demo initialPage="extensions" />
 }
 
 /**
- * Forty extensions installed. The sidebar keeps one Extensions page however many there are; the page lists those
- * running in Kestrel first, and the filter finds the rest.
+ * Forty extensions installed. The sidebar keeps one Extensions page however many there are, and the page lists those
+ * running in Kestrel first. Search finds one by name.
  */
 export const FortyExtensions: Story = {
-  render: () => <Demo initialPage="extensions" extensions={manyExtensions} />,
+  render: () => <Demo initialPage="extensions" extensions={manyExtensions} />
+}
+
+/** With forty installed, searching finds an extension by name, and the settings of those that have any. */
+export const FindAnExtension: Story = {
+  render: () => <Demo initialQuery="pre" extensions={manyExtensions} />,
   play: async () => {
     const dialog = await screen.findByRole("dialog", { name: "Settings" })
-    const filter = within(dialog).getByRole("textbox", { name: "Filter extensions" })
 
-    await userEvent.type(filter, "pre")
     await expect(within(dialog).getByRole("button", { name: /Prettier/ })).toBeInTheDocument()
-    await userEvent.clear(filter)
   }
 }
 
