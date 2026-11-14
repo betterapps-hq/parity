@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 14 Nov 2026 12:19:59 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sat, 14 Nov 2026 21:19:27 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.64.0
+
+Sat, 14 Nov 2026 21:19:27 GMT
+
+### Minor changes
+
+- Settings builds each extension's Adds from what its adapter and extension tell the window (ajcraswell@gmail.com)
 
 ## 0.63.0
 
