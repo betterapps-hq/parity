@@ -30,7 +30,7 @@ import type {
   RecoveryCopy,
   ReferenceAdded
 } from "@parity-app/editor"
-import type { SettingValue } from "@parity-app/extension-api"
+import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension-api"
 import type { ExtensionStatus, HostServiceMethods, LogLine, UiMethod } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
@@ -275,62 +275,29 @@ export interface ServiceMethods {
  * Where a process is in its life. A server starts, runs until it's stopped, and has failed if it exits by itself. A task
  * runs once, then passes or fails, or is canceled.
  */
-export type ProcessStatus = "starting" | "running" | "stopping" | "stopped" | "failed" | "passed" | "canceled"
-
-/** What a server is: a project's build server, which the canvas renders through, or a tool's, as its Storybook. */
-export type ServerKind = "builder" | "tool"
+export type ProcessStatus = ProcessState
 
 /**
- * What a task does: installs packages, checks types, runs unit tests or Playwright, formats, lints, verifies the whole
- * project, builds it, exports designs, or checks a design's accessibility.
+ * What one of Parity's own processes does: a project's build server, which the canvas renders through, a tool's
+ * server an adapter started, as its Storybook, or a task that installs packages, checks types, runs unit tests or
+ * Playwright, formats, lints, verifies the whole project, builds it, exports designs, or checks a design's
+ * accessibility.
  */
-export type TaskKind =
-  | "install"
-  | "typecheck"
-  | "test"
-  | "e2e"
-  | "format"
-  | "lint"
-  | "verify"
-  | "build"
-  | "export"
-  | "accessibility"
+export type ProcessRole = ParityRole
 
-/** A process Parity runs for an open project, as the status bar lists it: a server, or a task. */
-export interface ProjectProcess {
-  id: string
-  kind: ServerKind | TaskKind
-  /** A server runs until it's stopped; a task runs once and finishes with a result. */
-  lifetime: "server" | "task"
-  name: string
+/**
+ * A process Parity runs for an open project, as the status bar lists it: a server, or a task. It's what extensions see
+ * of a process (`ProcessInfo`), with the project it runs for and what the list can do to it.
+ */
+export interface ProjectProcess extends ProcessInfo {
   /** The open project it runs for. */
   projectId: string
   /** That project's name. */
   project: string
-  status: ProcessStatus
-  /** When it started, in milliseconds since 1970. */
-  startedAt: number
-  /** When it stopped or finished, once it has. */
-  stoppedAt?: number
-  pid?: number
-  /** A server's local address, as `http://localhost:6006`. */
-  url?: string
-  /** A server's Portless address, as `https://storybook.shop.localhost`, when Portless routes to it. */
-  domain?: string
-  /** Parity started it, or it was already running when Parity needed it, as a Storybook on its usual port. */
-  startedBy: "parity" | "elsewhere"
   /** Whether it can be stopped: a server stopped, or a task canceled. */
   canStop: boolean
   /** Whether it can start again: a server restarted, or a task run again. */
   canRestart: boolean
-  /** What a running task is doing, as "Checking 34 component files". */
-  detail?: string
-  /** How far a running task has got, when it knows. */
-  progress?: { done: number; total: number }
-  /** What a finished task found, as "3 errors in 2 files". */
-  summary?: string
-  /** Why it failed: a server that exited by itself, or a task's error in full. */
-  error?: string
 }
 
 /**

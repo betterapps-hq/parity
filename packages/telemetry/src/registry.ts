@@ -8,6 +8,7 @@ import { editingEvents } from "./editing-events.ts"
 import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
+import { processEvents } from "./process-events.ts"
 import { projectEvents } from "./project-events.ts"
 import { renderEvents } from "./render-events.ts"
 import { builderStarted, commandRan, gestureRan, requestHandled } from "./trace-events.ts"
@@ -30,6 +31,7 @@ export const registeredEvents = [
   ...editingEvents,
   ...filesEvents,
   ...projectEvents,
+  ...processEvents,
   ...accountEvents,
   ...connectorEvents,
   dataInvalid,

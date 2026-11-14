@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { defineEvent } from "./events.ts"
 
-/** Opening and closing projects, their builders and the servers they need (PAR-637). */
+/** Opening and closing projects and their builders (PAR-637). The servers they need are `processes.*`. */
 
 const name = z.string().describe("The project's name, from its package.json or its folder")
 const root = z.string().describe("The project's folder")
@@ -146,30 +146,6 @@ export const builderRestarted = defineEvent(
   { level: "info", sentBy: ["service"], when: "A project's builder is started again from the processes list." }
 )
 
-const server = {
-  kind: z
-    .string()
-    .describe("The kind of server, as `builder`, or `extension` for one an extension started, as Storybook"),
-  name: z.string().describe("Its name, as the processes list shows it"),
-  durationMs
-}
-
-export const serverStarted = defineEvent("server.started", z.object(server), {
-  level: "info",
-  sentBy: ["service"],
-  when: "A server the process manager started answers at its address."
-})
-
-export const serverFailed = defineEvent(
-  "server.failed",
-  z.object({
-    ...server,
-    reason: z.enum(["exited", "timeout"]).describe("Whether it stopped before it answered, or didn't answer in time"),
-    output: z.string().describe("The last of what it printed, up to 50 lines")
-  }),
-  { level: "warn", sentBy: ["service"], when: "A server the process manager started can't start." }
-)
-
 export const projectEvents = [
   projectDetected,
   projectOpened,
@@ -180,7 +156,5 @@ export const projectEvents = [
   projectClosed,
   builderReady,
   builderCrashed,
-  builderRestarted,
-  serverStarted,
-  serverFailed
+  builderRestarted
 ] as const
