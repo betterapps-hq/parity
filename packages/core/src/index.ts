@@ -49,7 +49,10 @@ export {
   type TokenWrite,
   type ToolServer,
   type ToolServers,
-  type ToolVersions
+  type ToolVersions,
+  type ToolVersionsExtra,
+  peerVersions,
+  detectPeers
 } from "./adapters.ts"
 
 export { type AdapterFacts, type ContributingExtension, extensionAdds } from "./extension-adds.ts"

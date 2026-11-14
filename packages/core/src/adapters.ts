@@ -166,7 +166,10 @@ export interface Adapter {
    * config files (PAR-826). A tool follows a change to one's contents itself.
    */
   watches?: readonly string[]
-  /** Where its tool's version is installed, and when each major came out, for the version cutoff. */
+  /**
+   * Where its tool's version is installed, and which versions Parity tests: when each major came out, or the range an
+   * extension's peer dependencies give (see {@link peerVersions}).
+   */
   versions?: ToolVersions
   /** What it adds to the status bar. */
   status?(facts: StatusFacts): StatusItem[]
@@ -282,20 +285,60 @@ export interface AdapterDetection {
 }
 
 /**
- * Where a tool's version is installed, and when each of its majors came out: the version cutoff tests a major for two
- * years from its own x.0.0, and always the newest.
+ * Where a tool's version is installed, and which versions Parity tests: an extension's range, or when each major came
+ * out, for the version cutoff that tests a major for two years from its own x.0.0, and always the newest.
  */
 export interface ToolVersions {
   /** Packages that carry its version, the main one first. */
   packages: string[]
-  /** Each major's first stable release (x.0.0), from the npm registry, oldest first. Add one when it comes out. */
-  majors: [major: number, released: string][]
+  /**
+   * Each major's first stable release (x.0.0), from the npm registry, oldest first, for the two-year cutoff. Add one when
+   * it comes out. Set for a tool whose adapter isn't an extension yet; an extension gives `range` instead.
+   */
+  majors?: [major: number, released: string][]
+  /**
+   * The versions its extension supports, as a semver range from its main peer dependency: inside is supported, above is
+   * newer than it was tested with, and below is older than it supports.
+   */
+  range?: string
   /** A scope every package of which is one of the tool's, as `@storybook/`, beside `packages`. */
   scope?: string
   /** How majors are written, such as Tailwind's `v4`. */
   prefix?: string
   /** Packages that ship the tool and may be installed in its place, with their names for people. */
   distributions?: Record<string, string>
+}
+
+/** What an extension's manifest says of its tool's versions that its peer dependencies can't. */
+export type ToolVersionsExtra = Pick<ToolVersions, "scope" | "prefix" | "distributions">
+
+/**
+ * A tool's versions from an extension's `package.json`: its peer dependencies name the packages that carry the version,
+ * the main one first, and the main one's range is what it supports. `extra` is the manifest's `versions`, for what peer
+ * dependencies can't say. Nothing when it has no peer dependencies.
+ */
+export function peerVersions(
+  peerDependencies: Readonly<Record<string, string>> | undefined,
+  extra: ToolVersionsExtra = {}
+): ToolVersions | undefined {
+  const [main, ...rest] = Object.entries(peerDependencies ?? {})
+
+  return main ? { packages: [main[0], ...rest.map(([name]) => name)], range: main[1], ...extra } : undefined
+}
+
+/**
+ * The default detector: an extension's tool is found when the project's package.json declares any of its peer
+ * dependencies, as {@link peerVersions} gives them, so most extensions need no `detect` of their own.
+ */
+export function detectPeers(
+  pkg: PackageManifest,
+  versions: Pick<ToolVersions, "packages" | "scope">
+): AdapterDetection {
+  const declared = declares(pkg, versions.packages, versions.scope)
+
+  return declared
+    ? { found: true, summary: `${declared} in package.json` }
+    : { found: false, summary: `None of ${versions.packages.join(", ")} in package.json` }
 }
 
 /** The adapters Parity opens projects with, by what they integrate. */

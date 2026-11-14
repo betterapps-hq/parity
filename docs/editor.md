@@ -7825,17 +7825,28 @@ so Storybook was detected in two places and TanStack Router not at all.
   `@storybook/`, other packages that ship it, such as Vite+, and each major's release date. Detection reads the
   installed version of each tool an adapter found and checks it against that adapter's cutoff, so `detect.ts` has no
   list of tools.
+- **Storybook and TanStack Router take theirs from their extensions' peer dependencies** (PAR-1091). The packages are
+  the peer dependencies in order, the main one first, and the main one's range is what's supported: a version inside it
+  is supported, above it newer and below it dropped, with no release dates. The manifest's `versions` adds what peer
+  dependencies can't say, as Storybook's `scope`. The adapters list gives Storybook's adapter its versions, since the
+  adapter is a pure package and its extension isn't. TanStack Router is found by the default detector, `detectPeers`:
+  the project declares one of its peer dependencies. Parity's own extensions mark every peer optional, since they come
+  with the app rather than beside their tool.
 - **What the example shows:** the service's log lists React 19.3.1, Vite 8.3.5 with `vite.config.ts`, Tailwind CSS
   4.3.3, TanStack Router 1.170.46, which wasn't listed before, and Storybook 10.6.5 with `.storybook/main.ts`.
 
 Tried on 2026-11-13 in the running app on the example: the log above, and the status bar's items as before.
 
-Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions` and `declares` in
-`packages/core/src/adapters.ts`; each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
+Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
+`detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
+and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
+each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
 `adapters/storybook-adapter/src/detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
 `packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
 
-Tests: `packages/project/src/detect.test.ts` (versions, cutoff and summaries from the tools adapters give),
+Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
+adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
+`packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
 `adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
 `adapters/tanstack-router-adapter/src/routes.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit test
 runs the service's open path with several adapters of one kind.
