@@ -65,6 +65,22 @@ export function registryDir(): string {
 
 let cache: Promise<RegistryEntry[]> | undefined
 
+/** The file the app's build writes beside the registry's files, naming the package each describes (PAR-1085). */
+export const registryIndexFile = "index.json"
+
+const registryIndex = z.array(fileObject({ file: z.string(), package: libraryPackage }))
+
+/** Each registry file and the package it describes, so the file for a package is found without parsing the others. */
+export type RegistryIndex = z.infer<typeof registryIndex>
+
+/** The index of the registry at `dir`, from its files, for the app's build to write as `registryIndexFile`. */
+export async function buildRegistryIndex(dir = registryDir()): Promise<RegistryIndex> {
+  return (await readEntries(dir)).map(({ file, manifest }) => ({ file, package: manifest.package! }))
+}
+
+let indexCache: Promise<RegistryIndex | undefined> | undefined
+const entryCache = new Map<string, Promise<RegistryEntry | undefined>>()
+
 /** Every file in the registry, read once. One that doesn't parse is skipped with a warning. */
 export function registryEntries(dir = registryDir()): Promise<RegistryEntry[]> {
   if (dir !== registryDir()) {
@@ -84,17 +100,68 @@ async function readEntries(dir: string): Promise<RegistryEntry[]> {
   const entries: RegistryEntry[] = []
 
   for (const file of files) {
-    const path = join(dir, file)
+    const entry = await readEntry(dir, file)
 
-    try {
-      const { $schema: _schema, ...manifest } = parseData(registryManifest, JSON.parse(await readFile(path, "utf8")))
-      entries.push({ file, path, manifest })
-    } catch (error) {
-      console.warn(`Skipping registry file ${file}: ${errorText(error)}`)
+    if (entry) {
+      entries.push(entry)
     }
   }
 
   return entries
+}
+
+/** One registry file, or nothing, with a warning, when it doesn't parse. */
+async function readEntry(dir: string, file: string): Promise<RegistryEntry | undefined> {
+  const path = join(dir, file)
+
+  try {
+    const { $schema: _schema, ...manifest } = parseData(registryManifest, JSON.parse(await readFile(path, "utf8")))
+
+    return { file, path, manifest }
+  } catch (error) {
+    console.warn(`Skipping registry file ${file}: ${errorText(error)}`)
+
+    return undefined
+  }
+}
+
+/** The registry's index at `dir`, or nothing when there's none or it can't be read, as in a development checkout. */
+async function readIndex(dir: string): Promise<RegistryIndex | undefined> {
+  try {
+    return parseData(registryIndex, JSON.parse(await readFile(join(dir, registryIndexFile), "utf8")))
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The registry's files for a package. With an index, only those files are parsed: the registry is tens of megabytes,
+ * most of it libraries a project doesn't use, and a project's every dependency is looked up as it opens (PAR-1085).
+ * Without one, every file is read, as `registryEntries` does.
+ */
+async function entriesFor(packageName: string, dir = registryDir()): Promise<RegistryEntry[]> {
+  const shared = dir === registryDir()
+  const index = await (shared ? (indexCache ??= readIndex(dir)) : readIndex(dir))
+
+  if (!index) {
+    return (await registryEntries(dir)).filter((entry) => entry.manifest.package?.name === packageName)
+  }
+
+  const files = index.filter((entry) => entry.package.name === packageName).map((entry) => entry.file)
+
+  const read = (file: string) => {
+    if (!shared) {
+      return readEntry(dir, file)
+    }
+
+    const path = join(dir, file)
+    const kept = entryCache.get(path) ?? readEntry(dir, file)
+    entryCache.set(path, kept)
+
+    return kept
+  }
+
+  return (await Promise.all(files.map(read))).filter((entry) => entry !== undefined)
 }
 
 /**
@@ -108,7 +175,7 @@ export async function registryEntryFor(
   version: string | undefined,
   dir?: string
 ): Promise<RegistryEntry | undefined> {
-  const candidates = (await registryEntries(dir)).filter((entry) => entry.manifest.package?.name === packageName)
+  const candidates = await entriesFor(packageName, dir)
   const covering = candidates.filter((entry) => covers(entry.manifest, version))
   const best = covering.sort((a, b) => compareGenerated(b.manifest, a.manifest))[0]
 
