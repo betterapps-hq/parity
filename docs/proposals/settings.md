@@ -60,8 +60,7 @@ others.
 - **`projects.json`: recent and starred projects,** keyed by folder as today. It's apart from `state.json` because the
   start page lists it and every copy adds to it.
 
-Secrets never go in these files. Today only the account is a secret, encrypted by main with safeStorage; extension
-secrets join it (below).
+Nothing secret goes in these files. The only secret Parity keeps is the account, which main encrypts in its own file.
 
 ## What other copies see
 
@@ -85,7 +84,7 @@ for now. This package keeps the part that belongs to the person:
 - **An extension's private values** (`parity.state.app`, not settings) go in `state.json` under the same id.
 - **`project` scope** isn't this package's. It goes in the project's `.par`, in its `extensions` field, and is saved
   with the file like any other change. The window owns it and sends it to the project service.
-- **`secret` scope** goes only through main, encrypted with safeStorage. The files hold only whether a secret is set.
+- **Secrets are out of scope.** No extension needs one yet; they're designed when one does.
 - **Nothing is per machine or per team.** Teams use project settings.
 
 Extensions run in a Node host per extension per open project, started by the project service. Main sends the service
@@ -152,20 +151,25 @@ sequenceDiagram
   never from the disk, so the call takes no longer than a message. A reload asks again. The first frame then has the
   right theme and panels, and tldraw starts in the right color scheme.
 - **Changes go to main over IPC,** which checks each against the schema, and come back to every window as changes.
-  `setting.changed` is still recorded, from the window, as now.
+  `setting.changed` is still recorded, as now. What each page may change is under [Security](#security).
 
 ## Security
 
 The project's own code runs in the editor window's page beside `window.canvasHost` (see `shared/ipc-checks.ts`), so
 anything the window can ask main to change, a project can too. A schema check doesn't stop a valid but hostile value.
 
-You decided on 2026-11-14 to accept that: the window can change every setting, including extension settings and secrets,
-with main checking each value against its schema. A project's code could, for example, point an extension at its own
-server. What limits it:
+So settings that could send a project's code somewhere else are changed in a separate Settings view, as developer-api.md
+also says (your call, 2026-11-14). It's its own web contents inside the window, owned by main, and it never loads
+project code.
 
-- An extension that's given a secret only gets its own, as developer-api.md says.
-- Key bindings get a way to change them from the window only with the screen for them; until then they're edited by
-  hand.
+- **The Settings view changes** every app setting, including extensions' `app` settings and permission grants. It shows
+  project settings too, and sends changes to them to the editor window, which makes them undo steps.
+- **The editor window changes** Parity's own preferences that its menus toggle (theme, snapping, grid and the rest),
+  layout, tabs, recent projects and project settings. None of them sends data anywhere; the code editor is picked from a
+  fixed list.
+- **Main refuses** a change to an extension's `app` setting or a permission grant from the editor window.
+- **Key bindings** get a way to change them only with the screen for them, in the Settings view; until then they're
+  edited by hand.
 
 ## Open tabs across copies
 
@@ -248,7 +252,9 @@ Each step ships alone.
    show it.
 6. **Telemetry and updates folded in**, with the CLI reading the new files. _Done when_ Settings' diagnostics level and
    Get beta updates are in `settings.json`, and the CLI reports the same level as the app.
-7. **Extension settings in `app` scope**, once extensions load from their manifests.
+7. **The Settings view**, owned by main and loading no project code, with main refusing extension settings and
+   permission grants from the editor window. Its design is the Settings modal being prototyped in Storybook.
+8. **Extension settings in `app` scope**, in the Settings view, once extensions load from their manifests.
 
 ## Calls to make
 
@@ -258,4 +264,6 @@ These are yours; each will be marked with the date once decided.
   storage, the old files or older builds.
 - **The install ID, diagnostics level and Get beta updates go in `settings.json`** (your call, 2026-11-14), as in
   [Telemetry and updates](#telemetry-and-updates).
-- **The window can change every setting** (your call, 2026-11-14), as in [Security](#security).
+- **Extension settings and permission grants change only in a Settings view that loads no project code** (your call,
+  2026-11-14), as in [Security](#security).
+- **Secrets are out of scope** (your call, 2026-11-14): Parity has none besides the account.
