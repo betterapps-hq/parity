@@ -196,6 +196,15 @@ async function run(tab: string, code: string, api: AgentApi, limits: SnippetLimi
     }
   }
 
+  // A run stopped just as an API call it awaited settled can leave what its snippet does next queued in the context,
+  // where the next evaluation runs it: with this run's API in place, a stopped loop would go on calling it. So it runs
+  // here first, while the context still has the stopped run's API, whose calls refuse, and ends there.
+  try {
+    nothing.runInContext(context, { timeout: limits.stretch })
+  } catch {
+    // The stopped run's own failure, reported with it.
+  }
+
   const guarded = guard(api, live, promise, limits)
   Object.assign(context, guarded, { console: { log: guarded.Print, warn: guarded.Print, error: guarded.Print } })
   // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote.
