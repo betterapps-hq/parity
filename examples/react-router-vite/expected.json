@@ -313,7 +313,7 @@
   "icons": [],
   "storybook": null,
   "notes": [
-    "styles from the conventional place: app/app.css",
+    "styles the builder found: app/app.css",
     "32 components in 31 files from tsconfig.json",
     "no .par project file yet"
   ]
