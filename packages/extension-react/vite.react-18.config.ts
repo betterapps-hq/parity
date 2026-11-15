@@ -17,6 +17,8 @@ export default defineProject({
     name: "react-18",
     include: ["src/**/*.react-18.test.ts"],
     environment: "happy-dom",
-    setupFiles: ["src/react-18-setup.ts"]
+    setupFiles: ["src/react-18-setup.ts"],
+    // Its own settings, not the workspace's, so it runs in a group of its own, after the other tests.
+    sequence: { groupOrder: 1 }
   }
 })
