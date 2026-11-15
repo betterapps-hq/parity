@@ -6042,6 +6042,9 @@ still loading not drawn, and a listener that stopped hearing nothing). `packages
 component stays where it was, and nothing when only what else the list says about one changes).
 `apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
 `shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+That test left the frame empty now and then on CI's Windows runner: a component drawn on demand that drew while its
+module loaded, and whose effect ran only once it had, never drew again. It now redraws whenever it drew without the
+module (`onDemand` in `packages/extension-react/src/guest.ts`, PAR-1153); the order itself has no test of its own.
 `apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
 components and the rest kept when it does, and a job built with every field passing the service's check whole; for
 `frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
