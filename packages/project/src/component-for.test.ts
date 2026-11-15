@@ -1,12 +1,12 @@
 import { componentIds, type ParsedComponent } from "@parity-app/code"
 import type { ComponentSource } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { componentFor } from "./storybook.ts"
+import { componentFor } from "./component-for.ts"
 
 /*
- * Which of the project's components a story's meta names. Adapters' actions (Open in Storybook) and the stories on the
- * canvas find a component by the key this returns, so it must pick the one component the story imports even when
- * other components share its name: in another folder of the app, in a library, or in two libraries.
+ * Which of the project's components a file imports, as an entities provider asks of a story's meta. What it imports is
+ * found by the key this returns, so it must pick the one component the file imports even when other components share
+ * its name: in another folder of the app, in a library, or in two libraries.
  */
 
 const app = (path: string, name: string): ParsedComponent => ({ name, path, export: name })

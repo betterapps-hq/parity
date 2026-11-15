@@ -6,7 +6,6 @@ import {
   preferenceOverrides,
   setExtensionSetting,
   setPreferenceOverride,
-  storybookConfigDir,
   withProjectPreferences
 } from "./project-settings.ts"
 import type { JsonValue } from "./schema.ts"
@@ -64,31 +63,24 @@ describe("a project's own preferences", () => {
 
 describe("extensions' project settings", () => {
   it("are kept by extension and key, and read back as they were saved", () => {
-    const document = setExtensionSetting(empty, "storybook", "configDir", "apps/web/.storybook")
+    const document = setExtensionSetting(empty, "docs", "folder", "apps/web/docs")
 
-    expect(roundTrip(document).extensions).toEqual({ storybook: { configDir: "apps/web/.storybook" } })
-    expect(storybookConfigDir(roundTrip(document))).toBe("apps/web/.storybook")
+    expect(roundTrip(document).extensions).toEqual({ docs: { folder: "apps/web/docs" } })
   })
 
   it("go when cleared, the extension with its last and the field with the last extension", () => {
-    let document = setExtensionSetting(empty, "storybook", "configDir", ".config/storybook")
+    let document = setExtensionSetting(empty, "docs", "folder", ".config/docs")
     document = setExtensionSetting(document, "linear", "team", "PAR")
     document = setExtensionSetting(document, "linear", "project", "Parity")
 
     expect(clearExtensionSetting(document, "linear", "team").extensions).toEqual({
-      storybook: { configDir: ".config/storybook" },
+      docs: { folder: ".config/docs" },
       linear: { project: "Parity" }
     })
 
-    const storybookLeft = clearExtensionSetting(clearExtensionSetting(document, "linear", "team"), "linear", "project")
-    expect(storybookLeft.extensions).toEqual({ storybook: { configDir: ".config/storybook" } })
-    expect(clearExtensionSetting(storybookLeft, "storybook", "configDir")).toEqual(empty)
-  })
-
-  it("read Storybook's folder as unset when the project leaves it, or sets something that isn't a folder", () => {
-    expect(storybookConfigDir(empty)).toBeUndefined()
-    expect(storybookConfigDir(setExtensionSetting(empty, "storybook", "configDir", "  "))).toBeUndefined()
-    expect(storybookConfigDir(setExtensionSetting(empty, "storybook", "configDir", 3))).toBeUndefined()
+    const docsLeft = clearExtensionSetting(clearExtensionSetting(document, "linear", "team"), "linear", "project")
+    expect(docsLeft.extensions).toEqual({ docs: { folder: ".config/docs" } })
+    expect(clearExtensionSetting(docsLeft, "docs", "folder")).toEqual(empty)
   })
 })
 
@@ -97,7 +89,7 @@ describe("a project file from before project settings", () => {
     const read = parseCanvasDocument({ version: 4, containers: [] })
 
     expect(preferenceOverrides(read)).toEqual([])
-    expect(storybookConfigDir(read)).toBeUndefined()
+    expect(read.extensions).toBeUndefined()
     expect(JSON.stringify(read)).toBe('{"version":4,"containers":[]}')
   })
 })

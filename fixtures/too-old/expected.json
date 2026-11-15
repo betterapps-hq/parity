@@ -128,29 +128,10 @@
   },
   "libraries": [],
   "icons": [],
-  "storybook": {
-    "configDir": ".storybook",
-    "main": ".storybook/main.ts",
-    "script": "storybook",
-    "port": 6006,
-    "stories": {
-      "Button": [
-        {
-          "path": "src/components/ui/button.stories.tsx",
-          "title": "UI/Button",
-          "exports": [
-            "Default",
-            "Outline"
-          ]
-        }
-      ]
-    }
-  },
   "notes": [
     "styles the builder found: src/index.css",
     "5 components in 4 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
-    "no .par project file yet",
-    "Storybook in .storybook, with stories for 1 components"
+    "no .par project file yet"
   ]
 }

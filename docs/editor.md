@@ -1279,7 +1279,8 @@ args are written back to its file on Save.
   told again then, with what discovery found, so the stories are in the project when it opens. Where detection finds
   story files but discovery finds no main config, it starts all the same and imports them, as the adapter did. A project
   closed and opened again tells its new hosts afresh.
-- **Parity's detection still finds Storybook** (`detectStorybook`), until extensions detect their own tools.
+- **Parity finds Storybook from its manifest** (PAR-1131): `extensionEntities` gives every entities provider the same
+  detection, from its peer dependencies and the config files its provider watches. Parity's core has no Storybook code.
 
 Code: `packages/extension-storybook` (`extension.ts`, `screens.ts`, `csf.ts` and `write.ts`); `EntitiesProvider` in
 `packages/extension-api/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
@@ -5339,12 +5340,11 @@ lists them.
   value of the wrong type, such as an empty list of export sizes. Save a copy keeps the main file's settings.
 
 Code: the schema and `preferenceOverrides`, `withProjectPreferences`, `setPreferenceOverride`,
-`clearPreferenceOverride`, `setExtensionSetting`, `clearExtensionSetting` and `storybookConfigDir` in
-`packages/core/src/project-settings.ts`, which take and return data; `mergedDocument` in
-`packages/editor/src/history.ts`; and in the window, `renderer/project-settings.ts`: `useProjectSettings`,
-`setProjectPreference`, `clearProjectPreference`, `setProjectExtensionSetting`, `clearProjectExtensionSetting`,
-`useEffectivePreferences`, `getEffectivePreferences` and `setEffectivePreference`. The service reads the Storybook
-folder in `utility/projects.ts`.
+`clearPreferenceOverride`, `setExtensionSetting` and `clearExtensionSetting` in `packages/core/src/project-settings.ts`,
+which take and return data; `mergedDocument` in `packages/editor/src/history.ts`; and in the window,
+`renderer/project-settings.ts`: `useProjectSettings`, `setProjectPreference`, `clearProjectPreference`,
+`setProjectExtensionSetting`, `clearProjectExtensionSetting`, `useEffectivePreferences`, `getEffectivePreferences` and
+`setEffectivePreference`. An extension reads its own project settings, as Storybook does its config folder.
 
 Tests:
 
@@ -7737,11 +7737,11 @@ no change.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, which takes the builder's `AppStyles`; `watches`
 and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
-`packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `packages/project/src/storybook-detect.ts`;
-`watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
-`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
-`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
-`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
+`packages/extension-vite/src/builder.ts` and the `watches` of Storybook's entities provider in its manifest; `watched`,
+`detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`, `apps/desktop/src/utility/projects.ts`;
+`project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`, `shared/service-checks.ts` and
+`utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in `renderer/workspace.ts`; `agent.open` and
+`project.detectionChanged` in `renderer/agent/handlers.ts`.
 
 Tests: `packages/project/src/detection-inputs.test.ts` (6: the builder's stylesheets change the key and the files its
 answer came from are watched; `components.json`, a conventional stylesheet and `index.html` aren't read, while a
@@ -8297,16 +8297,16 @@ Tried on 2026-11-13 in the running app on the example: the log above, and the st
 Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
 `detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
 and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
-each extension's renderer, builder and entities in its manifest, and Storybook's detection in
-`packages/project/src/storybook-detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
-`packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
+each extension's renderer, builder and entities in its manifest, with `extensionEntities` finding an entities provider's
+tool; `detectContext`, `detectAdapters` and `detectProject` in `packages/project/src/detect.ts`; and the open path in
+`apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
-`packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
-`packages/project/src/storybook-detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
-`packages/extension-tanstack-router/src/extension.test.ts` and `packages/extension-vite/src/detect.test.ts`. Gaps: no
-unit test runs the service's open path with several adapters of one kind.
+`packages/extensions/src/manifest.test.ts`, each extension's own test of its range, `packages/core/src/adapters.test.ts`
+(an entities provider's detection, its config and not found), `packages/extension-tanstack-router/src/extension.test.ts`
+and `packages/extension-vite/src/detect.test.ts`. Gaps: no unit test runs the service's open path with several adapters
+of one kind.
 
 ### Each tool's status bar item comes from its adapter
 
