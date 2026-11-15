@@ -24,6 +24,7 @@ import {
   mediumOfType,
   videosFolder
 } from "@parity-app/editor"
+import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
@@ -504,6 +505,10 @@ const storybookExtension = readExtension(storybookPackage)
 
 /** Parity's own extensions that run for a project detection finds their tool in, with the status their code sets. */
 const toolExtensions: { extension: ExtensionPackage; status: ExtensionStatus["status"] }[] = [
+  {
+    extension: readExtension(reactPackage),
+    status: { "react.status": { value: "React", tooltip: "Renders the project's components" } }
+  },
   {
     extension: readExtension(tailwindPackage),
     status: {

@@ -696,9 +696,9 @@ export function extensionHosts<Project extends OpenedProject>(
           throw new Error(`${kind} isn't a provider ${displayName}'s manifest declares`)
         }
 
-        // A router and a styling framework are asked by the project service, through the extension that declares them;
-        // the processes list asks the rest.
-        if (kind === "router" || kind === "styles") {
+        // A router, a styling framework and a renderer are asked by the project service, through the extension that
+        // declares them; the processes list asks the rest.
+        if (kind === "router" || kind === "styles" || kind === "renderer") {
           return
         }
 
@@ -722,12 +722,12 @@ export function extensionHosts<Project extends OpenedProject>(
         })
       },
       "providers.changed"({ kind }: HostServiceMethods["providers.changed"]["params"]) {
-        if (kind !== "router" && kind !== "styles") {
+        if (kind !== "router" && kind !== "styles" && kind !== "renderer") {
           options.providers.changed(caller, kind)
         }
       },
       "providers.dispose"({ kind }: HostServiceMethods["providers.dispose"]["params"]) {
-        if (kind !== "router" && kind !== "styles") {
+        if (kind !== "router" && kind !== "styles" && kind !== "renderer") {
           options.providers.dispose(caller, kind)
         }
       },
@@ -1394,7 +1394,7 @@ export function extensionHosts<Project extends OpenedProject>(
 }
 
 /** Every kind of provider an extension can register. */
-const providerKinds: readonly ProviderKind[] = ["router", "styles", "addresses", "discovery"]
+const providerKinds: readonly ProviderKind[] = ["router", "styles", "renderer", "addresses", "discovery"]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
 function declaredViews(contributes: Contributions): Record<string, ViewKind> {

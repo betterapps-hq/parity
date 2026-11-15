@@ -131,7 +131,7 @@ to pass on to its DOM.
   change. A layer of it with no style, and a component that puts its style on its root, are drawn as they are. The guest
   keeps what it found for every frame, until the component comes from another file.
 
-Code: the walk is `adapters/react-adapter/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
+Code: the walk is `packages/extension-react/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
 props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
 inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
 lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
@@ -144,7 +144,7 @@ Whether a component takes `style` is read in `packages/code/src/props.ts` (`take
 
 Tests:
 
-- `adapters/react-adapter/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
+- `packages/extension-react/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
   ignores its props, a fragment, a field around an input, nested layers, a provider, a component that draws nothing,
   portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one; and text drawn outside an
   element (PAR-201): a component that draws only text, one that draws text beside an element, text inside an element
@@ -1214,6 +1214,33 @@ Tests: `packages/extension-tailwind/src/extension.test.ts` (its manifest and `ha
 `design-system.test.ts` and `tokens.test.ts`. Gaps: the styles provider's calls over the host channel have no unit test
 of their own. Tried in the running app on 2026-11-14 on the example: the status bar item opening the Tokens tab with the
 theme's tokens, and Pricing's frames drawn with classes.
+
+### React as an extension, through its renderer provider (PAR-1095)
+
+React runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does changed: the
+components found in the app and its libraries, frames drawn with the project's own React, and "React" in the status bar.
+
+- **Its manifest describes the renderer** before any code runs: its guest module (`./guest`), the packages that must
+  resolve to one copy, the modules the builder prepares for the guest, the development stand-ins and the file extensions
+  that can hold components. Parity finds it when the project declares every one of its runtime packages, as before.
+- **Its renderer provider reads components,** a batch of files at a time: the service gathers the files it reads before
+  the event loop turns, up to 500, into one call, and each file gets its own answer.
+- **Its host starts as soon as package.json is read,** as the router's and Tailwind's do, so it's running by the time
+  the app's files are read.
+- **Its guest module** runs in the canvas frames, compiled into the project's own build, as before; the builder is given
+  its path.
+
+Code: `packages/extension-react` (its manifest, `extension.ts`, `components.ts` and the guest); `RendererProvider` in
+`packages/extension-api/src/api.ts`; `extensionRenderer` in `packages/core/src/adapters.ts`; `batched` in
+`packages/extensions/src/batch.ts`; `builtInRenderers` in `utility/extensions.ts` and `providedRenderer` in
+`utility/projects.ts`.
+
+Tests: `packages/extension-react/src/extension.test.ts` (its manifest, its guest export and a batch of files read in
+order), `components.test.ts` (what's read as a component), `packages/extensions/src/batch.test.ts` (4: requests made
+together in one batch, a long run split, a later request asked again, a failed or short batch failing its requests), and
+`apps/desktop/src/utility/projects.test.ts`, whose projects read their components through a renderer provider. Tried in
+the running app on 2026-11-14 on the example: 5 components in the app and 371 from Shadcn Nova read through the
+provider, frames drawn, and React's logo in the status bar.
 
 ### Extensions' changes to designs and files (PAR-1093)
 
@@ -3186,7 +3213,7 @@ image's is.
   the project first (connectors.md). `Update` takes `src`, `alt` and `credit` on a video, as on an image.
 
 Code: the node in `packages/core/src/document.ts` (`VideoNode`); `videoAttributes` and the `video` case in
-`packages/core/src/render.ts`; `attributesFor` in `adapters/react-adapter/src/guest.ts`, which turns its flags into
+`packages/core/src/render.ts`; `attributesFor` in `packages/extension-react/src/guest.ts`, which turns its flags into
 React's props; the inspector's `MediaSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`; `NodeIcon` in
 `canvas/kinds.tsx` and `layerKind` in `chrome/layer-kind.ts`; placing in `packages/agent/src/dispatch.ts`
 (`placeTarget`, `savedIfFleeting`).
@@ -3195,7 +3222,7 @@ Tests:
 
 - `packages/core/src/render.test.ts`: a video drawn as a `<video>` that plays by itself without sound, and one with
   controls that waits.
-- `adapters/react-adapter/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
+- `packages/extension-react/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
@@ -4242,7 +4269,7 @@ Tests: `packages/core/src/paint.test.ts` (10): one color token as a list of one 
 stops, fits and alphas are refused, the CSS each kind writes, and a render draws it.
 `packages/editor/src/style-editing.test.ts` (the Fill row's edit), `packages/editor/src/project-images.test.ts` (an
 image a fill paints is used), `packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it
-back, and hears about a color that isn't a token), `adapters/react-adapter/src/guest.test.ts` (a fill's images against
+back, and hears about a color that isn't a token), `packages/extension-react/src/guest.test.ts` (a fill's images against
 the project), and `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back,
 ids kept so an open editor stays open, and gradient tokens read from CSS.
 
@@ -4450,7 +4477,7 @@ for a day.
 
 Code: `isDateValue` and `evaluateValue` in `packages/core/src/values/evaluate.ts`, `dateValue` and `sampleValue` in
 `packages/core/src/values/grammar.ts`, and a component node's `props` in `packages/core/src/document.ts`; the guest
-works them out in `madeProps` in `adapters/react-adapter/src/guest.ts`.
+works them out in `madeProps` in `packages/extension-react/src/guest.ts`.
 
 Tests: `packages/core/src/values/values.test.ts` (3: a date in a sample and a decorator, from text and a number, made as
 `new Date` makes it; each date made once; a date `new Date` can't read refused) and `packages/core/src/render.test.ts`
@@ -5939,34 +5966,34 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
-to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `adapters/react-adapter/src/guest.ts`,
+to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/extension-react/src/guest.ts`,
 declared on `Guest` in `packages/core/src/adapters.ts`, keep where each component comes from in the guest's registry
 (`componentRegistry` in `component-registry.ts`, PAR-988), with each component's drawn or failing status in
 `render-statuses.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in
 `renderer/workspace.ts` and `renderer/render.ts` call.
 
-Tests: `adapters/react-adapter/src/guest.test.ts` (1: the revision goes up when a component comes from a new file, moved
-or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back added
-components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't given,
-and adds one given again). `adapters/react-adapter/src/component-registry.test.ts` (6: a file's address on the dev
-server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded from
-there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and one
-only given forgotten; and the revision going up once a change, heard until unsubscribed) and `render-statuses.test.ts`
-(4: drawn once and heard once a task, failing while any boundary shows an error, a component still loading not drawn,
-and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new
-to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it
-was, and nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2:
-a component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
-and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
-`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
-with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
-its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
-the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
-Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
-That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
-changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
-changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
-`addComponents` on.
+Tests: `packages/extension-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
+moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
+added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
+given, and adds one given again). `packages/extension-react/src/component-registry.test.ts` (6: a file's address on the
+dev server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded
+from there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and
+one only given forgotten; and the revision going up once a change, heard until unsubscribed) and
+`render-statuses.test.ts` (4: drawn once and heard once a task, failing while any boundary shows an error, a component
+still loading not drawn, and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for
+`guestChanges`: one new to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every
+component stays where it was, and nothing when only what else the list says about one changes).
+`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+`apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
+components and the rest kept when it does, and a job built with every field passing the service's check whole; for
+`frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
+draws, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens previewed while
+`drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys follow the
+revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts` give and
+take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by reading them.
+A component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
+share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
 ### Failing components, in the console, and code edits picked up live (PAR-165)
 
@@ -6009,7 +6036,7 @@ warm, and 1.1 s the first time after the window loaded.
 
 Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerFailure`, `CodeChange` and
 `BuilderSession.codeChanges` in `packages/core/src/adapters.ts`; `frameFailures` and `FrameFailuresContext` in
-`adapters/react-adapter/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
+`packages/extension-react/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
 `designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
@@ -6032,9 +6059,9 @@ and the fix, kept through Clear, and gone frame by frame as the layer draws).
 among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
-changed files stamped, none without a change). `adapters/react-adapter/src/guest.test.ts` (the revision moving once per
-new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
-with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
+changed files stamped, none without a change). `packages/extension-react/src/guest.test.ts` (the revision moving once
+per new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key
+new with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
 console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
 `chrome/ConsolePanel.stories.tsx` OneDesign and WarningsOnly have the console's design focus and levels menu. Checked in
 the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
@@ -8204,9 +8231,9 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
-`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`
-and `storybook-adapter`, and Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters
-in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/vite-adapter` and
+`storybook-adapter`, and React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of
+adapters in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
 an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
@@ -8494,7 +8521,7 @@ the service for the rest, naming the ones it has, so the stylesheet that comes b
 again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
 (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles provider's
 `classes`, whose printer's `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
-offscreen one from the rules. The React guest (`adapters/react-adapter/src/guest.ts`) gives an element its classes and
+offscreen one from the rules. The React guest (`packages/extension-react/src/guest.ts`) gives an element its classes and
 no style.
 
 Tests:
@@ -8645,8 +8672,9 @@ project's own modules are still served as in development, and its own dev server
 - **Layers are still found from React's tree,** which reads only fields both builds keep.
 
 Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `adapters/vite-adapter/src/index.ts`;
-`developmentStandIns` in `adapters/react-adapter/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
-`adapters/react-adapter/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
+`developmentStandIns` in `packages/extension-react/package.json`'s renderer provider; `renderingIn`, `watchRenders` and
+`watchCommits` in `packages/extension-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each
+frame's top.
 
 Tests: `adapters/vite-adapter/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
 serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
@@ -8866,7 +8894,7 @@ and missed the frame's screenshots, and `problems` said nothing.
   takes what's in the page's.
 - **Popups don't count in a layer's box,** as before, so selecting the trigger doesn't outline the menu with it.
 
-Code: `framePortals` in `adapters/react-adapter/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
+Code: `framePortals` in `packages/extension-react/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
 taken content out of layer boxes (`portaledIn`); `contentOutside` and `inlinePortals` in
 `apps/desktop/src/renderer/inline-portals.ts`, called by `canvasRender` in `render.ts`; the `outside` field in
 `shared/protocol.ts` and `main/render-results.ts`; `frameProblems` in `packages/agent/src/frames.ts`.

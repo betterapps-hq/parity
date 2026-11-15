@@ -171,7 +171,7 @@ async function parseFile(
   const { source } = read
   const inUiKit = uiKit !== undefined && posix.dirname(path) === uiKit
 
-  return renderer.findComponents(source, path).map((component) => ({ ...component, path, uiKit: inUiKit }))
+  return (await renderer.findComponents(source, path)).map((component) => ({ ...component, path, uiKit: inUiKit }))
 }
 
 /**

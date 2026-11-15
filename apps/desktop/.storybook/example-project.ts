@@ -82,7 +82,7 @@ export function exampleProject(): Plugin {
 
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
       if (source === rendererId) {
-        return require.resolve("@parity-app/react-adapter/guest")
+        return require.resolve("@parity-app/extension-react/guest")
       }
 
       if (source.startsWith("/")) {

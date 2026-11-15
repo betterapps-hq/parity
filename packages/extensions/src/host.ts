@@ -196,7 +196,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension hasn't activated")
       }
 
-      const { router, styles, addresses, discovery } = (await activated).providers
+      const { router, styles, renderer, addresses, discovery } = (await activated).providers
 
       const missing = (): never => {
         throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
@@ -207,6 +207,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
           return await (router ?? missing()).routes()
         case "styles":
           return await callStyles(styles ?? missing(), call)
+        case "renderer":
+          return await callRenderer(renderer ?? missing(), call)
         case "addresses":
           return await (addresses ?? missing()).addresses(call.params)
         case "discovery":
@@ -635,6 +637,14 @@ async function activate(
   const api = apiOf(await exports.activate(parity))
 
   return { handlers, providers, forms, tools, subscriptions, module: exports, api }
+}
+
+/** Reads which components each file in a batch exports, with the renderer the extension registered. */
+async function callRenderer(
+  renderer: ProviderKinds["renderer"],
+  call: Extract<ProviderCall, { kind: "renderer" }>
+): Promise<ProviderAnswer> {
+  return renderer.components(call.params)
 }
 
 /** Calls the method a styles provider call names on the styling framework the extension registered. */

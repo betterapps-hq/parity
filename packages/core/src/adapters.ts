@@ -341,9 +341,80 @@ export interface RendererAdapter extends Adapter {
   componentExtensions: string[]
   /**
    * The components a file exports, from its text alone, so a whole app can be read in a fraction of a second. The
-   * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export.
+   * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export. A renderer
+   * an extension gives answers through its provider, so asynchronously (PAR-1095).
    */
-  findComponents(source: string, file: string): ComponentExport[]
+  findComponents(source: string, file: string): ComponentExport[] | Promise<ComponentExport[]>
+}
+
+/** A renderer as its extension's manifest describes it, before its provider reads any components (PAR-1095). */
+export type RendererDescription = Omit<RendererAdapter, "findComponents">
+
+/** What of an extension's `package.json` describes the renderer it gives. */
+export interface RendererPackage {
+  name: string
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    icon?: AdapterIcon
+    contributes: {
+      providers?: {
+        renderer?: {
+          guest: string
+          runtimePackages: string[]
+          runtimeImports: string[]
+          developmentStandIns?: Record<string, string>
+          componentExtensions: string[]
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The renderer an extension's manifest describes (PAR-1095), or nothing when it gives none: named by its prefix, its
+ * guest module the package export its manifest names, and found when the project declares every runtime package.
+ */
+export function extensionRenderer(pkg: RendererPackage): RendererDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const renderer = contributes.providers?.renderer
+
+  if (!renderer) {
+    return undefined
+  }
+
+  const { guest, runtimePackages, runtimeImports, developmentStandIns, componentExtensions } = renderer
+  const packages = runtimePackages.join(" and ")
+  const versions = peerVersions(pkg.peerDependencies)
+
+  const description: RendererDescription = {
+    id: prefix,
+    name: displayName,
+    async detect({ pkg: project }) {
+      const found = runtimePackages.every((name) => declares(project, [name]) !== undefined)
+
+      return { found, summary: found ? `${packages} in package.json` : `No ${packages} in package.json` }
+    },
+    guestModule: `${pkg.name}/${guest.replace(/^\.\//, "")}`,
+    runtimePackages,
+    runtimeImports,
+    componentExtensions
+  }
+
+  if (icon) {
+    description.icon = icon
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  if (developmentStandIns) {
+    description.developmentStandIns = developmentStandIns
+  }
+
+  return description
 }
 
 /** An export a renderer recognises as a component. */

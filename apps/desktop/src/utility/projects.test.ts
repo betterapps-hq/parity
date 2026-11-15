@@ -2,16 +2,29 @@ import { writeFileSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { type BuilderAdapter, type CodeChange, type ComponentSource, parseCanvasDocument } from "@parity-app/core"
+import {
+  type BuilderAdapter,
+  type CodeChange,
+  type ComponentSource,
+  extensionRenderer,
+  parseCanvasDocument
+} from "@parity-app/core"
+import { readComponents } from "@parity-app/extension-react"
+import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import type { BuilderProcessSession } from "@parity-app/processes"
-import { reactRenderer } from "@parity-app/react-adapter"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
 import { traceWith } from "../shared/tracing.ts"
 import type { SavedDetection } from "./detection-cache.ts"
 import { restartProcess } from "./processes.ts"
-import { type DetectionCache, openProjects, type ProjectAdapters, type WatchFolder } from "./projects.ts"
+import {
+  type DetectionCache,
+  openProjects,
+  type ProjectAdapters,
+  type ProjectProviders,
+  type WatchFolder
+} from "./projects.ts"
 import type { TypeChecker } from "./props.ts"
 
 // The project is a real folder; the builder's process, the type checker's worker and the folder's watcher stand in.
@@ -171,8 +184,16 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
+  // React's renderer reads components here, as its extension's host does in the app.
+  const providers: ProjectProviders = {
+    // SAFETY: a renderer call answers the components of each file, as readComponents gives them; nothing else answers.
+    call: async (_project, call) => (call.kind === "renderer" ? readComponents(call.params.files) : undefined) as never,
+    owner: (_project, kind) => (kind === "renderer" ? { id: "react", name: "React" } : undefined)
+  }
+
   const projects = openProjects({
-    renderers: [reactRenderer],
+    renderers: [extensionRenderer(reactPackage)!],
+    providers,
     builders: [builder.builder],
     startBuilder: builder.startBuilder,
     watch: watcher.watch,
@@ -251,7 +272,9 @@ describe("opening a project", () => {
     const confirmed = Promise.withResolvers<void>()
     builder.hooks.detecting = confirmed.promise
     const opening = projects.open(root)
-    await vi.waitFor(() => expect(builder.started).toEqual([5100]))
+    // Reading the project before the builder starts goes through its renderer's provider, which CI's Windows runners can
+    // take more than the default second over.
+    await vi.waitFor(() => expect(builder.started).toEqual([5100]), { timeout: 5_000 })
 
     confirmed.resolve()
     expect((await opening).guestUrl).toBe("http://localhost:5100/@parity/guest.js")

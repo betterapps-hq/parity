@@ -14,12 +14,14 @@ import type {
   NodeRef,
   OpenWhere,
   PickItem,
+  ComponentExport,
   CssDeclaration,
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
   ProvidedAddress,
   ProviderKinds,
+  SourceFile,
   Route,
   ServerFacts,
   ThemeVariable,
@@ -104,6 +106,7 @@ export type ProviderKind = keyof ProviderKinds
 /** What the project service asks a provider, by kind and method, and what it answers. */
 export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
+  renderer: { components: { params: { files: SourceFile[] }; result: ComponentExport[][] } }
   styles: {
     handles: { params: { source: string }; result: boolean }
     theme: { params: { stylesheet: string }; result: ThemeVariable[] }
@@ -518,6 +521,23 @@ const providerResults = {
     ),
     writeTokens: checkOf(fileText)
   },
+  renderer: {
+    components: checkOf(
+      z
+        .array(
+          z
+            .array(
+              z.strictObject({
+                name: z.string().max(500),
+                export: z.string().max(500),
+                as: z.enum(["function", "forwardRef", "memo", "lazy", "class", "exotic"]).optional()
+              })
+            )
+            .max(10_000)
+        )
+        .max(100_000)
+    )
+  },
   addresses: { addresses: checkOf(providedAddresses) },
   discovery: { discover: checkOf(discoveredServers) }
 } satisfies {
@@ -538,6 +558,8 @@ export function readAnswer(call: ProviderCall, answer: ProviderAnswer): Provider
       return providerResults.discovery.discover(answer)
     case "styles":
       return providerResults.styles[call.method](answer)
+    case "renderer":
+      return providerResults.renderer[call.method](answer)
   }
 }
 
