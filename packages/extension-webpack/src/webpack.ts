@@ -86,6 +86,27 @@ const cssRule = z.looseObject({
 
 type CssRule = z.output<typeof cssRule>
 
+/** A loader list as a rule's `use` gives it: one loader or several. */
+const loaderList = z.union([loaderEntry, z.array(loaderEntry)])
+
+/** What webpack tells a rule's `use` function about the file it's building. */
+interface RuleUseInfo {
+  resource?: string
+  issuer?: string
+}
+
+/** A rule's `use` function: webpack calls it for each file the rule matches, for the loaders to run. */
+export type RuleUse = (info: RuleUseInfo) => z.output<typeof loaderList>
+
+/** A rule whose `use` is a function. Its loaders are read as webpack asks for them. */
+const functionUseRule = z.looseObject({
+  test: z.instanceof(RegExp).optional(),
+  use: z.custom<RuleUse>((value) => value instanceof Function)
+})
+
+/** The stylesheet extensions a rule's `test` may name. */
+const stylesheetNames = ["file.css", "file.scss", "file.sass", "file.less", "file.styl"]
+
 /** Options webpack's CSS parser takes, for a rule or for every `.css` file. */
 type CssParserOptions = {
   namedExports: boolean
@@ -203,6 +224,34 @@ function parserOptions(namedExports: boolean, css: WebpackCss): CssParserOptions
   return options
 }
 
+/**
+ * A stylesheet rule whose `use` is a function: its loaders lose `style-loader` and `css-loader` as webpack asks for
+ * them, and the rule takes webpack's own CSS, scoping CSS modules by name since its options can't be read beforehand. A
+ * rule whose `test` names no stylesheet, or that has none, stays as it is.
+ */
+function webpackCssFunctionRule(
+  rule: z.output<typeof functionUseRule>,
+  css: WebpackCss
+): z.output<typeof functionUseRule> {
+  const { test, use } = rule
+
+  if (!test || !stylesheetNames.some((name) => test.test(name))) {
+    return rule
+  }
+
+  return {
+    ...rule,
+    use: (info) => {
+      const loaders = use(info)
+      const list = loaderList.safeParse(loaders)
+
+      return list.success ? [list.data].flat().filter((one) => !cssLoaders.test(loaderName(one))) : loaders
+    },
+    type: "css/auto",
+    parser: parserOptions(css.cssLoaderNamedExports, css)
+  }
+}
+
 /** A loader's name, however a rule's `use` writes it. */
 function loaderName(entry: z.output<typeof loaderEntry>): string {
   return (entry instanceof Object ? entry.loader : entry) ?? ""
@@ -211,6 +260,12 @@ function loaderName(entry: z.output<typeof loaderEntry>): string {
 /** A rule with `style-loader` and `css-loader` swapped for webpack's own CSS, and its nested rules too. */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- a project's rule, whatever webpack accepts, read here by `cssRule` and passed on
 export function webpackCssRule(entry: unknown, css: WebpackCss): unknown {
+  const withFunction = functionUseRule.safeParse(entry)
+
+  if (withFunction.success) {
+    return webpackCssFunctionRule(withFunction.data, css)
+  }
+
   const parsed = cssRule.safeParse(entry)
 
   if (!parsed.success) {

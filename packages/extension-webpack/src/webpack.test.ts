@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
-import { cssExtractPlugin, webpackApi, webpackBundler, webpackCssRule, withWebpackCss } from "./webpack.ts"
+import { z } from "zod"
+import {
+  cssExtractPlugin,
+  type RuleUse,
+  webpackApi,
+  webpackBundler,
+  webpackCssRule,
+  withWebpackCss
+} from "./webpack.ts"
 
 /** A plugin as webpack's are: something it applies to its compiler. */
 class Plugin {
@@ -130,6 +138,9 @@ describe("withWebpackCss", () => {
   })
 })
 
+/** A rule with a `use` function, read back from what the CSS change returns. */
+const functionRule = z.looseObject({ use: z.custom<RuleUse>((value) => value instanceof Function) })
+
 describe("webpackCssRule", () => {
   const older = { globalCustomProperties: false, cssLoaderNamedExports: false }
 
@@ -152,10 +163,16 @@ describe("webpackCssRule", () => {
     })
   })
 
-  it("leaves a rule it can't read, such as one whose use is a function, as it is", () => {
-    const use = () => ["style-loader"]
+  it("swaps the loaders a stylesheet rule's use function gives, and leaves other rules and ones it can't read", () => {
+    const use = () => ["style-loader", "css-loader", "sass-loader"]
+    const swapped = functionRule.parse(webpackCssRule({ test: /\.s?css$/, use }, older))
 
-    expect(webpackCssRule({ test: /\.css$/, use }, older)).toEqual({ test: /\.css$/, use })
+    expect(swapped).toMatchObject({ type: "css/auto", parser: { namedExports: false } })
+    expect(swapped.use({})).toEqual(["sass-loader"])
+
+    const scripts = () => ["babel-loader"]
+
+    expect(webpackCssRule({ test: /\.jsx?$/, use: scripts }, older)).toEqual({ test: /\.jsx?$/, use: scripts })
     expect(webpackCssRule("...", older)).toBe("...")
   })
 
