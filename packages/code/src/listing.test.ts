@@ -158,6 +158,28 @@ describe("component ids", () => {
     })
   })
 
+  it("keep the bare name for the one whose file is named after it, however deep", () => {
+    const ids = componentIds([
+      found("src/components/packing-fields.tsx", "FieldError"),
+      found("src/components/field-error.tsx", "FieldError"),
+      found("src/components/moderation/design/safety-shared.tsx", "Avatar"),
+      found("src/components/ui/avatar.tsx", "Avatar"),
+      found("src/app/layout.tsx", "Card"),
+      found("src/widgets/card/index.tsx", "Card")
+    ])
+
+    expect(Object.keys(ids)).toEqual([
+      "FieldError",
+      "components/FieldError",
+      "Avatar",
+      "design/Avatar",
+      "Card",
+      "app/Card"
+    ])
+    expect(ids.FieldError?.path).toBe("src/components/field-error.tsx")
+    expect(ids.Card?.path).toBe("src/widgets/card/index.tsx")
+  })
+
   it("use the file's name for two in one folder, and skip ids libraries have", () => {
     const ids = componentIds(
       [found("demos/sidebar-footer.tsx", "AppSidebar"), found("demos/sidebar-header.tsx", "AppSidebar")],

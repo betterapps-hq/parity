@@ -447,7 +447,9 @@ function refName(ref: ComponentRef): string {
 
 /**
  * Ids for the app's components: each one's name while it's unique. A name used by more than one component gains as
- * many of its folders as it takes to tell them apart (`ui/FieldError`, `packing-fields/FieldError`). Ids already `taken`, such as libraries' `nova/Button`, are skipped the same way. In a library's own project, every id
+ * many of its folders as it takes to tell them apart (`ui/FieldError`, `packing-fields/FieldError`), except the one
+ * whose file is named after it, which keeps the bare name (see `bareNamed`). Ids
+ * already `taken`, such as libraries' `nova/Button`, are skipped the same way. In a library's own project, every id
  * starts with the library's `namespace` (`nova/Button`), as the apps that install it name them.
  */
 export function componentIds(
@@ -498,12 +500,29 @@ function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): Compone
       continue
     }
 
-    for (const component of group) {
-      add(`${qualifier(component, group, taken, name)}/${name}`, component)
+    const kept = taken.has(name) ? undefined : bareNamed(group, name)
+    const rest = group.filter((component) => component !== kept)
+
+    if (kept) {
+      add(name, kept)
+    }
+
+    for (const component of rest) {
+      add(`${qualifier(component, rest, taken, name)}/${name}`, component)
     }
   }
 
   return Object.fromEntries(ids)
+}
+
+/**
+ * Which of the components sharing a name keeps it bare: the one whose file is named after it (`field-error.tsx` or
+ * `field-error/index.tsx` for `FieldError`), as a UI kit's are. None when no file is, or more than one.
+ */
+function bareNamed(group: ParsedComponent[], name: string): ParsedComponent | undefined {
+  const named = group.filter((component) => refName({ path: component.path, export: "default" }) === name)
+
+  return named.length === 1 ? named[0] : undefined
 }
 
 /**

@@ -6132,8 +6132,9 @@ Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherCha
 `packages/processes/src/builder-process.ts`; `stampChange` in `packages/extension-vite/src/code-changes.ts` and
 `restyledGuest` in `packages/extension-vite/src/builder.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled`
 in `openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`.
-Project discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
-`packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
+Project discovery tells stylesheets by the same list (`readStylesheet` in `packages/project/src/styles.ts`,
+`importedFiles` in `preview-key.ts`), and so does the Vite builder when it names the app's (`viteAppStyles` in
+`packages/extension-vite/src/app-styles.ts`).
 
 Tests: `packages/project/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
@@ -7608,20 +7609,64 @@ a new port. Gaps: the offscreen renderer's side has no automated test, nor has `
 `project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
 loaded from them.
 
+### Global stylesheets come from the builder (PAR-1133)
+
+The canvas draws every frame with the app's global stylesheets and reads the theme from them, and the builder is the
+only thing that says which they are: `styles` on its provider (`BuilderProvider.styles`, `BuilderAdapter.styles`).
+Parity reads no entry, `components.json` or conventional file name itself. Before, it read the stylesheets
+`index.html`'s module imported, else a list of conventional names, else `components.json`, which missed a TanStack Start
+app with no `index.html` whose root route imports `src/style.css?url`, and a Next app whose layout imports
+`src/app/styles.css`.
+
+- **Vite's builder compiles the app to find them.** It resolves the project's config and builds the client environment
+  alone, with no dev server, so no plugin's `configureServer` runs (Cloudflare's starts a worker runtime there) and the
+  dependency optimizer is off. From the config's client entries, `index.html`'s module scripts or a framework's own
+  entry as TanStack Start's is, it follows static imports, counting depth only in the project's own modules: the
+  framework's modules on the way to the app's router are free, and packages the app's own modules import aren't
+  followed.
+- **The shallowest stylesheets are the app's.** The first level of the project's modules that imports any stylesheet
+  gives them, imported plainly or with `?url`, not CSS modules or `?inline` and `?raw` reads. When several modules at
+  that level import some, as a router's generated tree imports the root route beside its pages, the ones whose
+  stylesheets hold the theme (custom properties on `:root`, `html` or `:host`, or Tailwind's `@theme`, through their
+  relative `@import`s) are the root's. `index.html`'s `<link>`s always count. Packages' stylesheets are named by their
+  package's name and path, as `@mantine/core/styles.css`.
+- **An app that loads none has none,** as a CSS-in-JS app does. A builder without `styles`, or one that fails, leaves
+  the canvas without global styles, and the project's notes say so.
+- **Its answer says which files it came from** (`from`), such as the root route, and the service asks again when one of
+  them changes (PAR-820).
+- **The project opens no slower for it.** Parity asks while it reads the app's files. On the projects on this machine it
+  answered in 0.2 to 0.9 s for a Vite app with `index.html`, 2 to 3 s for TanStack Start apps, and 9 s for copacker,
+  whose root level has 52 modules.
+
+Code: `styles` on `BuilderProvider` in `packages/extension-api/src/providers.ts` and on `BuilderAdapter` in
+`packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in `packages/extensions/src/protocol.ts`
+and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/app-styles.ts`, registered in
+`extension.ts` and `builder.ts`; `appStyles` in `openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in
+`DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`.
+
+Tests: `packages/extension-vite/src/app-styles.test.ts` (3, with a real Vite: what `index.html`'s module imports and its
+`<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry followed to the root, whose
+`?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; none for an app that loads none).
+`packages/project/src/index.test.ts` (1: discovery takes the builder's answer and reads no entry itself).
+`apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake builder's answer). Gaps: Parity's libgen CLI
+(`parity lib` on an app) has no builder, so it reads no app tokens until it's given stylesheets; Vite 5's projects are
+compiled with a middleware-mode dev server, since Vite 5 has no environments.
+
 ### Detected again when what detection reads changes (PAR-820)
 
-An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
-stylesheet created where the conventions look, `index.html` or the entry it loads changed, a dependency added or
-removed, or a builder's config file, such as `vite.config.ts`, added or taken away. Before, any of these changed nothing
-in an open project until Parity restarted. Parity doesn't read shadcn's `components.json` (PAR-1133), so adding or
-changing one is no change.
+An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: the
+builder naming other global stylesheets after a file its answer came from changed, a dependency added or removed, or a
+builder's config file, such as `vite.config.ts`, added or taken away. Before, any of these changed nothing in an open
+project until Parity restarted. Parity doesn't read shadcn's `components.json` (PAR-1133), so adding or changing one is
+no change.
 
-- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
-  the packages' stylesheets the entry imports, the dependencies' names and which of the builders' config files there
-  are. It reads them before detection, compares again once the project's watcher has started, so a change made while the
-  project opened counts, and again 400 ms after a change to one of the files they came from. A stylesheet's contents, a
-  script in package.json or a version bump change nothing it compares, so they don't reopen the project. A package.json
-  that's missing or half-written, as while it's rewritten, fails the read, which counts as no change.
+- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's and packages'
+  stylesheets as the builder names them (asking it again), the dependencies' names and which of the builders' config
+  files there are. It reads them before detection, compares again once the project's watcher has started, so a change
+  made while the project opened counts, and again 400 ms after a change to one of the files they came from. A
+  stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
+  project. A package.json that's missing or half-written, as while it's rewritten, fails the read, which counts as no
+  change.
 - **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
   (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
   told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
@@ -7633,22 +7678,22 @@ changing one is no change.
 - **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
   again first when it did, so the answer describes the project as detected now.
 
-Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
-`styles.ts`; `watches` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
+Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, which takes the builder's `AppStyles`; `watches`
+and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
 `packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `adapters/storybook-adapter/src/detect.ts`;
 `watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
 `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
 `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
 `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
 
-Tests: `packages/project/src/detection-inputs.test.ts` (5: `components.json`, whole or half-written, isn't read; a
-conventional stylesheet or a builder's config appearing changes the key, and the entry `index.html` names is followed;
-the config files followed are the ones the builders name, and only those; dependencies change it while scripts, versions
-and a stylesheet's contents don't; a missing or half-written package.json fails).
-`apps/desktop/src/utility/projects.test.ts` (3: an open project given an entry that imports its stylesheet tells the
-windows, a file detection doesn't read doesn't, a moment without package.json isn't a change, and opened again it's
-detected from the new entry; a config file the registered builder names tells the windows, and one no builder names
-doesn't; a conventional stylesheet written while the builder starts is told once the project is open).
+Tests: `packages/project/src/detection-inputs.test.ts` (6: the builder's stylesheets change the key and the files its
+answer came from are watched; `components.json`, a conventional stylesheet and `index.html` aren't read, while a
+builder's config appearing changes the key; the config files followed are the ones the builders name, and only those;
+dependencies change it while scripts, versions and a stylesheet's contents don't; a missing or half-written package.json
+fails). `apps/desktop/src/utility/projects.test.ts` (3: the builder naming another stylesheet after a file its answer
+came from changed tells the windows, a file it didn't come from doesn't, a moment without package.json isn't a change,
+and opened again it has the new stylesheet; a config file the registered builder names tells the windows, and one no
+builder names doesn't; the builder's answer changing while it starts is told once the project is open).
 `packages/extension-vite/src/detect.test.ts` checks that each config name Vite finds is among `viteBuilder.watches`.
 `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its project again only when the
 service says detection changed; a tab told while loading asks again once it's ready). Gaps: the handlers wiring

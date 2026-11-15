@@ -55,23 +55,20 @@ describe("discoverProject", () => {
     expect(project.documents).toEqual(["designs/team.par"])
   })
 
-  it("falls back to the app entry's CSS imports and conventional folders", async () => {
-    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
-    await write("src/main.tsx", 'import "./styles/app.css"\nimport App from "./App"')
-    await write("src/components/ui/button.tsx", "export function Button() {}")
-
-    const project = await discoverProject(root, renderer)
-    expect(project.styles).toEqual(["src/styles/app.css"])
-    expect(Object.keys(project.components)).toEqual(["Button"])
-  })
-
-  it("keeps a package's stylesheet the entry imports by its specifier, apart from the project's own", async () => {
+  it("takes the stylesheets the builder says the app loads, and reads no entry itself", async () => {
     await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     await write("src/main.tsx", "import '@mantine/core/styles.css'\nimport './index.css'")
+    await write("src/index.css", ":root { --a: red; }")
 
-    const project = await discoverProject(root, renderer)
+    const styles = { styles: ["src/index.css"], packageStyles: ["@mantine/core/styles.css"], from: ["src/main.tsx"] }
+    const project = await discoverProject(root, renderer, {}, { styles: Promise.resolve(styles) })
     expect(project.styles).toEqual(["src/index.css"])
     expect(project.packageStyles).toEqual(["@mantine/core/styles.css"])
+    expect(project.notes[0]).toBe("styles the builder found from src/main.tsx: @mantine/core/styles.css, src/index.css")
+
+    const unasked = await discoverProject(root, renderer)
+    expect(unasked.styles).toEqual([])
+    expect(unasked.notes[0]).toBe("the builder didn't say which stylesheets the app loads")
   })
 })
 

@@ -132,7 +132,7 @@
   "icons": [],
   "storybook": null,
   "notes": [
-    "styles from /src/main.jsx: src/index.css",
+    "styles the builder found from src/main.jsx: src/index.css",
     "6 components in 7 files from the project's files",
     "not read, since they mount the app: src/main.jsx",
     "no .par project file yet"

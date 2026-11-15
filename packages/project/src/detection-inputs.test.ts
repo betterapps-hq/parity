@@ -24,30 +24,25 @@ afterEach(async () => {
 })
 
 describe("detectionInputs", () => {
-  it("doesn't read components.json, so writing one, whole or half, is no change", async () => {
-    const before = await detectionInputs(root, builderConfigs)
-    expect(before.files).not.toContain("components.json")
+  it("changes with the stylesheets the builder says the app loads, and watches the files it read them from", async () => {
+    const styles = { styles: ["src/style.css"], packageStyles: [], from: ["src/routes/__root.tsx"] }
+    const before = await detectionInputs(root, builderConfigs, styles)
+    expect(before.files).toEqual(["package.json", "src/routes/__root.tsx", ...builderConfigs])
 
-    await write("components.json", JSON.stringify({ tailwind: { css: "src/app/theme.css" } }))
-    expect(await detectionInputs(root, builderConfigs)).toEqual(before)
-
-    await write("components.json", '{ "tailwind": { "css": "src/sty')
-    expect(await detectionInputs(root, builderConfigs)).toEqual(before)
+    const more = { ...styles, packageStyles: ["@mantine/core/styles.css"] }
+    expect((await detectionInputs(root, builderConfigs, more)).key).not.toBe(before.key)
+    expect((await detectionInputs(root, builderConfigs)).key).not.toBe(before.key)
   })
 
-  it("changes when a conventional stylesheet or a builder's config appears, and follows the entry index.html names", async () => {
+  it("doesn't read components.json, a conventional stylesheet or index.html itself", async () => {
     const before = await detectionInputs(root, builderConfigs)
-    expect(before.files).toEqual(expect.arrayContaining(["src/styles.css", ...builderConfigs]))
-
-    await write("src/styles.css", "@import 'tailwindcss';")
-    const styled = await detectionInputs(root, builderConfigs)
-    expect(styled.key).not.toBe(before.key)
+    await write("components.json", JSON.stringify({ tailwind: { css: "src/app/theme.css" } }))
+    await write("src/index.css", "@import 'tailwindcss';")
+    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
+    expect(await detectionInputs(root, builderConfigs)).toEqual(before)
 
     await write("vite.config.ts", "export default {}")
-    expect((await detectionInputs(root, builderConfigs)).key).not.toBe(styled.key)
-
-    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
-    expect((await detectionInputs(root, builderConfigs)).files).toContain("src/main.tsx")
+    expect((await detectionInputs(root, builderConfigs)).key).not.toBe(before.key)
   })
 
   it("follows whichever config files the builders name, and only those", async () => {
@@ -65,20 +60,21 @@ describe("detectionInputs", () => {
 
   it("changes with the dependencies, not with the rest of package.json or a stylesheet's contents", async () => {
     await write("src/styles.css", ":root { --a: red; }")
-    const before = await detectionInputs(root, builderConfigs)
+    const styles = { styles: ["src/styles.css"], packageStyles: [], from: ["src/main.tsx"] }
+    const before = await detectionInputs(root, builderConfigs, styles)
 
     await write(
       "package.json",
       JSON.stringify({ name: "app", scripts: { dev: "vite" }, dependencies: { react: "19.1.0" } })
     )
     await write("src/styles.css", ":root { --a: blue; }")
-    expect((await detectionInputs(root, builderConfigs)).key).toBe(before.key)
+    expect((await detectionInputs(root, builderConfigs, styles)).key).toBe(before.key)
 
     await write(
       "package.json",
       JSON.stringify({ name: "app", dependencies: { react: "19.1.0", "@base-ui/react": "1" } })
     )
-    expect((await detectionInputs(root, builderConfigs)).key).not.toBe(before.key)
+    expect((await detectionInputs(root, builderConfigs, styles)).key).not.toBe(before.key)
   })
 
   it("fails while package.json is missing or half-written, rather than reading as a change", async () => {

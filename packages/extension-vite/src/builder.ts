@@ -24,6 +24,7 @@ import { commandOption, gatherChanges, scriptRunning } from "@parity-app/project
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
 import { appPageModes } from "./app-page.ts"
+import { viteAppStyles } from "./app-styles.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
@@ -47,6 +48,7 @@ export const viteBuilder: BuilderAdapter = {
   name: "Vite",
   watches: viteConfigFiles,
   detect: ({ root }) => detectVite(root),
+  styles: ({ root }) => viteAppStyles(root),
   async start(options) {
     // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
     // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.
@@ -644,7 +646,7 @@ const viteServe = /(?:^|[\s;&|(])vite(?![\w.-])(?!\s+(?:build|preview|optimize)\
  * The config the project's dev script names with `--config` or `-c`, as an absolute path. Unset when it names none, so
  * Vite looks for its usual names.
  */
-async function scriptedConfig(root: string): Promise<string | undefined> {
+export async function scriptedConfig(root: string): Promise<string | undefined> {
   const file = join(root, "package.json")
   const text = await readFile(file, "utf8").catch(() => undefined)
   const script = text === undefined ? undefined : scriptRunning(parseManifest(text, file).scripts, viteServe)
@@ -657,7 +659,7 @@ async function scriptedConfig(root: string): Promise<string | undefined> {
  * The project's own Vite, from `node_modules` in its folder or one above, the way Node finds packages. Not through
  * `require.resolve`, which also looks in `NODE_PATH`: package manager scripts set it, and it would find Parity's Vite.
  */
-async function loadProjectVite(root: string): Promise<typeof Vite> {
+export async function loadProjectVite(root: string): Promise<typeof Vite> {
   let folder: string | undefined
 
   for (let candidate = resolve(root); ; candidate = dirname(candidate)) {

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import {
+  type AppStyles,
   type BuilderAdapter,
   type CodeChange,
   type ComponentSource,
@@ -78,6 +79,9 @@ function fakeBuilder() {
   const codeChanges: Parameters<ProjectAdapters["startBuilder"]>[1]["onCodeChange"][] = []
   const failures: Failures = {}
   const hooks: BuilderHooks = {}
+  const none: AppStyles = { styles: [], packageStyles: [], from: ["src/main.tsx"] }
+  /** What it says the app loads, which a test changes as a change to the app's root would. */
+  const loads = { styles: none }
 
   const builder: BuilderAdapter = {
     id: "fake",
@@ -92,6 +96,7 @@ function fakeBuilder() {
 
       return { found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }
     },
+    styles: () => Promise.resolve(loads.styles),
     start: () => Promise.reject(new Error("started in its own process"))
   }
 
@@ -134,7 +139,7 @@ function fakeBuilder() {
   /** Says files changed, as the builder started last does when they're saved. */
   const changeCode = (change: CodeChange) => codeChanges.at(-1)?.(change)
 
-  return { builder, startBuilder, started, closed, crash, fail, changeCode, hooks }
+  return { builder, startBuilder, started, closed, crash, fail, changeCode, hooks, loads }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -187,14 +192,16 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
-  // React's renderer reads components here, and the fake builder says it serves the project, as their extensions'
-  // hosts do in the app.
+  // React's renderer reads components here, and the fake builder says it serves the project and which stylesheets the
+  // app loads, as their extensions' hosts do in the app.
   const answer = async (project: ProviderProject, call: ProviderCall) => {
     switch (call.kind) {
       case "renderer":
         return readComponents(call.params.files)
       case "builder":
-        return builder.builder.detect(detectContext(project.root, project.pkg))
+        return call.method === "styles"
+          ? builder.builder.styles?.(detectContext(project.root, project.pkg))
+          : builder.builder.detect(detectContext(project.root, project.pkg))
       default:
         return undefined
     }
@@ -521,23 +528,22 @@ describe("an open project's files", () => {
     expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Saved from the canvas")
   })
 
-  it("tell the windows when a new entry changes what detection finds, so they open the project again", async () => {
-    const { projects, watcher, detectionChanged } = setUp()
-    // Somewhere no convention looks, as a TanStack Start app with no index.html keeps it.
+  it("tell the windows when the builder names other stylesheets, so they open the project again", async () => {
+    const { projects, watcher, detectionChanged, builder } = setUp()
     await write("src/styles/app.css", ":root { --primary: red; }")
-    expect((await projects.open(root)).notes).toContain("no global styles found")
+    expect((await projects.open(root)).notes).toContain("the builder found no global stylesheets the app loads")
 
-    // A file detection doesn't read changes nothing.
+    // A file the builder's answer didn't come from changes nothing.
     await write("src/styles/app.css", ":root { --primary: blue; }")
     watcher.change("src/styles/app.css")
     // Longer than the watcher waits after a change.
     await new Promise((done) => setTimeout(done, 500))
     expect(detectionChanged).toEqual([])
 
+    builder.loads.styles = { styles: ["src/styles/app.css"], packageStyles: [], from: ["src/main.tsx"] }
     await write("src/main.tsx", 'import "./styles/app.css"')
-    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     expect(await projects.detectAgain(root)).toBe(true)
-    watcher.change("index.html")
+    watcher.change("src/main.tsx")
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
 
     // A moment without package.json, as while it's rewritten, isn't a change.
@@ -546,9 +552,11 @@ describe("an open project's files", () => {
     expect(await projects.detectAgain(root)).toBe(false)
     await write("package.json", manifest)
 
-    // Opened again, it's detected from the files as they are now.
+    // Opened again, it has the stylesheets the builder names now.
     await projects.close(root)
-    expect((await projects.open(root)).notes).toContain("styles from /src/main.tsx: src/styles/app.css")
+    expect((await projects.open(root)).notes).toContain(
+      "styles the builder found from src/main.tsx: src/styles/app.css"
+    )
     expect(await projects.detectAgain(root)).toBe(false)
   })
 
@@ -569,7 +577,12 @@ describe("an open project's files", () => {
 
   it("tell the windows when what detection reads changed while the project opened", async () => {
     const { projects, detectionChanged, builder } = setUp()
-    builder.hooks.starting = () => writeFileSync(join(root, "src/styles.css"), ":root { --primary: red; }")
+
+    builder.hooks.starting = () => {
+      writeFileSync(join(root, "src/styles.css"), ":root { --primary: red; }")
+      builder.loads.styles = { styles: ["src/styles.css"], packageStyles: [], from: ["src/main.tsx"] }
+    }
+
     await projects.open(root)
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
   })

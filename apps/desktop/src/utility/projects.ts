@@ -17,6 +17,7 @@ import {
   type Adapter,
   type BuilderDescription,
   type BuilderDetection,
+  type AppStyles,
   type BuilderStartOptions,
   type CodeChange,
   type ComponentInfo,
@@ -447,13 +448,16 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * take turns on its thread, and start the builder later.
    */
   async function detect(root: string, opening: Opening, early?: (read: EarlyStart) => void) {
-    // Read first, so a change made while the project opens is a change from what it opened with.
-    const inputs = await detectionInputs(root, watched).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
       throw unsupported("no_package", `There's no package.json in ${root}`)
     }
+
+    // Asked first, so the builder reads the app while its files are, and a change made while the project opens is a
+    // change from what it opened with.
+    const styles = appStyles({ root, name: pkg.name ?? basename(root), pkg })
+    const readingInputs = styles.then((found) => detectionInputs(root, watched, found)).catch(() => undefined)
 
     // Every adapter is asked whether the project uses its tool, through the same context, and only those that find it
     // are used: the first renderer and builder, and every other.
@@ -487,7 +491,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const usedEntities = entitiesFound.map(({ adapter }) => adapter)
 
-    const reading = await readProject(root, renderer, pkg, name, usedEntities, early).then(
+    const reading = await readProject(root, renderer, pkg, name, usedEntities, styles, early).then(
       (read) => ({ read }),
       (cause: unknown) => ({ cause })
     )
@@ -527,6 +531,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const { read } = reading
     opening.cached = !!read.saved
+    const inputs = await readingInputs
 
     // Asked now, so the router's extension reads them while the builder starts.
     const routing = provide({ root, name, pkg }, { kind: "router", method: "routes" }).then(
@@ -564,6 +569,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     pkg: PackageManifest,
     name: string,
     usedEntities: EntitiesAdapter[],
+    styles: Promise<AppStyles | undefined>,
     early?: (read: EarlyStart) => void
   ) {
     // The project files are read before discovery, which follows what the main one sets, such as the Storybook config
@@ -586,7 +592,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const config = await discoverProject(root, renderer, pkg, {
       documents: paths,
-      storybookConfigDir: storybookConfigDir(main)
+      storybookConfigDir: storybookConfigDir(main),
+      styles
     })
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
@@ -1106,6 +1113,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     return detection ?? { found: false, summary: "Its extension didn't answer" }
   }
 
+  /**
+   * The global stylesheets the project's builder says the app loads: the only source of them. Nothing when it can't
+   * say, as when its extension isn't running or doesn't answer, which its log records.
+   */
+  async function appStyles(project: ProviderProject): Promise<AppStyles | undefined> {
+    return provide(project, { kind: "builder", method: "styles" }).catch((cause: unknown) => {
+      logNote(`[service] couldn't ask ${project.name}'s builder which stylesheets it loads: ${message(cause)}`)
+
+      return undefined
+    })
+  }
+
   /** What a provider of the project's answers, or nothing when none of its extensions provides one. */
   async function provide<C extends ProviderCall>(
     project: ProviderProject,
@@ -1368,7 +1387,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
-    const inputs = await detectionInputs(root, watched).catch(() => undefined)
+    const styles = await appStyles(providerProject(project))
+    const inputs = await detectionInputs(root, watched, styles).catch(() => undefined)
 
     if (!inputs || projects.get(root) !== project) {
       return false

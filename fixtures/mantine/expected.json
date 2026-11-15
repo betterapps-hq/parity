@@ -108,7 +108,7 @@
   "icons": [],
   "storybook": null,
   "notes": [
-    "styles from /src/main.tsx: @mantine/core/styles.css, src/index.css",
+    "styles the builder found from src/main.tsx: @mantine/core/styles.css, src/index.css",
     "3 components in 4 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "291 components from Mantine (@mantine/core)",

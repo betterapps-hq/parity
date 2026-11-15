@@ -3,6 +3,7 @@ import { basename, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
   type Adapter,
+  type AppStyles,
   type AdapterStatusItem,
   type ComponentSource,
   type ContainerSpec,
@@ -27,7 +28,6 @@ import { parseJsonc } from "@parity-app/registry"
 import type { ProjectDetection } from "./detection.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { componentFor, findStorybook } from "./storybook.ts"
-import { findStyles } from "./styles.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -120,7 +120,7 @@ export {
 
 export { parseStoryFile } from "./storybook.ts"
 
-export { type AppStyles, findStyles, readStylesheet } from "./styles.ts"
+export { readStylesheet } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
 
@@ -139,11 +139,16 @@ export interface DiscoverOptions {
   documents?: readonly string[]
   /** The Storybook config folder its main `.par` sets (`storybookConfigDir`), which wins over finding one. */
   storybookConfigDir?: string
+  /**
+   * The global stylesheets the app loads, as its builder reports them (`BuilderAdapter.styles`): the only source of
+   * them. Unset, or settling to nothing, when the builder can't say, which leaves the canvas without global styles.
+   */
+  styles?: AppStyles | Promise<AppStyles | undefined>
 }
 
 /**
- * Works out what the canvas needs from the project as it is: no config file. Styles come from the project's own
- * conventions (the app entry, then the usual places; see `findStyles`), components from what the renderer recognizes in
+ * Works out what the canvas needs from the project as it is: no config file. Styles are the ones the builder says the
+ * app loads (`options.styles`), components from what the renderer recognizes in
  * every file the app's tsconfig includes, and designs from the project's `.par` files (usually one, at its root). A library's own
  * `.lib.par`, at its root, holds designs too, and the tokens it describes.
  */
@@ -155,9 +160,11 @@ export async function discoverProject(
 ): Promise<DiscoveredProject> {
   const notes: string[] = []
   const tsconfig = readTsconfig(root)
-  const { styles, packageStyles } = await findStyles(root, notes)
+  // The builder answers while the app's files are read, which is the slow part.
+  const [loaded, app] = await Promise.all([options.styles, findAppComponents(root, renderer, tsconfig, notes)])
+  const { styles, packageStyles } = loaded ?? { styles: [], packageStyles: [] }
+  notes.unshift(stylesNote(loaded))
   const libraries = await findLibraries(root, pkg, styles, renderer, packageStyles)
-  const app = await findAppComponents(root, renderer, tsconfig, notes)
   notes.push(...libraries.notes)
   await addWorkspacePackages(root, pkg, renderer, libraries, notes)
   const documents = options.documents ? [...options.documents] : await findProjectDocuments(root)
@@ -218,6 +225,21 @@ export async function discoverProject(
     notes,
     componentFiles: app.files
   }
+}
+
+/** How the app's global stylesheets were found, for the notes. */
+function stylesNote(loaded: AppStyles | undefined): string {
+  if (!loaded) {
+    return "the builder didn't say which stylesheets the app loads"
+  }
+
+  const named = [...loaded.packageStyles, ...loaded.styles]
+
+  if (named.length === 0) {
+    return "the builder found no global stylesheets the app loads"
+  }
+
+  return `styles the builder found${loaded.from.length > 0 ? ` from ${loaded.from.join(", ")}` : ""}: ${named.join(", ")}`
 }
 
 /**
