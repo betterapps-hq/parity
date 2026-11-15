@@ -22,8 +22,8 @@
       "name": "React",
       "version": "18.3.1",
       "from": "node_modules/react",
-      "status": "dropped",
-      "summary": "React 18.3.1 from node_modules/react; untested, Parity tests React 19"
+      "status": "supported",
+      "summary": "React 18.3.1 from node_modules/react"
     },
     {
       "id": "vite",
@@ -35,7 +35,6 @@
       "summary": "Vite 6.4.6 from node_modules/vite, config vite.config.js"
     }
   ],
-  "notice": "Not tested with Parity: React 18.3.1. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.",
   "styles": {
     "stylesheets": [
       "src/index.css"
@@ -76,7 +75,8 @@
     "EmptyState": {
       "path": "src/components/EmptyState.jsx",
       "export": "default",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "Home": {
       "path": "src/routes/Home.jsx",
@@ -105,12 +105,14 @@
     "PricingTier": {
       "path": "src/components/PricingTier.jsx",
       "export": "PricingTier",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "ProjectCard": {
       "path": "src/components/ProjectCard.jsx",
       "export": "ProjectCard",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "ProjectList": {
       "path": "src/routes/ProjectList.jsx",
@@ -133,17 +135,20 @@
     "SiteHeader": {
       "path": "src/components/SiteHeader.jsx",
       "export": "SiteHeader",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "StatusChip": {
       "path": "src/components/StatusChip.jsx",
       "export": "StatusChip",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "ThemeToggle": {
       "path": "src/components/ThemeToggle.jsx",
       "export": "ThemeToggle",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     }
   },
   "libraries": [
@@ -158,8 +163,7 @@
   "icons": [],
   "storybook": null,
   "notes": [
-    "styles from /src/main.jsx: src/index.css",
-    "the UI kit is in src/components",
+    "styles the builder found: src/index.css",
     "16 components in 20 files from the project's files",
     "not read, since they mount the app: src/main.jsx",
     "147 components from Material UI (@mui/material)",
