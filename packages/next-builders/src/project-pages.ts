@@ -123,7 +123,12 @@ export function projectPageFiles(folders: RouteFolders, files: readonly ProjectR
 /** A mirror's text: the project's file's default and named exports, and its segment config's literal values. */
 function reexport(path: string, file: ProjectRouteFile, router: "app" | "pages"): string {
   const from = JSON.stringify(projectSpecifier(path, file.path))
-  const names = exportNames(file.text)
+
+  // An MDX page's Markdown is its default export, which MDX's loader writes whether the file exports one or not.
+  const names = file.path.endsWith(".mdx")
+    ? [...new Set(["default", ...exportNames(file.text)])]
+    : exportNames(file.text)
+
   const lines = [`// Written by Parity's Next.js builder: ${file.path}, as a route of the guest app.`]
   const copied = router === "app" ? segmentLiterals(file.text) : []
   const reexported = names.filter((name) => name !== "default" && !copied.some(([copy]) => copy === name))
@@ -194,16 +199,15 @@ export function exportNames(text: string): string[] {
   return [...names]
 }
 
-/** The segment config a route's file gives as literals, by name, with each value's text. */
+/**
+ * The segment config a route's file gives as literals, by name, with each value's text: a string, number, boolean or
+ * array, which may span lines, then the statement's or line's end, or a comment.
+ */
 export function segmentLiterals(text: string): [string, string][] {
-  const literal = /^(?:"[^"\n]*"|'[^'\n]*'|-?\d+(?:\.\d+)?|true|false|\[[^\]\n]*\])$/
+  const declaration =
+    /^export\s+const\s+([A-Za-z_]\w*)\s*(?::[^=\n]+)?=\s*("[^"\n]*"|'[^'\n]*'|-?\d+(?:\.\d+)?|true|false|\[[^\]]*\])(?:\s+as\s+const)?[ \t]*(?:;|\/\/|\/\*|$)/gm
 
-  return [...text.matchAll(/^export\s+const\s+([A-Za-z_]\w*)\s*(?::[^=\n]+)?=\s*([^\n;]+?)\s*;?\s*$/gm)].flatMap(
-    (match): [string, string][] => {
-      const name = match[1]!
-      const value = match[2]!.replace(/\s+as\s+const$/, "")
-
-      return segmentConfig.has(name) && literal.test(value) ? [[name, value]] : []
-    }
+  return [...text.matchAll(declaration)].flatMap((match): [string, string][] =>
+    segmentConfig.has(match[1]!) ? [[match[1]!, match[2]!]] : []
   )
 }

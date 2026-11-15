@@ -139,4 +139,30 @@ describe("the project's pages in the guest app", () => {
       ["preferredRegion", "['iad1']"]
     ])
   })
+
+  it("copies segment config with a comment after it, or an array over several lines, and not an expression", () => {
+    expect(
+      segmentLiterals(
+        [
+          "export const dynamic = 'force-dynamic' // reads cookies",
+          "export const fetchCache = 'force-no-store' /* no cache */",
+          "export const preferredRegion = [",
+          "  'iad1',",
+          "  'sfo1'",
+          "]",
+          "export const revalidate = 60 * 2"
+        ].join("\n")
+      )
+    ).toEqual([
+      ["dynamic", "'force-dynamic'"],
+      ["fetchCache", "'force-no-store'"],
+      ["preferredRegion", "[\n  'iad1',\n  'sfo1'\n]"]
+    ])
+  })
+
+  it("re-exports an MDX page's Markdown, which is its default export without saying so", () => {
+    const [page] = projectPageFiles({ app: "app" }, [{ path: "app/docs/page.mdx", text: "# Docs\n\nSome words.\n" }])
+
+    expect(page?.text).toContain('export { default } from "../../../../../app/docs/page.mdx"')
+  })
 })
