@@ -629,7 +629,24 @@ export class App {
       await this.show(design, 1)
     }
 
-    await this.page.evaluate(
+    // A board takes its size at a zoom once the zoom settles (PAR-655), and its gutter keeps its screen size (PAR-602),
+    // so coming from far out, where it's tall on the canvas, the frame moves up within the board once it settles: the
+    // design is placed again at its settled size. Without that, a title came out above the canvas, under the tab bar.
+    const zoomed = await this.place(design, zoom, layer, mode)
+    await this.settle(design)
+
+    if (zoomed) {
+      await this.place(design, zoom, layer, mode)
+      await this.settle(design)
+    }
+  }
+
+  /**
+   * Moves the camera to put a design's main frame, or a layer in it, where `show` wants it, as it's drawn now. Says
+   * whether that changed the zoom.
+   */
+  private place(design: string, zoom: number, layer?: string, mode?: string): Promise<boolean> {
+    return this.page.evaluate(
       ([design, zoom, layer, mode]) => {
         const e2e = window.e2e!
         const editor = e2e.session().editor!
@@ -659,10 +676,11 @@ export class App {
           : [toPage(frame.left, frame.top), { x: 64, y: 140 }]
 
         editor.setCamera({ x: screen.x / zoom - page.x, y: screen.y / zoom - page.y, z: zoom }, { immediate: true })
+
+        return Math.abs(camera.z - zoom) > 0.0001
       },
       [design, zoom, layer, mode] as const
     )
-    await this.settle(design)
   }
 
   /**
@@ -829,9 +847,52 @@ export class App {
       throw new Error(`${design}'s title isn't drawn`)
     }
 
+    // What's on top where the click lands, for a click that takes the window away from the project, and what around the
+    // canvas is scrolled, which would move it under something else.
+    const under = await this.page.evaluate(
+      ({ x, y, key }) => {
+        const element = document.elementFromPoint(x, y)
+
+        const frame = document
+          .querySelector(`[data-frame][data-design="${CSS.escape(key)}"][data-primary="true"]`)
+          ?.getBoundingClientRect()
+
+        const board = document
+          .querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)
+          ?.getBoundingClientRect()
+
+        const camera = window.e2e!.session().editor?.getCamera()
+        const scrolled: string[] = []
+
+        for (let around = document.querySelector(".tl-container"); around; around = around.parentElement) {
+          if (around.scrollTop !== 0 || around.scrollLeft !== 0) {
+            scrolled.push(
+              `${around.tagName.toLowerCase()}.${[...around.classList].slice(0, 4).join(".")} at ${around.scrollLeft},${around.scrollTop}`
+            )
+          }
+        }
+
+        const canvas = document.querySelector(".tl-container")?.getBoundingClientRect()
+
+        const at = (rect: DOMRect | undefined) =>
+          rect ? [rect.x, rect.y, rect.width, rect.height].map(Math.round).join(",") : "none"
+
+        return `${element ? element.outerHTML.slice(0, 200) : "nothing"}; the canvas at ${at(canvas)}, its board at ${at(board)}, its main frame at ${at(frame)}, the camera at ${JSON.stringify(camera)}; scrolled: ${scrolled.join(", ") || "nothing"}`
+      },
+      { ...center(box), key }
+    )
+
     await this.click(center(box))
 
-    if (!(await until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key })))) {
+    const selected = until(async () => JSON.stringify(await this.selection()) === JSON.stringify({ design: key }))
+
+    if (
+      !(await selected.catch((error: Error) => {
+        throw new Error(`Clicking ${design}'s title at ${JSON.stringify(box)}, over ${under}: ${error.message}`, {
+          cause: error
+        })
+      }))
+    ) {
       throw new Error(
         `Clicking ${design}'s title selected ${JSON.stringify(await this.selection())}. ` +
           `There: ${await this.describe(center(box))}`
@@ -1134,7 +1195,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Whether `check` comes true within a few seconds, trying every 50ms. */
-async function until(check: () => Promise<boolean>, timeout = 5000): Promise<boolean> {
+export async function until(check: () => Promise<boolean>, timeout = 5000): Promise<boolean> {
   for (const deadline = Date.now() + timeout; Date.now() < deadline;) {
     if (await check()) {
       return true

@@ -911,9 +911,10 @@ Tests:
 - `apps/desktop/e2e/inserting.e2e.ts` (6), end to end (PAR-202): opening seven times, the fastest under 100ms and the
   median under 150ms (25 to 50ms on a quiet machine); Escape straight after opening closing the picker with the design
   still selected, and a click straight after selecting a layer (PAR-554); the browsing order, read a screen at a time;
-  "badge" finding Badge, AvatarBadge and SidebarMenuBadge only, Badge with the UI kit and Shadcn Nova; App and
-  ThemeProvider left out of a folder search and found by name, and Dialog's overlay after every dialog part placed; and
-  Enter inserting the UI kit's Badge, and the Shadcn Nova source inserting Nova's.
+  "badge" finding Badge, StatusBadge, AvatarBadge and SidebarMenuBadge only, in that order; App and ThemeProvider left
+  out of a folder search and found by name, and Dialog's overlay after every dialog part placed; and Enter inserting
+  Nova's Badge, and StatusBadge's source inserting the app's own. The example takes its UI kit from Shadcn Nova, so a
+  component in two places is covered by `insert-search.test.ts` and the FoundInTwoPlaces story.
 - `chrome/QuickInsert.stories.tsx`: Open, Searching, FoundInTwoPlaces, SearchedByName, SearchingIcons, NoResults and
   NothingToInsertInto.
 
@@ -1019,10 +1020,10 @@ modules and files without JSX left alone; development server only). `apps/deskto
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
 (Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
 `chrome/CanvasMenu.right-click.stories.tsx`, drawn from Storybook's copy of the example project, which the same
-transform tags, and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at
-`member-row.tsx`). `packages/agent/src/dispatch.test.ts` (the file each project component is written in),
-`packages/agent/src/run.test.ts` (`Measure` gives each node's source, and none for Parity's own layers),
-`packages/cli/src/client.test.ts` (the project's own components listed by file) and
+transform tags, and in the running app `e2e/menus.e2e.ts` (the Members row's menu has Open in editor at
+`member-row.tsx`, then Open in Storybook, greyed with No story found). `packages/agent/src/dispatch.test.ts` (the file
+each project component is written in), `packages/agent/src/run.test.ts` (`Measure` gives each node's source, and none
+for Parity's own layers), `packages/cli/src/client.test.ts` (the project's own components listed by file) and
 `apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps: reading the attribute in the offscreen
 page (`renderer/render.ts`) has no test of its own; the Measure and render-result tests pass a source through.
 
@@ -2670,8 +2671,9 @@ Code: `adjacentDesign` and `designOrder` in `apps/desktop/src/renderer/canvas/se
 
 Tests: `apps/desktop/src/renderer/canvas/select.test.ts` (the order, going round, from a layer, and with nothing
 selected). End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2): N from Pricing selects Sign up and zooms to it,
-so that Zoom to selection (Shift+2) after it doesn't move the view, and Shift+N goes back; and N from Members, the last
-screen, goes round to Member row, the first component.
+so that Zoom to selection (Shift+2) after it doesn't move the view, and Shift+N goes back; and Shift+N from the first
+component goes round to the last design, one of the app's pages, which come after the screens the project lists, and N
+goes back.
 
 ### Copy, paste and paste style (PAR-7)
 
@@ -5765,16 +5767,19 @@ and sleeps once; and 64 frames, each slow to draw, all do so through one change 
 exceeded", which React reported there before the fix). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a
 failed capture isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not
 drawn again). Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that
-frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. The retry
-delays, and that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked
-by reading `useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in
-`e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
-so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
-checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy,
-not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken
-again after a repaint until it works, gives up after three tries, and any other failure is thrown at once). That a
-repaint is what lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI
-run, and Sentry's count from CI after the change is the check.
+frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. It waits for
+every design's frame to be inside a tile with a bitmap, rather than comparing counts, since a page's tile has a bitmap
+and no design's frame (PAR-1106). The retry delays, and that a frame which leaves the canvas or changes stops retrying,
+have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four times under
+extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design
+into view before finding a layer in it, so the other files' tests work on frames that slept. Coming from another zoom,
+`App.show` places the design again once its board has taken its size at the new one, since the board's gutter keeps its
+screen size (PAR-1106). Gaps: the order frames wake in has no test of its own; it was checked by reading `wakeNext`. The
+memory it gives back and the time waking takes were measured by hand in a debug copy, not by the suite.
+`apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken again after a
+repaint until it works, gives up after three tries, and any other failure is thrown at once). That a repaint is what
+lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI run, and Sentry's
+count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
@@ -6959,7 +6964,8 @@ A screen is named for the component its route draws, else its path.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
   that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
-  and clicking Pricing in App's frame takes it to `/pricing`.
+  and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a design's frame is, so Tab on
+  the canvas never goes into the page and leaves the canvas's keys there (`keyboard.e2e.ts`, "keys outside Interact").
 - **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
   and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
   attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
@@ -7128,7 +7134,9 @@ nothing converts to another kind. Its stories are its states, a row each on its 
   Storybook's default layout draws a story, and hugs it (core's `fitsContent`): each story's preview is as wide as it
   draws in that mode, measured for each story apart (`frames`, by `Outline/desktop`, see `fittedKey`) and not saved,
   while the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as
-  in Storybook's canvas.
+  in Storybook's canvas. Once a story's preview is measured, it sleeps on its bitmap zoomed far out as any frame does;
+  before PAR-1106 it was looked for by its mode's viewport alone, so it never counted as measured and never slept
+  (`sleeping.e2e.ts`).
 - **Its props, modes and sizes in the Design panel.** Selecting a story file shows its header, then Props, the args of
   the story picked, the row of the preview picked last, else the first (`pickedStory`), which edit and are written back
   as below, then Modes: its board draws each story's preview in each mode it shows, across. A story file's view, its
@@ -7469,21 +7477,24 @@ Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/u
 `apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
 reopened guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
 
-Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window ends
-within 5,000 DOM nodes of where it started; with the old address on reopen it ended about 69,000 over after two. The
-allowance is for tldraw, which sometimes keeps the editor closed last, with its canvas, until another replaces it: about
-3,600 nodes, since frames showing bitmaps hold none of their own. That's one canvas however often the project opens, so
-a canvas kept on each reopen still fails the test (PAR-445). `apps/desktop/src/utility/guest-ports.test.ts` covers which
-port a builder takes, skipping ports guests had, and when the windows are told a guest moved, and told again after a
-move they couldn't load; `apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still
-loading, one reopened meanwhile and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project
-folder through `openProjects`, with its builder, type checker and watcher standing in: its files, components and guest
-are read and served, what the type checker found is saved and taken on a reopen with nothing changed, a project file
-changed outside the canvas is told to the windows while the canvas's own save isn't, a `.par` outside the root (even in
-a sibling folder whose name starts with the root's) isn't saved, and closing stops the builder and the watcher before a
-reopen serves the project on a new port. Gaps: the offscreen renderer's side has no automated test, nor has
-`restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
-the window keeps what it loaded from them.
+Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window keeps
+no more DOM nodes after the third close than after the first, give or take 5,000, and less than an open canvas and a
+half over where it started; with the old address on reopen it ended about 69,000 over after two. The allowance is for
+tldraw, which sometimes keeps the editor closed last, with its canvas, until another replaces it. That's one canvas
+however often the project opens, so a canvas kept on each reopen still fails the test (PAR-445). It was about 3,600
+nodes, since frames showing bitmaps hold none of their own; since the boards gained the app's pages, components and
+stories an open canvas is about 19,000 and a closed one keeps about 16,000, so the allowance follows the canvas measured
+in the run (PAR-1106). `apps/desktop/src/utility/guest-ports.test.ts` covers which port a builder takes, skipping ports
+guests had, and when the windows are told a guest moved, and told again after a move they couldn't load;
+`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still loading, one reopened meanwhile
+and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project folder through `openProjects`,
+with its builder, type checker and watcher standing in: its files, components and guest are read and served, what the
+type checker found is saved and taken on a reopen with nothing changed, a project file changed outside the canvas is
+told to the windows while the canvas's own save isn't, a `.par` outside the root (even in a sibling folder whose name
+starts with the root's) isn't saved, and closing stops the builder and the watcher before a reopen serves the project on
+a new port. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
+`project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
+loaded from them.
 
 ### Detected again when what detection reads changes (PAR-820)
 
@@ -7988,9 +7999,10 @@ neither overflows nor scrolls; Shift+Tab back from Members' title into Layers le
 New screen button, scrolled out of view, isn't drawn, so focus reaches the tree instead); Tab on from the title leaves
 the page still; and a click on a layer then selects it. It fails without the fix, at the first check.
 `e2e/keyboard.e2e.ts`, "Tab from a design's title": from Members' title Tab goes to its State and Modes menus and its
-mode caption, where Enter selects the mode column, then out of the canvas without reaching another title or board, where
-before it went on to the next design's title. Every end-to-end test also fails if the page scrolled during it (see
-"Testing in the app" above); before the fix that also failed the older test that tabs on from Sign in's title.
+board's controls, where Enter on its preview's mode name selects that preview, then out of the canvas without reaching
+another title or board, where before it went on to the next design's title. Every end-to-end test also fails if the page
+scrolled during it (see "Testing in the app" above); before the fix that also failed the older test that tabs on from
+Sign in's title.
 
 Gaps: a design that's hovered but not selected shows its menus, and they're in the tab order while they show. Nothing
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip

@@ -53,9 +53,11 @@ describe("right-click menus", () => {
       "Lock Ctrl+Shift+L",
       "Export… Ctrl+Shift+E",
       // The row's own elements are written in the project's member-row.tsx (PAR-167).
-      expect.stringMatching(/^Open in editor member-row\.tsx:\d+$/)
+      expect.stringMatching(/^Open in editor member-row\.tsx:\d+$/),
+      // MemberRow has no story, so Storybook has nothing to open.
+      "Open in Storybook No story found"
     ])
-    expect(await menu().getByRole("separator").count()).toBe(6)
+    expect(await menu().getByRole("separator").count()).toBe(7)
     // Its items run the menubar's commands.
     await menu()
       .getByRole("menuitem", { name: /^Duplicate/ })

@@ -212,7 +212,7 @@ describe("dropping a component from the panel", () => {
     const children = await app.children("Projects", grid)
     const added = children[4]!
     expect(children).toEqual([...cards.slice(0, 4), added, ...cards.slice(4)])
-    expect(await app.node("Projects", added)).toMatchObject({ type: "component", component: "Badge" })
+    expect(await app.node("Projects", added)).toMatchObject({ type: "component", component: "nova/Badge" })
     expect((await app.selection()).node).toBe(added)
     expect(await app.undoLabel()).toBe("Add Badge")
     await app.page.keyboard.press("Control+z")
@@ -245,7 +245,7 @@ describe("dropping a component from the panel", () => {
     expect(added).toMatchObject({ name: "Badge", kind: "frame", position: page })
     expect(await app.selection()).toEqual({ design: added.key })
     const [child] = await app.children(added.name, await rootOf(added.name))
-    expect(await app.node(added.name, child!)).toMatchObject({ type: "component", component: "Badge" })
+    expect(await app.node(added.name, child!)).toMatchObject({ type: "component", component: "nova/Badge" })
     expect(await app.undoLabel()).toBe("Add Badge")
     await app.page.keyboard.press("Control+z")
     await expect.poll(async () => (await app.designs()).length).toBe(before.length)
@@ -287,7 +287,7 @@ describe("dropping a component from the panel", () => {
     expect(children).toEqual([...before, added])
     expect(await app.node("Calendar", added)).toMatchObject({
       type: "component",
-      component: "Badge",
+      component: "nova/Badge",
       style: { position: "absolute", left: { step: 10 }, top: { step: 6 } }
     })
     expect((await app.selection()).node).toBe(added)

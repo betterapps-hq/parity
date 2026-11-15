@@ -1,6 +1,7 @@
 import { lengthSteps } from "@parity-app/core"
+import type { Selection } from "@parity-app/editor"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
-import { App, center } from "./app.ts"
+import { App, center, until } from "./app.ts"
 
 // docs/editor.md, Keyboard: keys outside Interact (CAN-54), nudging, select inverse and matching, next and previous
 // design, both pastes (CAN-39), and how shortcuts are shown. Copying and pasting go through the page's stand-in for
@@ -103,34 +104,42 @@ describe("Tab from a design's title", () => {
         return {
           label: active?.getAttribute("aria-label") ?? active?.textContent?.trim(),
           title: !!active?.closest(".design-title"),
+          // A preview's mode name, which selects the preview, as clicking it does; the arrows move its column.
+          modeName: active?.getAttribute("aria-keyshortcuts") === "ArrowLeft ArrowRight",
           board: active?.closest(".container-view")?.getAttribute("data-design") ?? null,
           canvas: !!active?.closest(".tl-container")
         }
       })
 
-    expect(await focused()).toEqual({ label: "Members", title: true, board: null, canvas: true })
+    expect(await focused()).toEqual({ label: "Members", title: true, modeName: false, board: null, canvas: true })
     // A screen has no states, so its title has no State menu: Modes comes next.
     await app.page.keyboard.press("Tab")
     expect(await focused()).toMatchObject({ label: expect.stringMatching(/^Modes/), title: true })
-    // On past the canvas: Members' mode caption, which Enter selects as a person would click it, then out, never to
-    // another design's title or board. Without a licence key, as here, tldraw's own notice comes too.
-    const boards: string[] = []
+    // On past the canvas: Members' board controls, its preview's mode name, which Enter selects as a person would click
+    // it, and its resize handle, then out, never to another design's title or board. Without a licence key, as here,
+    // tldraw's own notice comes too.
+    const boards = new Set<string>()
+    // What Enter on each mode name selected.
+    const picked: Selection[] = []
 
-    for (let press = 0; press < 4 && (await focused()).canvas; press++) {
+    for (let press = 0; press < 12 && (await focused()).canvas; press++) {
       await app.page.keyboard.press("Tab")
       const now = await focused()
       expect(now.title).toBe(false)
 
-      if (!now.board) {
-        continue
+      if (now.board) {
+        boards.add(now.board)
       }
 
-      boards.push(now.board)
-      await app.page.keyboard.press("Enter")
-      await expect.poll(() => app.selection()).toEqual({ design: members, mode: expect.any(String) })
+      if (now.modeName) {
+        await app.page.keyboard.press("Enter")
+        await until(async () => (await app.selection()).mode !== undefined)
+        picked.push(await app.selection())
+      }
     }
 
-    expect(boards).toEqual([members])
+    expect([...boards]).toEqual([members])
+    expect(picked).toEqual([{ design: members, state: expect.any(String), mode: expect.any(String) }])
     expect(await focused()).toMatchObject({ canvas: false })
   })
 })
@@ -260,13 +269,16 @@ describe("next and previous design", () => {
   })
 
   it("goes round from the last design to the first, components first", async () => {
-    // Members is the last screen the project lists, and Button its first component.
-    await app.show("Members", 0.5)
-    await app.selectDesign("Members")
-    await app.page.keyboard.press("n")
-    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Button"))
+    // Components come first, then screens, and the app's pages, drawn from its routes, after the screens it lists.
+    const designs = await app.designs()
+    const first = designs.find((design) => design.kind === "component")!
+    const last = designs.findLast((design) => design.kind !== "component")!
+    // Selected by its key: a Storybook file's board can share a component design's name, as Button's does.
+    await app.page.evaluate((key) => window.e2e!.session().selection.set({ design: key }), first.key)
     await app.page.keyboard.press("Shift+N")
-    await expect.poll(async () => (await app.selection()).design).toBe(await app.key("Members"))
+    await expect.poll(async () => (await app.selection()).design).toBe(last.key)
+    await app.page.keyboard.press("n")
+    await expect.poll(async () => (await app.selection()).design).toBe(first.key)
   })
 })
 
