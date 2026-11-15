@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Settings' Keyboard shortcuts asks before taking another command's keys, offering a swap, and can reset one shortcut or all of them",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -5,7 +5,9 @@ import {
   type KeyEntry,
   readKeybindings,
   readKeys,
-  resolveBindings
+  resetAllKeys,
+  resolveBindings,
+  swapKeys
 } from "./keybindings.ts"
 
 /** A small keymap, as the window's has: some commands with one key, one with two. */
@@ -202,6 +204,52 @@ describe("changeKeys", () => {
     const after = readKeybindings(applyReplacements(undefined, replacements))
 
     expect(resolveBindings(defaults, after.entries).keys).toEqual({ ...keymapKeys, save: ["Ctrl Z"], undo: [] })
+  })
+})
+
+/** The keys each command has once these replacements are written to `entries`. */
+function keysAfter(entries: readonly KeyEntry[], replacements: Parameters<typeof applyReplacements>[1]) {
+  return resolveBindings(defaults, readKeybindings(applyReplacements(JSON.stringify(entries), replacements)).entries)
+    .keys
+}
+
+describe("swapKeys (PAR-1042)", () => {
+  it("gives the command that had the keys this one's, ahead of the rest of its own", () => {
+    const { replacements, lost } = swapKeys(defaults, [], "undo", ["Ctrl Shift Z"])
+
+    expect(lost).toBeUndefined()
+    expect(keysAfter([], replacements)).toEqual({ ...keymapKeys, undo: ["Ctrl Shift Z"], redo: ["Ctrl Z", "Ctrl Y"] })
+  })
+
+  it("is a plain change when no command has the keys", () => {
+    expect(swapKeys(defaults, [], "save", ["Ctrl Alt S"])).toEqual(changeKeys(defaults, [], "save", ["Ctrl Alt S"]))
+  })
+
+  it("gives none back when this command had none", () => {
+    const entries: KeyEntry[] = [{ command: "save", keys: [] }]
+
+    expect(keysAfter(entries, swapKeys(defaults, entries, "save", ["Ctrl Z"]).replacements)).toEqual({
+      ...keymapKeys,
+      save: ["Ctrl Z"],
+      undo: []
+    })
+  })
+})
+
+describe("resetAllKeys (PAR-1042)", () => {
+  it("gives every command the keymap's keys again, keeping entries Parity skipped", () => {
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: [] },
+      { command: "save", keys: ["Ctrl Z"] },
+      { command: "launch", keys: ["Ctrl L"] }
+    ]
+
+    const replacements = resetAllKeys(defaults, entries)
+
+    expect(keysAfter(entries, replacements)).toEqual(keymapKeys)
+    expect(JSON.parse(applyReplacements(JSON.stringify(entries), replacements))).toEqual([
+      { command: "launch", keys: ["Ctrl L"] }
+    ])
   })
 })
 

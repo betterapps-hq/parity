@@ -1,9 +1,9 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
-import { FileJson } from "lucide-react"
+import { FileJson, RotateCcw } from "lucide-react"
 import { type KeyboardEvent, useId, useState } from "react"
 import { groups, keymap } from "../keymap.ts"
 import { formatKeys, keysFromEvent } from "../keys.ts"
-import { type Found, Group, Highlight, Row } from "./rows.tsx"
+import { type Found, Group, Highlight, Row, RowAction } from "./rows.tsx"
 import type { Store } from "./store.ts"
 
 type Command = keyof typeof keymap
@@ -14,11 +14,12 @@ export function isCommand(command: string): command is Command {
 
 /**
  * Every shortcut, to change here, in the keymap's groups: pick one and press the new keys. Entries keybindings.json has
- * that Parity skipped come first, with the file to fix them in.
+ * that Parity skipped come first, with the file to fix them in. Once any has changed, they can all go back at once.
  */
 export function ShortcutsPage({ store }: { store: Store }) {
   return (
     <>
+      <ResetAll store={store} />
       {store.skipped.length > 0 && (
         <Group title="Skipped in keybindings.json">
           {store.skipped.map((entry) => (
@@ -62,13 +63,59 @@ export function ShortcutsPage({ store }: { store: Store }) {
   )
 }
 
+/** Resets every shortcut, once one has changed, after asking (PAR-1042). */
+function ResetAll({ store }: { store: Store }) {
+  const [asking, setAsking] = useState(false)
+  const count = store.changedKeys.length
+
+  if (count === 0 && !store.failed.keys) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {store.failed.keys && (
+        <p role="alert" className="type-message text-destructive">
+          {store.failed.keys}
+        </p>
+      )}
+      {asking ? (
+        <>
+          <span className="text-sm">{count === 1 ? "Reset 1 shortcut?" : `Reset ${count} shortcuts?`}</span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              setAsking(false)
+              void store.resetAll()
+            }}
+          >
+            Reset
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setAsking(false)}>
+            Cancel
+          </Button>
+        </>
+      ) : (
+        count > 0 && (
+          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={() => setAsking(true)}>
+            <RotateCcw aria-hidden /> Reset all shortcuts
+          </Button>
+        )
+      )}
+    </div>
+  )
+}
+
 /**
  * A command's row, with its keys as a button: press it, then the new keys. Escape stops without changing them;
- * Backspace removes them. Keys another command had move to this one, and that command's row says where they went.
+ * Backspace removes them. Keys another command has ask first: swap them, so that command gets this one's keys, or
+ * cancel (PAR-1042). A changed command can go back to the keymap's keys.
  */
 export function ShortcutRow({ command, store, found }: { command: string; store: Store; found?: Found }) {
   const id = useId()
   const [listening, setListening] = useState(false)
+  const [clash, setClash] = useState<{ keys: string; holder: Command }>()
 
   if (!isCommand(command)) {
     return null
@@ -94,9 +141,21 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
       return
     }
 
-    void store.bind(command, next)
     setListening(false)
+
+    const holder = next ? store.holderOf(command, next) : undefined
+
+    if (holder && isCommand(holder)) {
+      setClash({ keys: next, holder })
+
+      return
+    }
+
+    void store.bind(command, next)
   }
+
+  const defaultKeys = formatKeys(binding.keys[0] ?? "", false)
+  const changed = store.changedKeys.includes(command)
 
   return (
     <Row
@@ -116,9 +175,41 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
           binding.label
         )
       }
-      detail={lostTo && `Its keys went to ${lostTo}.`}
+      detail={
+        clash ? (
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-foreground">
+            {`${keymap[clash.holder].label} uses ${formatKeys(clash.keys, false)}.`}
+            <Button
+              variant="outline"
+              size="xs"
+              aria-label={`Swap with ${keymap[clash.holder].label}`}
+              onClick={() => {
+                setClash(undefined)
+                void store.swap(command, clash.keys)
+              }}
+            >
+              Swap
+            </Button>
+            <Button variant="ghost" size="xs" onClick={() => setClash(undefined)}>
+              Cancel
+            </Button>
+          </span>
+        ) : (
+          lostTo && `Its keys went to ${lostTo}.`
+        )
+      }
       problem={store.failed[`key:${command}`]}
       marked={store.marked === `key:${command}`}
+      action={
+        changed && (
+          <RowAction
+            hint="Reset to default"
+            label={`Reset ${binding.label} to ${defaultKeys}`}
+            icon={<RotateCcw />}
+            onClick={() => void store.reset(command)}
+          />
+        )
+      }
     >
       <Button
         id={id}

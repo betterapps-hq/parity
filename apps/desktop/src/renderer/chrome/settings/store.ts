@@ -51,6 +51,16 @@ export interface SettingsData {
   keysOf: (command: string) => string
   /** Gives a command these keys (`""` removes them); one that had them gives them up. Rejects when not saved. */
   bind: (command: string, keys: string) => Promise<void>
+  /** The command that has these keys now, other than `command`, if one does. */
+  holderOf: (command: string, keys: string) => string | undefined
+  /** Gives a command these keys, and the command that had them its keys in their place. Rejects when not saved. */
+  swap: (command: string, keys: string) => Promise<void>
+  /** Gives a command the keymap's keys again. Rejects when not saved. */
+  reset: (command: string) => Promise<void>
+  /** Gives every command the keymap's keys again. Rejects when not saved. */
+  resetAll: () => Promise<void>
+  /** The commands whose keys differ from the keymap's. */
+  changedKeys: string[]
   /** A command whose keys another took, and that command's name. */
   lost: Record<string, string>
   skipped: Skipped[]

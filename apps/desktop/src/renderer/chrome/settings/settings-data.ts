@@ -2,7 +2,7 @@ import type { ExtensionSettingsChange } from "@parity-app/settings"
 import { Puzzle } from "lucide-react"
 import { useMemo } from "react"
 import type { SettingsExtension, SettingsProject, SettingsProjectChange } from "../../../shared/settings-view.ts"
-import { openKeybindings, setKeys, useKeybindings } from "../keybindings.ts"
+import { openKeybindings, resetAllKeys, resetKeys, setKeys, swapKeys, useKeybindings } from "../keybindings.ts"
 import { keymap, keysOf } from "../keymap.ts"
 import { setPreferences, useExtensionAppSettings, usePreferences } from "../preferences.ts"
 import { setTelemetryLevel, useTelemetry } from "../telemetry-setting.ts"
@@ -187,6 +187,18 @@ export function useSettingsData(
       isCommand(command)
         ? setKeys(command, keys).then(() => undefined)
         : Promise.reject(new TypeError(`No command ${command}`)),
+    holderOf: (command, keys) =>
+      Object.keys(keymap).find((other) => isCommand(other) && other !== command && keysOf(other).includes(keys)),
+    swap: (command, keys) =>
+      isCommand(command)
+        ? swapKeys(command, keys).then(() => undefined)
+        : Promise.reject(new TypeError(`No command ${command}`)),
+    reset: (command) =>
+      isCommand(command)
+        ? resetKeys(command).then(() => undefined)
+        : Promise.reject(new TypeError(`No command ${command}`)),
+    resetAll: resetAllKeys,
+    changedKeys: Object.keys(keybindings.changed),
     lost,
     skipped: keybindings.skipped,
     extensionShortcuts: shown.shortcuts ?? [],

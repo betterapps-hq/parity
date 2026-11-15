@@ -80,6 +80,33 @@ export function useFixtureSettings({
     savesItself,
     save: () => setSaved(own),
     keysOf,
+    holderOf: (command, keys) => Object.keys(keymap).find((other) => other !== command && keysOf(other) === keys),
+    swap(command, keys) {
+      const holder = Object.keys(keymap).find((other) => other !== command && keysOf(other) === keys)
+      const before = keysOf(command)
+
+      setBound((current) =>
+        holder ? { ...current, [command]: keys, [holder]: before } : { ...current, [command]: keys }
+      )
+      setLost(({ [command]: _, ...rest }) => rest)
+
+      return Promise.resolve()
+    },
+    reset(command) {
+      setBound(({ [command]: _, ...rest }) => rest)
+      setLost(({ [command]: _, ...rest }) => rest)
+
+      return Promise.resolve()
+    },
+    resetAll() {
+      setBound({})
+      setLost({})
+
+      return Promise.resolve()
+    },
+    changedKeys: Object.keys(bound).filter(
+      (command) => isCommand(command) && bound[command] !== keymap[command].keys[0]
+    ),
     bind(command, keys) {
       const holder = keys ? Object.keys(keymap).find((other) => other !== command && keysOf(other) === keys) : undefined
 

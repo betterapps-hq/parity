@@ -303,6 +303,42 @@ function isEntryFor(value: JsonValue, command: string): boolean {
   return someFields.safeParse(value).data?.command === command
 }
 
+/** The entries after these replacements, as the file would hold them. */
+function entriesAfter(entries: readonly KeyEntry[], replacements: readonly Replacement[]): KeyEntry[] {
+  return readKeybindings(applyReplacements(JSON.stringify(entries), replacements)).entries
+}
+
+/**
+ * What to write to give `command` these keys, and to give the command that had them `command`'s keys in their place,
+ * ahead of the rest of its own (PAR-1042). With no command holding them, it's `changeKeys`. Nothing is `lost`.
+ */
+export function swapKeys<C extends string>(
+  defaults: Defaults<C>,
+  entries: readonly KeyEntry[],
+  command: C,
+  keys: readonly string[]
+): KeysChange<C> {
+  const given = changeKeys(defaults, entries, command, keys)
+
+  if (given.lost === undefined) {
+    return given
+  }
+
+  const before = resolveBindings(defaults, entries).keys[command].filter((each) => !keys.includes(each))
+  const after = entriesAfter(entries, given.replacements)
+  const back = changeKeys(defaults, after, given.lost, [
+    ...before,
+    ...resolveBindings(defaults, after).keys[given.lost]
+  ])
+
+  return { replacements: [...given.replacements, ...back.replacements], lost: undefined }
+}
+
+/** What to write to give every command the keymap's keys again (PAR-1042). Entries Parity skipped stay as written. */
+export function resetAllKeys<C extends string>(defaults: Defaults<C>, entries: readonly KeyEntry[]): Replacement[] {
+  return Object.keys(resolveBindings(defaults, entries).changed).map((command) => ({ command, keys: null }))
+}
+
 /**
  * The file's new text with each replacement made: a command's entries give way to one in the first one's place, or at
  * the end, or are removed. Every other entry stays as it's written, skipped ones too. Throws for text that isn't a
