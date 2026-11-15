@@ -130,7 +130,7 @@ export function Row({
 }
 
 /** A row's action after its control, named by its tooltip. */
-function RowAction({
+export function RowAction({
   hint,
   label,
   icon,

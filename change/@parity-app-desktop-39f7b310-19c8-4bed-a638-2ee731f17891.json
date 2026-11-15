@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Vite runs as an extension through a builder provider",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

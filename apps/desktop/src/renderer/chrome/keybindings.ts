@@ -1,11 +1,15 @@
 import {
   changeKeys,
   type KeybindingsState,
+  type KeysChange,
+  type Replacement,
   readKeys,
   type Resolved,
+  resetAllKeys as resetAllReplacements,
   resolveBindings,
-  type Skipped
-} from "../../shared/keybindings.ts"
+  type Skipped,
+  swapKeys as swapReplacements
+} from "@parity-app/settings"
 import { useStore, windowStore } from "../store.ts"
 import { type Command, commandKeys, keymap } from "./keymap.ts"
 
@@ -81,11 +85,14 @@ export function useKeybindings(): Keybindings {
   return useStore(shown)
 }
 
-async function change(command: Command, keys: readonly string[] | undefined): Promise<KeysChanged> {
-  const { replacements, lost } = changeKeys(keymap, file.get().entries, command, keys)
+async function write({ replacements, lost }: KeysChange<Command>): Promise<KeysChanged> {
   receive(await window.canvasHost.keybindings.replace(replacements))
 
   return lost ? { lost } : {}
+}
+
+function change(command: Command, keys: readonly string[] | undefined): Promise<KeysChanged> {
+  return write(changeKeys(keymap, file.get().entries, command, keys))
 }
 
 /**
@@ -110,6 +117,29 @@ export function setKeys(command: Command, keys: string): Promise<KeysChanged> {
 /** Gives a command the keymap's keys again, taking them from any command that has them now. */
 export function resetKeys(command: Command): Promise<KeysChanged> {
   return change(command, undefined)
+}
+
+/**
+ * Gives a command these keys, and the command that had them this one's in their place (PAR-1042). Fails, changing
+ * nothing, for keys that don't read or a file main can't read or write.
+ */
+export function swapKeys(command: Command, keys: string): Promise<KeysChanged> {
+  const read = readKeys(keys)
+
+  if (read === undefined) {
+    return Promise.reject(new TypeError(`Parity can't read the keys "${keys}"`))
+  }
+
+  return write(swapReplacements(keymap, file.get().entries, command, [read]))
+}
+
+/** Gives every command the keymap's keys again (PAR-1042). Entries Parity skipped stay in the file. */
+export async function resetAllKeys(): Promise<void> {
+  const replacements: Replacement[] = resetAllReplacements(keymap, file.get().entries)
+
+  if (replacements.length > 0) {
+    await write({ replacements, lost: undefined })
+  }
 }
 
 /** Opens `keybindings.json` in the system's app for it, making it first when there's none. */

@@ -59,6 +59,13 @@ export function SettingsView({
   const wrote = () => setWroteAt((count) => (count ?? 0) + 1)
   const forget = (id: string) => setFailed(({ [id]: _, ...rest }) => rest)
 
+  /** A change to the shortcuts, whose failure shows under the row, or under Reset all as `keys`. */
+  const keysChange = (id: string, change: () => Promise<void>) => {
+    forget(id)
+
+    return change().then(wrote, () => setFailed((current) => ({ ...current, [id]: notSaved })))
+  }
+
   const store: Store = {
     ...data,
     marked,
@@ -70,13 +77,10 @@ export function SettingsView({
         setFailed((current) => ({ ...current, [setting.id]: notSaved }))
       )
     },
-    bind(command, keys) {
-      const id = `key:${command}`
-
-      forget(id)
-
-      return data.bind(command, keys).then(wrote, () => setFailed((current) => ({ ...current, [id]: notSaved })))
-    },
+    bind: (command, keys) => keysChange(`key:${command}`, () => data.bind(command, keys)),
+    swap: (command, keys) => keysChange(`key:${command}`, () => data.swap(command, keys)),
+    reset: (command) => keysChange(`key:${command}`, () => data.reset(command)),
+    resetAll: () => keysChange("keys", () => data.resetAll()),
     go(to, setting) {
       setQuery("")
       setPage(to)

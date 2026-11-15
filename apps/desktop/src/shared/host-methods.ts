@@ -2,6 +2,7 @@ import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type { UpdateState } from "@parity-app/processes"
 import {
   extensionSettingsChange,
+  type KeybindingsState,
   type Projects,
   projectsChange,
   type SavedTabs,
@@ -23,7 +24,6 @@ import {
   shownItem,
   telemetrySetting
 } from "./ipc-checks.ts"
-import type { KeybindingsState } from "./keybindings.ts"
 import type {
   BuildInfo,
   CliInstall,

@@ -2,6 +2,37 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 06:12:59 GMT",
+      "version": "0.69.0",
+      "tag": "@parity-app/cli_v0.69.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f4081c1d16202ea7bfc60cf8e318bb7ccdc27f18",
+            "comment": "Vite runs as an extension through a builder provider"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4fc92c6211b2fa8faad0eeddd6c235e305f096f2",
+            "comment": "Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "be0f7ffe61a5dc77f75e929f0ab8c5b4cba87485",
+            "comment": "Adds the project document (ProjectDoc) and its saver in @parity-app/multiplayer; the editor exports a few comparison helpers for it."
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 03:17:33 GMT",
       "version": "0.68.0",
       "tag": "@parity-app/cli_v0.68.0",

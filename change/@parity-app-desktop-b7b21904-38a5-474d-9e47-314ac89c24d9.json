@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "The editor exports a few comparison helpers for the project document; nothing the app does changes.",
+  "comment": "Extensions can place commands in a process's menu in the processes list; no built-in extension does yet.",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

@@ -8,10 +8,10 @@ import {
   type RegisteredProvider
 } from "@parity-app/extensions"
 import { addressRefusal, isLocalHost, opensAt } from "@parity-app/processes"
+import { listedId } from "../shared/process-ids.ts"
 import type { ProjectProcess } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { listedId } from "./process-ids.ts"
 import { onProcessesChanged, setAddresses, trackedProcesses } from "./processes.ts"
 
 /*

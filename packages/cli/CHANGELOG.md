@@ -1,8 +1,21 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 03:17:33 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 06:12:59 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.69.0
+
+Sun, 15 Nov 2026 06:12:59 GMT
+
+### Minor changes
+
+- Vite runs as an extension through a builder provider (ajcraswell@gmail.com)
+
+### Patches
+
+- Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled
+  (ajcraswell@gmail.com)
 
 ## 0.68.0
 

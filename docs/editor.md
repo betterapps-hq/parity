@@ -1108,10 +1108,11 @@ and runs its code in a host of its own ([extensions.md](extensions.md)). Storybo
 
 - **Commands** show where the manifest places them, beside what adapters offer: a component's row, menu and card in the
   Components panel (`componentCard`), the selection's heading in the layer panel and the Design tab
-  (`selectionHeading`), a row's menu in Layers (`layers`), the canvas's menu (`canvas`), and Search under Object
-  (`search`). A command greyed by its `enablement` says why, as Open in Storybook says "No story found". Running one
-  shows its progress in a toast with Cancel, and a failure in a toast titled "Open in Storybook didn't work", with
-  Restart when its extension has stopped.
+  (`selectionHeading`), a row's menu in Layers (`layers`), the canvas's menu (`canvas`), Search under Object (`search`),
+  and the More menu on a process's row in the processes list (`process`, PAR-1127; `ExtensionCommands` in
+  `chrome/Processes.stories.tsx`). A command greyed by its `enablement` says why, as Open in Storybook says "No story
+  found". Running one shows its progress in a toast with Cancel, and a failure in a toast titled "Open in Storybook
+  didn't work", with Restart when its extension has stopped.
 - **Status bar items** show their last value at once, then what the code sets, as "3 in Storybook", with the tooltip the
   code gives. Clicking one runs its command.
 - **Facts** on a component's card, as "1 story".
@@ -2493,9 +2494,11 @@ The keymap is the defaults. The person's changes are in `keybindings.json` in th
   order or case (`shift ctrl k` reads as `Ctrl Shift K`). Control on a Mac and chords aren't supported.
 - **An entry for a command that doesn't exist, or with keys that don't read, is skipped.** It isn't applied, stays in
   the file, and Settings lists it with its command and keys as written.
-- **Keys two commands have go to the one an entry gives them,** the later entry when two do. Changing a command's keys
-  in Settings takes them from the command that had them, which keeps its other keys, or gets `keys: []` when it had no
-  others, and Settings says where they went. Giving a command the keymap's keys again removes its entry.
+- **Keys two commands have go to the one an entry gives them,** the later entry when two do. Giving a command keys
+  another has, in Settings, asks first (PAR-1042): Swap gives that command this one's keys, ahead of the rest of its
+  own, and Cancel leaves both. Giving a command the keymap's keys again removes its entry.
+- **A changed shortcut can go back.** Its row in Settings has a reset to its default, and once any has changed, Reset
+  all shortcuts puts every one back after asking. Entries Parity skipped stay in the file.
 - **Every place that shows or matches keys follows the file:** the key handlers, menus, tooltips, Search actions and the
   Keyboard shortcuts dialog read `keysOf` as they draw or as a key is pressed. A command with no keys shows none.
 - **The application menu doesn't change.** macOS's Edit menu keeps Cmd X, C, V and A whatever the file says, since
@@ -2511,21 +2514,23 @@ The keymap is the defaults. The person's changes are in `keybindings.json` in th
   and Settings shows that your settings couldn't be saved until it is.
 
 Code: `readKeys`, `readKeybindings`, `resolveBindings`, `changeKeys` and `applyReplacements` in
-`apps/desktop/src/shared/keybindings.ts`, which take and return data; `keybindingsFile` in `main/keybindings.ts`, which
+`packages/settings/src/keybindings.ts`, which take and return data; `keybindingsFile` in `main/keybindings.ts`, which
 keeps the file on `sharedFile` in `main/shared-file.ts`; the `keybindingsState`, `keybindingsReplace` and
 `keybindingsOpen` methods in `shared/host-methods.ts`, and `ipc.keybindingsChanged`; and `chrome/keybindings.ts` in the
 window, which applies the file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`,
 `resetKeys` and `openKeybindings`.
 
-Tests: `shared/keybindings.test.ts` (20): keys read in the keymap's order and refused when they don't read; no file, a
-malformed entry and text that isn't a list; replaced, removed, skipped and clashing keys, and which command lost them;
-the replacements a change writes, taking keys and giving the keymap's back; and entries kept as written, in place.
-`main/keybindings.test.ts` (8), on a temp folder: nothing written until a change, the file read at start, changes made
-one at a time keeping skipped entries, two copies' changes at the same moment both kept, a change by another copy or by
-hand sent to the windows, a file that can't be read never written over and its keys kept, a change that can't be written
-applied and written once it can, and the file made to be opened. `chrome/keybindings.test.ts` (6): every key in the
-keymap reads as itself, and the window's keys, `shortcutOf` and `shortcutFor` following the file, a change, a removal, a
-reset and keys that don't read.
+Tests: `packages/settings/src/keybindings.test.ts` (29): keys read in the keymap's order and refused when they don't
+read; no file, a malformed entry and text that isn't a list; replaced, removed, skipped and clashing keys, and which
+command lost them; the replacements a change writes, taking keys and giving the keymap's back; a swap, with keys no
+command has and with none to give back, leaving other commands' keys where they were, even ones an earlier entry claims;
+every command reset, removing entries whose keys a later one takes and loosely written ones Parity applies, and keeping
+skipped ones, even the reset command's own; and entries kept as written, in place. `main/keybindings.test.ts` (8), on a
+temp folder: nothing written until a change, the file read at start, changes made one at a time keeping skipped entries,
+two copies' changes at the same moment both kept, a change by another copy or by hand sent to the windows, a file that
+can't be read never written over and its keys kept, a change that can't be written applied and written once it can, and
+the file made to be opened. `chrome/keybindings.test.ts` (6): every key in the keymap reads as itself, and the window's
+keys, `shortcutOf` and `shortcutFor` following the file, a change, a removal, a reset and keys that don't read.
 
 ### Whether a command applies, and what it's called (PAR-971)
 
@@ -7901,7 +7906,8 @@ a setting, and which; where it is before its description; and values listed as a
 letters and modifiers, a key named by its place, named keys, Shift left off plus and minus, nothing for a modifier
 alone, and keys the event matches. `chrome/settings/Settings.stories.tsx` draws every page and state with its data in
 the story, and checks the project's value beside the person's, saving the project, changing a setting for it, a save
-that fails, moving a shortcut's keys, an extension's project setting, search results and opening on a setting.
+that fails, rebinding and resetting a shortcut, swapping on a clash or cancelling, a reset or a new holder putting a
+clash away, resetting them all, an extension's project setting, search results and opening on a setting.
 `chrome/open-settings.test.ts` (2): opening asks main for its Settings view in the app, and opens the page's own where
 Storybook draws it. `chrome/SettingsDialog.stories.tsx` opens it over the example project, on General and on the
 project's page; `chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and

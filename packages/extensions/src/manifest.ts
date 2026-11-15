@@ -96,7 +96,16 @@ const menuItem = z.strictObject({
   disabledReason: z.string().optional()
 }) satisfies z.ZodType<MenuItem>
 
-const placements = ["layers", "canvas", "designTitle", "selectionHeading", "componentCard", "media", "search"] as const
+const placements = [
+  "layers",
+  "canvas",
+  "designTitle",
+  "selectionHeading",
+  "componentCard",
+  "media",
+  "process",
+  "search"
+] as const
 
 /** Whether a string is a menu placement. */
 function isPlacement(placement: string): placement is MenuPlacement {
