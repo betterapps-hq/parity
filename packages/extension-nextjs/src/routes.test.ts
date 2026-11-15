@@ -190,6 +190,22 @@ describe("readRoutes for the App Router", () => {
     ])
   })
 
+  it("leaves out a layout with no page under it, or only a parallel route's, moving what's inside it up", () => {
+    const routes = routesOf({
+      "app/layout.tsx": "",
+      "app/page.tsx": "",
+      "app/drafts/layout.tsx": "",
+      "app/inbox/layout.tsx": "",
+      "app/inbox/@preview/page.tsx": ""
+    })
+
+    expect(summary(routes, "parent", "slot")).toEqual([
+      { id: "app/layout", parent: undefined, slot: undefined },
+      { id: "app/page", parent: "app/layout", slot: undefined },
+      { id: "app/inbox/@preview/page", parent: "app/layout", slot: "preview" }
+    ])
+  })
+
   it("points an intercepting route at the page it shows in place of, by the URL it matches", () => {
     const routes = routesOf({
       "app/layout.tsx": "",

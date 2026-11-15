@@ -88,7 +88,7 @@ export function readRoutes(
   }
 
   if (!second) {
-    return resolveInterceptions([first.root, ...first.routes])
+    return withoutEmptyLayouts(resolveInterceptions([first.root, ...first.routes]))
   }
 
   // Both: the App Router's root holds the Pages Router's routes, inside `_app` when the project has one.
@@ -102,7 +102,7 @@ export function readRoutes(
 
   const held = second.routes.map((route) => (route.parent === second.root.id ? { ...route, parent } : route))
 
-  return resolveInterceptions([root, ...first.routes, ...(holder ? [holder] : []), ...held])
+  return withoutEmptyLayouts(resolveInterceptions([root, ...first.routes, ...(holder ? [holder] : []), ...held]))
 }
 
 /** One router's routes below its root, and its root: the project's own file, or one named by its folder. */
@@ -456,6 +456,40 @@ function nextPath(segments: readonly RouteSegment[]): string {
 /** Whether two routes match the same URLs. */
 function sameSegments(a: readonly RouteSegment[], b: readonly RouteSegment[]): boolean {
   return a.length === b.length && a.every((segment, index) => nextPath([segment]) === nextPath([b[index]!]))
+}
+
+/**
+ * The routes without layouts and groups that hold no page the canvas draws, as a layout with no page under it or only a
+ * parallel route's: drawn, it would be a screen at a URL with no page. What's inside one moves to the route around it.
+ */
+function withoutEmptyLayouts(routes: Route[]): Route[] {
+  const children = Map.groupBy(routes, (route) => route.parent ?? "")
+
+  const drawsPage = (route: Route): boolean =>
+    route.slot === undefined &&
+    route.intercepts === undefined &&
+    (route.kind === "page" || (children.get(route.id) ?? []).some(drawsPage))
+
+  const dropped = new Map(
+    routes.flatMap((route) =>
+      (route.kind === "layout" || route.kind === "group") && !drawsPage(route)
+        ? [[route.id, route.parent] as const]
+        : []
+    )
+  )
+
+  const kept = (parent: string | undefined): string | undefined =>
+    parent !== undefined && dropped.has(parent) ? kept(dropped.get(parent)) : parent
+
+  return routes.flatMap((route) => {
+    if (dropped.has(route.id)) {
+      return []
+    }
+
+    return route.parent !== undefined && dropped.has(route.parent)
+      ? [{ ...route, parent: kept(route.parent) }]
+      : [route]
+  })
 }
 
 /**

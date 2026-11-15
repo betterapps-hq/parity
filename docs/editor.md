@@ -1201,7 +1201,8 @@ Routes in Layers, and drawn on canvas once a builder serves the app. It's found 
 - **The App Router:** a folder is a segment, `[id]` a param, `[...slug]` a catch-all and `[[...slug]]` an optional one.
   A folder's `layout` is a layout, or a group for a `(group)` folder, and its `page` a page inside the nearest layout,
   the layout's index when it's at the layout's own URL. `loading`, `error` and `not-found` are the state files of their
-  folder's layout, else its page. Private `_folders` and route handlers aren't routes.
+  folder's layout, else its page. Private `_folders` and route handlers aren't routes, and a layout with no page under
+  it, or only a parallel route's, is left out so it draws no screen.
 - **Parallel and intercepting routes** are read, each with the `slot` it fills or the route it `intercepts`, found by
   the URL it matches, and left off the canvas and the route count until the canvas draws them.
 - **The Pages Router:** each file is a page under `_app`, its path its own without `index`. `404`, `500` and `_error`
