@@ -18,8 +18,10 @@ const readers = ["code", "project", "registry"]
 const edge = [
   "adapters",
   "agent",
+  "builder-webpack-compatible",
   "cli",
   "extension-react",
+  "extension-rspack",
   "extension-storybook",
   "extension-storybook-a11y",
   "extension-tailwind",

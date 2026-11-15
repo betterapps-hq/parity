@@ -1,0 +1,101 @@
+{
+  "opens": true,
+  "renderer": "react",
+  "builder": {
+    "id": "rspack",
+    "found": true,
+    "version": "2.3.2",
+    "config": "rspack.config.mjs",
+    "summary": "Rspack 2.3.2, config rspack.config.mjs"
+  },
+  "packageManager": {
+    "id": "npm",
+    "name": "npm",
+    "agent": "npm",
+    "from": "package-lock.json",
+    "lockfile": "package-lock.json",
+    "summary": "npm from package-lock.json"
+  },
+  "tools": [
+    {
+      "id": "react",
+      "name": "React",
+      "version": "19.3.1",
+      "from": "node_modules/react",
+      "status": "supported",
+      "summary": "React 19.3.1 from node_modules/react"
+    },
+    {
+      "id": "rspack",
+      "name": "Rspack",
+      "version": "2.3.2",
+      "from": "node_modules/@rspack/core",
+      "config": "rspack.config.mjs",
+      "status": "supported",
+      "summary": "Rspack 2.3.2 from node_modules/@rspack/core, config rspack.config.mjs"
+    }
+  ],
+  "styles": {
+    "stylesheets": [
+      "src/index.css"
+    ],
+    "missing": []
+  },
+  "tokens": {
+    "count": 5,
+    "categories": {
+      "color": 4,
+      "radius": 1
+    },
+    "semantic": {
+      "color-background": {
+        "default": "#ffffff"
+      },
+      "color-foreground": {
+        "default": "#1c1c1e"
+      },
+      "color-primary": {
+        "default": "#0f766e"
+      },
+      "color-primary-foreground": {
+        "default": "#ffffff"
+      },
+      "radius": {
+        "default": "6px"
+      }
+    }
+  },
+  "themes": [
+    "default"
+  ],
+  "breakpoints": {},
+  "components": {
+    "App": {
+      "path": "src/App.tsx",
+      "export": "App",
+      "as": "function",
+      "lazy": true
+    },
+    "Button": {
+      "path": "src/components/Button.tsx",
+      "export": "Button",
+      "as": "function",
+      "lazy": true
+    },
+    "Card": {
+      "path": "src/components/Card.tsx",
+      "export": "Card",
+      "as": "function",
+      "lazy": true
+    }
+  },
+  "libraries": [],
+  "icons": [],
+  "storybook": null,
+  "notes": [
+    "styles the builder found: src/index.css",
+    "3 components in 4 files from the project's files",
+    "not read, since they mount the app: src/main.tsx",
+    "no .par project file yet"
+  ]
+}

@@ -11,6 +11,7 @@
   "dependencies": {
     "@parity-app/core": "workspace:*",
     "@parity-app/extension-react": "workspace:*",
+    "@parity-app/extension-rspack": "workspace:*",
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-tailwind": "workspace:*",
     "@parity-app/extension-tanstack-router": "workspace:*",

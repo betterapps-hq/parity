@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Build and draw components for Rspack projects, through a builder shared with other webpack-compatible tools",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

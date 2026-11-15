@@ -54,6 +54,10 @@ export {
 
 export { type Detection, type PackageManagerDetection, type ProjectDetection } from "./detection.ts"
 
+export { chooseAppStyles, type Imported, type Walked } from "./app-styles.ts"
+
+export { type GuestModule, guestModule, type GuestModuleOptions } from "./guest-module.ts"
+
 export { gatherChanges, isStylesheetFile, type StampedChange, stylesheetExtensions } from "./code-changes.ts"
 
 export { commandOption, scriptRunning } from "./scripts.ts"

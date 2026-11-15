@@ -16,6 +16,7 @@ import {
 } from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import rspackPackage from "@parity-app/extension-rspack/package.json" with { type: "json" }
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
@@ -101,9 +102,10 @@ export const builtInRenderers: RendererDescription[] = [extensionRenderer(reactP
 )
 
 /** The builders Parity's own extensions describe, which say whether they serve a project through their hosts. */
-export const builtInBuilders: BuilderDescription[] = [extensionBuilder(vitePackage)].filter(
-  (builder) => builder !== undefined
-)
+export const builtInBuilders: BuilderDescription[] = [
+  extensionBuilder(vitePackage),
+  extensionBuilder(rspackPackage)
+].filter((builder) => builder !== undefined)
 
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
 export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybookPackage, detectStorybook)].filter(
@@ -114,6 +116,7 @@ export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybo
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   // In the order the status bar shows their items: the builder, then the renderer, then the rest.
   byPeers(builtIn(vitePackage, "vite", () => undefined)),
+  byPeers(builtIn(rspackPackage, "rspack", () => undefined)),
   byPeers(builtIn(reactPackage, "react", () => undefined)),
   byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),

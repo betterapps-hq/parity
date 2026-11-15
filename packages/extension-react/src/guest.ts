@@ -781,7 +781,9 @@ export function createGuest(init: GuestInit): Guest {
     addComponents(sources) {
       // The dev server builds any of the project's files when it's asked for one, as it does for the app.
       const load = (address: string, name: string) => () =>
-        import(/* @vite-ignore */ new URL(address, projectOrigin).href).then((module) => exportOf(module, name))
+        import(/* @vite-ignore */ /* webpackIgnore: true */ new URL(address, projectOrigin).href).then((module) =>
+          exportOf(module, name)
+        )
 
       forget(registry.add(sources, load))
     },

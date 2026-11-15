@@ -1267,6 +1267,39 @@ Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects fin
 provider. Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its config found through the provider,
 the guest served, the Pricing page drawn, and Vite first in the status bar.
 
+### Rspack as an extension, through its builder provider (PAR-1147)
+
+A project built with Rspack draws its components with the project's own `@rspack/core` and `rspack.config.*`, as a Vite
+project does with Vite, and "Rspack" leads the status bar. Webpack-shaped builders share the code that builds and serves
+the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild builders build on it too.
+
+- **Its builder provider says whether Rspack builds the project,** asked of the project's own Rspack, with its version
+  and config file: the one the dev script names with `-c`, else `rspack.config.*`. A config that exports a function is
+  called as Rspack's CLI calls it for `serve`. A project with an Rsbuild config is left to Rsbuild.
+- **The guest is the project's config, building the guest in place of the app.** Its entry is the guest module every
+  builder writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's
+  written as classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's
+  rules, loaders, aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with
+  the renderer's stand-in for its development JSX runtime.
+- **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
+  takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
+  imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
+  first. A stylesheet change gives the canvas a guest made with the new CSS.
+- **The global stylesheets** are the ones the shallowest of the app's own modules import, walking the build's module
+  graph from the config's entries, the choice Vite's builder makes too (`chooseAppStyles`).
+- **Its element sources, code changes and loaded files** come from the same graph and a loader that tags the project's
+  JSX, as Vite's plugin does.
+
+Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`); `packages/builder-webpack-compatible`
+(`session.ts`, `guest-config.ts`, `guest-entry.ts`, `browser-modules.ts`, `graph.ts`, `app-styles.ts` and `server.ts`);
+`guestModule` and `chooseAppStyles` in `packages/project`.
+
+Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
+`extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
+graph walks and the server's paths); the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy
+of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
+properties, and a component's code and a token edited together, both drawn afresh.
+
 ### Storybook's stories through its entities provider (PAR-1095)
 
 Storybook's stories are read and written back by its extension, through Parity's public API alone, rather than by an
