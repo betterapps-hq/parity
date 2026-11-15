@@ -124,7 +124,8 @@ function takeSlot(locks: string, pid: number, alive: (pid: number) => boolean): 
 /**
  * Takes `file` for `pid` unless a running copy holds it, safely when copies try at once, even both past the claim: a free
  * lock is made only if it doesn't exist, which one copy alone can do, and a lock a gone copy left is taken over only by
- * the copy that first makes a marker naming that copy.
+ * the copy that takes a marker naming that copy. The marker is a lock too, so one a copy left as it crashed is taken over
+ * in turn, the same way.
  */
 function take(file: string, pid: number, alive: (pid: number) => boolean): boolean {
   const held = holder(file)
@@ -140,7 +141,7 @@ function take(file: string, pid: number, alive: (pid: number) => boolean): boole
 
   const marker = `${file}.from-${held ?? "unreadable"}`
 
-  if (!made(marker, "")) {
+  if (!take(marker, pid, alive)) {
     return false
   }
 
@@ -154,7 +155,9 @@ function take(file: string, pid: number, alive: (pid: number) => boolean): boole
 
     return true
   } finally {
-    rmSync(marker, { force: true })
+    if (holder(marker) === pid) {
+      rmSync(marker, { force: true })
+    }
   }
 }
 

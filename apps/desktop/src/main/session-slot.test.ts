@@ -1,5 +1,5 @@
 import type * as Fs from "node:fs"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -125,9 +125,18 @@ describe("a copy's session folder", () => {
 
   it("passes a crashed copy's folder while another copy is taking it over (PAR-1116)", () => {
     const data = dataFolder({ 1: 5 })
-    writeFileSync(join(data, "session-locks", "copy-1.lock.from-5"), "")
+    writeFileSync(join(data, "session-locks", "copy-1.lock.from-5"), JSON.stringify({ pid: 30 }))
 
-    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly() }).partition).toBe("persist:copy-2")
+    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly(30) }).partition).toBe("persist:copy-2")
+  })
+
+  it("takes over a crashed copy's folder that another copy crashed while taking over (PAR-1116)", () => {
+    const data = dataFolder({ 1: 5 })
+    const marker = join(data, "session-locks", "copy-1.lock.from-5")
+    writeFileSync(marker, JSON.stringify({ pid: 30 }))
+
+    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly() }).partition).toBe("persist:copy-1")
+    expect(existsSync(marker)).toBe(false)
   })
 
   it("is the last, shared, once every folder is taken", () => {
