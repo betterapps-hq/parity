@@ -1313,9 +1313,10 @@ webpack-compatible builder's loader do, so a Next.js project's layers lead back 
   guest app's `element-sources-loader.cjs` posts each module to the builder's `/__parity/element-sources`, which tags it
   with `tagElementSources` and answers with the code and its source map, or 204 when there's nothing to tag: a package's
   module, a file outside the project, Next's `.next/` (the guest app's own files), or a module that isn't JSX.
-- **First on JSX.** The guest app's `element-sources.mjs` puts the loader first in Turbopack's `*.tsx` and `*.jsx`
-  rules, ahead of a loader of the project's own for them, and as a `pre` rule in webpack's, after the project's own
-  `webpack` hook, so both bundlers tag before they compile.
+- **First on JSX.** The guest app's `element-sources.mjs` puts the loader last in Turbopack's `*.tsx` and `*.jsx` rules,
+  under each condition of a rule that has several, so it runs before a loader of the project's own (loaders run last to
+  first), and as a `pre` rule in webpack's, after the project's own `webpack` hook, so both bundlers tag before they
+  compile.
 
 Code: `packages/next-builders/src/element-sources.ts`, the route in `guest-server.ts`, and the config in `guest-app.ts`.
 Tests: `element-sources.test.ts`. Checked by hand against Next 16.4 on Turbopack and webpack: an App Router page, a

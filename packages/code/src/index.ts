@@ -22,6 +22,8 @@ export {
 
 export { hasElementSources, type SourceMap, tagElementSources } from "./element-sources.ts"
 
+export { type ModuleExports, readModuleExports } from "./module-exports.ts"
+
 export { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 
 export {
