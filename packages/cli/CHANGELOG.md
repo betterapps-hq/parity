@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 14:18:00 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 14:54:39 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.71.1
+
+Sun, 15 Nov 2026 14:54:39 GMT
+
+### Patches
+
+- Draw components of apps whose Vite plugin wraps modules for Fast Refresh, as React Router's does
+  (ajcraswell@gmail.com)
 
 ## 0.71.0
 

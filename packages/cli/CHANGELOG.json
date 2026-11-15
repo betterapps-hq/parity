@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 14:54:39 GMT",
+      "version": "0.71.1",
+      "tag": "@parity-app/cli_v0.71.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1a599a56c97771e3c259901b12aac44ff2e0f39c",
+            "comment": "Draw components of apps whose Vite plugin wraps modules for Fast Refresh, as React Router's does"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 14:18:00 GMT",
       "version": "0.71.0",
       "tag": "@parity-app/cli_v0.71.0",

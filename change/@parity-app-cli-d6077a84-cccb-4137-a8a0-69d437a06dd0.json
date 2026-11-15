@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw components of apps whose Vite plugin wraps modules for Fast Refresh, as React Router's does",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
