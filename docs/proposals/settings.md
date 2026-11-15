@@ -249,12 +249,13 @@ Each step ships alone.
    copy is still starred after both close, and a crashed copy's tabs reopen.
 4. **A session folder for each copy**, after the checks above. _Done when_ a second copy's startup has no wait on
    `sessionStorage` (about 3 s before), and the account still decrypts with two copies running.
-5. **`keybindings.json`**, read by the keymap. _Done when_ a key changed in the file works in every copy and the menus
-   show it.
+5. **`keybindings.json`** (PAR-1122), read by the keymap. _Done when_ a key changed in the file works in every copy and
+   the menus show it.
 6. **Telemetry and updates folded in** (PAR-1117), with the CLI reading the new files. _Done when_ Settings' diagnostics
    level and Get beta updates are in `settings.json`, and the CLI reports the same level as the app.
-7. **The Settings view**, owned by main and loading no project code, with main refusing extension settings and
-   permission grants from the editor window. Its design is the Settings modal being prototyped in Storybook.
+7. **The Settings view** (PAR-1085, PAR-1090, PAR-1123), owned by main and loading no project code, with main refusing
+   extension settings and permission grants from the editor window. Its design is the Settings modal being prototyped in
+   Storybook.
 8. **Extension settings in `app` scope**, in the Settings view, once extensions load from their manifests.
 
 ## Calls to make

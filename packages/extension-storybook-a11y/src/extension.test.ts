@@ -96,8 +96,18 @@ function setUp() {
       },
       watch: () => () => undefined,
       reattached: () => undefined,
-      stopAll: () => undefined,
-      routed: () => Promise.resolve([])
+      stopAll: () => undefined
+    },
+    providers: {
+      register: () => undefined,
+      changed: () => undefined,
+      dispose: () => undefined,
+      disposeAll: () => undefined
+    },
+    files: {
+      place: { home: "/home", variables: {}, platform: "linux" },
+      read: () => Promise.reject(new Error("Not in this test")),
+      watch: () => () => undefined
     },
     edits: { transact: () => Promise.resolve(), files: () => Promise.resolve([]) }
   })

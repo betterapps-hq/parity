@@ -73,7 +73,7 @@ function opensAt(process: ProjectProcess): string | undefined {
   return process.opens ?? process.endpoint?.url
 }
 
-/** Its name, as Portless gives one, when the browser opens it there rather than at its endpoint. */
+/** Its name, as an address provider such as Portless gives one, when it has one on this machine. */
 function domainOf(process: ProjectProcess): string | undefined {
   const named = process.addresses.find((address) => !address.public)
 

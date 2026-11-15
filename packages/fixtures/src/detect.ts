@@ -12,6 +12,7 @@ import {
   type ThemeVariable
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
+import { handles, readTheme } from "@parity-app/extension-tailwind"
 import {
   type Detection,
   detectAdapters,
@@ -24,7 +25,7 @@ import {
 import { extractTokens } from "@parity-app/tokens"
 
 // The adapters the desktop app opens projects with.
-const { renderers, builders, styles: stylesAdapters } = adapters
+const { renderers, builders } = adapters
 
 /**
  * The version cutoff depends on the date, so snapshots are taken as of a fixed one and don't change by themselves. Move
@@ -84,11 +85,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   const rendererFound = (await detectAdapters(project, renderers)).find(({ detection }) => detection.found)
   const renderer = rendererFound?.adapter
 
-  const others = (
-    await Promise.all([detectAdapters(project, adapters.styles), detectAdapters(project, adapters.entities)])
-  )
-    .flat()
-    .filter(({ detection }) => detection.found)
+  const others = (await detectAdapters(project, adapters.entities)).filter(({ detection }) => detection.found)
 
   if (!renderer) {
     problems.push(`No renderer supports ${pkg.name ?? root}`)
@@ -114,18 +111,22 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
 
   const builderAdapter = builders.find((adapter) => adapter.id === builder?.id)
 
+  const tools = extensionTools.flatMap((tool) => {
+    const found = detectPeers(pkg, tool.versions)
+
+    return found.found ? [{ adapter: tool, detection: found }] : []
+  })
+
   const detection = await detectProject(
     root,
     pkg,
     [
       ...(rendererFound ? [rendererFound] : []),
       ...(builder && builderAdapter ? [{ adapter: builderAdapter, detection: builder }] : []),
+      // In the order detection has always listed them: the styling framework, then the entities, then the rest.
+      ...tools.filter(({ adapter }) => adapter.styles),
       ...others,
-      ...extensionTools.flatMap((tool) => {
-        const found = detectPeers(pkg, tool.versions)
-
-        return found.found ? [{ adapter: tool, detection: found }] : []
-      })
+      ...tools.filter(({ adapter }) => !adapter.styles)
     ],
     checkedOn
   )
@@ -149,19 +150,18 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   let theme: ThemeVariable[] = []
 
   for (const [index, stylesheet] of stylesheets.entries()) {
-    const adapter = stylesAdapters.find((candidate) => candidate.handles(sources[index] ?? ""))
-
-    if (!adapter) {
+    // Tailwind reads the theme, as its extension's styles provider does in the app.
+    if (!handles(sources[index] ?? "")) {
       continue
     }
 
-    styles.adapter = adapter.id
+    styles.adapter = "tailwind"
 
     // As the app does: an untested version is tried like any other, and a failure says it's untested.
     try {
-      theme = await adapter.loadTheme(root, stylesheet)
+      theme = await readTheme(root, stylesheet)
     } catch (error) {
-      const tool = detection.tools.find((candidate) => candidate.id === adapter.id)
+      const tool = detection.tools.find((candidate) => candidate.id === "tailwind")
       styles.error = `${message(error)}${tool?.status === "dropped" ? ` (${tool.summary})` : ""}`
     }
 

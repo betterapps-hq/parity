@@ -3,7 +3,13 @@ import type { ExtensionModule, FormView, View, ViewItem } from "@parity-app/exte
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
-import { type ExtensionProcesses, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
+import {
+  type ExtensionProcesses,
+  type ExtensionProviders,
+  type ExtensionStatus,
+  extensionHosts,
+  type OpenedProject
+} from "./hosts.ts"
 import { readExtension } from "./manifest.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
@@ -76,8 +82,18 @@ function setUp(module: ExtensionModule) {
       snapshot: () => ({ list: [], output: {}, ready: {} }),
       watch: () => () => undefined,
       reattached: vi.fn<ExtensionProcesses["reattached"]>(),
-      stopAll: vi.fn<ExtensionProcesses["stopAll"]>(),
-      routed: () => Promise.resolve([])
+      stopAll: vi.fn<ExtensionProcesses["stopAll"]>()
+    },
+    providers: {
+      register: vi.fn<ExtensionProviders["register"]>(),
+      changed: vi.fn<ExtensionProviders["changed"]>(),
+      dispose: vi.fn<ExtensionProviders["dispose"]>(),
+      disposeAll: vi.fn<ExtensionProviders["disposeAll"]>()
+    },
+    files: {
+      place: { home: "/home/ada", variables: {}, platform: "linux" },
+      read: () => Promise.reject(new Error("Not in this test")),
+      watch: () => () => undefined
     }
   })
 

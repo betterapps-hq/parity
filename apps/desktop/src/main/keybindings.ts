@@ -1,88 +1,108 @@
-import { readFileSync } from "node:fs"
-import { z } from "zod"
-import { applyReplacements, type KeybindingsState, type Replacement, readKeybindings } from "../shared/keybindings.ts"
-import { writeWhole } from "./json-file.ts"
+import { mkdirSync, writeFileSync } from "node:fs"
+import { dirname } from "node:path"
+import {
+  applyReplacements,
+  type KeybindingsState,
+  type KeyEntry,
+  type Replacement,
+  readKeybindings
+} from "../shared/keybindings.ts"
+import type { LockOptions } from "./file-lock.ts"
+import { type FileFormat, sharedFile, type SharedFileState } from "./shared-file.ts"
 
-/** Main's copy of `keybindings.json` (PAR-1085), which it reads at start and changes for the windows. */
+/**
+ * Main's copy of `keybindings.json` (PAR-1085), which every copy of Parity shares (`docs/proposals/settings.md`): read
+ * before the window opens, watched for changes made by hand or in another copy, and changed for the windows.
+ */
 export interface KeybindingsFile {
-  /** What the file held when last read or written. */
+  /** What windows are shown now, from memory: the file as last read, with changes not yet saved on top. */
   state(): KeybindingsState
   /**
-   * Makes the replacements in the file as it is now, one change at a time, and tells `changed`. Fails, writing nothing,
-   * when the file can't be read, or when it can't be written.
+   * Makes the replacements in the file as it is now, under its lock. Fails, changing nothing, while the file can't be
+   * read. A change that can't be written yet applies for this run and is tried again.
    */
   replace(replacements: readonly Replacement[]): Promise<KeybindingsState>
   /** Makes the file, as an empty list, when there's none, so it can be opened. Gives its path. */
-  ensure(): Promise<string>
+  ensure(): string
+  /** Reads the file again, as when a window gains focus, in case a change was missed. */
+  check(): void
+  /** Stops watching and trying again. */
+  close(): void
+}
+
+export interface KeybindingsFileOptions {
+  /** Hears each state the file moves to, to send the windows. */
+  changed: (state: KeybindingsState) => void
+  /** Hears each problem once, for the log. */
+  problem?: (message: string) => void
+  settleMs?: number
+  retryMs?: number
+  retryMaxMs?: number
+  lock?: LockOptions
+}
+
+const keybindingsFormat: FileFormat<KeyEntry[], readonly Replacement[]> = {
+  read(text) {
+    const { entries, problem } = readKeybindings(text)
+
+    return problem === undefined ? { values: entries } : { values: entries, problem }
+  },
+  write: applyReplacements,
+  apply: (entries, replacements) => readKeybindings(applyReplacements(JSON.stringify(entries), replacements)).entries
+}
+
+/** The state windows are shown, from the shared file's. */
+function keybindingsState({ values, problem, unsaved }: SharedFileState<KeyEntry[]>): KeybindingsState {
+  const state: KeybindingsState = { entries: values }
+
+  if (problem !== undefined) {
+    state.problem = problem
+  }
+
+  if (unsaved) {
+    state.unsaved = true
+  }
+
+  return state
 }
 
 /**
- * What the file holds now, read synchronously: it's a few lines, read at start before the window opens and again for
- * each change. No file is no changes; one that can't be read, or isn't a list, has a problem.
+ * Reads `file` now, so the first window has the person's keys, then keeps it. A file that can't be read keeps the keys
+ * it last had, the keymap's at start, and is never written over.
  */
-function readNow(file: string): KeybindingsState & { text?: string } {
-  try {
-    const text = readFileSync(file, "utf8")
+export function keybindingsFile(file: string, options: KeybindingsFileOptions): KeybindingsFile {
+  const { changed, ...rest } = options
 
-    return { ...readKeybindings(text), text }
-  } catch (error) {
-    if (z.object({ code: z.literal("ENOENT") }).safeParse(error).success) {
-      return readKeybindings(undefined)
-    }
-
-    return { entries: [], problem: `keybindings.json couldn't be read: ${String(error)}` }
-  }
-}
-
-/**
- * Reads `file` now, so the first window has the person's keys, then keeps it. `changed` hears each state the file
- * moves to, to send the windows. A file that can't be read gives the keymap's keys and is never written over.
- */
-export function keybindingsFile(file: string, changed: (state: KeybindingsState) => void): KeybindingsFile {
-  let state: KeybindingsState = withoutText(readNow(file))
-  let queue: Promise<unknown> = Promise.resolve()
-
-  const update = (next: KeybindingsState) => {
-    state = next
-    changed(next)
-
-    return next
-  }
-
-  const replace = async (replacements: readonly Replacement[]) => {
-    const now = readNow(file)
-
-    if (now.problem !== undefined) {
-      update(withoutText(now))
-      throw new Error(`${now.problem} Parity didn't change it.`)
-    }
-
-    const text = applyReplacements(now.text, replacements)
-    await writeWhole(file, text)
-
-    return update(readKeybindings(text))
-  }
+  const shared = sharedFile(file, keybindingsFormat, {
+    ...rest,
+    changed: (state) => changed(keybindingsState(state))
+  })
 
   return {
-    state: () => state,
-    replace(replacements) {
-      const done = queue.then(() => replace(replacements))
-      queue = done.catch(() => undefined)
+    state: () => keybindingsState(shared.state()),
+    async replace(replacements) {
+      // A file fixed by hand since it was last read takes the change.
+      shared.check()
+      const { problem } = shared.state()
 
-      return done
+      if (problem !== undefined) {
+        throw new Error(`${problem} Parity didn't change it.`)
+      }
+
+      return keybindingsState(await shared.change(replacements))
     },
-    async ensure() {
-      const now = readNow(file)
-
-      if (now.problem === undefined && now.text === undefined) {
-        await writeWhole(file, "[]\n")
+    ensure() {
+      try {
+        mkdirSync(dirname(file), { recursive: true })
+        // Only if there's none, so a file another copy makes at the same moment isn't written over.
+        writeFileSync(file, "[]\n", { flag: "wx" })
+      } catch {
+        // There's one already, or it can't be made, which opening it then says.
       }
 
       return file
-    }
+    },
+    check: () => shared.check(),
+    close: () => shared.close()
   }
-}
-
-function withoutText({ entries, problem }: KeybindingsState): KeybindingsState {
-  return problem === undefined ? { entries } : { entries, problem }
 }

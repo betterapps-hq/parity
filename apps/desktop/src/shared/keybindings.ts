@@ -16,8 +16,10 @@ export interface KeyEntry {
 /** What main holds of the file and sends every window. */
 export interface KeybindingsState {
   entries: KeyEntry[]
-  /** Why the file couldn't be read, when it couldn't. Its entries are then none, and main won't write over it. */
+  /** Why the file couldn't be read, when it couldn't. Its entries are then the last that read, and main won't write over it. */
   problem?: string
+  /** A change main couldn't write yet, which applies for this run and is tried again. */
+  unsaved?: true
 }
 
 /** An entry that wasn't applied, for Settings to list: the command and keys as the file writes them. */

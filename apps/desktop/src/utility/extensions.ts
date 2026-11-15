@@ -1,13 +1,19 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, type Stats, unwatchFile, watchFile } from "node:fs"
+import { readFile } from "node:fs/promises"
+import { homedir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { detectPeers, type PackageManifest } from "@parity-app/core"
+import { detectPeers, extensionRenderer, type PackageManifest, type RendererDescription } from "@parity-app/core"
+import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
+import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
+  type ExtensionFiles,
   type ExtensionHosts,
   type ExtensionWindow,
   extensionHosts,
@@ -20,7 +26,8 @@ import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
 import { extensionProcesses } from "./extension-processes.ts"
 import { extensionStateStore } from "./extension-state.ts"
-import type { OpenProject, ProvidedRoutes } from "./projects.ts"
+import { processProviders } from "./process-providers.ts"
+import type { OpenProject, ProjectProviders } from "./projects.ts"
 
 /*
  * The extensions Parity runs, each in a host of its own for each open project (see `@parity-app/extensions`). Each host
@@ -64,8 +71,15 @@ function byPeers(found: InstalledExtension<ExtensionProject>): InstalledExtensio
   return { ...found, detect: ({ pkg }) => (versions && detectPeers(pkg, versions).found ? {} : undefined) }
 }
 
+/** The renderers Parity's own extensions describe, which read components through their hosts (PAR-1095). */
+export const builtInRenderers: RendererDescription[] = [extensionRenderer(reactPackage)].filter(
+  (renderer) => renderer !== undefined
+)
+
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
+  byPeers(builtIn(reactPackage, "react", () => undefined)),
+  byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
   builtIn(storybookPackage, "storybook", ({ open }) => {
     const found = open?.info.storybook
@@ -78,7 +92,13 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
   builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
     open?.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
-  )
+  ),
+  // Portless names local servers. Without its folder there's nothing to read, so it doesn't start.
+  builtIn(portlessPackage, "portless", () => {
+    const folder = environment().PORTLESS_STATE_DIR ?? join(homedir(), ".portless")
+
+    return existsSync(folder) ? { detected: { folder } } : undefined
+  })
 ]
 
 /** A project's package.json, as JSON parsed it, or nothing when it can't be read. */
@@ -90,6 +110,29 @@ function readPackageJson(root: string): unknown {
     return undefined
   }
 }
+
+/**
+ * Reading and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
+ * file's details each second, which works for a file that isn't there yet, as Portless's routes before it runs.
+ */
+const extensionFiles: ExtensionFiles = {
+  place: { home: homedir(), variables: process.env, platform: process.platform },
+  read: (path) => readFile(path, "utf8"),
+  watch(path, listener) {
+    const changed = (now: Stats, before: Stats) => {
+      if (now.mtimeMs !== before.mtimeMs || now.size !== before.size || now.ino !== before.ino) {
+        listener()
+      }
+    }
+
+    watchFile(path, { interval: 1000, persistent: false }, changed)
+
+    return () => unwatchFile(path, changed)
+  }
+}
+
+/** The providers extensions register for the open projects' processes. */
+const providers = processProviders()
 
 /**
  * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes
@@ -106,25 +149,34 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
     },
     state: extensionStateStore(environment().PARITY_EXTENSION_STATE_FILE),
     window,
-    processes: extensionProcesses((projectId) => projects.get(projectId))
+    processes: extensionProcesses((projectId) => projects.get(projectId), providers),
+    providers,
+    files: extensionFiles
   })
 }
 
 /**
- * The app's routes, from the router an extension of the project's provides: its host starts as soon as the project's
- * package is read, so it reads them while the builder starts. Nothing when none provides one.
+ * What the project's extensions provide, as the project service asks while a project opens: the extensions found by
+ * their peer dependencies start as soon as its package is read, so a router reads the routes and a styling framework
+ * the theme while the builder starts. Nothing when no extension of the project's provides what's asked.
  */
-export async function providedRoutes(
-  hosts: ExtensionHosts<ExtensionProject>,
-  project: { root: string; name: string; pkg: PackageManifest }
-): Promise<ProvidedRoutes | undefined> {
-  const id = project.root
-  projects.set(id, { root: project.root, name: project.name })
-  hosts.open({ id, ...project })
-  const routes = await hosts.provide(id, "router", "routes")
-  const router = hosts.provider(id, "router")
+export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): ProjectProviders {
+  /** Tells the hosts of the project, as early as its package is read; once it has opened, that's known already. */
+  const told = (project: { root: string; name: string; pkg: PackageManifest }) => {
+    const id = project.root
 
-  return routes && router ? { router, routes } : undefined
+    if (!projects.has(id)) {
+      projects.set(id, { root: project.root, name: project.name })
+      hosts.open({ id, ...project })
+    }
+
+    return id
+  }
+
+  return {
+    call: (project, call) => hosts.provide(told(project), call),
+    owner: (project, kind) => hosts.provider(told(project), kind)
+  }
 }
 
 /** The open projects hosts were told of, by id, for their servers' folders and names. */

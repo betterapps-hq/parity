@@ -3,7 +3,7 @@ import routerPackage from "@parity-app/extension-tanstack-router/package.json" w
 import { readExtension } from "@parity-app/extensions"
 import { describe, expect, it } from "vite-plus/test"
 import type { ExtensionStatus } from "../shared/protocol.ts"
-import { commandsAt, extensionKeyFor, extensionKeys, statusItems } from "./extensions.ts"
+import { commandsAt, extensionKeyFor, extensionKeys, statusItems, statusTooltip } from "./extensions.ts"
 
 const { id, manifest } = readExtension(storybookPackage)
 
@@ -160,6 +160,27 @@ describe("when and enablement over what Parity knows (PAR-1092)", () => {
     expect(extensionKeyFor(press, [timings()], { tool: "select" })?.command.id).toBe("timings.measure")
     expect(extensionKeyFor(press, [timings()], { tool: "hand" })).toBeUndefined()
     expect(extensionKeyFor(press, [timings({ state: "crashed" })], { tool: "select" })).toBeUndefined()
+  })
+})
+
+describe("statusTooltip (PAR-1095)", () => {
+  it("names the tool's version detection found, and notes one Parity doesn't test", () => {
+    expect(
+      statusTooltip("React", "Renders the project's components", { version: "19.3.1", status: "supported" })
+    ).toEqual({ hint: "React 19.3.1", detail: "Renders the project's components" })
+    expect(
+      statusTooltip("React", "Renders the project's components", { version: "18.3.1", status: "dropped" })
+    ).toEqual({
+      hint: "React 18.3.1",
+      detail: "Renders the project's components. Parity doesn't test this version"
+    })
+  })
+
+  it("keeps the title alone when detection found no version", () => {
+    expect(statusTooltip("TanStack Router", "Click to show them")).toEqual({
+      hint: "TanStack Router",
+      detail: "Click to show them"
+    })
   })
 })
 

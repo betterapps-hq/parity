@@ -25,6 +25,8 @@ export {
   type ProjectAction,
   type ProjectRoute,
   type RendererAdapter,
+  type RendererDescription,
+  type RendererPackage,
   type EntitiesAdapter,
   type FileWrite,
   type ActionContext,
@@ -42,15 +44,12 @@ export {
   type ImportedScreen,
   type ProjectEntities,
   scriptConfigExtensions,
-  type StylesAdapter,
   type ThemeVariable,
-  type ServedTool,
   type TokenWrite,
-  type ToolServer,
-  type ToolServers,
   type ToolVersions,
   type ToolVersionsExtra,
   peerVersions,
+  extensionRenderer,
   detectPeers
 } from "./adapters.ts"
 

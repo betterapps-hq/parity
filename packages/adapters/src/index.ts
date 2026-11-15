@@ -1,8 +1,8 @@
-import { type Adapters, peerVersions } from "@parity-app/core"
+import { type Adapters, extensionRenderer, peerVersions } from "@parity-app/core"
+import { findComponents } from "@parity-app/extension-react/components"
+import reactExtension from "@parity-app/extension-react/package.json" with { type: "json" }
 import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
-import { reactRenderer } from "@parity-app/react-adapter"
 import { storybookAdapter } from "@parity-app/storybook-adapter"
-import { tailwindStyles } from "@parity-app/tailwind-adapter"
 import { builders } from "./builders.ts"
 
 export { type ExtensionTool, extensionTools } from "./tools.ts"
@@ -12,9 +12,9 @@ export { type ExtensionTool, extensionTools } from "./tools.ts"
  * example project and the validation projects read. Adding an adapter means adding it here.
  */
 export const adapters: Adapters = {
-  renderers: [reactRenderer],
+  // React's renderer is its extension's, reading components here rather than through its host.
+  renderers: [{ ...extensionRenderer(reactExtension)!, findComponents }],
   builders,
-  styles: [tailwindStyles],
   // Storybook's supported versions are its extension's peer dependencies.
   entities: [
     {

@@ -1,5 +1,12 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
-import type { ExtensionModule, JsonValue, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
+import type {
+  ExtensionModule,
+  JsonValue,
+  Parity,
+  ProcessHandle,
+  ProcessInfo,
+  ProviderHandle
+} from "@parity-app/extension-api"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
@@ -7,6 +14,7 @@ import {
   type ExtensionEdits,
   type ExtensionHostsOptions,
   type ExtensionProcesses,
+  type ExtensionProviders,
   type ExtensionStateStore,
   type ExtensionStatus,
   extensionHosts,
@@ -85,6 +93,19 @@ const router = readExtension({
   }
 })
 
+const portless = readExtension({
+  name: "@parity-app/extension-portless",
+  version: "1.0.0",
+  main: "src/extension.ts",
+  parity: {
+    displayName: "Portless",
+    prefix: "portless",
+    icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+    activates: ["onDetect"],
+    contributes: { providers: { addresses: {}, discovery: {} } }
+  }
+})
+
 /** A store in memory, which a test can look into. */
 function memoryState(): ExtensionStateStore & { saved: Map<string, JsonValue> } {
   const saved = new Map<string, JsonValue>()
@@ -144,7 +165,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   })
 
   const hosts = extensionHosts<OpenedProject>({
-    extensions: [installed(storybook), installed(timings), installed(tidy), installed(router)],
+    extensions: [installed(storybook), installed(timings), installed(tidy), installed(router), installed(portless)],
     start(extension) {
       const [service, host] = memoryPorts()
       let end: (ending: ChildEnd) => void = () => undefined
@@ -191,6 +212,17 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
       reveal: () => undefined
     },
     processes: processesMock(),
+    providers: {
+      register: vi.fn<ExtensionProviders["register"]>(),
+      changed: vi.fn<ExtensionProviders["changed"]>(),
+      dispose: vi.fn<ExtensionProviders["dispose"]>(),
+      disposeAll: vi.fn<ExtensionProviders["disposeAll"]>()
+    },
+    files: {
+      place: { home: "/home/ada", variables: {}, platform: "linux" },
+      read: () => Promise.reject(new Error("Not in this test")),
+      watch: () => () => undefined
+    },
     edits: {
       transact: vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve()),
       files: vi.fn<ExtensionEdits["files"]>((_projectId, _extension, _label, files) =>
@@ -238,7 +270,6 @@ function processesMock(methods: Partial<ExtensionProcesses> = {}): ExtensionProc
     watch: vi.fn<ExtensionProcesses["watch"]>(() => () => undefined),
     reattached: vi.fn<ExtensionProcesses["reattached"]>(),
     stopAll: vi.fn<ExtensionProcesses["stopAll"]>(),
-    routed: vi.fn<ExtensionProcesses["routed"]>(() => Promise.resolve([])),
     ...methods
   }
 }
@@ -746,6 +777,7 @@ describe("extension hosts", () => {
         "processes.changed": () => undefined,
         "processes.lines": () => undefined,
         "processes.ended": () => undefined,
+        "files.changed": () => undefined,
         cancel: () => undefined,
         "selection.changed": () => undefined,
         stop: () => undefined
@@ -1109,7 +1141,7 @@ describe("providers (PAR-1095)", () => {
     await settle()
     expect(started).toEqual([])
 
-    expect(await hosts.provide("shop", "router", "routes")).toEqual([root, settings])
+    expect(await hosts.provide("shop", { kind: "router", method: "routes" })).toEqual([root, settings])
     expect(started.map((each) => each.extension)).toEqual(["@parity-app/extension-tanstack-router"])
     expect(hosts.provider("shop", "router")).toEqual({ id: "tanstack-router", name: "TanStack Router" })
   })
@@ -1119,7 +1151,7 @@ describe("providers (PAR-1095)", () => {
 
     hosts.open(project)
 
-    expect(await hosts.provide("shop", "router", "routes")).toBeUndefined()
+    expect(await hosts.provide("shop", { kind: "router", method: "routes" })).toBeUndefined()
     expect(hosts.provider("shop", "router")).toBeUndefined()
   })
 
@@ -1135,8 +1167,50 @@ describe("providers (PAR-1095)", () => {
 
     hosts.open(project)
 
-    await expect(hosts.provide("shop", "router", "routes")).rejects.toThrow("/0/id: expected a string")
+    await expect(hosts.provide("shop", { kind: "router", method: "routes" })).rejects.toThrow(
+      "/0/id: expected a string"
+    )
     expect(lines.at(-1)?.line.text).toMatch(/^Its router failed to answer routes/)
+  })
+
+  it("hands the processes list a process provider, asks it through provide, and hears when it changes or goes", async () => {
+    const register = vi.fn<ExtensionProviders["register"]>()
+    const changed = vi.fn<ExtensionProviders["changed"]>()
+    const dispose = vi.fn<ExtensionProviders["dispose"]>()
+    let handle: ProviderHandle | undefined
+
+    const { hosts } = setUp(
+      {
+        "@parity-app/extension-portless": {
+          activate(parity) {
+            handle = parity.providers.register("addresses", {
+              addresses: (servers) => Promise.resolve(servers.map((server) => ({ server: server.id, addresses: [] })))
+            })
+          }
+        }
+      },
+      { providers: { register, changed, dispose, disposeAll: vi.fn<ExtensionProviders["disposeAll"]>() } }
+    )
+
+    hosts.open(project)
+    await settle()
+
+    const [caller, registered, ask] = register.mock.calls[0] ?? []
+    const endpoint = { url: "http://localhost:6006", port: 6006, protocol: "http" as const }
+
+    expect(caller).toMatchObject({ projectId: "shop", extension: "@parity-app/extension-portless" })
+    expect(registered).toEqual({ kind: "addresses" })
+    await expect(ask?.addresses([{ id: "storybook:storybook", name: "Storybook", endpoint }])).resolves.toEqual([
+      { server: "storybook:storybook", addresses: [] }
+    ])
+
+    handle?.changed()
+    handle?.dispose()
+    handle?.changed()
+    await settle()
+
+    expect(changed.mock.calls.map(([, kind]) => kind)).toEqual(["addresses"])
+    expect(dispose.mock.calls.map(([, kind]) => kind)).toEqual(["addresses"])
   })
 
   it("refuses a provider the manifest doesn't declare", async () => {

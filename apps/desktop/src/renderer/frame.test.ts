@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import { collectCustomProperties, type MountHandle, type prepareCanvasCss } from "@parity-app/core"
-import type { createGuest } from "@parity-app/react-adapter/guest"
+import type { createGuest } from "@parity-app/extension-react/guest"
 import { frameAttributes, themeAttributes } from "@parity-app/tokens"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
@@ -21,7 +21,7 @@ const errors: string[] = []
 const entry = `
 export { prepareFrame, setFrameViewport } from "./frame.ts"
 export { prepareCanvasCss } from "@parity-app/core"
-export { createGuest } from "@parity-app/react-adapter/guest"
+export { createGuest } from "@parity-app/extension-react/guest"
 import { Component, createElement, createRef, useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"

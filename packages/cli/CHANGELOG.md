@@ -1,8 +1,32 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 00:21:40 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 02:06:02 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.67.0
+
+Sun, 15 Nov 2026 02:06:02 GMT
+
+### Minor changes
+
+- Settings' diagnostics level, Get beta updates and the install ID are kept in settings.json, which the CLI reads too
+  (ajcraswell@gmail.com)
+- Extensions start, adopt and watch a project's processes with parity.processes, which outlive their host; Storybook
+  runs on it (ajcraswell@gmail.com)
+- Tailwind CSS runs as an extension through a styles provider (ajcraswell@gmail.com)
+- TanStack Router runs as an extension: its router provider gives the routes, and Open in browser and the route count
+  are its own (ajcraswell@gmail.com)
+- Extensions can register address and discovery providers, and read and watch files the read permission names; Portless
+  is now a built-in extension. (ajcraswell@gmail.com)
+
+### Patches
+
+- Every outline on the canvas takes the color of what it goes round, and selecting a layer or preview no longer outlines
+  its board (ajcraswell@gmail.com)
+- A board's first state label lines up with its frames, as the later rows' labels do (ajcraswell@gmail.com)
+- Keep the UI kit folder components.json names while it's empty, rather than taking the app's components folder for it
+  (ajcraswell@gmail.com)
 
 ## 0.66.0
 

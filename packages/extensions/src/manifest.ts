@@ -120,13 +120,23 @@ const jsonSchema: z.ZodType<JsonSchema> = z.record(z.string(), jsonValue)
 const empty = z.strictObject({})
 
 const providers = z.strictObject({
-  renderer: z.strictObject({ guest: z.string() }).optional(),
+  renderer: z
+    .strictObject({
+      guest: z.string(),
+      runtimePackages: z.array(z.string()),
+      runtimeImports: z.array(z.string()),
+      developmentStandIns: z.record(z.string(), z.string()).optional(),
+      componentExtensions: z.array(z.string())
+    })
+    .optional(),
   builder: z.strictObject({ entry: z.string() }).optional(),
   styles: empty.optional(),
   router: empty.optional(),
   entities: empty.optional(),
   connector: empty.optional(),
-  search: empty.optional()
+  search: empty.optional(),
+  addresses: empty.optional(),
+  discovery: empty.optional()
 }) satisfies z.ZodType<Providers>
 
 const agentTool = z.strictObject({

@@ -127,9 +127,12 @@ const builds: BuildContext[] = [
       "builder-process": join(appDir, "src/utility/builder-process.ts"),
       "extension-host": join(appDir, "src/utility/extension-host.ts"),
       // Parity's own extensions, which a host loads only when one activates.
+      "extensions/react": join(appDir, "../../packages/extension-react/src/extension.ts"),
       "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts"),
       "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts"),
-      "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts")
+      "extensions/tailwind": join(appDir, "../../packages/extension-tailwind/src/extension.ts"),
+      "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts"),
+      "extensions/portless": join(appDir, "../../packages/extension-portless/src/extension.ts")
     },
     format: "esm",
     outExtension: { ".js": ".mjs" },

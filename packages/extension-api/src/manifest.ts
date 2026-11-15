@@ -37,7 +37,10 @@ export type ActivationEvent =
 
 /** What an extension may read, write, reach and change. */
 export interface Permissions {
-  /** Paths it may read, as globs relative to the project's root. */
+  /**
+   * Paths it may read and watch, as globs: from the project's root, or outside it from the home folder (`~/.portless/**`)
+   * or an environment variable's folder (`$PORTLESS_STATE_DIR/**`), which is left out while the variable isn't set.
+   */
   read?: string[]
   /** Paths it may write through `parity.files.edit`. */
   write?: string[]
@@ -199,10 +202,27 @@ export interface NodeTypeContribution {
   color?: string
 }
 
+/** What Parity needs of a renderer before its code runs: its guest module, and what a builder prepares for it. */
+export interface RendererContribution {
+  /** The package export, as `./guest`, whose module exports `createGuest`. It runs in the canvas frames. */
+  guest: string
+  /** Packages that must resolve to exactly one copy, taken from the project. The renderer is found when it has all. */
+  runtimePackages: string[]
+  /** Modules the guest imports, so a builder can prepare them before the first render. */
+  runtimeImports: string[]
+  /**
+   * Modules a builder serves in place of ones the framework's production build leaves empty, by how their specifier
+   * ends, with `$base` standing for the rest of it.
+   */
+  developmentStandIns?: Record<string, string>
+  /** File extensions that can hold the framework's components, as `.tsx`. */
+  componentExtensions: string[]
+}
+
 /** The jobs an extension does for a tool, each given behaviour with `parity.providers.register`. */
 export interface Providers {
   /** Draws components. Its guest module runs in the canvas frames, compiled into the project's own build. */
-  renderer?: { guest: string }
+  renderer?: RendererContribution
   /** Starts the dev server. Its entry module runs in the builder process. */
   builder?: { entry: string }
   /** Reads and writes the theme. */
@@ -215,6 +235,10 @@ export interface Providers {
   connector?: Record<string, never>
   /** Answers Search actions with results of its own. */
   search?: Record<string, never>
+  /** Says where else a server is reached. */
+  addresses?: Record<string, never>
+  /** Finds servers running that Parity didn't start. */
+  discovery?: Record<string, never>
 }
 
 /** A tool agents can call, with a JSON Schema for its input. */

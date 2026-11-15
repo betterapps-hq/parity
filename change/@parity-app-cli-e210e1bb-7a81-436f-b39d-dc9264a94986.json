@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "TanStack Router runs as an extension: its router provider gives the routes, and Open in browser and the route count are its own",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

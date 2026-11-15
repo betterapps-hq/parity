@@ -279,36 +279,33 @@ ipcMain.on(ipc.stateNow, (event) => {
 app.on("browser-window-focus", () => {
   settings.check()
   appState.check()
+  keybindings.check()
 })
 
 app.on("will-quit", () => {
   settings.close()
   appState.close()
+  keybindings.close()
 })
 
 /**
  * The shortcuts the person changed (PAR-1085), read before the window opens and sent to every window as they change. The
  * application menu has no keys of the keymap's to follow: macOS's Edit menu keeps its roles' Cmd X, C, V and A.
  */
-const keybindings = keybindingsFile(join(app.getPath("userData"), "keybindings.json"), (state) => {
-  if (state.problem !== undefined) {
-    console.warn(state.problem)
-  }
-
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed() && !isRenderWindow(window)) {
-      window.webContents.send(ipc.keybindingsChanged, state)
+const keybindings = keybindingsFile(join(app.getPath("userData"), "keybindings.json"), {
+  changed: (state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed() && !isRenderWindow(window)) {
+        window.webContents.send(ipc.keybindingsChanged, state)
+      }
     }
-  }
 
-  for (const contents of settingsView.contents()) {
-    contents.send(ipc.keybindingsChanged, state)
-  }
+    for (const contents of settingsView.contents()) {
+      contents.send(ipc.keybindingsChanged, state)
+    }
+  },
+  problem: (message) => console.warn(message)
 })
-
-if (keybindings.state().problem !== undefined) {
-  console.warn(keybindings.state().problem)
-}
 
 /** The title bar's colors, which the system's window buttons sit on, matching the tab strip. */
 function titleBarColors(): { background: string; symbols: string } {
@@ -1083,7 +1080,7 @@ answerWindows<HostEvent, BrowserWindow>({
       state: () => keybindings.state(),
       replace: (replacements) => keybindings.replace(replacements),
       open: async () => {
-        const failed = await shell.openPath(await keybindings.ensure())
+        const failed = await shell.openPath(keybindings.ensure())
 
         if (failed) {
           throw new Error(failed)

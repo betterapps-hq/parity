@@ -48,6 +48,12 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
+/** No discovery providers. */
+const noProviders = {
+  discover: () => Promise.resolve({ servers: [], providers: 0, cached: 0 }),
+  found: () => undefined
+}
+
 /** An extension asking for processes in the project, allowed to run what `processes` lists. */
 function caller(extension: string, processes: string[] = []): ProcessCaller {
   return { projectId: "shop", extension, permissions: { processes, observe: false }, main: join(root, "main.mjs") }
@@ -55,7 +61,7 @@ function caller(extension: string, processes: string[] = []): ProcessCaller {
 
 describe("parity.processes in the service", () => {
   it("starts a package's command line from the project, lists it under the extension's id, and sends its lines", async () => {
-    const processes = extensionProcesses(() => ({ root, name: "shop" }))
+    const processes = extensionProcesses(() => ({ root, name: "shop" }), noProviders)
     const tools = caller("tools", ["bin:fake-server"])
     const lines: string[] = []
 
@@ -96,7 +102,7 @@ describe("parity.processes in the service", () => {
   })
 
   it("refuses a run the manifest doesn't list, and a package the project hasn't installed", async () => {
-    const processes = extensionProcesses(() => ({ root, name: "shop" }))
+    const processes = extensionProcesses(() => ({ root, name: "shop" }), noProviders)
     const spec = { id: "server", name: "Server", lifetime: "server", run: { bin: "fake-server" } } as const
 
     await expect(processes.start(caller("tools"), spec)).rejects.toMatchObject({ code: "process_not_permitted" })
@@ -110,7 +116,7 @@ describe("parity.processes in the service", () => {
   })
 
   it("gives an adopted server's end once it's let go", async () => {
-    const processes = extensionProcesses(() => ({ root, name: "shop" }))
+    const processes = extensionProcesses(() => ({ root, name: "shop" }), noProviders)
     const tools = caller("tools")
     const port = await freePort()
 
@@ -126,7 +132,7 @@ describe("parity.processes in the service", () => {
   })
 
   it("finds a server answering on a port nothing lists", async () => {
-    const processes = extensionProcesses(() => ({ root, name: "shop" }))
+    const processes = extensionProcesses(() => ({ root, name: "shop" }), noProviders)
     const port = await freePort()
 
     const listening = await new Promise<Server>((resolve) => {

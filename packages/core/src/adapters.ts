@@ -220,43 +220,12 @@ export interface ActionContext {
   component?: string
   /** The page it's run for, when it's run for one: its route's id, and the URL the canvas draws it at. */
   page?: ActionPage
-  servers: ToolServers
 }
 
 /** A page of the app an action is run for: its route's id, and the URL the canvas draws it at, its params filled. */
 export interface ActionPage {
   route: string
   url: string
-}
-
-/** Servers a tool runs for the project, which the app starts, lists with its processes and stops with the project. */
-export interface ToolServers {
-  /**
-   * A server for the project: one already serving it, at an address Portless routes to or on its port, else one
-   * started with the tool's command line from the project's own install. `fresh` stops the one there is first, as
-   * when it stopped answering.
-   */
-  serve(server: ToolServer, options?: { fresh?: boolean }): Promise<ServedTool>
-}
-
-/** A tool's server, as an adapter describes it. */
-export interface ToolServer {
-  /** Its name in the app's processes, as `Storybook`. */
-  name: string
-  /** The installed package whose command line starts it, as `storybook`. */
-  package: string
-  /** The command line's arguments, to serve on `port`. */
-  args(port: number): string[]
-  /** The port it asks for, which it's served on when free. */
-  port: number
-  /** Whether a server at `base` is this project's, and ready. */
-  serves(base: string): Promise<boolean>
-}
-
-/** Where a tool's server is: where Parity reaches it, and where a browser opens it, by its Portless name when it has one. */
-export interface ServedTool {
-  url: string
-  address: string
 }
 
 /** What an action did: an address the app opens in the browser. */
@@ -345,7 +314,6 @@ export function detectPeers(
 export interface Adapters {
   renderers: RendererAdapter[]
   builders: BuilderAdapter[]
-  styles: StylesAdapter[]
   entities: EntitiesAdapter[]
 }
 
@@ -373,9 +341,80 @@ export interface RendererAdapter extends Adapter {
   componentExtensions: string[]
   /**
    * The components a file exports, from its text alone, so a whole app can be read in a fraction of a second. The
-   * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export.
+   * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export. A renderer
+   * an extension gives answers through its provider, so asynchronously (PAR-1095).
    */
-  findComponents(source: string, file: string): ComponentExport[]
+  findComponents(source: string, file: string): ComponentExport[] | Promise<ComponentExport[]>
+}
+
+/** A renderer as its extension's manifest describes it, before its provider reads any components (PAR-1095). */
+export type RendererDescription = Omit<RendererAdapter, "findComponents">
+
+/** What of an extension's `package.json` describes the renderer it gives. */
+export interface RendererPackage {
+  name: string
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    icon?: AdapterIcon
+    contributes: {
+      providers?: {
+        renderer?: {
+          guest: string
+          runtimePackages: string[]
+          runtimeImports: string[]
+          developmentStandIns?: Record<string, string>
+          componentExtensions: string[]
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The renderer an extension's manifest describes (PAR-1095), or nothing when it gives none: named by its prefix, its
+ * guest module the package export its manifest names, and found when the project declares every runtime package.
+ */
+export function extensionRenderer(pkg: RendererPackage): RendererDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const renderer = contributes.providers?.renderer
+
+  if (!renderer) {
+    return undefined
+  }
+
+  const { guest, runtimePackages, runtimeImports, developmentStandIns, componentExtensions } = renderer
+  const packages = runtimePackages.join(" and ")
+  const versions = peerVersions(pkg.peerDependencies)
+
+  const description: RendererDescription = {
+    id: prefix,
+    name: displayName,
+    async detect({ pkg: project }) {
+      const found = runtimePackages.every((name) => declares(project, [name]) !== undefined)
+
+      return { found, summary: found ? `${packages} in package.json` : `No ${packages} in package.json` }
+    },
+    guestModule: `${pkg.name}/${guest.replace(/^\.\//, "")}`,
+    runtimePackages,
+    runtimeImports,
+    componentExtensions
+  }
+
+  if (icon) {
+    description.icon = icon
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  if (developmentStandIns) {
+    description.developmentStandIns = developmentStandIns
+  }
+
+  return description
 }
 
 /** An export a renderer recognises as a component. */
@@ -641,28 +680,6 @@ export interface DrawnNodes {
   parent(id: string): string | undefined
   /** The node an element in the frame belongs to: the innermost one that draws it or an element around it. */
   nodeOf(element: Element): string | undefined
-}
-
-/**
- * Reads a styling framework's theme (Tailwind, Panda, vanilla-extract…) from a project's own installation. Compiled CSS
- * only carries the variables the project's code already uses; the theme has every value a design may pick.
- */
-export interface StylesAdapter extends Adapter {
-  /** Whether one of the project's stylesheets uses this framework, from its text. */
-  handles(source: string): boolean
-  /** Every theme variable, resolved by the project's own copy of the framework. */
-  loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
-  /**
-   * The framework's way of writing a layer's declarations, and of reading its code back, as the project's own copy
-   * means it. Its code is a list of classes.
-   */
-  loadPrinter(root: string, stylesheet: string): Promise<ClassPrinter>
-  /**
-   * Writes token values into the stylesheet's source where the framework keeps them, and takes out those without a
-   * value, keeping everything else as written. `theme` is what `loadTheme` read. A project no adapter reads has plain
-   * custom properties, which `writeTokenChanges` in `@parity-app/tokens` writes.
-   */
-  writeTokens(source: string, writes: readonly TokenWrite[], theme: readonly ThemeVariable[]): string
 }
 
 /** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */

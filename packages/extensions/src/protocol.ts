@@ -5,6 +5,7 @@ import type {
   CommandTarget,
   ComponentTarget,
   DesignOperation,
+  DiscoveredServer,
   Endpoint,
   Fact,
   FileEdit,
@@ -13,10 +14,19 @@ import type {
   NodeRef,
   OpenWhere,
   PickItem,
+  ComponentExport,
+  CssDeclaration,
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
+  ProvidedAddress,
+  ProviderKinds,
+  SourceFile,
   Route,
+  ServerFacts,
+  ThemeVariable,
+  TokenWrite,
+  WrittenClasses,
   SettingValue,
   Tone,
   ViewData,
@@ -91,16 +101,34 @@ export interface Returned {
 }
 
 /** The kinds of provider an extension's code can register so far. */
-export type ProviderKind = "router"
+export type ProviderKind = keyof ProviderKinds
 
 /** What the project service asks a provider, by kind and method, and what it answers. */
 export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
+  renderer: { components: { params: { files: SourceFile[] }; result: ComponentExport[][] } }
+  styles: {
+    handles: { params: { source: string }; result: boolean }
+    theme: { params: { stylesheet: string }; result: ThemeVariable[] }
+    classes: {
+      params: { stylesheet: string; version: number; written: string[]; declarations: CssDeclaration[] }
+      result: WrittenClasses
+    }
+    writeTokens: { params: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }; result: string }
+  }
+  addresses: { addresses: { params: ServerFacts[]; result: { server: string; addresses: ProvidedAddress[] }[] } }
+  discovery: { discover: { params: { root: string }; result: DiscoveredServer[] } }
 }
 
-/** One call to a provider. */
+/** One call to a provider, with what its method takes when it takes anything. */
 export type ProviderCall = {
-  [K in ProviderKind]: { [M in keyof ProviderCalls[K]]: { kind: K; method: M } }[keyof ProviderCalls[K]]
+  [K in ProviderKind]: {
+    [M in keyof ProviderCalls[K]]: ProviderCalls[K][M] extends { params: infer P }
+      ? [P] extends [undefined]
+        ? { kind: K; method: M }
+        : { kind: K; method: M; params: P }
+      : never
+  }[keyof ProviderCalls[K]]
 }[ProviderKind]
 
 /** What a provider answers, whichever was called. */
@@ -160,6 +188,8 @@ export interface HostMethods {
   "processes.lines": { params: { id: string; run: number; lines: string[] }; result: undefined }
   /** One of its own processes' runs ended. */
   "processes.ended": { params: { id: string; end: ProcessEnd }; result: undefined }
+  /** A file it watches was created, changed or went. */
+  "files.changed": { params: { id: number }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
   stop: { params: undefined; result: undefined }
 }
@@ -215,7 +245,17 @@ export interface HostServiceMethods {
   /** Starts a process, or gives the one starting or running with its id and spec. Answers once spawning was tried. */
   "processes.start": { params: ProcessSpec; result: ProcessInfo }
   "processes.adopt": {
-    params: { id: string; name: string; endpoint: Endpoint; foundBy: "port" | "provider" | "endpoint"; pid?: number }
+    params: {
+      id: string
+      name: string
+      endpoint: Endpoint
+      foundBy: "port" | "provider" | "endpoint"
+      /** The discovery provider's extension, when one found it. */
+      provider?: string
+      /** The candidate's key, when `find` gave it, so the service knows its addresses. */
+      key?: string
+      pid?: number
+    }
     result: ProcessInfo
   }
   "processes.find": { params: FindQuery; result: Candidate[] }
@@ -229,7 +269,16 @@ export interface HostServiceMethods {
   "processes.summarize": { params: { id: string; summary: string }; result: undefined }
   /** For a server whose ready check is `output`: the host saw a line matching it. */
   "processes.markReady": { params: { id: string; match: string }; result: undefined }
-  "servers.routed": { params: undefined; result: { url: string; address: string }[] }
+  /** Its code registered the provider of `kind` its manifest declares, which the service may now call. */
+  "providers.register": { params: { kind: ProviderKind; maxAgeMs?: number }; result: undefined }
+  /** What its provider of `kind` would answer has changed. */
+  "providers.changed": { params: { kind: ProviderKind }; result: undefined }
+  "providers.dispose": { params: { kind: ProviderKind }; result: undefined }
+  /** A file's text, when the `read` permission names it. */
+  "files.read": { params: { path: string }; result: { text: string } }
+  /** Watches a file the `read` permission names, under an id the host gives it, until `files.unwatch`. */
+  "files.watch": { params: { id: number; path: string }; result: undefined }
+  "files.unwatch": { params: { id: number }; result: undefined }
   /** Changes designs as one undo step, with the `edits` permission. */
   "edits.transact": { params: { label: string; operations: DesignOperation[] } & Called; result: undefined }
   /** Writes project files the `write` permission names, never a `.par`. Answers with the paths it changed. */
@@ -387,6 +436,37 @@ const endpoint: z.ZodType<Endpoint> = z.strictObject({
 
 const filePath = z.string().min(1).max(1000)
 
+/** A watch's number, as its host counts them. */
+const handleId = z.int().nonnegative()
+
+const providerKind = z.enum(["router", "addresses", "discovery"]) satisfies z.ZodType<ProviderKind>
+
+const providedAddress: z.ZodType<ProvidedAddress> = z.strictObject({
+  url: z.url({ protocol: /^https?$/ }).max(500),
+  label: z.string().min(1).max(200),
+  kind: z.enum(["name", "proxy", "tunnel", "container", "network"]),
+  public: z.boolean()
+})
+
+/** What an address provider answers, which the service checks before taking any of it. */
+export const providedAddresses = z
+  .array(z.strictObject({ server: z.string().max(400), addresses: z.array(providedAddress).max(20) }))
+  .max(1000)
+
+/** What a discovery provider answers, which the service checks before taking any of it. */
+export const discoveredServers: z.ZodType<DiscoveredServer[]> = z
+  .array(
+    z.strictObject({
+      key: z.string().min(1).max(200),
+      endpoint,
+      name: z.string().min(1).max(100).optional(),
+      pid: z.int().positive().optional(),
+      cwd: z.string().max(1000).optional(),
+      addresses: z.array(providedAddress).max(20).optional()
+    })
+  )
+  .max(500)
+
 const fileText = z.string().max(10_000_000)
 
 const fileEdit: z.ZodType<FileEdit> = z.discriminatedUnion("kind", [
@@ -426,8 +506,40 @@ const route: z.ZodType<Route> = z.strictObject({
 })
 
 /** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
+const themeVariables = z.array(z.strictObject({ name: z.string().max(500), value: text })).max(100_000)
+
 const providerResults = {
-  router: { routes: checkOf(z.array(route).max(10_000)) }
+  router: { routes: checkOf(z.array(route).max(10_000)) },
+  styles: {
+    handles: checkOf(z.boolean()),
+    theme: checkOf(themeVariables),
+    classes: checkOf(
+      z.strictObject({
+        classes: z.array(z.array(z.string().max(500)).max(100).nullable()).max(10_000),
+        css: z.string().max(10_000_000)
+      })
+    ),
+    writeTokens: checkOf(fileText)
+  },
+  renderer: {
+    components: checkOf(
+      z
+        .array(
+          z
+            .array(
+              z.strictObject({
+                name: z.string().max(500),
+                export: z.string().max(500),
+                as: z.enum(["function", "forwardRef", "memo", "lazy", "class", "exotic"]).optional()
+              })
+            )
+            .max(10_000)
+        )
+        .max(100_000)
+    )
+  },
+  addresses: { addresses: checkOf(providedAddresses) },
+  discovery: { discover: checkOf(discoveredServers) }
 } satisfies {
   [K in ProviderKind]: {
     // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the host answered, read here
@@ -437,7 +549,18 @@ const providerResults = {
 
 /** Reads what a provider answered to `call`, which came from the extension's code, before the service uses it. */
 export function readAnswer(call: ProviderCall, answer: ProviderAnswer): ProviderAnswer {
-  return providerResults[call.kind][call.method](answer)
+  switch (call.kind) {
+    case "router":
+      return providerResults.router.routes(answer)
+    case "addresses":
+      return providerResults.addresses.addresses(answer)
+    case "discovery":
+      return providerResults.discovery.discover(answer)
+    case "styles":
+      return providerResults.styles[call.method](answer)
+    case "renderer":
+      return providerResults.renderer[call.method](answer)
+  }
 }
 
 /** Reads each of a host's requests before the service handles it. */
@@ -518,6 +641,8 @@ export const hostChecks: Checks<HostServiceMethods> = {
       name: z.string().min(1).max(100),
       endpoint,
       foundBy: z.enum(["port", "provider", "endpoint"]),
+      provider: z.string().min(1).max(214).optional(),
+      key: z.string().min(1).max(500).optional(),
       pid: z.int().positive().optional()
     })
   ),
@@ -538,7 +663,14 @@ export const hostChecks: Checks<HostServiceMethods> = {
   ),
   "processes.summarize": checkOf(z.strictObject({ id: processId, summary: z.string().max(500) })),
   "processes.markReady": checkOf(z.strictObject({ id: processId, match: z.string().max(4000) })),
-  "servers.routed": checkOf(z.undefined()),
+  "providers.register": checkOf(
+    z.strictObject({ kind: providerKind, maxAgeMs: z.int().positive().max(86_400_000).optional() })
+  ),
+  "providers.changed": checkOf(z.strictObject({ kind: providerKind })),
+  "providers.dispose": checkOf(z.strictObject({ kind: providerKind })),
+  "files.read": checkOf(z.strictObject({ path: filePath })),
+  "files.watch": checkOf(z.strictObject({ id: handleId, path: filePath })),
+  "files.unwatch": checkOf(z.strictObject({ id: handleId })),
   "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000), call })),
   "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000), call })),
   "selection.set": checkOf(refs),

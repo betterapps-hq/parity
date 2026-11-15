@@ -12,6 +12,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronRight, Plus } from "lucide-react"
 import type { KeyboardEvent } from "react"
+import { useKeybindings } from "../keybindings.ts"
 import { useSettingsProblems } from "../preferences.ts"
 import { type Extension, pages, type Setting, settings } from "./definitions.ts"
 import { extensionFacts, permissionLines } from "./extension-details.ts"
@@ -106,9 +107,11 @@ function SettingsPage({ page, store }: { page: string; store: Store }) {
   )
 }
 
-/** Above Parity's own pages, when settings.json can't be read or a change couldn't be saved yet. */
+/** Above Parity's own pages, when settings.json can't be read or a change to it or a shortcut couldn't be saved yet. */
 function SettingsFileNotice() {
-  const { problem, unsaved } = useSettingsProblems()
+  const { problem, unsaved: settingsUnsaved } = useSettingsProblems()
+  const keys = useKeybindings()
+  const unsaved = settingsUnsaved || keys.unsaved
 
   if (problem) {
     return (

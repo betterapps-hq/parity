@@ -131,7 +131,7 @@ to pass on to its DOM.
   change. A layer of it with no style, and a component that puts its style on its root, are drawn as they are. The guest
   keeps what it found for every frame, until the component comes from another file.
 
-Code: the walk is `adapters/react-adapter/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
+Code: the walk is `packages/extension-react/src/drawn-nodes.ts`, the guest's side (boundaries, `ComponentLayer` and the
 props it merges, when to walk again, the check against the attribute, the div around a component that puts its style
 inside) is in `guest.ts`, with where a component put its style (`stylePlacement`) in `drawn-nodes.ts`, and the canvas's
 lookups (`findNodeElements`, `nodeBox`, `nodesAt`, `nodeParent`, `nodeOfElement`, with the attribute as fallback) are in
@@ -144,7 +144,7 @@ Whether a component takes `style` is read in `packages/code/src/props.ts` (`take
 
 Tests:
 
-- `adapters/react-adapter/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
+- `packages/extension-react/src/drawn-nodes.test.ts`: the walk on fibers shaped as React 19 makes them: a component that
   ignores its props, a fragment, a field around an input, nested layers, a provider, a component that draws nothing,
   portals in and out of the frame, a slot drawn twice, and giving up on a tree that isn't one; and text drawn outside an
   element (PAR-201): a component that draws only text, one that draws text beside an element, text inside an element
@@ -1179,14 +1179,68 @@ bar.
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
 `packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
-`protocol.ts` and `providers.register` in `host.ts`; `providedRoutes` and `byPeers` in `utility/extensions.ts`; `routes`
-and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-actions.ts` and `pageItems` in
+`protocol.ts` and `providers.register` in `host.ts`; `projectProviders` and `byPeers` in `utility/extensions.ts`;
+`routes` and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-actions.ts` and `pageItems` in
 `ActionsSearch.tsx`.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
 `packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a
 route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
 router, and Open in browser's placements in the window, have no unit test of their own.
+
+### Tailwind CSS as an extension, through its styles provider (PAR-1095)
+
+Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does
+changed: the theme in the Tokens tab, frames drawn with the classes Parity writes, token values saved into `@theme`, and
+"Tailwind CSS" in the status bar, which opens the Tokens tab.
+
+- **Its styles provider answers four calls, with plain data.** `handles` says whether a stylesheet uses Tailwind,
+  `theme` reads every theme variable with the project's own Tailwind, `classes` writes a frame's declarations as classes
+  and compiles them, and `writeTokens` writes token values into the stylesheet's source. It keeps the printer for the
+  stylesheet as it is, and loads it again once the stylesheet changes.
+- **Its host starts as soon as package.json is read,** as the router's does, since it's found by its peer dependency, so
+  the theme is read while the builder starts and is in the project when it opens.
+- **A project no styles provider handles** has plain custom properties, which `writeTokenChanges` writes, as before.
+- **Its version** shows in the project's detection, from its peer dependency and its manifest's `versions`.
+- **Every extension's status item names its tool's version** in its tooltip's title, as `Tailwind CSS 4.3.3`, and notes
+  a version Parity doesn't test, as adapters' items did (`statusTooltip` in `renderer/extensions.ts`, tested in
+  `extensions.test.ts`).
+
+Code: `packages/extension-tailwind` (its manifest, `extension.ts`, `printer.ts`, `design-system.ts` and `tokens.ts`);
+`StylesProvider` in `packages/extension-api/src/api.ts`; `callProvider` in `packages/extensions/src/host.ts`;
+`loadStyles`, `saveTokens` and `frameClasses` in `utility/projects.ts`.
+
+Tests: `packages/extension-tailwind/src/extension.test.ts` (its manifest and `handles`), `printer.test.ts`,
+`design-system.test.ts` and `tokens.test.ts`. Gaps: the styles provider's calls over the host channel have no unit test
+of their own. Tried in the running app on 2026-11-14 on the example: the status bar item opening the Tokens tab with the
+theme's tokens, and Pricing's frames drawn with classes.
+
+### React as an extension, through its renderer provider (PAR-1095)
+
+React runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does changed: the
+components found in the app and its libraries, frames drawn with the project's own React, and "React" in the status bar.
+
+- **Its manifest describes the renderer** before any code runs: its guest module (`./guest`), the packages that must
+  resolve to one copy, the modules the builder prepares for the guest, the development stand-ins and the file extensions
+  that can hold components. Parity finds it when the project declares every one of its runtime packages, as before.
+- **Its renderer provider reads components,** a batch of files at a time: the service gathers the files it reads before
+  the event loop turns, up to 500, into one call, and each file gets its own answer.
+- **Its host starts as soon as package.json is read,** as the router's and Tailwind's do, so it's running by the time
+  the app's files are read.
+- **Its guest module** runs in the canvas frames, compiled into the project's own build, as before; the builder is given
+  its path.
+
+Code: `packages/extension-react` (its manifest, `extension.ts`, `components.ts` and the guest); `RendererProvider` in
+`packages/extension-api/src/api.ts`; `extensionRenderer` in `packages/core/src/adapters.ts`; `batched` in
+`packages/extensions/src/batch.ts`; `builtInRenderers` in `utility/extensions.ts` and `providedRenderer` in
+`utility/projects.ts`.
+
+Tests: `packages/extension-react/src/extension.test.ts` (its manifest, its guest export and a batch of files read in
+order), `components.test.ts` (what's read as a component), `packages/extensions/src/batch.test.ts` (4: requests made
+together in one batch, a long run split, a later request asked again, a failed or short batch failing its requests), and
+`apps/desktop/src/utility/projects.test.ts`, whose projects read their components through a renderer provider. Tried in
+the running app on 2026-11-14 on the example: 5 components in the app and 371 from Shadcn Nova read through the
+provider, frames drawn, and React's logo in the status bar.
 
 ### Extensions' changes to designs and files (PAR-1093)
 
@@ -2406,7 +2460,7 @@ keys passed in, and allows explorations and stories. End to end (PAR-202), `apps
 the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard shortcuts
 dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
 
-### Shortcuts the person changes (PAR-1085)
+### Shortcuts the person changes (PAR-1085, PAR-1122)
 
 The keymap is the defaults. The person's changes are in `keybindings.json` in the app's data folder, a list of
 `{ "command": "save", "keys": ["Ctrl Alt S"] }`, written as the keymap writes keys, where Ctrl is Cmd on a Mac.
@@ -2422,25 +2476,32 @@ The keymap is the defaults. The person's changes are in `keybindings.json` in th
   Keyboard shortcuts dialog read `keysOf` as they draw or as a key is pressed. A command with no keys shows none.
 - **The application menu doesn't change.** macOS's Edit menu keeps Cmd X, C, V and A whatever the file says, since
   they're its roles' own keys, and the app's own menus are drawn by the window.
-- **A file that isn't a JSON list** leaves the keymap's keys in place, is logged, and is never written over: a change
-  fails until it's fixed by hand.
-- **Main reads the file when it starts,** before the window opens, writes each change whole one at a time, and sends
-  what the file holds to every window. Other running copies don't see a change until they start again.
+- **A file that isn't a JSON list** keeps the keys it last had, the keymap's at start, is logged, and is never written
+  over: a change fails until it's fixed by hand.
+- **Only Settings changes the file,** besides the person by hand: main refuses a change to the shortcuts, or opening the
+  file, from the editor window, where the project's code runs.
+- **Every running copy follows the file.** Main reads it before the window opens and watches its folder, so a key
+  changed by hand or in another copy applies at once, in every window and menu. It reads it again when a window gains
+  focus, in case a change was missed. Each change is made under the file's lock on the file as it is then, so two copies
+  changing keys at once both keep theirs. A change that can't be written yet applies for this run and is tried again,
+  and Settings shows that your settings couldn't be saved until it is.
 
 Code: `readKeys`, `readKeybindings`, `resolveBindings`, `changeKeys` and `applyReplacements` in
 `apps/desktop/src/shared/keybindings.ts`, which take and return data; `keybindingsFile` in `main/keybindings.ts`, which
-reads and writes the file; the `keybindingsState`, `keybindingsReplace` and `keybindingsOpen` methods in
-`shared/host-methods.ts`, and `ipc.keybindingsChanged`; and `chrome/keybindings.ts` in the window, which applies the
-file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`, `resetKeys` and
-`openKeybindings`.
+keeps the file on `sharedFile` in `main/shared-file.ts`; the `keybindingsState`, `keybindingsReplace` and
+`keybindingsOpen` methods in `shared/host-methods.ts`, and `ipc.keybindingsChanged`; and `chrome/keybindings.ts` in the
+window, which applies the file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`,
+`resetKeys` and `openKeybindings`.
 
 Tests: `shared/keybindings.test.ts` (20): keys read in the keymap's order and refused when they don't read; no file, a
 malformed entry and text that isn't a list; replaced, removed, skipped and clashing keys, and which command lost them;
 the replacements a change writes, taking keys and giving the keymap's back; and entries kept as written, in place.
-`main/keybindings.test.ts` (5), on a temp folder: nothing written until a change, the file read at start, changes made
-one at a time keeping skipped entries, a file that can't be read never written over, and the file made to be opened.
-`chrome/keybindings.test.ts` (6): every key in the keymap reads as itself, and the window's keys, `shortcutOf` and
-`shortcutFor` following the file, a change, a removal, a reset and keys that don't read.
+`main/keybindings.test.ts` (8), on a temp folder: nothing written until a change, the file read at start, changes made
+one at a time keeping skipped entries, two copies' changes at the same moment both kept, a change by another copy or by
+hand sent to the windows, a file that can't be read never written over and its keys kept, a change that can't be written
+applied and written once it can, and the file made to be opened. `chrome/keybindings.test.ts` (6): every key in the
+keymap reads as itself, and the window's keys, `shortcutOf` and `shortcutFor` following the file, a change, a removal, a
+reset and keys that don't read.
 
 ### Whether a command applies, and what it's called (PAR-971)
 
@@ -3152,7 +3213,7 @@ image's is.
   the project first (connectors.md). `Update` takes `src`, `alt` and `credit` on a video, as on an image.
 
 Code: the node in `packages/core/src/document.ts` (`VideoNode`); `videoAttributes` and the `video` case in
-`packages/core/src/render.ts`; `attributesFor` in `adapters/react-adapter/src/guest.ts`, which turns its flags into
+`packages/core/src/render.ts`; `attributesFor` in `packages/extension-react/src/guest.ts`, which turns its flags into
 React's props; the inspector's `MediaSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`; `NodeIcon` in
 `canvas/kinds.tsx` and `layerKind` in `chrome/layer-kind.ts`; placing in `packages/agent/src/dispatch.ts`
 (`placeTarget`, `savedIfFleeting`).
@@ -3161,7 +3222,7 @@ Tests:
 
 - `packages/core/src/render.test.ts`: a video drawn as a `<video>` that plays by itself without sound, and one with
   controls that waits.
-- `adapters/react-adapter/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
+- `packages/extension-react/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
@@ -4208,7 +4269,7 @@ Tests: `packages/core/src/paint.test.ts` (10): one color token as a list of one 
 stops, fits and alphas are refused, the CSS each kind writes, and a render draws it.
 `packages/editor/src/style-editing.test.ts` (the Fill row's edit), `packages/editor/src/project-images.test.ts` (an
 image a fill paints is used), `packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it
-back, and hears about a color that isn't a token), `adapters/react-adapter/src/guest.test.ts` (a fill's images against
+back, and hears about a color that isn't a token), `packages/extension-react/src/guest.test.ts` (a fill's images against
 the project), and `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back,
 ids kept so an open editor stays open, and gradient tokens read from CSS.
 
@@ -4416,7 +4477,7 @@ for a day.
 
 Code: `isDateValue` and `evaluateValue` in `packages/core/src/values/evaluate.ts`, `dateValue` and `sampleValue` in
 `packages/core/src/values/grammar.ts`, and a component node's `props` in `packages/core/src/document.ts`; the guest
-works them out in `madeProps` in `adapters/react-adapter/src/guest.ts`.
+works them out in `madeProps` in `packages/extension-react/src/guest.ts`.
 
 Tests: `packages/core/src/values/values.test.ts` (3: a date in a sample and a decorator, from text and a number, made as
 `new Date` makes it; each date made once; a date `new Date` can't read refused) and `packages/core/src/render.test.ts`
@@ -5507,11 +5568,11 @@ the same one; nothing between knows the framework.
   project's own (`source: "semantic"`). The rest of the call lists it in `GetTokens` and takes it in a style without a
   warning. It's an ordinary token edit: every frame draws it at once, the Tokens tab lists it before it's saved, Save
   writes it and Undo takes it back, out of the stylesheet too once it was saved.
-- **Where Save writes it is the adapter's call.** `StylesAdapter.writeTokens(source, writes, theme)` writes values into
-  a stylesheet's source where its framework keeps them. A project no adapter reads has plain custom properties, which
-  `writeTokenChanges` writes: a default value in the first `:root` under no condition, a theme's in the block the
+- **Where Save writes it is the styles provider's call.** Its `writeTokens({ source, writes, theme })` writes values
+  into a stylesheet's source where its framework keeps them. A project no provider handles has plain custom properties,
+  which `writeTokenChanges` writes: a default value in the first `:root` under no condition, a theme's in the block the
   stylesheet gives that theme (`.dark`, `[data-theme="dark"]` or a `prefers-color-scheme` root), each made at the end of
-  the file when there's none. Tailwind's adapter puts a default value in `@theme` when the variable is in Tailwind's
+  the file when there's none. Tailwind's extension puts a default value in `@theme` when the variable is in Tailwind's
   theme already or its name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the
   rest), so the class exists, and hands every other value to the plain writer. A declaration that exists is edited where
   it is, whichever block that is.
@@ -5528,13 +5589,13 @@ the same one; nothing between knows the framework.
     `Use a name from GetTokens().`
 
 Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
-`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `adapters/tailwind-adapter/src/tokens.ts`; `StylesAdapter` in
-`packages/core/src/adapters.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
+`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/extension-tailwind/src/tokens.ts`; `StylesProvider`
+in `packages/extension-api/src/api.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
 `packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
 `packages/editor/src/token-edits.ts`.
 
-Tests: `adapters/tailwind-adapter/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
-new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
+Tests: `packages/extension-tailwind/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one,
+a new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
 where the root declares it, a value taken back out); `packages/tokens/src/stylesheet.test.ts` (a token the stylesheet
 doesn't declare added to the root, whatever its name, and read back in its category);
 `packages/tokens/src/tokens.test.ts` (`withTokenChanges`, 2); `packages/editor/src/token-edits.test.ts` (the token list
@@ -5905,34 +5966,34 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
-to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `adapters/react-adapter/src/guest.ts`,
+to `ModeView`'s `shows`; `revision`, `addComponents` and `removeComponents` in `packages/extension-react/src/guest.ts`,
 declared on `Guest` in `packages/core/src/adapters.ts`, keep where each component comes from in the guest's registry
 (`componentRegistry` in `component-registry.ts`, PAR-988), with each component's drawn or failing status in
 `render-statuses.ts`; `guestChanges` in `packages/core/src/guest-changes.ts`, which `setSources` in
 `renderer/workspace.ts` and `renderer/render.ts` call.
 
-Tests: `adapters/react-adapter/src/guest.test.ts` (1: the revision goes up when a component comes from a new file, moved
-or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back added
-components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't given,
-and adds one given again). `adapters/react-adapter/src/component-registry.test.ts` (6: a file's address on the dev
-server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded from
-there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and one
-only given forgotten; and the revision going up once a change, heard until unsubscribed) and `render-statuses.test.ts`
-(4: drawn once and heard once a task, failing while any boundary shows an error, a component still loading not drawn,
-and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for `guestChanges`: one new
-to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every component stays where it
-was, and nothing when only what else the list says about one changes). `apps/desktop/src/renderer/ModeView.test.ts` (2:
-a component moved to another file is drawn from there once the frame's `shows` changes, and not while it stays the same;
-and one that failed draws from its new file instead of its error). `apps/desktop/src/shared/render-job.test.ts` (for
-`renderJob`, 2: what a frame doesn't have left out, the added components and the rest kept when it does, and a job built
-with every field passing the service's check whole; for `frameKeys`, among the names' 9: `drawn` new with the guest and
-its address, and since PAR-165 with the components it draws, `key` new with the tree, the mode, the size, the window and
-the scale, and with the tokens previewed while `drawn` stays, and neither new for a field the job gains or for a check).
-Gaps: that `FrameTile`'s keys follow the revision has no test of its own; it was checked by reading `useFrameShows`.
-That `setSources` and `render.ts` give and take back what `guestChanges` says, and that a job carrying no components
-changes nothing, was checked by reading them. A component moving in the running app wasn't tried, since it means
-changing the example's files, which other sessions share; `ModeView.test.ts` drives the guest's side of it, from
-`addComponents` on.
+Tests: `packages/extension-react/src/guest.test.ts` (1: the revision goes up when a component comes from a new file,
+moved or added, and not when it's given the same file again or nothing, and subscribers hear each change; 1: taking back
+added components forgets one only given, restores one it loaded with, moves the revision once, ignores ids it wasn't
+given, and adds one given again). `packages/extension-react/src/component-registry.test.ts` (6: a file's address on the
+dev server and a new version's; what the guest loaded with listed; a component added and one moved to a new file loaded
+from there; the same file again changing nothing and a new version changing it; what the guest loaded with put back and
+one only given forgotten; and the revision going up once a change, heard until unsubscribed) and
+`render-statuses.test.ts` (4: drawn once and heard once a task, failing while any boundary shows an error, a component
+still loading not drawn, and a listener that stopped hearing nothing). `packages/core/src/guest-changes.test.ts` (6 for
+`guestChanges`: one new to the list, one gone, one moved, everything to a guest given nothing yet, nothing when every
+component stays where it was, and nothing when only what else the list says about one changes).
+`apps/desktop/src/renderer/ModeView.test.ts` (2: a component moved to another file is drawn from there once the frame's
+`shows` changes, and not while it stays the same; and one that failed draws from its new file instead of its error).
+`apps/desktop/src/shared/render-job.test.ts` (for `renderJob`, 2: what a frame doesn't have left out, the added
+components and the rest kept when it does, and a job built with every field passing the service's check whole; for
+`frameKeys`, among the names' 9: `drawn` new with the guest and its address, and since PAR-165 with the components it
+draws, `key` new with the tree, the mode, the size, the window and the scale, and with the tokens previewed while
+`drawn` stays, and neither new for a field the job gains or for a check). Gaps: that `FrameTile`'s keys follow the
+revision has no test of its own; it was checked by reading `useFrameShows`. That `setSources` and `render.ts` give and
+take back what `guestChanges` says, and that a job carrying no components changes nothing, was checked by reading them.
+A component moving in the running app wasn't tried, since it means changing the example's files, which other sessions
+share; `ModeView.test.ts` drives the guest's side of it, from `addComponents` on.
 
 ### Failing components, in the console, and code edits picked up live (PAR-165)
 
@@ -5975,7 +6036,7 @@ warm, and 1.1 s the first time after the window loaded.
 
 Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerFailure`, `CodeChange` and
 `BuilderSession.codeChanges` in `packages/core/src/adapters.ts`; `frameFailures` and `FrameFailuresContext` in
-`adapters/react-adapter/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
+`packages/extension-react/src/guest.ts`, with its `addComponents` taking a `version`; `failureAdvice`, `neededWrapper`,
 `designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
@@ -5998,9 +6059,9 @@ and the fix, kept through Clear, and gone frame by frame as the layer draws).
 among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
-changed files stamped, none without a change). `adapters/react-adapter/src/guest.test.ts` (the revision moving once per
-new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new
-with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
+changed files stamped, none without a change). `packages/extension-react/src/guest.test.ts` (the revision moving once
+per new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key
+new with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
 console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
 `chrome/ConsolePanel.stories.tsx` OneDesign and WarningsOnly have the console's design focus and levels menu. Checked in
 the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
@@ -7690,9 +7751,9 @@ open project's page, under its name and badge; Extensions; and Diagnostics and U
 project page.
 
 Settings is its own web contents over the window, owned by main, which loads no project code (PAR-1090). The editor
-window's page runs the project's code, so main takes extensions' settings for every project only from Settings. The
-window sends Settings what its project page shows each time it changes, and makes each change Settings sends back an
-undo step. Escape or the close button takes Settings away.
+window's page runs the project's code, so main takes extensions' settings for every project, and changes to the
+shortcuts (PAR-1123), only from Settings. The window sends Settings what its project page shows each time it changes,
+and makes each change Settings sends back an undo step. Escape or the close button takes Settings away.
 
 - **The person's settings save as they change,** with a brief Saved in the page's heading, and apply in every window. A
   change main couldn't save leaves the control as it was and says so under the row. A setting something outside Settings
@@ -7762,8 +7823,8 @@ extensions' settings from two copies both kept and the other copy told, a change
 changes at the same moment both kept, one copy told of another's, a reset, a file that can't be read never written over
 with the change held, a held change saved once the file reads without undoing another copy's, a stale lock taken, a held
 lock waited for, and the lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to
-the project and closing taken only from Settings, and the project's page only from the editor window.
-`packages/extensions/src/hosts.test.ts`: what the Extensions page shows of each extension's code.
+the shortcuts and to the project, and closing taken only from Settings, and the project's page only from the editor
+window. `packages/extensions/src/hosts.test.ts`: what the Extensions page shows of each extension's code.
 `packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for an empty search; a
 label's start before a word inside it; another word for a setting, and which; where it is before its description; and
 values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its place, named keys,
@@ -8048,10 +8109,9 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   disabled, with the reason as its hint or beside it in a menu; without one, it's left out. Storybook's reason is "No
   story found", so a component no story's meta names still shows Open in Storybook, disabled, in every place below.
 - **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
-  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, the
-  component, and `servers`, which find a server already serving the project (one Portless routes to, else one on its
-  port) or start the tool's command line from the project's install, list it with the project's processes as a tool's
-  server and stop it with the project. An address the action gives opens in the browser.
+  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, and the
+  component. An address the action gives opens in the browser. A tool's server is an extension's now, through
+  `parity.processes` ([extensions.md](extensions.md)).
 - **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project.
 - **A code component offers the actions for it wherever it's picked,** each with its adapter's logo and the action's
   name: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on the canvas,
@@ -8078,13 +8138,12 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   an external link icon, since it opens the page outside Parity, and searching "open in" lists it with `/projects/atlas`
   beside it once its ProjectId is `atlas`.
 
-Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
-`packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
-`runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
-`adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
-`adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
-`renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
-`renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
+Code: `AdapterAction`, `ActionContext`, `ProjectAction` and `StatusItem.opens` in `packages/core/src/adapters.ts`;
+`openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`; `runAction` in
+`apps/desktop/src/utility/projects.ts`; `adapter.run` in `shared/protocol.ts`; `adapterActions` in
+`packages/project/src/index.ts`, tested in `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and
+`selectionComponent` in `renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget`
+in `renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
 `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
 `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
 `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`,
@@ -8095,7 +8154,7 @@ page or, from Search, the page selected); `packages/project/src/adapter-status.t
 an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else
 Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
 action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
-Gaps: `tool-servers.ts` has no unit test, and the story play functions weren't run.
+Gaps: the story play functions weren't run.
 
 ### Each adapter detects its own tool
 
@@ -8172,13 +8231,13 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
-`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`,
-`tailwind-adapter` and `storybook-adapter`, and TanStack Router's from its extension (below); the one list of adapters
-in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/vite-adapter` and
+`storybook-adapter`, and React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of
+adapters in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
 an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
-its own id), and `adapters/tailwind-adapter/src/index.test.ts` (Tailwind's item). Storybook,
+its own id), and `packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook,
 `chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
 (`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
 
@@ -8426,10 +8485,10 @@ container query, a `group-hover:` rule.
 
 - **In a Tailwind project, a layer is drawn with the classes Parity will write for it in code,** compiled by the
   project's own Tailwind: `flex flex-col gap-6`, and `text-(length:--text-sm)` for a token Tailwind has no utility for.
-  The classes are the Tailwind printer's (`adapters/tailwind-adapter`), which writes a class only when it compiles back
-  to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`, PAR-1001), so
-  a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's frames, in
-  Tailwind's `utilities` layer and in Tailwind's order.
+  The classes are the Tailwind printer's (`packages/extension-tailwind`), which writes a class only when it compiles
+  back to the declaration it came from, as written or as Tailwind writes the same value (`m-0` for `margin: 0`,
+  PAR-1001), so a layer measures the same by its classes as by its rule. Their CSS is one stylesheet for the project's
+  frames, in Tailwind's `utilities` layer and in Tailwind's order.
 - **Otherwise, and until the classes are written, a layer is drawn from a rule for its node:** one rule set for each
   element, found by its id (`[data-canvas-node="…"]`), holding its declarations in order. The window asks the project
   service for classes, since the service holds the project's Tailwind; a layer shows from its rule at once and from its
@@ -8460,9 +8519,10 @@ project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` t
 project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
 the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
 again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
-(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles adapter's
-`loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen
-one from the rules. The React guest (`adapters/react-adapter/src/guest.ts`) gives an element its classes and no style.
+(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles provider's
+`classes`, whose printer's `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
+offscreen one from the rules. The React guest (`packages/extension-react/src/guest.ts`) gives an element its classes and
+no style.
 
 Tests:
 
@@ -8473,7 +8533,7 @@ Tests:
 - `packages/core/src/render.test.ts`: every case reads an element's declarations by CSS property.
 - `packages/style-schema/src/declare.test.ts`: a layout with nothing set writes `display` and its direction alone; one a
   child is placed in is `relative`; an Absolute one stays Absolute.
-- `adapters/tailwind-adapter/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
+- `packages/extension-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
 - `apps/desktop/src/renderer/frame-classes.test.ts`: classes asked for while an ask is unanswered wait for it, so the
@@ -8612,8 +8672,9 @@ project's own modules are still served as in development, and its own dev server
 - **Layers are still found from React's tree,** which reads only fields both builds keep.
 
 Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `adapters/vite-adapter/src/index.ts`;
-`developmentStandIns` in `adapters/react-adapter/src/index.ts`; `renderingIn`, `watchRenders` and `watchCommits` in
-`adapters/react-adapter/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each frame's top.
+`developmentStandIns` in `packages/extension-react/package.json`'s renderer provider; `renderingIn`, `watchRenders` and
+`watchCommits` in `packages/extension-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each
+frame's top.
 
 Tests: `adapters/vite-adapter/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
 serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
@@ -8833,7 +8894,7 @@ and missed the frame's screenshots, and `problems` said nothing.
   takes what's in the page's.
 - **Popups don't count in a layer's box,** as before, so selecting the trigger doesn't outline the menu with it.
 
-Code: `framePortals` in `adapters/react-adapter/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
+Code: `framePortals` in `packages/extension-react/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
 taken content out of layer boxes (`portaledIn`); `contentOutside` and `inlinePortals` in
 `apps/desktop/src/renderer/inline-portals.ts`, called by `canvasRender` in `render.ts`; the `outside` field in
 `shared/protocol.ts` and `main/render-results.ts`; `frameProblems` in `packages/agent/src/frames.ts`.

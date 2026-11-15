@@ -23,8 +23,10 @@ export interface Keybindings {
   lost: Partial<Record<Command, Command>>
   /** Entries Parity didn't apply: for a command that doesn't exist, or with keys that don't read. They stay in the file. */
   skipped: Skipped[]
-  /** Why the file couldn't be read, when it couldn't. The keymap's keys apply until it can, and it isn't written over. */
+  /** Why the file couldn't be read, when it couldn't. The keys it last had apply until it can, and it isn't written over. */
   problem?: string
+  /** A change main couldn't write yet, which applies for this run and is tried again. */
+  unsaved?: true
 }
 
 /** What changing a command's keys did. */
@@ -48,6 +50,10 @@ function receive(state: KeybindingsState): void {
 
   if (state.problem !== undefined) {
     next.problem = state.problem
+  }
+
+  if (state.unsaved) {
+    next.unsaved = true
   }
 
   shown.set(next)

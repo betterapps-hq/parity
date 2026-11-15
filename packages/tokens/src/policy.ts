@@ -16,7 +16,7 @@ import {
 export interface ThemeOptions {
   /**
    * Read declarations directly in Tailwind's `@theme` as the default theme. Only source CSS has `@theme`; the app reads
-   * the theme Tailwind itself resolves instead (`StylesAdapter.loadTheme`), which also knows the aliases it inlines.
+   * the theme Tailwind itself resolves instead (its extension's styles provider), which also knows the aliases it inlines.
    */
   tailwindTheme?: boolean
 }

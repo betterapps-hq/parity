@@ -70,6 +70,14 @@
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
+    "packages/extension-react": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/extension-tailwind": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/extension-tanstack-router": {
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]

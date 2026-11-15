@@ -10,6 +10,7 @@ import {
   detectPeers,
   parseCanvasDocument
 } from "@parity-app/core"
+import { handles, readTheme } from "@parity-app/extension-tailwind"
 import {
   adapterActions,
   adapterStatus,
@@ -81,7 +82,7 @@ export function exampleProject(): Plugin {
 
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
       if (source === rendererId) {
-        return require.resolve("@parity-app/react-adapter/guest")
+        return require.resolve("@parity-app/extension-react/guest")
       }
 
       if (source.startsWith("/")) {
@@ -191,9 +192,9 @@ async function discover(): Promise<{
   const builder = adapters.builders[0]!
   const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
 
-  const [styleFound, entitiesFound] = await Promise.all([found(adapters.styles), found(adapters.entities)])
+  const entitiesFound = await found(adapters.entities)
 
-  const routers = extensionTools.flatMap((tool) => {
+  const extensions = extensionTools.flatMap((tool) => {
     const detection = detectPeers(pkg, tool.versions)
 
     return detection.found ? [{ adapter: tool, detection }] : []
@@ -202,30 +203,19 @@ async function discover(): Promise<{
   const config = await discoverProject(root, renderer, pkg)
   const stylesheet = config.styles[0]
   const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
-  const styles = stylesheet ? adapters.styles.find((adapter) => adapter.handles(source)) : undefined
-  const theme = styles && stylesheet ? await styles.loadTheme(root, stylesheet).catch(() => []) : []
+  // Tailwind reads the theme, as its extension's styles provider does in the app.
+  const theme = stylesheet && handles(source) ? await readTheme(root, stylesheet).catch(() => []) : []
   const mainDocument = config.documents.find((path) => !path.includes("/")) ?? "shadcn-vite.par"
   // The example's main designs file is the only one stories open, read from Storybook's own copy.
   const documents = [await readDocument(mainDocument)]
   const main = documents[0]?.document
 
-  const detection = await detectProject(root, pkg, [
-    rendererFound,
-    builderFound,
-    ...styleFound,
-    ...routers,
-    ...entitiesFound
-  ])
+  const detection = await detectProject(root, pkg, [rendererFound, builderFound, ...extensions, ...entitiesFound])
 
   const used = entitiesFound.map(({ adapter }) => adapter)
   const entities = await importEntities(root, config.components, used)
 
-  const tools = [
-    { adapter: renderer },
-    { adapter: builder, version: "8" },
-    ...(styles ? [{ adapter: styles }] : []),
-    ...used.map((adapter) => ({ adapter }))
-  ]
+  const tools = [{ adapter: renderer }, { adapter: builder, version: "8" }, ...used.map((adapter) => ({ adapter }))]
 
   const info: Omit<ProjectInfo, "guestUrl"> = {
     id: root,
@@ -248,8 +238,8 @@ async function discover(): Promise<{
     modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
   }
 
-  if (styles && stylesheet) {
-    info.styles = { id: styles.id, name: styles.name, stylesheet }
+  if (stylesheet && handles(source)) {
+    info.styles = { id: "tailwind", name: "Tailwind CSS", stylesheet }
   }
 
   if (config.storybook) {

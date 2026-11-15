@@ -1,45 +1,6 @@
 import { basename, dirname } from "node:path"
-import { type ComponentEvidence, type ComponentExport, declares, type RendererAdapter } from "@parity-app/core"
+import type { ComponentEvidence, ComponentExport } from "@parity-app/core"
 import ts from "typescript"
-import { reactLogo } from "./logo.ts"
-
-export const reactRenderer: RendererAdapter = {
-  id: "react",
-  name: "React",
-  icon: reactLogo,
-  async detect({ pkg }) {
-    const found = declares(pkg, ["react"]) !== undefined && declares(pkg, ["react-dom"]) !== undefined
-
-    return { found, summary: found ? "react and react-dom in package.json" : "No react and react-dom in package.json" }
-  },
-  versions: {
-    packages: ["react"],
-    majors: [
-      [15, "2016-04-07"],
-      [16, "2017-09-26"],
-      [17, "2020-10-20"],
-      [18, "2022-03-29"],
-      [19, "2024-12-05"]
-    ]
-  },
-  guestModule: "@parity-app/react-adapter/guest",
-  runtimePackages: ["react", "react-dom"],
-  runtimeImports: ["react", "react/jsx-runtime", "react-dom", "react-dom/client"],
-  // React's production build exports no `jsxDEV`, which the project's JSX is compiled to call in development, and the
-  // same goes for packages that bring their own runtime (`@emotion/react/jsx-dev-runtime`). The extra arguments
-  // `jsxDEV` takes only feed development warnings.
-  developmentStandIns: { "/jsx-dev-runtime": 'export { Fragment, jsx as jsxDEV } from "$base/jsx-runtime"' },
-  // `.ts` too: a component can be made with `createElement`, or be an alias such as `const Select = Primitive.Root`.
-  componentExtensions: [".tsx", ".ts", ".jsx", ".js"],
-  findComponents,
-  status: ({ version }) => [
-    {
-      value: "React",
-      hint: version ? `React ${version}` : "React",
-      detail: "Renders the project's components"
-    }
-  ]
-}
 
 /**
  * The components a file exports, read from its syntax alone, as Storybook's react-docgen reads them: fast enough to
