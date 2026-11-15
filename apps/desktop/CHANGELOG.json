@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 00:20:48 GMT",
+      "version": "0.88.0",
+      "tag": "@parity-app/desktop_v0.88.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2a4214488cd4442944971880b4b0e6e14da3a682",
+            "comment": "Extensions can offer an API to each other and tools to agents: parity extensions and parity run (get_extensions and run_extension) list a project's extensions and run their commands and tools, with each change named after the agent and the extension"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e6c38f55ff52ea9a2d1f91272784f4baae6aff6e",
+            "comment": "Processes have one start per id, ready checks, tasks, restarts after a crash and checks on adopted servers, and send processes.* events in place of server.*"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b351790c88443690c8536a7066d92b1f3a188247",
+            "comment": "New designs get ids with a readable stem and five random characters, and a pasted design always gets a new id, so designs added by different people don't collide"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 23:31:46 GMT",
       "version": "0.87.0",
       "tag": "@parity-app/desktop_v0.87.0",
