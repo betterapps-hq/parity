@@ -227,7 +227,8 @@ Extensions change designs and files through Parity, never by writing them, so un
 
 - **Commands for a process** (PAR-1127). A command placed at `process` shows in the More menu on a process's row in the
   processes list, for the project's own processes, and its handler gets `{ type: "process", id }`, with the id
-  `parity.processes.list()` gives it, as `storybook:storybook` or `parity:builder`. Its `when` and `enablement` can test
+  `parity.processes.list()` gives it, as `storybook:storybook` or `parity:builder`. A context key's list holds a process
+  by that id too, which the window works out from the processes it lists. Its `when` and `enablement` can also test
   `process.isMine` (the extension started or adopted it), `process.isParitys`, `process.isServer`, `process.hasEndpoint`
   and `process.isRunning`, which are false anywhere else. A row shows More only when some command holds for it. No
   built-in extension places one yet:

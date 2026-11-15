@@ -160,6 +160,26 @@ describe("commandsAt for a process (PAR-1127)", () => {
     ])
   })
 
+  it("tests the extension's context lists by the id it knows the process by", () => {
+    const watching = storybook({
+      ...logs,
+      contributes: {
+        commands: [{ id: "logs.show", title: "Show logs" }],
+        menus: { process: [{ command: "logs.show", when: "logs.watched" }] }
+      },
+      context: { "logs.watched": ["parity:builder"] }
+    })
+
+    const build = server("", { id: "builder:/example", owner: { kind: "parity", role: "builder" } })
+
+    expect(
+      commandsAt([watching], "process", { type: "process", id: "parity:builder" }, { process: build })
+    ).toHaveLength(1)
+    expect(commandsAt([watching], "process", { type: "process", id: "parity:typecheck" }, { process: build })).toEqual(
+      []
+    )
+  })
+
   it("leaves process keys false off a process, and process commands off other placements", () => {
     expect(commandsAt([logs], "process", target(server("parity-logs")))).toEqual([])
     expect(commandsAt([logs], "layers", button, { process: server("parity-logs") })).toEqual([])

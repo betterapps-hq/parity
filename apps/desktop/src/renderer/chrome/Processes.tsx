@@ -34,6 +34,7 @@ import {
   Zap
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
+import { listedId } from "../../shared/process-ids.ts"
 import type { ProcessRole, ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { commandsAt, type PlacedCommand, runCommand, useExtensions } from "../extensions.ts"
@@ -206,7 +207,7 @@ export function Processes() {
               </GroupLabel>
               <ul>
                 {group.processes.map((process) => (
-                  <ProcessRow key={process.id} process={process} now={now} />
+                  <ProcessRow key={process.id} process={process} all={processes} now={now} />
                 ))}
               </ul>
             </section>
@@ -225,7 +226,7 @@ export function Processes() {
               </GroupLabel>
               <ul>
                 {finished.map((process) => (
-                  <ProcessRow key={process.id} process={process} now={now} showProject={manyProjects} />
+                  <ProcessRow key={process.id} process={process} all={processes} now={now} showProject={manyProjects} />
                 ))}
               </ul>
             </section>
@@ -430,10 +431,13 @@ export function KindTile({ process }: { process: ProjectProcess }) {
 
 function ProcessRow({
   process,
+  all,
   now,
   showProject = false
 }: {
   process: ProjectProcess
+  /** Every process listed, which names this one as extensions know it. */
+  all: ProjectProcess[]
   now: number
   /** Name its project, as in the last results when more than one project is open. */
   showProject?: boolean
@@ -444,8 +448,10 @@ function ProcessRow({
   const pinned = confirming || menuOpen
   const session = useProject()
   const { extensions } = useExtensions(session)
-  // What the open project's extensions place in a process's menu; another project's are its own tab's.
-  const target = { type: "process", id: process.id } as const
+  // What the open project's extensions place in a process's menu; another project's are its own tab's. The menu names
+  // the process by its id in `parity.processes.list()`, so their context keys and handlers get the id they know.
+  const sameProject = all.filter((each) => each.projectId === process.projectId)
+  const target = { type: "process", id: listedId(process, sameProject) } as const
 
   const commands = process.projectId === session.id ? commandsAt(extensions, "process", target, { process }) : []
 
