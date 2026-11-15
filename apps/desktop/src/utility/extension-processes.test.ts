@@ -7,7 +7,8 @@ import { createTelemetry, createTestSink, registeredEvents, type TestSink } from
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { traceWith } from "../shared/tracing.ts"
 import { extensionProcesses } from "./extension-processes.ts"
-import { freePort, stopProject } from "./process-manager.ts"
+import { freePort } from "./ports.ts"
+import { stopProject } from "./process-manager.ts"
 
 let root: string
 let state: string

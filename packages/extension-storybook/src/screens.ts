@@ -12,6 +12,7 @@ import {
   type StateSpec
 } from "@parity-app/core"
 import { readStoryFile, type Story, type StoryArgs, type StoryFile } from "./csf.ts"
+import type { ComponentStoryFile } from "./storybook.ts"
 import { writeStoryArgs } from "./write.ts"
 
 /** Story files, as Storybook's default `stories` glob finds them. */
@@ -27,8 +28,19 @@ export const storybookId = "storybook"
  * that isn't one of the project's isn't imported, nor is a file with none left.
  */
 export async function importStoryScreens(source: EntitiesSource): Promise<ProjectEntities> {
+  return (await importStories(source)).entities
+}
+
+/**
+ * The screens and code `importStoryScreens` gives, and the project's story files by the component each one's meta
+ * names, when that's one of the project's components (PAR-1128).
+ */
+export async function importStories(
+  source: EntitiesSource
+): Promise<{ entities: ProjectEntities; stories: Record<string, ComponentStoryFile[]> }> {
   const screens: ImportedScreen[] = []
   const sources: Record<string, GuestComponentSource> = {}
+  const byComponent: Record<string, ComponentStoryFile[]> = {}
 
   for (const path of await source.files(storyFilePattern)) {
     const text = await source.read(path)
@@ -40,6 +52,16 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Projec
     const file = readStoryFile(text, path)
     const component = file.component && (await source.componentFor(path, file.component.specifier, file.component.name))
     const group = file.title ?? titleFromPath(path, file)
+
+    if (component) {
+      const listed: ComponentStoryFile = { path, exports: file.exportNames }
+
+      if (file.title) {
+        listed.title = file.title
+      }
+
+      ;(byComponent[component] ??= []).push(listed)
+    }
 
     const stories = file.stories.flatMap((story) => {
       // A story that renders itself draws its function, as a component of its own, by the story's ref.
@@ -75,7 +97,7 @@ export async function importStoryScreens(source: EntitiesSource): Promise<Projec
     screens.push(screen)
   }
 
-  return { screens, sources }
+  return { entities: { screens, sources }, stories: byComponent }
 }
 
 /** The id of the layer that draws a story in its file's design, by the story's export. */

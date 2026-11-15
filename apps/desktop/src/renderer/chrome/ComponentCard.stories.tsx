@@ -6,7 +6,7 @@ import { expect, userEvent, within } from "storybook/test"
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
-import { projectInfo, roots } from "../stories/host.ts"
+import { projectInfo, roots, standInExtensions } from "../stories/host.ts"
 import accordion from "../stories/previews/accordion.png?inline"
 import attachmentGroup from "../stories/previews/attachment-group.png?inline"
 import button from "../stories/previews/button.png?inline"
@@ -25,8 +25,10 @@ import { useHoverCard } from "./hover-card.ts"
 import { formatKeys } from "./keys.ts"
 import { Name } from "./Name.tsx"
 
-/** The example project's Storybook logo, as its adapter offers Open in Storybook with it. */
-const storybookLogo = projectInfo(roots.example).actions.find((action) => action.adapter === "storybook")?.icon
+/** The example project's Storybook logo, as its extension offers Open in Storybook with it. */
+const storybookLogo = standInExtensions(projectInfo(roots.example)).find(
+  (extension) => extension.id === "storybook"
+)?.icon
 
 /**
  * A component's card in the Assets panel: its preview, large, with its name, file and what to do with it. It opens

@@ -23,14 +23,12 @@ import routerExtension from "@parity-app/extension-tanstack-router/package.json"
 import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/extension-vite/builder"
 import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
-  adapterActions,
   adapterStatus,
   detectAdapters,
   detectContext,
   detectProject,
   detectStorybook,
   discoverProject,
-  importEntities,
   readPackage
 } from "@parity-app/project"
 import type { Plugin } from "vite"
@@ -233,7 +231,6 @@ async function discover(): Promise<{
   const detection = await detectProject(root, pkg, [rendererFound, builderFound, ...extensions, ...entitiesFound])
 
   const used = entitiesFound.map(({ adapter }) => adapter)
-  const entities = await importEntities(root, config.components, used)
 
   const tools = [{ adapter: renderer }, { adapter: builder, version: "8" }, ...used.map((adapter) => ({ adapter }))]
 
@@ -246,8 +243,7 @@ async function discover(): Promise<{
     theme,
     routes: [],
     entities: {},
-    status: adapterStatus(tools, detection, entities),
-    actions: adapterActions(tools, detection, entities),
+    status: adapterStatus(tools, detection),
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,

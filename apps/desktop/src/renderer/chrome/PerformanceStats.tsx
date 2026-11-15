@@ -136,8 +136,8 @@ export function PerformanceStats() {
         <p className="border-t px-3 py-2 type-description text-muted-foreground">
           {latest?.heap &&
             `This window's JavaScript uses ${megabytes(latest.heap.used)} of ${megabytes(latest.heap.limit)}. `}
-          CPU is a share of all {navigator.hardwareConcurrency} cores. Each project&apos;s builder is counted, but
-          Storybook and the other servers listed under processes, beside these stats, aren&apos;t.
+          CPU is a share of all {navigator.hardwareConcurrency} cores. Each project&apos;s builder is counted, but the
+          other servers in the processes list aren&apos;t.
         </p>
       </PopoverContent>
     </Popover>

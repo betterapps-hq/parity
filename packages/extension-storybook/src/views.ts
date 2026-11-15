@@ -1,5 +1,5 @@
 import type { ViewItem, ViewOptions } from "@parity-app/extension-api"
-import { componentsWithStories, type DetectedStorybook } from "./storybook.ts"
+import { componentsWithStories, type ProjectStorybook } from "./storybook.ts"
 
 /*
  * What the Storybook extension draws in its views (PAR-1094), as data: the Stories tab's tree of components and their
@@ -38,7 +38,7 @@ function count(n: number, one: string, many: string): string {
  * The stories of one component, as items under `parent`: each story its file exports, named as Storybook names it, or
  * the file itself when detection found no exports. With more than one file, each story says which it's in.
  */
-function storiesOf(storybook: DetectedStorybook, component: string, parent?: string): ViewItem[] {
+function storiesOf(storybook: ProjectStorybook, component: string, parent?: string): ViewItem[] {
   const files = storybook.stories[component] ?? []
   const target = { type: "component" as const, key: component }
 
@@ -67,17 +67,17 @@ function storiesOf(storybook: DetectedStorybook, component: string, parent?: str
 }
 
 /** The number of stories a component has: its files' exports, or its files where detection found none. */
-function storyCount(storybook: DetectedStorybook, component: string): number {
+function storyCount(storybook: ProjectStorybook, component: string): number {
   return (storybook.stories[component] ?? []).reduce((sum, file) => sum + Math.max(1, file.exports?.length ?? 0), 0)
 }
 
 /** The components with stories, by name. */
-function byName(storybook: DetectedStorybook): string[] {
+function byName(storybook: ProjectStorybook): string[] {
   return componentsWithStories(storybook).toSorted((a, b) => a.localeCompare(b))
 }
 
 /** The Stories tab: every component with stories, by name, each opening to its stories. */
-export function storiesTree(storybook: DetectedStorybook): Filled {
+export function storiesTree(storybook: ProjectStorybook): Filled {
   const components = byName(storybook)
 
   return {
@@ -99,7 +99,7 @@ export function storiesTree(storybook: DetectedStorybook): Filled {
  * The Design tab's Stories section: every component's stories, each about its component, so the section shows the
  * selected component's.
  */
-export function componentStories(storybook: DetectedStorybook): Filled {
+export function componentStories(storybook: ProjectStorybook): Filled {
   return {
     options: { itemActions: [open] },
     items: byName(storybook).flatMap((component) => storiesOf(storybook, component))
@@ -115,7 +115,7 @@ export interface RunningAt {
  * The setup guide: whether Parity found Storybook's config and stories, and whether Storybook is running, each a step
  * that's done or says what's missing.
  */
-export function setupGuide(storybook: DetectedStorybook, running?: RunningAt): Filled {
+export function setupGuide(storybook: ProjectStorybook, running?: RunningAt): Filled {
   const withStories = componentsWithStories(storybook)
   const stories = withStories.reduce((sum, component) => sum + storyCount(storybook, component), 0)
 

@@ -1,5 +1,4 @@
-import { connect, createServer } from "node:net"
-import { isText } from "@parity-app/core/values/evaluate"
+import { connect } from "node:net"
 import type { Endpoint, ProcessEnd, ProcessOwner, ReadyCheck } from "@parity-app/extension-api"
 import {
   type ChildEnd,
@@ -1075,31 +1074,4 @@ export function stopProject(projectId: string): void {
   }
 
   forgetProject(projectId)
-}
-
-/** The port it asks for when that one's free, else one the system hands out. */
-export async function choosePort(wanted: number): Promise<number> {
-  return (await portFree(wanted)) ? wanted : freePort()
-}
-
-/** Whether nothing listens on a port now. */
-function portFree(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = createServer()
-    server.once("error", () => resolve(false))
-    server.listen(port, () => server.close(() => resolve(true)))
-  })
-}
-
-/** A port nothing listens on now, as the system hands one out. */
-export function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once("error", reject)
-    server.listen(0, () => {
-      const address = server.address()
-      const port = address && !isText(address) ? address.port : 0
-      server.close(() => resolve(port))
-    })
-  })
 }

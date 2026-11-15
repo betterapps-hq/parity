@@ -1,8 +1,7 @@
-import type { ProjectAction } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../../canvas/kinds.tsx"
-import type { ComponentOffer } from "../../chrome/adapter-actions.ts"
+import type { OfferedCommand, Offer } from "../../chrome/command-offers.ts"
 import { PanelColumn } from "../../chrome/inspector-stories.tsx"
 import type { HeaderAction } from "../../chrome/layer-kind.ts"
 import { panelEnd } from "../../chrome/PanelSection.tsx"
@@ -23,13 +22,12 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** Storybook's action, as its adapter offers it for a component with stories. */
-const openInStorybook: ProjectAction = {
-  adapter: "storybook",
-  id: "open",
+/** Storybook's command, as its extension offers it for a component with stories. */
+const openInStorybook: OfferedCommand = {
+  extension: "storybook",
+  id: "storybook.open",
   name: "Open in Storybook",
-  progress: "Opening Storybook…",
-  failed: "Couldn't open Storybook"
+  run: () => Promise.resolve()
 }
 
 /** A header as the inspector draws it, with the actions it had. */
@@ -39,14 +37,14 @@ function Header({
   kind,
   name,
   actions,
-  adapterOffers
+  offers
 }: {
   icon: ReactNode
   color: string
   kind: string
   name: string
   actions: HeaderAction[]
-  adapterOffers?: ComponentOffer[]
+  offers?: Offer[]
 }) {
   return (
     <PanelColumn>
@@ -56,7 +54,7 @@ function Header({
           color={color}
           kind={kind}
           name={<span className={`truncate px-1.5 ${headingName}`}>{name}</span>}
-          action={<HeaderActions actions={actions} onAction={() => undefined} adapterOffers={adapterOffers} />}
+          action={<HeaderActions actions={actions} onAction={() => undefined} offers={offers} />}
         />
       </div>
     </PanelColumn>
@@ -74,7 +72,7 @@ export const CodeComponentInstance: Story = {
       kind="Component instance"
       name="Sign in card"
       actions={["open-in-editor"]}
-      adapterOffers={[{ action: openInStorybook }]}
+      offers={[{ command: openInStorybook }]}
     />
   )
 }

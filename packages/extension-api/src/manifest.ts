@@ -70,6 +70,26 @@ export interface ToolVersionFacts {
   distributions?: Record<string, string>
 }
 
+/**
+ * How Parity finds an extension's tool in a project (PAR-1128), with no code of the extension's: it's found when any
+ * rule holds, and `activates: ["onDetect"]` starts it then.
+ */
+export interface Detection {
+  /**
+   * Found when the project's package.json declares one of the packages its peer dependencies name. True when `detect`
+   * is left out.
+   */
+  peers?: boolean
+  /** Found when Parity's entities detection found the tool's files, for an extension with an entities provider. */
+  entities?: boolean
+  /**
+   * Found when the first of these paths that names something exists, as `$PORTLESS_STATE_DIR` then `~/.portless`: from
+   * the home folder, an environment variable's folder, which names nothing while it isn't set, or the project's root.
+   * Its `read` permission has to name each. The extension gets the one found as `parity.project.detected.path`.
+   */
+  paths?: string[]
+}
+
 /** The `parity` field of an extension's `package.json`. */
 export interface Manifest {
   /** The name people see. */
@@ -78,8 +98,8 @@ export interface Manifest {
   prefix: string
   icon: PathIcon
   activates: ActivationEvent[]
-  /** A small module that says whether its tool is in the project, relative to the package. */
-  detect?: string
+  /** How Parity finds its tool in a project, before its code loads. Without it, its peer dependencies say. */
+  detect?: Detection
   /** Files whose change means detecting again, as globs relative to the project's root. */
   watches?: string[]
   /** What its peer dependencies can't say of its tool's versions. */

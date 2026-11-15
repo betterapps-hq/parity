@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Detection finds a tool listed only in optionalDependencies.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

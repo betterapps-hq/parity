@@ -40,7 +40,7 @@ export interface CardVariant {
   preview: PreviewState | undefined
 }
 
-/** One of the project's adapters' actions for a component, as its card's bar offers it. */
+/** One of the project's extensions' commands for a component, as its card's bar offers it. */
 export interface CardOffer {
   /** Its adapter and id, to tell it from the rest. */
   id: string
@@ -76,7 +76,7 @@ export interface ComponentCardProps {
   onInsert?: () => void
   /** Opens its file in the person's editor; none for a component without one. */
   onOpenFile?: () => void
-  /** What the project's adapters offer for it, as Open in Storybook on one with stories, each an icon button. */
+  /** What the project's extensions offer for it, as Open in Storybook on one with stories, each an icon button. */
   offers?: readonly CardOffer[]
   /** Something else pressing or dragging it does, said last. */
   actions?: ReactNode

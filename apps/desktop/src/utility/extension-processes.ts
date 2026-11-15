@@ -26,11 +26,11 @@ import { z } from "zod"
 import { logNote } from "../shared/log.ts"
 import { managedId } from "../shared/process-ids.ts"
 import { track } from "../shared/tracing.ts"
+import { choosePort } from "./ports.ts"
 import { seenBy } from "./process-ids.ts"
 import {
   accepts,
   adoptProcess,
-  choosePort,
   knownProcess,
   type Launch,
   type ManagedProcess,

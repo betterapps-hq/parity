@@ -482,8 +482,11 @@ export function createGuest(init: GuestInit): Guest {
       component = function OnDemand(props: Props) {
         const [, redraw] = useState(0)
         const own = useContext(FrameWindowContext)
+        // Whether this draw had the module. One drawn without it redraws once it loads, even when the load finished before
+        // this effect ran, as it can when another frame started it (PAR-1153).
+        const drewLoaded = ready !== undefined || failure !== undefined
         useEffect(() => {
-          if (ready || failure) {
+          if (drewLoaded) {
             return
           }
 
@@ -497,7 +500,7 @@ export function createGuest(init: GuestInit): Guest {
               again()
             }
           })
-        }, [own])
+        }, [own, drewLoaded])
         // Its boundary only hears it drew when the boundary draws, so once loaded it says so itself. A component that
         // throws never gets here.
         useEffect(() => {

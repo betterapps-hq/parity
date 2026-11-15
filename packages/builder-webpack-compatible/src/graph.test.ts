@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { BundlerCompilation, BundlerConnection, BundlerModule } from "./bundler.ts"
-import { changedComponents, loadedFiles, providedExports } from "./graph.ts"
+import { changedComponents, entryImports, loadedFiles, providedExports } from "./graph.ts"
 
 /** A compilation of modules by file, each importing the files listed with it. */
 function compilation(
@@ -60,6 +60,18 @@ describe("changedComponents", () => {
 
   it("gives nothing for a file the build doesn't have", () => {
     expect(changedComponents(compilation({}), root, ["/app/src/other.ts"], ["src/button.tsx"])).toEqual([])
+  })
+})
+
+describe("entryImports", () => {
+  it("tells a module the entry imports from one that's only another module's import", () => {
+    const graph = compilation({
+      "/app/entry.js": ["/app/src/button.tsx"],
+      "/app/src/button.tsx": ["/app/src/label.tsx"]
+    })
+
+    expect(entryImports(graph, "/app/entry.js", "/app/src/button.tsx")).toBe(true)
+    expect(entryImports(graph, "/app/entry.js", "/app/src/label.tsx")).toBe(false)
   })
 })
 

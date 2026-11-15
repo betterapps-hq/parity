@@ -9,7 +9,6 @@ import { type DesignStore, useSaveState } from "../design-store.ts"
 import { runCommand, statusItems, statusTooltip, useExtensions } from "../extensions.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
-import { projectAction, runAction } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { Hint } from "./Hint.tsx"
@@ -31,34 +30,27 @@ export function StatusBar() {
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
   const { extensions } = useExtensions(session)
 
-  // What an adapter's item does: open a left panel tab, or run one of its adapter's actions.
-  const open = (item: AdapterStatusItem) => {
-    const action =
-      item.opens && "action" in item.opens ? projectAction(info, item.adapter, item.opens.action) : undefined
-
-    if (item.opens && "tab" in item.opens) {
-      openTab(item.opens.tab)
-    } else if (action) {
-      void runAction(session.id, action)
-    }
-  }
-
   const themed = tokens.length - semantic
 
   return (
     <footer className="@container/footer flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
-      {info.status.map((item) => (
-        <Item
-          key={`${item.adapter}:${item.icon}:${item.hint}`}
-          icon={<ItemIcon item={item} />}
-          hint={item.hint}
-          detail={item.detail}
-          onClick={item.opens && (() => open(item))}
-        >
-          <strong className="font-medium text-foreground">{item.value}</strong>
-          {item.words && <Words>{item.words}</Words>}
-        </Item>
-      ))}
+      {info.status.map((item) => {
+        // What an adapter's item does: open a left panel tab.
+        const tab = item.opens?.tab
+
+        return (
+          <Item
+            key={`${item.adapter}:${item.icon}:${item.hint}`}
+            icon={<ItemIcon item={item} />}
+            hint={item.hint}
+            detail={item.detail}
+            onClick={tab === undefined ? undefined : () => openTab(tab)}
+          >
+            <strong className="font-medium text-foreground">{item.value}</strong>
+            {item.words && <Words>{item.words}</Words>}
+          </Item>
+        )
+      })}
       {/* Extensions' items, from their manifests, with the value each last set (PAR-1089). */}
       {statusItems(extensions).map(({ extension, item, value, tooltip }) => {
         const command = extension.contributes.commands?.find((declared) => declared.id === item.command)

@@ -7,7 +7,7 @@ import { gatherChanges } from "@parity-app/project"
 import { componentModuleSource, guestFiles, guestModuleSource } from "./browser-modules.ts"
 import type { Bundler, BundlerCompilation, BundlerConfig, BundlerStats } from "./bundler.ts"
 import { writeElementSourcesLoader, writeGuestAddressLoader } from "./element-sources.ts"
-import { changedComponents, filePath, loadedFiles, modulesByFile, providedExports } from "./graph.ts"
+import { changedComponents, entryImports, filePath, loadedFiles, providedExports } from "./graph.ts"
 import { guestConfig } from "./guest-config.ts"
 import { componentPath, entryPath, guestEntrySource, loadablePaths } from "./guest-entry.ts"
 import { freePort, portFree, serveGuest } from "./server.ts"
@@ -172,7 +172,11 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
     if (!written.has(path)) {
       extra.add(path)
       await writeEntry()
-      await build.until((compilation) => modulesByFile(compilation).has(entryPath(graphRoot, path)), addedWithin)
+      // The module may be in the build already, as another's import: it's the rewritten entry's build that loads it.
+      await build.until(
+        (compilation) => entryImports(compilation, filePath(entry), entryPath(graphRoot, path)),
+        addedWithin
+      )
     }
 
     const compilation = await build.settled()
