@@ -1,5 +1,11 @@
 import { posix } from "node:path"
 import { appPageModeScript } from "@parity-app/project"
+import {
+  elementSourcesConfigFile,
+  elementSourcesConfigSource,
+  elementSourcesLoaderFile,
+  elementSourcesLoaderSource
+} from "./element-sources.ts"
 
 /*
  * The guest app: a small Next.js app of Parity's own, which the builder runs the project's own Next on, so Next compiles
@@ -71,6 +77,8 @@ export function projectImport(path: string): string {
 export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
   const files: GuestAppFile[] = [
     { path: "next.config.mjs", text: nextConfigSource(options) },
+    { path: elementSourcesConfigFile, text: elementSourcesConfigSource(options.origin) },
+    { path: elementSourcesLoaderFile, text: elementSourcesLoaderSource },
     { path: `${guestRouteGroup}/layout.tsx`, text: layoutSource },
     {
       path: `${guestRouteGroup}/parity-guest/page.tsx`,
@@ -223,6 +231,7 @@ export function nextConfigSource(options: Pick<GuestAppOptions, "root" | "next" 
 
   return `// Written by Parity's Next.js builder each time it starts. The project's own config is ${options.config ?? "absent"}.
 import { createRequire } from "node:module"
+import { rulesWithElementSources, webpackWithElementSources } from "./${elementSourcesConfigFile}"
 import { rulesWithTailwindBase } from "./${tailwindBaseFile}"
 
 const require = createRequire(${JSON.stringify(posix.join(options.next, "package.json"))})
@@ -240,7 +249,8 @@ export default async function config(phase) {
 
   return {
     ...kept,
-    turbopack: { ...project.turbopack, rules: rulesWithTailwindBase(project.turbopack?.rules) },
+    turbopack: { ...project.turbopack, rules: rulesWithElementSources(rulesWithTailwindBase(project.turbopack?.rules)) },
+    webpack: webpackWithElementSources(project.webpack),
     // The project's modules are outside the guest app's folder, which webpack compiles nothing from without this.
     experimental: { ...project.experimental, externalDir: true },
     devIndicators: false,

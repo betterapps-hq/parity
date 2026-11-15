@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readdir, readFile, realpath, stat } from "node:fs/promises"
+import type { IncomingMessage } from "node:http"
 import { join, posix } from "node:path"
 import type { BuilderSession, BuilderStartOptions } from "@parity-app/core"
 import { guestModule } from "@parity-app/project"
 import type { NextBundler } from "./bundler.ts"
+import { elementSourcesRoute, taggedNextSource } from "./element-sources.ts"
 import {
   guestAppFiles,
   guestAppFolder,
@@ -123,7 +125,22 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
   const started: StartedServer = {}
   const guestModuleText = async (server: NextServer) => loader.guestModule(await guestPages(server), server, session)
 
-  const own: OwnRoute = async (_request, response, url) => {
+  const own: OwnRoute = async (request, response, url) => {
+    // Next's loaders ask for the project's JSX to be tagged as they compile it, which starts before Next's server is.
+    if (url.pathname === elementSourcesRoute) {
+      const tagged = taggedNextSource(root, url.searchParams.get("file") ?? "", await requestText(request))
+
+      if (tagged) {
+        response.writeHead(200, { "content-type": "application/json" })
+        response.end(JSON.stringify(tagged))
+      } else {
+        response.writeHead(204)
+        response.end()
+      }
+
+      return true
+    }
+
     const { server } = started
     const script = url.pathname === nextGuestRoutes.script ? loader.script : undefined
 
@@ -212,6 +229,17 @@ function isFolder(path: string): Promise<boolean> {
     (stats) => stats.isDirectory(),
     () => false
   )
+}
+
+/** A request's body, as text. */
+async function requestText(request: IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = []
+
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+  }
+
+  return Buffer.concat(chunks).toString("utf8")
 }
 
 /** A page of the guest app as Next renders it, or why it didn't. */

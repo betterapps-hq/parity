@@ -1,4 +1,4 @@
-import type { ComponentInfo, ComponentSource } from "@parity-app/core"
+import { type ComponentInfo, type ComponentSource, routeFiles } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   boardComponentNode,
@@ -22,19 +22,35 @@ const sources = {
 
 const layout = { x: 0, y: -1000, column: 400, row: 300 }
 
+/** The app's routes, as its router extension gives them: Pricing's file is a page's. */
+const routes = routeFiles([
+  {
+    id: "/pricing",
+    kind: "page",
+    segments: [{ type: "static", value: "pricing" }],
+    path: "/pricing",
+    file: "src/routes/pricing.tsx",
+    index: false,
+    loads: false,
+    guards: false
+  }
+])
+
 describe("boardGroups", () => {
   it("groups the project's own components as the Components panel does, leaving out pages, libraries, dependencies and providers", () => {
-    expect(boardGroups(sources)).toEqual([
+    expect(boardGroups(sources, routes)).toEqual([
       { name: "button", ids: ["Button"] },
       { name: "card", ids: ["Card", "CardTitle"] },
       { name: "shell", ids: ["Header"] }
     ])
+    // Without routes, nothing says Pricing is a page.
+    expect(boardGroups(sources).flatMap(({ ids }) => ids)).toContain("Pricing")
   })
 })
 
 describe("componentBoards", () => {
   it("puts each group on a row of its own, from the layout's top left", () => {
-    const boards = componentBoards(sources, {}, layout)
+    const boards = componentBoards(sources, {}, layout, {}, {}, routes)
 
     expect(boards.map(({ board }) => [board.id, board.position])).toEqual([
       ["component:Button", { x: 0, y: -1000 }],
@@ -42,7 +58,7 @@ describe("componentBoards", () => {
       ["component:CardTitle", { x: 400, y: -700 }],
       ["component:Header", { x: 0, y: -400 }]
     ])
-    expect(boardsHeight(sources, layout)).toBe(900)
+    expect(boardsHeight(sources, layout, routes)).toBe(900)
   })
 
   it("holds the component 2px in, on no fill, with a sample for each required prop, and its name as the children it takes", () => {

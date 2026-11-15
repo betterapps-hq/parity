@@ -7,6 +7,7 @@ import {
   type PropValues,
   componentNode,
   componentRole,
+  type RouteFiles,
   groupComponents
 } from "@parity-app/core"
 import { hiddenReason } from "./insert-search.ts"
@@ -43,19 +44,22 @@ export interface BoardLayout {
  * Components panel, and not its pages, which its routes draw. Each that draws something and isn't a part the Components
  * panel hides, in its groups there, the UI kit's by file and the rest by folder.
  */
-export function boardGroups(sources: Readonly<Record<string, ComponentSource>>): { name: string; ids: string[] }[] {
+export function boardGroups(
+  sources: Readonly<Record<string, ComponentSource>>,
+  routes?: RouteFiles
+): { name: string; ids: string[] }[] {
   const shown = Object.entries(sources).filter(
     ([key, source]) =>
       source.visual !== false &&
       !source.library &&
       !/(?:^|\/)node_modules\//.test(source.path) &&
       hiddenReason(key, { internal: source.internal }) === undefined &&
-      componentRole(source) !== undefined &&
-      componentRole(source) !== "page"
+      componentRole(source, routes) !== undefined &&
+      componentRole(source, routes) !== "page"
   )
 
-  const kit = shown.filter(([, source]) => componentRole(source) === "kit")
-  const app = shown.filter(([, source]) => componentRole(source) === "app")
+  const kit = shown.filter(([, source]) => componentRole(source, routes) === "kit")
+  const app = shown.filter(([, source]) => componentRole(source, routes) === "app")
 
   return [...groupComponents(kit, "file"), ...groupComponents(app, "folder")]
 }
@@ -79,9 +83,10 @@ export function componentBoards(
   components: Readonly<Record<string, ComponentInfo>>,
   layout: BoardLayout,
   parents: Readonly<Record<string, readonly string[]>> = {},
-  samples: Readonly<Record<string, PropValues>> = {}
+  samples: Readonly<Record<string, PropValues>> = {},
+  routes?: RouteFiles
 ): ComponentBoard[] {
-  return boardGroups(sources).flatMap((group, row) =>
+  return boardGroups(sources, routes).flatMap((group, row) =>
     group.ids.map((component, column) => {
       const id = componentBoardId(component)
       const chain = parents[component] ?? []
@@ -150,8 +155,12 @@ export function redrawnBoards(
 }
 
 /** How tall the boards' rows are together. */
-export function boardsHeight(sources: Readonly<Record<string, ComponentSource>>, layout: BoardLayout): number {
-  return boardGroups(sources).length * layout.row
+export function boardsHeight(
+  sources: Readonly<Record<string, ComponentSource>>,
+  layout: BoardLayout,
+  routes?: RouteFiles
+): number {
+  return boardGroups(sources, routes).length * layout.row
 }
 
 /**

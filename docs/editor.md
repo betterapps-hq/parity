@@ -1177,6 +1177,9 @@ bar.
   `renderer/extension-editor.ts`), with "Opened in your browser".
 - **The route count** is its status bar item, "6 routes" without the root route, which opens Layers when clicked.
 - **Its version** shows in the project's detection, from its peer dependency, as the adapter's did.
+- **It reads through the files API** (PAR-1163), with `read: ["**"]` in its manifest, since `tsr.config.json` can put
+  the route tree and route files anywhere. Each round of reading names the next files, the config, the tree, then each
+  route's module an extension at a time, so it reads again until a round asks for nothing new (`projectRoutes`).
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
 `packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
@@ -1244,6 +1247,23 @@ permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh p
 example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
 `routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
 
+### Pages are the routes' files (PAR-1163)
+
+Which components are pages comes from the router extension's routes, not from file names in core: a component is a page
+when its file is some route's `file`, or one of its `stateFiles`. So whatever a router calls its files, its extension
+says which are pages, and core knows no router's conventions.
+
+- **`routeFiles`** in `packages/core/src/grouping.ts` maps each of those files to its route. `componentRole`,
+  `groupComponents`'s `"route"` grouping (by the route's `path`, as the router writes it) and `rendersRoot` take it. The
+  page for `/` is a `page` route's own file at the root's URL, with no segments: not a layout or state file.
+- **Callers pass the project's routes:** the Components panel, component boards and the Home screen (`openingDesigns`,
+  `homeScreen`, `homeComponent`). The CLI's finder (`packages/code`) reads no routes, so it names no component a page.
+- **`route` nodes are their router extension's.** Each router extension declares the `route` node type, and a route's
+  ref is owned by the project's router (`info.router.id`, the extension's id), as Layers, the canvas and each
+  extension's `routeOf` give it. Only a command's `when` check, which reads `node.type` alone, uses an unowned ref.
+
+Tests: `packages/core/src/grouping.test.ts`, `packages/editor/src/home.test.ts` and `component-boards.test.ts`.
+
 ### Next.js's routes as an extension (PAR-1162)
 
 Next.js's routes come from an extension, through Parity's public API alone, so a Next.js app's pages are listed under
@@ -1303,6 +1323,24 @@ against Next 16.4 on Turbopack and webpack, with an App Router page, a dynamic s
 and a Pages Router page under `_app`: each served with its root layout, hydrated, and in the frame's mode. Gaps: a page
 added while the builder runs needs a restart to be served, and the example apps' pages haven't been drawn in the running
 app.
+
+### Element sources in the Next builders (PAR-1161)
+
+The Next builders tag the project's own JSX with where each element is, as Vite's `elementSources` plugin and the
+webpack-compatible builder's loader do, so a Next.js project's layers lead back to their code.
+
+- **Through the builder's server.** Turbopack runs loaders in workers of its own, outside the builder's process, so the
+  guest app's `element-sources-loader.cjs` posts each module to the builder's `/__parity/element-sources`, which tags it
+  with `tagElementSources` and answers with the code and its source map, or 204 when there's nothing to tag: a package's
+  module, a file outside the project, Next's `.next/` (the guest app's own files), or a module that isn't JSX.
+- **First on JSX.** The guest app's `element-sources.mjs` puts the loader last in Turbopack's `*.tsx` and `*.jsx` rules,
+  under each condition of a rule that has several, so it runs before a loader of the project's own (loaders run last to
+  first), and as a `pre` rule in webpack's, after the project's own `webpack` hook, so both bundlers tag before they
+  compile.
+
+Code: `packages/next-builders/src/element-sources.ts`, the route in `guest-server.ts`, and the config in `guest-app.ts`.
+Tests: `element-sources.test.ts`. Checked by hand against Next 16.4 on Turbopack and webpack: an App Router page, a
+client component it imports and a Pages Router page each served with their elements' sources.
 
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 

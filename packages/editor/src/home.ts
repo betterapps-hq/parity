@@ -2,16 +2,16 @@ import {
   addDesigns,
   type CanvasDocument,
   type ComponentSource,
-  componentRole,
   type ContainerSpec,
   type DesignNode,
   type DeviceKind,
   generateId,
   type ModeSettings,
   modeDevice,
-  pageRoute,
+  rendersRoot,
   type ResolvedMode,
-  resolveModes
+  resolveModes,
+  type RouteFiles
 } from "@parity-app/core"
 
 /** A project file as the project service reads it, with its designs. */
@@ -29,10 +29,11 @@ export function openingDesigns(
   files: readonly OpenedFile[],
   mainPath: string,
   components: Readonly<Record<string, ComponentSource>>,
-  modes: ModeSettings
+  modes: ModeSettings,
+  routes?: RouteFiles
 ): { path: string; document: CanvasDocument }[] {
   if (files.length === 0) {
-    return [{ path: mainPath, document: addDesigns(undefined, [homeScreen(components, modes)]) }]
+    return [{ path: mainPath, document: addDesigns(undefined, [homeScreen(components, modes, routes)]) }]
   }
 
   return [...files]
@@ -44,11 +45,15 @@ export function openingDesigns(
  * primary mode is a phone's (see `besideMode`). An app with no such component gets a padded page with Home as its
  * heading, as New screen starts one.
  */
-export function homeScreen(components: Readonly<Record<string, ComponentSource>>, modes: ModeSettings): ContainerSpec {
+export function homeScreen(
+  components: Readonly<Record<string, ComponentSource>>,
+  modes: ModeSettings,
+  routes: RouteFiles = new Map()
+): ContainerSpec {
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)
-  const component = homeComponent(components)
+  const component = homeComponent(components, routes)
 
   const content: DesignNode = component
     ? { type: "component", id: generateId(ids), component }
@@ -91,31 +96,22 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
 }
 
 /**
- * The component that renders the app at `/`, by id: its page for `/`, by its router's file names, else the `App`
- * component that Vite's and Create React App's templates mount. The nearest the root wins when there are several, and a
- * route file's default export over its others. Undefined when the app has neither.
+ * The component that renders the app at `/`, by id: the page its routes draw at `/`, else the `App` component that
+ * Vite's and Create React App's templates mount. The nearest the root wins when there are several, and a route file's
+ * default export over its others. Undefined when the app has neither.
  */
-export function homeComponent(components: Readonly<Record<string, ComponentSource>>): string | undefined {
+export function homeComponent(
+  components: Readonly<Record<string, ComponentSource>>,
+  routes: RouteFiles = new Map()
+): string | undefined {
   const own = Object.entries(components).filter(([, source]) => !source.library)
-  const pages = own.filter(([, source]) => rendersRoot(source))
-  const apps = own.filter(([, source]) => componentRole(source) !== "page" && isApp(source))
+  const pages = own.filter(([, source]) => rendersRoot(source, routes))
+
+  // An `App` in a file that declares the routes, as a library-mode router's root, still renders the app; one that's
+  // a page route's file is that page.
+  const apps = own.filter(([, source]) => routes.get(source.path)?.kind !== "page" && isApp(source))
 
   return (pages.length > 0 ? pages : apps).sort(nearestFirst)[0]?.[0]
-}
-
-/**
- * Whether a page is the one for `/`: Next's `app/page`, outside any folder but route groups, or an index in a `pages` or
- * `routes` folder. Layouts, error pages and the like for `/` are parts of a page, not the page.
- */
-function rendersRoot(source: ComponentSource): boolean {
-  if (componentRole(source) !== "page") {
-    return false
-  }
-
-  const route = pageRoute(source.path).replaceAll(/\/\([^/]+\)/g, "") || "/"
-  const file = baseName(source.path)
-
-  return route === "/" && (file === "page" || file === "index")
 }
 
 /** Whether a component is the app's root, by the name the templates give it. */
