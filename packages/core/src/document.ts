@@ -424,6 +424,28 @@ const designNode = z.discriminatedUnion("type", [
 
 export type DesignNode = z.infer<typeof designNode>
 
+/** A list of layers, each checked apart. */
+const anyLayers = z.array(z.unknown())
+
+/**
+ * One layer's own fields, as `designNode` checks them, with the layers it holds only checked to be lists. A layer is
+ * valid when it passes this and so does each layer it holds, which is how `containerIssue` checks a design's changed
+ * layers without the rest.
+ */
+const layerFields = z.discriminatedUnion("type", [
+  fileObject({ ...layoutNode.shape, children: anyLayers }),
+  fileObject({ ...routeNode.shape, children: anyLayers }),
+  fileObject({
+    ...componentNode.shape,
+    slots: z.record(z.string(), anyLayers).optional(),
+    internals: anyLayers.optional()
+  }),
+  textNode,
+  fileObject({ ...instanceNode.shape, slots: z.record(z.string(), anyLayers).optional() }),
+  imageNode,
+  videoNode
+])
+
 /** A node tree as a design or an insertion holds it, each node with an id of its own. */
 export const nodeTree = designNode.superRefine((root, context) => {
   const ids = new Set<string>()
@@ -608,8 +630,8 @@ export function designStates(container: Pick<ContainerSpec, "states">): readonly
   return container.states ?? [baseState]
 }
 
-/** One design, as a project file or the clipboard holds it (see `ContainerSpec`). */
-export const containerSpec = fileObject({
+/** A design's fields, each with its own check. */
+const containerFields = {
   id: z.string(),
   name: z.string(),
   /** Defaults to `screen`. */
@@ -641,7 +663,96 @@ export const containerSpec = fileObject({
    * mode's viewport, and without a height as tall as its content. Only a frame has one.
    */
   size: frameSize.optional()
-}).superRefine((container, context) => {
+}
+
+/** One design, as a project file or the clipboard holds it (see `ContainerSpec`). */
+export const containerSpec = fileObject(containerFields).superRefine((container, context) => {
+  containerRules(container, (path, message) => problem(context, path, message))
+})
+
+/** A design's fields with its root left to be checked a layer at a time. */
+const containerShell = fileObject({ ...containerFields, root: z.unknown() })
+
+/**
+ * The first problem with a design, as `containerSpec.safeParse` reports it, or undefined when it's valid. Given
+ * `previous`, a valid design it was made from, a layer that's the same object as one in `previous` isn't checked again,
+ * with the layers inside it, so a change costs the layers it made rather than the whole design. The rules that span
+ * layers, such as unique ids and slots, still look at them all, without zod.
+ */
+export function containerIssue(container: ContainerSpec, previous?: ContainerSpec): z.core.$ZodIssue | undefined {
+  if (previous && validChange(container, previous)) {
+    return undefined
+  }
+
+  // Found by a full check, so each problem reads as it always has.
+  return containerSpec.safeParse(container).error?.issues[0]
+}
+
+/** Whether a design made from a valid `previous` is valid, checking only the layers that aren't `previous`'s. */
+function validChange(container: ContainerSpec, previous: ContainerSpec): boolean {
+  if (!containerShell.safeParse(container).success) {
+    return false
+  }
+
+  if (container.root !== previous.root) {
+    const kept = new Set<DesignNode>()
+    eachLayer(previous.root, (node) => kept.add(node))
+
+    // A layer is typed as one, but what it holds is only trusted once its own fields pass.
+    const valid = (node: DesignNode): boolean =>
+      kept.has(node) || (layerFields.safeParse(node).success && heldLayers(node).every(valid))
+
+    if (!valid(container.root)) {
+      return false
+    }
+  }
+
+  let ok = true
+  const ids = new Set<string>()
+
+  walkNodes(container.root, (node) => {
+    ok &&= !ids.has(node.id)
+    ids.add(node.id)
+  })
+
+  containerRules(container, () => {
+    ok = false
+  })
+
+  return ok
+}
+
+/** Every layer in a tree, the root first, as zod checks them: in slots, a route's children and internals too. */
+function eachLayer(node: DesignNode, visit: (node: DesignNode) => void): void {
+  visit(node)
+
+  for (const child of heldLayers(node)) {
+    eachLayer(child, visit)
+  }
+}
+
+/** The layers a layer holds in any list `designNode` checks. */
+function heldLayers(node: DesignNode): DesignNode[] {
+  if (node.type === "layout" || node.type === "route") {
+    return node.children
+  }
+
+  if (node.type === "component") {
+    return [...Object.values(node.slots ?? {}).flat(), ...(node.internals ?? [])]
+  }
+
+  if (node.type === "instance") {
+    return Object.values(node.slots ?? {}).flat()
+  }
+
+  return []
+}
+
+/** Reports a problem at a path inside the value being checked. */
+type Report = (path: PropertyKey[], message: string) => void
+
+/** The rules that span a design's layers and fields, checked once each field has passed its own. */
+function containerRules(container: ContainerSpec, report: Report): void {
   const ids = new Set<string>()
   const slots = new Set<string>()
   walkNodes(container.root, (node) => {
@@ -654,34 +765,34 @@ export const containerSpec = fileObject({
     const unusable = slotNameProblem(node.slot)
 
     if (unusable) {
-      problem(context, ["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
+      report(["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
     } else if (slots.has(node.slot)) {
-      problem(context, ["root"], `two layers are the slot "${node.slot}"`)
+      report(["root"], `two layers are the slot "${node.slot}"`)
     }
 
     slots.add(node.slot)
   })
 
   for (const [index, state] of (container.states ?? []).entries()) {
-    checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
+    checkPatchKeys(state.overrides, ids, report, ["states", index, "overrides"])
   }
 
   if (!hasStates(container.kind)) {
-    checkNoStates(container, context)
+    checkNoStates(container, report)
   }
 
   if (container.kind === "frame") {
-    checkFrame(container, context)
+    checkFrame(container, report)
   } else if (container.size !== undefined) {
-    problem(context, ["size"], `only a frame has a size of its own; size a ${container.kind ?? "screen"} in frames`)
+    report(["size"], `only a frame has a size of its own; size a ${container.kind ?? "screen"} in frames`)
   }
 
   for (const [name, param] of Object.entries(container.params ?? {})) {
     for (const [index, option] of (param.options ?? []).entries()) {
-      checkPatchKeys(option.overrides, ids, context, ["params", name, "options", index, "overrides"])
+      checkPatchKeys(option.overrides, ids, report, ["params", name, "options", index, "overrides"])
     }
   }
-})
+}
 
 /**
  * One design, like a Storybook CSF file. `root` is the design itself. A component's states are authored and patch
@@ -697,14 +808,14 @@ export type ContainerSpec = z.infer<typeof containerSpec>
 function checkPatchKeys(
   patches: Record<string, NodePatch> | undefined,
   ids: ReadonlySet<string>,
-  context: z.RefinementCtx,
+  report: Report,
   path: PropertyKey[]
 ): void {
   for (const key of Object.keys(patches ?? {})) {
     const [node] = key.split("/")
 
     if (!ids.has(node)) {
-      problem(context, [...path, key], "no node has this id")
+      report([...path, key], "no node has this id")
     }
   }
 }
@@ -718,16 +829,16 @@ export function hasStates(kind: ContainerKind | undefined): boolean {
  * Only a component and a story have states: a screen or a frame is drawn as its layers are, so it names no state to
  * show.
  */
-function checkNoStates(container: ContainerSpec, context: z.RefinementCtx): void {
+function checkNoStates(container: ContainerSpec, report: Report): void {
   const kind = container.kind ?? "screen"
 
   if (container.states !== undefined) {
-    problem(context, ["states"], `only a component or a story has states; a ${kind} is drawn as its layers are`)
+    report(["states"], `only a component or a story has states; a ${kind} is drawn as its layers are`)
   }
 
   for (const field of ["state", "allStates", "states", "stateOrder"] as const) {
     if (container.view?.[field] !== undefined) {
-      problem(context, ["view", field], `only a component or a story has states; a ${kind} has none to show`)
+      report(["view", field], `only a component or a story has states; a ${kind} has none to show`)
     }
   }
 }
@@ -736,21 +847,21 @@ function checkNoStates(container: ContainerSpec, context: z.RefinementCtx): void
  * What a frame may hold: a layout at its root, drawn as its layers are, with no params, no view (it shows only the
  * primary mode) and no sizes per viewport, since it has one of its own.
  */
-function checkFrame(frame: ContainerSpec, context: z.RefinementCtx): void {
+function checkFrame(frame: ContainerSpec, report: Report): void {
   if (frame.root.type !== "layout") {
-    problem(context, ["root"], "a frame's root is a layout")
+    report(["root"], "a frame's root is a layout")
   }
 
   if (frame.params !== undefined) {
-    problem(context, ["params"], "a frame has no params")
+    report(["params"], "a frame has no params")
   }
 
   if (frame.view !== undefined) {
-    problem(context, ["view"], "a frame shows only the primary mode")
+    report(["view"], "a frame shows only the primary mode")
   }
 
   if (frame.frames !== undefined) {
-    problem(context, ["frames"], "a frame's size is in size, not per viewport")
+    report(["frames"], "a frame's size is in size, not per viewport")
   }
 }
 
