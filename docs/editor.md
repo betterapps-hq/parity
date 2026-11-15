@@ -7032,7 +7032,9 @@ nothing converts to another kind. Its stories are its states, a row each on its 
   Storybook's default layout draws a story, and hugs it (core's `fitsContent`): each story's preview is as wide as it
   draws in that mode, measured for each story apart (`frames`, by `Outline/desktop`, see `fittedKey`) and not saved,
   while the story lays out in the mode's whole window, so its media queries and viewport units read the mode's width, as
-  in Storybook's canvas.
+  in Storybook's canvas. Once a story's preview is measured, it sleeps on its bitmap zoomed far out as any frame does;
+  before PAR-1106 it was looked for by its mode's viewport alone, so it never counted as measured and never slept
+  (`sleeping.e2e.ts`).
 - **Its props, modes and sizes in the Design panel.** Selecting a story file shows its header, then Props, the args of
   the story picked, the row of the preview picked last, else the first (`pickedStory`), which edit and are written back
   as below, then Modes: its board draws each story's preview in each mode it shows, across. A story file's view, its

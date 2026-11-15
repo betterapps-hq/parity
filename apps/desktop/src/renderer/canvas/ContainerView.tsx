@@ -20,6 +20,7 @@ import {
   type MadeKind,
   designStates,
   fitsContent,
+  fittedKey,
   type FrameGeometry,
   type ModeVariable,
   orderedStates,
@@ -1443,7 +1444,7 @@ const FrameTile = memo(function FrameTile({
   // each time, is drawn once whatever the zoom, so it's fitted to what it draws (`useFitToContent`) rather than shown,
   // and captured, as wide as its window until someone comes close.
   const unmeasured = fitsContent(container)
-    ? container.frames?.[mode.viewport]?.width === undefined
+    ? container.frames?.[fittedKey(container, mode.viewport, state.id)]?.width === undefined
     : hugsContent(container) && container.size?.width === undefined
 
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,

@@ -831,22 +831,35 @@ export class App {
 
     // What's on top where the click lands, for a click that takes the window away from the project, and what around the
     // canvas is scrolled, which would move it under something else.
-    const under = await this.page.evaluate(({ x, y }) => {
-      const element = document.elementFromPoint(x, y)
-      const scrolled: string[] = []
+    const under = await this.page.evaluate(
+      ({ x, y, key }) => {
+        const element = document.elementFromPoint(x, y)
+        const frame = window.e2e!.frame(key).getBoundingClientRect()
 
-      for (let around = document.querySelector(".tl-container"); around; around = around.parentElement) {
-        if (around.scrollTop !== 0 || around.scrollLeft !== 0) {
-          scrolled.push(
-            `${around.tagName.toLowerCase()}.${[...around.classList].slice(0, 4).join(".")} at ${around.scrollLeft},${around.scrollTop}`
-          )
+        const board = document
+          .querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)
+          ?.getBoundingClientRect()
+
+        const camera = window.e2e!.session().editor?.getCamera()
+        const scrolled: string[] = []
+
+        for (let around = document.querySelector(".tl-container"); around; around = around.parentElement) {
+          if (around.scrollTop !== 0 || around.scrollLeft !== 0) {
+            scrolled.push(
+              `${around.tagName.toLowerCase()}.${[...around.classList].slice(0, 4).join(".")} at ${around.scrollLeft},${around.scrollTop}`
+            )
+          }
         }
-      }
 
-      const canvas = document.querySelector(".tl-container")?.getBoundingClientRect()
+        const canvas = document.querySelector(".tl-container")?.getBoundingClientRect()
 
-      return `${element ? element.outerHTML.slice(0, 200) : "nothing"}; the canvas at ${canvas?.x},${canvas?.y}; scrolled: ${scrolled.join(", ") || "nothing"}`
-    }, center(box))
+        const at = (rect: DOMRect | undefined) =>
+          rect ? [rect.x, rect.y, rect.width, rect.height].map(Math.round).join(",") : "none"
+
+        return `${element ? element.outerHTML.slice(0, 200) : "nothing"}; the canvas at ${at(canvas)}, its board at ${at(board)}, its main frame at ${at(frame)}, the camera at ${JSON.stringify(camera)}; scrolled: ${scrolled.join(", ") || "nothing"}`
+      },
+      { ...center(box), key }
+    )
 
     await this.click(center(box))
 
