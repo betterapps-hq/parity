@@ -1214,8 +1214,9 @@ Code: `packages/extension-nextjs` (its manifest, `extension.ts` and `routes.ts`)
 `packages/extension-api/src/api.ts`, `host-files.ts`, `hosts.ts` and `listFiles` in `utility/extensions.ts`.
 
 Tests: `packages/extension-nextjs/src/extension.test.ts` and `routes.test.ts` (App Router, Pages Router and mixed
-fixture trees as data), and the listing test in `packages/extensions/src/hosts.test.ts`. Gaps: `listFiles` on disk has
-no unit test of its own, and the pages haven't been drawn in the running app, which needs a Next.js builder.
+fixture trees as data, and the Turbopack example app's `src/app`), and the listing test in
+`packages/extensions/src/hosts.test.ts`. Gaps: `listFiles` on disk has no unit test of its own, and the pages haven't
+been drawn in the running app, which needs a Next.js builder.
 
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 

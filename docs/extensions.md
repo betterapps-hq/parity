@@ -331,7 +331,7 @@ out, as Portless does.
 - [extension.test.ts](../packages/extension-nextjs/src/extension.test.ts) and
   [routes.test.ts](../packages/extension-nextjs/src/routes.test.ts) (PAR-1162): Next.js's manifest, with its router
   provider, `read` permission and peer dependency; its pages counted without slots and intercepting routes; and the
-  routes it reads from App Router, Pages Router and mixed fixture trees.
+  routes it reads from App Router, Pages Router and mixed fixture trees, and from the Turbopack example app.
 - [extension.test.ts](../packages/extension-tailwind/src/extension.test.ts): Tailwind CSS's manifest, with its styles
   provider and status item, and the stylesheets it handles.
 - [extension.test.ts](../packages/extension-react/src/extension.test.ts): React's manifest, with its renderer's guest

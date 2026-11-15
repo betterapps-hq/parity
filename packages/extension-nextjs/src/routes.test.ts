@@ -1,6 +1,8 @@
+import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { join, relative } from "node:path"
 import type { Route } from "@parity-app/extension-api"
 import { describe, expect, it } from "vite-plus/test"
-import { pickFolders, readRoutes, sourceFiles } from "./routes.ts"
+import { pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
 
 /** A project's routes from its files, each given by its path and, for a page or a layout, its text. */
 function routesOf(tree: Record<string, string>): Route[] {
@@ -9,6 +11,19 @@ function routesOf(tree: Record<string, string>): Route[] {
   const texts = Object.fromEntries(sourceFiles(files, folders).map((file) => [file, tree[file] ?? ""]))
 
   return readRoutes(files, folders, texts)
+}
+
+/** A project folder's files under its router folders, with their texts, as the extension reads them. */
+function folderTree(root: string): Record<string, string> {
+  const files = [...routerFolders.app, ...routerFolders.pages].flatMap((folder) =>
+    existsSync(join(root, folder))
+      ? readdirSync(join(root, folder), { recursive: true, withFileTypes: true })
+          .filter((entry) => entry.isFile())
+          .map((entry) => relative(root, join(entry.parentPath, entry.name)).replaceAll("\\", "/"))
+      : []
+  )
+
+  return Object.fromEntries(files.map((file) => [file, readFileSync(join(root, file), "utf8")]))
 }
 
 /** Each route by its id, with only the fields a test looks at. */
@@ -202,6 +217,69 @@ describe("readRoutes for the App Router", () => {
         path: "/photo/[id]",
         intercepts: "app/photo/[id]/page",
         slot: undefined
+      }
+    ])
+  })
+})
+
+describe("readRoutes for the Turbopack example app", () => {
+  it("reads its src/app routes: a group's home page, a nested layout, a catch-all and loading files", () => {
+    const routes = routesOf(folderTree(join(import.meta.dirname, "../../../fixtures/nextjs-turbopack")))
+
+    expect(summary(routes, "kind", "path", "parent", "index", "component", "stateFiles")).toEqual([
+      {
+        id: "src/app/layout",
+        kind: "root",
+        path: "/",
+        parent: undefined,
+        index: false,
+        component: "RootLayout",
+        stateFiles: { notFound: "src/app/not-found.tsx" }
+      },
+      {
+        id: "src/app/(dashboard)/layout",
+        kind: "group",
+        path: "/",
+        parent: "src/app/layout",
+        index: false,
+        component: "DashboardLayout",
+        stateFiles: { loading: "src/app/(dashboard)/loading.tsx" }
+      },
+      {
+        id: "src/app/(dashboard)/page",
+        kind: "page",
+        path: "/",
+        parent: "src/app/(dashboard)/layout",
+        index: true,
+        component: "Dashboard",
+        stateFiles: undefined
+      },
+      {
+        id: "src/app/projects/layout",
+        kind: "layout",
+        path: "/projects",
+        parent: "src/app/layout",
+        index: false,
+        component: "ProjectsLayout",
+        stateFiles: undefined
+      },
+      {
+        id: "src/app/docs/[...slug]/page",
+        kind: "page",
+        path: "/docs/[...slug]",
+        parent: "src/app/layout",
+        index: false,
+        component: "Doc",
+        stateFiles: undefined
+      },
+      {
+        id: "src/app/projects/[id]/page",
+        kind: "page",
+        path: "/projects/[id]",
+        parent: "src/app/projects/layout",
+        index: false,
+        component: "Project",
+        stateFiles: { loading: "src/app/projects/[id]/loading.tsx" }
       }
     ])
   })
