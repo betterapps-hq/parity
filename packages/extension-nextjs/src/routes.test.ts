@@ -2,15 +2,15 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join, relative } from "node:path"
 import type { Route } from "@parity-app/extension-api"
 import { describe, expect, it } from "vite-plus/test"
-import { pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
+import { pageExtensions, pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
 
 /** A project's routes from its files, each given by its path and, for a page or a layout, its text. */
-function routesOf(tree: Record<string, string>): Route[] {
+function routesOf(tree: Record<string, string>, extensions?: readonly string[]): Route[] {
   const files = Object.keys(tree)
-  const folders = pickFolders(files)
-  const texts = Object.fromEntries(sourceFiles(files, folders).map((file) => [file, tree[file] ?? ""]))
+  const folders = pickFolders(files, extensions)
+  const texts = Object.fromEntries(sourceFiles(files, folders, extensions).map((file) => [file, tree[file] ?? ""]))
 
-  return readRoutes(files, folders, texts)
+  return readRoutes(files, folders, texts, extensions)
 }
 
 /** A project folder's files under its router folders, with their texts, as the extension reads them. */
@@ -358,6 +358,50 @@ describe("readRoutes for the Pages Router", () => {
       { id: "src/pages", kind: "root", file: "src/pages" },
       { id: "src/pages/index", kind: "page", file: "src/pages/index.jsx" }
     ])
+  })
+})
+
+describe("pageExtensions", () => {
+  it("reads the extensions a next.config writes as an array of strings", () => {
+    expect(
+      pageExtensions(`const config = { pageExtensions: ['page.tsx', "mdx"] }
+export default config`)
+    ).toEqual(["page.tsx", "mdx"])
+  })
+
+  it("leaves Next.js's defaults without a config, or one that sets them some other way", () => {
+    expect(pageExtensions(undefined)).toEqual(["tsx", "ts", "jsx", "js"])
+    expect(pageExtensions("export default { pageExtensions: extensions }")).toEqual(["tsx", "ts", "jsx", "js"])
+  })
+})
+
+describe("readRoutes with the project's pageExtensions", () => {
+  it("reads only files with those extensions, each without the whole extension", () => {
+    const routes = routesOf(
+      {
+        "app/layout.page.tsx": "",
+        "app/page.page.tsx": "",
+        "app/components/Nav.tsx": "",
+        "pages/index.page.tsx": "",
+        "pages/about.page.tsx": "",
+        "pages/helpers.ts": ""
+      },
+      ["page.tsx"]
+    )
+
+    expect(summary(routes, "path")).toEqual([
+      { id: "app/layout.page", path: "/" },
+      { id: "app/page.page", path: "/" },
+      { id: "pages/index.page", path: "/" },
+      { id: "pages/about.page", path: "/about" }
+    ])
+  })
+
+  it("leaves out MDX files unless the config adds MDX", () => {
+    const tree = { "app/layout.tsx": "", "app/page.tsx": "", "app/docs/page.mdx": "" }
+
+    expect(routesOf(tree).map((route) => route.id)).toEqual(["app/layout", "app/page"])
+    expect(routesOf(tree, ["tsx", "mdx"]).map((route) => route.id)).toEqual(["app/layout", "app/page", "app/docs/page"])
   })
 })
 

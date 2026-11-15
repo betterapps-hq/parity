@@ -18,8 +18,28 @@ export interface NextFolders {
   pages?: string
 }
 
-/** Files Next.js reads as routes, with its default `pageExtensions`, plus MDX, which projects add for content pages. */
-const routeFile = /^(.*)\.(?:tsx|ts|jsx|js|mdx)$/
+/** The extensions Next.js reads as routes when `next.config` sets no `pageExtensions`. */
+export const defaultExtensions: readonly string[] = ["tsx", "ts", "jsx", "js"]
+
+/**
+ * The `pageExtensions` a `next.config` sets, when it writes them as an array of strings, as `["page.tsx", "mdx"]`. Any
+ * other config leaves Next.js at its defaults, or sets them in a way only running it would tell.
+ */
+export function pageExtensions(config: string | undefined): readonly string[] {
+  const list = config === undefined ? undefined : /\bpageExtensions\s*:\s*\[([^\]]*)\]/.exec(config)?.[1]
+  const named = [...(list ?? "").matchAll(/["'`]([^"'`]+)["'`]/g)].flatMap((match) => (match[1] ? [match[1]] : []))
+
+  return named.length > 0 ? named : defaultExtensions
+}
+
+/** A route file's name without its extension, the longest of `extensions` it ends with, or nothing for another file. */
+function routeName(path: string, extensions: readonly string[]): string | undefined {
+  const extension = extensions
+    .filter((candidate) => path.endsWith(`.${candidate}`))
+    .toSorted((a, b) => b.length - a.length)[0]
+
+  return extension === undefined ? undefined : path.slice(0, -extension.length - 1)
+}
 
 /** Files beside routes that aren't routes: types, tests and stories. */
 const notRoute = /\.(?:d|test|spec|stories)\.[^.]+$/
@@ -28,8 +48,10 @@ const notRoute = /\.(?:d|test|spec|stories)\.[^.]+$/
  * The folders the project's routes come from, given every file found under each of `routerFolders`, from the project's
  * root. Next.js reads `src/app` and `src/pages` only when neither `app` nor `pages` is at the root.
  */
-export function pickFolders(files: readonly string[]): NextFolders {
-  const has = (folder: string) => files.some((file) => file.startsWith(`${folder}/`) && routeFile.test(file))
+export function pickFolders(files: readonly string[], extensions = defaultExtensions): NextFolders {
+  const has = (folder: string) =>
+    files.some((file) => file.startsWith(`${folder}/`) && routeName(file, extensions) !== undefined)
+
   const atRoot = has("app") || has("pages")
   const folders: NextFolders = {}
 
@@ -48,19 +70,19 @@ export function pickFolders(files: readonly string[]): NextFolders {
  * The files whose text says what a route draws and loads: every page and layout, and the Pages Router's `_app`. The
  * rest, as `loading` or `not-found`, are only named.
  */
-export function sourceFiles(files: readonly string[], folders: NextFolders): string[] {
+export function sourceFiles(files: readonly string[], folders: NextFolders, extensions = defaultExtensions): string[] {
   return files.filter((file) => {
     const app = folders.app === undefined ? false : inFolder(file, folders.app)
 
     if (app !== false) {
-      const name = appFile(app)?.name
+      const name = appFile(app, extensions)?.name
 
       return name === "page" || name === "layout"
     }
 
     const pages = folders.pages === undefined ? false : inFolder(file, folders.pages)
 
-    return pages !== false && pagesFile(pages) !== undefined
+    return pages !== false && pagesFile(pages, extensions) !== undefined
   })
 }
 
@@ -76,10 +98,11 @@ export function sourceFiles(files: readonly string[], folders: NextFolders): str
 export function readRoutes(
   files: readonly string[],
   folders: NextFolders,
-  texts: Readonly<Record<string, string>>
+  texts: Readonly<Record<string, string>>,
+  extensions = defaultExtensions
 ): Route[] {
-  const app = folders.app ? appRoutes(files, folders.app, texts) : undefined
-  const pages = folders.pages ? pagesRoutes(files, folders.pages, texts) : undefined
+  const app = folders.app ? appRoutes(files, folders.app, texts, extensions) : undefined
+  const pages = folders.pages ? pagesRoutes(files, folders.pages, texts, extensions) : undefined
   const found = [app, pages].filter((router) => router !== undefined && router.routes.length > 0)
   const [first, second] = found
 
@@ -113,16 +136,16 @@ interface RouterRoutes {
 }
 
 /** What a file under `app/` is, by its name: `page`, `layout`, `loading` and so on. */
-function appFile(path: string): { folder: string; name: string } | undefined {
-  const match = routeFile.exec(path)
+function appFile(path: string, extensions: readonly string[]): { folder: string; name: string } | undefined {
+  const name = routeName(path, extensions)
 
-  if (!match?.[1] || notRoute.test(path)) {
+  if (!name || notRoute.test(path)) {
     return undefined
   }
 
-  const slash = match[1].lastIndexOf("/")
+  const slash = name.lastIndexOf("/")
 
-  return { folder: slash < 0 ? "" : match[1].slice(0, slash), name: match[1].slice(slash + 1) }
+  return { folder: slash < 0 ? "" : name.slice(0, slash), name: name.slice(slash + 1) }
 }
 
 /** The files that make up one folder of the App Router: one route segment. */
@@ -162,12 +185,17 @@ interface Place {
  * its page. A `@slot` folder's routes are that slot's, and a `(.)`, `(..)` or `(...)` folder's intercept the route at
  * the URL they match.
  */
-function appRoutes(files: readonly string[], folder: string, texts: Readonly<Record<string, string>>): RouterRoutes {
+function appRoutes(
+  files: readonly string[],
+  folder: string,
+  texts: Readonly<Record<string, string>>,
+  extensions: readonly string[]
+): RouterRoutes {
   const folders = new Map<string, AppFolder>()
 
   for (const file of files) {
     const path = inFolder(file, folder)
-    const found = path === false ? undefined : appFile(path)
+    const found = path === false ? undefined : appFile(path, extensions)
     const key = found && appNames.get(found.name)
 
     if (found && key) {
@@ -340,13 +368,18 @@ function interceptionOf(part: string): { levels: number | "root"; rest: string }
  * The Pages Router's routes: each file a page under `_app`, its path its own with `index` left off. `404`, `500` and
  * `_error` are what `_app` draws when nothing matches or a page fails, and `_document` and `api/` draw no page.
  */
-function pagesRoutes(files: readonly string[], folder: string, texts: Readonly<Record<string, string>>): RouterRoutes {
+function pagesRoutes(
+  files: readonly string[],
+  folder: string,
+  texts: Readonly<Record<string, string>>,
+  extensions: readonly string[]
+): RouterRoutes {
   const named = new Map<string, string>()
   const pages: string[] = []
 
   for (const file of files) {
     const path = inFolder(file, folder)
-    const name = path === false ? undefined : pagesFile(path)
+    const name = path === false ? undefined : pagesFile(path, extensions)
 
     if (name === undefined) {
       continue
@@ -382,7 +415,7 @@ function pagesRoutes(files: readonly string[], folder: string, texts: Readonly<R
 
   const routes = pages
     .map((file): Route => {
-      const name = pagesFile(inFolder(file, folder) || "") ?? ""
+      const name = pagesFile(inFolder(file, folder) || "", extensions) ?? ""
       const parts = name.split("/")
       const segments = (parts.at(-1) === "index" ? parts.slice(0, -1) : parts).map(segmentOf)
 
@@ -406,8 +439,8 @@ function pagesRoutes(files: readonly string[], folder: string, texts: Readonly<R
  * A Pages Router file's route name, its path in the folder without its extension, or nothing for a file that draws no
  * page here: one under `api/`, `_document`, or a type, test or story.
  */
-function pagesFile(path: string): string | undefined {
-  const name = routeFile.exec(path)?.[1]
+function pagesFile(path: string, extensions: readonly string[]): string | undefined {
+  const name = routeName(path, extensions)
 
   if (!name || notRoute.test(path) || name === "_document" || name === "api" || name.startsWith("api/")) {
     return undefined

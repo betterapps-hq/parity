@@ -1195,9 +1195,10 @@ Next.js's routes come from an extension, through Parity's public API alone, so a
 Routes in Layers, and drawn on canvas once a builder serves the app. It's found by its peer dependency on `next`.
 
 - **Routes are its files.** Its router provider lists `app/` and `pages/` with `files.list`, or `src/app` and
-  `src/pages` when neither is at the root, as Next.js picks them, and reads each page and layout for the component it
-  exports by default, whether it loads data (an `async` server component, or `getServerSideProps`, `getStaticProps` or
-  `getInitialProps`) and whether it can redirect or refuse first.
+  `src/pages` when neither is at the root, as Next.js picks them, taking files with the `pageExtensions` its
+  `next.config` writes as an array, else Next.js's defaults (`tsx`, `ts`, `jsx` and `js`), and reads each page and
+  layout for the component it exports by default, whether it loads data (an `async` server component, or
+  `getServerSideProps`, `getStaticProps` or `getInitialProps`) and whether it can redirect or refuse first.
 - **The App Router:** a folder is a segment, `[id]` a param, `[...slug]` a catch-all and `[[...slug]]` an optional one.
   A folder's `layout` is a layout, or a group for a `(group)` folder, and its `page` a page inside the nearest layout,
   the layout's index when it's at the layout's own URL. `loading`, `error` and `not-found` are the state files of their

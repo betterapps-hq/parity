@@ -10,7 +10,13 @@ describe("the Next.js extension", () => {
 
     expect(found.manifest.activates).toEqual(["onDetect"])
     expect(found.manifest.contributes.providers).toEqual({ router: {} })
-    expect(found.manifest.permissions?.read).toEqual(["app/**", "pages/**", "src/app/**", "src/pages/**"])
+    expect(found.manifest.permissions?.read).toEqual([
+      "app/**",
+      "pages/**",
+      "src/app/**",
+      "src/pages/**",
+      "next.config.*"
+    ])
     expect(found.versions).toEqual({ packages: ["next"], range: "^16.0.0" })
   })
 

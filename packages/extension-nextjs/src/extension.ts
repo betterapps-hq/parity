@@ -1,5 +1,8 @@
 import type { CommandTarget, NodeRef, Parity, Route } from "@parity-app/extension-api"
-import { pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
+import { pageExtensions, pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
+
+/** Where Next.js looks for its config, in its order. */
+const configFiles = ["next.config.js", "next.config.mjs", "next.config.ts", "next.config.mts", "next.config.cjs"]
 
 /*
  * Next.js's routes as an extension (PAR-1162), using only Parity's public API. Its router provider lists the files
@@ -56,11 +59,12 @@ async function projectRoutes(parity: Parity): Promise<Route[]> {
   )
 
   const files = listed.flat()
-  const folders = pickFolders(files)
+  const extensions = pageExtensions(await firstConfig(parity))
+  const folders = pickFolders(files, extensions)
 
   const texts = Object.fromEntries(
     await Promise.all(
-      sourceFiles(files, folders).map(async (file) => {
+      sourceFiles(files, folders, extensions).map(async (file) => {
         // A file that can't be read, as one removed since the listing, says nothing of its route.
         const text = await parity.files.read(file).catch(() => undefined)
 
@@ -69,7 +73,20 @@ async function projectRoutes(parity: Parity): Promise<Route[]> {
     )
   )
 
-  return readRoutes(files, folders, texts)
+  return readRoutes(files, folders, texts, extensions)
+}
+
+/** The text of the project's `next.config`, the first Next.js would load, or nothing without one. */
+async function firstConfig(parity: Parity): Promise<string | undefined> {
+  for (const file of configFiles) {
+    const text = await parity.files.read(file).catch(() => undefined)
+
+    if (text !== undefined) {
+      return text
+    }
+  }
+
+  return undefined
 }
 
 /** Whether a route is a page the canvas draws: a page outside a parallel route's slot that intercepts nothing. */

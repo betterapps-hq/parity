@@ -38,7 +38,8 @@
         "app/**",
         "pages/**",
         "src/app/**",
-        "src/pages/**"
+        "src/pages/**",
+        "next.config.*"
       ]
     },
     "contributes": {
