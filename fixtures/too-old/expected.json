@@ -22,8 +22,8 @@
       "name": "React",
       "version": "18.3.1",
       "from": "node_modules/react",
-      "status": "dropped",
-      "summary": "React 18.3.1 from node_modules/react; untested, Parity tests React 19"
+      "status": "supported",
+      "summary": "React 18.3.1 from node_modules/react"
     },
     {
       "id": "vite",
@@ -52,7 +52,7 @@
       "summary": "Storybook 8.6.19 from node_modules/storybook, config .storybook/main.ts; untested, Parity tests Storybook 9 or later"
     }
   ],
-  "notice": "Not tested with Parity: React 18.3.1, Vite 5.4.21, Tailwind CSS 3.4.19 and Storybook 8.6.19. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.",
+  "notice": "Not tested with Parity: Vite 5.4.21, Tailwind CSS 3.4.19 and Storybook 8.6.19. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.",
   "styles": {
     "stylesheets": [
       "src/index.css"

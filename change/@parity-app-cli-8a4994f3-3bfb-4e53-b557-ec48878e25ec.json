@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Support React 18: components draw on it, component layers forward refs, and frames report errors without React 19's root callbacks.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

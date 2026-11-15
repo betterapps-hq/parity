@@ -1,5 +1,5 @@
 {
-  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file\n\nNot tested with Parity: React 18.3.1. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.",
+  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file",
   "renderer": "react",
   "builder": null,
   "packageManager": {
@@ -16,11 +16,10 @@
       "name": "React",
       "version": "18.3.1",
       "from": "node_modules/react",
-      "status": "dropped",
-      "summary": "React 18.3.1 from node_modules/react; untested, Parity tests React 19"
+      "status": "supported",
+      "summary": "React 18.3.1 from node_modules/react"
     }
   ],
-  "notice": "Not tested with Parity: React 18.3.1. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.",
   "styles": {
     "stylesheets": [],
     "missing": []
