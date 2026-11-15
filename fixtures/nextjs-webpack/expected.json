@@ -1,5 +1,5 @@
 {
-  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file",
+  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file\nRspack: No Rspack installed and no rspack.config file",
   "renderer": "react",
   "builder": null,
   "packageManager": {
@@ -89,7 +89,6 @@
       "version": "3.52.0"
     }
   ],
-  "storybook": null,
   "notes": [
     "the builder didn't say which stylesheets the app loads",
     "8 components in 9 files from tsconfig.json",

@@ -10,7 +10,6 @@ import {
   type JsonValue,
   type LibraryInfo,
   prepareCanvasCss,
-  type StorybookInfo,
   type ThemeVariable
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
@@ -63,7 +62,6 @@ export interface ProjectSnapshot {
   components: Record<string, ComponentSource>
   libraries: (Pick<LibraryInfo, "id" | "package" | "version" | "stylesImported"> & { components: number })[]
   icons: Pick<LibraryInfo, "id" | "package" | "version">[]
-  storybook: StorybookInfo | null
   notes: string[]
 }
 
@@ -234,7 +232,6 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     icons: libraries
       .filter((library) => library.kind === "icons")
       .map((library) => ({ id: library.id, package: library.package, version: library.version })),
-    storybook: config?.storybook ?? null,
     notes: config?.notes ?? []
   }
 

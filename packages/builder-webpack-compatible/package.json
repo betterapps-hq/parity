@@ -1,0 +1,17 @@
+{
+  "name": "@parity-app/builder-webpack-compatible",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "What webpack, Rspack and Rsbuild builders share: the guest bundle, its server and what its module graph says.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/code": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "zod": "catalog:"
+  }
+}

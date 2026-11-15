@@ -14,7 +14,6 @@ import {
   parseLibraryManifest,
   type ProjectEntities,
   type ProjectRoute,
-  type StorybookInfo,
   type ThemeVariable
 } from "@parity-app/core"
 import type { ProjectDetection } from "./detection.ts"
@@ -57,8 +56,6 @@ export interface ProjectInfo {
   documents: DocumentEntry[]
   /** Component libraries the project depends on. */
   libraries: LibraryInfo[]
-  /** The project's Storybook, and which components have stories, when it has one. */
-  storybook?: StorybookInfo
   /** Tokens described in DTCG by the project's own `.lib.par` and its libraries'. */
   describedTokens?: DescribedTokens[]
   /** The `.par` file new designs, components and modes are saved in, relative to the root. */
@@ -111,7 +108,6 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     routes: opened.routes,
     entities: opened.entities,
     libraries: config.libraries,
-    storybook: config.storybook,
     describedTokens: config.describedTokens,
     notes: config.notes,
     status: opened.status,

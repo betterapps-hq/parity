@@ -130,7 +130,6 @@
   },
   "libraries": [],
   "icons": [],
-  "storybook": null,
   "notes": [
     "styles the builder found: src/index.css",
     "6 components in 7 files from the project's files",

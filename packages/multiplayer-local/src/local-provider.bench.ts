@@ -22,7 +22,12 @@ describe("session", () => {
 
     return {
       updateContainer: (key, label, update, gesture) => {
-        updateContainer(doc, key, label, update, gesture ? { gesture } : undefined)
+        const result = updateContainer(doc, key, label, update, gesture ? { gesture } : undefined)
+
+        // A refused edit costs next to nothing, so timing one would flatter the numbers.
+        if (!result.ok) {
+          throw new Error(`${label} was refused: ${JSON.stringify(result.problem)}`)
+        }
       },
       addContainer: (path, container) => addContainer(doc, path, container),
       beginGesture: () => doc.beginGesture(),

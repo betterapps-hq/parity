@@ -162,14 +162,12 @@ export {
 export {
   clearExtensionSetting,
   clearPreferenceOverride,
-  defaultStorybookConfigDir,
   type PreferenceOverride,
   preferenceOverrides,
   type ProjectExtensions,
   type ProjectPreferenceKey,
   setExtensionSetting,
   setPreferenceOverride,
-  storybookConfigDir,
   withProjectPreferences
 } from "./project-settings.ts"
 
@@ -382,9 +380,7 @@ export {
   type DescribedTokens,
   type LibraryInfo,
   type OpenProp,
-  type ProjectConfig,
-  type StorybookInfo,
-  type StoryFile
+  type ProjectConfig
 } from "./project.ts"
 
 export { addValueProp, bindText, propFromText, propNameProblem, textProps, type ValuePropType } from "./prop-binding.ts"

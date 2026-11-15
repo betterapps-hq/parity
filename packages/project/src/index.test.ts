@@ -336,53 +336,11 @@ describe("libraries", () => {
   })
 })
 
-describe("storybook", () => {
-  it("maps story files to components through relative and aliased imports", async () => {
-    const pkg = { scripts: { storybook: "storybook dev -p 6107 -c config/sb" } }
-    await write("config/sb/main.ts", "export default {}")
+describe("component files", () => {
+  it("leave out story files beside components, which aren't components themselves", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
-    await write("src/components/ui/badge.tsx", "export function Badge() {}")
     await write("src/components/ui/button.stories.tsx", "export const Stray = {}")
-    await write(
-      "src/stories/button.stories.tsx",
-      'import type { Meta } from "@storybook/react-vite"\nimport { Button } from "@/components/ui/button"\nconst meta = { title: "UI/Button", component: Button } satisfies Meta<typeof Button>\nexport default meta\nexport const Default = {}\nexport const Outline = {}'
-    )
-    await write(
-      "src/stories/badge.stories.tsx",
-      'import { Badge as Pill } from "../components/ui/badge"\nexport default { component: Pill }\nexport const Default = {}'
-    )
-    await write("src/stories/notes.stories.tsx", "export default { title: 'Notes' }")
 
-    const project = await discoverProject(root, renderer, pkg)
-    // Stories beside components aren't components themselves.
-    expect(Object.keys(project.components).sort()).toEqual(["Badge", "Button"])
-    expect(project.storybook).toEqual({
-      configDir: "config/sb",
-      main: "config/sb/main.ts",
-      script: "storybook",
-      port: 6107,
-      stories: {
-        Button: [{ path: "src/stories/button.stories.tsx", title: "UI/Button", exports: ["Default", "Outline"] }],
-        Badge: [{ path: "src/stories/badge.stories.tsx", exports: ["Default"] }]
-      }
-    })
-  })
-
-  it("is missing when there's no Storybook config", async () => {
-    await write("src/components/ui/button.tsx", "export function Button() {}")
-    expect((await discoverProject(root, renderer)).storybook).toBeUndefined()
-  })
-
-  it("is found in the config folder the project sets, over the one its script names", async () => {
-    const pkg = { scripts: { storybook: "storybook dev -c config/sb" } }
-    await write("config/sb/main.ts", "export default {}")
-    await write("apps/web/.storybook/main.ts", "export default {}")
-
-    const set = await discoverProject(root, renderer, pkg, { storybookConfigDir: "apps/web/.storybook" })
-    expect(set.storybook).toMatchObject({ configDir: "apps/web/.storybook", main: "apps/web/.storybook/main.ts" })
-
-    // A folder with no config in it has no Storybook, rather than falling back to another.
-    const missing = await discoverProject(root, renderer, pkg, { storybookConfigDir: "docs/.storybook" })
-    expect(missing.storybook).toBeUndefined()
+    expect(Object.keys((await discoverProject(root, renderer)).components)).toEqual(["Button"])
   })
 })

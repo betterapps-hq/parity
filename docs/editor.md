@@ -1266,6 +1266,39 @@ Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects fin
 provider. Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its config found through the provider,
 the guest served, the Pricing page drawn, and Vite first in the status bar.
 
+### Rspack as an extension, through its builder provider (PAR-1147)
+
+A project built with Rspack draws its components with the project's own `@rspack/core` and `rspack.config.*`, as a Vite
+project does with Vite, and "Rspack" leads the status bar. Webpack-shaped builders share the code that builds and serves
+the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild builders build on it too.
+
+- **Its builder provider says whether Rspack builds the project,** asked of the project's own Rspack, with its version
+  and config file: the one the dev script names with `-c`, else `rspack.config.*`. A config that exports a function is
+  called as Rspack's CLI calls it for `serve`. A project with an Rsbuild config is left to Rsbuild.
+- **The guest is the project's config, building the guest in place of the app.** Its entry is the guest module every
+  builder writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's
+  written as classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's
+  rules, loaders, aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with
+  the renderer's stand-in for its development JSX runtime.
+- **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
+  takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
+  imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
+  first. A stylesheet change gives the canvas a guest made with the new CSS.
+- **The global stylesheets** are the ones the shallowest of the app's own modules import, walking the build's module
+  graph from the config's entries, the choice Vite's builder makes too (`chooseAppStyles`).
+- **Its element sources, code changes and loaded files** come from the same graph and a loader that tags the project's
+  JSX, as Vite's plugin does.
+
+Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`); `packages/builder-webpack-compatible`
+(`session.ts`, `guest-config.ts`, `guest-entry.ts`, `browser-modules.ts`, `graph.ts`, `app-styles.ts` and `server.ts`);
+`guestModule` and `chooseAppStyles` in `packages/project`.
+
+Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
+`extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
+graph walks and the server's paths); the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy
+of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
+properties, and a component's code and a token edited together, both drawn afresh.
+
 ### Storybook's stories through its entities provider (PAR-1095)
 
 Storybook's stories are read and written back by its extension, through Parity's public API alone, rather than by an
@@ -1280,7 +1313,8 @@ args are written back to its file on Save.
   told again then, with what discovery found, so the stories are in the project when it opens. Where detection finds
   story files but discovery finds no main config, it starts all the same and imports them, as the adapter did. A project
   closed and opened again tells its new hosts afresh.
-- **Parity's detection still finds Storybook** (`detectStorybook`), until extensions detect their own tools.
+- **Parity finds Storybook from its manifest** (PAR-1131): `extensionEntities` gives every entities provider the same
+  detection, from its peer dependencies and the config files its provider watches. Parity's core has no Storybook code.
 
 Code: `packages/extension-storybook` (`extension.ts`, `screens.ts`, `csf.ts` and `write.ts`); `EntitiesProvider` in
 `packages/extension-api/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
@@ -5340,12 +5374,11 @@ lists them.
   value of the wrong type, such as an empty list of export sizes. Save a copy keeps the main file's settings.
 
 Code: the schema and `preferenceOverrides`, `withProjectPreferences`, `setPreferenceOverride`,
-`clearPreferenceOverride`, `setExtensionSetting`, `clearExtensionSetting` and `storybookConfigDir` in
-`packages/core/src/project-settings.ts`, which take and return data; `mergedDocument` in
-`packages/editor/src/history.ts`; and in the window, `renderer/project-settings.ts`: `useProjectSettings`,
-`setProjectPreference`, `clearProjectPreference`, `setProjectExtensionSetting`, `clearProjectExtensionSetting`,
-`useEffectivePreferences`, `getEffectivePreferences` and `setEffectivePreference`. The service reads the Storybook
-folder in `utility/projects.ts`.
+`clearPreferenceOverride`, `setExtensionSetting` and `clearExtensionSetting` in `packages/core/src/project-settings.ts`,
+which take and return data; `mergedDocument` in `packages/editor/src/history.ts`; and in the window,
+`renderer/project-settings.ts`: `useProjectSettings`, `setProjectPreference`, `clearProjectPreference`,
+`setProjectExtensionSetting`, `clearProjectExtensionSetting`, `useEffectivePreferences`, `getEffectivePreferences` and
+`setEffectivePreference`. An extension reads its own project settings, as Storybook does its config folder.
 
 Tests:
 
@@ -7740,11 +7773,11 @@ no change.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, which takes the builder's `AppStyles`; `watches`
 and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
-`packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `packages/project/src/storybook-detect.ts`;
-`watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
-`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
-`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
-`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
+`packages/extension-vite/src/builder.ts` and the `watches` of Storybook's entities provider in its manifest; `watched`,
+`detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`, `apps/desktop/src/utility/projects.ts`;
+`project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`, `shared/service-checks.ts` and
+`utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in `renderer/workspace.ts`; `agent.open` and
+`project.detectionChanged` in `renderer/agent/handlers.ts`.
 
 Tests: `packages/project/src/detection-inputs.test.ts` (6: the builder's stylesheets change the key and the files its
 answer came from are watched; `components.json`, a conventional stylesheet and `index.html` aren't read, while a
@@ -8300,16 +8333,16 @@ Tried on 2026-11-13 in the running app on the example: the log above, and the st
 Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
 `detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
 and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
-each extension's renderer, builder and entities in its manifest, and Storybook's detection in
-`packages/project/src/storybook-detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
-`packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
+each extension's renderer, builder and entities in its manifest, with `extensionEntities` finding an entities provider's
+tool; `detectContext`, `detectAdapters` and `detectProject` in `packages/project/src/detect.ts`; and the open path in
+`apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
-`packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
-`packages/project/src/storybook-detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
-`packages/extension-tanstack-router/src/extension.test.ts` and `packages/extension-vite/src/detect.test.ts`. Gaps: no
-unit test runs the service's open path with several adapters of one kind.
+`packages/extensions/src/manifest.test.ts`, each extension's own test of its range, `packages/core/src/adapters.test.ts`
+(an entities provider's detection, its config and not found), `packages/extension-tanstack-router/src/extension.test.ts`
+and `packages/extension-vite/src/detect.test.ts`. Gaps: no unit test runs the service's open path with several adapters
+of one kind.
 
 ### Each tool's status bar item comes from its adapter
 

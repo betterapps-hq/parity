@@ -28,6 +28,7 @@ import portlessPackage from "@parity-app/extension-portless/package.json" with {
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import type { ProjectStorybook } from "@parity-app/extension-storybook/storybook"
 import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
@@ -62,8 +63,13 @@ import { resetWithWindow } from "../store.ts"
  * Storybook serves or builds for it, as the project's builder would serve it.
  */
 // SAFETY: Storybook's `exampleProject` plugin builds this module from the same discovery and inference that answer the
-// service's `project.open` and `project.components`, so it holds a ProjectInfo and its components.
-const example = discovered as { info: ProjectInfo; components: Record<string, ComponentInfo> }
+// service's `project.open` and `project.components`, so it holds a ProjectInfo and its components, and the example's
+// Storybook as its extension reads it.
+const example = discovered as {
+  info: ProjectInfo
+  components: Record<string, ComponentInfo>
+  storybook: ProjectStorybook
+}
 
 /**
  * Roots the stand-in service knows: the example, one that takes forever to open, one that fails to, one with no project
@@ -558,23 +564,26 @@ function activated(
 
 /**
  * Parity's own extensions as the service lists them for a project: those whose tools detection found, then Storybook's
- * when the project has a Storybook, each running with what its code sets, as a host would after activating.
+ * when detection found it, with the example's stories, each running with what its code sets, as a host would after
+ * activating.
  */
 export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
-  const stories = info.storybook?.stories ?? {}
-  const withStories = Object.entries(stories).filter(([, files]) => files.length > 0)
+  const detected = (extension: ExtensionPackage) =>
+    info.detection.tools.some((tool) => tool.id === extension.manifest.prefix)
 
   const tools = toolExtensions.flatMap(({ extension, status }) =>
-    info.detection.tools.some((tool) => tool.id === extension.manifest.prefix) ? [activated(extension, { status })] : []
+    detected(extension) ? [activated(extension, { status })] : []
   )
 
-  if (!info.storybook) {
+  if (!detected(storybookExtension)) {
     return tools
   }
 
-  const tree = storiesTree(info.storybook)
-  const section = componentStories(info.storybook)
-  const guide = setupGuide(info.storybook)
+  const { storybook } = example
+  const withStories = Object.entries(storybook.stories).filter(([, files]) => files.length > 0)
+  const tree = storiesTree(storybook)
+  const section = componentStories(storybook)
+  const guide = setupGuide(storybook)
 
   return [
     ...tools,
