@@ -52,6 +52,17 @@ describe("the canvas's outlines", () => {
     ])
   })
 
+  it("outline no hover on a board while a layer or preview in it is selected", () => {
+    const hovered = { kind: "design", design: board } as const
+
+    expect(canvasOutlines(layersSelection(board, ["title"]), hovered)).toEqual([
+      { target: { kind: "layer", design: board, node: "title" }, hovered: false }
+    ])
+    expect(canvasOutlines(previewsSelection(board, ["/desktop-light"]), hovered)).toEqual([
+      { target: { kind: "preview", design: board, preview: "/desktop-light" }, hovered: false }
+    ])
+  })
+
   it("outline something hovered and selected once, as selected", () => {
     expect(canvasOutlines({ design: board }, { kind: "design", design: board })).toEqual([
       { target: { kind: "design", design: board }, hovered: false }

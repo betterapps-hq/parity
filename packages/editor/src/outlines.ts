@@ -18,12 +18,14 @@ export interface Outline {
  * The outlines the canvas draws (PAR-1118). Each goes round one thing and takes that thing's own color, which the app
  * picks from the target's kind. Selecting or hovering something never outlines what it's inside: with a layer
  * selected, its board has no outline, and with previews selected, only their rings show. What's hovered is outlined
- * too, unless it's selected already.
+ * too, unless it's selected already. A board that holds the selection, itself or a layer or preview in it, has no hover
+ * outline.
  */
 export function canvasOutlines(selection: Selection, hovered?: OutlineTarget): Outline[] {
   const selected = selectedTargets(selection).map((target) => ({ target, hovered: false }))
+  const holdsSelection = hovered?.kind === "design" && hovered.design === selection.design
 
-  if (hovered && !selected.some((outline) => sameTarget(outline.target, hovered))) {
+  if (hovered && !holdsSelection && !selected.some((outline) => sameTarget(outline.target, hovered))) {
     selected.push({ target: hovered, hovered: true })
   }
 

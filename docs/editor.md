@@ -272,8 +272,9 @@ ring the mode green, a layer its own kind's color. Selecting or hovering somethi
 - **A selected design** has its board's edge and outline in its own color.
 - **Several designs** are each outlined in their own color, and the box round them all is neutral, the color of muted
   text.
-- **Hovering** outlines the hovered thing in its own color, at half opacity. A layer under the pointer is outlined, not
-  its board.
+- **Hovering** outlines the hovered thing in its own color, at half opacity, unless it's selected. A layer under the
+  pointer is outlined, not its board, and a board holding the selection, itself or a layer or preview in it, has no
+  hover outline.
 - **Notes and references** keep their colors: a note the screen blue, a reference the layer blue. Several selected by a
   box are each outlined, though the selection holds one at a time, and so is a board selected by a box with them.
 
@@ -283,9 +284,10 @@ boards', notes' and references' outlines from it in place of tldraw's indicators
 and `useBoardOutline` in `selection.ts` shows `BoardEdge` in `canvas/ContainerView.tsx` the same way. tldraw's selection
 color is set once, to the neutral one, for the box round several designs.
 
-Tests: `packages/editor/src/outlines.test.ts` (9): a design's board, several designs each as itself, a layer and not its
-board, previews and not their board, a note and a reference, a hover beside the selection, a hovered layer and not its
-board, something hovered and selected outlined once, and nothing.
+Tests: `packages/editor/src/outlines.test.ts` (10): a design's board, several designs each as itself, a layer and not
+its board, previews and not their board, a note and a reference, a hover beside the selection, a hovered layer and not
+its board, no hover on a board while a layer or preview in it is selected, something hovered and selected outlined once,
+and nothing.
 
 Tried in Storybook's Parity/Canvas/Boards › Every state on 2026-11-14: Button selected had a purple outline; a layer in
 it a purple outline of its own and none on the board, where the board had been blue; a preview its green ring alone; the
