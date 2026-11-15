@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Remove adapter actions, which no adapter declares any more; extensions' commands are what components and pages offer",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
