@@ -1,0 +1,3 @@
+# A workspace of its own, so pnpm doesn't treat this project as part of the Parity repo around it.
+packages:
+  - .
