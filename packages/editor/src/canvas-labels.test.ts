@@ -51,15 +51,13 @@ describe("labelLook", () => {
   it("measures a state label's space from its top to the next row's label", () => {
     // Button's second row: an 80-pixel frame, its label beside the frame's top. The next row's label starts past the
     // dashed line, with 90 pixels either side of it on the canvas at 40% and further out, and the line 2.5.
-    expect(stateLabelSpace(80, false)).toBe(80 + 90 + 2.5 + 90)
-    // The first row's label starts at the top of the caption band above its frames, 90 tall there.
-    expect(stateLabelSpace(80, true)).toBe(90 + 80 + 182.5)
+    expect(stateLabelSpace(80)).toBe(80 + 90 + 2.5 + 90)
   })
 
   it("hides a state's label without the space for it on screen, so rows' labels don't pile up", () => {
     // Button's second row has 262.5 pixels for its label: 13 on screen at 5%, though the board is wide enough for a
     // title.
-    const row = { width: 809, height: stateLabelSpace(80, false) }
+    const row = { width: 809, height: stateLabelSpace(80) }
     expect(labelLook("name", 0.05, { width: 809 }).opacity).toBe(1)
     expect(labelLook("name", 0.05, row).opacity).toBe(0)
     // At 25% it's 66, room enough.

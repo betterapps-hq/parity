@@ -1190,7 +1190,7 @@ function StateLabel({
 }) {
   const changes = changeCount(state)
   const ref = useRef<HTMLButtonElement>(null)
-  const height = useLabelSpace(ref, first)
+  const height = useLabelSpace(ref)
   useCanvasLabel(ref, "name", { width: boardWidth, height })
   useGutterStyle(ref, first ? "firstStateLabel" : "nextStateLabel")
   const { marker, cursor, props } = useRowControls(ref, controls)
@@ -1218,11 +1218,11 @@ function StateLabel({
 }
 
 /**
- * How much height a state's label has on the canvas, down to the next row's label (see `stateLabelSpace`), the first
- * row's from the top of its caption band. A frame that grows with its content sets its row's height, so the row is
+ * How much height a state's label has on the canvas, from the top of its row's frames down to the next row's label
+ * (see `stateLabelSpace`). A frame that grows with its content sets its row's height, so the row is
  * measured: its content, which is its frames alone, whatever the zoom makes its gutter.
  */
-function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): number | undefined {
+function useLabelSpace(label: RefObject<HTMLElement | null>): number | undefined {
   const [height, setHeight] = useState<number>()
   useLayoutEffect(() => {
     const row = label.current?.closest<HTMLElement>(".state-row")
@@ -1233,14 +1233,14 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
 
     const observer = new ResizeObserver(([entry]) => {
       if (entry) {
-        setHeight(stateLabelSpace(entry.contentRect.height, first))
+        setHeight(stateLabelSpace(entry.contentRect.height))
       }
     })
 
     observer.observe(row)
 
     return () => observer.disconnect()
-  }, [label, first])
+  }, [label])
 
   return height
 }

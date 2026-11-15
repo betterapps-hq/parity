@@ -98,8 +98,12 @@ export const boardParts = {
   resizeHandle: (zoom: number) => ({ width: px(boardLayoutAt(zoom).side) }),
   /** The band a preview's header sits in, above the preview. */
   caption: (zoom: number) => ({ height: px(boardLayoutAt(zoom).caption) }),
-  /** The first row's state label, at the top of the caption band, just outside the board. */
-  firstStateLabel: (zoom: number) => ({ top: "0px", marginRight: px(boardLayoutAt(zoom).side) }),
+  /** The first row's state label, beside the top of its frames below the caption band, just outside the board. */
+  firstStateLabel: (zoom: number) => {
+    const { side, caption } = boardLayoutAt(zoom)
+
+    return { top: px(caption), marginRight: px(side) }
+  },
   /** A later row's state label, beside the top of its frames, just outside the board. */
   nextStateLabel: (zoom: number) => {
     const { side, rowDivider } = boardLayoutAt(zoom)

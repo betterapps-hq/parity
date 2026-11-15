@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A board's first state label lines up with its frames, as the later rows' labels do",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
