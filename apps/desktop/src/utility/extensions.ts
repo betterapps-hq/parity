@@ -14,6 +14,7 @@ import {
   type RendererDescription
 } from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
+import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import rsbuildPackage from "@parity-app/extension-rsbuild/package.json" with { type: "json" }
 import rspackPackage from "@parity-app/extension-rspack/package.json" with { type: "json" }
@@ -105,7 +106,7 @@ export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybo
  * The tools Parity's own extensions give that open projects with nothing else of theirs, found by their peer
  * dependencies and listed with their versions among what a project uses.
  */
-export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage].flatMap(
+export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage, reactRouterPackage].flatMap(
   (found) => extensionTool(found) ?? []
 )
 
@@ -117,6 +118,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   builtIn(reactPackage, "react"),
   builtIn(tailwindPackage, "tailwind"),
   builtIn(routerPackage, "tanstack-router"),
+  builtIn(reactRouterPackage, "react-router"),
   builtIn(storybookPackage, "storybook"),
   builtIn(accessibilityPackage, "storybook-a11y"),
   builtIn(portlessPackage, "portless")
