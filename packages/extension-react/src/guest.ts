@@ -523,7 +523,8 @@ export function createGuest(init: GuestInit): Guest {
         return loading
       }
 
-      component = function OnDemand(props: Props) {
+      // It forwards a ref to the component, since React 18 keeps a ref out of a function component's props.
+      component = forwardRef(function OnDemand(props: Props, ref: Ref<unknown>) {
         const [, redraw] = useState(0)
         const own = useContext(FrameWindowContext)
         useEffect(() => {
@@ -562,8 +563,9 @@ export function createGuest(init: GuestInit): Guest {
           throw failure.error
         }
 
-        return ready ? createElement(ready, props) : null
-      }
+        // oxlint-disable-next-line react/refs -- the ref is handed on to the component, not read
+        return ready ? createElement(ready, ref === null ? props : { ...props, ref }) : null
+      })
 
       deferred.set(name, component)
     }
