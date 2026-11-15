@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { z } from "zod"
-import { authenticate, codeRequest, type Fetch, refreshRequest } from "./index.ts"
+import { authenticate, chooseOrganization, codeRequest, type Fetch, refreshRequest } from "./index.ts"
 
 const jwt = (claims: z.core.util.JSONType) =>
   ["header", JSON.stringify(claims), "signature"].map((part) => Buffer.from(part).toString("base64url")).join(".")
@@ -161,7 +161,8 @@ describe("authenticate", () => {
       status: 403,
       code: "sso_required",
       message: "User must authenticate using one of the matching connections.",
-      email: "ana@acme.test"
+      email: "ana@acme.test",
+      pendingToken: "pending_01"
     })
   })
 
@@ -188,7 +189,8 @@ describe("authenticate", () => {
       organizations: [
         { id: "org_01ACME", name: "Acme" },
         { id: "org_01GLOBEX", name: "Globex" }
-      ]
+      ],
+      pendingToken: "pending_01"
     })
   })
 
@@ -216,6 +218,33 @@ describe("authenticate", () => {
     expect(await authenticate(answering(200, { ...answer, access_token: "opaque" }).fetch, refresh)).toEqual({
       kind: "unavailable",
       message: "The access token isn't a JWT"
+    })
+  })
+})
+
+describe("chooseOrganization (PAR-1143)", () => {
+  const choice = { pendingToken: "pending_01", organizationId: "org_01ACME" }
+
+  it("asks Parity's service to finish the sign-in, and reads the session WorkOS gave it", async () => {
+    const service = answering(200, answer)
+    const result = await chooseOrganization(service.fetch, "https://api.tryparity.dev", choice)
+
+    expect(result).toMatchObject({ kind: "session", session: { refreshToken: answer.refresh_token } })
+    expect(service.requests.map(({ url, init }) => [url, init.body])).toEqual([
+      ["https://api.tryparity.dev/v1/sign-in/organization", JSON.stringify(choice)]
+    ])
+  })
+
+  it("is unavailable when the service can't finish one yet, and refused when the pending token ran out", async () => {
+    const noKey = answering(503, { error: "unavailable", message: "The service can't finish a sign-in yet." })
+    const expired = answering(400, { error: "invalid_grant", error_description: "Pending token expired." })
+
+    expect((await chooseOrganization(noKey.fetch, "https://api.tryparity.dev", choice)).kind).toBe("unavailable")
+    expect(await chooseOrganization(expired.fetch, "https://api.tryparity.dev", choice)).toEqual({
+      kind: "refused",
+      status: 400,
+      code: "invalid_grant",
+      message: "Pending token expired."
     })
   })
 })

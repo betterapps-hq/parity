@@ -12,11 +12,10 @@ import { defineConfig } from "vite-plus"
 const readers = ["code", "project", "registry"]
 
 /**
- * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and their list,
- * Parity's own extensions, which run in Node hosts of their own, the media player and fixtures.
+ * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, Parity's own extensions,
+ * which run in Node hosts of their own, the media player and fixtures.
  */
 const edge = [
-  "adapters",
   "agent",
   "cli",
   "extension-react",
@@ -30,7 +29,7 @@ const edge = [
   "media-player"
 ]
 
-const packageFiles = (names: string[]) => names.flatMap((name) => [`packages/${name}/**`, `adapters/${name}/**`])
+const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
 const packageImports = (names: string[]) => names.flatMap((name) => [`@parity-app/${name}`, `@parity-app/${name}/**`])
 
 /** What no package imports. */
@@ -154,7 +153,7 @@ export default defineConfig({
     overrides: [
       {
         // Node runs these with its type stripping, which rejects parameter properties and namespaces.
-        files: ["packages/**", "adapters/**", "apps/*/scripts/**", "scripts/**"],
+        files: ["packages/**", "apps/*/scripts/**", "scripts/**"],
         rules: {
           "typescript/parameter-properties": "error",
           "typescript/no-namespace": "error"
@@ -162,7 +161,7 @@ export default defineConfig({
       },
       {
         // Every package is pure unless a later entry names it. `node:` on every builtin keeps the patterns whole.
-        files: ["packages/**", "adapters/**"],
+        files: ["packages/**"],
         rules: {
           "unicorn/prefer-node-protocol": "error",
           "eslint/no-restricted-imports": [
@@ -290,7 +289,7 @@ export default defineConfig({
       },
       {
         // Tests may use Node to set up files and folders.
-        files: ["packages/**/*.test.ts", "packages/**/*.test.tsx", "adapters/**/*.test.ts", "adapters/**/*.test.tsx"],
+        files: ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
       }
     ]
@@ -298,7 +297,6 @@ export default defineConfig({
   test: {
     include: [
       "packages/*/src/**/*.test.ts",
-      "adapters/*/src/**/*.test.ts",
       "apps/*/src/**/*.test.ts",
       "apps/*/.storybook/*.test.ts",
       "apps/*/scripts/*.test.ts",

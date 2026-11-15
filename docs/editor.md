@@ -5900,30 +5900,31 @@ in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the 
 again, when Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component
 previews and exports all capture through it.
 
-Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
-by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
-keeps its screen size, PAR-602); back at 100% the design's frames draw again with their layers while boards out of view
-stay asleep, still at the same sizes; and the selected board's frames wake at a far zoom, picked in Layers since its
-title is hidden there, and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a
-frame put to sleep keeps its host and height with nothing inside, and draws its design again when it wakes).
-`apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant frame whose `shows` changes wakes once
-and sleeps once; and 64 frames, each slow to draw, all do so through one change without React's "Maximum update depth
-exceeded", which React reported there before the fix). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a
-failed capture isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not
-drawn again). Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that
-frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. It waits for
-every design's frame to be inside a tile with a bitmap, rather than comparing counts, since a page's tile has a bitmap
-and no design's frame (PAR-1106). The retry delays, and that a frame which leaves the canvas or changes stops retrying,
-have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four times under
-extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design
-into view before finding a layer in it, so the other files' tests work on frames that slept. Coming from another zoom,
-`App.show` places the design again once its board has taken its size at the new one, since the board's gutter keeps its
-screen size (PAR-1106). Gaps: the order frames wake in has no test of its own; it was checked by reading `wakeNext`. The
-memory it gives back and the time waking takes were measured by hand in a debug copy, not by the suite.
-`apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken again after a
-repaint until it works, gives up after three tries, and any other failure is thrown at once). That a repaint is what
-lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI run, and Sentry's
-count from CI after the change is the check.
+Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, every node the frames drew
+is collected once they sleep, held by weak references and waited for rather than read from the window's node count,
+which tied with its limit now and then as the rest of the window changed (PAR-1140), and no frame changes size (its
+board grows on the canvas, as its gutter keeps its screen size, PAR-602); back at 100% the design's frames draw again
+with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
+a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
+`apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
+draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant
+frame whose `shows` changes wakes once and sleeps once; and 64 frames, each slow to draw, all do so through one change
+without React's "Maximum update depth exceeded", which React reported there before the fix).
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
+that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
+(Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
+every frame's bitmap, timed out in the full suite. It waits for every design's frame to be inside a tile with a bitmap,
+rather than comparing counts, since a page's tile has a bitmap and no design's frame (PAR-1106). The retry delays, and
+that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
+`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
+for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
+tests work on frames that slept. Coming from another zoom, `App.show` places the design again once its board has taken
+its size at the new one, since the board's gutter keeps its screen size (PAR-1106). Gaps: the order frames wake in has
+no test of its own; it was checked by reading `wakeNext`. The memory it gives back and the time waking takes were
+measured by hand in a debug copy, not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing
+with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and any other failure
+is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the failure came from
+about one capture in each CI run, and Sentry's count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
@@ -6129,11 +6130,11 @@ a component's save doesn't reload the guest's stylesheet (PAR-821 reloads it for
 
 ### Stylesheet edits redraw frames (PAR-821)
 
-Saving one of the project's global stylesheets (the one `components.json` names, the ones the entry imports, or a file
-one of them `@import`s) redraws frames, bitmaps and `parity screenshot` with the new CSS, and updates the tokens the tab
-reads from it, without reopening the project. Before, `parity tokens` showed the new values at once, since it reads the
-file, but frames drew the CSS the guest was loaded with until Parity restarted: the guest imports the stylesheets once,
-as text, and a code change only loaded components again.
+Saving one of the project's global stylesheets (the ones the entry imports or the conventions find, or a file one of
+them `@import`s) redraws frames, bitmaps and `parity screenshot` with the new CSS, and updates the tokens the tab reads
+from it, without reopening the project. Before, `parity tokens` showed the new values at once, since it reads the file,
+but frames drew the CSS the guest was loaded with until Parity restarted: the guest imports the stylesheets once, as
+text, and a code change only loaded components again.
 
 - **The builder says a stylesheet changed.** Vite's `stampChange` stamps the file's modules and their importers as for
   any code change, and says `styles` when the file is a stylesheet (project's `isStylesheetFile`) whose modules include
@@ -6164,8 +6165,9 @@ Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherCha
 `packages/processes/src/builder-process.ts`; `stampChange` in `packages/extension-vite/src/code-changes.ts` and
 `restyledGuest` in `packages/extension-vite/src/builder.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled`
 in `openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`.
-Project discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
-`packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
+Project discovery tells stylesheets by the same list (`readStylesheet` in `packages/project/src/styles.ts`,
+`importedFiles` in `preview-key.ts`), and so does the Vite builder when it names the app's (`viteAppStyles` in
+`packages/extension-vite/src/app-styles.ts`).
 
 Tests: `packages/project/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
@@ -7641,22 +7643,86 @@ a new port. Gaps: the offscreen renderer's side has no automated test, nor has `
 `project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
 loaded from them.
 
+### Global stylesheets come from the builder (PAR-1133)
+
+The canvas draws every frame with the app's global stylesheets and reads the theme from them, and the builder is the
+only thing that says which they are: `styles` on its provider (`BuilderProvider.styles`, `BuilderAdapter.styles`).
+Parity reads no entry, `components.json` or conventional file name itself. Before, it read the stylesheets
+`index.html`'s module imported, else a list of conventional names, else `components.json`, which missed a TanStack Start
+app with no `index.html` whose root route imports `src/style.css?url`, and a Next app whose layout imports
+`src/app/styles.css`.
+
+- **Vite's builder compiles the app to find them.** It resolves the project's config and builds the client environment
+  alone, with no dev server, so no plugin's `configureServer` runs (Cloudflare's starts a worker runtime there) and the
+  dependency optimizer is off. From the config's client entries, `index.html`'s module scripts or a framework's own
+  entry as TanStack Start's is, it follows static imports, counting depth only in the project's own modules: the
+  framework's modules on the way to the app's router are free, and packages the app's own modules import aren't
+  followed.
+- **The shallowest stylesheets are the app's.** The first level of the project's modules that imports any stylesheet
+  gives them, imported plainly or with `?url`, not CSS modules or `?inline` and `?raw` reads. When several modules at
+  that level import some, as a router's generated tree imports the root route beside its pages, the ones whose
+  stylesheets hold the theme (custom properties on `:root`, `html` or `:host`, or Tailwind's `@theme`, through their
+  relative `@import`s) are the root's. They keep the order the app imports them in, so the cascade does too. The page's
+  stylesheet `<link>`s always count, read as the browser reads them: relative to the page, a root-relative one from the
+  root or `public`, and not one in a comment or on another origin, and so do what an inline `<script type="module">`
+  imports statically, read with Vite's parser (`parseAst`) and resolved by Vite from the page: not an import in a
+  comment or a string, or a dynamic `import()`. Packages' stylesheets are named by the specifier the app imports them
+  by, as `@mantine/core/styles.css`, which their `exports` allow where the file's own path (`dist/styles.css`) may not.
+- **An app that loads none has none,** as a CSS-in-JS app does. A builder without `styles`, or one that fails, leaves
+  the canvas without global styles, and the project's notes say so.
+- **Its answer lists every file whose contents could change it** (`from`): the modules that import the stylesheets, then
+  every app file the walk read, `index.html` (there or not), a module Vite couldn't compile and a linked stylesheet not
+  there yet included, and each stylesheet read for the theme with the files it `@import`s. A local import Vite can't
+  resolve, as `import "./later.css"` before the file is written, is listed by its path from the importer (from the root
+  for `/…`), and with each extension Vite tries, as a file or a folder's `index`, when it names none; so is a module
+  script, inline import or config entry that isn't there yet. An alias's or a package's that doesn't resolve isn't,
+  since its file can't be known. The service asks again when one of them changes (PAR-820), so the first stylesheet an
+  app imports, a fixed module or a theme moved between stylesheets is seen. For a TanStack Start app that's its routes
+  too, 40 to 60 files on the projects here, so saving a route asks Vite again in the background.
+- **The project opens no slower for it.** Parity asks while it reads the app's files. On the projects on this machine it
+  answered in 0.2 to 0.9 s for a Vite app with `index.html`, 2 to 3 s for TanStack Start apps, and 9 s for copacker,
+  whose root level has 52 modules.
+
+Code: `styles` on `BuilderProvider` in `packages/extension-api/src/providers.ts` and on `BuilderAdapter` in
+`packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in `packages/extensions/src/protocol.ts`
+and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/app-styles.ts`, registered in
+`extension.ts` and `builder.ts`; `appStyles` in `openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in
+`DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
+`appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
+
+Tests: `packages/extension-vite/src/app-styles.test.ts` (15; 13 with a real Vite: what `index.html`'s module imports and
+its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry, a plugin's virtual one
+too, followed to the root, whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; a
+package's stylesheet named by the export the app imports, not the `dist` file it maps to; a page's links relative to it
+and from `public`, without a commented-out or remote one; an inline module script's stylesheets, package's and modules,
+without one in a comment, a string or a dynamic `import()`; two modules' stylesheets in import order, not by name; a
+missing HTML entry, a module that didn't compile, a missing link and the theme's stylesheets with their `@import`s among
+the files listed; a stylesheet, root-relative stylesheet and extensionless module a module imports before they're
+written listed, and found once they are; a missing module script, inline import and config entry listed; none for an app
+that loads none, with the files it read, and its first import found when asked again; and 2 for `configInput`: a Vite 6
+or 7 config with only `rollupOptions`, and Vite 8's `rolldownOptions` first). `packages/project/src/index.test.ts` (1:
+discovery takes the builder's answer and reads no entry itself). `apps/desktop/src/utility/projects.test.ts` (2 of
+PAR-820's, with a fake builder's answer). `parity lib` on an app asks the registered builders the same way
+(`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's tokens from what the first that serves it names.
+Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which `configInput`'s tests cover with that shape rather
+than a real Vite 7, and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects
+are compiled with a middleware-mode dev server, since Vite 5 has no environments.
+
 ### Detected again when what detection reads changes (PAR-820)
 
-An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
-`components.json` added or changed, a stylesheet created where the conventions look, `index.html` or the entry it loads
-changed, a dependency added or removed, or a builder's config file, such as `vite.config.ts`, added or taken away. A
-TanStack Start app has no `index.html`, so `components.json`'s `tailwind.css` is how its stylesheet is found; before,
-adding one to an open project changed nothing until Parity restarted.
+An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: the
+builder naming other global stylesheets after a file its answer came from changed, a dependency added or removed, or a
+builder's config file, such as `vite.config.ts`, added or taken away. Before, any of these changed nothing in an open
+project until Parity restarted. Parity doesn't read shadcn's `components.json` (PAR-1133), so adding or changing one is
+no change.
 
-- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
-  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which of
-  the builders' config files there are. It reads them before detection, compares again once the project's watcher has
-  started, so a change made while the project opened counts, and again 400 ms after a change to one of the files they
-  came from. A stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they
-  don't reopen the project. A package.json that's missing or half-written, or a `components.json` that's there but
-  half-written, as while they're rewritten, fails the read, which counts as no change; a `components.json` taken away is
-  a change.
+- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's and packages'
+  stylesheets as the builder names them (asking it again), the dependencies' names and which of the builders' config
+  files there are. It reads them before detection, compares again once the project's watcher has started, so a change
+  made while the project opened counts, and again 400 ms after a change to one of the files they came from. A
+  stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
+  project. A package.json that's missing or half-written, as while it's rewritten, fails the read, which counts as no
+  change.
 - **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
   (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
   told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
@@ -7668,28 +7734,27 @@ adding one to an open project changed nothing until Parity restarted.
 - **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
   again first when it did, so the answer describes the project as detected now.
 
-Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
-`styles.ts`; `watches` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
+Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, which takes the builder's `AppStyles`; `watches`
+and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
 `packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `packages/project/src/storybook-detect.ts`;
 `watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
 `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
 `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
 `renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
 
-Tests: `packages/project/src/detection-inputs.test.ts` (6: `components.json` naming a stylesheet changes the key; a
-conventional stylesheet or a builder's config appearing changes it, and the entry `index.html` names is followed; the
-config files followed are the ones the builders name, and only those; dependencies change it while scripts, versions and
-a stylesheet's contents don't; a missing or half-written package.json fails; a half-written `components.json` fails
-while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (3: an open project whose `components.json`
-now names its stylesheet tells the windows, a file detection doesn't read doesn't, a moment without package.json isn't a
-change, and opened again it's detected from the new file; a config file the registered builder names tells the windows,
-and one no builder names doesn't; a `components.json` written while the builder starts is told once the project is
-open). `packages/extension-vite/src/detect.test.ts` checks that each config name Vite finds is among
-`viteBuilder.watches`. `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its project
-again only when the service says detection changed; a tab told while loading asks again once it's ready). Gaps: the
-handlers wiring `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's folder
-filling with files, a `.storybook` folder added and a Vite config's contents aren't compared (Vite restarts its own
-server when its config changes).
+Tests: `packages/project/src/detection-inputs.test.ts` (6: the builder's stylesheets change the key and the files its
+answer came from are watched; `components.json`, a conventional stylesheet and `index.html` aren't read, while a
+builder's config appearing changes the key; the config files followed are the ones the builders name, and only those;
+dependencies change it while scripts, versions and a stylesheet's contents don't; a missing or half-written package.json
+fails). `apps/desktop/src/utility/projects.test.ts` (3: the builder naming another stylesheet after a file its answer
+came from changed tells the windows, a file it didn't come from doesn't, a moment without package.json isn't a change,
+and opened again it has the new stylesheet; a config file the registered builder names tells the windows, and one no
+builder names doesn't; the builder's answer changing while it starts is told once the project is open).
+`packages/extension-vite/src/detect.test.ts` checks that each config name Vite finds is among `viteBuilder.watches`.
+`apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its project again only when the
+service says detection changed; a tab told while loading asks again once it's ready). Gaps: the handlers wiring
+`agent.open` and `project.detectionChanged` to the workspace is checked by reading; a `.storybook` folder added and a
+Vite config's contents aren't compared (Vite restarts its own server when its config changes).
 
 ### A tab closed while its project opens (PAR-427)
 
@@ -8297,14 +8362,15 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
 `apps/desktop/src/utility/projects.ts`; Storybook's item and logo from its extension's manifest too, and Vite's,
-React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters in
-`packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+React's, Tailwind's and TanStack Router's from their extensions' manifests; the list of Parity's own extensions in
+`apps/desktop/src/utility/extensions.ts`; and `chrome/StatusBar.tsx`, which draws `info.status` and the extensions'
+items.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
-an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
-its own id), and `packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook,
-`chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
-(`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
+an item without an icon carries its adapter's logo; an untested version says so), and
+`packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook, `chrome/StatusBar.stories.tsx`, whose
+stand-in host lists Vite's, React's, Tailwind's and Storybook's extensions with what their code sets
+(`standInExtensions` in `renderer/stories/host.ts`). Gaps: the story play functions weren't run.
 
 ### The status bar's process lights stay off the main thread (PAR-524)
 
@@ -8413,9 +8479,12 @@ client ID and never its API key, and the window never sees a token.
   organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
   opens AuthKit with the account's email. Details hold what WorkOS said, to copy.
 - **Someone in more than one organization chooses one** when WorkOS answers `organization_selection_required`: Choose an
-  organization lists the organizations it names, and choosing one opens AuthKit in the browser with that
-  `organization_id` and the account's email, which signs in to it. Invitations and creating an organization wait for
-  Parity's service (PAR-616).
+  organization lists the organizations it names, and choosing one finishes the sign-in through Parity's service, which
+  holds the client secret WorkOS's organization-selection grant needs, without opening the browser again (PAR-1143).
+  When the service can't finish it, because it has no key yet or WorkOS's pending token ran out, choosing opens AuthKit
+  in the browser with that `organization_id` and the account's email, which signs in to it, and
+  `account.organizationChoiceFailed` says why. Invitations and creating an organization wait for Parity's service
+  (PAR-616).
 - **The browser hands back to the copy that asked.** An installed app uses `parity://auth/callback`: the installer
   registers it on macOS (`protocols` in `electron-builder.yml`) and the app registers itself on Windows and Linux as it
   starts. macOS gives the running app the link as `open-url`; Windows and Linux start a second Parity process with it,
@@ -8467,26 +8536,31 @@ side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx
 `accountSwitch` channel, and switching accounts is `use`, over `accountUse`; `session-store.ts`'s `withAccount` and
 `withoutAccount` change what's kept.
 
-Tests: `main/account.test.ts` (28: the provider and the work email in the URL, the code traded with the client ID and no
+Tests: `main/account.test.ts` (44: the provider and the work email in the URL, the code traded with the client ID and no
 secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
-their email, the organizations to choose from and AuthKit opened with the one chosen, canceled while trading, kept until
-quit, the organizations WorkOS named kept through refreshes and in the kept session, switching with a refresh naming the
-organization, staying put when WorkOS won't switch, forgetting them on signing out, refreshing a minute early with the
-new token kept, trying again when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in
-another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
-asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
-moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
-account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
-service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
-shared between askers, and none once the session ends), `main/session-store.test.ts` (10: kept encrypted and forgotten,
-a write cut short leaving the last accounts readable, the file readable only by you, the file removed with the last
-account, nothing kept without a keyring or encryption, an unreadable or one-account file forgotten, a missing file quiet
-and one that can't be opened kept, an account replaced in place or added, which account you're in forgotten only with
-it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes
-it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
-sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
-and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
-and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
+their email, the organizations to choose from and AuthKit opened with the one chosen, the one chosen finished through
+Parity's service without the browser, a second choice let go while the first is answered, and AuthKit opened when the
+service can't finish it, canceled while trading, kept until quit, the organizations WorkOS named kept through refreshes
+and in the kept session, switching with a refresh naming the organization, staying put when WorkOS won't switch,
+forgetting them on signing out, refreshing a minute early with the new token kept, trying again when WorkOS doesn't
+answer, Session ended, another copy's newer token, signed out in another copy, signing back in as Parity starts, signing
+out; and with several accounts: adding one with the provider asked which, the same account again in its place, switching
+without asking WorkOS, signing out of another and staying, moving to the account used last, an ended account kept and
+signed in to again by name, removing it, moving on when the account you're in ends, restoring every account in the one
+Parity was last in; and the access token main gives Parity's service (PAR-948): the one kept, none when signed out, a
+fresh one when the service turned the last down, one refresh shared between askers, and none once the session ends),
+`main/session-store.test.ts` (10: kept encrypted and forgotten, a write cut short leaving the last accounts readable,
+the file readable only by you, the file removed with the last account, nothing kept without a keyring or encryption, an
+unreadable or one-account file forgotten, a missing file quiet and one that can't be opened kept, an account replaced in
+place or added, which account you're in forgotten only with it), `main/pass-link.test.ts` (3: the link in a launch's
+arguments, each other copy asked with its token until one takes it, none taking it) and `main/loopback.test.ts` (1: the
+link with its port, the page once traded, 404 for another sign-in's). `packages/account` covers the URL with an
+organization and with parameters for the provider, PKCE, the link and WorkOS's answers, including the organizations and
+the pending token a refusal names, and finishing the choice through Parity's service.
+`packages/service/src/sign-in.test.ts` (6) covers the service's side: the organization-selection grant sent with the
+client secret and WorkOS's answer passed on, a refusal passed on, nothing asked of WorkOS without a key or for a
+malformed request, each address limited, and WorkOS out of reach. Stories: Parity/Sign in (the first launch, waiting and
+still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
 another account, the accounts panel with one account, two, one whose session ended, in no organization, until quit and
 signed out, and the workspace menu in two organizations, with two accounts, in one, Personal and signed out). Gaps: no
 end-to-end test signs in, since that needs a real account in a browser; switching between two organizations, and adding

@@ -41,6 +41,21 @@ export const accountSignInProblem = defineEvent(
   { level: "warn", sentBy: ["main"], when: "A sign-in ends without a session, or its browser doesn't open." }
 )
 
+export const accountOrganizationChoiceFailed = defineEvent(
+  "account.organizationChoiceFailed",
+  z.object({
+    reason: z
+      .enum(["unavailable", "refused"])
+      .describe("Why: Parity's service didn't answer or can't finish one yet, or WorkOS turned it down"),
+    ...answer
+  }),
+  {
+    level: "warn",
+    sentBy: ["main"],
+    when: "Parity's service can't finish a sign-in after choosing an organization, so Parity signs in again (PAR-1143)."
+  }
+)
+
 const organization = z.boolean().describe("Whether it moved the account to another organization")
 
 export const accountRefreshed = defineEvent(
@@ -116,6 +131,7 @@ export const accountStateFailed = defineEvent(
 export const accountEvents = [
   accountSignedIn,
   accountSignInProblem,
+  accountOrganizationChoiceFailed,
   accountRefreshed,
   accountRefreshFailed,
   accountSessionEnded,

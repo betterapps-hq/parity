@@ -84,8 +84,19 @@ export function receiveAccount(raw: unknown): void {
   const state = parsed.data
   const before = account.get()
   const was = before.state
+
   // Someone's signed in where nobody was, or a sign-in that was waiting signed in another account or the same again.
-  const signedIn = !!state.account && (!was.account || (was.attempt?.at === "waiting" && !state.attempt))
+  // Choosing an organization finishes without waiting on the browser (PAR-1143), so that sign-in is done once the
+  // question goes and an account came with it, where canceling leaves the accounts as they were.
+  const chose =
+    was.attempt?.at === "problem" &&
+    was.attempt.problem === "choose-organization" &&
+    !state.attempt &&
+    (state.accounts.length !== was.accounts.length ||
+      state.account?.email !== was.account?.email ||
+      state.account?.organizationId !== was.account?.organizationId)
+
+  const signedIn = !!state.account && (!was.account || (was.attempt?.at === "waiting" && !state.attempt) || chose)
   let place = before.place
 
   if (signedIn) {

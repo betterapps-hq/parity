@@ -58,13 +58,13 @@ describe("findConfig", () => {
 })
 
 describe("loadConfig", () => {
-  const components = { files: ["components"], extensions: ["json"], here: true, jsonc: true }
+  const example = { files: ["example"], extensions: ["json"], here: true, jsonc: true }
   const stylesheet = z.looseObject({ tailwind: z.looseObject({ css: z.string() }) })
 
   it("reads JSON with comments", async () => {
-    await fixture({ "components.json": '{\n  // the stylesheet\n  "tailwind": { "css": "src/index.css" }\n}\n' })
-    expect(await loadConfig(root, root, components, stylesheet)).toEqual({
-      path: "components.json",
+    await fixture({ "example.json": '{\n  // the stylesheet\n  "tailwind": { "css": "src/index.css" }\n}\n' })
+    expect(await loadConfig(root, root, example, stylesheet)).toEqual({
+      path: "example.json",
       value: { tailwind: { css: "src/index.css" } }
     })
   })
@@ -78,14 +78,14 @@ describe("loadConfig", () => {
   })
 
   it("says which config it couldn't load", async () => {
-    await fixture({ "components.json": "{ broken" })
-    await expect(loadConfig(root, root, components, stylesheet)).rejects.toThrow(/^Couldn't load components: /)
+    await fixture({ "example.json": "{ broken" })
+    await expect(loadConfig(root, root, example, stylesheet)).rejects.toThrow(/^Couldn't load example: /)
   })
 
   it("names the config and the field its schema refuses", async () => {
-    await fixture({ "components.json": { tailwind: { css: 1 } } })
-    await expect(loadConfig(root, root, components, stylesheet)).rejects.toThrow(
-      "components.json: /tailwind/css: expected a string"
+    await fixture({ "example.json": { tailwind: { css: 1 } } })
+    await expect(loadConfig(root, root, example, stylesheet)).rejects.toThrow(
+      "example.json: /tailwind/css: expected a string"
     )
   })
 

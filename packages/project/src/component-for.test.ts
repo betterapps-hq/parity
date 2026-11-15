@@ -9,7 +9,7 @@ import { componentFor } from "./storybook.ts"
  * other components share its name: in another folder of the app, in a library, or in two libraries.
  */
 
-const app = (path: string, name: string, uiKit = false): ParsedComponent => ({ name, path, export: name, uiKit })
+const app = (path: string, name: string): ParsedComponent => ({ name, path, export: name })
 
 /** Two libraries that both export a Button, keyed `library/Export` as `findLibraries` keys them. */
 const libraries = {
@@ -23,13 +23,13 @@ const components = {
   ...libraries,
   ...componentIds(
     [
-      app("src/components/ui/button.tsx", "Button", true),
-      app("src/components/ui/card.tsx", "Card", true),
+      app("src/components/ui/button.tsx", "Button"),
+      app("src/components/ui/card.tsx", "Card"),
       app("src/marketing/card.tsx", "Card"),
       app("src/billing/card.tsx", "Card"),
       app("src/billing/forms/field.tsx", "Field"),
       app("src/settings/forms/field.tsx", "Field"),
-      { name: "Hero", path: "src/marketing/hero.tsx", export: "default", uiKit: false }
+      { name: "Hero", path: "src/marketing/hero.tsx", export: "default" }
     ],
     new Set(Object.keys(libraries))
   )
@@ -48,7 +48,7 @@ describe("componentFor", () => {
         "nova/Button",
         "lyra/Button",
         "Button",
-        "Card",
+        "ui/Card",
         "marketing/Card",
         "billing/Card",
         "billing/forms/Field",
@@ -61,7 +61,7 @@ describe("componentFor", () => {
   })
 
   it("tells apart the app's components of one name by the file the story imports", async () => {
-    expect(await find("src/stories/card.stories.tsx", "@/components/ui/card", "Card")).toBe("Card")
+    expect(await find("src/stories/card.stories.tsx", "@/components/ui/card", "Card")).toBe("ui/Card")
     expect(await find("src/stories/card.stories.tsx", "@/marketing/card", "Card")).toBe("marketing/Card")
     expect(await find("src/billing/card.stories.tsx", "./card", "Card")).toBe("billing/Card")
     expect(await find("src/settings/forms/field.stories.tsx", "./field.tsx", "Field")).toBe("settings/forms/Field")

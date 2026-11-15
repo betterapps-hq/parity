@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve } from "node:path"
 import type { GenerateOptions, Live, GenerateReport as Report } from "@parity-app/libgen"
 import { z } from "zod"
 import { readAppErrors } from "./check.ts"
-import { invalidInput } from "./errors.ts"
+import { invalidInput, operationError } from "./errors.ts"
 import { stderr, stdout } from "./output.ts"
 
 export interface LibOptions {
@@ -72,7 +72,10 @@ export async function runLib(packageName: string | undefined, options: LibOption
 
   const appErrors = recordedId ? await readAppErrors(registryDir(), recordedId) : undefined
 
-  const generated = await generateLibrary(generateOptions(root, options, { spec, trialEdits, appErrors }))
+  // An app's tokens are read from the stylesheets its builder says it loads, as the desktop app reads them.
+  const styles = spec ? undefined : await appStylesheets(root)
+
+  const generated = await generateLibrary(generateOptions(root, options, { spec, trialEdits, appErrors, styles }))
 
   const id = String(generated.manifest.id)
   let target: string | undefined
@@ -164,20 +167,57 @@ export async function runLib(packageName: string | undefined, options: LibOption
 /** What `reviseLibrary` takes: the file being replaced, which components to write, and where hand edits are. */
 type ReviseOptions = Pick<GenerateOptions, "previous" | "only" | "edits" | "editsBase" | "root">
 
-/** What `parity lib` found before generating: the package named, hand edits to try, and the app's recorded errors. */
+/**
+ * What `parity lib` found before generating: the package named, hand edits to try, the app's recorded errors, and the
+ * stylesheets an app loads.
+ */
 interface LibInputs {
   spec: PackageSpec | undefined
   trialEdits: GenerateOptions["trialEdits"]
   appErrors: GenerateOptions["appErrors"]
+  styles: GenerateOptions["styles"]
+}
+
+/**
+ * The global stylesheets the app at `root` loads, asked of Vite's builder when it serves it, as the desktop
+ * app asks its builder. None, said on stderr, when no builder serves it or it can't say.
+ */
+async function appStylesheets(root: string): Promise<string[] | undefined> {
+  // Loaded only here: asking a builder loads the project's own build tool.
+  const { viteBuilder } = await import("@parity-app/extension-vite/builder")
+  const builders = [viteBuilder]
+  const { detectContext, readPackage } = await import("@parity-app/project")
+  const pkg = (await readPackage(root))?.manifest ?? {}
+  const project = detectContext(root, pkg)
+
+  for (const builder of builders) {
+    try {
+      if ((await builder.detect(project)).found && builder.styles) {
+        return (await builder.styles(project)).styles
+      }
+    } catch (error) {
+      stderr(`${builder.name} couldn't say which stylesheets the app loads: ${operationError(error).message}`)
+
+      return undefined
+    }
+  }
+
+  stderr("No builder serves the app, so no stylesheets were read for its tokens.")
+
+  return undefined
 }
 
 /** The options `generateLibrary` is given, with only the flags that were set. */
 function generateOptions(
   root: string,
   options: LibOptions,
-  { spec, trialEdits, appErrors }: LibInputs
+  { spec, trialEdits, appErrors, styles }: LibInputs
 ): GenerateOptions {
   const generate: GenerateOptions = { root }
+
+  if (styles) {
+    generate.styles = styles
+  }
 
   if (trialEdits) {
     generate.trialEdits = trialEdits

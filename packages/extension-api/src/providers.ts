@@ -100,8 +100,8 @@ export interface ComponentExport {
 }
 
 /**
- * Says whether a build tool serves the project. What starts its dev server is its entry module, which the manifest's
- * `providers.builder` names, run in a builder process of its own.
+ * Says whether a build tool serves the project, and which global stylesheets the app loads. What starts its dev server
+ * is its entry module, which the manifest's `providers.builder` names, run in a builder process of its own.
  */
 export interface BuilderProvider {
   /**
@@ -109,6 +109,23 @@ export interface BuilderProvider {
    * tool itself. Fails when the tool can't load the project's config, with why.
    */
   detect(): Promise<BuilderDetection>
+  /**
+   * The global stylesheets the app loads, as the tool resolves the app's imports from its entries: the ones its root
+   * module imports, not a component's own. Parity draws the canvas with them and reads the theme from them, and has no
+   * other source, so empty means the app loads none, as with CSS-in-JS. Parity asks while the project opens, and again
+   * when one of the files in `from` changes. A builder without it gives the canvas no global styles.
+   */
+  styles?(): Promise<AppStyles>
+}
+
+/** The global stylesheets an app loads, as its builder reports them. */
+export interface AppStyles {
+  /** The project's own, by path from its root with forward slashes, in the order the app loads them. */
+  styles: string[]
+  /** Packages' stylesheets, by the specifier that loads them, as `@mantine/core/styles.css`, in the order loaded. */
+  packageStyles: string[]
+  /** The project files the answer came from, such as the module that imports them, from the root with forward slashes. */
+  from: string[]
 }
 
 /** What a builder found: its tool's version and config file, and what it looked for, in a line. */

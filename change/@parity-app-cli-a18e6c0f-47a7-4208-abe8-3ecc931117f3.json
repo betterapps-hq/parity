@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Remove packages/adapters; every tool runs as an extension (PAR-1095)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

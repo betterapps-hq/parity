@@ -1,23 +1,34 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { adapters, extensionTools } from "@parity-app/adapters"
 import { hasElementSources, inferProps } from "@parity-app/code"
 import {
   type Adapter,
   type ComponentInfo,
   defaultModeSettings,
   detectPeers,
+  extensionBuilder,
+  extensionEntities,
+  extensionRenderer,
+  extensionTool,
   parseCanvasDocument
 } from "@parity-app/core"
+import { findComponents } from "@parity-app/extension-react/components"
+import reactExtension from "@parity-app/extension-react/package.json" with { type: "json" }
+import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { exportStoryScreen, importStoryScreens } from "@parity-app/extension-storybook/screens"
 import { handles, readTheme } from "@parity-app/extension-tailwind"
-import { guestModuleSource, taggedModule } from "@parity-app/extension-vite/builder"
+import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
+import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/extension-vite/builder"
+import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
   adapterActions,
   adapterStatus,
   detectAdapters,
   detectContext,
   detectProject,
+  detectStorybook,
   discoverProject,
   importEntities,
   readPackage
@@ -181,18 +192,27 @@ async function discover(): Promise<{
   const found = async <A extends Adapter>(list: A[]) =>
     (await detectAdapters(project, list)).filter(({ detection }) => detection.found)
 
-  const [rendererFound] = await found(adapters.renderers)
+  const [rendererFound] = await found([{ ...extensionRenderer(reactExtension)!, findComponents }])
 
   if (!rendererFound) {
     throw new Error(`No renderer supports ${root}`)
   }
 
   const renderer = rendererFound.adapter
-  // The builder isn't started, so it isn't asked either: stories use the example's Vite as installed.
-  const builder = adapters.builders[0]!
+  // The builder isn't started or asked whether it serves the example: stories use the example's Vite as installed. It's
+  // asked which stylesheets the app loads, as the app asks it.
+  const builder = { ...viteBuilder, ...extensionBuilder(viteExtension)! }
   const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
 
-  const entitiesFound = await found(adapters.entities)
+  const entitiesFound = await found([
+    {
+      ...extensionEntities(storybookExtension, detectStorybook)!,
+      import: importStoryScreens,
+      export: exportStoryScreen
+    }
+  ])
+
+  const extensionTools = [tailwindExtension, routerExtension].flatMap((extension) => extensionTool(extension) ?? [])
 
   const extensions = extensionTools.flatMap((tool) => {
     const detection = detectPeers(pkg, tool.versions)
@@ -200,7 +220,7 @@ async function discover(): Promise<{
     return detection.found ? [{ adapter: tool, detection }] : []
   })
 
-  const config = await discoverProject(root, renderer, pkg)
+  const config = await discoverProject(root, renderer, pkg, { styles: builder.styles?.(detectContext(root, pkg)) })
   const stylesheet = config.styles[0]
   const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
   // Tailwind reads the theme, as its extension's styles provider does in the app.

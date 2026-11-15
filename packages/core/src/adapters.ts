@@ -310,13 +310,6 @@ export function detectPeers(
     : { found: false, summary: `None of ${versions.packages.join(", ")} in package.json` }
 }
 
-/** The adapters Parity opens projects with, by what they integrate. */
-export interface Adapters {
-  renderers: RendererAdapter[]
-  builders: BuilderAdapter[]
-  entities: EntitiesAdapter[]
-}
-
 /**
  * Mounts components of one UI framework (React, Vue, Svelte…).
  *
@@ -459,13 +452,28 @@ export interface BuilderAdapter extends Adapter {
   /** Its config files, relative to the project root, which say whether it serves the project (PAR-826). */
   watches: readonly string[]
   start(options: BuilderStartOptions): Promise<BuilderSession>
+  /**
+   * The global stylesheets the app loads, as the build tool resolves the app's imports from its entries: the only
+   * source Parity has for them. Empty when the app loads none, as with CSS-in-JS.
+   */
+  styles?(project: DetectContext): Promise<AppStyles>
+}
+
+/** The global stylesheets an app loads, as its builder reports them (`BuilderAdapter.styles`). */
+export interface AppStyles {
+  /** The project's own, by path from its root with forward slashes, in the order the app loads them. */
+  styles: string[]
+  /** Packages' stylesheets, by the specifier that loads them, as `@mantine/core/styles.css`, in the order loaded. */
+  packageStyles: string[]
+  /** The project files the answer came from, such as the module that imports them, from the root with forward slashes. */
+  from: string[]
 }
 
 /**
  * A builder as its extension's manifest describes it (PAR-1095): its provider says whether it serves a project, and its
  * entry module starts it, in the builder process.
  */
-export type BuilderDescription = Omit<BuilderAdapter, "start" | "detect">
+export type BuilderDescription = Omit<BuilderAdapter, "start" | "detect" | "styles">
 
 /** What of an extension's `package.json` describes the builder it gives. */
 export interface BuilderPackage {
@@ -500,6 +508,36 @@ export function extensionBuilder(pkg: BuilderPackage): BuilderDescription | unde
   }
 
   return description
+}
+
+/** A tool one of Parity's own extensions gives: its prefix and name, and its versions from its peer dependencies. */
+export type ExtensionTool = Pick<Adapter, "id" | "name"> & {
+  versions: ToolVersions
+  /** Whether it styles the project, which detection lists before the tools whose files are entities, as it always has. */
+  styles: boolean
+}
+
+/** What of an extension's `package.json` names its tool. */
+export interface ToolPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    versions?: ToolVersionsExtra
+    contributes?: { providers?: object }
+  }
+}
+
+/**
+ * The tool an extension gives (PAR-1095), found when the project's package.json declares one of its peer dependencies
+ * and listed with its version among what the project uses; nothing for one without peer dependencies.
+ */
+export function extensionTool(pkg: ToolPackage): ExtensionTool | undefined {
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  const styles = "styles" in (pkg.parity.contributes?.providers ?? {})
+
+  return versions && { id: pkg.parity.prefix, name: pkg.parity.displayName, versions, styles }
 }
 
 /** What a builder found: its build tool's version, asked of the tool itself, and its config file. */

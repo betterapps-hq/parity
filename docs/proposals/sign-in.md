@@ -124,6 +124,10 @@ From the Sign in stories, which work as one prototype (PAR-614).
 
 WorkOS's API key can't ship in an app, so these wait for Parity's service, the portal's backend:
 
+- finishing a sign-in after the person chose an organization: WorkOS's organization-selection grant needs the client
+  secret, so the app sends WorkOS's pending token and the organization to `POST /v1/sign-in/organization`, which answers
+  with WorkOS's own answer (PAR-1143). The Worker needs WorkOS's API key as the `WORKOS_API_KEY` secret; until then, the
+  app signs in again with the organization named;
 - listing someone's organizations and the invitations waiting for them, Join and Decline, and Create an organization
   (PAR-616);
 - anything Parity keeps for a person or an organization, such as comments.
@@ -151,6 +155,8 @@ PAR-612 tries these:
 - **Whether a public client can refresh, and switch organization:** it can, both with the client ID alone, tried in
   Staging on 2026-11-05.
 - **Whether WorkOS asks Parity to pick an organization** when a button skips AuthKit's page, and whether a public client
-  can answer without the API key.
+  can answer without the API key: it asks, with `organization_selection_required`, and a public client can't answer.
+  WorkOS turns the organization-selection grant down without the client secret ("Invalid client secret", tried on
+  2026-11-15), so Parity's service finishes it (PAR-1143).
 - **The URL scheme on each system's installed build,** which only a packaged build can show: unsigned macOS builds
   (PAR-399), and Linux's AppImage, which has no installer to register it.
