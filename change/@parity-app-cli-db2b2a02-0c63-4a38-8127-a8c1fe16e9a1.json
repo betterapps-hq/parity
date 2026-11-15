@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep the UI kit folder components.json names while it's empty, rather than taking the app's components folder for it",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

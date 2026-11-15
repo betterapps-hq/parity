@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Extensions can register address and discovery providers, and read and watch files the read permission names; Portless is now a built-in extension.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
