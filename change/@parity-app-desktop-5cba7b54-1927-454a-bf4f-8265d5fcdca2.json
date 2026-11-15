@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "The sleeping end-to-end test zooms out once before counting, so it passes in any shard",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
