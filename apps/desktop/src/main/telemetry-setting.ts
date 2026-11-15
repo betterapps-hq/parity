@@ -1,55 +1,54 @@
-import {
-  readSavedTelemetry,
-  resolveTelemetry,
-  type SavedTelemetry,
-  type TelemetryLevel,
-  type TelemetryVariables
-} from "@parity-app/telemetry"
-import { z } from "zod"
+import type { SystemChange, SystemSettings } from "@parity-app/settings"
+import { resolveTelemetry, type TelemetryLevel, type TelemetryVariables } from "@parity-app/telemetry"
 import type { TelemetryState } from "../shared/protocol.ts"
 
 export interface TelemetrySettingOptions {
   /** The variables this run started with, which override the setting. */
   env: TelemetryVariables
-  /** `telemetry.json`'s text, or undefined when there's none. */
-  read: () => string | undefined
-  save: (text: string) => void
+  /** What main alone keeps in `settings.json`, which every copy and the CLI read. */
+  store: {
+    system(): SystemSettings
+    /** Resolves whether it saved; a change that didn't holds for this run and is tried again. */
+    changeSystem(change: SystemChange): Promise<boolean>
+  }
   /** A new random install ID. */
   newId: () => string
 }
 
 /**
- * The diagnostics level from Settings and the install ID, kept in `telemetry.json` in the app's data folder so the CLI
- * reads the same (PAR-626). The first run makes the install ID. A file that can't be written leaves this run's ID unsaved.
+ * The diagnostics level from Settings and the install ID, kept in `settings.json` so every copy and the CLI read the same
+ * (PAR-626, `docs/proposals/settings.md`). The first run makes the install ID, written only if the file still has none,
+ * so two copies starting together keep one.
  */
 export class TelemetrySetting {
-  private saved: SavedTelemetry & { installId: string }
+  /** The ID this run made, until the file has one. */
+  private readonly made: string | undefined
 
-  /** Why a new install ID couldn't be saved, for main to record once its telemetry starts (PAR-811). */
-  readonly unsaved: { code?: string; message: string } | undefined
+  /** Resolves to why a new install ID couldn't be saved, for main to record once its telemetry starts (PAR-811). */
+  readonly unsaved: Promise<{ message: string } | undefined>
 
   constructor(private readonly options: TelemetrySettingOptions) {
-    const saved = readSavedTelemetry(options.read())
-
-    if (saved.installId) {
-      this.saved = { ...saved, installId: saved.installId }
+    if (options.store.system().installId) {
+      this.unsaved = Promise.resolve(undefined)
 
       return
     }
 
-    this.saved = { ...saved, installId: options.newId() }
+    const made = options.newId()
+    this.made = made
 
-    try {
-      this.write(this.saved)
-    } catch (cause) {
-      // The ID still names this run's reports; the next run makes another, so Sentry counts each run as a new user.
-      this.unsaved = unsavedBecause(cause)
-    }
+    // The ID still names this run's reports if it can't be saved; the next run makes another, so Sentry counts each run
+    // as a new user.
+    this.unsaved = options.store
+      .changeSystem({ newInstallId: made })
+      .then((saved) => (saved ? undefined : { message: "settings.json couldn't be written" }))
   }
 
   get(): TelemetryState {
+    const { diagnostics, installId } = this.options.store.system()
+
     // The variables were read at start, and a bad PARITY_TELEMETRY stopped the app then, so this can't throw.
-    return { ...resolveTelemetry(this.options.env, this.saved.level), installId: this.saved.installId }
+    return { ...resolveTelemetry(this.options.env, diagnostics), installId: installId ?? this.made ?? "none" }
   }
 
   /**
@@ -57,25 +56,14 @@ export class TelemetrySetting {
    * join the earlier ones; that's how the ID is reset. A variable overriding the level still decides this run.
    */
   setLevel(level: TelemetryLevel): TelemetryState {
-    const installId = level === "off" ? this.options.newId() : this.saved.installId
-    const next = { ...this.saved, level, installId }
-    this.write(next)
-    this.saved = next
+    void this.options.store.changeSystem(
+      level === "off"
+        ? { diagnostics: level, installId: this.options.newId() }
+        : {
+            diagnostics: level
+          }
+    )
 
     return this.get()
   }
-
-  private write(value: SavedTelemetry): void {
-    this.options.save(`${JSON.stringify(value, null, 2)}\n`)
-  }
-}
-
-/** A file system error's code, such as `EACCES`, which Node puts on the error. */
-const errnoCode = z.object({ code: z.string() })
-
-function unsavedBecause(cause: unknown): { code?: string; message: string } {
-  const message = cause instanceof Error ? cause.message : String(cause)
-  const code = errnoCode.safeParse(cause).data?.code
-
-  return code ? { code, message } : { message }
 }

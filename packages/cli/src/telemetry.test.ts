@@ -122,7 +122,7 @@ describe("cliLogFolder", () => {
 
 describe("cliTelemetrySetting", () => {
   const installId = "0b6f7c1e-3c55-4d5e-9a1f-6f2d9c8b7a10"
-  const saved = (level: string) => JSON.stringify({ level, installId })
+  const saved = (level: string) => JSON.stringify({ diagnostics: level, installId })
 
   it("sends what the app's Settings saved, as the app's install", () => {
     expect(cliTelemetrySetting({}, saved("off"))).toEqual({ level: "off", setting: "off", installId })

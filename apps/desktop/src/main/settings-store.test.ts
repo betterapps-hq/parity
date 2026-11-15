@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { defaultSettings } from "@parity-app/settings"
+import { defaultSettings, type SystemSettings } from "@parity-app/settings"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { z } from "zod"
 import type { SettingsState } from "../shared/settings.ts"
@@ -114,6 +114,30 @@ describe("settings.json", () => {
 
     expect(saved(file)).toEqual({ snapping: false })
     expect(store.state().values.theme).toBe("dark")
+  })
+
+  it("keeps main's own keys, and doesn't tell the windows when only they change (PAR-1117)", async () => {
+    const file = setUp()
+    writeFileSync(file, JSON.stringify({ snapping: false, theme: "light" }))
+    const changed = vi.fn<(state: SettingsState) => void>()
+    const store = open(file, changed)
+
+    await expect(store.changeSystem({ diagnostics: "off", betaUpdates: true })).resolves.toBe(true)
+
+    expect(store.system()).toEqual({ diagnostics: "off", betaUpdates: true })
+    expect(saved(file)).toEqual({ snapping: false, theme: "light", diagnostics: "off", betaUpdates: true })
+    expect(store.state()).not.toHaveProperty("system")
+    expect(changed).not.toHaveBeenCalled()
+  })
+
+  it("tells main when another copy changes main's own keys, so diagnostics turned off there stop here too", async () => {
+    const file = setUp()
+    const heard = vi.fn<(system: SystemSettings) => void>()
+    open(file).watchSystem(heard)
+
+    await open(file).changeSystem({ diagnostics: "off" })
+
+    await vi.waitFor(() => expect(heard.mock.lastCall?.[0]).toEqual({ diagnostics: "off", betaUpdates: false }))
   })
 
   it("never writes over a file it can't read, and keeps the change for this run", async () => {

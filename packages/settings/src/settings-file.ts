@@ -9,6 +9,7 @@ import {
   settingKeys,
   settingValues
 } from "./app-settings.ts"
+import { type SystemChange, type SystemSettings, systemOf, withSystemChange } from "./system-settings.ts"
 
 /** What `settings.json` gives: every setting, and the problems with what it holds, for Settings to show. */
 export interface ReadSettings {
@@ -17,6 +18,8 @@ export interface ReadSettings {
   badValues: SettingKey[]
   /** Extensions' `app` settings, by extension and then key, unchecked: each extension's schema checks its own. */
   extensions: ExtensionSettings
+  /** What main alone keeps: the diagnostics level, Get beta updates and the install ID. */
+  system: SystemSettings
   /** Why the file couldn't be read at all, when it couldn't. Its values are then the defaults. */
   problem?: string
 }
@@ -65,7 +68,7 @@ function extensionsOf(object: FileObject): ExtensionSettings {
 }
 
 /** Each setting `object` holds, each that's missing or doesn't read at its default. */
-function valuesOf(object: FileObject): Pick<ReadSettings, "values" | "badValues" | "extensions"> {
+function valuesOf(object: FileObject): Pick<ReadSettings, "values" | "badValues" | "extensions" | "system"> {
   const badValues: SettingKey[] = []
 
   const entries = settingKeys.map((key) => {
@@ -85,7 +88,12 @@ function valuesOf(object: FileObject): Pick<ReadSettings, "values" | "badValues"
   })
 
   // SAFETY: each setting's value is its default or a value its own schema read.
-  return { values: Object.fromEntries(entries) as AppSettings, badValues, extensions: extensionsOf(object) }
+  return {
+    values: Object.fromEntries(entries) as AppSettings,
+    badValues,
+    extensions: extensionsOf(object),
+    system: systemOf(object)
+  }
 }
 
 /**
@@ -96,14 +104,20 @@ export function readSettings(text: string | undefined): ReadSettings {
   const parsed = parse(text)
 
   if ("problem" in parsed) {
-    return { values: { ...defaultSettings }, badValues: [], extensions: {}, problem: parsed.problem }
+    return {
+      values: { ...defaultSettings },
+      badValues: [],
+      extensions: {},
+      system: systemOf({}),
+      problem: parsed.problem
+    }
   }
 
   return valuesOf(parsed.object)
 }
 
 /** One change to `settings.json`: some of Parity's own settings, and some of extensions'. */
-export type FileChange = SettingsChange & { extensions?: ExtensionSettingsChange }
+export type FileChange = SettingsChange & { extensions?: ExtensionSettingsChange; system?: SystemChange }
 
 /**
  * Extensions' settings after a change: each key it names set, or taken out to put it back to its default, and an
@@ -153,7 +167,24 @@ export function changeSettings(text: string | undefined, change: FileChange): st
 
   const next: FileObject = { ...parsed.object }
 
-  const { extensions, ...own } = change
+  const { extensions, system, ...own } = change
+
+  // Only what the change names is written, and a new install ID only when the file has none that reads.
+  if (system) {
+    const after = withSystemChange(systemOf(parsed.object), system)
+
+    if (system.diagnostics !== undefined) {
+      next.diagnostics = after.diagnostics
+    }
+
+    if (system.betaUpdates !== undefined) {
+      next.betaUpdates = after.betaUpdates
+    }
+
+    if ((system.installId !== undefined || system.newInstallId !== undefined) && after.installId !== undefined) {
+      next.installId = after.installId
+    }
+  }
 
   if (extensions) {
     const after = withExtensionChange(extensionsOf(parsed.object), extensions)

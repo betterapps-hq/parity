@@ -4,7 +4,12 @@ import { changedSettings, changeSettings, readSettings } from "./settings-file.t
 
 describe("reading settings.json", () => {
   it("gives the defaults when there's no file", () => {
-    expect(readSettings(undefined)).toEqual({ values: defaultSettings, badValues: [], extensions: {} })
+    expect(readSettings(undefined)).toEqual({
+      values: defaultSettings,
+      badValues: [],
+      extensions: {},
+      system: { diagnostics: "all", betaUpdates: false }
+    })
   })
 
   it("reads each saved setting, and the rest at their defaults", () => {
@@ -118,5 +123,34 @@ describe("extensions' settings in settings.json", () => {
 
   it("isn't a change a window's settings change can carry", () => {
     expect(settingsChange.safeParse({ extensions: { storybook: { openIn: "parity" } } }).success).toBe(false)
+  })
+})
+
+describe("what main alone keeps", () => {
+  const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
+  const other = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+  it("reads the defaults, and an install ID only when it's one", () => {
+    expect(readSettings(undefined).system).toEqual({ diagnostics: "all", betaUpdates: false })
+    expect(readSettings(JSON.stringify({ diagnostics: "off", installId: "mine" })).system).toEqual({
+      diagnostics: "off",
+      betaUpdates: false
+    })
+  })
+
+  it("writes only what a change names", () => {
+    expect(JSON.parse(changeSettings(undefined, { system: { betaUpdates: true } }))).toEqual({ betaUpdates: true })
+  })
+
+  it("writes a new install ID only when the file has none, so two copies starting together keep one", () => {
+    const first = changeSettings(undefined, { system: { newInstallId: id } })
+    const second = changeSettings(first, { system: { newInstallId: other } })
+
+    expect(readSettings(second).system.installId).toBe(id)
+    expect(readSettings(changeSettings(second, { system: { installId: other } })).system.installId).toBe(other)
+  })
+
+  it("refuses them in a window's change", () => {
+    expect(settingsChange.safeParse({ diagnostics: "off" }).success).toBe(false)
   })
 })

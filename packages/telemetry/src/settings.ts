@@ -84,24 +84,35 @@ export function telemetryLevel(variables: TelemetryVariables, setting?: Telemetr
   return resolveTelemetry(variables, setting).level
 }
 
-/** The file in the desktop app's data folder that keeps the setting and the install ID, for the app and the CLI. */
-export const telemetryFileName = "telemetry.json"
+/**
+ * The file in the desktop app's data folder that keeps the setting and the install ID, for the app and the CLI:
+ * `settings.json`, under `diagnostics` and `installId` (`docs/proposals/settings.md`).
+ */
+export const telemetryFileName = "settings.json"
 
-const savedTelemetry = z.object({
-  /** The level chosen in Settings. */
-  level: z.enum(["all", "off"]).catch("all"),
-  /** A random ID made on the first run, which Sentry reports as the user, so one computer's reports group together. */
-  installId: z.uuid().optional().catch(undefined)
-})
+const savedTelemetry = z
+  .object({
+    /** The level chosen in Settings. */
+    diagnostics: z.enum(["all", "off"]).catch("all"),
+    /** A random ID made on the first run, which Sentry reports as the user, so one computer's reports group together. */
+    installId: z.uuid().optional().catch(undefined)
+  })
+  .transform(({ diagnostics, installId }): SavedTelemetry =>
+    installId === undefined ? { level: diagnostics } : { level: diagnostics, installId }
+  )
 
-export type SavedTelemetry = z.infer<typeof savedTelemetry>
+/** The level chosen in Settings, and the install ID once the app has made one. */
+export interface SavedTelemetry {
+  level: "all" | "off"
+  installId?: string
+}
 
 /**
- * What `telemetry.json` holds. A missing or unreadable file, or a value that doesn't read, as from another version,
+ * What `settings.json` holds of the setting and the install ID. A missing or unreadable file, or a value that doesn't read, as from another version,
  * counts as unset: the level is then `all`, and the app makes a new install ID.
  */
 export function readSavedTelemetry(text: string | undefined): SavedTelemetry {
-  const saved = savedTelemetry.catch({ level: "all" })
+  const saved = savedTelemetry.catch({ level: "all" as const })
 
   if (text === undefined) {
     return saved.parse({})
