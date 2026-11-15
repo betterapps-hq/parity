@@ -224,6 +224,21 @@ describe("the project's pages in the guest app", () => {
     ])
   })
 
+  it("keeps the global error and not-found boundaries at the app folder's root, where Next looks for them", () => {
+    const files = projectPageFiles({ app: "src/app" }, [
+      { path: "src/app/global-error.tsx", text: '"use client"\nexport default function GlobalError() {}\n' },
+      { path: "src/app/global-not-found.tsx", text: "export default function NotFound() {}\n" },
+      { path: "src/app/not-found.tsx", text: "export default function NotFound() {}\n" }
+    ])
+
+    expect(files.map((file) => file.path)).toEqual([
+      "app/global-error.tsx",
+      "app/global-not-found.tsx",
+      "app/(project)/not-found.tsx"
+    ])
+    expect(files[0]?.text).toContain('export { default } from "../../../src/app/global-error"')
+  })
+
   it("says `use client` when the route's file does, as Next checks an error boundary's own file", () => {
     const [boundary] = projectPageFiles({ app: "app" }, [
       { path: "app/error.tsx", text: '// The app\'s errors.\n"use client"\nexport default function Error() {}\n' }
