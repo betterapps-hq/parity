@@ -1,7 +1,14 @@
 import { type ContainerSpec, type EntitiesSource, findNode, mapNodes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { readStoryFile, storyName } from "./csf.ts"
-import { exportStoryScreen, importStoryScreens, storyBoundsId, storyLayerId, titleFolders } from "./screens.ts"
+import {
+  exportStoryScreen,
+  importStories,
+  importStoryScreens,
+  storyBoundsId,
+  storyLayerId,
+  titleFolders
+} from "./screens.ts"
 import { writeStoryArgs } from "./write.ts"
 
 const button = `
@@ -32,10 +39,38 @@ export const Plain = () => <Card />
 `
 
 describe("readStoryFile", () => {
+  it("lists every story a file exports, CSF 2's bound templates too, though it draws only those it can read", () => {
+    const bound = `import { Button } from "../button"
+export default { component: Button }
+const Template = (args) => <Button {...args} />
+export const Primary = Template.bind({})
+export const Plain = {}`
+
+    expect(readStoryFile(bound)).toMatchObject({
+      exportNames: ["Primary", "Plain"],
+      stories: [{ exportName: "Plain" }]
+    })
+  })
+
+  it("reads a meta and stories that spread a constant object into themselves, a later property winning", () => {
+    const composed = `import { Button } from "../button"
+const base = { component: Button, title: "UI/Base", args: { size: "sm" } }
+export default { ...base, title: "UI/Button" }
+const Primary = { args: { variant: "primary" } }
+export const Large = { ...Primary, name: "Large one" }`
+
+    expect(readStoryFile(composed)).toMatchObject({
+      title: "UI/Button",
+      component: { specifier: "../button", name: "Button" },
+      stories: [{ exportName: "Large", name: "Large one", args: { size: "sm", variant: "primary" } }]
+    })
+  })
+
   it("reads the meta's title, component and args, and each story's own args over them", () => {
     expect(readStoryFile(button)).toEqual({
       title: "UI/Button",
       component: { specifier: "@/components/ui/button", name: "Button" },
+      exportNames: ["Default", "Outline", "BigAndBold"],
       stories: [
         {
           exportName: "Default",
@@ -91,6 +126,16 @@ describe("importStoryScreens", () => {
     read: async (path) => files.get(path),
     componentFor: async (_file, specifier, name) => (specifier.endsWith("button") ? `ui/button/${name}` : undefined)
   }
+
+  it("gives the story files by the project's component each meta names, with their stories (PAR-1128)", async () => {
+    const { stories } = await importStories(source)
+
+    expect(stories).toEqual({
+      "ui/button/Button": [
+        { path: "src/stories/button.stories.tsx", title: "UI/Button", exports: ["Default", "Outline", "BigAndBold"] }
+      ]
+    })
+  })
 
   it("lists each story file in a folder for each part of its title, as Storybook's sidebar does", async () => {
     const { screens = [] } = await importStoryScreens(source)

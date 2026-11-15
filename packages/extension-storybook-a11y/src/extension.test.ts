@@ -6,7 +6,7 @@ import { type ExtensionWindow, extensionHosts, readExtension, serveExtensionHost
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
-import { accessibilityPage, hasAddon } from "./accessibility.ts"
+import { accessibilityPage } from "./accessibility.ts"
 import * as accessibility from "./extension.ts"
 
 const story = "http://localhost:6006/?path=/story/button--primary"
@@ -19,7 +19,7 @@ const storybook: ExtensionModule = {
   activate: (): StorybookApi => (
     happened.push("storybook activated"),
     {
-      componentsWithStories: () => ["Button"],
+      componentsWithStories: () => Promise.resolve(["Button"]),
       storyFiles: () => ["src/button.stories.tsx"],
       storyPage: (component, kind) =>
         Promise.resolve(component === "Button" && kind === "story" ? story : "http://localhost:6006")
@@ -168,13 +168,5 @@ describe("accessibilityPage", () => {
     expect(() => accessibilityPage("http://localhost:6006/?path=/docs/button--docs")).toThrow(
       "Only a story's page has the accessibility panel"
     )
-  })
-})
-
-describe("hasAddon", () => {
-  it("finds the addon in any kind of dependencies", () => {
-    expect(hasAddon({ devDependencies: { "@storybook/addon-a11y": "^10.0.0" } })).toBe(true)
-    expect(hasAddon({ dependencies: { storybook: "^10.0.0" } })).toBe(false)
-    expect(hasAddon(null)).toBe(false)
   })
 })

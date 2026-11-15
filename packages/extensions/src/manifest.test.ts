@@ -147,6 +147,18 @@ describe("readExtension", () => {
     ).toThrow("hyper isn't a modifier")
   })
 
+  it("takes detection rules, and refuses paths its read permission doesn't name or entities without a provider (PAR-1128)", () => {
+    const read = ["~/.timings/**", "$TIMINGS_HOME/**"]
+    const detect = { paths: ["$TIMINGS_HOME", "~/.timings"] }
+
+    expect(readExtension(packageJson({ detect, permissions: { read } })).manifest.detect).toEqual(detect)
+    expect(() => readExtension(packageJson({ detect, permissions: { read: ["~/.timings/**"] } }))).toThrow(
+      "/parity/detect/paths/0"
+    )
+    expect(() => readExtension(packageJson({ detect: { paths: ["/etc/timings"] } }))).toThrow("/parity/detect/paths/0")
+    expect(() => readExtension(packageJson({ detect: { entities: true } }))).toThrow("/parity/detect/entities")
+  })
+
   it("refuses an unknown activation event, placement or contributes key", () => {
     expect(() => readExtension(packageJson({ activates: ["onOpen"] }))).toThrow("/parity/activates/0")
     expect(() =>

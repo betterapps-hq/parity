@@ -21,7 +21,6 @@ import {
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
-  type StorybookInfo,
   detectPeers,
   type EntitiesAdapter,
   type EntitiesDescription,
@@ -151,8 +150,6 @@ export interface ProviderProject {
   root: string
   name: string
   pkg: PackageManifest
-  /** Its Storybook, once discovery has found it, which Storybook's extension starts with. */
-  storybook?: StorybookInfo
   /** The extensions whose tools' files detection found as entities, by prefix, as Storybook's stories. */
   entities?: string[]
 }
@@ -609,11 +606,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     // The entities the project's tools describe, as its stories as screens, naming the components as the list does.
     const provided = usedEntities.map((used) =>
-      providedEntities(
-        used,
-        { root, name, pkg, storybook: config.storybook, entities: usedEntities.map(({ id }) => id) },
-        () => opened.list.sources
-      )
+      providedEntities(used, { root, name, pkg, entities: usedEntities.map(({ id }) => id) }, () => opened.list.sources)
     )
 
     const entities = await importEntities(root, opened.list.sources, provided, config.notes)
@@ -1799,11 +1792,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       await queued(project, async () => {
         const used = (adapters.entities ?? []).map((entities) =>
-          providedEntities(
-            entities,
-            { ...providerProject(project), storybook: info.storybook },
-            () => project.list.sources
-          )
+          providedEntities(entities, providerProject(project), () => project.list.sources)
         )
 
         const { writes, entities } = await exportEntities(

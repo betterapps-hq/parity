@@ -26,6 +26,12 @@
     "activates": [
       "onDetect"
     ],
+    "detect": {
+      "paths": [
+        "$PORTLESS_STATE_DIR",
+        "~/.portless"
+      ]
+    },
     "permissions": {
       "read": [
         "~/.portless/**",
