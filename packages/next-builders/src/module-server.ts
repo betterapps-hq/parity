@@ -122,7 +122,7 @@ export interface CodeWatch {
  */
 export async function watchCodeChanges(options: CodeWatch): Promise<() => void> {
   const imports = projectImports(options.root, options.tsconfig)
-  const changes = gatherChanges(options.send)
+  const changes = gatherChanges((change) => options.send(change))
   let digest = await options.stylesDigest().catch(() => "")
   const pending = new Set<string>()
   let timer: ReturnType<typeof setTimeout> | undefined

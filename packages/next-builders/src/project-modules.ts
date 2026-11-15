@@ -33,6 +33,7 @@ export function projectModulePage(path: string): ProjectModulePage {
     .replace(/\.[^./]+$/, "")
     .replaceAll(/[^A-Za-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
+
   const key = `${name.slice(-60)}-${createHash("sha256").update(path).digest("hex").slice(0, 8)}`
   const file = `${projectModuleFolder}/${key}.tsx`
   const pageFile = `app/(parity)${guestRoutes.guest}/modules/${key}/page.tsx`
