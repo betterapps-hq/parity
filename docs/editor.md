@@ -6101,10 +6101,10 @@ what no component's did, drawing nothing until the frame draws again (PAR-1144).
   it, and it goes once the component draws again. It says the component fails to draw, why and how to fix it, with the
   error as thrown below, and a Select layer button. It counts in the status bar and on the board's console badge, which
   opens the console on the design. A missing provider names the provider a decorator should wrap designs in, in
-  `.parity/preview.tsx` or `.storybook/preview.tsx`, from the error or from what routers, query clients, Redux, React
-  Intl and Apollo are known to say; a part that must sit inside another (Radix's "`TabsList` must be used within
-  `Tabs`") is to be placed inside that parent's layer; server-only imports and async server components each say what to
-  change; anything else shows its error.
+  `.parity/preview.tsx`, from the error or from what routers, query clients, Redux, React Intl and Apollo are known to
+  say; a part that must sit inside another (Radix's "`TabsList` must be used within `Tabs`") is to be placed inside that
+  parent's layer; server-only imports and async server components each say what to change; anything else shows its
+  error.
 - **In Layers,** the layer's row has a red mark, which opens the console on the design. A component design's instance is
   marked when something inside it fails.
 
@@ -7342,6 +7342,11 @@ nothing converts to another kind. Its stories are its states, a row each on its 
   such as a function, as it's written.
 - **Otherwise read-only.** The rest of a story file's design is Storybook's to lay out: its other layers and sections
   show their values without editing them, and nothing else of it is saved.
+- **Named and coloured by its provider** (PAR-1131). What Layers lists story files under, what their states are called
+  (a board's menu, a row's count, the Design panel's "Story, read from its Storybook file") and the colour of their
+  icons come from the entities provider's manifest (`group`, `states` and `color`), which Parity keeps with the imported
+  screens (`ProjectEntities.looks`). Each provider's story files get a Layers group of their own. Nothing in Parity's
+  own code names Storybook; without a manifest colour, story files take a screen's blue.
 - **Not yet.** A story's decorators, loaders and the `context` its `render` is given aren't applied. A story file added
   while the project is open shows once it's opened again. A story that's a function, or whose args are a constant, isn't
   written to, nor can a story take away an arg its meta gives. A screen can't yet be saved as a new story.
@@ -7364,21 +7369,25 @@ for each mode's frame; `ModeView.tsx` and `render.ts` (a frame narrower than its
 `exportEntities` in `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts`
 writes; `writesProps` in `apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in
 `packages/extension-storybook`, `folderTree` in `packages/editor/src/layers-folders.ts`, and `storyPlaces` and
-`FolderLine` in `story-screens.ts` and `apps/desktop/src/renderer/chrome/LayerTree.tsx`.
+`FolderLine` in `story-screens.ts` and `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `ScreensLook` and
+`extensionEntities` in `packages/core/src/adapters.ts`, and `screensLook`, `stateNouns` and `screensGroupId` in
+`story-screens.ts` with `ProjectColors` in `canvas/project-colors.tsx`.
 
-Tests: `packages/core/src/render.test.ts`, "draws a screen that fits its content as wide as it was measured, in the
-mode's whole window" (as wide as measured, as wide as the window before, not for a frame or a screen that fills it);
-`packages/editor/src/frames.test.ts`, "fits a screen that hugs its content in the viewport it was drawn in, leaving the
-others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its args kept, and
-a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're
-closed, an open folder's folders and a component's designs in order, a design without folders at the top, and a search
-opening the folders with something found). `packages/extension-storybook/src/stories.test.ts` (a file's meta and stories
-with args over the meta's, where a story's render function is, a file without a default export, a story's name in words,
-each file in a folder for each part of its title, each file a story design with a state for each story and every one
-shown, each story in bounds of its own and alone in its state, a story that renders itself drawing its function from its
-file, args written over the meta's with code kept, args added to a story without any, a story that's a function left
-alone, each story's props written back, what a story's state sets written back, and nothing written while nothing
-changed).
+Tests: `apps/desktop/src/renderer/canvas/story-screens.test.ts` (2: a story file named, grouped and coloured as its
+provider says, and other designs' states as states) and `packages/core/src/adapters.test.ts` (a provider's look from its
+manifest, and the defaults); `packages/core/src/render.test.ts`, "draws a screen that fits its content as wide as it was
+measured, in the mode's whole window" (as wide as measured, as wide as the window before, not for a frame or a screen
+that fills it); `packages/editor/src/frames.test.ts`, "fits a screen that hugs its content in the viewport it was drawn
+in, leaving the others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its
+args kept, and a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top
+folders while they're closed, an open folder's folders and a component's designs in order, a design without folders at
+the top, and a search opening the folders with something found). `packages/extension-storybook/src/stories.test.ts` (a
+file's meta and stories with args over the meta's, where a story's render function is, a file without a default export,
+a story's name in words, each file in a folder for each part of its title, each file a story design with a state for
+each story and every one shown, each story in bounds of its own and alone in its state, a story that renders itself
+drawing its function from its file, args written over the meta's with code kept, args added to a story without any, a
+story that's a function left alone, each story's props written back, what a story's state sets written back, and nothing
+written while nothing changed).
 
 ### Stale views are pruned
 

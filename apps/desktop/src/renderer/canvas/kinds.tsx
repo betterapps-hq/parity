@@ -150,8 +150,7 @@ export function designNamer(
 
 /**
  * Each kind's icon: AppWindow for a screen, Component for a component, and Figma's frame glyph for a frame. A page of
- * the app shows its route, a story file Storybook's teal grid, as its sidebar shows a component's stories, and one of
- * its stories the teal bookmark.
+ * the app shows its route, a story file a grid and one of its stories a bookmark, in the colour its provider gives.
  */
 export function DesignIcon({
   kind,

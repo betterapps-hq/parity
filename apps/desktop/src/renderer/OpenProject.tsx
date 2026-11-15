@@ -5,6 +5,7 @@ import { CanvasDrop } from "./canvas/CanvasDrop.tsx"
 import { CanvasEditor } from "./canvas/CanvasEditor.tsx"
 import { CanvasOverlay } from "./canvas/CanvasOverlay.tsx"
 import { ProjectContext } from "./canvas/context.ts"
+import { ProjectColors } from "./canvas/project-colors.tsx"
 import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
 import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
 import { ConsolePanel, ResizeTop } from "./chrome/ConsolePanel.tsx"
@@ -40,7 +41,7 @@ export function OpenProject({
 
   return (
     <ProjectContext value={session}>
-      <div hidden={!active} className="flex min-h-0 flex-1 flex-col">
+      <ProjectColors hidden={!active} className="flex min-h-0 flex-1 flex-col">
         {/* Each part fails on its own; this catches what they don't, and can reopen the project (PAR-667). */}
         <ErrorBoundary name="project" label={tab.title} kind="page" onReopen={reopen}>
           <main className="flex min-h-0 flex-1">
@@ -64,7 +65,7 @@ export function OpenProject({
             <StatusBar />
           </ErrorBoundary>
         </ErrorBoundary>
-      </div>
+      </ProjectColors>
     </ProjectContext>
   )
 }

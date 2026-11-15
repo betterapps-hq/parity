@@ -63,7 +63,7 @@ function screenSamples(info: BoardsInfo) {
   const samples: Record<string, PropValues> = {}
 
   for (const { screen } of info.entities?.screens ?? []) {
-    // What each story draws, inside its bounds (see `storybook-adapter`'s `storyFileDesign`).
+    // What each story draws, inside its bounds, as its provider lays a story file's design out.
     for (const state of screen.states ?? []) {
       const node = findNode(screen.root, storyLayer(state.id))
 
