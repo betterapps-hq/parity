@@ -47,6 +47,7 @@ export {
   type EntitiesSource,
   type ImportedScreen,
   type ProjectEntities,
+  type ScreensLook,
   scriptConfigExtensions,
   type ThemeVariable,
   type TokenWrite,

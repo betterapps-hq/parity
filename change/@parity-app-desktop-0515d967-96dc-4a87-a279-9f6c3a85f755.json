@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Build and draw components for Rsbuild projects, with the Rspack config Rsbuild gives",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -92,8 +92,14 @@ import {
   routeRef,
   selectedPageGroup
 } from "../canvas/route-pages.ts"
-import { isStoryBounds, storyPlaces, storyScreensFile } from "../canvas/story-screens.ts"
-import { stateNouns } from "../canvas/view-lists.tsx"
+import {
+  isStoryBounds,
+  screensGroupId,
+  screensLook,
+  stateNouns,
+  storyPlaces,
+  storyScreensFile
+} from "../canvas/story-screens.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { useLayerFailure } from "../failures-store.ts"
@@ -138,7 +144,7 @@ interface Group {
   command?: "newComponent" | "newScreen" | "frame"
   none: string
   entries: ContainerEntry[]
-  /** The folders each design is listed in, as Storybook lists its stories, for a group listed as a tree of them. */
+  /** The folders each design is listed in, as a provider lists its stories, for a group listed as a tree of them. */
   folderOf?: (entry: ContainerEntry) => readonly string[]
 }
 
@@ -295,8 +301,8 @@ export function LayerTree() {
     }
   }
 
-  // The project's story files are listed in folders, as Storybook's sidebar lists them: a group's for each part of a
-  // file's title but its last, which is the file's own name.
+  // The project's story files are listed in folders, as their provider gives them: a group's for each part of a file's
+  // title but its last, which is the file's own name.
   const places = useMemo(() => storyPlaces(session.info), [session.info])
   // A folder picked with the keys or a click, which the keys move from until a row is picked instead.
   const [activeFolder, setActiveFolder] = useState<string>()
@@ -318,7 +324,7 @@ export function LayerTree() {
       const place = entry.path === storyScreensFile ? places.get(entry.container.id) : undefined
 
       const ids = [
-        ...(place ? folderIds("stories", place.folders) : []),
+        ...(place ? folderIds(screensGroupId(session.info, entry.container.id), place.folders) : []),
         ...revealIds(entry, selectedNodes(selected), store.getComponentLibrary())
       ]
 
@@ -367,14 +373,17 @@ export function LayerTree() {
       entries: screens
     })
 
-    // The project's stories are listed once it has some, read from its Storybook, so there's nothing to add.
-    if (stories.length > 0) {
+    // The project's stories are listed once it has some, a group for each tool they're read from, named as its
+    // extension's manifest says (PAR-1131). They're read from the tool's files, so there's nothing to add.
+    const storyGroups = Map.groupBy(stories, (entry) => screensGroupId(session.info, entry.container.id))
+
+    for (const [id, grouped] of storyGroups) {
       listed.push({
-        id: "stories",
-        title: "Stories",
+        id,
+        title: screensLook(session.info, grouped[0]!.container.id)?.group ?? "Stories",
         kind: "screen",
         none: "",
-        entries: stories,
+        entries: grouped,
         folderOf: (entry) => places.get(entry.container.id)?.folders ?? []
       })
     }
@@ -390,7 +399,7 @@ export function LayerTree() {
     }
 
     return listed
-  }, [entries, places])
+  }, [entries, places, session.info])
 
   const { rows, lines } = useMemo(() => {
     const library = store.getComponentLibrary()
@@ -1055,7 +1064,7 @@ function GroupHeading({ group }: { group: Group }) {
 }
 
 /**
- * A folder's row, as Storybook's sidebar draws one: a folder for a group, and a square split in four, in blue, for a
+ * A folder's row: a folder for a group, and a square split in four for a
  * component's, which holds the component's stories. A click opens or closes it. A route layout with no page of its own
  * is a folder of its pages, drawn as a layout, with an arrow where its index redirects; a click selects its group, and
  * its arrow opens or closes it.
@@ -1184,7 +1193,7 @@ interface LayerRowProps {
   row: Row
   /** How many folders it's in, which indent it as far again as its depth. */
   level: number
-  /** A story's row, the layer around it in its file's design, which shows Storybook's story icon. */
+  /** A story's row, the layer around it in its file's design, which shows a story's bookmark. */
   story: boolean
   /** Its name as Layers shows it. */
   label: string
@@ -1496,7 +1505,7 @@ const LayerRow = memo(function LayerRow({
               {/* A design with one state says nothing; with more, how many, in words: a story file's are stories. */}
               {row.depth === 0 && container.states && container.states.length > 1 && (
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {container.states.length} {stateNouns(row.design).many}
+                  {container.states.length} {stateNouns(row.design, session.info).many}
                 </span>
               )}
             </span>
@@ -1633,7 +1642,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
     )
   })
 
-  // What the project's extensions offer for a code component, as Open in Storybook, after the editor's own commands.
+  // What the project's extensions offer for a code component, after the editor's own commands.
   return (
     <>
       {items}

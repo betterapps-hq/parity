@@ -14,6 +14,7 @@
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-tailwind": "workspace:*",
     "@parity-app/extension-tanstack-router": "workspace:*",
+    "@parity-app/extension-rsbuild": "workspace:*",
     "@parity-app/extension-rspack": "workspace:*",
     "@parity-app/extension-turbopack": "workspace:*",
     "@parity-app/extension-vite": "workspace:*",

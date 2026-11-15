@@ -1,0 +1,30 @@
+{
+  "name": "rsbuild-chakra",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Example app H: React 19, Rsbuild 2, TanStack Router with code-based routes, Chakra UI on Emotion, Hugeicons, TypeScript.",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "^3.38.0",
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@hugeicons/core-free-icons": "^4.4.0",
+    "@hugeicons/react": "^1.1.10",
+    "@tanstack/react-router": "^1.170.46",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^2.3.2",
+    "@rsbuild/plugin-react": "^2.1.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^6.0.3"
+  }
+}

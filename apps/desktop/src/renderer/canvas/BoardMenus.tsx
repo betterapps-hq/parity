@@ -11,7 +11,8 @@ import { type ContainerEntry, useModeSettings } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { useProject } from "./context.ts"
 import { routePageTarget } from "./route-pages.ts"
-import { ModesList, StatesList, stateNouns } from "./view-lists.tsx"
+import { stateNouns } from "./story-screens.ts"
+import { ModesList, StatesList } from "./view-lists.tsx"
 import { containerModes } from "./view.ts"
 
 /** A button in a board's title that opens a menu: its variant's, its states' or its modes'. */
@@ -25,11 +26,11 @@ export const boardMenuTrigger =
  * Open in browser.
  */
 export function BoardMenus({ entry }: { entry: ContainerEntry }) {
-  const { store } = useProject()
+  const { store, info } = useProject()
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { ordered, companions } = containerModes(settings, container)
-  const nouns = stateNouns(entry)
+  const nouns = stateNouns(entry, info)
   const title = nouns.many[0]!.toUpperCase() + nouns.many.slice(1)
 
   return (

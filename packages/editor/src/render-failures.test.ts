@@ -6,7 +6,7 @@ describe("failureAdvice", () => {
   it("names the provider a decorator should add, from the error or from what it's known to say", () => {
     expect(failureAdvice("useTheme must be used within a ThemeProvider")).toEqual({
       reason: "It needs a provider.",
-      fix: "Add a decorator to .parity/preview.tsx or .storybook/preview.tsx that wraps designs in ThemeProvider."
+      fix: "Add a decorator to .parity/preview.tsx that wraps designs in ThemeProvider."
     })
     expect(failureAdvice("No QueryClient set, use QueryClientProvider to set one").fix).toContain(
       "wraps designs in QueryClientProvider."
@@ -18,7 +18,7 @@ describe("failureAdvice", () => {
 
   it("asks for the provider it needs when the error doesn't name one", () => {
     expect(failureAdvice("Toast context value is undefined").fix).toBe(
-      "Add a decorator to .parity/preview.tsx or .storybook/preview.tsx that wraps designs in the provider it needs."
+      "Add a decorator to .parity/preview.tsx that wraps designs in the provider it needs."
     )
   })
 

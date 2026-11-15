@@ -367,8 +367,11 @@ body,
    */
   --canvas-media: oklch(0.66 0.13 215);
   --canvas-input: oklch(0.7 0.17 45);
-  /* A story's bookmark in Layers, Storybook's teal: darker on white so its strokes stay 3:1 there. */
-  --canvas-story: light-dark(oklch(0.6 0.1 195), oklch(0.8 0.12 190));
+  /*
+   * A story file's icons, a screen's blue until the project's part of the window takes the colour its provider's
+   * manifest gives (`ProjectColors`, PAR-1131).
+   */
+  --canvas-story: var(--canvas-screen);
 
   /*
    * Margin's pink, as the Design panel's box model draws it (PAR-186). Padding and gaps take modes' green; which color

@@ -192,7 +192,7 @@ const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
 
 /**
  * What a layer's header does before its eye: goes to the component an instance is of (`layerActions`), then what the
- * project's extensions offer for a code component, as Open in Storybook.
+ * project's extensions offer for a code component.
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()

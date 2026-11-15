@@ -1,15 +1,15 @@
-import { addDesigns, type CanvasDocument, type ContainerSpec, previewOf } from "@parity-app/core"
+import { addDesigns, type CanvasDocument, type ContainerSpec, previewOf, type ScreensLook } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import { componentBoardsTop } from "./component-boards.ts"
 
 /**
- * Where the screens the project's tools describe are kept among its designs, as its Storybook stories: a design file of
- * their own that's never saved, since they're read from the tool's files each time the project opens.
+ * Where the screens the project's tools describe are kept among its designs, as stories: a design file of their own
+ * that's never saved, since they're read from the tool's files each time the project opens.
  */
 export const storyScreensFile = "(stories)"
 
-/** The layer of a story file's design that draws one of its stories, by the story's export, as `storybook-adapter` names it. */
+/** The layer of a story file's design that draws one of its stories, by the story's export, as its provider names it. */
 export function storyLayer(story: string): string {
   return `story:${story}`
 }
@@ -75,14 +75,38 @@ export interface StoryPlace {
   folders: string[]
 }
 
-/** A story file's design as its Storybook file draws it, by the design's id, before anything's changed on the canvas. */
+/** A story file's design as its tool's file draws it, by the design's id, before anything's changed on the canvas. */
 export function drawnStory(info: Pick<ProjectInfo, "entities">, design: string): ContainerSpec | undefined {
   return info.entities.screens?.find((each) => each.screen.id === design)?.screen
 }
 
-/** Each story file's place in Layers, by its design's id, as Storybook's sidebar lists them. */
+/** Each story file's place in Layers, by its design's id, in the folders its provider gives. */
 export function storyPlaces(info: Pick<ProjectInfo, "entities">): ReadonlyMap<string, StoryPlace> {
   return new Map(
     (info.entities.screens ?? []).map((each) => [each.screen.id, { folders: (each.folders ?? []).slice(0, -1) }])
   )
+}
+
+/** How a story file's design is shown, as its provider's manifest says (PAR-1131), by the design's id. */
+export function screensLook(info: Pick<ProjectInfo, "entities">, design: string): ScreensLook | undefined {
+  const imported = info.entities.screens?.find((each) => each.screen.id === design)
+
+  return imported && info.entities.looks?.[imported.adapter]
+}
+
+/** What a design's states are called: a story file's as its provider calls them, any other's states. */
+export function stateNouns(
+  entry: { path: string; container: Pick<ContainerSpec, "id"> },
+  info: Pick<ProjectInfo, "entities">
+): { one: string; many: string } {
+  const look = entry.path === storyScreensFile ? screensLook(info, entry.container.id) : undefined
+
+  return look?.states ?? { one: "state", many: "states" }
+}
+
+/** The id of the Layers group a story file's design is listed in: its provider's, by the design's id. */
+export function screensGroupId(info: Pick<ProjectInfo, "entities">, design: string): string {
+  const imported = info.entities.screens?.find((each) => each.screen.id === design)
+
+  return imported ? `stories:${imported.adapter}` : "stories"
 }

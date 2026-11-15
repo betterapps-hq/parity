@@ -41,7 +41,7 @@ export function neededWrapper(error: string): { provider: string } | { parent: s
 }
 
 /** The decorator files a project keeps, as the fix names them. */
-const previewFiles = ".parity/preview.tsx or .storybook/preview.tsx"
+const previewFiles = ".parity/preview.tsx"
 
 /** Why a layer's component failed to draw and how to fix it, from the error it threw. */
 export function failureAdvice(error: string): FailureAdvice {

@@ -7,6 +7,7 @@ import { Box } from "tldraw"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { ProjectContext } from "../canvas/context.ts"
+import { ProjectColors } from "../canvas/project-colors.tsx"
 import { getPreferences, type Preferences, setPreferences } from "../chrome/preferences.ts"
 import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
@@ -249,7 +250,7 @@ export function ProjectStage({
   return (
     <TooltipProvider>
       <ProjectContext value={session}>
-        <div className={className}>{children}</div>
+        <ProjectColors className={className}>{children}</ProjectColors>
       </ProjectContext>
       <SonnerToaster
         theme={theme}

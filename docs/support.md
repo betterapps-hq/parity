@@ -68,6 +68,7 @@ snapshot only.
 | React, Vite, Tailwind v3 and earlier                                    | ❌     | Dropped: v3 came out in December 2021. Untested; the theme reader uses a v4 API, so the theme doesn't load.            |
 | React, Vite, CSS modules or CSS-in-JS (MUI, Emotion, styled-components) | ❔     | Components render, but their styles most likely don't reach the frames.                                                |
 | React, Vite, Fluent UI v9                                               | 🔜     | Planned; see Fluent UI and Fluent icons. Today its styles most likely don't reach the frames.                          |
+| React, Rsbuild, Chakra UI on Emotion                                    | ✅     | Its components drawn and styled by Chakra UI's decorator. Code-based TanStack Router routes aren't read (PAR-1156).    |
 | React, Rspack, plain CSS with custom properties                         | ✅     | Its components drawn and styled, with tokens from the CSS, as with Vite.                                               |
 | Next.js 16 on Turbopack, Tailwind v4                                    | ◐      | Components and pages drawn with the project's own Next and config. Server-only pages show why; stories don't load yet. |
 | Next.js on webpack, Remix, Astro, or webpack                            | ❌     | No builder adapter yet. webpack is in progress.                                                                        |
@@ -115,7 +116,8 @@ go.
 | Rspack 2                 | ✅     | Its extension (`packages/extension-rspack`), with the project's own Rspack and `rspack.config.*`, on the code webpack-shaped builders share (`packages/builder-webpack-compatible`). A project with an Rsbuild config is Rsbuild's.                                        |
 | Rspack 1.4 and later     | ❔     | Same extension; untested.                                                                                                                                                                                                                                                  |
 | webpack                  | ⏳     | Will build on the same shared code as Rspack.                                                                                                                                                                                                                              |
-| Rsbuild                  | ⏳     | Will build on the Rspack builder's code, through Rsbuild's own config.                                                                                                                                                                                                     |
+| Rsbuild 2                | ✅     | Its extension (`packages/extension-rsbuild`), with the project's own `@rsbuild/core` and `rsbuild.config.*` (or none): Rsbuild gives the Rspack config `rsbuild dev` builds with, and the Rspack builder's code builds it.                                                 |
+| Rsbuild 1                | ❔     | Same extension; untested.                                                                                                                                                                                                                                                  |
 
 ### Styling (styles provider)
 
@@ -411,7 +413,8 @@ versions. Dates are each major's first stable release on npm. The Parity column 
 | Vite    | ✅     | 8, 7, 6   | 6, in November 2026; 7, in June 2027  | 5 (November 2023) and earlier |
 | Next.js | ◐      | 16        | Nothing; 16 is the newest             | 15 (October 2024) and earlier |
 | webpack | ⏳     | 5         | Nothing; 5 is the newest              | 4 (February 2018) and earlier |
-| Rspack  | ⏳     | 2         | Nothing; 2 is the newest              | 1 (August 2024) and earlier   |
+| Rspack  | ✅     | 2         | Nothing; 2 is the newest              | 1 (August 2024) and earlier   |
+| Rsbuild | ✅     | 2         | Nothing; 2 is the newest              | 1 untested                    |
 | Astro   | ❌     | 7, 6, 5   | 5, in December 2026; 6, in March 2028 | 4 (December 2023) and earlier |
 
 ### Styling
