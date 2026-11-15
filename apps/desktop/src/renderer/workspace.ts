@@ -694,8 +694,8 @@ export class Workspace {
 
   /**
    * Opens a tab's project again when what detection reads of it changed since it opened (PAR-820), as `parity open`
-   * on an open project asks: `components.json` added, a stylesheet created, a dependency added. Resolves once it's open
-   * again, or at once when nothing changed.
+   * on an open project asks: a stylesheet created, a dependency added. Resolves once it's open again, or at once when
+   * nothing changed.
    */
   async detectAgain(id: string): Promise<void> {
     const tab = this.getTab(id)

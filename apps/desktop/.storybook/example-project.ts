@@ -188,7 +188,8 @@ async function discover(): Promise<{
   }
 
   const renderer = rendererFound.adapter
-  // The builder isn't started, so it isn't asked either: stories use the example's Vite as installed.
+  // The builder isn't started or asked whether it serves the example: stories use the example's Vite as installed. It's
+  // asked which stylesheets the app loads, as the app asks it.
   const builder = adapters.builders[0]!
   const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
 
@@ -200,7 +201,7 @@ async function discover(): Promise<{
     return detection.found ? [{ adapter: tool, detection }] : []
   })
 
-  const config = await discoverProject(root, renderer, pkg)
+  const config = await discoverProject(root, renderer, pkg, { styles: builder.styles?.(detectContext(root, pkg)) })
   const stylesheet = config.styles[0]
   const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
   // Tailwind reads the theme, as its extension's styles provider does in the app.
