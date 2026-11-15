@@ -88,6 +88,22 @@ describe("component roles", () => {
     expect(rendersRoot(own("src/app/(portal)/orders/[id]/page.tsx"), routes)).toBe(false)
   })
 
+  it("knows the page for `/` when its file draws another route first, as a library-mode router's may", () => {
+    const shared = routeFiles([
+      route({
+        id: "home",
+        kind: "page",
+        path: "/home",
+        segments: [{ type: "static", value: "home" }],
+        file: "src/pages/index.tsx"
+      }),
+      route({ id: "index", kind: "page", path: "/", file: "src/pages/index.tsx", index: true })
+    ])
+
+    expect(rendersRoot(own("src/pages/index.tsx"), shared)).toBe(true)
+    expect(componentRole(own("src/pages/index.tsx"), shared)).toBe("page")
+  })
+
   it("says in words why a component counts as one", () => {
     expect(describeEvidence("memo")).toBe("made with memo")
     expect(describeEvidence("exotic")).toMatch(/component object/)

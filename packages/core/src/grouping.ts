@@ -48,19 +48,28 @@ export type RouteFiles = ReadonlyMap<string, ProjectRoute>
 /** No routes, as for a project without a router, or the CLI, which reads none. */
 const noRoutes: RouteFiles = new Map()
 
-/** The files an app's routes are made of, each with its route. A file that's two routes' is the first's. */
+/**
+ * The files an app's routes are made of, each with its route. A file that's two routes' is the first's, unless it's
+ * also the page at `/`, as a library-mode router may draw one page at `/home` and `/`: then it's the root's, so it
+ * still renders the app's home.
+ */
 export function routeFiles(routes: readonly ProjectRoute[]): RouteFiles {
   const files = new Map<string, ProjectRoute>()
 
   for (const route of routes) {
     for (const file of [route.file, ...Object.values(route.stateFiles ?? {})]) {
-      if (!files.has(file)) {
+      if (!files.has(file) || isRootPage(route, file)) {
         files.set(file, route)
       }
     }
   }
 
   return files
+}
+
+/** Whether a route is the page at `/` and `file` its own file, not a layout or a state it draws. */
+function isRootPage(route: ProjectRoute, file: string): boolean {
+  return route.kind === "page" && route.file === file && route.segments.length === 0
 }
 
 /** The project's own component's role, a page when its file is one of its routes'; unset for a library's. */
@@ -80,7 +89,7 @@ export function componentRole(source: ComponentSource, routes: RouteFiles = noRo
 export function rendersRoot(source: ComponentSource, routes: RouteFiles): boolean {
   const route = routes.get(source.path)
 
-  return route?.kind === "page" && route.file === source.path && route.segments.length === 0
+  return route !== undefined && isRootPage(route, source.path)
 }
 
 /** Components listed under one heading. */
