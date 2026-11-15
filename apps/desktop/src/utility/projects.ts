@@ -18,7 +18,6 @@ import {
   type BuilderAdapter,
   type BuilderDetection,
   type BuilderStartOptions,
-  type ClassPrinter,
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
@@ -30,13 +29,11 @@ import {
   parseCanvasDocument,
   type CanvasDocument,
   storybookConfigDir,
-  type ProjectRoute,
   type RendererAdapter,
-  type StylesAdapter,
   type ThemeVariable,
-  withLibraryCanvas,
-  writeClasses
+  withLibraryCanvas
 } from "@parity-app/core"
+import type { ProviderCall, ProviderKind, ProviderResult } from "@parity-app/extensions"
 import {
   type BuilderProcessOptions,
   builderProcessOptions,
@@ -144,29 +141,48 @@ export interface DetectionCache {
 }
 
 /** A tool an extension gives: its prefix and name, and where its version is installed, from its manifest. */
-export type ExtensionTool = Pick<Adapter, "id" | "name"> & { versions: NonNullable<Adapter["versions"]> }
+export type ExtensionTool = Pick<Adapter, "id" | "name"> & {
+  versions: NonNullable<Adapter["versions"]>
+  /** Whether it styles the project, which detection lists before the tools whose files are entities, as it always has. */
+  styles: boolean
+}
 
-/** The app's routes, and the router that read them: the extension's prefix and name, which own the route nodes. */
-export interface ProvidedRoutes {
-  router: { id: string; name: string }
-  routes: ProjectRoute[]
+/** An open project as its providers' extensions see it. */
+function providerProject(project: OpenProject): ProviderProject {
+  return { root: project.info.root, name: project.info.name, pkg: project.pkg }
+}
+
+/** A project as its providers' extensions see it, from as soon as its package.json is read. */
+export interface ProviderProject {
+  root: string
+  name: string
+  pkg: PackageManifest
+}
+
+/**
+ * The providers extensions give (PAR-1095): a router for the app's routes, a styling framework for its theme, classes
+ * and tokens. Each call starts the extension that provides it, when the project has one, and gives nothing otherwise.
+ */
+export interface ProjectProviders {
+  call<C extends ProviderCall>(project: ProviderProject, call: C): Promise<ProviderResult<C> | undefined>
+  /** The extension that provides `kind` for the project: its prefix and name, which own what it gives. */
+  owner(project: ProviderProject, kind: ProviderKind): { id: string; name: string } | undefined
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
 export interface ProjectAdapters {
   renderers: RendererAdapter[]
   builders: BuilderAdapter[]
-  styles: StylesAdapter[]
   /**
    * The tools extensions give, each found when the project's package.json declares one of its packages, and listed with
    * its version among what the project uses. None unless given.
    */
   tools?: ExtensionTool[]
   /**
-   * The app's routes, from the router an extension provides (PAR-1095), which Parity asks for while the builder starts
-   * so the canvas draws each page. None unless given, or when no extension provides a router for the project.
+   * What extensions provide: the app's routes, which Parity asks for while the builder starts so the canvas draws each
+   * page, and its styling framework. None unless given.
    */
-  routes?: (project: { root: string; name: string; pkg: PackageManifest }) => Promise<ProvidedRoutes | undefined>
+  providers?: ProjectProviders
   /** The tools whose files Parity reads as its own entities, as Storybook's stories as screens. None unless given. */
   entities?: EntitiesAdapter[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
@@ -245,10 +261,11 @@ interface Project extends OpenProject {
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
   /**
-   * The project's styling framework as a printer, which writes and compiles the classes its frames draw layers with.
-   * Unset until a frame asks, and again when its stylesheets change. Nothing when the framework couldn't be loaded.
+   * Which of its stylesheets' versions its styling framework writes classes for: it goes up each time they change, so
+   * the framework loads them afresh. `classesFailed` is the version it couldn't load, which isn't asked again.
    */
-  frameClasses?: Promise<ClassPrinter | undefined>
+  stylesVersion: number
+  classesFailed?: number
   /**
    * The stamp of its stylesheets' last change, when its builder serves the guest restyled
    * (`BuilderSession.restyledGuestUrl`), so a builder started again on the same port serves it where the windows
@@ -371,12 +388,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   const watch: WatchFolder = adapters.watch ?? watchFolder
 
   // The files whose coming or going means a project is detected again, as each adapter watches them (PAR-826).
-  const everyAdapter: Adapter[] = [
-    ...adapters.renderers,
-    ...adapters.builders,
-    ...adapters.styles,
-    ...(adapters.entities ?? [])
-  ]
+  const everyAdapter: Adapter[] = [...adapters.renderers, ...adapters.builders, ...(adapters.entities ?? [])]
 
   const watched = [...new Set(everyAdapter.flatMap((adapter) => adapter.watches ?? []))]
   const env = adapters.environment ?? environment()
@@ -449,18 +461,21 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const name = pkg.name ?? basename(root)
     const usedBy = <A extends Adapter>(found: AdapterFound<A>[]) => found.filter(({ detection }) => detection.found)
 
-    const [styles, entitiesFound] = await Promise.all([
-      detectAdapters(project, adapters.styles).then(usedBy),
-      detectAdapters(project, adapters.entities ?? []).then(usedBy)
-    ])
-
-    const others = [...styles, ...entitiesFound]
+    const entitiesFound = await detectAdapters(project, adapters.entities ?? []).then(usedBy)
 
     const tools = (adapters.tools ?? []).flatMap((tool) => {
       const detection = detectPeers(pkg, tool.versions)
 
       return detection.found ? [{ adapter: tool, detection }] : []
     })
+
+    // What detection lists after the renderer and builder, in the order it always has: the styling framework, then the
+    // tools whose files are entities, then the rest.
+    const others = [
+      ...tools.filter(({ adapter }) => adapter.styles),
+      ...entitiesFound,
+      ...tools.filter(({ adapter }) => !adapter.styles)
+    ]
 
     const usedEntities = entitiesFound.map(({ adapter }) => adapter)
 
@@ -472,17 +487,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
     const found = await findBuilder(adapters.builders, project).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others, ...tools]))
+      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
       throw cause
     })
 
-    const used: AdapterFound[] = [
-      rendererFound,
-      ...(found.builder ? [{ adapter: found.builder, detection: found.detection }] : []),
-      ...others
-    ]
+    const builderFound: AdapterFound[] = found.builder ? [{ adapter: found.builder, detection: found.detection }] : []
+    const used: AdapterFound[] = [rendererFound, ...builderFound, ...entitiesFound]
 
-    const detection = await detectProject(root, pkg, [...used, ...tools])
+    const detection = await detectProject(root, pkg, [rendererFound, ...builderFound, ...others])
 
     opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
@@ -504,8 +516,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     opening.cached = !!read.saved
 
     // Asked now, so the router's extension reads them while the builder starts.
-    const routing = (adapters.routes?.({ root, name, pkg }) ?? Promise.resolve(undefined)).catch(
-      (cause: unknown): undefined => {
+    const routing = provide({ root, name, pkg }, { kind: "router", method: "routes" }).then(
+      (routes) => {
+        const router = adapters.providers?.owner({ root, name, pkg }, "router")
+
+        return routes && router ? { router, routes } : undefined
+      },
+      (cause: unknown) => {
         logNote(`[service] couldn't read the routes of ${name}: ${message(cause)}`)
 
         return undefined
@@ -727,7 +744,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       serving.catch((cause: unknown) => {
         throw new Error(explain(message(cause)), { cause })
       }),
-      loadStyles(root, config.styles, detection),
+      loadStyles({ root, name, pkg }, config.styles, detection),
       routing
     ]).catch((cause: unknown) => {
       void stopServing(root, serving)
@@ -738,7 +755,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const told = [
       { adapter: renderer },
       { adapter: builder, version: session.toolVersion },
-      ...adapters.styles.filter((adapter) => adapter.id === styles.info?.id).map((adapter) => ({ adapter })),
       ...usedEntities.map((adapter) => ({ adapter }))
     ]
 
@@ -777,6 +793,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       uiKit: config.uiKit || undefined,
       openedAt: performance.now(),
+      stylesVersion: 0,
       detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
     }
 
@@ -995,7 +1012,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const [guestUrl, styles] = await Promise.all([
       session.restyledGuestUrl?.(stamp),
-      loadStyles(root, project.stylesheets, project.info.detection)
+      loadStyles({ root, name: project.info.name, pkg: project.pkg }, project.stylesheets, project.info.detection)
     ])
 
     if (projects.get(root) !== project) {
@@ -1004,7 +1021,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     project.info.theme = styles.theme
     // Its classes mean what its stylesheets say now, so they're written afresh.
-    project.frameClasses = undefined
+    project.stylesVersion++
 
     if (styles.info) {
       project.info.styles = styles.info
@@ -1051,44 +1068,53 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
   }
 
-  /**
-   * The project's styling framework as a printer of classes, or nothing when it can't be loaded: the project's frames
-   * then draw from their rules, which draw the same declarations.
-   */
-  async function loadClassPrinter(
-    adapter: StylesAdapter,
-    info: Pick<ProjectInfo, "root" | "name">,
-    stylesheet: string
-  ): Promise<ClassPrinter | undefined> {
-    try {
-      return await adapter.loadPrinter(info.root, stylesheet)
-    } catch (error) {
-      logNote(`[service] ${info.name}'s frames draw without ${adapter.name}'s classes: ${message(error)}`)
-
-      return undefined
-    }
+  /** What a provider of the project's answers, or nothing when none of its extensions provides one. */
+  async function provide<C extends ProviderCall>(
+    project: ProviderProject,
+    call: C
+  ): Promise<ProviderResult<C> | undefined> {
+    return adapters.providers?.call(project, call)
   }
 
+  /**
+   * The theme of the first of the project's stylesheets that an extension's styling framework reads, as it reads it
+   * (PAR-1095), or no theme when none does.
+   */
   async function loadStyles(
-    root: string,
+    project: ProviderProject,
     stylesheets: string[],
     detection: ProjectDetection
   ): Promise<{ info?: ProjectInfo["styles"]; theme: ThemeVariable[] }> {
-    for (const stylesheet of stylesheets) {
-      const source = await readFile(join(root, stylesheet), "utf8").catch(() => "")
-      const adapter = adapters.styles.find((candidate) => candidate.handles(source))
+    const framework = adapters.providers?.owner(project, "styles")
 
-      if (!adapter) {
+    if (!framework) {
+      return { theme: [] }
+    }
+
+    for (const stylesheet of stylesheets) {
+      const source = await readFile(join(project.root, stylesheet), "utf8").catch(() => "")
+
+      const handled = await provide(project, { kind: "styles", method: "handles", params: { source } }).catch(
+        (cause: unknown) => {
+          logNote(`[service] ${framework.name} couldn't read ${stylesheet}: ${message(cause)}`)
+
+          return false
+        }
+      )
+
+      if (!handled) {
         continue
       }
 
-      const info = { id: adapter.id, name: adapter.name, stylesheet }
+      const info = { id: framework.id, name: framework.name, stylesheet }
 
       try {
-        return { info, theme: await adapter.loadTheme(root, stylesheet) }
+        const theme = await provide(project, { kind: "styles", method: "theme", params: { stylesheet } })
+
+        return { info, theme: theme ?? [] }
       } catch (error) {
         // An untested version is tried like any other; if it fails, the error says it's untested.
-        const tool = detection.tools.find((candidate) => candidate.id === adapter.id)
+        const tool = detection.tools.find((candidate) => candidate.id === framework.id)
         const untested = tool?.status === "dropped" ? ` (${tool.summary})` : ""
 
         return { info: { ...info, error: `${message(error)}${untested}` }, theme: [] }
@@ -1727,12 +1753,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         throw new Error("The project has no stylesheet to write tokens to")
       }
 
-      const adapter = adapters.styles.find((candidate) => candidate.id === project.info.styles?.id)
       const source = await readFile(join(project.info.root, stylesheet), "utf8")
 
-      const content = adapter
-        ? adapter.writeTokens(source, changes, project.info.theme)
-        : writeTokenChanges(source, changes)
+      // The styling framework that read the theme writes the tokens where it keeps them; plain custom properties are
+      // written as such.
+      const written = project.info.styles
+        ? await provide(providerProject(project), {
+            kind: "styles",
+            method: "writeTokens",
+            params: { source, writes: changes, theme: project.info.theme }
+          })
+        : undefined
+
+      const content = written ?? writeTokenChanges(source, changes)
 
       const edit = await applyProjectEdit(project, {
         label: changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`,
@@ -1758,18 +1791,26 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     async frameClasses({ projectId, declarations, written }) {
       const project = getProject(projectId)
       const styles = project.info.styles
-      const adapter = styles && !styles.error ? adapters.styles.find(({ id }) => id === styles.id) : undefined
+      const version = project.stylesVersion
 
-      if (!styles || !adapter) {
+      if (!styles || styles.error || project.classesFailed === version) {
         return { supported: false, classes: [], css: "" }
       }
 
-      project.frameClasses ??= loadClassPrinter(adapter, project.info, styles.stylesheet)
-      const printer = await project.frameClasses
+      // A framework that can't load the project's stylesheets leaves the frames drawing from their rules, which draw
+      // the same declarations, until they change.
+      const classes = await provide(providerProject(project), {
+        kind: "styles",
+        method: "classes",
+        params: { stylesheet: styles.stylesheet, version, written, declarations }
+      }).catch((cause: unknown) => {
+        project.classesFailed = version
+        logNote(`[service] ${project.info.name}'s frames draw without ${styles.name}'s classes: ${message(cause)}`)
 
-      return printer
-        ? { supported: true, ...writeClasses(printer, written, declarations) }
-        : { supported: false, classes: [], css: "" }
+        return undefined
+      })
+
+      return classes ? { supported: true, ...classes } : { supported: false, classes: [], css: "" }
     },
 
     codeServedAt: (projectId, guestUrl) => projects.get(projectId)?.fingerprints.get(guestUrl),

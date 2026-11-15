@@ -22,12 +22,12 @@ const edge = [
   "cli",
   "extension-storybook",
   "extension-storybook-a11y",
+  "extension-tailwind",
   "extension-tanstack-router",
   "fixtures",
   "libgen",
   "media-player",
-  "react-adapter",
-  "tailwind-adapter"
+  "react-adapter"
 ]
 
 const packageFiles = (names: string[]) => names.flatMap((name) => [`packages/${name}/**`, `adapters/${name}/**`])

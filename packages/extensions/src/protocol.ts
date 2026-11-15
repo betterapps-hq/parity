@@ -14,6 +14,7 @@ import type {
   NodeRef,
   OpenWhere,
   PickItem,
+  CssDeclaration,
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
@@ -21,6 +22,9 @@ import type {
   ProviderKinds,
   Route,
   ServerFacts,
+  ThemeVariable,
+  TokenWrite,
+  WrittenClasses,
   SettingValue,
   Tone,
   ViewData,
@@ -100,6 +104,15 @@ export type ProviderKind = keyof ProviderKinds
 /** What the project service asks a provider, by kind and method, and what it answers. */
 export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
+  styles: {
+    handles: { params: { source: string }; result: boolean }
+    theme: { params: { stylesheet: string }; result: ThemeVariable[] }
+    classes: {
+      params: { stylesheet: string; version: number; written: string[]; declarations: CssDeclaration[] }
+      result: WrittenClasses
+    }
+    writeTokens: { params: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }; result: string }
+  }
   addresses: { addresses: { params: ServerFacts[]; result: { server: string; addresses: ProvidedAddress[] }[] } }
   discovery: { discover: { params: { root: string }; result: DiscoveredServer[] } }
 }
@@ -490,8 +503,21 @@ const route: z.ZodType<Route> = z.strictObject({
 })
 
 /** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
+const themeVariables = z.array(z.strictObject({ name: z.string().max(500), value: text })).max(100_000)
+
 const providerResults = {
   router: { routes: checkOf(z.array(route).max(10_000)) },
+  styles: {
+    handles: checkOf(z.boolean()),
+    theme: checkOf(themeVariables),
+    classes: checkOf(
+      z.strictObject({
+        classes: z.array(z.array(z.string().max(500)).max(100).nullable()).max(10_000),
+        css: z.string().max(10_000_000)
+      })
+    ),
+    writeTokens: checkOf(fileText)
+  },
   addresses: { addresses: checkOf(providedAddresses) },
   discovery: { discover: checkOf(discoveredServers) }
 } satisfies {
@@ -510,6 +536,8 @@ export function readAnswer(call: ProviderCall, answer: ProviderAnswer): Provider
       return providerResults.addresses.addresses(answer)
     case "discovery":
       return providerResults.discovery.discover(answer)
+    case "styles":
+      return providerResults.styles[call.method](answer)
   }
 }
 

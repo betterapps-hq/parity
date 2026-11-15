@@ -1141,7 +1141,7 @@ describe("providers (PAR-1095)", () => {
     await settle()
     expect(started).toEqual([])
 
-    expect(await hosts.provide("shop", "router", "routes")).toEqual([root, settings])
+    expect(await hosts.provide("shop", { kind: "router", method: "routes" })).toEqual([root, settings])
     expect(started.map((each) => each.extension)).toEqual(["@parity-app/extension-tanstack-router"])
     expect(hosts.provider("shop", "router")).toEqual({ id: "tanstack-router", name: "TanStack Router" })
   })
@@ -1151,7 +1151,7 @@ describe("providers (PAR-1095)", () => {
 
     hosts.open(project)
 
-    expect(await hosts.provide("shop", "router", "routes")).toBeUndefined()
+    expect(await hosts.provide("shop", { kind: "router", method: "routes" })).toBeUndefined()
     expect(hosts.provider("shop", "router")).toBeUndefined()
   })
 
@@ -1167,7 +1167,9 @@ describe("providers (PAR-1095)", () => {
 
     hosts.open(project)
 
-    await expect(hosts.provide("shop", "router", "routes")).rejects.toThrow("/0/id: expected a string")
+    await expect(hosts.provide("shop", { kind: "router", method: "routes" })).rejects.toThrow(
+      "/0/id: expected a string"
+    )
     expect(lines.at(-1)?.line.text).toMatch(/^Its router failed to answer routes/)
   })
 

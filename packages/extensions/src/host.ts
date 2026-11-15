@@ -18,7 +18,16 @@ import type {
 } from "@parity-app/extension-api"
 import { type HostFiles, hostFiles } from "./host-files.ts"
 import { type HostProcesses, hostProcesses } from "./host-processes.ts"
-import type { ActivateParams, HostMethods, HostServiceMethods, NavigateTo, ProviderKind, Returned } from "./protocol.ts"
+import type {
+  ActivateParams,
+  HostMethods,
+  HostServiceMethods,
+  NavigateTo,
+  ProviderAnswer,
+  ProviderCall,
+  ProviderKind,
+  Returned
+} from "./protocol.ts"
 import { type Form, viewsOf } from "./views.ts"
 
 /*
@@ -187,7 +196,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension hasn't activated")
       }
 
-      const { router, addresses, discovery } = (await activated).providers
+      const { router, styles, addresses, discovery } = (await activated).providers
 
       const missing = (): never => {
         throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
@@ -196,6 +205,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       switch (call.kind) {
         case "router":
           return await (router ?? missing()).routes()
+        case "styles":
+          return await callStyles(styles ?? missing(), call)
         case "addresses":
           return await (addresses ?? missing()).addresses(call.params)
         case "discovery":
@@ -624,6 +635,23 @@ async function activate(
   const api = apiOf(await exports.activate(parity))
 
   return { handlers, providers, forms, tools, subscriptions, module: exports, api }
+}
+
+/** Calls the method a styles provider call names on the styling framework the extension registered. */
+async function callStyles(
+  styles: ProviderKinds["styles"],
+  call: Extract<ProviderCall, { kind: "styles" }>
+): Promise<ProviderAnswer> {
+  switch (call.method) {
+    case "handles":
+      return styles.handles(call.params)
+    case "theme":
+      return styles.theme(call.params)
+    case "classes":
+      return styles.classes(call.params)
+    case "writeTokens":
+      return styles.writeTokens(call.params)
+  }
 }
 
 /** Disposes of what the extension added to `parity.subscriptions`, newest first, then calls its `deactivate`. */

@@ -17,6 +17,60 @@ export interface RouterProvider {
   routes(): Promise<Route[]>
 }
 
+/**
+ * Reads a styling framework's theme from the project's own installation, writes a layer's declarations as its classes,
+ * and writes token values where it keeps them. Stylesheets are named by their path from the project's root.
+ */
+export interface StylesProvider {
+  /** Whether one of the project's stylesheets uses the framework, from its text. */
+  handles(request: { source: string }): Promise<boolean>
+  /** Every theme variable the stylesheet defines, resolved by the project's own copy of the framework. */
+  theme(request: { stylesheet: string }): Promise<ThemeVariable[]>
+  /**
+   * The classes the framework writes each declaration as, in order, or null for one it can't write; and the CSS those
+   * and the `written` classes compile to in this project. `version` goes up each time the project's stylesheets change,
+   * so what was loaded for an older one can go.
+   */
+  classes(request: {
+    stylesheet: string
+    version: number
+    written: string[]
+    declarations: CssDeclaration[]
+  }): Promise<WrittenClasses>
+  /**
+   * The stylesheet's source with token values written where the framework keeps them, and those without a value taken
+   * out, keeping everything else as written. `theme` is what `theme` read.
+   */
+  writeTokens(request: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }): Promise<string>
+}
+
+/** A theme variable without its `--`, as the framework defines it. */
+export interface ThemeVariable {
+  name: string
+  value: string
+}
+
+/** A CSS declaration of a layer's, as `background-color: var(--primary)`, in the state, viewport or theme it applies in. */
+export interface CssDeclaration {
+  property: string
+  value: string
+  when?: { state?: string; viewport?: string; theme?: string }
+}
+
+/** The classes declarations are written as, each null where the framework can't write it, and the CSS they compile to. */
+export interface WrittenClasses {
+  classes: (string[] | null)[]
+  css: string
+}
+
+/** A token's value in one theme (`default` for the root), or `value` undefined to take it out of that theme. */
+export interface TokenWrite {
+  /** Without `--`. */
+  name: string
+  theme: string
+  value: string | undefined
+}
+
 /** What an address provider is told about a server. Nothing of its output or environment. */
 export interface ServerFacts {
   /** Its id among the project's processes. */
@@ -61,6 +115,7 @@ export interface DiscoveryProvider {
 /** Each kind of provider, by the name the manifest's `contributes.providers` declares it under. */
 export interface ProviderKinds {
   router: RouterProvider
+  styles: StylesProvider
   addresses: AddressProvider
   discovery: DiscoveryProvider
 }

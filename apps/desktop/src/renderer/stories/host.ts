@@ -26,7 +26,8 @@ import {
 } from "@parity-app/editor"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
-import { readExtension } from "@parity-app/extensions"
+import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
+import { type ExtensionPackage, readExtension } from "@parity-app/extensions"
 import { defaultSettings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
@@ -501,36 +502,68 @@ let windowHandler: ((method: WindowMethod, params: WindowParams) => Promise<Serv
 
 const storybookExtension = readExtension(storybookPackage)
 
+/** Parity's own extensions that run for a project detection finds their tool in, with the status their code sets. */
+const toolExtensions: { extension: ExtensionPackage; status: ExtensionStatus["status"] }[] = [
+  {
+    extension: readExtension(tailwindPackage),
+    status: {
+      "tailwind.status": {
+        value: "Tailwind CSS",
+        tooltip: "Reads the theme and writes classes. Click to show the tokens"
+      }
+    }
+  }
+]
+
+/** An extension as the service lists it once its host has activated: running, with what its code set. */
+function activated(
+  extension: ExtensionPackage,
+  set: Pick<ExtensionStatus, "status"> & Partial<Pick<ExtensionStatus, "context" | "facts" | "views">>
+): ExtensionStatus {
+  const { manifest } = extension
+
+  return {
+    id: extension.id,
+    displayName: manifest.displayName,
+    prefix: manifest.prefix,
+    icon: manifest.icon,
+    contributes: manifest.contributes,
+    permissions: {},
+    activates: manifest.activates,
+    settingProblems: [],
+    activatedIn: 140,
+    memory: 48 * 1_048_576,
+    state: "running",
+    context: {},
+    facts: {},
+    views: {},
+    ...set
+  }
+}
+
 /**
- * The Storybook extension as the service lists it for a project: running, with what its code sets, as a host would
- * after activating with what detection found. None for a project without a Storybook.
+ * Parity's own extensions as the service lists them for a project: those whose tools detection found, then Storybook's
+ * when the project has a Storybook, each running with what its code sets, as a host would after activating.
  */
 export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
   const stories = info.storybook?.stories ?? {}
   const withStories = Object.entries(stories).filter(([, files]) => files.length > 0)
 
+  const tools = toolExtensions.flatMap(({ extension, status }) =>
+    info.detection.tools.some((tool) => tool.id === extension.manifest.prefix) ? [activated(extension, { status })] : []
+  )
+
   if (!info.storybook) {
-    return []
+    return tools
   }
 
-  const { manifest } = storybookExtension
   const tree = storiesTree(info.storybook)
   const section = componentStories(info.storybook)
   const guide = setupGuide(info.storybook)
 
   return [
-    {
-      id: storybookExtension.id,
-      displayName: manifest.displayName,
-      prefix: manifest.prefix,
-      icon: manifest.icon,
-      contributes: manifest.contributes,
-      permissions: {},
-      activates: manifest.activates,
-      settingProblems: [],
-      activatedIn: 140,
-      memory: 48 * 1_048_576,
-      state: "running",
+    ...tools,
+    activated(storybookExtension, {
       status: {
         "storybook.stories": {
           value: String(withStories.length),
@@ -549,7 +582,7 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
         "storybook.componentStories": { kind: "list", ...section },
         "storybook.setupGuide": { kind: "list", ...guide }
       }
-    }
+    })
   ]
 }
 

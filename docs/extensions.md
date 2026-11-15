@@ -95,11 +95,14 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   manifest's `providers` declares, one of each kind. Parity calls it with plain data over the host's channel (`provide`)
   and reads its answer through a schema, so an answer that isn't what the provider gives is refused and logged. A
   `router`'s `routes()` gives the app's routes, each parent before its children; Parity asks once as the project opens.
-  An `addresses` provider says where else each server is reached, as a name Portless routes to it; a `discovery`
-  provider offers servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask those two
-  again. Each of their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is
-  left out, as is an address that isn't on this machine, with `processes.providerFailed`. The processes list opens a
-  server at a name, then a proxy, then a container's address, else its endpoint.
+  A `styles` provider's `handles({ source })`, `theme({ stylesheet })`,
+  `classes({ stylesheet, version, written, declarations })` and `writeTokens({ source, writes, theme })` read a styling
+  framework's theme, write a frame's declarations as classes and write token values into a stylesheet. An `addresses`
+  provider says where else each server is reached, as a name Portless routes to it; a `discovery` provider offers
+  servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask those two again. Each of
+  their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is left out, as
+  is an address that isn't on this machine, with `processes.providerFailed`. The processes list opens a server at a
+  name, then a proxy, then a container's address, else its endpoint.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.
@@ -289,6 +292,8 @@ Storybook adopts one running behind a Portless name. Routes whose process has en
   [routes.test.ts](../packages/extension-tanstack-router/src/routes.test.ts): TanStack Router's manifest, with its
   router provider, route node type and Open in browser placed only for routes; its pages counted without the root; the
   page a command was run for, or from Search, the page selected; and the routes it reads.
+- [extension.test.ts](../packages/extension-tailwind/src/extension.test.ts): Tailwind CSS's manifest, with its styles
+  provider and status item, and the stylesheets it handles.
 - [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
   files and paths outside the project.
 - [views.test.ts](../packages/extensions/src/views.test.ts): a view drawing nothing until the code fills it, a run of

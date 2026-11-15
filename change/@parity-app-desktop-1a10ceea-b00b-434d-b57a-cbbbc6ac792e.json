@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Tailwind CSS runs as an extension through a styles provider",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

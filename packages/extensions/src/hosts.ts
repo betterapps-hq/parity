@@ -32,6 +32,7 @@ import {
   type HostMethods,
   type HostServiceMethods,
   type LogLine,
+  type ProviderCall,
   type ProviderCalls,
   type ProviderKind,
   readAnswer,
@@ -304,11 +305,7 @@ export interface ExtensionHosts<Project extends OpenedProject> {
    * Calls the provider of `kind` an extension of the project's declares, starting its host first when it isn't
    * running, and reads its answer. Nothing when none of the project's extensions declares one.
    */
-  provide<K extends ProviderKind, M extends keyof ProviderCalls[K]>(
-    projectId: string,
-    kind: K,
-    method: M
-  ): Promise<ProviderResult<K, M> | undefined>
+  provide<C extends ProviderCall>(projectId: string, call: C): Promise<ProviderResult<C> | undefined>
   /** The extension of the project's that declares a provider of `kind`: its prefix and name, or nothing. */
   provider(projectId: string, kind: ProviderKind): { id: string; name: string } | undefined
   /** A tab or page opened, which starts an extension that activates on it. */
@@ -329,11 +326,13 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   setProjectSettings(projectId: string, settings: StoredSettings): void
 }
 
-/** What a provider's method answers. */
-export type ProviderResult<K extends ProviderKind, M extends keyof ProviderCalls[K]> = ProviderCalls[K][M] extends {
-  result: infer R
-}
-  ? R
+/** What the provider method a call names answers. */
+export type ProviderResult<C extends ProviderCall> = C extends { kind: infer K extends ProviderKind; method: infer M }
+  ? M extends keyof ProviderCalls[K]
+    ? ProviderCalls[K][M] extends { result: infer R }
+      ? R
+      : never
+    : never
   : never
 
 /** What an agent runs: a command, for a component or layer when it names one, or an agent tool, with its input. */
@@ -697,8 +696,9 @@ export function extensionHosts<Project extends OpenedProject>(
           throw new Error(`${kind} isn't a provider ${displayName}'s manifest declares`)
         }
 
-        // A router is asked as the project opens, by the extension that declares it; the processes list asks the rest.
-        if (kind === "router") {
+        // A router and a styling framework are asked by the project service, through the extension that declares them;
+        // the processes list asks the rest.
+        if (kind === "router" || kind === "styles") {
           return
         }
 
@@ -722,12 +722,12 @@ export function extensionHosts<Project extends OpenedProject>(
         })
       },
       "providers.changed"({ kind }: HostServiceMethods["providers.changed"]["params"]) {
-        if (kind !== "router") {
+        if (kind !== "router" && kind !== "styles") {
           options.providers.changed(caller, kind)
         }
       },
       "providers.dispose"({ kind }: HostServiceMethods["providers.dispose"]["params"]) {
-        if (kind !== "router") {
+        if (kind !== "router" && kind !== "styles") {
           options.providers.dispose(caller, kind)
         }
       },
@@ -1277,9 +1277,9 @@ export function extensionHosts<Project extends OpenedProject>(
 
       return manifest && { id: manifest.prefix, name: manifest.displayName }
     },
-    async provide(projectId, kind, method) {
+    async provide(projectId, call) {
       const open = projectOf(projectId)
-      const host = providerHost(open, kind)
+      const host = providerHost(open, call.kind)
 
       if (!host) {
         return undefined
@@ -1288,14 +1288,12 @@ export function extensionHosts<Project extends OpenedProject>(
       const running = await ensureRunning(open, host)
 
       try {
-        // SAFETY: a kind and one of that kind's methods, as `ProviderCall` lists them.
-        const call = { kind, method } as HostMethods["provide"]["params"]
         const answer = readAnswer(call, await running.channel.request("provide", call))
 
         // SAFETY: `readAnswer` reads what `call`'s method answers, which is what `ProviderResult` names.
-        return answer as ProviderResult<typeof kind, typeof method>
+        return answer as ProviderResult<typeof call>
       } catch (cause) {
-        const text = `Its ${kind} failed to answer ${String(method)}: ${messageOf(cause)}`
+        const text = `Its ${call.kind} failed to answer ${call.method}: ${messageOf(cause)}`
         log(open, host, withStack({ level: "error", text }, cause))
         throw cause
       }
@@ -1396,7 +1394,7 @@ export function extensionHosts<Project extends OpenedProject>(
 }
 
 /** Every kind of provider an extension can register. */
-const providerKinds: readonly ProviderKind[] = ["router", "addresses", "discovery"]
+const providerKinds: readonly ProviderKind[] = ["router", "styles", "addresses", "discovery"]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
 function declaredViews(contributes: Contributions): Record<string, ViewKind> {

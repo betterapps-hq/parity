@@ -51,6 +51,7 @@
     "@parity-app/extension-portless": "workspace:*",
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-storybook-a11y": "workspace:*",
+    "@parity-app/extension-tailwind": "workspace:*",
     "@parity-app/extension-tanstack-router": "workspace:*",
     "@parity-app/extensions": "workspace:*",
     "@parity-app/icons": "workspace:*",

@@ -283,6 +283,26 @@ export interface ShownStatusItem {
 }
 
 /** The status bar items extensions declare, with their last values, in the order their manifests list them. */
+/**
+ * An extension's status item's tooltip (PAR-1095): its title with the version detection found of the extension's
+ * tool, as `React 19.3.1`, and its line, which notes a version Parity doesn't test, as adapters' items did.
+ */
+export function statusTooltip(
+  title: string,
+  tooltip: string | undefined,
+  tool?: { version?: string; status?: string }
+) {
+  const hint = tool?.version ? `${title} ${tool.version}` : title
+
+  if (tool?.status !== "dropped" && tool?.status !== "newer") {
+    return { hint, detail: tooltip }
+  }
+
+  const note = "Parity doesn't test this version"
+
+  return { hint, detail: tooltip ? `${tooltip}. ${note}` : note }
+}
+
 export function statusItems(extensions: readonly ExtensionStatus[]): ShownStatusItem[] {
   return extensions
     .filter(showing)

@@ -174,7 +174,6 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const projects = openProjects({
     renderers: [reactRenderer],
     builders: [builder.builder],
-    styles: [],
     startBuilder: builder.startBuilder,
     watch: watcher.watch,
     checker,
