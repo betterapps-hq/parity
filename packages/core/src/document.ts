@@ -917,7 +917,7 @@ export const canvasDocument = fileObject({
    * grid and the export sizes, in the order they were set. Unset while it follows the person's own.
    */
   preferences: projectPreferences.optional(),
-  /** Extensions' project settings, by extension id and then key, as `storybook` → `configDir`. Unset while there are none. */
+  /** Extensions' project settings, by extension id and then key. Unset while there are none. */
   extensions: projectExtensions.optional(),
   /**
    * What the person set on the designs drawn from the project's code (its pages, component boards and stories), by

@@ -209,11 +209,12 @@ export const SmallProjectWithoutStorybook: Story = {
     async () => {
       await openProjects()
       preferring({ performanceStats: false })
+      const landing = projectAt("D:/projects/landing-page")
       await openAlso({
-        ...projectAt("D:/projects/landing-page"),
+        ...landing,
         componentCount: 1,
-        storybook: undefined,
-        status: projectAt("D:/projects/landing-page").status.filter((item) => item.adapter !== "storybook")
+        detection: { ...landing.detection, tools: landing.detection.tools.filter((tool) => tool.id !== "storybook") },
+        status: landing.status.filter((item) => item.adapter !== "storybook")
       })
       workspace.activate("D:/projects/landing-page")
     }

@@ -45,7 +45,7 @@ export const projectPreferences = z
   })
 
 /**
- * Extensions' project settings, by extension id and then setting key, as `storybook` → `configDir`. Each extension
+ * Extensions' project settings, by extension id and then setting key. Each extension
  * reads its own values and treats one it can't read as its default.
  */
 export const projectExtensions = z.record(z.string().min(1), z.record(z.string().min(1), jsonValue))
@@ -135,20 +135,4 @@ export function clearExtensionSetting(document: CanvasDocument, extension: strin
   })
 
   return left.length > 0 ? { ...rest, extensions: Object.fromEntries(left) } : rest
-}
-
-/** Storybook's id among the extensions whose project settings a `.par` keeps. */
-const storybookExtension = "storybook"
-
-/** Where Storybook's config folder is when the project doesn't say: `.storybook`, at the root. */
-export const defaultStorybookConfigDir = ".storybook"
-
-/**
- * The Storybook config folder the project sets, relative to its root, or nothing when it leaves Storybook to be found
- * as usual. A value that isn't a folder name reads as unset.
- */
-export function storybookConfigDir(document: Pick<CanvasDocument, "extensions"> | undefined): string | undefined {
-  const read = z.string().trim().min(1).safeParse(document?.extensions?.[storybookExtension]?.configDir)
-
-  return read.success ? read.data : undefined
 }

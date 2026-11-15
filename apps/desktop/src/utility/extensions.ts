@@ -30,7 +30,6 @@ import {
   type InstalledExtension,
   readExtension
 } from "@parity-app/extensions"
-import { detectStorybook } from "@parity-app/project"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
@@ -94,7 +93,7 @@ export const builtInBuilders: BuilderDescription[] = [extensionBuilder(vitePacka
 )
 
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
-export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybookPackage, detectStorybook)].filter(
+export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybookPackage)].filter(
   (entities) => entities !== undefined
 )
 

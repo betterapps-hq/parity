@@ -106,7 +106,6 @@
     }
   ],
   "icons": [],
-  "storybook": null,
   "notes": [
     "styles the builder found: @mantine/core/styles.css, src/index.css",
     "3 components in 4 files from tsconfig.app.json",

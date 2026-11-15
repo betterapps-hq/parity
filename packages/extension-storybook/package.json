@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/extension.ts",
     "./screens": "./src/screens.ts",
+    "./storybook": "./src/storybook.ts",
     "./views": "./src/views.ts",
     "./package.json": "./package.json"
   },

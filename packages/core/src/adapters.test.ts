@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { detectPeers, extensionTool, peerVersions } from "./adapters.ts"
+import { type DetectContext, detectPeers, extensionEntities, extensionTool, peerVersions } from "./adapters.ts"
 
 describe("peerVersions", () => {
   it("names the packages that carry the version, the main one first, with its range and what the manifest adds", () => {
@@ -56,5 +56,45 @@ describe("extensionTool (PAR-1095)", () => {
 
   it("gives nothing for an extension without peer dependencies", () => {
     expect(extensionTool({ parity: { prefix: "none", displayName: "None" } })).toBeUndefined()
+  })
+})
+
+describe("extensionEntities (PAR-1131)", () => {
+  const docs = {
+    peerDependencies: { "docs-kit": "^2.0.0" },
+    parity: {
+      prefix: "docs",
+      displayName: "Docs",
+      versions: { scope: "@docs-kit/" },
+      contributes: { providers: { entities: { watches: ["docs/main.ts", "docs/main.js"] } } }
+    }
+  }
+
+  const project = (dependencies: Record<string, string>, files: Record<string, string> = {}): DetectContext => ({
+    root: "/shop",
+    pkg: { dependencies },
+    read: async (path) => files[path]
+  })
+
+  it("finds the tool by a peer dependency or its scope, with the first watched config that's there", async () => {
+    const detect = extensionEntities(docs)!.detect
+
+    expect(await detect(project({ "docs-kit": "2.1.0" }, { "docs/main.js": "" }))).toEqual({
+      found: true,
+      config: "docs/main.js",
+      summary: "docs-kit in package.json, config docs/main.js"
+    })
+    expect(await detect(project({ "@docs-kit/react": "2.1.0" }))).toEqual({
+      found: true,
+      summary: "@docs-kit/react in package.json"
+    })
+  })
+
+  it("doesn't find it without one of its packages, and gives nothing without an entities provider", async () => {
+    expect(await extensionEntities(docs)!.detect(project({ react: "19.0.0" }, { "docs/main.ts": "" }))).toEqual({
+      found: false,
+      summary: "No docs-kit or @docs-kit/* package in package.json"
+    })
+    expect(extensionEntities({ ...docs, parity: { ...docs.parity, contributes: {} } })).toBeUndefined()
   })
 })

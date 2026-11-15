@@ -16,7 +16,8 @@ import {
 import { findComponents } from "@parity-app/extension-react/components"
 import reactExtension from "@parity-app/extension-react/package.json" with { type: "json" }
 import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
-import { exportStoryScreen, importStoryScreens } from "@parity-app/extension-storybook/screens"
+import { exportStoryScreen, importStories, importStoryScreens } from "@parity-app/extension-storybook/screens"
+import { type ProjectStorybook, projectStorybook } from "@parity-app/extension-storybook/storybook"
 import { handles, readTheme } from "@parity-app/extension-tailwind"
 import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
@@ -27,8 +28,8 @@ import {
   detectAdapters,
   detectContext,
   detectProject,
-  detectStorybook,
   discoverProject,
+  projectSource,
   readPackage
 } from "@parity-app/project"
 import type { Plugin } from "vite"
@@ -102,14 +103,14 @@ export function exampleProject(): Plugin {
     },
     async load(id) {
       if (id === `\0${projectId}`) {
-        const { info, components } = await project()
+        const { info, components, storybook } = await project()
         this.addWatchFile(designs)
         // The bundler writes the chunk's URL in, relative to the page or absolute as the build's base is; the canvas
         // wants it absolute.
         const url = guestChunk ? `import.meta.ROLLUP_FILE_URL_${guestChunk}` : JSON.stringify(`/@id/__x00__${guestId}`)
 
         return [
-          `const project = ${JSON.stringify({ info, components })}`,
+          `const project = ${JSON.stringify({ info, components, storybook })}`,
           `project.info.guestUrl = new URL(${url}, location.href).href`,
           "export default project"
         ].join("\n")
@@ -177,6 +178,7 @@ async function discover(): Promise<{
   config: Awaited<ReturnType<typeof discoverProject>>
   info: Omit<ProjectInfo, "guestUrl">
   components: Record<string, ComponentInfo>
+  storybook: ProjectStorybook
 }> {
   const pkg = (await readPackage(root))?.manifest
 
@@ -204,7 +206,7 @@ async function discover(): Promise<{
 
   const entitiesFound = await found([
     {
-      ...extensionEntities(storybookExtension, detectStorybook)!,
+      ...extensionEntities(storybookExtension)!,
       import: importStoryScreens,
       export: exportStoryScreen
     }
@@ -258,15 +260,15 @@ async function discover(): Promise<{
     info.styles = { id: "tailwind", name: "Tailwind CSS", stylesheet }
   }
 
-  if (config.storybook) {
-    info.storybook = config.storybook
-  }
-
   if (config.describedTokens) {
     info.describedTokens = config.describedTokens
   }
 
-  return { config, info, components: inferProps(root, config.components) }
+  // Storybook's extension reads the example's stories as it does a project's, for its stand-in in stories.
+  const { stories } = await importStories(projectSource(root, config.components))
+  const storybook = projectStorybook(pkg.scripts, ".storybook", stories)
+
+  return { config, info, components: inferProps(root, config.components), storybook }
 }
 
 /** Storybook's designs under the example's file name. */
