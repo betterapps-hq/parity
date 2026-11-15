@@ -83,9 +83,20 @@ function benchSize(size: string, options: ProjectSize, open: OpenSession, rows: 
   }
 
   test(`${size}: open the project`, async ({ bench }) => {
-    const result = await bench(`${size}: open the project`, () => {
-      open(files)
-    }).run(runOptions)
+    // Each open gets objects it hasn't seen, as a parsed project would be, so nothing cached by identity carries over.
+    let fresh = files
+
+    const result = await bench(
+      `${size}: open the project`,
+      {
+        beforeEach: () => {
+          fresh = structuredClone(files)
+        }
+      },
+      () => {
+        open(fresh)
+      }
+    ).run(runOptions)
 
     rows.push({ size, scenario: "Open the project", unit: "open", ms: result.latency.mean })
     expect(result.latency.mean).toBeGreaterThan(0)
@@ -118,15 +129,18 @@ function benchSize(size: string, options: ProjectSize, open: OpenSession, rows: 
       300,
       (session) => {
         const gesture = session.beginGesture()
+        // From where the design is now, so each drag ends somewhere new and keeps its undo step.
+        let start: number | undefined
 
         for (let frame = 1; frame <= 300; frame += 1) {
           session.updateContainer(
             key,
             "Move frame",
-            (container) => ({
-              ...container,
-              position: { x: target.container.position.x + frame, y: container.position.y }
-            }),
+            (container) => {
+              start ??= container.position.x
+
+              return { ...container, position: { x: start + frame, y: container.position.y } }
+            },
             gesture
           )
         }

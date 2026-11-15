@@ -957,36 +957,37 @@ the one that changed.
 
 ### Today's numbers
 
-`DesignStore` on `history.ts`'s snapshots, run on `1881da4b` with PAR-1109's bench on top, on Windows 11 with an AMD
-Ryzen AI Max+ PRO 395 (32 threads) and Node 24.20.0. Times are the mean per unit.
+`DesignStore` on `history.ts`'s snapshots, run on `1f944c38` with PAR-1109's bench on top, on Windows 11 with an AMD
+Ryzen AI Max+ PRO 395 (32 threads) and Node 24.20.0. Times are the mean per unit. Each open is given objects it hasn't
+seen, as a parsed project would be, and each drag starts where the last one ended, so it keeps its undo step.
 
-| Scenario                                  |    Small |    Large | Very large |
-| ----------------------------------------- | -------: | -------: | ---------: |
-| Open the project                          | 0.012 ms | 0.068 ms |   0.437 ms |
-| Set one field on one layer                | 0.681 ms | 1.745 ms |   4.211 ms |
-| A 300-frame drag of one design, per frame | 0.869 ms | 1.523 ms |   5.723 ms |
-| Type into a text layer, per character     | 0.510 ms | 1.765 ms |   5.733 ms |
-| Paste 500 layers, or take them out        | 0.897 ms | 3.250 ms |   4.767 ms |
-| Undo or redo, per step                    | 0.019 ms | 0.203 ms |   0.749 ms |
-| Save one file                             | 0.486 ms | 1.418 ms |   2.267 ms |
+| Scenario                                  |    Small |     Large | Very large |
+| ----------------------------------------- | -------: | --------: | ---------: |
+| Open the project                          | 9.200 ms | 109.60 ms |  471.80 ms |
+| Set one field on one layer                | 0.580 ms |  1.099 ms |   2.539 ms |
+| A 300-frame drag of one design, per frame | 0.560 ms |  1.080 ms |   2.574 ms |
+| Type into a text layer, per character     | 0.565 ms |  1.115 ms |   2.487 ms |
+| Paste 500 layers, or take them out        | 1.170 ms |  1.214 ms |   2.151 ms |
+| Undo or redo, per step                    | 0.022 ms |  0.109 ms |   0.430 ms |
+| Save one file                             | 0.455 ms |  0.936 ms |   1.085 ms |
 
 | Heap                       |  Small |  Large | Very large |
 | -------------------------- | -----: | -----: | ---------: |
-| The files' values          | 0.4 MB | 4.4 MB |    21.8 MB |
-| The session opened on them | 0.1 MB | 0.1 MB |     0.2 MB |
-| 10,000 edits               |  ~0 MB | 0.2 MB |     0.3 MB |
+| The files' values          | 0.3 MB | 4.3 MB |    21.8 MB |
+| The session opened on them | 0.0 MB | 0.1 MB |     0.2 MB |
+| 10,000 edits               | 0.2 MB | 0.2 MB |     0.3 MB |
 
 What they say about today:
 
-- **Every edit costs more as the project grows, not just as the change does.** One field on one layer takes 0.7 ms on
-  the small project and 4.2 ms on the very large one, and a drag frame or a typed character costs the same. Indexing
-  every design is only part of it, since opening, which indexes them all, takes 0.4 ms; where the rest goes, a profile
-  at step 3 will say. At 100,000 layers that's a quarter of a 60 fps frame before drawing.
+- **Every edit costs more as the project grows, not just as the change does.** One field on one layer takes 0.6 ms on
+  the small project and 2.5 ms on the very large one, and a drag frame or a typed character costs the same. At 100,000
+  layers that's about a seventh of a 60 fps frame before drawing; where it goes, a profile at step 3 will say.
+- **Opening is slow on a large project:** indexing every design, the component library included, takes almost half a
+  second at 100,000 layers. An earlier run that reopened the same objects measured 0.4 ms, because `placedDesigns`
+  caches by identity; a real open parses new objects and gets none of that. Reading and parsing the files isn't in it,
+  and costs the same for every provider.
 - **Undo is cheap,** swapping snapshots, and **memory is flat**: opening shares the files' objects, and the 200-step
-  limit keeps 10,000 edits from growing the heap. The small project's edits measured within a megabyte of zero either
-  way, which is noise.
-- **Opening is fast:** the store indexes the designs it's given and shares their objects. Reading and parsing the files
-  isn't in it, and costs the same for every provider.
+  limit keeps 10,000 edits from growing the heap.
 
 ### What Loro costs to load
 
