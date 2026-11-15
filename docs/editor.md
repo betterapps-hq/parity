@@ -6453,6 +6453,8 @@ stay beside what they label instead of growing over the boards around it.
   title, clipped to its 24 or more pixels, and a narrower one shows none. A narrow component's labels hide this way even
   above 25%, before a caption would have faded, so a board's state labels and captions never show once its title has
   gone. A hidden label doesn't take the pointer.
+- **Every state's label starts beside the top of its row's frames,** the first row's below the preview headers as a
+  later row's is (PAR-1119), so the labels line up with the frames they name.
 - **A state's label needs space before the next row's (PAR-155).** It hides once the space from its top to where the
   next row's label starts, past the gap between rows, is under 24 screen pixels, so a row of component boards showing
   every state doesn't pile its labels on top of each other zoomed out: at 5% a component's rows have a few pixels each
@@ -6520,15 +6522,16 @@ canvas past that; the estimate's main frame, its own size for a viewport, a fixe
 and gaps, rows of states, a frame's own size, and never being smaller than the board drawn at any zoom);
 `apps/desktop/src/renderer/canvas/board-gutter.test.ts` (7: each part's spacing on screen up close, the same on the
 canvas past 40%, the gaps before the first companion and between rows with every row's frames raised into their header
-band, a tall row a band taller, the edge a screen pixel wide, each place clearing what another set, and a board laid out
-from the parts matching the estimate at 40% and 5% and smaller at 100%); `packages/editor/src/canvas-labels.test.ts` (a
-state label's space, from its frames and the gutter at 40%); `packages/editor/src/zoom-settle.test.ts` (4: settling
-after 3 frames and 150 ms, starting again when the zoom changes, not settling between slow frames that each zoom, nor
-between a mouse wheel's notches at 60 frames a second). The `zoom at 100%` run of `pnpm perf --profile` shows whether
-boards measure themselves mid-zoom, as `getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to
-the DOM, and the shape waiting for the zoom to settle, have no automated test. They were checked in Storybook on the
-example's Pricing board and Sign in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of
-laying boards out again on each frame of a zoom wasn't timed.
+band and every row's label beside its frames, a tall row a band taller, the edge a screen pixel wide, each place
+clearing what another set, and a board laid out from the parts matching the estimate at 40% and 5% and smaller at 100%);
+`packages/editor/src/canvas-labels.test.ts` (a state label's space, from its frames and the gutter at 40%);
+`packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
+not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
+`zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
+`getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting for the
+zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign in
+showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
+frame of a zoom wasn't timed.
 
 ### A preview's header, settings and width (PAR-1071)
 
@@ -7734,14 +7737,14 @@ Manual checks show checking, no-update and retryable-error feedback in the same 
 interrupting work (PAR-490). Startup checks remain quiet when no update is available or the check fails. A menu check
 also restores a previously dismissed download or restart notice. About stays available separately through Help.
 
-Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. A beta check names electron-updater's beta channel, so it takes the newest version tag in GitHub's
-releases feed and passes over the `@parity-app/*` tags the release workflows push without release files; taking the
-feed's first entry made every beta check fail while one of those came first (PAR-825). A failure records its first line
-and electron-updater's error code, as Sentry redacts the whole message when its HTTP headers follow. About labels
-installed beta builds with `(Beta)` independently of the selected Update channel; the preference describes which future
-releases to accept. It also shows the available version. Development builds and extracted Linux folders do not download
-or install updates.
+Settings > Get beta updates is off by default and kept in `settings.json` as `betaUpdates`, which only main writes. It
+includes GitHub pre-releases without allowing downgrades. A beta check names electron-updater's beta channel, so it
+takes the newest version tag in GitHub's releases feed and passes over the `@parity-app/*` tags the release workflows
+push without release files; taking the feed's first entry made every beta check fail while one of those came first
+(PAR-825). A failure records its first line and electron-updater's error code, as Sentry redacts the whole message when
+its HTTP headers follow. About labels installed beta builds with `(Beta)` independently of the selected Update channel;
+the preference describes which future releases to accept. It also shows the available version. Development builds and
+extracted Linux folders do not download or install updates.
 
 The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
 release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
@@ -7784,10 +7787,17 @@ Turning it off also starts a new install ID. Settings shows the install ID under
 Diagnostics and the Install ID with the versions, and Copy details includes them.
 
 `@parity-app/telemetry`'s `settings.test.ts` covers how the variables and the saved setting decide a run, reading
-`telemetry.json` and finding the app's data folder on each system. `main/telemetry-setting.test.ts` covers the first
-run's install ID, saving the switch, a variable deciding the run, and a new ID on turning off.
-`chrome/TelemetrySetting.stories.tsx` shows the switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and
-turns it off with the pointer, checking its description stays put.
+`settings.json`'s `diagnostics` and `installId` and finding the app's data folder on each system. The setting and the
+install ID are in `settings.json` with the person's other settings, written only by main: a window's change can't name
+them. The first run's install ID is written only if the file has none yet, under its lock, so two copies starting
+together keep one, and the copy whose ID lost reports under the saved one. Turning diagnostics off in one copy stops
+every running copy sending. `main/telemetry-setting.test.ts` covers the first run's install ID, saving the switch, a
+variable deciding the run, a new ID on turning off, and an ID that couldn't be saved. `main/settings-store.test.ts`
+covers another copy's change to them reaching main, and windows not told of it.
+`packages/settings/src/settings-file.test.ts` covers main's keys: their defaults, only what a change names written, a
+new install ID kept from the first copy, and refused from a window. `chrome/TelemetrySetting.stories.tsx` shows the
+switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and turns it off with the pointer, checking its
+description stays put.
 
 ### Report a problem (PAR-635)
 

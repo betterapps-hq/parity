@@ -226,8 +226,9 @@ since its end-to-end runs sent nine in ten of `parity-desktop`'s spans (PAR-777,
 leave it off.
 
 - **Settings > Diagnostics > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
-  install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
-  `@parity-app/telemetry` finds the folder). Before the app has run, the CLI sends, as install `none`.
+  install ID in `<userData>/settings.json`, under `diagnostics` and `installId`, which the CLI reads too, as each
+  command starts (`desktopDataFolder` in `@parity-app/telemetry` finds the folder). Before the app has run, the CLI
+  sends, as install `none`.
 - **`PARITY_TELEMETRY=all` or `off`** decides a run whatever the setting says, and **`DO_NOT_TRACK=1`** turns it off.
   Settings then shows the variable and leaves the switch disabled. Any other `PARITY_TELEMETRY` value stops the app, and
   fails a `parity` command.
@@ -504,7 +505,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `gesture.ran`             | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                                                                                 |
 | `insert.done`             | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                                                                                     |
 | `inspector.changed`       | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                                                                                             |
-| `installId.unsaved`       | warn  | all  | main                                    | A new install ID can't be saved to `telemetry.json`, so the next start makes another.                                                                                      |
+| `installId.unsaved`       | warn  | all  | main                                    | A new install ID can't be saved to `settings.json` yet, so a start before it's saved makes another.                                                                        |
 | `ipc.failed`              | warn  | all  | renderer                                | A request to the project service fails.                                                                                                                                    |
 | `library.added`           | info  | all  | renderer                                | A catalog library is installed into the project.                                                                                                                           |
 | `library.failed`          | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                                                                                   |
@@ -518,7 +519,9 @@ Some failures are recorded for you, so code doesn't record them again:
 | `processes.adopted`       | info  | all  | service                                 | An extension adopts a running server.                                                                                                                                      |
 | `processes.crashed`       | warn  | all  | service                                 | A running server stops by itself.                                                                                                                                          |
 | `processes.failed`        | warn  | all  | service                                 | A run fails before it's ready.                                                                                                                                             |
+| `processes.found`         | info  | 10%  | service                                 | An extension's `find` returns.                                                                                                                                             |
 | `processes.lost`          | warn  | all  | service                                 | An adopted server goes away.                                                                                                                                               |
+| `processes.reattached`    | info  | all  | service                                 | An extension's host that started again gets back the processes it owns.                                                                                                    |
 | `processes.refused`       | warn  | all  | service                                 | `start` or `adopt` is refused, before anything runs.                                                                                                                       |
 | `processes.restarted`     | info  | all  | service                                 | A process starts its next run.                                                                                                                                             |
 | `processes.started`       | info  | all  | service                                 | A process Parity started is ready: a server passes its ready check, a task has spawned.                                                                                    |
@@ -1117,6 +1120,17 @@ Some failures are recorded for you, so code doesn't record them again:
 | `signal`     | `string`, optional                                  | The signal that ended it, when one did                                              |
 | `output`     | `string`                                            | The last of what it printed, up to 50 lines, with secrets replaced                  |
 
+### `processes.found`
+
+| Attribute    | Type      | Meaning                                                         |
+| ------------ | --------- | --------------------------------------------------------------- |
+| `owner`      | `string`  | `parity`, or the id of the extension that started or adopted it |
+| `ports`      | `integer` | How many ports it asked about                                   |
+| `candidates` | `integer` | How many servers it found                                       |
+| `providers`  | `integer` | How many discovery providers were asked                         |
+| `cached`     | `integer` | How many providers answered from their last answer              |
+| `durationMs` | `number`  | How long it took, in milliseconds                               |
+
 ### `processes.lost`
 
 | Attribute      | Type                 | Meaning                                                         |
@@ -1125,6 +1139,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `owner`        | `string`             | `parity`, or the id of the extension that started or adopted it |
 | `adoptedForMs` | `number`             | How long it was adopted, in milliseconds                        |
 | `checkedBy`    | `"pid" \| "connect"` | Whether its process id or a connection said it was gone         |
+
+### `processes.reattached`
+
+| Attribute     | Type                             | Meaning                                                                   |
+| ------------- | -------------------------------- | ------------------------------------------------------------------------- |
+| `owner`       | `string`                         | `parity`, or the id of the extension that started or adopted it           |
+| `processes`   | `integer`                        | How many of its processes it got back                                     |
+| `hostStopped` | `"crash" \| "stuck" \| "reload"` | Why its host stopped: it crashed, it wasn't answering, or it was reloaded |
 
 ### `processes.refused`
 

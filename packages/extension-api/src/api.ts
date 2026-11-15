@@ -1,4 +1,5 @@
 import type { IconName, JsonValue, ViewKind } from "./manifest.ts"
+import type { Processes } from "./processes.ts"
 
 /*
  * What an extension's code gets. Its module exports `activate`, which Parity calls with one `Parity` object when an
@@ -31,6 +32,7 @@ export interface Parity {
   readonly context: Context
   readonly facts: Facts
   readonly status: StatusItems
+  readonly processes: Processes
   readonly servers: Servers
   readonly edits: Edits
   readonly files: Files
@@ -180,39 +182,8 @@ export interface StatusItem extends Disposable {
   set(update: { value?: string; tooltip?: string }): void
 }
 
-/**
- * A tool's server, which the project service's process manager starts on Parity's own Node, lists with the project's
- * processes under the extension, and stops when the extension stops or its process ends.
- */
-export interface ServerRequest {
-  /** Names it among the extension's servers. */
-  id: string
-  /** What the processes list calls it. */
-  name: string
-  /** The script to run, as an absolute path, and its arguments. `{port}` in an argument becomes the port chosen. */
-  script: string
-  args: string[]
-  /** The port it asks for. The next free one is chosen when it's taken. */
-  port: number
-  /** The path that answers once it's ready, as `/index.json`. */
-  readyPath: string
-  /** Variables added to its environment. */
-  env?: Record<string, string>
-}
-
-/** A server that's running, or was found running. */
-export interface Served {
-  /** Where it answers, as `http://localhost:6006`. */
-  url: string
-}
-
+/** Portless's names for local servers, until Portless is an extension of its own (PAR-1103, step 3). */
 export interface Servers {
-  /** Starts a server, or gives the one this extension started with `id` while it's still running. */
-  serve(server: ServerRequest): Promise<Served>
-  /** Lists a server found running elsewhere under the extension, so the processes list shows it. */
-  adopt(server: { id: string; name: string; url: string }): void
-  /** Stops a server it started, or lets go of one it adopted. */
-  stop(id: string): void
   /**
    * The local servers Portless gives names to: where each answers on this machine, and its address by name, which the
    * person's browser opens. None without Portless.

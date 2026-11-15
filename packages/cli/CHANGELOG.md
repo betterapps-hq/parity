@@ -1,8 +1,25 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sat, 14 Nov 2026 22:45:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 00:21:40 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.66.0
+
+Sun, 15 Nov 2026 00:21:40 GMT
+
+### Minor changes
+
+- Extensions can offer an API to each other and tools to agents: parity extensions and parity run (get_extensions and
+  run_extension) list a project's extensions and run their commands and tools, with each change named after the agent
+  and the extension (ajcraswell@gmail.com)
+- Processes have one start per id, ready checks, tasks, restarts after a crash and checks on adopted servers, and send
+  processes.* events in place of server.* (ajcraswell@gmail.com)
+
+### Patches
+
+- New designs get ids with a readable stem and five random characters, and a pasted design always gets a new id, so
+  designs added by different people don't collide (ajcraswell@gmail.com)
 
 ## 0.65.0
 

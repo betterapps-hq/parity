@@ -2,6 +2,35 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 00:21:40 GMT",
+      "version": "0.66.0",
+      "tag": "@parity-app/cli_v0.66.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b351790c88443690c8536a7066d92b1f3a188247",
+            "comment": "New designs get ids with a readable stem and five random characters, and a pasted design always gets a new id, so designs added by different people don't collide"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2a4214488cd4442944971880b4b0e6e14da3a682",
+            "comment": "Extensions can offer an API to each other and tools to agents: parity extensions and parity run (get_extensions and run_extension) list a project's extensions and run their commands and tools, with each change named after the agent and the extension"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e6c38f55ff52ea9a2d1f91272784f4baae6aff6e",
+            "comment": "Processes have one start per id, ready checks, tasks, restarts after a crash and checks on adopted servers, and send processes.* events in place of server.*"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sat, 14 Nov 2026 22:45:30 GMT",
       "version": "0.65.0",
       "tag": "@parity-app/cli_v0.65.0",

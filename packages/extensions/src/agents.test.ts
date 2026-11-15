@@ -102,10 +102,22 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
       },
       reveal: () => undefined
     },
-    servers: {
-      serve: () => Promise.resolve({ url: "" }),
-      adopt: () => undefined,
-      stop: () => undefined,
+    processes: {
+      start: () => Promise.reject(new Error("Not in this test")),
+      adopt: () => {
+        throw new Error("Not in this test")
+      },
+      find: () => Promise.resolve([]),
+      stop: () => Promise.resolve(),
+      restart: () => Promise.reject(new Error("Not in this test")),
+      ready: () => Promise.reject(new Error("Not in this test")),
+      ended: () => Promise.reject(new Error("Not in this test")),
+      report: () => undefined,
+      summarize: () => undefined,
+      markReady: () => undefined,
+      snapshot: () => ({ list: [], output: {}, ready: {} }),
+      watch: () => () => undefined,
+      reattached: () => undefined,
       stopAll: () => undefined,
       routed: () => Promise.resolve([])
     },

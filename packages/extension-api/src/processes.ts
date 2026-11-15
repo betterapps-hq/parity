@@ -1,3 +1,4 @@
+import type { Disposable } from "./api.ts"
 import type { IconName } from "./manifest.ts"
 
 /*
@@ -5,6 +6,86 @@ import type { IconName } from "./manifest.ts"
  * Every process goes through the project service's process manager. An extension describes one as data and never
  * spawns anything itself.
  */
+
+/** A project's processes, as an extension starts, adopts, finds and watches them. */
+export interface Processes {
+  /**
+   * Starts a process, or gives the one this extension already has with the same id while it's starting or running.
+   * Settles once spawning has been tried; `ready()` says when it's ready. Rejects with an error whose `code` is a
+   * `ProcessErrorCode`.
+   */
+  start(spec: ProcessSpec): Promise<ProcessHandle>
+  /**
+   * Lists a server found running under this extension, so Parity uses it but never stops it. Throws `process_not_local`
+   * for an endpoint not on this machine, and `process_id_taken` for an id this extension uses for a process that's
+   * starting, running or stopping. It never stops anything.
+   */
+  adopt(server: Candidate | AdoptSpec, as: { id: string; name: string }): ProcessHandle
+  /** Servers running that no process Parity lists already has, on the ports asked for. */
+  find(query?: FindQuery): Promise<Candidate[]>
+  /** The project's processes, whoever started them, as this extension may see them. */
+  list(filter?: { owner?: "mine" | "any"; lifetime?: "server" | "task" }): ProcessInfo[]
+  /** A process this extension started or adopted, by its id, as after its host started again. */
+  get(id: string): ProcessHandle | undefined
+  /** Called with the processes that changed: their state, endpoint or addresses. */
+  onDidChange(listener: (changed: ProcessInfo[]) => void): Disposable
+}
+
+/** A process this extension started or adopted. It follows its process across restarts. */
+export interface ProcessHandle {
+  /** Its id among this extension's processes. `info.id` is its id among the project's. */
+  readonly id: string
+  /** The latest of what Parity knows of it. */
+  readonly info: ProcessInfo
+  /**
+   * Settles once the current run is ready: a server passes its ready check, a task has started. While no run is
+   * starting or running, rejects with why the latest one ended.
+   */
+  ready(): Promise<ProcessInfo>
+  /** Settles once the current run ends, or at once with the latest run's end while none is starting or running. */
+  ended(): Promise<ProcessEnd>
+  /** Called as each run ends, this one and any after a restart. */
+  onDidEnd(listener: (end: ProcessEnd) => void): Disposable
+  /** Stops it and every process it started. An adopted one is let go, not stopped. */
+  stop(): Promise<void>
+  /** Starts its next run with the same spec, and settles once that run is ready. */
+  restart(): Promise<ProcessInfo>
+  /** What it printed, the latest lines last (200 unless said), and each batch of lines as it's printed. */
+  readonly output: { tail(lines?: number): string[]; onLines(listener: (lines: string[]) => void): Disposable }
+  /** For a task: what it's doing and how far it's got, as the processes list shows while it runs. */
+  report(progress: { detail?: string; done?: number; total?: number }): void
+  /** For a task: what it found, as `3 failing tests in 2 files`, set while it runs or until its next run starts. */
+  summarize(summary: string): void
+  onDidChange(listener: (info: ProcessInfo) => void): Disposable
+}
+
+/** Which servers `find` looks for. */
+export interface FindQuery {
+  /** Ports to check, as Storybook's usual 6006. A server answering a connection there is a candidate. */
+  ports?: number[]
+  /** Whether to ask the discovery providers. True unless said. */
+  discovered?: boolean
+}
+
+/** A server found running that nothing has adopted yet. */
+export interface Candidate {
+  /** Unique among this call's results. Pass the candidate itself to `adopt`. */
+  key: string
+  endpoint: Endpoint
+  /** The addresses it's known by. */
+  addresses: Address[]
+  /** What found it: a port check, or a discovery provider's extension. */
+  foundBy: { kind: "port" } | { kind: "provider"; extension: string }
+  name?: string
+  pid?: number
+  /** The folder it runs in, when the provider knows, which says whose project it's for. */
+  cwd?: string
+}
+
+/** A server to adopt that wasn't found by `find`. */
+export interface AdoptSpec {
+  endpoint: Endpoint
+}
 
 /** What to run, and how Parity knows it's ready. */
 export interface ProcessSpec {

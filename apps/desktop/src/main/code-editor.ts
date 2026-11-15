@@ -1,17 +1,15 @@
 import { spawn } from "node:child_process"
 import { access, readFile } from "node:fs/promises"
-import { batchCommandLine, codeEditors, commandPaths, editorsFor, exportLine } from "@parity-app/processes"
+import {
+  batchCommandLine,
+  codeEditors,
+  commandPaths,
+  editorsFor,
+  exportLine,
+  withUsualFolders
+} from "@parity-app/processes"
 import { shell } from "electron"
 import type { OpenInEditorRequest } from "../shared/protocol.ts"
-
-/**
- * Where editors put their command when PATH doesn't say, as for an app the Dock started on macOS, whose PATH is only
- * the system's.
- */
-const usualFolders: Partial<Record<NodeJS.Platform, string[]>> = {
-  darwin: ["/usr/local/bin", "/opt/homebrew/bin"],
-  linux: ["/usr/local/bin", "/usr/bin", "/snap/bin"]
-}
 
 /**
  * Opens a file in the person's editor at a line, or the line its export is on (PAR-527): the editor they chose, or
@@ -25,8 +23,7 @@ export async function openInEditor({
   editor
 }: OpenInEditorRequest): Promise<{ opened: string }> {
   const line = at ?? (name ? exportLine(await readFile(file, "utf8").catch(() => ""), name) : undefined)
-  const extra = usualFolders[process.platform] ?? []
-  const env = { ...process.env, PATH: [process.env.PATH ?? process.env.Path ?? "", ...extra].join(pathSeparator()) }
+  const env = withUsualFolders(process.env, process.platform)
 
   for (const candidate of editorsFor(editor)) {
     const command = await firstThere(commandPaths(candidate.command, env, process.platform))
@@ -55,10 +52,6 @@ export async function openInEditor({
   }
 
   return { opened: "your default app" }
-}
-
-function pathSeparator(): string {
-  return process.platform === "win32" ? ";" : ":"
 }
 
 async function firstThere(paths: string[]): Promise<string | undefined> {

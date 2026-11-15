@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util"
 import {
   type AppSettings,
   changedSettings,
@@ -6,7 +7,10 @@ import {
   type FileChange,
   readSettings,
   settingKeys,
-  withExtensionChange
+  type SystemChange,
+  type SystemSettings,
+  withExtensionChange,
+  withSystemChange
 } from "@parity-app/settings"
 import type { SettingsState } from "../shared/settings.ts"
 import type { LockOptions } from "./file-lock.ts"
@@ -20,6 +24,12 @@ export interface SettingsStore {
    * fails: a change that can't be saved yet waits and is tried again.
    */
   change(change: FileChange): Promise<SettingsState>
+  /** What main alone keeps: the diagnostics level, Get beta updates and the install ID, from memory. */
+  system(): SystemSettings
+  /** Changes what main alone keeps. Windows aren't told, since they aren't shown it. Resolves whether it saved. */
+  changeSystem(change: SystemChange): Promise<boolean>
+  /** Hears each change to what main alone keeps, this copy's or another's, from now on. */
+  watchSystem(listener: (system: SystemSettings) => void): void
   /** Reads the file again, as when a window gains focus, in case a change from another copy was missed. */
   check(): void
   /** Stops watching and trying again. */
@@ -37,7 +47,7 @@ export interface SettingsStoreOptions {
   lock?: LockOptions
 }
 
-type Values = Pick<SettingsState, "values" | "extensions" | "badValues">
+type Values = Pick<SettingsState, "values" | "extensions" | "badValues"> & { system: SystemSettings }
 
 const settingsFormat: FileFormat<Values, FileChange> = {
   read(text) {
@@ -46,7 +56,7 @@ const settingsFormat: FileFormat<Values, FileChange> = {
     return problem === undefined ? { values } : { values, problem }
   },
   write: changeSettings,
-  apply({ values, extensions, badValues }, change) {
+  apply({ values, extensions, badValues, system }, change) {
     const entries = settingKeys.map((key) => {
       const value = change[key]
 
@@ -58,13 +68,18 @@ const settingsFormat: FileFormat<Values, FileChange> = {
     return {
       values: Object.fromEntries(entries) as AppSettings,
       extensions: withExtensionChange(extensions, change.extensions),
-      badValues
+      badValues,
+      system: withSystemChange(system, change.system)
     }
   }
 }
 
 /** The state a window is shown, from the shared file's. */
-function settingsState({ values, problem, unsaved }: SharedFileState<Values>): SettingsState {
+function settingsState({
+  values: { system: _system, ...values },
+  problem,
+  unsaved
+}: SharedFileState<Values>): SettingsState {
   const state: SettingsState = { ...values }
 
   if (problem !== undefined) {
@@ -81,16 +96,35 @@ function settingsState({ values, problem, unsaved }: SharedFileState<Values>): S
 /** `settings.json` in the data folder, which every copy of Parity shares (`docs/proposals/settings.md`). */
 export function settingsStore(file: string, options: SettingsStoreOptions): SettingsStore {
   const { changed, ...rest } = options
+  const systemListeners: ((system: SystemSettings) => void)[] = []
 
   const shared = sharedFile(file, settingsFormat, {
     ...rest,
-    changed: (state, before) =>
-      changed(settingsState(state), changedSettings(before.values.values, state.values.values))
+    changed: (state, before) => {
+      const shown = settingsState(state)
+
+      // A change only to what main alone keeps isn't the windows'. Compared by value, since a change rebuilds the
+      // settings in their own order.
+      if (!isDeepStrictEqual(shown, settingsState(before))) {
+        changed(shown, changedSettings(before.values.values, state.values.values))
+      }
+
+      if (!isDeepStrictEqual(state.values.system, before.values.system)) {
+        for (const listener of systemListeners) {
+          listener(state.values.system)
+        }
+      }
+    }
   })
 
   return {
     state: () => settingsState(shared.state()),
     change: (change) => shared.change(change).then(settingsState),
+    system: () => shared.state().values.system,
+    changeSystem: (system) => shared.change({ system }).then(({ unsaved }) => !unsaved),
+    watchSystem: (listener) => {
+      systemListeners.push(listener)
+    },
     check: () => shared.check(),
     close: () => shared.close()
   }

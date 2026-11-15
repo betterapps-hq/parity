@@ -1,15 +1,19 @@
-import type { ProcessSpec } from "@parity-app/extension-api"
+import type { ProcessInfo, ProcessSpec } from "@parity-app/extension-api"
 import { describe, expect, it } from "vite-plus/test"
 import {
   checkSpec,
   fillPort,
+  isLocalHost,
   isProcessPermission,
   permissionFor,
   permits,
   ProcessError,
   runEnvironment,
   sameSpec,
-  startsAs
+  startsAs,
+  visibleTo,
+  withUsualFolders,
+  withUsualPath
 } from "./process-specs.ts"
 
 const storybook: ProcessSpec = {
@@ -118,5 +122,68 @@ describe("running", () => {
   it("compares specs by what they say, whatever their keys' order", () => {
     expect(sameSpec(storybook, { ...storybook, ready: { http: "/index.json" } })).toBe(true)
     expect(sameSpec(storybook, { ...storybook, args: ["dev"] })).toBe(false)
+    // Allowed by one permission, but not the same command line.
+    expect(
+      sameSpec(
+        { ...storybook, run: { bin: "sb", package: "@storybook/cli" } },
+        { ...storybook, run: { bin: "storybook", package: "@storybook/cli" } }
+      )
+    ).toBe(false)
+  })
+})
+
+describe("what others see", () => {
+  const failed: ProcessInfo = {
+    id: "@parity-app/extension-storybook:storybook",
+    name: "Storybook",
+    lifetime: "server",
+    state: "failed",
+    owner: { kind: "extension", extension: "@parity-app/extension-storybook" },
+    run: 1,
+    addresses: [
+      { url: "https://shop.localhost", label: "shop", kind: "name", public: false, provider: "portless" },
+      { url: "https://shop.example.dev", label: "shop", kind: "tunnel", public: true, provider: "tunnels" }
+    ],
+    startedAt: 0,
+    error: "Stopped by itself, with exit code 1: SECRET=abc",
+    readyMatch: "Local: http://localhost:6006"
+  }
+
+  it("shows its owner and an extension that observes everything", () => {
+    expect(visibleTo(failed, { owns: true, observe: false })).toEqual(failed)
+    expect(visibleTo(failed, { owns: false, observe: true })).toEqual(failed)
+  })
+
+  it("shows others its error as a fixed phrase, without its match or public addresses", () => {
+    const seen = visibleTo(failed, { owns: false, observe: false })
+
+    expect(seen.error).toBe("Stopped by itself")
+    expect(seen.readyMatch).toBeUndefined()
+    expect(seen.addresses.map((address) => address.url)).toEqual(["https://shop.localhost"])
+    expect(visibleTo({ ...failed, error: "Exited" }, { owns: false, observe: false }).error).toBe("Couldn't start")
+    expect(visibleTo({ ...failed, lifetime: "task", error: "x" }, { owns: false, observe: false }).error).toBe("Failed")
+  })
+})
+
+describe("finding programs", () => {
+  it("adds the usual folders after PATH on macOS and Linux, and nothing on Windows", () => {
+    expect(withUsualFolders({ PATH: "/bin" }, "darwin")).toEqual({ PATH: "/bin:/usr/local/bin:/opt/homebrew/bin" })
+    expect(withUsualFolders({ Path: "C:\bin", PATHEXT: ".EXE" }, "win32")).toEqual({
+      PATH: "C:\bin",
+      PATHEXT: ".EXE"
+    })
+  })
+
+  it("gives a run the usual folders under the PATH name it already has", () => {
+    expect(withUsualPath({ PATH: "/bin", HOME: "/home/me" }, "darwin")).toEqual({
+      PATH: "/bin:/usr/local/bin:/opt/homebrew/bin",
+      HOME: "/home/me"
+    })
+    expect(withUsualPath({ Path: "C:\bin" }, "win32")).toEqual({ Path: "C:\bin" })
+  })
+
+  it("tells this machine's hosts from others", () => {
+    expect(["localhost", "127.0.0.1", "[::1]", "shop.localhost"].map(isLocalHost)).toEqual([true, true, true, true])
+    expect(["example.com", "192.168.1.4", "localhost.example.com"].map(isLocalHost)).toEqual([false, false, false])
   })
 })

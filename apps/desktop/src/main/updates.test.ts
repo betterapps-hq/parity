@@ -9,8 +9,6 @@ const platform = vi.hoisted(() => ({
 
 vi.mock("electron", () => ({ app: { isPackaged: true, getPath: () => "." } }))
 
-vi.mock("node:fs", () => ({ readFileSync: () => '{"beta":false}', writeFileSync: vi.fn<() => void>() }))
-
 vi.mock("./github-releases.ts", () => ({ noStableRelease: platform.confirmEmpty }))
 
 vi.mock("./telemetry.ts", () => ({ tagUpdateChannel: vi.fn<(beta: boolean) => void>() }))
@@ -31,11 +29,14 @@ import { createUpdates } from "./updates.ts"
 /** An AppImage, so updates are on when the tests run on Linux too. */
 const installed = { APPIMAGE: "/test/Parity.AppImage" }
 
+/** Get beta updates, off. */
+const stable = { get: () => false, save: vi.fn<(beta: boolean) => void>() }
+
 beforeEach(() => vi.clearAllMocks())
 
 describe("installed updater empty-feed handling", () => {
   it("does not check or download when a renamed Electron runs under the dev runner", async () => {
-    const session = createUpdates(vi.fn(), { ...installed, PARITY_DEV_RUNNER: 1234 })
+    const session = createUpdates(vi.fn(), { ...installed, PARITY_DEV_RUNNER: 1234 }, stable)
     await session.check()
     expect(session.get().phase).toBe("disabled")
     expect(platform.check).not.toHaveBeenCalled()
@@ -45,7 +46,7 @@ describe("installed updater empty-feed handling", () => {
     const error = new Error("No stable release")
     platform.check.mockRejectedValue(error)
     platform.confirmEmpty.mockResolvedValue(true)
-    const session = createUpdates(vi.fn(), installed)
+    const session = createUpdates(vi.fn(), installed, stable)
     await session.check()
     expect(session.get()).toEqual({ phase: "current", beta: false })
     expect(platform.confirmEmpty).toHaveBeenCalledWith(error, false)
@@ -55,7 +56,7 @@ describe("installed updater empty-feed handling", () => {
   it("preserves the original updater failure when no empty feed could be confirmed", async () => {
     platform.check.mockRejectedValue(new Error("Network unavailable"))
     platform.confirmEmpty.mockResolvedValue(false)
-    const session = createUpdates(vi.fn(), installed)
+    const session = createUpdates(vi.fn(), installed, stable)
     await session.check()
     expect(session.get()).toEqual({ phase: "error", beta: false, message: "Network unavailable" })
     expect(platform.download).not.toHaveBeenCalled()
@@ -63,7 +64,7 @@ describe("installed updater empty-feed handling", () => {
 
   it("names the channel on each check and never allows a downgrade", async () => {
     platform.check.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: "0.3.0" } })
-    const session = createUpdates(vi.fn(), installed)
+    const session = createUpdates(vi.fn(), installed, stable)
     const { autoUpdater } = electronUpdater
     session.setBeta(true)
     await session.check()
@@ -75,7 +76,7 @@ describe("installed updater empty-feed handling", () => {
 
   it("does not probe GitHub or replace a successful generic-feed check", async () => {
     platform.check.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: "0.3.0" } })
-    const session = createUpdates(vi.fn(), installed)
+    const session = createUpdates(vi.fn(), installed, stable)
     await session.check()
     expect(session.get().phase).toBe("current")
     expect(platform.confirmEmpty).not.toHaveBeenCalled()

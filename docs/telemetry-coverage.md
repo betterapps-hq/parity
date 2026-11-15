@@ -80,9 +80,9 @@ while it's off.
   (`replaysOnErrorSampleRate: 1`), in `renderer/replay.ts:9`. Spans and events aren't sampled. A frame is one span, so
   opening `examples/shadcn-vite` on an empty cache sends about 640 of them in two minutes.
 - **The controls:** Settings > Diagnostics > Share diagnostics turns everything off or on at once, kept in
-  `<userData>/telemetry.json`, which the CLI reads too. `PARITY_TELEMETRY=all|off` overrides it for a run, and
-  `DO_NOT_TRACK=1` turns it off. Unit tests are always off. There's no level between all and off: PAR-626 dropped one,
-  though CI's errors-only mode (`errorsOnly` in `resolveTelemetry`) is the same thing under another name.
+  `<userData>/settings.json` (`diagnostics`), which the CLI reads too. `PARITY_TELEMETRY=all|off` overrides it for a
+  run, and `DO_NOT_TRACK=1` turns it off. Unit tests are always off. There's no level between all and off: PAR-626
+  dropped one, though CI's errors-only mode (`errorsOnly` in `resolveTelemetry`) is the same thing under another name.
 - **The notice:** the CLI prints one line to stderr the first time it shares, and keeps `~/.parity/telemetry-notice`.
   The app shows nothing: the first sign is Settings, if someone opens it.
 - **Turning it off** stops Sentry at once without a restart. Main starts Sentry either way and flips its `enabled`

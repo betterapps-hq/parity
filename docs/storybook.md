@@ -66,17 +66,21 @@ row's button and card, and Search actions), and which the Storybook item in the 
 count on its card, and the status item's count. The Storybook adapter still detects Storybook and imports its stories as
 screens.
 
-- **Reusing a server.** Parity fetches `http://localhost:<port>/index.json`, using the script's port or 6006, with a
-  3-second timeout. It reuses the server when one of the index's `importPath`s is one of the project's mapped story
-  files, or when no stories are mapped at all. A reused server isn't Parity's, so Parity never stops it.
-- **Starting one.** Otherwise the extension asks Parity to serve the project's own Storybook (`parity.servers.serve`):
+- **Reusing a server.** The extension asks `parity.processes.find` about the script's port or 6006, and, when the
+  project has stories, takes the servers Portless routes to as well. It fetches each one's `index.json` with a 3-second
+  timeout, and keeps those where one of the index's `importPath`s is one of the project's mapped story files, or every
+  one when no stories are mapped. When two serve the same stories, as two worktrees can, the one serving this checkout's
+  files is the project's. It adopts that one, so it's listed with the project's processes, but Parity never stops it.
+- **Starting one.** Otherwise it starts the project's own Storybook with `parity.processes.start`, which its manifest
+  allows with `"permissions": { "processes": ["bin:storybook"] }`:
   - on the wanted port when it's free, else on one the system picks;
   - by resolving `storybook/package.json` from the project and running its `bin`, with Electron's Node
     (`ELECTRON_RUN_AS_NODE`), in the project's folder;
   - with `dev --port <n> --no-open --ci --config-dir <dir>`.
 
   It doesn't run the project's npm script or its package manager. Parity waits until `index.json` answers, and shows the
-  end of Storybook's output when starting fails.
+  end of Storybook's output when starting fails. The server outlives the extension's host: when the host starts again,
+  `parity.processes.get` gives it back.
 
 - **Which page opens.** The index entries for the component's story files are found, and Parity opens the docs page if
   there is one, else the first story. Both open through Storybook's manager (`/?path=/docs/<id>` or
