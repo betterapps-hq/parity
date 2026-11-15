@@ -15,6 +15,8 @@ export {
 
 export { copyGuestRuntime, replaceSpecifier, runtimeFolder } from "./guest-runtime.ts"
 
+export { guestModuleRoute, guestPage, type NextGuestLoader, startNextGuest } from "./guest-server.ts"
+
 export {
   detectNext,
   loadProjectNext,
