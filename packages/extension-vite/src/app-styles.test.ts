@@ -156,6 +156,53 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     })
   })
 
+  it("reads an inline module's static imports as Vite parses them, not one in a comment or a dynamic import()", async () => {
+    await write({
+      "index.html": [
+        '<script type="module">',
+        '  // import "./src/old.css"',
+        '  import "./src/index.css"',
+        '  if (false) import("./src/print.css")',
+        "  const note = 'import \"./src/note.css\"'",
+        "</script>"
+      ].join("\n"),
+      "src/index.css": ":root { --primary: red; }",
+      "src/old.css": ".old {}",
+      "src/print.css": ".print {}",
+      "src/note.css": ".note {}"
+    })
+
+    expect((await viteAppStyles(root)).styles).toEqual(["src/index.css"])
+  })
+
+  it("lists a stylesheet a module imports before it's written, so creating it is seen", async () => {
+    await write({
+      "index.html": '<script type="module" src="/src/main.ts"></script>',
+      "src/main.ts": 'import "./later.css"\nimport "/src/theme.css"\nimport "./app"'
+    })
+
+    expect((await viteAppStyles(root)).from).toEqual(
+      expect.arrayContaining(["src/main.ts", "src/later.css", "src/theme.css", "src/app.ts", "src/app/index.tsx"])
+    )
+
+    await write({ "src/later.css": ".later {}", "src/theme.css": ":root {}", "src/app.ts": "export {}" })
+    expect((await viteAppStyles(root)).styles).toEqual(["src/later.css", "src/theme.css"])
+  })
+
+  it("lists what a page or config names that isn't there yet: a module script, an inline import, an entry", async () => {
+    await write({
+      "app/index.html": [
+        '<script type="module" src="main.ts"></script>',
+        '<script type="module">import "./later.css"\nimport "./boot"</script>'
+      ].join("\n"),
+      "vite.config.mjs": 'export default { build: { rollupOptions: { input: ["app/index.html", "src/entry.ts"] } } }'
+    })
+
+    expect((await viteAppStyles(root)).from).toEqual(
+      expect.arrayContaining(["app/index.html", "app/main.ts", "app/later.css", "app/boot.ts", "src/entry.ts"])
+    )
+  })
+
   it("lists an HTML entry that isn't there yet, so creating it is seen", async () => {
     expect(await viteAppStyles(root)).toEqual({ styles: [], packageStyles: [], from: ["index.html"] })
   })
