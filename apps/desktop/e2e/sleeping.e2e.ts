@@ -50,12 +50,17 @@ const boards = () =>
   )
 
 /**
- * Every frame's size on the canvas, in the order the page draws them. A board's gutter keeps its screen size (PAR-602),
- * so zoomed out its board grows on the canvas while its frames keep theirs.
+ * Every frame's size on the canvas, by design, state and mode, so a failure names the frame. A board's gutter keeps its
+ * screen size (PAR-602), so zoomed out its board grows on the canvas while its frames keep theirs.
  */
 const frameSizes = () =>
   app.page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>("[data-frame]")].map((host) => [host.offsetWidth, host.offsetHeight])
+    Object.fromEntries(
+      [...document.querySelectorAll<HTMLElement>("[data-frame]")].map((host) => [
+        `${host.dataset.design} ${host.dataset.state}/${host.dataset.mode}`,
+        [host.offsetWidth, host.offsetHeight]
+      ])
+    )
   )
 
 /**
