@@ -1304,6 +1304,23 @@ and a Pages Router page under `_app`: each served with its root layout, hydrated
 added while the builder runs needs a restart to be served, and the example apps' pages haven't been drawn in the running
 app.
 
+### Element sources in the Next builders (PAR-1161)
+
+The Next builders tag the project's own JSX with where each element is, as Vite's `elementSources` plugin and the
+webpack-compatible builder's loader do, so a Next.js project's layers lead back to their code.
+
+- **Through the builder's server.** Turbopack runs loaders in workers of its own, outside the builder's process, so the
+  guest app's `element-sources-loader.cjs` posts each module to the builder's `/__parity/element-sources`, which tags it
+  with `tagElementSources` and answers with the code and its source map, or 204 when there's nothing to tag: a package's
+  module, a file outside the project, Next's `.next/` (the guest app's own files), or a module that isn't JSX.
+- **First on JSX.** The guest app's `element-sources.mjs` puts the loader first in Turbopack's `*.tsx` and `*.jsx`
+  rules, ahead of a loader of the project's own for them, and as a `pre` rule in webpack's, after the project's own
+  `webpack` hook, so both bundlers tag before they compile.
+
+Code: `packages/next-builders/src/element-sources.ts`, the route in `guest-server.ts`, and the config in `guest-app.ts`.
+Tests: `element-sources.test.ts`. Checked by hand against Next 16.4 on Turbopack and webpack: an App Router page, a
+client component it imports and a Pages Router page each served with their elements' sources.
+
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 
 Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does
