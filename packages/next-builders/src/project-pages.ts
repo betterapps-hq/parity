@@ -124,7 +124,7 @@ export function projectPageFiles(folders: RouteFolders, files: readonly ProjectR
 /** A mirror's text: the project's file's default and named exports, and its segment config's literal values. */
 function reexport(path: string, file: ProjectRouteFile, router: "app" | "pages"): string {
   const from = JSON.stringify(projectSpecifier(path, file.path))
-  const read = readModuleExports(file.text)
+  const read = readModuleExports(file.text, file.path)
 
   // An MDX page's Markdown is its default export, which MDX's loader writes whether the file exports one or not.
   const names = file.path.endsWith(".mdx") ? [...new Set(["default", ...read.names])] : read.names
@@ -171,11 +171,11 @@ export function projectSpecifier(path: string, projectPath: string): string {
 }
 
 /** The names a module exports, `default` among them, read from its source by TypeScript's parser. */
-export function exportNames(text: string): string[] {
-  return readModuleExports(text).names
+export function exportNames(text: string, file?: string): string[] {
+  return readModuleExports(text, file).names
 }
 
 /** The segment config a route's file gives as literals, by name, with each value's text. */
-export function segmentLiterals(text: string): [string, string][] {
-  return readModuleExports(text).literals.filter(([name]) => segmentConfig.has(name))
+export function segmentLiterals(text: string, file?: string): [string, string][] {
+  return readModuleExports(text, file).literals.filter(([name]) => segmentConfig.has(name))
 }
