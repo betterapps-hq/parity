@@ -1247,7 +1247,8 @@ example's detection snapshot, `fixtures/react-router-framework/expected.json`. G
 ### Next.js's routes as an extension (PAR-1162)
 
 Next.js's routes come from an extension, through Parity's public API alone, so a Next.js app's pages are listed under
-Routes in Layers, and drawn on canvas once a builder serves the app. It's found by its peer dependency on `next`.
+Routes in Layers, and drawn on canvas from the Next builders' guest app (PAR-1164, below). It's found by its peer
+dependency on `next`.
 
 - **Routes are its files.** Its router provider lists `app/` and `pages/` with `files.list`, or `src/app` and
   `src/pages` when neither is at the root, as Next.js picks them, taking files with the `pageExtensions` its
@@ -1273,6 +1274,35 @@ Code: `packages/extension-nextjs` (its manifest, `extension.ts` and `routes.ts`)
 Tests: `packages/extension-nextjs/src/extension.test.ts` and `routes.test.ts` (App Router, Pages Router and mixed
 fixture trees as data, and the Turbopack example app's `src/app`). Gaps: walking the folders through `files.list` has no
 unit test of its own, and the pages haven't been drawn in the running app.
+
+### Next.js's own pages on canvas (PAR-1164)
+
+A page screen loads the builder's origin at its route's URL, so the Next builders' guest app (`packages/next-builders`)
+serves the project's own pages beside its own:
+
+- **Mirrors of the project's route files.** Each start, the builder walks the project's `app/` and `pages/` (or
+  `src/app` and `src/pages`, as Next picks them) and writes a file of the same name in the guest app for each App Router
+  convention file (`page`, `layout`, `loading`, `error`, `not-found`, `route` and the rest) and each Pages Router
+  module. A mirror re-exports the project's file's default and named exports, so the module still imports what's beside
+  it from where it is, and Next finds the same routes with the project's own page extensions. The App Router's segment
+  config, which Next reads from the route's own file, is copied when it's a literal, and a Pages Router page's `config`
+  isn't re-exported. A start removes the mirrors of routes the project no longer has.
+- **Two root layouts.** The project's App Router files go in a `(project)` route group, so its root layout wraps its
+  pages and nothing else, and the guest's own pages move to `/parity-guest`, in a `(parity)` group with their bare root
+  layout, so their CSS stays theirs alone. `_app` and `_document` wrap the Pages Router's pages as in the app.
+- **The page script.** The guest app's `instrumentation-client`, which Next runs before a page's own code, runs the page
+  script Vite's builder puts first in `index.html` (`appPageModeScript`, now in `@parity-app/project`): the frame's
+  mode, the page's height and where it landed. In a canvas frame it hides Next's development overlay too, as the mode it
+  puts on `<html>` before the page hydrates is a mismatch Next would badge. The project's own client instrumentation
+  doesn't run, so the canvas sends nothing to its error reporting or analytics.
+- **webpack** compiles the project's modules from outside the guest app's folder with `experimental.externalDir`.
+
+Code: `packages/next-builders/src/project-pages.ts` (the mirrors, data in and out), `guest-app.ts` (the routes and the
+page script) and `guest-server.ts` (the walk). Tests: `project-pages.test.ts` and `guest-app.test.ts`. Checked by hand
+against Next 16.4 on Turbopack and webpack, with an App Router page, a dynamic segment, a client page in a route group
+and a Pages Router page under `_app`: each served with its root layout, hydrated, and in the frame's mode. Gaps: a page
+added while the builder runs needs a restart to be served, and the example apps' pages haven't been drawn in the running
+app.
 
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 

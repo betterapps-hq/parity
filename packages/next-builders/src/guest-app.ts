@@ -1,4 +1,5 @@
 import { posix } from "node:path"
+import { appPageModeScript } from "@parity-app/project"
 
 /*
  * The guest app: a small Next.js app of Parity's own, which the builder runs the project's own Next on, so Next compiles
@@ -13,8 +14,18 @@ export const guestAppFolder = ".next/parity"
 /** Where Next builds the guest app to, from the guest app's folder: `.next/parity-build` in the project. */
 export const guestBuildFolder = "../parity-build"
 
-/** The guest app's routes: the guest, the project's global stylesheets, and packages' stylesheets, each a page of its own. */
-export const guestRoutes = { guest: "/", styles: "/styles", packageStyles: "/package-styles" } as const
+/**
+ * The guest app's routes: the guest, the project's global stylesheets, and packages' stylesheets, each a page of its own,
+ * under a path of their own, since the project's own routes are served beside them (PAR-1164).
+ */
+export const guestRoutes = {
+  guest: "/parity-guest",
+  styles: "/parity-guest/styles",
+  packageStyles: "/parity-guest/package-styles"
+} as const
+
+/** The route group the guest's own pages and their bare root layout go in, apart from the project's root layout. */
+const guestRouteGroup = "app/(parity)"
 
 /** Where the guest module is in the guest app, from its folder. */
 export const guestModuleFile = "app/guest.tsx"
@@ -55,10 +66,10 @@ export function projectImport(path: string): string {
 export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
   const files: GuestAppFile[] = [
     { path: "next.config.mjs", text: nextConfigSource(options) },
-    { path: "app/layout.tsx", text: layoutSource },
+    { path: `${guestRouteGroup}/layout.tsx`, text: layoutSource },
     {
-      path: "app/page.tsx",
-      text: 'import Guest from "./guest"\n\nexport default function Page() {\n  return <Guest />\n}\n'
+      path: `${guestRouteGroup}/parity-guest/page.tsx`,
+      text: 'import Guest from "../../guest"\n\nexport default function Page() {\n  return <Guest />\n}\n'
     },
     // A client module, so the browser gets it; `guestParts` imports the guest's modules when the canvas asks for them.
     {
@@ -66,8 +77,15 @@ export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
       text: `"use client"\n\n${options.guestSource}\nexport default function Guest() {\n  return null\n}\n`
     },
     // The stylesheets compile on pages of their own, so each page's CSS is theirs alone.
-    { path: "app/styles/page.tsx", text: stylesPage(options.styles.map((path) => `../${projectImport(path)}`)) },
-    { path: "app/package-styles/page.tsx", text: stylesPage(options.packageStyles) }
+    {
+      path: `${guestRouteGroup}/parity-guest/styles/page.tsx`,
+      text: stylesPage(options.styles.map((path) => `../../../${projectImport(path)}`))
+    },
+    { path: `${guestRouteGroup}/parity-guest/package-styles/page.tsx`, text: stylesPage(options.packageStyles) },
+    // The project's pages draw in their frame's mode, and say how tall they are and where they landed, as Vite's do.
+    // Next runs this in the browser before a page's own code, in place of the project's own client instrumentation,
+    // which reports errors and analytics the canvas has no business sending.
+    { path: "instrumentation-client.js", text: instrumentationSource }
   ]
 
   if (options.tsconfig) {
@@ -142,6 +160,20 @@ export default {
 `
 }
 
+/**
+ * The guest app's `instrumentation-client`: the page script, and in a canvas frame, Next's development overlay hidden,
+ * since a frame draws the page and nothing over it. The mode the script puts on `<html>` before the page hydrates is one
+ * of the issues Next would show there.
+ */
+const instrumentationSource = `// Written by Parity's Next.js builder each time it starts.
+${appPageModeScript}
+if (window.name.startsWith("parity:")) {
+  const hidden = document.createElement("style")
+  hidden.textContent = "nextjs-portal { display: none !important }"
+  document.head.append(hidden)
+}
+`
+
 const layoutSource = `import type { ReactNode } from "react"
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -197,6 +229,9 @@ export default async function config(phase) {
   return {
     ...kept,
     turbopack: { ...project.turbopack, rules: rulesWithTailwindBase(project.turbopack?.rules) },
+    // The project's modules are outside the guest app's folder, which webpack compiles nothing from without this.
+    experimental: { ...project.experimental, externalDir: true },
+    devIndicators: false,
     distDir: ${JSON.stringify(guestBuildFolder)},
     assetPrefix: origin,
     images: { ...project.images, path: \`\${origin}/_next/image\` }
