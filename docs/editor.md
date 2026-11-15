@@ -5156,8 +5156,9 @@ Tests:
   a change back to what the file holds taken as saved; the modes written into the main file; the recovery copy and
   restoring it; and listeners told of the save state.
 - `apps/desktop/src/renderer/project-doc.test.ts`: "library designs" (never written to the project's files); "files
-  changed outside the canvas" (taken in, unsaved work left alone unless forced, and a save waiting stopped); and
-  "telemetry" (`edit.undone` and `edit.redone` with each step's label and what it changed).
+  changed outside the canvas" (taken in, unsaved work left alone unless forced, and a save waiting stopped); "the status
+  agents read" (a main file opened with modes saved without them once they're back to the defaults); and "telemetry"
+  (`edit.undone` and `edit.redone` with each step's label and what it changed).
 - Gaps since `history.test.ts` and `design-store.test.ts` went: no test now covers several tokens failing together; Save
   starting again after a failed write was undone back to what the file holds; undoing an agent's merged call back to
   just before it, keeping an edit made during it; a file clean again after Show every state on and off, or another state

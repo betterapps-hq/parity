@@ -1,5 +1,12 @@
-import { type CanvasDocument, type ContainerSpec } from "@parity-app/core"
-import { addContainer, applyOperations, changeTokens, containerEntries, updateContainer } from "@parity-app/multiplayer"
+import { type CanvasDocument, type ContainerSpec, defaultModeSettings, type ModeSettings } from "@parity-app/core"
+import {
+  addContainer,
+  applyOperations,
+  changeTokens,
+  containerEntries,
+  setModes,
+  updateContainer
+} from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { openTestSession } from "./doc-fixtures.ts"
@@ -130,6 +137,22 @@ describe("the status agents read", () => {
     await session.saver.flush()
     expect(editStatusOf(session)).toMatchObject({ dirty: false, unsaved: [], save: { status: "saved" } })
     expect(revisionOf(session)).toBe(changed)
+  })
+
+  it("saves a main file without the modes it was opened with, once they're back to the defaults", async () => {
+    const modes: ModeSettings = { ...defaultModeSettings, modes: [] }
+    const writes: { path: string; document: CanvasDocument }[] = []
+
+    const session = openTestSession(
+      [{ path: "app.par", document: { version: 4, containers: [design("home")], modes } }],
+      { modes, saveDocument: async (path, document) => void writes.push({ path, document }) }
+    )
+
+    setModes(session.doc, defaultModeSettings)
+    await session.saver.flush()
+
+    expect(writes.map(({ path }) => path)).toEqual(["app.par"])
+    expect(writes[0]?.document).not.toHaveProperty("modes")
   })
 
   it("gives a new revision for a change to token values alone, and for its undo", () => {

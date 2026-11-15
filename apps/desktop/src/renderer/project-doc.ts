@@ -11,7 +11,8 @@ import {
   mergedDocument,
   savedView,
   type SaveState,
-  type StatusOptions
+  type StatusOptions,
+  withoutModes
 } from "@parity-app/editor"
 import {
   type ContainerEntry,
@@ -105,8 +106,12 @@ export function openDocSession(options: OpenOptions): DocSession {
   const files = [...options.files, ...options.drawn].map(({ path }) => path)
 
   try {
+    // The modes are the document's own state, so a main file that still carries them is opened without.
     const backend = provider.open({
-      files: [...options.files, ...options.drawn.map((file) => ({ ...file, drawn: true }))],
+      files: [
+        ...options.files.map((file) => ({ ...file, document: withoutModes(file.document) })),
+        ...options.drawn.map((file) => ({ ...file, drawn: true }))
+      ],
       main: options.main,
       modes: options.modes
     })
