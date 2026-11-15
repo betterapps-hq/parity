@@ -196,7 +196,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         throw new Error("The extension hasn't activated")
       }
 
-      const { router, styles, renderer, builder, addresses, discovery } = (await activated).providers
+      const { router, styles, renderer, builder, entities, addresses, discovery } = (await activated).providers
 
       const missing = (): never => {
         throw new Error(`No ${call.kind} is registered. Its extension registers one with parity.providers.register.`)
@@ -211,6 +211,8 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
           return await callRenderer(renderer ?? missing(), call)
         case "builder":
           return await callBuilder(builder ?? missing(), call)
+        case "entities":
+          return await callEntities(entities ?? missing(), call)
         case "addresses":
           return await (addresses ?? missing()).addresses(call.params)
         case "discovery":
@@ -666,6 +668,17 @@ async function callBuilder(
   }
 
   return builder.styles()
+}
+
+/** Calls the method an entities call names on the entities provider the extension registered. */
+async function callEntities(
+  entities: ProviderKinds["entities"],
+  call: Extract<ProviderCall, { kind: "entities" }>
+): Promise<ProviderAnswer> {
+  // SAFETY: the service reads what import answers through its schema, designs and all, before it uses it.
+  return call.method === "import"
+    ? ((await entities.import(call.params)) as ProviderAnswer)
+    : entities.export(call.params)
 }
 
 /** Calls the method a styles provider call names on the styling framework the extension registered. */

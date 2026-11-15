@@ -187,10 +187,12 @@ These rules keep Storybook optional and replaceable. A change that breaks one ne
    It never reads Storybook's internal modules, its cache, the manager's state, or `iframe.html`.
 
 3. **Everything Storybook-specific lives in one adapter,** behind an interface Parity owns. Detecting it, importing
-   stories, writing args back and opening it are in [adapters/storybook-adapter](../adapters/storybook-adapter); which
-   components have stories is still read by [packages/project/src/storybook.ts](../packages/project/src/storybook.ts)
-   into `StorybookInfo`, until adapters give facts about components. The canvas, `.par`, the agent API and the UI talk
-   to the interface, never to Storybook.
+   stories, writing args back and opening it are in its extension,
+   [packages/extension-storybook](../packages/extension-storybook), with detection in
+   [packages/project/src/storybook-detect.ts](../packages/project/src/storybook-detect.ts); which components have
+   stories is still read by [packages/project/src/storybook.ts](../packages/project/src/storybook.ts) into
+   `StorybookInfo`, until adapters give facts about components. The canvas, `.par`, the agent API and the UI talk to the
+   interface, never to Storybook.
 4. **Parity's models are Parity's.** `.par`, modes, decorators, parameters and states are shaped so they translate to
    and from Storybook's (a mode value is a global, a state can be a story), but they're defined by Parity and never
    imported from Storybook's types.

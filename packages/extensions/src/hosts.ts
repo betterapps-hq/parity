@@ -722,9 +722,9 @@ export function extensionHosts<Project extends OpenedProject>(
           throw new Error(`${kind} isn't a provider ${displayName}'s manifest declares`)
         }
 
-        // A router, a styling framework, a renderer and a builder are asked by the project service, through the extension
-        // that declares them; the processes list asks the rest.
-        if (kind === "router" || kind === "styles" || kind === "renderer" || kind === "builder") {
+        // Addresses and discovery are asked by the processes list; the project service asks the rest itself, through the
+        // extension that declares them.
+        if (kind !== "addresses" && kind !== "discovery") {
           return
         }
 
@@ -748,12 +748,12 @@ export function extensionHosts<Project extends OpenedProject>(
         })
       },
       "providers.changed"({ kind }: HostServiceMethods["providers.changed"]["params"]) {
-        if (kind !== "router" && kind !== "styles" && kind !== "renderer" && kind !== "builder") {
+        if (kind === "addresses" || kind === "discovery") {
           options.providers.changed(caller, kind)
         }
       },
       "providers.dispose"({ kind }: HostServiceMethods["providers.dispose"]["params"]) {
-        if (kind !== "router" && kind !== "styles" && kind !== "renderer" && kind !== "builder") {
+        if (kind === "addresses" || kind === "discovery") {
           options.providers.dispose(caller, kind)
         }
       },
@@ -1423,7 +1423,15 @@ export function extensionHosts<Project extends OpenedProject>(
 }
 
 /** Every kind of provider an extension can register. */
-const providerKinds: readonly ProviderKind[] = ["router", "styles", "renderer", "builder", "addresses", "discovery"]
+const providerKinds: readonly ProviderKind[] = [
+  "router",
+  "styles",
+  "renderer",
+  "builder",
+  "entities",
+  "addresses",
+  "discovery"
+]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
 function declaredViews(contributes: Contributions): Record<string, ViewKind> {

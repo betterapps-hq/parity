@@ -1,4 +1,7 @@
+import { containerSpec, parseData } from "@parity-app/core"
 import type { Candidate, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
+import { projectSource } from "@parity-app/project"
+import { exportStoryScreen, importStoryScreens } from "./screens.ts"
 import {
   componentsWithStories,
   type DetectedStorybook,
@@ -23,6 +26,8 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * with `parity.processes`. It opens at the server's preferred address, as the name Portless gives it. What `activate`
  * returns is its API for other extensions (PAR-1096), as the accessibility extension uses it, and Open in Storybook
  * gives agents the page it opened.
+ * Its entities provider (PAR-1095) reads the project's story files as screens, each story a state, and writes a story's
+ * edited args back to its file on Save.
  */
 
 /**
@@ -43,6 +48,21 @@ export type StorybookApi = {
 }
 
 export function activate(parity: Parity): StorybookApi | undefined {
+  const { root } = parity.project
+
+  parity.subscriptions.push(
+    parity.providers.register("entities", {
+      import: ({ components }) => importStoryScreens(projectSource(root, components)),
+      // The design comes from Parity, which checked it; it's read as a container here all the same.
+      export: ({ screen, edited, components }) =>
+        exportStoryScreen(
+          { ...screen, screen: parseData(containerSpec, screen.screen, "the imported screen") },
+          parseData(containerSpec, edited, "the edited screen"),
+          projectSource(root, components)
+        )
+    })
+  )
+
   const storybook = readDetected(parity.project.detected)
 
   if (!storybook) {

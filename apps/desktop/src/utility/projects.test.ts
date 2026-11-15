@@ -7,14 +7,17 @@ import {
   type BuilderAdapter,
   type CodeChange,
   type ComponentSource,
+  extensionEntities,
   extensionRenderer,
   parseCanvasDocument
 } from "@parity-app/core"
 import { readComponents } from "@parity-app/extension-react"
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { importStoryScreens } from "@parity-app/extension-storybook/screens"
 import type { ProviderCall, ProviderKind } from "@parity-app/extensions"
 import type { BuilderProcessSession } from "@parity-app/processes"
-import { detectContext } from "@parity-app/project"
+import { detectContext, detectStorybook, projectSource } from "@parity-app/project"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
@@ -202,6 +205,10 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
         return call.method === "styles"
           ? builder.builder.styles?.(detectContext(project.root, project.pkg))
           : builder.builder.detect(detectContext(project.root, project.pkg))
+      case "entities":
+        return call.method === "import"
+          ? importStoryScreens(projectSource(project.root, call.params.components))
+          : undefined
       default:
         return undefined
     }
@@ -209,7 +216,8 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
 
   const owners: Partial<Record<ProviderKind, { id: string; name: string }>> = {
     renderer: { id: "react", name: "React" },
-    builder: { id: builder.builder.id, name: builder.builder.name }
+    builder: { id: builder.builder.id, name: builder.builder.name },
+    entities: { id: "storybook", name: "Storybook" }
   }
 
   const providers: ProjectProviders = {
@@ -220,6 +228,7 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
 
   const projects = openProjects({
     renderers: [extensionRenderer(reactPackage)!],
+    entities: [extensionEntities(storybookPackage, detectStorybook)!],
     providers,
     builders: [builder.builder],
     startBuilder: builder.startBuilder,

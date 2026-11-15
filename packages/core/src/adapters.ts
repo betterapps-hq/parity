@@ -769,6 +769,60 @@ export interface EntitiesAdapter extends Adapter {
   export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
 }
 
+/**
+ * An entities provider as its extension's manifest describes it (PAR-1095), with what Parity's detection finds of its
+ * tool: its provider imports and exports the entities.
+ */
+export type EntitiesDescription = Omit<EntitiesAdapter, "import" | "export">
+
+/** What of an extension's `package.json` describes the entities provider it gives. */
+export interface EntitiesPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    /** As JSON gives it: its fill rule, when it has one, is `nonzero` or `evenodd`. */
+    icon?: { viewBox: string; path: string; fillRule?: string }
+    versions?: ToolVersionsExtra
+    contributes: { providers?: { entities?: { watches?: string[] } } }
+  }
+}
+
+/**
+ * The entities provider an extension's manifest describes (PAR-1095), named by its prefix, found as `detect` says
+ * until extensions detect their own tools; nothing when it gives none.
+ */
+export function extensionEntities(
+  pkg: EntitiesPackage,
+  detect: EntitiesDescription["detect"]
+): EntitiesDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const entities = contributes.providers?.entities
+
+  if (!entities) {
+    return undefined
+  }
+
+  const description: EntitiesDescription = { id: prefix, name: displayName, detect }
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  if (icon) {
+    const { viewBox, path, fillRule } = icon
+    description.icon =
+      fillRule === "evenodd" || fillRule === "nonzero" ? { viewBox, path, fillRule } : { viewBox, path }
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  if (entities.watches) {
+    description.watches = entities.watches
+  }
+
+  return description
+}
+
 /** A file an adapter writes, by its path from the project's root, with its whole new text. */
 export interface FileWrite {
   path: string

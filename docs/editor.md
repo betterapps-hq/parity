@@ -1267,6 +1267,33 @@ Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects fin
 provider. Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its config found through the provider,
 the guest served, the Pricing page drawn, and Vite first in the status bar.
 
+### Storybook's stories through its entities provider (PAR-1095)
+
+Storybook's stories are read and written back by its extension, through Parity's public API alone, rather than by an
+adapter. Nothing changed: each story file is a design of the story kind with its stories as states, and a story's edited
+args are written back to its file on Save.
+
+- **Its entities provider imports and exports.** `import({ components })` gives the screens and the code they draw;
+  `export({ screen, edited, components })` gives the files to write. The project's components go with each call, by file
+  and export, so the extension can name the component a story's meta imports. Parity checks each design it's given as a
+  `.par` file's, and makes the canvas file and its nodes from what `import` gives.
+- **Its host starts as soon as discovery has found the project's Storybook,** before the project opens: the hosts are
+  told again then, with what discovery found, so the stories are in the project when it opens. Where detection finds
+  story files but discovery finds no main config, it starts all the same and imports them, as the adapter did. A project
+  closed and opened again tells its new hosts afresh.
+- **Parity's detection still finds Storybook** (`detectStorybook`), until extensions detect their own tools.
+
+Code: `packages/extension-storybook` (`extension.ts`, `screens.ts`, `csf.ts` and `write.ts`); `EntitiesProvider` in
+`packages/extension-api/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
+`projectProviders` in `utility/extensions.ts`; `providedEntities` in `utility/projects.ts`.
+
+Tests: `packages/extension-storybook/src/stories.test.ts` (reading and writing story files) and
+`apps/desktop/src/utility/projects.test.ts`, whose projects import their stories through an entities provider, and
+`utility/extensions.test.ts` (when the hosts are told again, and that closing a project forgets it). Tried in the
+running app on 2026-11-14 on the example: 4 story files imported through the provider, the stories drawn, and a variant
+changed on a story's badge written back to `badge.stories.tsx` on Save. Gaps: the provider's calls over the host channel
+have no unit test of their own.
+
 ### Extensions' changes to designs and files (PAR-1093)
 
 An extension with the `edits` permission changes designs through `parity.edits.transact`, and project files through
@@ -7242,9 +7269,10 @@ nothing converts to another kind. Its stories are its states, a row each on its 
   it, Left closes it or goes up to the folder above, and Enter or Space opens or closes it. A search opens every folder
   with something found in it and leaves out the rest. The adapter says which folders each file is in
   (`ImportedScreen.folders`); Layers draws any adapter's that way.
-- **Read through an adapter.** `storybook-adapter`, an `EntitiesAdapter`, reads each `*.stories.*` file's CSF: the
-  meta's `title`, `component` and `args`, and each story's `name` and `args`. The service runs every adapter whose tool
-  the project depends on when it opens, and the files come in the project's info, one `ImportedScreen` each.
+- **Read through an extension.** Storybook's extension, through its entities provider (PAR-1095), reads each
+  `*.stories.*` file's CSF: the meta's `title`, `component` and `args`, and each story's `name` and `args`. The service
+  runs every adapter whose tool the project depends on when it opens, and the files come in the project's info, one
+  `ImportedScreen` each.
 - **Each story its own layers, shown alone in its state.** Each story is its meta's component, a library's or the
   project's own, with the meta's args and its own over them as props, inside bounds of its own named for the story
   (`bounds:Outline` around `story:Outline`). Each state hides every other story's bounds, so a row draws its own story
@@ -7271,7 +7299,7 @@ nothing converts to another kind. Its stories are its states, a row each on its 
   name.
 - **Args written back.** The props of what a story draws are its args, and they edit as any component's do. Saving sends
   the stories' design file to the service (`entities.save`), which hands each file whose layers or states changed to the
-  adapter that imported it (`EntitiesAdapter.export`). `storybook-adapter` writes each story's props, with what its
+  adapter that imported it (`EntitiesAdapter.export`). Storybook's extension writes each story's props, with what its
   state sets over them, as the args that differ from the meta's into the story's `args` in its file, keeping code there,
   such as a function, as it's written.
 - **Otherwise read-only.** The rest of a story file's design is Storybook's to lay out: its other layers and sections
@@ -7291,13 +7319,13 @@ Code: `fitsContent`, `frameSize` and `frameGeometry` in `packages/core/src/rende
 for each mode's frame; `ModeView.tsx` and `render.ts` (a frame narrower than its window); `hasTriedSize` and
 `withoutTriedSize` in `packages/editor/src/tried-size.ts`, `TriedSize.tsx` and the story branch of `DesignPanel.tsx` in
 `apps/desktop/src/renderer/chrome`; `EntitiesAdapter` in `packages/core/src/adapters.ts`; `readStoryFile` and
-`importStoryScreens` in `adapters/storybook-adapter`; `importEntities` in `packages/project/src/index.ts`;
+`importStoryScreens` in `packages/extension-storybook`; `importEntities` in `packages/project/src/index.ts`;
 `storyScreensDocument` and `pickedStory` in `apps/desktop/src/renderer/canvas/story-screens.ts`; `storyFileDesign` in
-`adapters/storybook-adapter/src/screens.ts`; `hasStates` in `packages/core/src/document.ts`; `drawImported` in
-`apps/desktop/src/renderer/workspace.ts`; `writeStoryArgs` and `exportStoryScreen` in `adapters/storybook-adapter`;
+`packages/extension-storybook/src/screens.ts`; `hasStates` in `packages/core/src/document.ts`; `drawImported` in
+`apps/desktop/src/renderer/workspace.ts`; `writeStoryArgs` and `exportStoryScreen` in `packages/extension-storybook`;
 `exportEntities` in `packages/project/src/index.ts`, which `saveEntities` in `apps/desktop/src/utility/projects.ts`
 writes; `writesProps` in `apps/desktop/src/renderer/chrome/read-from-code.ts`; `titleFolders` in
-`adapters/storybook-adapter`, `folderTree` in `packages/editor/src/layers-folders.ts`, and `storyPlaces` and
+`packages/extension-storybook`, `folderTree` in `packages/editor/src/layers-folders.ts`, and `storyPlaces` and
 `FolderLine` in `story-screens.ts` and `apps/desktop/src/renderer/chrome/LayerTree.tsx`.
 
 Tests: `packages/core/src/render.test.ts`, "draws a screen that fits its content as wide as it was measured, in the
@@ -7306,7 +7334,7 @@ mode's whole window" (as wide as measured, as wide as the window before, not for
 others"; `packages/editor/src/tried-size.test.ts` (2: every layer put back as the file draws it with its args kept, and
 a design without one left as it is). `packages/editor/src/layers-folders.test.ts` (4: only the top folders while they're
 closed, an open folder's folders and a component's designs in order, a design without folders at the top, and a search
-opening the folders with something found). `adapters/storybook-adapter/src/storybook.test.ts` (a file's meta and stories
+opening the folders with something found). `packages/extension-storybook/src/stories.test.ts` (a file's meta and stories
 with args over the meta's, where a story's render function is, a file without a default export, a story's name in words,
 each file in a folder for each part of its title, each file a story design with a state for each story and every one
 shown, each story in bounds of its own and alone in its state, a story that renders itself drawing its function from its
@@ -7647,15 +7675,20 @@ Code: `styles` on `BuilderProvider` in `packages/extension-api/src/providers.ts`
 `packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in `packages/extensions/src/protocol.ts`
 and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/app-styles.ts`, registered in
 `extension.ts` and `builder.ts`; `appStyles` in `openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in
-`DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`.
+`DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
+`appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
 
-Tests: `packages/extension-vite/src/app-styles.test.ts` (3, with a real Vite: what `index.html`'s module imports and its
-`<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry followed to the root, whose
-`?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; none for an app that loads none).
+Tests: `packages/extension-vite/src/app-styles.test.ts` (5; 3 with a real Vite: what `index.html`'s module imports and
+its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry followed to the root,
+whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; none for an app that loads none; and
+2 for `configInput`: a Vite 6 or 7 config with only `rollupOptions`, and Vite 8's `rolldownOptions` first).
 `packages/project/src/index.test.ts` (1: discovery takes the builder's answer and reads no entry itself).
-`apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake builder's answer). Gaps: Parity's libgen CLI
-(`parity lib` on an app) has no builder, so it reads no app tokens until it's given stylesheets; Vite 5's projects are
-compiled with a middleware-mode dev server, since Vite 5 has no environments.
+`apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake builder's answer). `parity lib` on an app asks
+the registered builders the same way (`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's tokens from
+what the first that serves it names. Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which
+`configInput`'s tests cover with that shape rather than a real Vite 7, and CI's detection snapshots of `vite7-js` and
+`react-aria` cover it end to end; Vite 5's projects are compiled with a middleware-mode dev server, since Vite 5 has no
+environments.
 
 ### Detected again when what detection reads changes (PAR-820)
 
@@ -7685,7 +7718,7 @@ no change.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, which takes the builder's `AppStyles`; `watches`
 and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
-`packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `adapters/storybook-adapter/src/detect.ts`;
+`packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `packages/project/src/storybook-detect.ts`;
 `watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
 `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
 `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
@@ -8217,12 +8250,12 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   an external link icon, since it opens the page outside Parity, and searching "open in" lists it with `/projects/atlas`
   beside it once its ProjectId is `atlas`.
 
-Code: `AdapterAction`, `ActionContext`, `ProjectAction` and `StatusItem.opens` in `packages/core/src/adapters.ts`;
-`openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`; `runAction` in
-`apps/desktop/src/utility/projects.ts`; `adapter.run` in `shared/protocol.ts`; `adapterActions` in
-`packages/project/src/index.ts`, tested in `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and
-`selectionComponent` in `renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget`
-in `renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
+Code: `AdapterAction`, `ActionContext`, `ProjectAction` and `StatusItem.opens` in `packages/core/src/adapters.ts`; Open
+in Storybook in `packages/extension-storybook/src/extension.ts`; `runAction` in `apps/desktop/src/utility/projects.ts`;
+`adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
+`adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
+`renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
+`renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
 `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
 `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
 `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`,
@@ -8230,8 +8263,8 @@ in `renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tans
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` (Open in browser placed only for routes, run for the
 page or, from Search, the page selected); `packages/project/src/adapter-status.test.ts`, "tells the windows the routes
-an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else
-Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
+an action is for"; `packages/extension-storybook/src/storybook.test.ts` (a component's docs page, else its first story,
+else Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
 action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
 Gaps: the story play functions weren't run.
 
@@ -8268,14 +8301,14 @@ Tried on 2026-11-13 in the running app on the example: the log above, and the st
 Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
 `detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
 and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
-each adapter's `detect` and `versions` in `adapters/*/src/index.ts`, and Storybook's in
-`adapters/storybook-adapter/src/detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
+each extension's renderer, builder and entities in its manifest, and Storybook's detection in
+`packages/project/src/storybook-detect.ts`; `detectContext`, `detectAdapters` and `detectProject` in
 `packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
 `packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
-`adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
+`packages/project/src/storybook-detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
 `packages/extension-tanstack-router/src/extension.test.ts` and `packages/extension-vite/src/detect.test.ts`. Gaps: no
 unit test runs the service's open path with several adapters of one kind.
 
@@ -8310,8 +8343,8 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
-`apps/desktop/src/utility/projects.ts`; Storybook's item and logo (`src/logo.ts`) in `adapters/storybook-adapter`, and
-Vite's, React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters in
+`apps/desktop/src/utility/projects.ts`; Storybook's item and logo from its extension's manifest too, and Vite's,
+React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters in
 `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;

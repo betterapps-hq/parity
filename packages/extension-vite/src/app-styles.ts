@@ -116,7 +116,7 @@ async function clientGraph(vite: typeof Vite, options: Vite.InlineConfig): Promi
     const server = await vite.createServer(options)
 
     return {
-      input: inputList(server.config.build.rollupOptions.input),
+      input: configInput(server.config.build),
       transform: async (url) => {
         await server.transformRequest(url)
       },
@@ -132,8 +132,7 @@ async function clientGraph(vite: typeof Vite, options: Vite.InlineConfig): Promi
   const { build } = client.config
 
   return {
-    // Vite 8 names it `rolldownOptions`, and keeps `rollupOptions` for the configs that say that; earlier ones have that.
-    input: inputList(build.rolldownOptions.input ?? build.rollupOptions.input),
+    input: configInput(build),
     transform: async (url) => {
       await client.transformRequest(url)
     },
@@ -154,6 +153,20 @@ function graphModule(node: ViteModule | undefined): GraphModule | undefined {
     : [...node.importedModules].map((child) => child.url)
 
   return { url: node.url, file: node.file, imports }
+}
+
+/** Where a resolved config's build options name its entries, in whichever of Vite's versions resolved it. */
+interface BuildInputs {
+  rolldownOptions?: { input?: InputOption }
+  rollupOptions?: { input?: InputOption }
+}
+
+/**
+ * The client entries a resolved config names. Vite 8 keeps them under `rolldownOptions`, with `rollupOptions` for the
+ * configs that say that; Vite 6 and 7 have only `rollupOptions`.
+ */
+export function configInput(build: BuildInputs): string[] {
+  return inputList(build.rolldownOptions?.input ?? build.rollupOptions?.input)
 }
 
 /** The entries a config names, in order. */

@@ -162,7 +162,7 @@ function importsOf(source: string): Map<string, { specifier: string; name: strin
 export async function componentFor(
   storyPath: string,
   imported: { specifier: string; name: string },
-  components: Record<string, ComponentSource>,
+  components: Record<string, Pick<ComponentSource, "path" | "export" | "library">>,
   resolveAlias: (specifier: string) => Promise<string | undefined>
 ): Promise<string | undefined> {
   const { specifier, name } = imported

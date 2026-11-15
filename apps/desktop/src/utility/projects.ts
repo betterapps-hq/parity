@@ -22,8 +22,10 @@ import {
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
+  type StorybookInfo,
   detectPeers,
   type EntitiesAdapter,
+  type EntitiesDescription,
   libraryManifestExtension,
   type PackageManifest,
   parseCanvasDocument,
@@ -158,6 +160,10 @@ export interface ProviderProject {
   root: string
   name: string
   pkg: PackageManifest
+  /** Its Storybook, once discovery has found it, which Storybook's extension starts with. */
+  storybook?: StorybookInfo
+  /** The extensions whose tools' files detection found as entities, by prefix, as Storybook's stories. */
+  entities?: string[]
 }
 
 /**
@@ -186,8 +192,11 @@ export interface ProjectAdapters {
    * page, and its styling framework. None unless given.
    */
   providers?: ProjectProviders
-  /** The tools whose files Parity reads as its own entities, as Storybook's stories as screens. None unless given. */
-  entities?: EntitiesAdapter[]
+  /**
+   * The tools whose files Parity reads as its own entities, as Storybook's stories as screens, through their extensions'
+   * entities providers. None unless given.
+   */
+  entities?: EntitiesDescription[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
     options: BuilderProcessOptions,
@@ -568,7 +577,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     renderer: RendererAdapter,
     pkg: PackageManifest,
     name: string,
-    usedEntities: EntitiesAdapter[],
+    usedEntities: EntitiesDescription[],
     styles: Promise<AppStyles | undefined>,
     early?: (read: EarlyStart) => void
   ) {
@@ -610,7 +619,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       : discovered
 
     // The entities the project's tools describe, as its stories as screens, naming the components as the list does.
-    const entities = await importEntities(root, opened.list.sources, usedEntities, config.notes)
+    const provided = usedEntities.map((used) =>
+      providedEntities(
+        used,
+        { root, name, pkg, storybook: config.storybook, entities: usedEntities.map(({ id }) => id) },
+        () => opened.list.sources
+      )
+    )
+
+    const entities = await importEntities(root, opened.list.sources, provided, config.notes)
 
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
@@ -1123,6 +1140,48 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       return undefined
     })
+  }
+
+  /**
+   * An entities provider an extension describes, importing and exporting through it: the project's components go with
+   * each call, as `components` has them then, by file and export.
+   */
+  function providedEntities(
+    description: EntitiesDescription,
+    project: ProviderProject,
+    components: () => Record<string, ComponentSource>
+  ): EntitiesAdapter {
+    const named = () =>
+      Object.fromEntries(
+        Object.entries(components()).map(([key, source]) => [
+          key,
+          source.library === undefined
+            ? { path: source.path, export: source.export }
+            : { path: source.path, export: source.export, library: source.library }
+        ])
+      )
+
+    return {
+      ...description,
+      async import() {
+        const imported = await provide(project, {
+          kind: "entities",
+          method: "import",
+          params: { components: named() }
+        })
+
+        return imported ?? {}
+      },
+      async export(screen, edited) {
+        const writes = await provide(project, {
+          kind: "entities",
+          method: "export",
+          params: { screen, edited, components: named() }
+        })
+
+        return writes ?? []
+      }
+    }
   }
 
   /** What a provider of the project's answers, or nothing when none of its extensions provides one. */
@@ -1751,10 +1810,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       const { info } = project
 
       await queued(project, async () => {
+        const used = (adapters.entities ?? []).map((entities) =>
+          providedEntities(
+            entities,
+            { ...providerProject(project), storybook: info.storybook },
+            () => project.list.sources
+          )
+        )
+
         const { writes, entities } = await exportEntities(
           info.root,
           project.list.sources,
-          adapters.entities ?? [],
+          used,
           info.entities,
           parseCanvasDocument(document).containers
         )

@@ -3,7 +3,7 @@ import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { viteAppStyles } from "./app-styles.ts"
+import { configInput, viteAppStyles } from "./app-styles.ts"
 
 // docs/editor.md, Global stylesheets come from the builder (PAR-1133): the project's own Vite, compiling a real app.
 
@@ -76,5 +76,21 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     })
 
     expect(await viteAppStyles(root)).toEqual({ styles: [], packageStyles: [], from: [] })
+  })
+})
+
+describe("configInput", () => {
+  it("reads the entries of a config Vite 6 or 7 resolved, which has no rolldownOptions", () => {
+    expect(configInput({ rollupOptions: { input: "src/entry.ts" } })).toEqual(["src/entry.ts"])
+    expect(configInput({ rollupOptions: {} })).toEqual([])
+  })
+
+  it("prefers Vite 8's rolldownOptions, and takes a list or a record of entries", () => {
+    const input = { main: "index.html", admin: "admin.html" }
+    expect(configInput({ rolldownOptions: { input }, rollupOptions: {} })).toEqual(["index.html", "admin.html"])
+    expect(configInput({ rolldownOptions: {}, rollupOptions: { input: ["a.html", "b.html"] } })).toEqual([
+      "a.html",
+      "b.html"
+    ])
   })
 })
