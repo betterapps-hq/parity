@@ -5,7 +5,9 @@ import {
   type KeyEntry,
   readKeybindings,
   readKeys,
-  resolveBindings
+  resetAllKeys,
+  resolveBindings,
+  swapKeys
 } from "./keybindings.ts"
 
 /** A small keymap, as the window's has: some commands with one key, one with two. */
@@ -202,6 +204,115 @@ describe("changeKeys", () => {
     const after = readKeybindings(applyReplacements(undefined, replacements))
 
     expect(resolveBindings(defaults, after.entries).keys).toEqual({ ...keymapKeys, save: ["Ctrl Z"], undo: [] })
+  })
+})
+
+/** The keys each command has once these replacements are written to `entries`. */
+function keysAfter(entries: readonly KeyEntry[], replacements: Parameters<typeof applyReplacements>[1]) {
+  return resolveBindings(defaults, readKeybindings(applyReplacements(JSON.stringify(entries), replacements)).entries)
+    .keys
+}
+
+describe("swapKeys (PAR-1042)", () => {
+  it("gives the command that had the keys this one's, ahead of the rest of its own", () => {
+    const { replacements, lost } = swapKeys(defaults, [], "undo", ["Ctrl Shift Z"])
+
+    expect(lost).toBeUndefined()
+    expect(keysAfter([], replacements)).toEqual({ ...keymapKeys, undo: ["Ctrl Shift Z"], redo: ["Ctrl Z", "Ctrl Y"] })
+  })
+
+  it("is a plain change when no command has the keys", () => {
+    expect(swapKeys(defaults, [], "save", ["Ctrl Alt S"])).toEqual(changeKeys(defaults, [], "save", ["Ctrl Alt S"]))
+  })
+
+  it("gives none back when this command had none", () => {
+    const entries: KeyEntry[] = [{ command: "save", keys: [] }]
+
+    expect(keysAfter(entries, swapKeys(defaults, entries, "save", ["Ctrl Z"]).replacements)).toEqual({
+      ...keymapKeys,
+      save: ["Ctrl Z"],
+      undo: []
+    })
+  })
+
+  it("leaves other commands as they were when the holder's keys come back to the keymap's", () => {
+    // Redo's entry outranks Undo's for Ctrl Y, so removing it would hand Ctrl Y back to Undo.
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: ["Ctrl Y"] },
+      { command: "redo", keys: ["Ctrl Shift H", "Ctrl Y"] },
+      { command: "hide", keys: ["Ctrl Shift Z"] }
+    ]
+
+    expect(keysAfter(entries, swapKeys(defaults, entries, "hide", ["Ctrl Shift H"]).replacements)).toEqual({
+      ...keymapKeys,
+      undo: [],
+      redo: ["Ctrl Shift Z", "Ctrl Y"],
+      hide: ["Ctrl Shift H"]
+    })
+  })
+
+  it("gives this command the keys though an earlier entry than the holder's also claims them", () => {
+    // Redo's entry outranks Undo's for Ctrl Q, and Save's comes before both.
+    const entries: KeyEntry[] = [
+      { command: "save", keys: ["Ctrl S"] },
+      { command: "undo", keys: ["Ctrl Q"] },
+      { command: "redo", keys: ["Ctrl Q"] }
+    ]
+
+    expect(keysAfter(entries, swapKeys(defaults, entries, "save", ["Ctrl Q"]).replacements)).toEqual({
+      ...keymapKeys,
+      save: ["Ctrl Q"],
+      undo: [],
+      redo: ["Ctrl S"]
+    })
+  })
+})
+
+describe("resetAllKeys (PAR-1042)", () => {
+  it("gives every command the keymap's keys again, keeping entries Parity skipped", () => {
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: [] },
+      { command: "save", keys: ["Ctrl Z"] },
+      { command: "launch", keys: ["Ctrl L"] }
+    ]
+
+    const replacements = resetAllKeys(defaults, entries)
+
+    expect(keysAfter(entries, replacements)).toEqual(keymapKeys)
+    expect(JSON.parse(applyReplacements(JSON.stringify(entries), replacements))).toEqual([
+      { command: "launch", keys: ["Ctrl L"] }
+    ])
+  })
+
+  it("removes an entry whose keys a later one takes, so none come back after the reset", () => {
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: ["Ctrl Z", "Ctrl Shift H"] },
+      { command: "redo", keys: ["Ctrl Shift H"] }
+    ]
+
+    const replacements = resetAllKeys(defaults, entries)
+
+    expect(keysAfter(entries, replacements)).toEqual(keymapKeys)
+    expect(JSON.parse(applyReplacements(JSON.stringify(entries), replacements))).toEqual([])
+  })
+
+  it("removes an entry Parity applies though it's written loosely, so its keys go too", () => {
+    const text = JSON.stringify([{ command: "undo", keys: "Ctrl U" }])
+    const entries = readKeybindings(text).entries
+
+    expect(resolveBindings(defaults, entries).keys.undo).toEqual(["Ctrl U"])
+    expect(JSON.parse(applyReplacements(text, resetAllKeys(defaults, entries)))).toEqual([])
+  })
+
+  it("keeps a skipped entry for a command it resets, as the person wrote it", () => {
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: ["Hyper Z"] },
+      { command: "save", keys: ["Ctrl Z"] }
+    ]
+
+    expect(JSON.parse(applyReplacements(JSON.stringify(entries), resetAllKeys(defaults, entries)))).toEqual([
+      { command: "undo", keys: ["Hyper Z"] }
+    ])
   })
 })
 

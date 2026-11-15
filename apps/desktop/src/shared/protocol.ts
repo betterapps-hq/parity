@@ -37,8 +37,10 @@ import type { ProjectInfo } from "@parity-app/project"
 import type {
   AppState,
   JsonValue,
+  KeybindingsState,
   Projects,
   ProjectsChange,
+  Replacement,
   SavedTabs,
   ExtensionSettingsChange,
   SettingsChange,
@@ -50,7 +52,6 @@ import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions } from "./ipc-checks.ts"
-import type { KeybindingsState, Replacement } from "./keybindings.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
 import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "./settings-view.ts"
 import type { SettingsState } from "./settings.ts"

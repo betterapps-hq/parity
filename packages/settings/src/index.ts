@@ -51,3 +51,20 @@ export {
   stateKeys,
   type WindowEntry
 } from "./state-file.ts"
+
+export {
+  applyReplacements,
+  changeKeys,
+  type Defaults,
+  type KeybindingsState,
+  type KeyEntry,
+  type KeysChange,
+  readKeybindings,
+  readKeys,
+  type Replacement,
+  resetAllKeys,
+  type Resolved,
+  resolveBindings,
+  type Skipped,
+  swapKeys
+} from "./keybindings.ts"

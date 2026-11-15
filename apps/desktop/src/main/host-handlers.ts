@@ -3,15 +3,16 @@ import type { UpdateState } from "@parity-app/processes"
 import type {
   ExtensionSettingsChange,
   JsonValue,
+  KeybindingsState,
   Projects,
   ProjectsChange,
+  Replacement,
   SavedTabs,
   SettingsChange,
   StateKey
 } from "@parity-app/settings"
 import type { TelemetryLevel } from "@parity-app/telemetry"
 import type { ProblemReport } from "../shared/ipc-checks.ts"
-import type { KeybindingsState, Replacement } from "../shared/keybindings.ts"
 import type {
   BuildInfo,
   CliInstall,

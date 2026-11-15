@@ -295,17 +295,84 @@ export function changeKeys<C extends string>(
 
   replacements.push({ command, keys: sameKeys(next, defaults[command].keys) ? null : next })
 
-  return { replacements, lost }
+  const wanted = (each: string) =>
+    replacements.find((one) => one.command === each)?.keys ?? (isCommand(defaults, each) ? defaults[each].keys : [])
+
+  const intended = (each: C) => (replacements.some((one) => one.command === each) ? wanted(each) : now[each])
+  const written = replacements.map((one) => ({ command: one.command, keys: [...wanted(one.command)] }))
+
+  // Removing an entry can hand its keys to an earlier one it outranked, so it's written out in full instead, and moved
+  // to the end when an earlier entry would still win them where it is.
+  const tries = [replacements, written, [...written.map(({ command }) => ({ command, keys: null })), ...written]]
+
+  const kept = tries.find((each) => {
+    const after = resolveBindings(defaults, entriesAfter(entries, each)).keys
+
+    return Object.keys(now).every((one) => !isCommand(defaults, one) || sameKeys(after[one], intended(one)))
+  })
+
+  return { replacements: kept ?? tries[2], lost }
 }
 
-/** Whether a value in the file is an entry for `command`. */
+/**
+ * Whether a value in the file is an entry for `command` that Parity applies. One it skips, for keys that don't read or
+ * having no command, is the person's to fix by hand, so a change never removes it (PAR-1042).
+ */
 function isEntryFor(value: JsonValue, command: string): boolean {
-  return someFields.safeParse(value).data?.command === command
+  // Read as the keymap reads it, so an entry it applies, however it's written, is one a change replaces.
+  const entry = entryOf(value)
+
+  return entry.command === command && entry.keys.every((keys) => readKeys(keys) !== undefined)
+}
+
+/** The entries after these replacements, as the file would hold them. */
+function entriesAfter(entries: readonly KeyEntry[], replacements: readonly Replacement[]): KeyEntry[] {
+  return readKeybindings(applyReplacements(JSON.stringify(entries), replacements)).entries
+}
+
+/**
+ * What to write to give `command` these keys, and to give the command that had them `command`'s keys in their place,
+ * ahead of the rest of its own (PAR-1042). With no command holding them, it's `changeKeys`. Nothing is `lost`.
+ */
+export function swapKeys<C extends string>(
+  defaults: Defaults<C>,
+  entries: readonly KeyEntry[],
+  command: C,
+  keys: readonly string[]
+): KeysChange<C> {
+  const given = changeKeys(defaults, entries, command, keys)
+
+  if (given.lost === undefined) {
+    return given
+  }
+
+  const before = resolveBindings(defaults, entries).keys[command].filter((each) => !keys.includes(each))
+  const after = entriesAfter(entries, given.replacements)
+
+  const back = changeKeys(defaults, after, given.lost, [
+    ...before,
+    ...resolveBindings(defaults, after).keys[given.lost]
+  ])
+
+  return { replacements: [...given.replacements, ...back.replacements], lost: undefined }
+}
+
+/**
+ * What to write to give every command the keymap's keys again (PAR-1042): every command's entries go, even one that
+ * changes nothing now because a later entry takes its keys. Entries Parity skipped stay as written.
+ */
+export function resetAllKeys<C extends string>(defaults: Defaults<C>, entries: readonly KeyEntry[]): Replacement[] {
+  const commands = new Set([
+    ...Object.keys(resolveBindings(defaults, entries).changed),
+    ...entries.flatMap(({ command }) => (Object.hasOwn(defaults, command) ? [command] : []))
+  ])
+
+  return [...commands].map((command) => ({ command, keys: null }))
 }
 
 /**
  * The file's new text with each replacement made: a command's entries give way to one in the first one's place, or at
- * the end, or are removed. Every other entry stays as it's written, skipped ones too. Throws for text that isn't a
+ * the end, or are removed. Every other entry stays as it's written, and so do skipped ones, even the command's own. Throws for text that isn't a
  * list, which is never written over.
  */
 export function applyReplacements(text: string | undefined, replacements: readonly Replacement[]): string {
