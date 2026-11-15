@@ -108,15 +108,18 @@ the two builders.
 
 ## What a webpack builder reuses
 
-The Next.js plumbing goes in a package of its own, `packages/next-builders`, which both extensions depend on. Each part
-takes data and returns data, with tests that run without Electron:
+The Next.js plumbing goes in a package of its own, `packages/next-builders`, which both extensions depend on. It loads
+the project's `next`, writes files and runs a server, so it joins the extensions in `vite.config.ts`'s list of edge
+packages, where Node belongs. Inside it, the logic is kept apart from the effects, so most of it is tested on plain
+data:
 
-- loading the project's `next`, its version and config file name;
-- reading which bundler the dev script runs;
-- writing the guest app's files, including the config wrapper, for a bundler;
-- starting Next's server with the bundler chosen, with the builder's own routes in front of it (`/__parity/*`, CORS);
-- reading the guest page: the guest module's id and chunks from the payload, and its stylesheets;
-- `styles()`, from the root layout or `_app`.
+- **Data in, data out:** which bundler a dev script runs; the guest app's files, as paths and text, including the config
+  wrapper, for a bundler; the guest module's id, chunks and stylesheets, read from a page's HTML; the global
+  stylesheets, from the imports a walk from the root layout or `_app` found, through the module the Rspack builder
+  (PAR-1147) is extracting from the Vite builder's `styles()`.
+- **Effects, kept thin:** loading the project's `next`, with its version and config file name; writing the guest app's
+  files; starting Next's server with the bundler chosen, with the builder's own routes in front of it (`/__parity/*`,
+  CORS); and reading the files the import walk follows.
 
 What differs is the guest module loader: Turbopack's runtime here, and webpack's (`webpackChunk_N_E` and its require)
 there. Both drive their bundler's runtime the same way: load its chunks without starting Next's router, then require the
