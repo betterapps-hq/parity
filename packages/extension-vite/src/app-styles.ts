@@ -221,11 +221,13 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Walked
 
       const imports = await Promise.all(batch.map((url) => staticImports(client, url)))
 
-      for (const { module, imported } of imports) {
+      for (const [index, { module, imported }] of imports.entries()) {
         const fromApp = own(module?.file)
+        // One Vite couldn't compile, as with a syntax error, is read too: fixing it changes the answer.
+        const file = module?.file ?? projectFile(root, batch[index]!)
 
-        if (fromApp) {
-          read.add(module!.file!)
+        if (own(file)) {
+          read.add(file)
         }
 
         for (const child of imported) {
@@ -247,6 +249,15 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Walked
   }
 
   return { found: [...links, ...found], read: [...read] }
+}
+
+/** The project file a module URL names (`/src/main.ts`), or nothing for Vite's own (`/@id/…`) and virtual modules. */
+function projectFile(root: string, url: string): string | undefined {
+  if (!url.startsWith("/") || url.startsWith("/@")) {
+    return undefined
+  }
+
+  return posix.join(root, url.split("?")[0]!)
 }
 
 /** A module's static imports, once Vite has compiled it; none when it can't, as for a file a plugin rejects. */
@@ -327,6 +338,9 @@ async function entries(
 
         if (linked) {
           links.push({ file: linked, importer: file, depth: 0 })
+        } else {
+          // Not there yet: creating it changes the answer, so it's among the files read.
+          pages.push(linkTarget(root, file, href)[0]!)
         }
       }
     }
@@ -350,19 +364,22 @@ function pageRelative(url: string): string {
  * folder, where Vite serves it from; any other from the page's own folder. Nothing when there's no such file.
  */
 async function linkedFile(root: string, page: string, href: string): Promise<string | undefined> {
-  const path = decodeURI(href.split(/[?#]/)[0]!)
-
-  const candidates = path.startsWith("/")
-    ? [posix.join(root, path), posix.join(root, "public", path)]
-    : [posix.join(posix.dirname(page), path)]
-
-  for (const candidate of candidates) {
+  for (const candidate of linkTarget(root, page, href)) {
     if (await isFile(candidate)) {
       return candidate
     }
   }
 
   return undefined
+}
+
+/** Where a page's `href` may point, in the order Vite looks: the root, then `public`, for a root-relative one. */
+function linkTarget(root: string, page: string, href: string): string[] {
+  const path = decodeURI(href.split(/[?#]/)[0]!)
+
+  return path.startsWith("/")
+    ? [posix.join(root, path), posix.join(root, "public", path)]
+    : [posix.join(posix.dirname(page), path)]
 }
 
 async function isFile(path: string): Promise<boolean> {
@@ -392,8 +409,9 @@ async function moduleUrl(client: ClientGraph, root: string, id: string, importer
 /**
  * What the app loads, from the stylesheets the shallowest modules import: one module's, or, when several import some,
  * those of the ones whose stylesheets hold the theme (all of them when none do), and the page's `<link>`s. The
- * project's own stylesheets are named by their path, and packages' by the specifier the app imports them by. The
- * answer comes from every app file the walk read, so a stylesheet imported in one later is a change it sees.
+ * project's own stylesheets are named by their path, and packages' by the specifier the app imports them by. `from`
+ * lists every file whose contents could change the answer: each app file the walk read, compiled or not, and each
+ * stylesheet read for the theme, with the files it `@import`s, whichever way it came out.
  */
 async function appStyles({ found, read }: Walked, root: string, client: ClientGraph): Promise<AppStyles> {
   const byImporter = new Map<string, string[]>()
@@ -407,11 +425,12 @@ async function appStyles({ found, read }: Walked, root: string, client: ClientGr
   const all = [...byImporter.keys()]
   const pages = all.filter((importer) => importer.endsWith(".html"))
   let importers = all.filter((importer) => !importer.endsWith(".html"))
+  const themeRead = new Set<string>()
 
   if (importers.length > 1) {
     const themed = await Promise.all(
       importers.map(async (importer) => {
-        const holds = await Promise.all(byImporter.get(importer)!.map(holdsTheme))
+        const holds = await Promise.all(byImporter.get(importer)!.map((file) => holdsTheme(file, themeRead)))
 
         return holds.some(Boolean)
       })
@@ -454,8 +473,9 @@ async function appStyles({ found, read }: Walked, root: string, client: ClientGr
   }
 
   const relative = (file: string) => file.slice(root.length + 1)
-  const sources = importers.filter(own).map(relative)
-  const from = [...new Set([...sources, ...read.filter(own).map(relative).sort()])]
+  const sources = importers.flatMap((file) => (own(file) ? [relative(file)] : []))
+  const others = [...read, ...themeRead].flatMap((file) => (own(file) ? [relative(file)] : [])).sort()
+  const from = [...new Set([...sources, ...others])]
 
   return { styles, packageStyles, from }
 }
@@ -463,9 +483,19 @@ async function appStyles({ found, read }: Walked, root: string, client: ClientGr
 /** Custom properties on the document's root (`:root`, `html`, `:host`) or in Tailwind's `@theme`: a theme's tokens. */
 const themeTokens = /@theme\b|(?:^|[\s,}])(?::root|html|:host)\b[^{}]*\{[^}]*--[\w-]+\s*:/
 
-/** Whether a stylesheet, with the files it `@import`s by a relative path, defines the theme's tokens. */
-async function holdsTheme(file: string): Promise<boolean> {
-  return themeTokens.test(await readStylesheet(file))
+/**
+ * Whether a stylesheet, with the files it `@import`s by a relative path, defines the theme's tokens. Every file it read
+ * goes in `read`, a missing one too.
+ */
+async function holdsTheme(file: string, read: Set<string>): Promise<boolean> {
+  const seen = new Set<string>()
+  const holds = themeTokens.test(await readStylesheet(file, seen))
+
+  for (const path of seen) {
+    read.add(path.replaceAll("\\", "/"))
+  }
+
+  return holds
 }
 
 /**

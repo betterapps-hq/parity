@@ -68,7 +68,7 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     expect(await viteAppStyles(root)).toEqual({
       styles: ["src/style.css"],
       packageStyles: [],
-      from: ["src/root.ts", "src/entry.ts", "src/page.ts"]
+      from: ["src/root.ts", "src/entry.ts", "src/page.css", "src/page.ts", "src/style.css", "src/theme.css"]
     })
   })
 
@@ -107,6 +107,28 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     })
 
     expect((await viteAppStyles(root)).styles).toEqual(["src/base.css", "src/overrides.css"])
+  })
+
+  it("lists every file that could change the answer: a module Vite couldn't compile, and the theme's stylesheets", async () => {
+    await write({
+      "index.html": '<script type="module" src="/src/main.ts"></script><link rel="stylesheet" href="/later.css">',
+      "src/main.ts": 'import "./root"\nimport "./page"\nimport "./broken"',
+      "src/root.ts": 'import "./root.css"',
+      "src/page.ts": 'import "./page.css"',
+      // Not valid code yet: fixing it may bring in a stylesheet.
+      "src/broken.ts": 'import "./broken.css"\nexport const = ',
+      "src/root.css": '@import "./tokens.css";',
+      "src/tokens.css": ".a {}",
+      "src/page.css": ".page {}"
+    })
+
+    const { from } = await viteAppStyles(root)
+
+    // `later.css` isn't there yet and `broken.ts` didn't compile. Neither module's stylesheets hold a theme, so both
+    // count, and an edit to any of them, `@import`ed ones included, can change which do.
+    expect(from).toEqual(
+      expect.arrayContaining(["later.css", "src/broken.ts", "src/page.css", "src/root.css", "src/tokens.css"])
+    )
   })
 
   it("names a package's stylesheet by the export the app imports, not the file it maps to", async () => {
