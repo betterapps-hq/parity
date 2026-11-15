@@ -2,6 +2,77 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 02:05:36 GMT",
+      "version": "0.89.0",
+      "tag": "@parity-app/desktop_v0.89.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "87d81c7463d413ad1f2e4758c897256df405e1ad",
+            "comment": "Extensions start, adopt and watch a project's processes with parity.processes, which outlive their host; Storybook runs on it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d04b81b3565ba2b510f3dcc7f363ad0279395a9c",
+            "comment": "Tailwind CSS runs as an extension through a styles provider"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a060b718c34ab7b236e404117c809d9a0922e55c",
+            "comment": "A key changed in keybindings.json, by hand or in another running copy, applies at once in every copy"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6d9b017605265748be4c83f54c88131aed73e397",
+            "comment": "Settings' diagnostics level, Get beta updates and the install ID are kept in settings.json, which the CLI reads too"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d9682454c053d0f922a6ecbb6c11a6f6084b306f",
+            "comment": "Extensions can register address and discovery providers, and read and watch files the read permission names; Portless is now a built-in extension."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1f944c3858a22248c004186c94d16d23ac091e95",
+            "comment": "TanStack Router runs as an extension: its router provider gives the routes, and Open in browser and the route count are its own"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5ead6130e8288fa5b900234d113caf9acb4cd4e4",
+            "comment": "Keep the UI kit folder components.json names while it's empty, keep a page's frame out of Tab outside Interact, and let a story's preview sleep zoomed far out"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ee2f31cb2fa6e1116f087229052353079cc3b862",
+            "comment": "A board's first state label lines up with its frames, as the later rows' labels do"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a307fa1531efae205cb0f185898eb42615c85c99",
+            "comment": "A second copy of Parity running at once no longer waits about 3 seconds for the first: each copy's windows use a session folder of their own."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3a4d9e3959086b62bada26f037a8de556ae59b23",
+            "comment": "Every outline on the canvas takes the color of what it goes round, and selecting a layer or preview no longer outlines its board"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 00:20:48 GMT",
       "version": "0.88.0",
       "tag": "@parity-app/desktop_v0.88.0",

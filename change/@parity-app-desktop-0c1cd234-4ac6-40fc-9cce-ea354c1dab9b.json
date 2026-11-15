@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep the UI kit folder components.json names while it's empty, keep a page's frame out of Tab outside Interact, and let a story's preview sleep zoomed far out",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,8 +1,36 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 00:20:48 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 02:05:36 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.89.0
+
+Sun, 15 Nov 2026 02:05:36 GMT
+
+### Minor changes
+
+- Extensions start, adopt and watch a project's processes with parity.processes, which outlive their host; Storybook
+  runs on it (ajcraswell@gmail.com)
+- Tailwind CSS runs as an extension through a styles provider (ajcraswell@gmail.com)
+- A key changed in keybindings.json, by hand or in another running copy, applies at once in every copy
+  (ajcraswell@gmail.com)
+- Settings' diagnostics level, Get beta updates and the install ID are kept in settings.json, which the CLI reads too
+  (ajcraswell@gmail.com)
+- Extensions can register address and discovery providers, and read and watch files the read permission names; Portless
+  is now a built-in extension. (ajcraswell@gmail.com)
+- TanStack Router runs as an extension: its router provider gives the routes, and Open in browser and the route count
+  are its own (ajcraswell@gmail.com)
+
+### Patches
+
+- Keep the UI kit folder components.json names while it's empty, keep a page's frame out of Tab outside Interact, and
+  let a story's preview sleep zoomed far out (ajcraswell@gmail.com)
+- A board's first state label lines up with its frames, as the later rows' labels do (ajcraswell@gmail.com)
+- A second copy of Parity running at once no longer waits about 3 seconds for the first: each copy's windows use a
+  session folder of their own. (ajcraswell@gmail.com)
+- Every outline on the canvas takes the color of what it goes round, and selecting a layer or preview no longer outlines
+  its board (ajcraswell@gmail.com)
 
 ## 0.88.0
 

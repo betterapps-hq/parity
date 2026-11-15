@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A key changed in keybindings.json, by hand or in another running copy, applies at once in every copy",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

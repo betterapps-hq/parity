@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A second copy of Parity running at once no longer waits about 3 seconds for the first: each copy's windows use a session folder of their own.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
