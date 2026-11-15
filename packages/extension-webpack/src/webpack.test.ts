@@ -89,20 +89,25 @@ describe("webpackBundler", () => {
 
 describe("withWebpackCss", () => {
   it("turns on webpack's own CSS, keeping the project's other experiments", () => {
-    expect(withWebpackCss({ experiments: { topLevelAwait: true } }, { globalCustomProperties: false })).toEqual({
+    expect(
+      withWebpackCss(
+        { experiments: { topLevelAwait: true } },
+        { globalCustomProperties: false, cssLoaderNamedExports: false }
+      )
+    ).toEqual({
       experiments: { topLevelAwait: true, css: true },
       module: { parser: { "css/auto": { namedExports: false } } }
     })
   })
 
   it("keeps custom properties global where the project's webpack can", () => {
-    expect(withWebpackCss({}, { globalCustomProperties: true }).module?.parser).toEqual({
+    expect(withWebpackCss({}, { globalCustomProperties: true, cssLoaderNamedExports: false }).module?.parser).toEqual({
       "css/auto": { namedExports: false, dashedIdents: false }
     })
   })
 
   it("swaps style-loader and css-loader for webpack's own CSS, keeping the loaders before them", () => {
-    const namedExports = { loader: "css-loader", options: { modules: { namedExport: true } } }
+    const namedExports = { loader: "css-loader", options: { modules: { auto: true, namedExport: true } } }
 
     const config = withWebpackCss(
       {
@@ -114,7 +119,7 @@ describe("withWebpackCss", () => {
           ]
         }
       },
-      { globalCustomProperties: true }
+      { globalCustomProperties: true, cssLoaderNamedExports: false }
     )
 
     expect(config.module?.rules).toEqual([
@@ -126,7 +131,7 @@ describe("withWebpackCss", () => {
 })
 
 describe("webpackCssRule", () => {
-  const older = { globalCustomProperties: false }
+  const older = { globalCustomProperties: false, cssLoaderNamedExports: false }
 
   it("changes nested rules, a lone loader and loaders given by their files", () => {
     expect(
@@ -152,5 +157,32 @@ describe("webpackCssRule", () => {
 
     expect(webpackCssRule({ test: /\.css$/, use }, older)).toEqual({ test: /\.css$/, use })
     expect(webpackCssRule("...", older)).toBe("...")
+  })
+
+  it("scopes the files css-loader's modules option made CSS modules, and drops a lone css-loader's options", () => {
+    const rule = (modules?: boolean | { auto?: boolean; mode?: string }) =>
+      webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options: { modules } }] }, older)
+
+    expect(rule(true)).toMatchObject({ type: "css/module" })
+    expect(rule(false)).toMatchObject({ type: "css/global" })
+    expect(rule({ auto: true })).toMatchObject({ type: "css/auto" })
+    expect(rule({ mode: "local" })).toMatchObject({ type: "css/module" })
+    expect(rule(undefined)).toMatchObject({ type: "css/auto" })
+
+    expect(webpackCssRule({ test: /\.css$/, loader: "css-loader", options: { importLoaders: 1 } }, older)).toEqual({
+      test: /\.css$/,
+      type: "css/auto",
+      parser: { namedExports: false }
+    })
+  })
+
+  it("gives classes as named exports when css-loader 7 does by default, unless its options say otherwise", () => {
+    const seven = { globalCustomProperties: false, cssLoaderNamedExports: true }
+
+    const rule = (options?: { modules: { namedExport: boolean } }) =>
+      webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }, seven)
+
+    expect(rule()).toMatchObject({ parser: { namedExports: true } })
+    expect(rule({ modules: { namedExport: false } })).toMatchObject({ parser: { namedExports: false } })
   })
 })

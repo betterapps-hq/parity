@@ -86,14 +86,19 @@ export async function projectWebpack(root: string): Promise<{ bundler: Bundler; 
 }
 
 /**
- * What the project's webpack can do with its own CSS, read from the options its schema accepts: it refuses a config that
- * names one it doesn't know.
+ * What the project's webpack can do with its own CSS, read from the options its schema accepts (it refuses a config that
+ * names one it doesn't know), and how its `css-loader` exported a CSS module's classes, by its major version.
  */
 async function webpackCss(root: string): Promise<WebpackCss> {
   const folder = await projectPackageFolder(root, "webpack")
   const schema = folder ? await readFile(join(folder, "schemas", "WebpackOptions.json"), "utf8").catch(() => "") : ""
 
-  return { globalCustomProperties: schema.includes('"dashedIdents"') }
+  const cssLoader = await installedVersion(root, "css-loader")
+
+  return {
+    globalCustomProperties: schema.includes('"dashedIdents"'),
+    cssLoaderNamedExports: Number.parseInt(cssLoader ?? "0", 10) >= 7
+  }
 }
 
 /** The project's own `mini-css-extract-plugin`, if it has it. */

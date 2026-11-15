@@ -26,7 +26,7 @@ export {
   postcssConfigFile,
   type ProjectNext,
   projectTsconfigFile,
-  tsconfigSetsBaseUrl
+  tsconfigPathsBase
 } from "./next.ts"
 
 export { type GuestPage, readGuestPage } from "./page.ts"

@@ -13,7 +13,7 @@ import {
   projectImport
 } from "./guest-app.ts"
 import { copyGuestRuntime } from "./guest-runtime.ts"
-import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigSetsBaseUrl } from "./next.ts"
+import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigPathsBase } from "./next.ts"
 import { type GuestPage, readGuestPage } from "./page.ts"
 import { serverOnlyStandIns } from "./server-modules.ts"
 import { freePort, type NextServer, type OwnRoute, portFree, startNextServer, writeGuestApp } from "./server.ts"
@@ -106,7 +106,11 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
   if (tsconfig) {
     app.tsconfig = tsconfig
-    app.tsconfigBaseUrl = tsconfigSetsBaseUrl(root, tsconfig)
+    const base = tsconfigPathsBase(root, tsconfig)
+
+    if (base !== undefined) {
+      app.tsconfigPathsBase = base
+    }
   }
 
   await writeGuestApp(root, [...guestAppFiles(app), ...standIns.map(({ path, text }) => ({ path, text }))])

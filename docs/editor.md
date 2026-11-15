@@ -1467,8 +1467,10 @@ tools, and "webpack" leads the status bar.
 - **A plain project builds on the code the Rspack builder shares** (`packages/builder-webpack-compatible`). CSS reaches
   the guest as text either way. With the project's `mini-css-extract-plugin`, the shared code extracts it. Without one,
   the stylesheet rules swap `style-loader` and `css-loader` for webpack's own CSS (`experiments.css`), keeping the
-  loaders before them. A CSS module's classes come as its default export unless `css-loader` asked for named exports,
-  and, where the project's webpack can, its custom properties stay global, as with `css-loader`.
+  loaders before them. The files `css-loader`'s `modules` option made CSS modules stay ones: by name (`.module.css`) by
+  default, every file or none when it said so. Their classes come as `css-loader` gave them: as its options say, else
+  named exports from version 7 and the default export before. Where the project's webpack can (5.104 and later), its
+  custom properties stay global, as with `css-loader`.
 - **Babel works from the project's folder.** Each `babel-loader` in the project's rules finds the project's
   `babel.config.*` as it would under `webpack serve`, which Rspack projects using Babel get too.
 - **The rest is the shared code's:** the guest, a changed component loading afresh, the global stylesheets, element

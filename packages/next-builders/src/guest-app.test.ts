@@ -51,15 +51,19 @@ describe("the guest app", () => {
     expect(text(files, "postcss.config.mjs")).toBeUndefined()
   })
 
-  it("extends the project's tsconfig", () => {
-    const files = guestAppFiles({ ...options, tsconfig: "tsconfig.json" })
+  it("extends the project's tsconfig, with a baseUrl where its paths resolve from unless it gives one", () => {
+    const files = guestAppFiles({ ...options, tsconfig: "tsconfig.json", tsconfigPathsBase: "" })
 
     expect(JSON.parse(text(files, "tsconfig.json")!)).toEqual({
       extends: "../../tsconfig.json",
       compilerOptions: { baseUrl: "../.." }
     })
 
-    const withBase = guestAppFiles({ ...options, tsconfig: "tsconfig.json", tsconfigBaseUrl: true })
+    const inherited = guestAppFiles({ ...options, tsconfig: "tsconfig.json", tsconfigPathsBase: "config" })
+
+    expect(JSON.parse(text(inherited, "tsconfig.json")!).compilerOptions).toEqual({ baseUrl: "../../config" })
+
+    const withBase = guestAppFiles({ ...options, tsconfig: "tsconfig.json" })
 
     expect(JSON.parse(text(withBase, "tsconfig.json")!)).toEqual({ extends: "../../tsconfig.json" })
   })

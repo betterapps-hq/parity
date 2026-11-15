@@ -44,8 +44,11 @@ export interface GuestAppOptions {
   postcss?: string
   /** The project's `tsconfig.json` or `jsconfig.json`, when it has one. */
   tsconfig?: string
-  /** Whether the project's tsconfig sets its own `baseUrl`. */
-  tsconfigBaseUrl?: boolean
+  /**
+   * The folder, relative to the root, the project's `paths` resolve from when its tsconfig gives no `baseUrl`: that of
+   * the config that declares them. Absent when the project's tsconfig gives a `baseUrl` of its own or inherits one.
+   */
+  tsconfigPathsBase?: string
 }
 
 /** How a module in the guest app's `app/` folder imports a project file, from the file's path from the root. */
@@ -75,10 +78,14 @@ export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
   if (options.tsconfig) {
     // Extending the project's, so its path aliases resolve as the project's own modules expect. Without a `baseUrl` of
     // its own, TypeScript and Turbopack resolve the project's `paths` from its tsconfig's folder, but Next.js 15's
-    // webpack resolves them from the guest app's, so the guest's says where the project's folder is.
-    const tsconfig = options.tsconfigBaseUrl
-      ? { extends: `../../${options.tsconfig}` }
-      : { extends: `../../${options.tsconfig}`, compilerOptions: { baseUrl: "../.." } }
+    // webpack resolves them from the guest app's, so the guest's says where they resolve from.
+    const tsconfig =
+      options.tsconfigPathsBase === undefined
+        ? { extends: `../../${options.tsconfig}` }
+        : {
+            extends: `../../${options.tsconfig}`,
+            compilerOptions: { baseUrl: posix.join("../..", options.tsconfigPathsBase) }
+          }
 
     files.push({ path: options.tsconfig, text: `${JSON.stringify(tsconfig, null, 2)}\n` })
   }

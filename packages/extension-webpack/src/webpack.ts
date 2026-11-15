@@ -99,13 +99,69 @@ export interface WebpackCss {
    * module's `var(--brand)` reads the theme's. Releases before the option refuse a config that names it.
    */
   globalCustomProperties: boolean
+  /**
+   * Whether the project's `css-loader` gives a CSS module's classes as named exports when its options don't say, as
+   * version 7 does, rather than as the default export, as earlier ones do.
+   */
+  cssLoaderNamedExports: boolean
 }
 
-/** A `css-loader` whose options ask for a CSS module's classes as named exports. */
-const cssLoaderNamedExport = z.looseObject({
-  loader: z.string().regex(/(?:^|[\\/])css-loader(?:[\\/]|$)/),
-  options: z.looseObject({ modules: z.looseObject({ namedExport: z.literal(true) }) })
+/** `css-loader` by name or by its files. */
+const cssLoaderName = /(?:^|[\\/])css-loader(?:[\\/]|$)/
+
+/** How a rule's `css-loader` made CSS modules: the files it scoped, and how it exported their classes if it said. */
+interface CssModules {
+  /** The module type that scopes the same files: by name (`.module.css`), every file, or none. */
+  type: "css/auto" | "css/module" | "css/global"
+  namedExport?: boolean
+}
+
+/** A `modules` mode that scopes nothing. */
+const globalMode = z.enum(["global", "icss"])
+
+/** `css-loader`'s `modules` option, read as the CSS modules it made. With none, files are scoped by name. */
+const cssModulesOption = z
+  .union([
+    z.boolean().transform((on): CssModules => ({ type: on ? "css/module" : "css/global" })),
+    globalMode.transform((): CssModules => ({ type: "css/global" })),
+    z.string().transform((): CssModules => ({ type: "css/module" })),
+    z
+      .looseObject({ auto: z.unknown().optional(), mode: z.unknown().optional(), namedExport: z.boolean().optional() })
+      .transform(({ auto, mode, namedExport }): CssModules => {
+        // Without `auto`, every file is a CSS module unless the mode scopes nothing; `auto: false` makes none one.
+        let type: CssModules["type"] = "css/auto"
+
+        if (auto === undefined) {
+          type = globalMode.safeParse(mode).success ? "css/global" : "css/module"
+        } else if (auto === false) {
+          type = "css/global"
+        }
+
+        return namedExport === undefined ? { type } : { type, namedExport }
+      })
+  ])
+  .optional()
+  .transform((modules): CssModules => modules ?? { type: "css/auto" })
+  .catch({ type: "css/auto" })
+
+/** A `css-loader` with its options: an entry in a rule's `use`, or a rule whose lone loader it is. */
+const cssLoaderEntry = z.looseObject({
+  loader: z.string().regex(cssLoaderName),
+  options: z.looseObject({ modules: cssModulesOption }).optional()
 })
+
+/** The CSS modules a rule's `css-loader` made, from the rule itself or the first of its `use` that's one. */
+function cssLoaderModules(candidates: readonly (CssRule | z.output<typeof loaderEntry>)[]): CssModules {
+  for (const candidate of candidates) {
+    const parsed = cssLoaderEntry.safeParse(candidate)
+
+    if (parsed.success) {
+      return parsed.data.options?.modules ?? { type: "css/auto" }
+    }
+  }
+
+  return { type: "css/auto" }
+}
 
 /** `style-loader` and `css-loader`, by name or by their files, which webpack's own CSS does the work of. */
 const cssLoaders = /(?:^|[\\/])(?:style|css)-loader(?:[\\/]|$)/
@@ -177,14 +233,17 @@ export function webpackCssRule(entry: unknown, css: WebpackCss): unknown {
     changed.use = kept
   }
 
+  if (loader !== undefined && cssLoaders.test(loader)) {
+    // A rule's own options are its lone loader's, and webpack takes them only beside one.
+    delete changed["options"]
+    delete changed["query"]
+  }
+
   if (styles) {
-    changed.type = "css/auto"
-    // A CSS module's classes come as `css-loader`'s options said: named exports where they asked for them, else the
-    // default export.
-    changed.parser = parserOptions(
-      uses.some((one) => cssLoaderNamedExport.safeParse(one).success),
-      css
-    )
+    // Its CSS modules are the files `css-loader` treated as ones, and their classes come as it gave them.
+    const modules = cssLoaderModules([parsed.data, ...uses])
+    changed.type = modules.type
+    changed.parser = parserOptions(modules.namedExport ?? css.cssLoaderNamedExports, css)
   }
 
   if (rest.oneOf) {

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { nextAppStyles } from "./app-styles.ts"
-import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigSetsBaseUrl } from "./next.ts"
+import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigPathsBase } from "./next.ts"
 
 let root: string
 
@@ -97,17 +97,26 @@ describe("a Next.js app's global stylesheets", () => {
   })
 })
 
-describe("a project's own baseUrl", () => {
-  it("is one its tsconfig sets or inherits through extends", async () => {
+describe("where a project's paths resolve from", () => {
+  it("is nowhere of the guest's own when its tsconfig sets or inherits a baseUrl", async () => {
     await write({
       "tsconfig.base.json": JSON.stringify({ compilerOptions: { baseUrl: "./src", paths: { "@/*": ["*"] } } }),
       "tsconfig.json": JSON.stringify({ extends: "./tsconfig.base.json", include: ["src"] })
     })
 
-    expect(tsconfigSetsBaseUrl(root, "tsconfig.json")).toBe(true)
+    expect(tsconfigPathsBase(root, "tsconfig.json")).toBeUndefined()
+  })
+
+  it("is the folder of the config that declares them, else the root", async () => {
+    await write({
+      "config/base.json": JSON.stringify({ compilerOptions: { paths: { "@/*": ["../src/*"] } } }),
+      "tsconfig.json": JSON.stringify({ extends: "./config/base.json" })
+    })
+
+    expect(tsconfigPathsBase(root, "tsconfig.json")).toBe("config")
 
     await write({ "tsconfig.json": JSON.stringify({ compilerOptions: { paths: { "@/*": ["./src/*"] } } }) })
 
-    expect(tsconfigSetsBaseUrl(root, "tsconfig.json")).toBe(false)
+    expect(tsconfigPathsBase(root, "tsconfig.json")).toBe("")
   })
 })

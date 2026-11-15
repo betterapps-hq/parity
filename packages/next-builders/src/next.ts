@@ -1,6 +1,6 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { createRequire } from "node:module"
-import { dirname, join, resolve } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import { readTsconfig } from "@parity-app/code"
 import { parseManifest } from "@parity-app/core"
 import { type NextBundler, nextBundler, nextDevScript } from "./bundler.ts"
@@ -108,13 +108,20 @@ export async function projectTsconfigFile(root: string): Promise<string | undefi
 }
 
 /**
- * Whether the project's tsconfig gives a `baseUrl`, its own or one it inherits through `extends`, which the guest app's
- * then leaves alone.
+ * The folder, relative to `root`, the project's `paths` resolve from when its tsconfig gives no `baseUrl`, its own or
+ * inherited: that of the config that declares them, or the root's. Nothing when it gives one.
  */
-export function tsconfigSetsBaseUrl(root: string, tsconfig: string): boolean {
+export function tsconfigPathsBase(root: string, tsconfig: string): string | undefined {
   const config = readTsconfig(root).configs.find((read) => read.path === tsconfig)
 
-  return config?.options.baseUrl !== undefined
+  if (config?.options.baseUrl !== undefined) {
+    return undefined
+  }
+
+  // SAFETY: TypeScript's config parser sets `pathsBasePath`, an internal option, to the folder of the config with `paths`.
+  const base = (config?.options as { pathsBasePath?: string } | undefined)?.pathsBasePath
+
+  return base ? relative(root, base).replaceAll("\\", "/") : ""
 }
 
 async function isFile(path: string): Promise<boolean> {
