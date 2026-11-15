@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Adds the project document (ProjectDoc) and its saver in @parity-app/multiplayer; the editor exports a few comparison helpers for it.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
