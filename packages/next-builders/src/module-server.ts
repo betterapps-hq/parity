@@ -136,22 +136,25 @@ export async function watchCodeChanges(options: CodeWatch): Promise<() => void> 
     }
 
     const components = options.components()
-    const reached = await Promise.all(files.map((file) => imports.reaching(components, file)))
+    const reached = (await Promise.all(files.map((file) => imports.reaching(components, file)))).flat()
+
+    // Any file a component imports counts, as a JSON file of data; code and stylesheets may change the compiled CSS
+    // too, as a new Tailwind class does. Other files, as a README, change nothing the canvas draws.
+    if (reached.length === 0 && !files.some((file) => isProjectSourcePath(file) || isStylesheetFile(file))) {
+      return
+    }
+
     const now = await options.stylesDigest().catch(() => digest)
     const restyled = now !== digest || files.some(isStylesheetFile)
     digest = now
     changes.stamp()
-    changes.add({ paths: [...new Set(reached.flat())], styles: restyled })
+    changes.add({ paths: [...new Set(reached)], styles: restyled })
   }
 
   const watcher = watch(options.root, { recursive: true }, (_event, name) => {
     const path = name?.toString().replaceAll("\\", "/")
 
     if (!path || path.split("/").some((part) => unwatched.has(part))) {
-      return
-    }
-
-    if (!isProjectSourcePath(path) && !isStylesheetFile(path)) {
       return
     }
 
