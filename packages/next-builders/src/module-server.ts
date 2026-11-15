@@ -105,6 +105,13 @@ export function projectModules(root: string, folder: string, exported: (path: st
 const unwatched = new Set(["node_modules", ".next", ".git"])
 
 /** What tells the builder which components a change reaches, and whether the guest's CSS changed with it. */
+/** Watches a folder and its subfolders, as `fs.watch` does: names relative to the folder. */
+export type WatchFolder = (
+  folder: string,
+  options: { recursive: true },
+  listener: (event: string, name: string | null) => void
+) => { close(): void }
+
 export interface CodeWatch {
   root: string
   tsconfig: ProjectTsconfig
@@ -113,6 +120,8 @@ export interface CodeWatch {
   /** A digest of the guest's compiled CSS as Next builds it now. */
   stylesDigest(): Promise<string>
   send(change: CodeChange): void
+  /** How the folder is watched; `fs.watch` unless a test reports the changes itself. */
+  watch?: WatchFolder
 }
 
 /**
@@ -151,8 +160,10 @@ export async function watchCodeChanges(options: CodeWatch): Promise<() => void> 
     changes.add({ paths: [...new Set(reached)], styles: restyled })
   }
 
-  const watcher = watch(options.root, { recursive: true }, (_event, name) => {
-    const path = name?.toString().replaceAll("\\", "/")
+  const watchFolder: WatchFolder = options.watch ?? watch
+
+  const watcher = watchFolder(options.root, { recursive: true }, (_event, name) => {
+    const path = name?.replaceAll("\\", "/")
 
     if (!path || path.split("/").some((part) => unwatched.has(part))) {
       return
