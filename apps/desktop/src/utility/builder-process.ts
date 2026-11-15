@@ -1,6 +1,7 @@
 import { nodePort } from "@parity-app/channel"
 import { rsbuildBuilder } from "@parity-app/extension-rsbuild/builder"
 import { rspackBuilder } from "@parity-app/extension-rspack/builder"
+import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
 import { viteBuilder } from "@parity-app/extension-vite/builder"
 import { serveBuilderProcess } from "@parity-app/processes"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
@@ -22,7 +23,7 @@ serveBuilderProcess(
     exit: () => process.exit(0)
   },
   // The entry modules of the built-in builders' extensions, as their manifests name them.
-  [viteBuilder, rspackBuilder, rsbuildBuilder]
+  [viteBuilder, rspackBuilder, rsbuildBuilder, turbopackBuilder]
 )
 
 keepCompiledCode()

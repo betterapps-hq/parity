@@ -1,0 +1,33 @@
+{
+  "name": "nextjs-turbopack",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "dependencies": {
+    "@headlessui/react": "2.2.10",
+    "@heroicons/react": "2.2.0",
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5",
+    "storybook": "^10.6.7",
+    "@storybook/nextjs-vite": "^10.6.7",
+    "@storybook/addon-docs": "^10.6.7",
+    "vite": "latest"
+  },
+  "packageManager": "pnpm@12.10.1"
+}
