@@ -76,10 +76,10 @@ export function readStoryFile(source: string, path = "story.tsx"): StoryFile {
     return { stories: [] }
   }
 
-  const metaArgs = argsOf(property(metaObject, "args"), constants)
-  const metaRenders = property(metaObject, "render") !== undefined
-  const title = stringOf(property(metaObject, "title"))
-  const componentName = identifierOf(property(metaObject, "component"))
+  const metaArgs = argsOf(property(metaObject, "args", constants), constants)
+  const metaRenders = property(metaObject, "render", constants) !== undefined
+  const title = stringOf(property(metaObject, "title", constants))
+  const componentName = identifierOf(property(metaObject, "component", constants))
   const component = componentName ? imports.get(componentName) : undefined
   const stories = exported.flatMap(({ name, value }) => storyOf(name, value, constants, metaArgs, metaRenders))
   const read: StoryFile = { stories }
@@ -117,11 +117,11 @@ function storyOf(
 
   const read: Story = {
     exportName: name,
-    name: stringOf(property(story, "name")) ?? storyName(name),
-    args: { ...metaArgs, ...argsOf(property(story, "args"), constants) }
+    name: stringOf(property(story, "name", constants)) ?? storyName(name),
+    args: { ...metaArgs, ...argsOf(property(story, "args", constants), constants) }
   }
 
-  if (property(story, "render") !== undefined) {
+  if (property(story, "render", constants) !== undefined) {
     read.render = `${name}.render`
   } else if (metaRenders) {
     read.render = "default.render"
@@ -189,9 +189,29 @@ export function objectOf(
   return inner && ts.isObjectLiteralExpression(inner) ? inner : undefined
 }
 
-/** A property of an object by its name: its value, the name for a shorthand, or `true` for a method, which is there. */
-function property(object: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
-  for (const element of object.properties) {
+/**
+ * A property of an object by its name: its value, the name for a shorthand, or `true` for a method, which is there.
+ * As in JavaScript, a later one wins, and an object spread into it (`{ ...base }`) gives its own, following a constant
+ * it names.
+ */
+function property(
+  object: ts.ObjectLiteralExpression,
+  name: string,
+  constants: ReadonlyMap<string, ts.Expression>,
+  depth = 0
+): ts.Expression | undefined {
+  for (const element of object.properties.toReversed()) {
+    if (ts.isSpreadAssignment(element)) {
+      const spread = depth < 8 ? objectOf(element.expression, constants) : undefined
+      const found = spread && property(spread, name, constants, depth + 1)
+
+      if (found) {
+        return found
+      }
+
+      continue
+    }
+
     const key =
       element.name && (ts.isIdentifier(element.name) || ts.isStringLiteral(element.name))
         ? element.name.text

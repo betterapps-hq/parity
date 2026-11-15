@@ -39,6 +39,20 @@ export const Plain = () => <Card />
 `
 
 describe("readStoryFile", () => {
+  it("reads a meta and stories that spread a constant object into themselves, a later property winning", () => {
+    const composed = `import { Button } from "../button"
+const base = { component: Button, title: "UI/Base", args: { size: "sm" } }
+export default { ...base, title: "UI/Button" }
+const Primary = { args: { variant: "primary" } }
+export const Large = { ...Primary, name: "Large one" }`
+
+    expect(readStoryFile(composed)).toMatchObject({
+      title: "UI/Button",
+      component: { specifier: "../button", name: "Button" },
+      stories: [{ exportName: "Large", name: "Large one", args: { size: "sm", variant: "primary" } }]
+    })
+  })
+
   it("reads the meta's title, component and args, and each story's own args over them", () => {
     expect(readStoryFile(button)).toEqual({
       title: "UI/Button",
