@@ -299,6 +299,26 @@ describe("extension hosts", () => {
     expect(latest("parity-route-timings")).toBeUndefined()
   })
 
+  it("lists every installed extension from its manifest, with no project open (PAR-1129)", () => {
+    const { hosts } = setUp({})
+    const installed = hosts.installed()
+
+    expect(installed.map((each) => each.prefix)).toEqual([
+      "storybook",
+      "timings",
+      "tidy",
+      "tanstack-router",
+      "portless"
+    ])
+    expect(installed[0]).toMatchObject({
+      id: "@parity-app/extension-storybook",
+      displayName: "Storybook",
+      icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+      permissions: {}
+    })
+    expect(Object.keys(installed[0]?.contributes.settings ?? {})).toEqual(["storybook.configDir", "storybook.openIn"])
+  })
+
   it("gives activate the project and what detection found", async () => {
     let given: Parity | undefined
     const { hosts } = setUp({ "@parity-app/extension-storybook": { activate: (parity) => void (given = parity) } })
