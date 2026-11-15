@@ -72,7 +72,10 @@
     },
     "packages/extension-react": {
       "entry": ["src/**/*.test.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      // React 18 for the React 18 tests, which vite.react-18.config.ts and its setup file give for `react` and
+      // `react-dom` by name, never importing them.
+      "ignoreDependencies": ["react-18", "react-dom-18"]
     },
     "packages/extension-tailwind": {
       "entry": ["src/**/*.test.ts"],

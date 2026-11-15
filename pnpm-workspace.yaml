@@ -51,9 +51,12 @@ catalog:
   css-tree: 3.2.1
   electron-builder: 26.18.0
   electron-updater: 6.8.11
+  happy-dom: ^21.0.4
   jiti: 2.7.0
   knip: 6.44.1
   loro-crdt: 1.17.1
+  react-18: npm:react@18.3.1
+  react-dom-18: npm:react-dom@18.3.1
   sharp: 0.35.5
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
