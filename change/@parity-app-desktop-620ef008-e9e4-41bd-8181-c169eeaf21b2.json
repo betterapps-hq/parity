@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
