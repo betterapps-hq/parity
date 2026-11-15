@@ -436,7 +436,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   // How wide the board is on the canvas, which its labels hide by once it's too narrow on screen.
   const width = title?.width
 
-  // A Storybook file's board names each story over its row; another design names its states beside them.
+  // A story file's board names each story over its row; another design names its states beside them.
   const story = entry.path === storyScreensFile
   const shownColumns = columns.map((mode) => mode.id)
 
@@ -828,7 +828,7 @@ function useRowControls(ref: RefObject<HTMLElement | null>, { index, color, onSe
 }
 
 /**
- * A story's name over its row, on a Storybook file's board (PAR-1071), in the band at the top of the row. It's a name
+ * A story's name over its row, on a story file's board (PAR-1071), in the band at the top of the row. It's a name
  * (see `labelLook`): at screen size up close, then shrinking down to 60%. Clicking it selects the row's previews,
  * Shift+click adds them, and carrying it up or down moves the row, as Up and Down on it do.
  */

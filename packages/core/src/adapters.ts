@@ -710,6 +710,8 @@ export interface ThemeVariable {
  * outside it knows the tool's format. A project can have several: each fills in the entities its tool describes.
  */
 export interface EntitiesAdapter extends Adapter {
+  /** How Parity shows the screens it imports, as its extension's manifest says (PAR-1131). */
+  screens?: ScreensLook
   /** The entities the tool's files describe. */
   import(source: EntitiesSource): Promise<ProjectEntities>
   /**
@@ -717,6 +719,21 @@ export interface EntitiesAdapter extends Adapter {
    * text. None when the edit is one the tool's files can't hold.
    */
   export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
+}
+
+/**
+ * How Parity shows an entities provider's screens (PAR-1131): what Layers lists them under, what their states are
+ * called, and the colour of their icons. Nothing in Parity names the tool otherwise.
+ */
+export interface ScreensLook {
+  /** Its tool's name, as a screen's detail says which tool's file it's read from. */
+  name: string
+  /** What Layers lists its screens under, as `Stories`. */
+  group: string
+  /** What a screen's states are called, as `story` and `stories`. */
+  states: { one: string; many: string }
+  /** The colour of its screens' icons, a CSS colour in a light and in a dark theme. */
+  color?: { light: string; dark: string }
 }
 
 /**
@@ -734,7 +751,16 @@ export interface EntitiesPackage {
     /** As JSON gives it: its fill rule, when it has one, is `nonzero` or `evenodd`. */
     icon?: { viewBox: string; path: string; fillRule?: string }
     versions?: ToolVersionsExtra
-    contributes: { providers?: { entities?: { watches?: string[] } } }
+    contributes: {
+      providers?: {
+        entities?: {
+          watches?: string[]
+          group?: string
+          states?: { one: string; many: string }
+          color?: { light: string; dark: string }
+        }
+      }
+    }
   }
 }
 
@@ -789,6 +815,17 @@ export function extensionEntities(pkg: EntitiesPackage): EntitiesDescription | u
     description.watches = entities.watches
   }
 
+  // Without its own words, its screens are listed under its tool's name, with states as any design's are.
+  description.screens = {
+    name: displayName,
+    group: entities.group ?? displayName,
+    states: entities.states ?? { one: "state", many: "states" }
+  }
+
+  if (entities.color) {
+    description.screens.color = entities.color
+  }
+
   return description
 }
 
@@ -811,6 +848,8 @@ export interface EntitiesSource {
 /** Parity's entities, as far as a tool's files describe them. */
 export interface ProjectEntities {
   screens?: ImportedScreen[]
+  /** How each provider's screens are shown, by the provider's id, which each screen names as its `adapter`. */
+  looks?: Record<string, ScreensLook>
   /**
    * Code the screens draw that isn't one of the project's components, by the id their component layers name, which
    * the guest loads from its file as it loads a component: a story's `render` function, given its args as props.

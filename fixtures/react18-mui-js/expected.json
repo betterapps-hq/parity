@@ -161,7 +161,6 @@
     }
   ],
   "icons": [],
-  "storybook": null,
   "notes": [
     "styles the builder found: src/index.css",
     "16 components in 20 files from the project's files",

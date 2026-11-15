@@ -260,7 +260,7 @@ export interface Providers {
   /** Reads routes. */
   router?: Record<string, never>
   /** Imports screens such as stories, and writes them back. */
-  entities?: { watches?: string[] }
+  entities?: EntitiesContribution
   /** Finds screens, photos or videos in an outside library. */
   connector?: Record<string, never>
   /** Answers Search actions with results of its own. */
@@ -297,3 +297,18 @@ export interface SettingContribution {
 
 /** A value as JSON writes it. */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/**
+ * An entities provider's contribution: the config files whose change Parity reads its tool's files again for, and how
+ * Parity shows the screens it imports (PAR-1131). Without `group` and `states`, its screens are listed under its
+ * display name, with states as any design's are.
+ */
+export interface EntitiesContribution {
+  watches?: string[]
+  /** What Layers lists its screens under, as `Stories`. */
+  group?: string
+  /** What a screen's states are called, as `story` and `stories`. */
+  states?: { one: string; many: string }
+  /** The colour of its screens' icons, a CSS colour in a light and in a dark theme. */
+  color?: { light: string; dark: string }
+}

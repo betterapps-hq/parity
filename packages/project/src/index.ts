@@ -295,6 +295,10 @@ export async function importEntities(
       if (imported.screens?.length) {
         entities.screens = [...(entities.screens ?? []), ...imported.screens]
         notes.push(`${imported.screens.length} screens from ${adapter.name}`)
+
+        if (adapter.screens) {
+          entities.looks = { ...entities.looks, [adapter.id]: adapter.screens }
+        }
       }
 
       if (imported.sources) {

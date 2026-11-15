@@ -43,7 +43,7 @@ export const boardParts = {
 
     return { marginTop: px(before), paddingTop: px(line + after + caption) }
   },
-  /** The first row, a line taller for its name over it, as a Storybook file's board names its stories. */
+  /** The first row, a line taller for its name over it, as a story file's board names its stories. */
   firstNamedRow: (zoom: number) => ({ marginTop: "", paddingTop: px(2 * boardLayoutAt(zoom).caption) }),
   /** The first row with its name over it and its headers a line taller. */
   firstNamedTallRow: (zoom: number) => ({ marginTop: "", paddingTop: px(3 * boardLayoutAt(zoom).caption) }),

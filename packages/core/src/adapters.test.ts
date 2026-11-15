@@ -90,6 +90,22 @@ describe("extensionEntities (PAR-1131)", () => {
     })
   })
 
+  it("shows its screens as its manifest says, else under its name with states as any design's", () => {
+    const look = { group: "Pages", states: { one: "page", many: "pages" }, color: { light: "teal", dark: "aqua" } }
+
+    const described = extensionEntities({
+      ...docs,
+      parity: { ...docs.parity, contributes: { providers: { entities: { ...look, watches: [] } } } }
+    })
+
+    expect(described?.screens).toEqual({ name: "Docs", ...look })
+    expect(extensionEntities(docs)?.screens).toEqual({
+      name: "Docs",
+      group: "Docs",
+      states: { one: "state", many: "states" }
+    })
+  })
+
   it("doesn't find it without one of its packages, and gives nothing without an entities provider", async () => {
     expect(await extensionEntities(docs)!.detect(project({ react: "19.0.0" }, { "docs/main.ts": "" }))).toEqual({
       found: false,
