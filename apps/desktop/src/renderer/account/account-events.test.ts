@@ -1,4 +1,5 @@
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { setWindowTelemetry } from "../report-error.ts"
 import { accountActions, receiveAccount, startAccount } from "./account.ts"
@@ -70,5 +71,56 @@ describe("account telemetry in the window", () => {
         message: "Main went away"
       }
     ])
+  })
+})
+
+describe("finishing a sign-in after choosing an organization (PAR-1143)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", { canvasHost: { signInRequired: false } })
+  })
+
+  const ada = { email: "ada@example.com", name: "Ada", organizationId: "org_1", role: "member" }
+  const grace = { email: "grace@example.com", name: "Grace", organizationId: "org_2", role: "member" }
+
+  const choosing = {
+    at: "problem",
+    provider: "GoogleOAuth",
+    problem: "choose-organization",
+    details: "",
+    organizations: [{ id: "org_2", name: "Engines" }]
+  }
+
+  it("says the account was added once it's in, though nothing waited on the browser", () => {
+    receiveAccount({
+      account: { ...ada, untilQuit: false },
+      accounts: [{ ...ada, provider: "GoogleOAuth" }],
+      attempt: choosing,
+      ended: null
+    })
+    receiveAccount({
+      account: { ...grace, untilQuit: false },
+      accounts: [
+        { ...ada, provider: "GoogleOAuth" },
+        { ...grace, provider: "GoogleOAuth" }
+      ],
+      attempt: null,
+      ended: null
+    })
+
+    expect(toast).toHaveBeenCalledWith("Added grace@example.com", { id: "account-joined" })
+  })
+
+  it("says nothing when the question is put away and the accounts stay as they were", () => {
+    const signedIn = {
+      account: { ...ada, untilQuit: false },
+      accounts: [{ ...ada, provider: "GoogleOAuth" }],
+      ended: null
+    }
+
+    receiveAccount({ ...signedIn, attempt: choosing })
+    vi.mocked(toast).mockClear()
+    receiveAccount({ ...signedIn, attempt: null })
+
+    expect(toast).not.toHaveBeenCalled()
   })
 })
