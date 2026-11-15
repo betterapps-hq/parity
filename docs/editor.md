@@ -987,9 +987,9 @@ The inspector's Code tab, which listed a component layer's elements with their l
 Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code/Code panel`
 stories, beside the window, reading the example's files from Storybook's copy.
 
-- **Where the lines come from:** the project's development server. vite-adapter's guest plugin gives each lowercase JSX
-  element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
-  file from the project root, then the line and column of its `<`. It runs before the framework plugin compiles the
+- **Where the lines come from:** the project's development server. Vite's extension's guest plugin gives each lowercase
+  JSX element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute:
+  its file from the project root, then the line and column of its `<`. It runs before the framework plugin compiles the
   file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
   props on, so the element it draws would take its caller's line over its own. Installed packages, virtual modules and
   production builds carry nothing.
@@ -1003,7 +1003,7 @@ stories, beside the window, reading the example's files from Storybook's copy.
 
 Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
 `formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
-plugin's transform, in `adapters/vite-adapter/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
+plugin's transform, in `packages/extension-vite/src/builder.ts`. In the app: `sourcedElementAt` and `frameAt` in
 `renderer/canvas/element-sources.ts`; the menu's `open-source` entry in `chrome/canvas-menu.ts`, drawn by
 `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in `main/code-editor.ts`'s `openInEditor`
 and its check in `shared/ipc-checks.ts`. For agents: `componentsReport` in `packages/agent/src/dispatch.ts`,
@@ -1014,8 +1014,8 @@ Tests: `packages/code/src/element-sources.test.ts` (6: each element written for 
 a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
 tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps back to the file; and which files it's
 for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
-in it, and anything else reads as none). `adapters/vite-adapter/src/index.test.ts` (4: the project's own JSX tagged and
-named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
+in it, and anything else reads as none). `packages/extension-vite/src/builder.test.ts` (4: the project's own JSX tagged
+and named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
 modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
 from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
 (Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
@@ -1241,6 +1241,29 @@ together in one batch, a long run split, a later request asked again, a failed o
 `apps/desktop/src/utility/projects.test.ts`, whose projects read their components through a renderer provider. Tried in
 the running app on 2026-11-14 on the example: 5 components in the app and 371 from Shadcn Nova read through the
 provider, frames drawn, and React's logo in the status bar.
+
+### Vite as an extension, through its builder provider (PAR-1095)
+
+Vite runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does changed: the
+project's own Vite and config serve its components to the canvas, in a builder process of its own, and "Vite" leads the
+status bar.
+
+- **Its builder provider says whether Vite serves the project,** asked of the project's own Vite, with its version and
+  config file; one that can't load the config fails with why, as before.
+- **Its entry module starts the dev server** in the builder process: the manifest names it (`./builder`), with the
+  config files whose coming or going means the project is detected again.
+- **Its host starts as soon as package.json is read,** found by its peer dependency or by Vite+, which ships Vite, so
+  detection can ask it while the builder process starts beside it.
+- **Its versions** come from its peer dependency, Vite 6 to 8, with Vite+ named as a distribution.
+
+Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
+`packages/extension-api/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and
+`byPeers` in `utility/extensions.ts`; `detectBuilder` and `findBuilder` in `utility/projects.ts`.
+
+Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions and entry module), `detect.test.ts` (what
+Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
+provider. Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its config found through the provider,
+the guest served, the Pricing page drawn, and Vite first in the status bar.
 
 ### Extensions' changes to designs and files (PAR-1093)
 
@@ -6040,8 +6063,8 @@ Code: `onFailures` and the `layer` given to `onError` in `MountOptions`, `LayerF
 `designFailures` and `layerFailure` in `packages/editor/src/render-failures.ts`; `failedBox` in the guest;
 `renderer/failures-store.ts`, fed by `ModeView.tsx`, with `failureMessages` and `setFailures` in `console-store.ts`; the
 failure row, `LevelsMenu` and `showConsole`'s focus in `chrome/ConsolePanel.tsx`; the mark in `chrome/LayerTree.tsx`.
-For edits: `stampChange` in `adapters/vite-adapter/src/code-changes.ts` and `gatherChanges` in
-`packages/project/src/code-changes.ts`, wired in vite-adapter's `start`; the `codeChanged` method in
+For edits: `stampChange` in `packages/extension-vite/src/code-changes.ts` and `gatherChanges` in
+`packages/project/src/code-changes.ts`, wired in Vite's extension's `start`; the `codeChanged` method in
 `packages/processes/src/builder-process.ts`; `codeChangeVersions` and `versionedSources` in
 `packages/core/src/guest-changes.ts`; `onCodeChange` in `utility/builders.ts` and `utility/projects.ts`;
 `project.codeChanged` in `shared/protocol.ts` and `renderer/agent/handlers.ts`; `codeChanged` in
@@ -6055,8 +6078,8 @@ parent quoted in backticks, one failure per node across frames, an instance's fa
 and no sheet over it, its layer reported, then the same file at a new version drawn and the mark cleared).
 `apps/desktop/src/renderer/failures-store.test.ts` (1: one console error per layer across frames, with each frame, why
 and the fix, kept through Clear, and gone frame by frame as the layer draws).
-`adapters/vite-adapter/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component files
-among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
+`packages/extension-vite/src/code-changes.test.ts` (3: the changed file and its importers stamped and the component
+files among them given, nothing for a file never imported, a burst gathered into one change with stamps that go up).
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
 changed files stamped, none without a change). `packages/extension-react/src/guest.test.ts` (the revision moving once
@@ -6105,21 +6128,21 @@ on each stylesheet change, which costs a whole builder start.
 Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
 `packages/project/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
 `packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
-`packages/processes/src/builder-process.ts`; `stampChange` in `adapters/vite-adapter/src/code-changes.ts` and
-`restyledGuest` in `adapters/vite-adapter/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in
-`openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project
-discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
+`packages/processes/src/builder-process.ts`; `stampChange` in `packages/extension-vite/src/code-changes.ts` and
+`restyledGuest` in `packages/extension-vite/src/builder.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled`
+in `openProjects`, `apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`.
+Project discovery tells stylesheets by the same list (`stylesheetImports` and `readStylesheet` in
 `packages/project/src/styles.ts`, `importedFiles` in `preview-key.ts`).
 
 Tests: `packages/project/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
 stylesheet sent without a component file, and the next burst without one not saying so).
-`adapters/vite-adapter/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
-change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the
+`packages/extension-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said
+to change the guest's stylesheets, a component's CSS module not). `packages/processes/src/builder-process.test.ts` (the
 change passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
 closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
 guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
-without a restyled address started again on a new port). `adapters/vite-adapter/src/stylesheets.test.ts` (1, a real Vite
-server: a file the stylesheet `@import`s, edited, is said to change the guest's stylesheets, and the guest at the
+without a restyled address started again on a new port). `packages/extension-vite/src/stylesheets.test.ts` (1, a real
+Vite server: a file the stylesheet `@import`s, edited, is said to change the guest's stylesheets, and the guest at the
 session's restyled address imports the stylesheet with `?t=` and gets the new CSS).
 `packages/project/src/styles.test.ts` (Less imported as a global stylesheet, a Sass CSS module not). Checked in a
 development copy of the app on 2026-11-09 with `scripts/drive.ts` on `examples/shadcn-vite`: a custom property added to
@@ -6205,7 +6228,7 @@ Code: `cacheRemovals` in `packages/processes/src/bitmap-cache.ts`; `renderQueue`
 opens a crashed one again, with the windows `main/index.ts` makes; `codeSnapshot` in
 `packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
 `frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
-`adapters/vite-adapter/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
+`packages/extension-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
 carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
@@ -6231,7 +6254,7 @@ components import, the stylesheets and theirs, and the shared config; adds what 
 a touch or a change to a file the frame doesn't read; doesn't hold once a file it reads changes, an import or a
 stylesheet's import; nor for another renderer). `packages/project/src/frame-trace.test.ts` (4: the same hash for the
 same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
-and a digest that ignores order but not a hash, a file or the salt). `adapters/vite-adapter/src/loaded-files.test.ts`
+and a digest that ignores order but not a hash, a file or the salt). `packages/extension-vite/src/loaded-files.test.ts`
 (4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
 a file Vite hasn't built). `packages/processes/src/builder-process.test.ts` asks the builder's process what files
 modules load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
@@ -6792,8 +6815,8 @@ Started again after a full run's measuring, both builds took about 4.7 s.
   involved. `pnpm perf` passes the flag too, unless it's run with `--react development`, and records the build in each
   result. Storybook and the end-to-end suite, which don't pass it, run the development build.
 - **Dependencies are prebundled as production:** the UI's Vite config sets `process.env.NODE_ENV` to `production` in the
-  dependency optimizer (Rolldown's `transform.define`), as vite-adapter does for frames (PAR-198). The app's own modules
-  are still served as in development, so `import.meta.env.DEV` stays true.
+  dependency optimizer (Rolldown's `transform.define`), as Vite's extension does for frames (PAR-198). The app's own
+  modules are still served as in development, so `import.meta.env.DEV` stays true.
 - **The app's JSX calls the production `jsx`:** it's still compiled for development, calling `jsxDEV`, which the
   production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
 - **Fast Refresh is off,** since it reaches React only through the development build: a change to a component reloads
@@ -7084,7 +7107,7 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
 `apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
 `PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`; `routeLines` in
-`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`, and
+`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`, and
 `appPageModeScript` in `app-page.ts`, whose messages `pageHeightMessage` and `pageLandedMessage` read.
 
 Tests: `packages/editor/src/route-boards.test.ts` (34: each layout's pages hung from its index, the root's index at the
@@ -7104,7 +7127,7 @@ brings forward, up to the top of the tree and down to the pages right under it, 
 no page or a page outside the tree; a line into a group curving straight to its top), `canvas-labels.test.ts`
 (`titleTop`, up close and zoomed out), `packages/extension-tanstack-router/src/routes.test.ts` (the example's
 `/settings` index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
-`adapters/vite-adapter/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
+`packages/extension-vite/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
 told once the frame is taller than its screen, the scrollbar hidden while it is and given back otherwise, the path the
 page opens on and where the router moves it told, nothing told once someone uses the page, and nothing told outside a
 page's frame). Gaps: reading routes when the project opens, the page frames, drawing the lines, groups, landing warning
@@ -7613,7 +7636,7 @@ adding one to an open project changed nothing until Parity restarted.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
 `styles.ts`; `watches` and `scriptConfigExtensions` in `packages/core/src/adapters.ts`, `viteConfigFiles` in
-`adapters/vite-adapter/src/index.ts` and `storybookConfigFiles` in `adapters/storybook-adapter/src/detect.ts`;
+`packages/extension-vite/src/builder.ts` and `storybookConfigFiles` in `adapters/storybook-adapter/src/detect.ts`;
 `watched`, `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
 `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
 `shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
@@ -7627,12 +7650,12 @@ while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (3: a
 now names its stylesheet tells the windows, a file detection doesn't read doesn't, a moment without package.json isn't a
 change, and opened again it's detected from the new file; a config file the registered builder names tells the windows,
 and one no builder names doesn't; a `components.json` written while the builder starts is told once the project is
-open). `adapters/vite-adapter/src/detect.test.ts` checks that each config name Vite finds is among
-`viteBuilder.configFiles`. `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its
-project again only when the service says detection changed; a tab told while loading asks again once it's ready). Gaps:
-the handlers wiring `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's
-folder filling with files, a `.storybook` folder added and a Vite config's contents aren't compared (Vite restarts its
-own server when its config changes).
+open). `packages/extension-vite/src/detect.test.ts` checks that each config name Vite finds is among
+`viteBuilder.watches`. `apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its project
+again only when the service says detection changed; a tab told while loading asks again once it's ready). Gaps: the
+handlers wiring `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's folder
+filling with files, a `.storybook` folder added and a Vite config's contents aren't compared (Vite restarts its own
+server when its config changes).
 
 ### A tab closed while its project opens (PAR-427)
 
@@ -8198,8 +8221,8 @@ Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's r
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
 `packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
 `adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
-`packages/extension-tanstack-router/src/extension.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit
-test runs the service's open path with several adapters of one kind.
+`packages/extension-tanstack-router/src/extension.test.ts` and `packages/extension-vite/src/detect.test.ts`. Gaps: no
+unit test runs the service's open path with several adapters of one kind.
 
 ### Each tool's status bar item comes from its adapter
 
@@ -8232,9 +8255,9 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
-`apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/vite-adapter` and
-`storybook-adapter`, and React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of
-adapters in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+`apps/desktop/src/utility/projects.ts`; Storybook's item and logo (`src/logo.ts`) in `adapters/storybook-adapter`, and
+Vite's, React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters in
+`packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
 an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
@@ -8672,13 +8695,13 @@ project's own modules are still served as in development, and its own dev server
   the one last drawn, so effects and class components' lifecycle methods ask about it.
 - **Layers are still found from React's tree,** which reads only fields both builds keep.
 
-Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `adapters/vite-adapter/src/index.ts`;
+Code: `productionDependencies`, `developmentStandIn` and `guestPlugin` in `packages/extension-vite/src/builder.ts`;
 `developmentStandIns` in `packages/extension-react/package.json`'s renderer provider; `renderingIn`, `watchRenders` and
 `watchCommits` in `packages/extension-react/src/viewport.ts`, and `FrameWindowContext`, which the guest provides at each
 frame's top.
 
-Tests: `adapters/vite-adapter/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production while
-serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
+Tests: `packages/extension-vite/src/production.test.ts` (8: a Vite server prebundling a stand-in React as production
+while serving the project's module as development, and its `jsx-dev-runtime` through the stand-in; a stand-in's import
 resolved from the folder of the module importing it; a prebundled package compiled for development getting the stand-in,
 with a runtime installed only below it; the stand-ins' matching; the optimizer settings for Vite 8 and before, its
 plugin named after the stand-ins, and esbuild's plugin). `apps/desktop/src/renderer/frame.test.ts` and
@@ -9424,12 +9447,12 @@ the parent's other slots. Library designs' `$call` factories are loaded even whe
 uses their modules; design-only `$import` props remain literal data.
 
 Code: `remapLibraryImports` and `libraryImports` in `packages/core/src/library.ts`; `findLibraries` in
-`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `adapters/vite-adapter/src/index.ts`;
+`packages/project/src/libraries.ts`; `guestModuleSource` and `iconImports` in `packages/extension-vite/src/builder.ts`;
 `iconCatalog` in `apps/desktop/src/renderer/chrome/icons.tsx`.
 
 Tests: `packages/project/src/index.test.ts` (aliased entry modules, decorators, nested made values and icon subpaths),
 `packages/core/src/library.test.ts` (one import traversal, ordinary data preserved and current-format-only reads),
 `packages/core/src/library-insert.test.ts` (render-prop insertion preserves other slots), and
-`adapters/vite-adapter/src/index.test.ts` (resolved icon modules, stable style keys and design-only factories), and
+`packages/extension-vite/src/builder.test.ts` (resolved icon modules, stable style keys and design-only factories), and
 `apps/desktop/src/renderer/library-runtime.test.ts` (generated guest renders a placed library design with nested
 design-only factories).

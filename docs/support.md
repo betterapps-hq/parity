@@ -98,9 +98,9 @@ go.
 
 | Tool                     | Status | Notes                                                                                                                                                                                                                |
 | ------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vite 8                   | ✅     | `adapters/vite-adapter`, with the project's own Vite and config.                                                                                                                                                     |
-| Vite 7                   | ❔     | Same adapter; untested. Drops in June 2027.                                                                                                                                                                          |
-| Vite 6                   | ❔     | Same adapter; untested. Drops in November 2026.                                                                                                                                                                      |
+| Vite 8                   | ✅     | Its extension (`packages/extension-vite`), with the project's own Vite and config.                                                                                                                                   |
+| Vite 7                   | ❔     | Same extension; untested. Drops in June 2027.                                                                                                                                                                        |
+| Vite 6                   | ❔     | Same extension; untested. Drops in November 2026.                                                                                                                                                                    |
 | Vite 5 and earlier       | ❌     | Dropped: Vite 5 came out in November 2023. Untested, but not blocked.                                                                                                                                                |
 | Vite+                    | ✅     | `vite` aliased to `@voidzero-dev/vite-plus-core`, by npm, pnpm or yarn or through a pnpm catalog, counts as the Vite it ships, from `bundledVersions` in its installed package.json, not as the alias's own version. |
 | `vite.config.cjs`/`.cts` | ✅     | Found by the project's own Vite (`loadConfigFromFile`), like `.js`, `.mjs`, `.ts` and `.mts`.                                                                                                                        |
@@ -229,16 +229,16 @@ go.
 
 **Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
 tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. `adapters/`
-holds one package per tool, each named for it: `storybook-adapter` and `vite-adapter`; React, Tailwind CSS and TanStack
-Router are extensions. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a design of the
-story kind, its stories its states, a row each on its board. A story whose meta names a component and has no `render` of
-its own draws that component with the story's args as its props. A story that renders itself draws its `render`
-function, loaded from its file, with its args as props. Decorators and the `render` function's `context` aren't applied
-yet. Edits to a story's args are written back to its file, as the args that differ from its meta's; nothing else of a
-story file's design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of icon
-for a group, a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the mode's
-whole window, and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it, its
-modes and their scales are kept in the project's file, never in the story's.
+holds one package per tool, each named for it: `storybook-adapter`; Vite, React, Tailwind CSS and TanStack Router are
+extensions. `storybook-adapter` reads CSF with the TypeScript compiler: each story file is a design of the story kind,
+its stories its states, a row each on its board. A story whose meta names a component and has no `render` of its own
+draws that component with the story's args as its props. A story that renders itself draws its `render` function, loaded
+from its file, with its args as props. Decorators and the `render` function's `context` aren't applied yet. Edits to a
+story's args are written back to its file, as the args that differ from its meta's; nothing else of a story file's
+design is. Layers lists the files in folders for each part of their titles, with Storybook's kinds of icon for a group,
+a file and a story. Each story draws a preview for each mode it shows, as wide as the story, in the mode's whole window,
+and the picked story's args show as Props in the Design panel. Sizes dragged on a story to test it, its modes and their
+scales are kept in the project's file, never in the story's.
 
 ### Language
 

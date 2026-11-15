@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { elementSources, guestModuleSource, taggedModule } from "./index.ts"
+import { elementSources, guestModuleSource, taggedModule } from "./builder.ts"
 
 describe("guestModuleSource", () => {
   it("imports the renderer, styles and components in order", () => {

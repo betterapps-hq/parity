@@ -1,5 +1,8 @@
 export {
   type BuilderAdapter,
+  type BuilderDescription,
+  type BuilderPackage,
+  extensionBuilder,
   type BuilderDetection,
   declares,
   type DetectContext,
