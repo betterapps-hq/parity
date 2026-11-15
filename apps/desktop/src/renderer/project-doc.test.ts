@@ -132,6 +132,17 @@ describe("the status agents read", () => {
     expect(revisionOf(session)).toBe(changed)
   })
 
+  it("gives a new revision for a change to token values alone, and for its undo", () => {
+    const { session } = setup()
+    const opened = revisionOf(session)
+    changeTokens(session.doc, "Edit --primary", [{ name: "primary", theme: "default", value: "red", original: "blue" }])
+    const edited = revisionOf(session)
+    undo(session)
+
+    expect(edited).not.toBe(opened)
+    expect(revisionOf(session)).not.toBe(edited)
+  })
+
   it("names token values waiting for the stylesheet", () => {
     const { session } = setup()
     session.saver.writeTokensWith({ path: "src/index.css", write: async () => undefined })

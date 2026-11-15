@@ -9726,17 +9726,18 @@ changed modes, token values, and the undo and redo labels. `get_app_state` carri
 nothing; the revision changes with every change, undo, redo, revert or reload of designs, modes or token edits, and not
 with saving or the camera.
 
-Implementation: the `ProjectDoc`'s `version` in `packages/multiplayer/src/project-doc.ts`; `editStatus` in
-`packages/editor/src/status.ts`, which takes plain values; `editStatusOf` and `revisionOf` in
-`apps/desktop/src/renderer/project-doc.ts`, which read the document and the saver; `agent.status` in
-`renderer/agent/handlers.ts` and `shared/protocol.ts`; the `status` RPC and state's revision in `utility/agent.ts`; the
-`status` operation in `packages/cli/src/operations.ts`, `describeStatus` in `client.ts`, and the adapters in `mcp.ts`
-and `bin.ts`.
+Implementation: `revisionOf` in `apps/desktop/src/renderer/project-doc.ts`, which counts the document's changes, token
+edits included, since those never reach the provider and leave its `version` as it was; `editStatus` in
+`packages/editor/src/status.ts`, which takes plain values; `editStatusOf` there, which reads the document and the saver;
+`agent.status` in `renderer/agent/handlers.ts` and `shared/protocol.ts`; the `status` RPC and state's revision in
+`utility/agent.ts`; the `status` operation in `packages/cli/src/operations.ts`, `describeStatus` in `client.ts`, and the
+adapters in `mcp.ts` and `bin.ts`.
 
 Tests: `packages/editor/src/status.test.ts` "editStatus" (clean, with nothing to undo; applied, undoable changes told
 apart from what's on disk, and failed writes; a bounded summary of added, changed and removed designs, token values and
 labels newest first; changed modes). `apps/desktop/src/renderer/project-doc.test.ts` "the status agents read" (what's
-unsaved and undoable, the revision moving with a change and kept by saving; token values waiting for the stylesheet).
+unsaved and undoable, the revision moving with a change and kept by saving; a new revision for a change to token values
+alone and for its undo; token values waiting for the stylesheet).
 `packages/multiplayer-local/src/local-provider.test.ts` "says what changed, with a new version for each commit". A
 failed write leaving the revision has no test now. `packages/cli/src/operations.test.ts` (CLI and MCP defaults, explicit
 summary and limit, structured output, invalid summary and limit) and `client.test.ts` (the text). Checked in the running

@@ -93,6 +93,12 @@ interface Tally {
 
 const tallies = new WeakMap<ProjectDoc, Tally>()
 
+/**
+ * How many times each document has changed: every transaction, undo, redo and replaced file, token edits included,
+ * which never reach the provider and so leave its version as it was.
+ */
+const revisions = new WeakMap<ProjectDoc, { count: number }>()
+
 /** Opens a project's files in a document, with a saver, recording how long it took (`projectDoc.opened`). */
 export function openDocSession(options: OpenOptions): DocSession {
   const started = performance.now()
@@ -106,6 +112,11 @@ export function openDocSession(options: OpenOptions): DocSession {
     })
 
     const doc = tallied(createProjectDoc(backend, { undoLimit, main: options.main }))
+    const revision = { count: 0 }
+    revisions.set(doc, revision)
+    doc.subscribe(() => {
+      revision.count += 1
+    })
     const saver = createProjectSaver(doc, options.persistence)
     const entries = containerEntries(doc)
 
@@ -376,7 +387,7 @@ export function savedViewOf(
 
 /** The revision agents see: opaque, and the same only while nothing here has changed. */
 export function revisionOf(session: DocSession): string {
-  return `${session.epoch}:${session.doc.version().value}`
+  return `${session.epoch}:${revisions.get(session.doc)?.count ?? 0}`
 }
 
 /** Where the edits stand for agents: applied, undoable, saved, and whether saving is automatic. */
