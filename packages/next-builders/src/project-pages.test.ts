@@ -1,0 +1,142 @@
+import { describe, expect, it } from "vite-plus/test"
+import {
+  exportNames,
+  isAppRouteFile,
+  isPagesRouteFile,
+  projectPageFiles,
+  projectSpecifier,
+  routeFolders,
+  segmentLiterals
+} from "./project-pages.ts"
+
+const text = (files: { path: string; text: string }[], path: string) => files.find((file) => file.path === path)?.text
+
+describe("the project's pages in the guest app", () => {
+  it("reads routes from the root's folders, or from src/ when neither router's is at the root", () => {
+    expect(routeFolders(["app", "pages", "src/app"])).toEqual({ app: "app", pages: "pages" })
+    expect(routeFolders(["pages", "src/app"])).toEqual({ pages: "pages" })
+    expect(routeFolders(["src/app", "src/pages"])).toEqual({ app: "src/app", pages: "src/pages" })
+    expect(routeFolders([])).toEqual({})
+  })
+
+  it("mirrors the App Router's conventions, whatever their page extension, and nothing beside them", () => {
+    expect(isAppRouteFile("app/blog/[slug]/page.tsx")).toBe(true)
+    expect(isAppRouteFile("app/layout.js")).toBe(true)
+    expect(isAppRouteFile("app/api/route.ts")).toBe(true)
+    expect(isAppRouteFile("app/docs/page.page.tsx")).toBe(true)
+    expect(isAppRouteFile("app/docs/page.mdx")).toBe(true)
+    expect(isAppRouteFile("app/_components/Card.tsx")).toBe(false)
+    expect(isAppRouteFile("app/globals.css")).toBe(false)
+    expect(isAppRouteFile("app/page.d.ts")).toBe(false)
+    expect(isPagesRouteFile("pages/about.tsx")).toBe(true)
+    expect(isPagesRouteFile("pages/styles.module.css")).toBe(false)
+  })
+
+  it("puts App Router files in the project's route group and Pages Router files in pages/", () => {
+    const files = projectPageFiles({ app: "src/app", pages: "src/pages" }, [
+      { path: "src/app/layout.tsx", text: "export default function Layout() {}" },
+      { path: "src/app/(shop)/cart/page.tsx", text: '"use client"\nexport default function Cart() {}' },
+      { path: "src/app/globals.css", text: "body {}" },
+      { path: "src/pages/_app.tsx", text: "export default function App() {}" },
+      { path: "src/pages/blog/[slug].tsx", text: "export default function Post() {}" }
+    ])
+
+    expect(files.map((file) => file.path)).toEqual([
+      "app/(project)/layout.tsx",
+      "app/(project)/(shop)/cart/page.tsx",
+      "pages/_app.tsx",
+      "pages/blog/[slug].tsx"
+    ])
+    expect(text(files, "app/(project)/(shop)/cart/page.tsx")).toContain(
+      'export { default } from "../../../../../../src/app/(shop)/cart/page"'
+    )
+    expect(text(files, "pages/blog/[slug].tsx")).toContain(
+      'export { default } from "../../../../src/pages/blog/[slug]"'
+    )
+  })
+
+  it("re-exports a route's named exports, and copies its segment config when it's a literal", () => {
+    const [page] = projectPageFiles({ app: "app" }, [
+      {
+        path: "app/blog/page.tsx",
+        text: [
+          'export const dynamic = "force-dynamic"',
+          "export const revalidate = compute()",
+          "export async function generateMetadata() {}",
+          "export type Props = {}",
+          "export default async function Blog() {}"
+        ].join("\n")
+      }
+    ])
+
+    expect(page!.text.split("\n").slice(1)).toEqual([
+      'export { default } from "../../../../../app/blog/page"',
+      'export { revalidate, generateMetadata } from "../../../../../app/blog/page"',
+      'export const dynamic = "force-dynamic"',
+      ""
+    ])
+  })
+
+  it("leaves a page's config out of the Pages Router's re-exports, as Next reads it from the page itself", () => {
+    const [page] = projectPageFiles({ pages: "pages" }, [
+      {
+        path: "pages/api/upload.ts",
+        text: "export const config = { api: { bodyParser: false } }\nexport default function handler() {}"
+      },
+      {
+        path: "pages/about.tsx",
+        text: "export default function About() {}\nexport async function getServerSideProps() {}"
+      }
+    ])
+
+    expect(page!.text).not.toContain("config")
+    expect(
+      projectPageFiles({ pages: "pages" }, [
+        {
+          path: "pages/about.tsx",
+          text: "export default function About() {}\nexport async function getServerSideProps() {}"
+        }
+      ])[0]!.text
+    ).toContain('export { getServerSideProps } from "../../../pages/about"')
+  })
+
+  it("imports the project's file without its extension, unless it's MDX", () => {
+    expect(projectSpecifier("app/(project)/page.tsx", "app/page.tsx")).toBe("../../../../app/page")
+    expect(projectSpecifier("app/(project)/docs/page.mdx", "app/docs/page.mdx")).toBe(
+      "../../../../../app/docs/page.mdx"
+    )
+    expect(projectSpecifier("pages/index.page.tsx", "pages/index.page.tsx")).toBe("../../../pages/index.page")
+  })
+
+  it("reads a module's exports from declarations and lists, leaving out types and comments", () => {
+    const source = [
+      "// export const commented = 1",
+      "export { a, b as c, type D } from './x'",
+      "export type { E } from './y'",
+      "export function* gen() {}",
+      "export class Shape {}",
+      "const f = 1",
+      "export { f as default }"
+    ].join("\n")
+
+    expect(exportNames(source)).toEqual(["gen", "Shape", "a", "c", "default"])
+  })
+
+  it("copies segment config whose value is a literal", () => {
+    expect(
+      segmentLiterals(
+        [
+          "export const revalidate = 60;",
+          "export const runtime: string = 'edge'",
+          "export const preferredRegion = ['iad1'] as const",
+          "export const dynamicParams = flag",
+          "export const title = 'not config'"
+        ].join("\n")
+      )
+    ).toEqual([
+      ["revalidate", "60"],
+      ["runtime", "'edge'"],
+      ["preferredRegion", "['iad1']"]
+    ])
+  })
+})
