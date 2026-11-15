@@ -1,6 +1,7 @@
 # Proposal: settings that every copy shares
 
-Status: draft, 2026-11-13. No Linear issues yet; the work is listed under [Order](#order).
+Status: built, 2026-11-15. Every step under [Order](#order) has landed; permission grants for extensions, which only the
+Settings view will change, come with the extensions work (PAR-1087).
 
 ## In one line
 
@@ -256,7 +257,7 @@ Each step ships alone.
 7. **The Settings view** (PAR-1085, PAR-1090, PAR-1123), owned by main and loading no project code, with main refusing
    extension settings and permission grants from the editor window. Its design is the Settings modal being prototyped in
    Storybook.
-8. **Extension settings in `app` scope**, in the Settings view, once extensions load from their manifests.
+8. **Extension settings in `app` scope** (PAR-1090), in the Settings view, once extensions load from their manifests.
 
 ## Calls to make
 
