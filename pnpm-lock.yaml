@@ -410,6 +410,9 @@ importers:
       '@parity-app/media-player':
         specifier: workspace:*
         version: link:../../packages/media-player
+      '@parity-app/multiplayer':
+        specifier: workspace:*
+        version: link:../../packages/multiplayer
       '@parity-app/processes':
         specifier: workspace:*
         version: link:../../packages/processes
@@ -991,6 +994,15 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/multiplayer:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
 
   packages/processes:
     dependencies:

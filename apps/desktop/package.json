@@ -47,6 +47,7 @@
     "@parity-app/connectors": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
+    "@parity-app/multiplayer": "workspace:*",
     "@parity-app/extension-api": "workspace:*",
     "@parity-app/extension-portless": "workspace:*",
     "@parity-app/extension-react": "workspace:*",
