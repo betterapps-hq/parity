@@ -12,7 +12,8 @@ import {
   sameSpec,
   startsAs,
   visibleTo,
-  withUsualFolders
+  withUsualFolders,
+  withUsualPath
 } from "./process-specs.ts"
 
 const storybook: ProcessSpec = {
@@ -171,6 +172,14 @@ describe("finding programs", () => {
       PATH: "C:\bin",
       PATHEXT: ".EXE"
     })
+  })
+
+  it("gives a run the usual folders under the PATH name it already has", () => {
+    expect(withUsualPath({ PATH: "/bin", HOME: "/home/me" }, "darwin")).toEqual({
+      PATH: "/bin:/usr/local/bin:/opt/homebrew/bin",
+      HOME: "/home/me"
+    })
+    expect(withUsualPath({ Path: "C:\bin" }, "win32")).toEqual({ Path: "C:\bin" })
   })
 
   it("tells this machine's hosts from others", () => {

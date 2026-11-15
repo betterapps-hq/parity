@@ -11,14 +11,20 @@ import * as accessibility from "./extension.ts"
 
 const story = "http://localhost:6006/?path=/story/button--primary"
 
+/** What happened as the extensions started, in order. */
+const happened: string[] = []
+
 /** The Storybook extension's API as the accessibility extension uses it, without a Storybook to start. */
 const storybook: ExtensionModule = {
-  activate: (): StorybookApi => ({
-    componentsWithStories: () => ["Button"],
-    storyFiles: () => ["src/button.stories.tsx"],
-    storyPage: (component, kind) =>
-      Promise.resolve(component === "Button" && kind === "story" ? story : "http://localhost:6006")
-  })
+  activate: (): StorybookApi => (
+    happened.push("storybook activated"),
+    {
+      componentsWithStories: () => ["Button"],
+      storyFiles: () => ["src/button.stories.tsx"],
+      storyPage: (component, kind) =>
+        Promise.resolve(component === "Button" && kind === "story" ? story : "http://localhost:6006")
+    }
+  )
 }
 
 /** Both extensions, each in a host in memory, run by the real host code. */
@@ -83,7 +89,11 @@ function setUp() {
       report: () => undefined,
       summarize: () => undefined,
       markReady: () => undefined,
-      snapshot: () => ({ list: [], output: {}, ready: {} }),
+      snapshot(caller) {
+        happened.push(`processes for ${caller.extension}`)
+
+        return { list: [], output: {}, ready: {} }
+      },
       watch: () => () => undefined,
       reattached: () => undefined,
       stopAll: () => undefined,
@@ -117,6 +127,17 @@ describe("the accessibility extension", () => {
     await hosts.run("shop", "a11y.open", { type: "component", key: "Button" })
 
     expect(opened).toEqual([`${story}&addonPanel=storybook/a11y/panel`])
+  })
+
+  it("hands the accessibility extension its processes once the Storybook extension has activated", async () => {
+    happened.length = 0
+    const { hosts } = setUp()
+
+    await hosts.run("shop", "a11y.open", { type: "component", key: "Button" })
+
+    expect(happened.indexOf("processes for @parity-app/extension-storybook-a11y")).toBeGreaterThan(
+      happened.indexOf("storybook activated")
+    )
   })
 
   it("gives an agent the page as a tool", async () => {

@@ -710,7 +710,7 @@ export function extensionHosts<Project extends OpenedProject>(
       views: declaredViews(found.manifest.contributes),
       state: { app: stored.app, project: stored.project },
       selection: open.selection,
-      processes: options.processes.snapshot(caller),
+      processes: { list: [], output: {}, ready: {} },
       settings: {
         values: { ...host.settings.values },
         scopes: Object.fromEntries(
@@ -742,8 +742,9 @@ export function extensionHosts<Project extends OpenedProject>(
         params.dependencies = dependencies
       }
 
-      // What's selected now, which may have changed while the extensions it builds on started.
+      // What's selected now, and its processes, which may have changed while the extensions it builds on started.
       params.selection = open.selection
+      params.processes = options.processes.snapshot(caller)
 
       const { api } = await withTimeout(
         channel.request("activate", params),

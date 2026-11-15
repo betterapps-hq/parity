@@ -18,7 +18,8 @@ import {
   specFingerprint,
   startsAs,
   visibleTo,
-  withUsualFolders
+  withUsualFolders,
+  withUsualPath
 } from "@parity-app/processes"
 import { detectPackageManager } from "@parity-app/project"
 import { z } from "zod"
@@ -303,7 +304,7 @@ function managedSpec(caller: ProcessCaller, project: ProcessProject, spec: Proce
         added[spec.port.env] = String(port)
       }
 
-      const env = runEnvironment(spec.run, process.env, added)
+      const env = withUsualPath(runEnvironment(spec.run, process.env, added), process.platform)
       const command = await commandFor(caller, project.root, spec.run, fillPort(spec.args ?? [], port), env)
       const launch: Launch = { ...command, cwd, env }
 

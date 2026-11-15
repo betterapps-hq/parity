@@ -289,6 +289,16 @@ export function withUsualFolders(
   return env.PATHEXT === undefined ? { PATH: path } : { PATH: path, PATHEXT: env.PATHEXT }
 }
 
+/**
+ * An environment whose PATH has the usual folders after its own, kept under the name it already has, so a program
+ * found there, as Homebrew's pnpm, finds the Node its first line asks for too.
+ */
+export function withUsualPath(env: Record<string, string>, platform: string) {
+  const key = Object.keys(env).find((name) => name.toUpperCase() === "PATH") ?? "PATH"
+
+  return { ...env, [key]: withUsualFolders({ PATH: env[key] ?? "" }, platform).PATH }
+}
+
 /** Whether a host is this machine: `localhost`, `127.0.0.1`, `[::1]`, or a name under `.localhost`. */
 export function isLocalHost(host: string): boolean {
   const bare = host.replace(/^\[|\]$/g, "").toLowerCase()
