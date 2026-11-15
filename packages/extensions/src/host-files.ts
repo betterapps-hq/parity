@@ -13,8 +13,8 @@ type Send = <M extends keyof HostServiceMethods>(
 
 /** What the host does with file reads and watches. */
 export interface HostFiles {
-  /** `files.read` and `files.watch`, logging a watch the service refuses. */
-  api(send: Send, log: (text: string) => void): Pick<Files, "read" | "watch">
+  /** `files.read`, `files.list` and `files.watch`, logging a watch the service refuses. */
+  api(send: Send, log: (text: string) => void): Pick<Files, "read" | "list" | "watch">
   /** A watched file changed. */
   changed(id: number): void
 }
@@ -30,6 +30,11 @@ export function hostFiles(): HostFiles {
         const { text } = await send("files.read", { path })
 
         return text
+      },
+      async list(folder) {
+        const { paths } = await send("files.list", { folder })
+
+        return paths
       },
       watch(path, listener): Disposable {
         const id = next++

@@ -1,6 +1,7 @@
 import { existsSync, type Stats, unwatchFile, watchFile } from "node:fs"
-import { readFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
+import { join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import {
   type BuilderDescription,
@@ -13,6 +14,7 @@ import {
   type PackageManifest,
   type RendererDescription
 } from "@parity-app/core"
+import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import rsbuildPackage from "@parity-app/extension-rsbuild/package.json" with { type: "json" }
@@ -117,6 +119,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   builtIn(reactPackage, "react"),
   builtIn(tailwindPackage, "tailwind"),
   builtIn(routerPackage, "tanstack-router"),
+  builtIn(nextjsPackage, "nextjs"),
   builtIn(storybookPackage, "storybook"),
   builtIn(accessibilityPackage, "storybook-a11y"),
   builtIn(portlessPackage, "portless")
@@ -129,6 +132,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
 const extensionFiles: ExtensionFiles = {
   place: { home: homedir(), variables: process.env, platform: process.platform },
   read: (path) => readFile(path, "utf8"),
+  list: listFiles,
   watch(path, listener) {
     const changed = (now: Stats, before: Stats) => {
       if (now.mtimeMs !== before.mtimeMs || now.size !== before.size || now.ino !== before.ino) {
@@ -140,6 +144,23 @@ const extensionFiles: ExtensionFiles = {
 
     return () => unwatchFile(path, changed)
   }
+}
+
+/** Folders a listing never goes into: installed packages and version control. */
+const unlisted = new Set(["node_modules", ".git"])
+
+/** The most files a listing gives, so a listing of a whole project can't run away. */
+const listLimit = 20_000
+
+/** Every file under `folder`, by its path from it with forward slashes, skipping installed packages. */
+async function listFiles(folder: string): Promise<string[]> {
+  const entries = await readdir(folder, { recursive: true, withFileTypes: true }).catch(() => [])
+
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => relative(folder, join(entry.parentPath, entry.name)).replaceAll("\\", "/"))
+    .filter((path) => !path.split("/").some((part) => unlisted.has(part)))
+    .slice(0, listLimit)
 }
 
 /** The providers extensions register for the open projects' processes. */

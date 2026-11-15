@@ -107,6 +107,7 @@ function setUp() {
     files: {
       place: { home: "/home", variables: {}, platform: "linux" },
       read: () => Promise.reject(new Error("Not in this test")),
+      list: () => Promise.resolve([]),
       watch: () => () => undefined
     },
     edits: { transact: () => Promise.resolve(), files: () => Promise.resolve([]) }

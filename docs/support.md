@@ -267,19 +267,19 @@ Only reading routes is built so far. **The priority is yours: databases, the API
 telemetry.** The rest follow, and tests, coverage, the gaps report and performance come after the core, by your
 decision. Detail is in `proposals/web-and-backend.md`, `proposals/app-lenses.md` and `proposals/extensions.md`.
 
-| Layer           | Standard (first)                                 | Adapters (after)                           | Status |
-| --------------- | ------------------------------------------------ | ------------------------------------------ | ------ |
-| Data            | SQL: the database catalog and migration files    | Drizzle, then Prisma                       | 🔜     |
-| API             | OpenAPI 3.1 and 3.2, JSON Schema                 | Hono, oRPC, server functions               | 🔜     |
-| Routes          | Parity's route model, paths as URL patterns      | TanStack Router, React Router, Next.js     | ◐      |
-| Mocks and seeds | OpenAPI and JSON Schema through MSW; SQL inserts | drizzle-seed                               | 🔜     |
-| Telemetry       | OpenTelemetry over OTLP: traces, errors, timings | Each monitoring service's query API        | 🔜     |
-| Links           | Drawn by hand on the canvas                      | The TypeScript compiler, following calls   | 🔜     |
-| Performance     | Core Web Vitals                                  | Bundle size per route from Vite's manifest | ⏳     |
-| Flags           | OpenFeature                                      | Each service's provider package            | ⏳     |
-| Sign-in, roles  | OpenID Connect, OAuth 2.0                        | Better Auth access control, Clerk, WorkOS  | ⏳     |
-| Languages       | ICU messages                                     |                                            | ⏳     |
-| Deploy          | Better Apps' capability manifest                 | Cloudflare first, through Better Apps      | ⏳     |
+| Layer           | Standard (first)                                 | Adapters (after)                            | Status |
+| --------------- | ------------------------------------------------ | ------------------------------------------- | ------ |
+| Data            | SQL: the database catalog and migration files    | Drizzle, then Prisma                        | 🔜     |
+| API             | OpenAPI 3.1 and 3.2, JSON Schema                 | Hono, oRPC, server functions                | 🔜     |
+| Routes          | Parity's route model, paths as URL patterns      | TanStack Router, Next.js, then React Router | ◐      |
+| Mocks and seeds | OpenAPI and JSON Schema through MSW; SQL inserts | drizzle-seed                                | 🔜     |
+| Telemetry       | OpenTelemetry over OTLP: traces, errors, timings | Each monitoring service's query API         | 🔜     |
+| Links           | Drawn by hand on the canvas                      | The TypeScript compiler, following calls    | 🔜     |
+| Performance     | Core Web Vitals                                  | Bundle size per route from Vite's manifest  | ⏳     |
+| Flags           | OpenFeature                                      | Each service's provider package             | ⏳     |
+| Sign-in, roles  | OpenID Connect, OAuth 2.0                        | Better Auth access control, Clerk, WorkOS   | ⏳     |
+| Languages       | ICU messages                                     |                                             | ⏳     |
+| Deploy          | Better Apps' capability manifest                 | Cloudflare first, through Better Apps       | ⏳     |
 
 **Routes are read (PAR-1073), and each page is drawn as a screen (PAR-1076).** A router extension's provider gives the
 routes (PAR-1095), as `Route` in `@parity-app/extension-api` describes them, in Parity's terms rather than the router's
@@ -288,8 +288,15 @@ catch-all), parent, file, whether it's an index, the component it draws, and whe
 Parallel routes' slots and intercepting routes have room in the shape but aren't drawn yet. The TanStack Router
 extension (`packages/extension-tanstack-router`) reads TanStack Router's file-based routes from the route tree its
 tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's file. Routes written in
-code without the generated tree aren't read. Each page is a screen, laid out in the router's tree, whose frames load the
-app itself at the page's URL (see editor.md), with each path param's value set in Props.
+code without the generated tree aren't read. The Next.js extension (`packages/extension-nextjs`, PAR-1162) reads the App
+Router's `app/` and the Pages Router's `pages/`, at the root or in `src/`, both in one project: folders and files as
+segments, `[id]`, `[...slug]` and `[[...slug]]`, nested layouts, `(group)` folders, `index`, and `_app` as the Pages
+Router's root, inside the App Router's root layout when there are both. `loading`, `error` and `not-found` files, and
+`404`, `500` and `_error`, are named as the route's state files. Parallel `@slot` routes and intercepting `(.)`, `(..)`
+and `(...)` routes are read with their slot and the route they intercept, and left off the canvas. Private `_folders`,
+route handlers, `_document` and `api/` aren't routes. Its pages draw once a builder serves the app. Each page is a
+screen, laid out in the router's tree, whose frames load the app itself at the page's URL (see editor.md), with each
+path param's value set in Props.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
@@ -377,9 +384,9 @@ project on a dropped version opens and works as far as it can. Parity reads the 
 adapter finds (React, Vite, Tailwind CSS, TanStack Router and Storybook) and notes an untested one quietly, in the
 status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each major
 (`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
-extension exists, React, Storybook and TanStack Router so far, takes its versions from the extension's peer dependencies
-instead: inside the range is supported, above it newer and below it dropped, and the range is widened or narrowed in the
-extension's `package.json` as this policy says.
+extension exists, React, Storybook, TanStack Router and Next.js so far, takes its versions from the extension's peer
+dependencies instead: inside the range is supported, above it newer and below it dropped, and the range is widened or
+narrowed in the extension's `package.json` as this policy says.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.

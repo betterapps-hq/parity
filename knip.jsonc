@@ -86,6 +86,10 @@
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
+    "packages/extension-nextjs": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/extension-api": {
       // Types only: its exports come from package.json, and it has no tests.
       "entry": [],

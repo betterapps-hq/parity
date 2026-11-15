@@ -45,8 +45,9 @@ overlay, keep state, or fail without taking the project service down with it.
 
 ## Principles
 
-- **Parity's own features are extensions.** Storybook, TanStack Router, Tailwind, React and Vite use only the public
-  API. When Storybook needs something the API lacks, the API is missing it, so every gap shows up in real use first.
+- **Parity's own features are extensions.** Storybook, TanStack Router, Next.js, Tailwind, React and Vite use only the
+  public API. When Storybook needs something the API lacks, the API is missing it, so every gap shows up in real use
+  first.
 - **One typed, versioned API.** Extensions depend on `@parity-app/extension-api`, which holds types and nothing else,
   and name the version they need in `engines.parity`. Nothing from `@parity-app/core` leaks, so Parity can change inside
   without breaking anyone.
@@ -317,7 +318,7 @@ they're synchronous; anything that changes something is asynchronous (Speed and 
 ### The project and its files
 
 - `parity.project`: its root, name, package manifest, package manager, and what the extension's `detect` found.
-- `parity.files.read(path)`, `find(glob)` and `watch(glob, listener)`, limited to the paths its permissions name.
+- `parity.files.read(path)`, `list(folder)` and `watch(path, listener)`, limited to the paths its permissions name.
 - `parity.files.edit(label, changes)`: writes project files through the project service's one queued write, which checks
   nothing changed underneath, can be undone under the extension's name, and isn't read back as an outside edit. Limited
   to the write paths its permissions name. Parity refuses writes to `.par` files whatever they name.
@@ -350,11 +351,12 @@ Providers are declared in the manifest's `providers` and given behaviour in `act
   group that gathers routes without adding to the URL (Next.js's `(marketing)`, TanStack Router's pathless `_auth`), or
   a page. Its `id` is the router's own and Parity only compares it; its `path` is the URL as the router writes it, which
   Parity shows and never parses. TanStack Router's extension turns `$projectId` into a param and a lone `$` into a
-  catch-all named `_splat`; a Next.js extension would turn `[id]`, `[...slug]` and `[[...slug]]` into the same. Two
-  Next.js ideas have room but aren't drawn yet: a parallel route names the `slot` it fills (`@modal`), and an
-  intercepting route names the route it `intercepts`; the canvas leaves both out for now. A route can also name the
-  files its router draws while it loads, when it fails and when nothing matches (`stateFiles`), as Next.js's `loading`,
-  `error` and `not-found`, which the canvas doesn't draw yet.
+  catch-all named `_splat`; Next.js's extension (PAR-1162) turns `[id]`, `[...slug]` and `[[...slug]]` into the same,
+  for the App Router and the Pages Router together. Two Next.js ideas have room but aren't drawn yet: a parallel route
+  names the `slot` it fills (`@modal`), and an intercepting route names the route it `intercepts`; Next.js's extension
+  gives both, and the canvas leaves them out for now. A route can also name the files its router draws while it loads,
+  when it fails and when nothing matches (`stateFiles`), as Next.js's `loading`, `error` and `not-found`, which the
+  canvas doesn't draw yet.
 - **Entities providers keep the round trip.** Import gives screens and their code; export writes an edited screen back
   to its file on Save, as stories work today. Parity makes the canvas file and its nodes from what import returns, so no
   call adds a canvas file directly.

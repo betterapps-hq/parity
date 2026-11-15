@@ -93,6 +93,7 @@ function setUp(module: ExtensionModule) {
     files: {
       place: { home: "/home/ada", variables: {}, platform: "linux" },
       read: () => Promise.reject(new Error("Not in this test")),
+      list: () => Promise.resolve([]),
       watch: () => () => undefined
     }
   })

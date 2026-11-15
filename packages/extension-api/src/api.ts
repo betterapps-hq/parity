@@ -239,6 +239,11 @@ export interface Files {
    */
   read(path: string): Promise<string>
   /**
+   * Every file in a folder and the folders inside it, by its path from the project's root with forward slashes, as a
+   * router's pages: those the manifest's `read` permission names. Empty when the folder isn't there.
+   */
+  list(folder: string): Promise<string[]>
+  /**
    * Calls `listener` whenever the file at `path` is created, changes or goes, for a path `read` names, as `read` takes
    * it. The file needn't be there yet.
    */

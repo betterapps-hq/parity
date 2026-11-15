@@ -1189,6 +1189,34 @@ Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.te
 route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
 router, and Open in browser's placements in the window, have no unit test of their own.
 
+### Next.js's routes as an extension (PAR-1162)
+
+Next.js's routes come from an extension, through Parity's public API alone, so a Next.js app's pages are listed under
+Routes in Layers, and drawn on canvas once a builder serves the app. It's found by its peer dependency on `next`.
+
+- **Routes are its files.** Its router provider lists `app/` and `pages/` with `files.list`, or `src/app` and
+  `src/pages` when neither is at the root, as Next.js picks them, and reads each page and layout for the component it
+  exports by default, whether it loads data (an `async` server component, or `getServerSideProps`, `getStaticProps` or
+  `getInitialProps`) and whether it can redirect or refuse first.
+- **The App Router:** a folder is a segment, `[id]` a param, `[...slug]` a catch-all and `[[...slug]]` an optional one.
+  A folder's `layout` is a layout, or a group for a `(group)` folder, and its `page` a page inside the nearest layout,
+  the layout's index when it's at the layout's own URL. `loading`, `error` and `not-found` are the state files of their
+  folder's layout, else its page. Private `_folders` and route handlers aren't routes.
+- **Parallel and intercepting routes** are read, each with the `slot` it fills or the route it `intercepts`, found by
+  the URL it matches, and left off the canvas and the route count until the canvas draws them.
+- **The Pages Router:** each file is a page under `_app`, its path its own without `index`. `404`, `500` and `_error`
+  are `_app`'s state files; `_document` and `api/` aren't routes.
+- **Both in one project:** the App Router's root layout is the root, and `_app` a group inside it holding the Pages
+  Router's pages, or the pages sit under the root without an `_app`.
+- **Open in browser** and **the route count** work as TanStack Router's do.
+
+Code: `packages/extension-nextjs` (its manifest, `extension.ts` and `routes.ts`); `files.list` in
+`packages/extension-api/src/api.ts`, `host-files.ts`, `hosts.ts` and `listFiles` in `utility/extensions.ts`.
+
+Tests: `packages/extension-nextjs/src/extension.test.ts` and `routes.test.ts` (App Router, Pages Router and mixed
+fixture trees as data), and the listing test in `packages/extensions/src/hosts.test.ts`. Gaps: `listFiles` on disk has
+no unit test of its own, and the pages haven't been drawn in the running app, which needs a Next.js builder.
+
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 
 Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does
