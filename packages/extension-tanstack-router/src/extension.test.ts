@@ -23,13 +23,24 @@ describe("the TanStack Router extension", () => {
 })
 
 describe("isPage", () => {
-  const route = { file: "src/routes/x.tsx", params: [], index: false, loads: false, guards: false }
+  const route = { file: "src/routes/x.tsx", index: false, loads: false, guards: false }
 
   it("counts every route but the root, which only holds the others", () => {
-    expect(isPage({ ...route, id: "__root__", path: "/" })).toBe(false)
-    expect(isPage({ ...route, id: "/projects/$projectId", path: "/projects/$projectId", parent: "__root__" })).toBe(
-      true
-    )
+    expect(isPage({ ...route, id: "__root__", kind: "root", segments: [], path: "/" })).toBe(false)
+
+    expect(
+      isPage({
+        ...route,
+        id: "/projects/$projectId",
+        kind: "page",
+        segments: [
+          { type: "static", value: "projects" },
+          { type: "param", name: "projectId" }
+        ],
+        path: "/projects/$projectId",
+        parent: "__root__"
+      })
+    ).toBe(true)
   })
 })
 

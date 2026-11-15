@@ -1,3 +1,4 @@
+import { routeParams } from "@parity-app/core"
 import { LayoutTemplate } from "lucide-react"
 import type { ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
@@ -44,9 +45,9 @@ export function RouteSection({ route: id }: { route: string }) {
           <Field label="Path">
             <Value>{route.path}</Value>
           </Field>
-          {route.params.length > 0 && (
+          {routeParams(route).length > 0 && (
             <Field label="Params">
-              <Value>{route.params.join(", ")}</Value>
+              <Value>{routeParams(route).join(", ")}</Value>
             </Field>
           )}
           <Field label="File">
@@ -140,7 +141,8 @@ export function PageGroupPanel({ group }: { group: PageGroupPlace }) {
  */
 export function RouteProps({ entry, route: id }: { entry: ContainerEntry; route: string }) {
   const { info, store } = useProject()
-  const params = info.routes.find((each) => each.id === id)?.params ?? []
+  const found = info.routes.find((each) => each.id === id)
+  const params = found ? routeParams(found) : []
   const values = entry.container.view?.params ?? {}
 
   if (params.length === 0) {

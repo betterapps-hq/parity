@@ -1,4 +1,4 @@
-import { defaultModeSettings, type ProjectRoute, resolveMode } from "@parity-app/core"
+import { defaultModeSettings, type ProjectRoute, resolveMode, type RouteSegment } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   pageFrameName,
@@ -18,8 +18,32 @@ import {
   samplePath
 } from "./route-boards.ts"
 
+/** A path's parts, written here as the example's router writes them: `$name` is a param and a lone `$` a catch-all. */
+function segments(path: string): RouteSegment[] {
+  return path
+    .split("/")
+    .filter((part) => part !== "")
+    .map((part): RouteSegment => {
+      if (part === "$") {
+        return { type: "catchAll", name: "_splat" }
+      }
+
+      return part.startsWith("$") ? { type: "param", name: part.slice(1) } : { type: "static", value: part }
+    })
+}
+
 function route(id: string, path: string, parent: string | undefined, index = false): ProjectRoute {
-  return { id, path, parent, file: `src/routes/${id}.tsx`, params: [], index, loads: false, guards: false }
+  return {
+    id,
+    kind: parent === undefined ? "root" : "page",
+    segments: segments(path),
+    path,
+    parent,
+    file: `src/routes/${id}.tsx`,
+    index,
+    loads: false,
+    guards: false
+  }
 }
 
 // The example project's routes, as the TanStack Router adapter lists them.
@@ -93,6 +117,19 @@ describe("pageTree", () => {
     expect(pageIds(pageTree([route("__root__", "/", undefined), route("/a", "/a", "__root__")]))).toEqual(["/a"])
     expect(pageTree([])).toEqual([])
   })
+
+  it("leaves out a parallel route's slot and an intercepting route, with the routes inside them", () => {
+    const routes = [
+      route("root", "/", undefined),
+      route("/feed", "/feed", "root"),
+      { ...route("/@modal", "/", "root"), slot: "modal" },
+      route("/@modal/login", "/login", "/@modal"),
+      { ...route("/(.)photo/[id]", "/photo/$id", "root"), intercepts: "/photo/[id]" },
+      route("/photo/[id]", "/photo/$id", "root")
+    ]
+
+    expect(pageIds(pageTree(routes))).toEqual(["/feed", "/photo/[id]"])
+  })
 })
 
 describe("placePages", () => {
@@ -131,14 +168,26 @@ describe("placePages", () => {
 
 describe("samplePath", () => {
   it("fills each param with its name and leaves a splat empty", () => {
-    expect(samplePath({ path: "/team/$teamId/files/$" })).toBe("/team/teamId/files/")
+    expect(samplePath({ segments: segments("/team/$teamId/files/$") })).toBe("/team/teamId/files/")
   })
 
   it("fills a param with the value given for it, written as a URL writes it", () => {
-    expect(samplePath({ path: "/team/$teamId/files/$" }, { teamId: "acme co", _splat: "a/b" })).toBe(
+    expect(samplePath({ segments: segments("/team/$teamId/files/$") }, { teamId: "acme co", _splat: "a/b" })).toBe(
       "/team/acme%20co/files/a%2Fb"
     )
-    expect(samplePath({ path: "/projects/$projectId" }, { projectId: "" })).toBe("/projects/projectId")
+    expect(samplePath({ segments: segments("/projects/$projectId") }, { projectId: "" })).toBe("/projects/projectId")
+  })
+
+  it("leaves an optional catch-all empty without a value, and fills it with one", () => {
+    const docs = {
+      segments: [
+        { type: "static", value: "docs" },
+        { type: "optionalCatchAll", name: "slug" }
+      ]
+    } as const
+
+    expect(samplePath({ segments: [...docs.segments] })).toBe("/docs/")
+    expect(samplePath({ segments: [...docs.segments] }, { slug: "intro" })).toBe("/docs/intro")
   })
 })
 
@@ -289,10 +338,10 @@ describe("landedElsewhere", () => {
 
 describe("pageName", () => {
   it("writes a page's component in words, else its path's last part, else Home", () => {
-    expect(pageName({ component: "ProjectDetail", path: "/projects/$projectId" })).toBe("Project detail")
-    expect(pageName({ path: "/settings" })).toBe("Settings")
-    expect(pageName({ path: "/team/$teamId" })).toBe("Team")
-    expect(pageName({ path: "/" })).toBe("Home")
+    expect(pageName({ component: "ProjectDetail", segments: segments("/projects/$projectId") })).toBe("Project detail")
+    expect(pageName({ segments: segments("/settings") })).toBe("Settings")
+    expect(pageName({ segments: segments("/team/$teamId") })).toBe("Team")
+    expect(pageName({ segments: [] })).toBe("Home")
   })
 })
 

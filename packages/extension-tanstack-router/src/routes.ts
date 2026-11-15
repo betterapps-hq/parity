@@ -1,4 +1,4 @@
-import type { Route } from "@parity-app/extension-api"
+import type { Route, RouteSegment } from "@parity-app/extension-api"
 import ts from "typescript"
 import { z } from "zod"
 
@@ -63,12 +63,9 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
   const found: Route[] = []
   const children = Map.groupBy(routes, (route) => route.parent)
 
-  const add = (
-    route: Omit<Route, "file" | "params" | "component" | "loads" | "guards" | "redirect">,
-    module: string
-  ) => {
+  const add = (route: Pick<Route, "id" | "kind" | "path" | "parent" | "index">, module: string) => {
     const { file, text } = resolveModule(module, read)
-    found.push({ ...route, file, params: paramsOf(route.path), ...routeOptions(text) })
+    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(text) })
   }
 
   // Ids and paths in the tree are below the parent's, so each route's full ones are its parent's with its own after.
@@ -76,15 +73,16 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
     const id = parent.id === rootId ? route.id : joinPath(parent.id, route.id)
     const joined = joinPath(parent.path, route.path)
     const path = joined.length > 1 ? joined.replace(/\/$/, "") : joined
+    const inside = children.get(route.variable) ?? []
 
-    add({ id, path, parent: parent.id, index: route.path.endsWith("/") }, route.module)
+    add({ id, kind: kindOf(route, inside), path, parent: parent.id, index: route.path.endsWith("/") }, route.module)
 
-    for (const child of children.get(route.variable) ?? []) {
+    for (const child of inside) {
       visit(child, { id, path })
     }
   }
 
-  add({ id: rootId, path: "/", index: false }, root)
+  add({ id: rootId, kind: "root", path: "/", index: false }, root)
 
   for (const route of children.get(undefined) ?? []) {
     visit(route, { id: rootId, path: "/" })
@@ -281,17 +279,35 @@ function joinPath(parent: string, own: string): string {
   return `${parent.replace(/\/$/, "")}/${own.replace(/^\//, "")}`
 }
 
-/** The params a path takes: `$projectId` is `projectId`, and a lone `$`, the rest of the URL, is `_splat`. */
-function paramsOf(path: string): string[] {
-  return path.split("/").flatMap((segment) => {
-    if (segment === "$") {
-      return ["_splat"]
-    }
+/**
+ * A route's kind in Parity's terms: a route with routes inside it is a layout, or a group when it has no path of its
+ * own, as a pathless `_auth` layout; one without is a page.
+ */
+function kindOf(route: TreeRoute, inside: readonly TreeRoute[]): Route["kind"] {
+  if (inside.length === 0) {
+    return "page"
+  }
 
-    const param = /\$([A-Za-z_]\w*)/.exec(segment)
+  return route.path === "" ? "group" : "layout"
+}
 
-    return param?.[1] ? [param[1]] : []
-  })
+/**
+ * A path's parts in Parity's terms: `$projectId` is a param named `projectId`, and a lone `$`, the rest of the URL, is a
+ * catch-all named `_splat`, as the router names it among a route's params. Anything else matches itself.
+ */
+export function segmentsOf(path: string): RouteSegment[] {
+  return path
+    .split("/")
+    .filter((part) => part !== "")
+    .map((part): RouteSegment => {
+      if (part === "$") {
+        return { type: "catchAll", name: "_splat" }
+      }
+
+      const param = /^\$([A-Za-z_]\w*)$/.exec(part)
+
+      return param?.[1] ? { type: "param", name: param[1] } : { type: "static", value: part }
+    })
 }
 
 /**

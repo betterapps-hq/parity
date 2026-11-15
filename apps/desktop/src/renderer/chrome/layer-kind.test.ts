@@ -71,6 +71,25 @@ describe("layerKind", () => {
       "Cog icon from Heroicons"
     )
   })
+
+  it("says which route draws a route's layer, calling the root the app's root route whatever its router names it", () => {
+    const routes = [
+      { id: "root-layout", kind: "root" as const },
+      { id: "/settings", kind: "layout" as const }
+    ]
+
+    expect(
+      layerKind({ type: "route", id: "r", route: "root-layout", children: [] }, designName, libraries, routes)
+    ).toEqual({ label: "Route", description: "Drawn by the app's root route" })
+    expect(
+      layerKind(
+        { type: "route", id: "s", route: "/settings", component: "SettingsLayout", children: [] },
+        designName,
+        libraries,
+        routes
+      )
+    ).toEqual({ label: "Component instance", description: "SettingsLayout component, drawn by the /settings route" })
+  })
 })
 
 describe("layerComponent", () => {

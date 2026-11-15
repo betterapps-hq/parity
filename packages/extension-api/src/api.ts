@@ -251,18 +251,40 @@ export interface Files {
   edit(label: string, files: FileEdit[]): Promise<string[]>
 }
 
-/** One route of an app, as its router declares it. */
+/**
+ * One part of a route's URL, between slashes, in Parity's own terms rather than a router's: a router's provider
+ * translates its syntax, as TanStack Router's `$projectId` or Next.js's `[projectId]`, into these.
+ */
+export type RouteSegment =
+  /** Matches itself: `settings`. */
+  | { type: "static"; value: string }
+  /** Matches any one part, given to the route by `name`: TanStack Router's `$projectId`, Next.js's `[projectId]`. */
+  | { type: "param"; name: string }
+  /** Matches the rest of the URL, one part or more, by `name`: TanStack Router's `$`, Next.js's `[...slug]`. */
+  | { type: "catchAll"; name: string }
+  /** Matches the rest of the URL or nothing at all, by `name`: Next.js's `[[...slug]]`. */
+  | { type: "optionalCatchAll"; name: string }
+
+/**
+ * What a route is in the app's tree: the root, which holds every other route; a layout, which adds to the URL and draws
+ * the routes inside it at its outlet; a group, which gathers routes without adding to the URL, as Next.js's
+ * `(marketing)` or TanStack Router's pathless `_auth`; or a page, with no routes inside it.
+ */
+export type RouteKind = "root" | "layout" | "group" | "page"
+
+/** One route of an app, as its router declares it, in Parity's terms. */
 export interface Route {
-  /** The router's id for it, unique in the app: `/settings/billing`, or `__root__` for the root. */
+  /** The router's id for it, unique in the app. Parity only compares ids, never reads them. */
   id: string
-  /** The URL it matches, from the root, its params written as the router writes them: `/projects/$projectId`. */
+  kind: RouteKind
+  /** The URL it matches, from the root, part by part. The root's, and a group's at the top, are empty. */
+  segments: RouteSegment[]
+  /** Its URL as the router writes it, as people see it in the project: `/projects/$projectId`. Shown, never parsed. */
   path: string
   /** The id of the route it draws inside, at that route's outlet. The root has none. */
   parent?: string
   /** Its file, from the project root, with forward slashes. */
   file: string
-  /** The names of the params its path takes, without the router's mark: `["projectId"]`. */
-  params: string[]
   /** Whether it's its parent's index, drawn at its parent's own URL. */
   index: boolean
   /** The component it draws, by its name in its file, when it names one. */
@@ -273,6 +295,21 @@ export interface Route {
   guards: boolean
   /** Where it always sends the browser instead of drawing, from the root. Undefined when it draws. */
   redirect?: string
+  /**
+   * The slot a parallel route fills, as Next.js's `@modal`, drawn in its layout beside the layout's other routes. Not
+   * drawn on the canvas yet.
+   */
+  slot?: string
+  /**
+   * The route an intercepting route shows in place of, by id, as Next.js's `(.)photo/[id]`. Not drawn on the canvas
+   * yet.
+   */
+  intercepts?: string
+  /**
+   * Files the router draws in its place while it loads, when it fails, or when nothing matches, from the project root
+   * with forward slashes, as Next.js's `loading`, `error` and `not-found` files. The canvas doesn't draw them yet.
+   */
+  stateFiles?: { loading?: string; error?: string; notFound?: string }
 }
 
 /** How a toast looks. */

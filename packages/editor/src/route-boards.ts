@@ -1,9 +1,13 @@
 import {
   type ContainerSpec,
   type DesignNode,
+  drawnRoute,
+  lastStaticSegment,
   type ModeSettings,
   type ProjectRoute,
-  type ResolvedMode
+  type ResolvedMode,
+  type RouteSegment,
+  sameSegments
 } from "@parity-app/core"
 import { z } from "zod"
 import { type BoardBox, labelLook, titleTop } from "./canvas-labels.ts"
@@ -57,10 +61,13 @@ export interface PageLayout {
   levelGap: number
 }
 
-/** The app's pages as a tree, or several when the root has no page of its own; empty without routes. */
+/**
+ * The app's pages as a tree, or several when the root has no page of its own; empty without routes. A parallel route's
+ * slot and an intercepting route aren't drawn yet, so they and the routes inside them are left out.
+ */
 export function pageTree(routes: readonly ProjectRoute[]): PageNode[] {
   const children = Map.groupBy(
-    routes.filter((route) => route.parent !== undefined),
+    routes.filter((route) => route.parent !== undefined && drawnRoute(route)),
     (route) => route.parent ?? ""
   )
 
@@ -73,7 +80,7 @@ export function pageTree(routes: readonly ProjectRoute[]): PageNode[] {
     }
 
     // Its own index is drawn at its own URL; an index of a deeper path, as `/projects/` under the root, is a page.
-    const index = inside.find((child) => child.index && child.path === route.path)
+    const index = inside.find((child) => child.index && sameSegments(child, route))
 
     const pages = inside
       .filter((child) => child !== index)
@@ -86,7 +93,7 @@ export function pageTree(routes: readonly ProjectRoute[]): PageNode[] {
     }
 
     // The root's pages are the tree's tops; any other layout without a page is a group around its pages.
-    if (route.parent === undefined) {
+    if (route.kind === "root") {
       return pages
     }
 
@@ -99,7 +106,7 @@ export function pageTree(routes: readonly ProjectRoute[]): PageNode[] {
     return [{ route, children: pages, group }]
   }
 
-  const root = routes.find((route) => route.parent === undefined)
+  const root = routes.find((route) => route.kind === "root")
 
   return root ? standIn(root).filter((node) => node.route !== root) : []
 }
@@ -181,30 +188,29 @@ export function treeDepth(tree: readonly PageNode[]): number {
 
 /**
  * A route's URL with a value for each param: the one `values` gives it, by the param's name, or else its name, and
- * nothing for a splat unless `values` gives one as `_splat`, as TanStack Router names it. Values are written as a URL
- * writes them, so one with a slash or a space stays one segment.
+ * nothing for a catch-all unless `values` gives one. Values are written as a URL writes them, so one with a slash or a
+ * space stays one segment.
  */
-export function samplePath(route: Pick<ProjectRoute, "path">, values: Readonly<Record<string, string>> = {}): string {
-  return route.path
-    .split("/")
-    .map((segment) => sampleSegment(segment, values))
-    .join("/")
+export function samplePath(
+  route: Pick<ProjectRoute, "segments">,
+  values: Readonly<Record<string, string>> = {}
+): string {
+  return `/${route.segments.map((segment) => sampleSegment(segment, values)).join("/")}`
 }
 
-/** A param's value, its name without one, nothing for a splat without one, and any other segment as it is. */
-function sampleSegment(segment: string, values: Readonly<Record<string, string>>): string {
-  if (!segment.startsWith("$")) {
-    return segment
+/** A param's value, its name without one, nothing for a catch-all without one, and a fixed part as it is. */
+function sampleSegment(segment: RouteSegment, values: Readonly<Record<string, string>>): string {
+  if (segment.type === "static") {
+    return segment.value
   }
 
-  const name = segment === "$" ? "_splat" : segment.slice(1)
-  const value = values[name]
+  const value = values[segment.name]
 
   if (value !== undefined && value !== "") {
     return encodeURIComponent(value)
   }
 
-  return segment === "$" ? "" : name
+  return segment.type === "param" ? segment.name : ""
 }
 
 /**
@@ -214,7 +220,10 @@ function sampleSegment(segment: string, values: Readonly<Record<string, string>>
 export interface RouteScreen {
   screen: ContainerSpec
   url: string
+  /** Its route's URL as the router writes it, which its title shows. */
   path: string
+  /** Its route's URL, part by part, which its frames' URL fills in. */
+  segments: RouteSegment[]
   /** The id of the route it draws. */
   route: string
   parent?: string
@@ -240,11 +249,11 @@ export interface RouteGroup {
 }
 
 /**
- * What a page is called: its component in words, as `ProjectDetail` is "Project detail", else its path's last part,
- * as `/settings` is "Settings", else Home.
+ * What a page is called: its component in words, as `ProjectDetail` is "Project detail", else its URL's last fixed
+ * part, as `/settings` is "Settings", else Home.
  */
-export function pageName(route: Pick<ProjectRoute, "component" | "path">): string {
-  const words = route.component ?? route.path.split("/").findLast((part) => part !== "" && !part.startsWith("$"))
+export function pageName(route: Pick<ProjectRoute, "component" | "segments">): string {
+  const words = route.component ?? lastStaticSegment(route)
 
   if (!words) {
     return "Home"
@@ -330,17 +339,16 @@ export function routeTree(
   const placed = placePages(tree, { ...layout, y: layout.bottom - tall })
   const groups: RouteGroup[] = []
   const byId = new Map(routes.map((route) => [route.id, route]))
-  const parentPath = (page: PlacedPage) => byId.get(page.route.parent ?? "")?.path
+  const parentOf = (page: PlacedPage) => byId.get(page.route.parent ?? "")
 
   const screens = placed.flatMap((page) => {
     const id = routeScreenId(page.route)
 
     if (page.group) {
       // Named for its path, as its pages are what it holds; one without a path of its own, for its component.
-      const ownPath = page.route.path.split("/").findLast((part) => part !== "" && !part.startsWith("$"))
-
-      const named =
-        ownPath !== undefined && page.route.path !== parentPath(page) ? { path: page.route.path } : page.route
+      const parent = parentOf(page)
+      const ownPath = lastStaticSegment(page.route) !== undefined && !(parent && sameSegments(page.route, parent))
+      const named = ownPath ? { segments: page.route.segments } : page.route
 
       const group: RouteGroup = {
         id,
@@ -356,7 +364,7 @@ export function routeTree(
         group.parent = routeScreenId({ id: page.parent })
       }
 
-      const target = placed.find((other) => !other.group && other.route.path === page.group?.redirect)
+      const target = placed.find((other) => !other.group && samplePath(other.route) === page.group?.redirect)
 
       if (target) {
         group.redirect = { screen: routeScreenId(target.route), path: target.route.path }
@@ -370,6 +378,7 @@ export function routeTree(
     const drawn: RouteScreen = {
       url: page.url,
       path: page.route.path,
+      segments: page.route.segments,
       route: page.route.id,
       screen: {
         id,

@@ -1,6 +1,6 @@
-import type { ProjectRoute } from "./adapters.ts"
 import type { ContainerSpec, DesignNode } from "./document.ts"
 import type { ComponentSource } from "./project.ts"
+import type { ProjectRoute } from "./routes.ts"
 import type { JsonValue } from "./schema.ts"
 
 /**

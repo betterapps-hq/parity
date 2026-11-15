@@ -7104,6 +7104,13 @@ A screen is named for the component its route draws, else its path.
   `parity.selection.set` does too (PAR-1092), so selecting a design takes the selection from it. A group is named for
   its path's last part, or for its component when its path is its parent's, as a pathless layout's is. The group's
   outline is drawn round its pages where they are now, so it follows a page that's moved.
+- **Any router, in Parity's terms (PAR-1132).** The tree, names and URLs come from each route's kind (root, layout,
+  group or page) and its URL as segments (fixed, param, catch-all, optional catch-all), which the router's extension
+  translates from its own syntax (`ProjectRoute` and `RouteSegment` in `packages/core/src/routes.ts`; `segmentsOf` in
+  `packages/extension-tanstack-router/src/routes.ts`). A route's path, as the router writes it, is only shown: in a
+  layer's name and the route panel. A parallel route's slot and an intercepting route aren't drawn yet, so the tree
+  leaves them out with the routes inside them (`drawnRoute`). Tests: `packages/core/src/routes.test.ts`, and
+  `packages/editor/src/route-boards.test.ts`, "leaves out a parallel route's slot and an intercepting route".
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
@@ -7147,11 +7154,13 @@ A screen is named for the component its route draws, else its path.
   shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
 - **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
-  view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, so
-  `/projects/$projectId` opens on `/projects/projectId` until it's given one. The values are how the canvas shows the
-  page, never the app's code, and are kept with what else is set on it (see Kept in the project file, below). Tried in a
-  development build: Project detail opened on `/projects/projectId`, which the example says it can't find, and setting
-  ProjectId to `atlas` drew the Atlas project at `/projects/atlas`. Code: `samplePath` in
+  view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, and an unset
+  catch-all is empty, so `/projects/$projectId` opens on `/projects/projectId` until it's given one. The URL comes from
+  the route's segments, which its router's extension gives in Parity's terms (`RouteSegment` in
+  `packages/core/src/routes.ts`), so no router's syntax is read outside its extension (PAR-1132). The values are how the
+  canvas shows the page, never the app's code, and are kept with what else is set on it (see Kept in the project file,
+  below). Tried in a development build: Project detail opened on `/projects/projectId`, which the example says it can't
+  find, and setting ProjectId to `atlas` drew the Atlas project at `/projects/atlas`. Code: `samplePath` in
   `packages/editor/src/route-boards.ts`, the view's `params` in `packages/core/src/document.ts`, and `RouteProps` in
   `apps/desktop/src/renderer/chrome/RoutePanel.tsx`. Tests: `packages/editor/src/route-boards.test.ts`, "fills a param
   with the value given for it, written as a URL writes it".

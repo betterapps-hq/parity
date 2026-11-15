@@ -18,9 +18,10 @@ const pricing = titled("Plans")
 
 const route = (id: string, parent?: string): ProjectRoute => ({
   id,
+  kind: parent === undefined ? "root" : "page",
+  segments: parent === undefined ? [] : [{ type: "static", value: id.slice(1) }],
   path: id,
   file: `src/routes${id}.tsx`,
-  params: [],
   index: false,
   loads: false,
   guards: false,

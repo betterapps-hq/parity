@@ -239,7 +239,12 @@ export function LayerHeader() {
 
   const kind = layer.layer.element
     ? elementKind(layer.layer.element)
-    : layerKind(layer.layer, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
+    : layerKind(
+        layer.layer,
+        designNamer(entries, store.getComponentLibrary()),
+        session.info.libraries,
+        session.info.routes
+      )
 
   const label = layerLabel(layer.layer, entries, store.getComponentLibrary(), session.info.libraries)
 
