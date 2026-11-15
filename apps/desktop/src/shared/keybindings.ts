@@ -340,9 +340,17 @@ export function swapKeys<C extends string>(
   return { replacements: [...given.replacements, ...back.replacements], lost: undefined }
 }
 
-/** What to write to give every command the keymap's keys again (PAR-1042). Entries Parity skipped stay as written. */
+/**
+ * What to write to give every command the keymap's keys again (PAR-1042): every command's entries go, even one that
+ * changes nothing now because a later entry takes its keys. Entries Parity skipped stay as written.
+ */
 export function resetAllKeys<C extends string>(defaults: Defaults<C>, entries: readonly KeyEntry[]): Replacement[] {
-  return Object.keys(resolveBindings(defaults, entries).changed).map((command) => ({ command, keys: null }))
+  const commands = new Set([
+    ...Object.keys(resolveBindings(defaults, entries).changed),
+    ...entries.flatMap(({ command }) => (Object.hasOwn(defaults, command) ? [command] : []))
+  ])
+
+  return [...commands].map((command) => ({ command, keys: null }))
 }
 
 /**

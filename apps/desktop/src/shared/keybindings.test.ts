@@ -252,6 +252,18 @@ describe("resetAllKeys (PAR-1042)", () => {
     ])
   })
 
+  it("removes an entry whose keys a later one takes, so none come back after the reset", () => {
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: ["Ctrl Z", "Ctrl Shift H"] },
+      { command: "redo", keys: ["Ctrl Shift H"] }
+    ]
+
+    const replacements = resetAllKeys(defaults, entries)
+
+    expect(keysAfter(entries, replacements)).toEqual(keymapKeys)
+    expect(JSON.parse(applyReplacements(JSON.stringify(entries), replacements))).toEqual([])
+  })
+
   it("keeps a skipped entry for a command it resets, as the person wrote it", () => {
     const entries: KeyEntry[] = [
       { command: "undo", keys: ["Hyper Z"] },
