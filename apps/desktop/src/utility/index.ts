@@ -243,6 +243,7 @@ const handlers: Handlers<ServiceMethods> = {
   "images.remove": ({ projectId, path }) => removeImage(projects.get(projectId), path),
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "extensions.list": ({ projectId }) => extensions.list(projectId),
+  "extensions.installed": () => extensions.installed(),
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),

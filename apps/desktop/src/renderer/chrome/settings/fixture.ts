@@ -1,6 +1,15 @@
+import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
+import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
+import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
+import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
+import { installedStatus, readExtension } from "@parity-app/extensions"
 import { useEffect, useState } from "react"
 import { keymap } from "../keymap.ts"
-import { defaults, extensionsFrom, type Setting, settings, type Value } from "./definitions.ts"
+import { defaults, type Setting, settings, type Value } from "./definitions.ts"
+import { extensionList, extensionsOfProject } from "./extension-list.ts"
 import { isCommand } from "./shortcuts.tsx"
 import type { SettingsData, Skipped } from "./store.ts"
 
@@ -24,6 +33,17 @@ const kestrelTools = [
   { id: "vite", summary: "Vite 7.2.1 from node_modules/vite, config vite.config.ts" },
   { id: "react", summary: "React 19.2.0 from node_modules/react" }
 ]
+
+/** Parity's own extensions, from their manifests, in the order the service lists them. */
+const installed = [
+  vitePackage,
+  reactPackage,
+  tailwindPackage,
+  routerPackage,
+  storybookPackage,
+  accessibilityPackage,
+  portlessPackage
+].map((packageJson) => installedStatus(readExtension(packageJson)))
 
 /** Settings' data for a story: values kept in state, as the app keeps them in its files. */
 export function useFixtureSettings({
@@ -59,7 +79,9 @@ export function useFixtureSettings({
   return {
     project: project === null ? undefined : { name: project, file: `${project.toLowerCase()}.par` },
     locked,
-    extensions: extensionsFrom(project === null ? undefined : kestrelTools),
+    extensions: extensionsOfProject(
+      extensionList(installed, project === null ? undefined : { tools: kestrelTools, running: [] })
+    ),
     mine: (setting: Setting) => mine[setting.id] ?? setting.default,
     theirs: (setting: Setting) => own[setting.id],
     setMine(setting, value) {

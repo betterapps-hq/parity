@@ -1,6 +1,4 @@
 import type { Permissions } from "@parity-app/extension-api"
-import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
-import { readExtension } from "@parity-app/extensions/manifest"
 import { codeEditors } from "@parity-app/processes"
 import {
   Download,
@@ -15,9 +13,7 @@ import {
   SlidersHorizontal,
   Sun
 } from "lucide-react"
-import { extensionSettings } from "./extension-settings.ts"
-import { reactLogo, storybookLogo, tailwindLogo, tanstackLogo, viteLogo } from "./logos.ts"
-import { type Mark, markOf, projectMark } from "./marks.tsx"
+import { type Mark, projectMark } from "./marks.tsx"
 
 /**
  * Whose a setting is. `app`: the person's, the same in every project. `project`: the project's, saved in its file, so
@@ -69,8 +65,8 @@ export interface Page {
 export type HostState = "waiting" | "starting" | "running" | "stuck" | "crashed"
 
 /**
- * A built-in extension as Settings shows it: in an open project, what detection found, whether it runs there, and what
- * it adds, from what its adapter and extension tell the window.
+ * An installed extension as Settings shows it, from its manifest: in an open project, what detection found, whether it
+ * runs there, and what it adds, from what its adapter and extension tell the window.
  */
 export interface Extension {
   id: string
@@ -99,53 +95,6 @@ export interface Extension {
   onStartup?: boolean
   /** Its settings whose values didn't fit, one sentence each. */
   problems?: string[]
-}
-
-const storybook = readExtension(storybookPackage).manifest
-
-/** The built-in extensions, before detection says whether each runs in a project. */
-export const builtInExtensions: Omit<Extension, "running" | "found" | "adds">[] = [
-  {
-    id: "storybook",
-    name: "Storybook",
-    icon: markOf(storybookLogo, "Storybook"),
-    prefix: storybook.prefix,
-    settings: extensionSettings("storybook", storybook.contributes.settings)
-  },
-  { id: "vite", name: "Vite", icon: markOf(viteLogo, "Vite"), settings: [] },
-  { id: "react", name: "React", icon: markOf(reactLogo, "React"), settings: [] },
-  { id: "tailwind", name: "Tailwind CSS", icon: markOf(tailwindLogo, "Tailwind"), settings: [] },
-  { id: "tanstack-router", name: "TanStack Router", icon: markOf(tanstackLogo, "TanStack"), settings: [] }
-]
-
-/** What detection found of a tool: its id and, in a sentence, what and where. */
-interface Found {
-  id: string
-  summary: string
-}
-
-/**
- * The built-in extensions as Settings lists them: each runs in the open project when detection found its tool, and
- * says what it found. With no project open, each says what it runs in.
- */
-export function extensionsFrom(
-  found: readonly Found[] | undefined,
-  addsOf: (id: string) => string[] = () => []
-): Extension[] {
-  return builtInExtensions.map((extension) => {
-    const tool = found?.find((entry) => entry.id === extension.id)
-
-    if (tool) {
-      return { ...extension, running: true, found: tool.summary, adds: addsOf(extension.id) }
-    }
-
-    return {
-      ...extension,
-      running: false,
-      adds: [],
-      found: found ? `No ${extension.name} in this project` : `Runs in projects that use ${extension.name}`
-    }
-  })
 }
 
 export const pages: Page[] = [

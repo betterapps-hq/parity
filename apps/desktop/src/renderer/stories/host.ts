@@ -24,12 +24,15 @@ import {
   mediumOfType,
   videosFolder
 } from "@parity-app/editor"
+import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
+import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
-import { type ExtensionPackage, readExtension } from "@parity-app/extensions"
+import { type ExtensionPackage, installedStatus, readExtension } from "@parity-app/extensions"
 import { defaultSettings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
@@ -931,6 +934,17 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       return { path, edit }
     }
 
+    case "extensions.installed":
+      // Parity's own extensions, in the order the service lists them.
+      return [
+        vitePackage,
+        reactPackage,
+        tailwindPackage,
+        routerPackage,
+        storybookPackage,
+        accessibilityPackage,
+        portlessPackage
+      ].map((packageJson) => installedStatus(readExtension(packageJson)))
     case "extensions.list":
       return { extensions: standInExtensions(projectInfo(request.params.projectId)), logs: {} }
     case "extensions.run": {

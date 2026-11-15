@@ -256,9 +256,15 @@ export const ExtensionPage: Story = {
   }
 }
 
-/** The built-in extensions, those running in Kestrel first. */
+/** Every installed extension, from its manifest, those running in Kestrel first. */
 export const Extensions: Story = {
-  render: () => <Demo initialPage="extensions" />
+  render: () => <Demo initialPage="extensions" />,
+  play: async () => {
+    const view = await dialog()
+
+    await expect(view.getByRole("button", { name: /^Portless/ })).toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Storybook accessibility/ })).toBeInTheDocument()
+  }
 }
 
 /**
