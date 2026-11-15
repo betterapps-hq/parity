@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "The editor exports a few comparison helpers for the project document; nothing the app does changes.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
