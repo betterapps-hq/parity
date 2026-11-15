@@ -1326,9 +1326,9 @@ sets out. What any Next.js builder needs is in `packages/next-builders`, for the
   own modules through its path aliases until some import stylesheets, the choice the other builders make too
   (`chooseAppStyles`). CSS modules are left out.
 - **Not yet:** a changed component starts the builder again rather than loading afresh, and the canvas can't load a
-  module the guest didn't import at the start, so stories drawn from their stories file don't draw. Components get no
-  element sources, CSS modules don't reach frames, as with Vite, and components that read Next's router
-  (`next/navigation`) fail without it.
+  module the guest didn't import at the start, so stories drawn from their stories file don't draw (PAR-1159).
+  Components that read Next's router (`next/navigation`) fail without it (PAR-1160), components get no element sources
+  (PAR-1161), and CSS modules don't reach frames, as with Vite.
 
 Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts` and `loader.ts`);
 `packages/next-builders` (`next.ts`, `bundler.ts`, `guest-app.ts`, `guest-runtime.ts`, `server-modules.ts`, `page.ts`,

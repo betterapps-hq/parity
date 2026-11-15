@@ -473,8 +473,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     // Asked first, so the builder reads the app while its files are, and a change made while the project opens is a
-    // change from what it opened with. The serving builder is asked, as several builders' extensions can be running.
-    const styles = servingBuilder(adapters.builders, detectOnce).then((builder) => appStyles(asking, builder))
+    // change from what it opened with. The serving builder is asked, as several builders' extensions can be running: the
+    // one whose config file is there, which starts early, else the first that says it serves the project.
+    const likely = likelyBuilder(adapters.builders, root)
+
+    const styles = (likely ? Promise.resolve(likely.id) : servingBuilder(adapters.builders, detectOnce)).then(
+      (builder) => appStyles(asking, builder)
+    )
+
     const readingInputs = styles.then((found) => detectionInputs(root, watched, found)).catch(() => undefined)
 
     // Every adapter is asked whether the project uses its tool, through the same context, and only those that find it
@@ -644,7 +650,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       allowedOrigins
     }
 
-    const likely = adapters.builders.find((builder) => builder.watches.some((file) => existsSync(join(root, file))))
+    const likely = likelyBuilder(adapters.builders, root)
 
     if (likely) {
       early?.({ builder: likely, name, startOptions })
@@ -1996,6 +2002,11 @@ export async function saveDocumentCopy({
 }
 
 /** The first builder that recognises the project, with what it found; otherwise what each one looked for. */
+/** The first of the builders, in their order, whose config file is in the project: the one started before detection. */
+function likelyBuilder(builders: BuilderDescription[], root: string): BuilderDescription | undefined {
+  return builders.find((builder) => builder.watches.some((file) => existsSync(join(root, file))))
+}
+
 /**
  * The first of the builders, in their order, that says it serves the project, asked all at once; nothing when none does
  * or one can't say.
