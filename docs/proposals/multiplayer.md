@@ -1076,25 +1076,24 @@ What they say about the layer:
 
 ### The layer's numbers, on `loroProvider`
 
-`ProjectDoc` on `loroProvider` through the functions for callers, run on `5ad7156df` with PAR-1113 on top, on the same
-machine, next to the local provider's from the table above. The command is in `loro-provider.bench.ts`. The machine was
-busy with other work during the run, so read differences under a few tenths of a millisecond as noise.
+`ProjectDoc` on `loroProvider` through the functions for callers, run on `5df8164b4` with PAR-1113 on top, on the same
+machine, next to the local provider's from the table above. The command is in `loro-provider.bench.ts`.
 
 | Scenario                                  | Small, local | Small, Loro | Large, local | Large, Loro | Very large, local | Very large, Loro |
 | ----------------------------------------- | -----------: | ----------: | -----------: | ----------: | ----------------: | ---------------: |
-| Open the project                          |     0.022 ms |    38.24 ms |     0.063 ms |   718.84 ms |          0.062 ms |       3,502.3 ms |
-| Set one field on one layer                |     0.073 ms |    0.094 ms |     0.312 ms |    0.321 ms |          0.511 ms |         0.610 ms |
-| A 300-frame drag of one design, per frame |     0.022 ms |    0.074 ms |     0.078 ms |    0.092 ms |          0.129 ms |         0.162 ms |
-| Type into a text layer, per character     |     0.168 ms |    0.234 ms |     0.365 ms |    0.404 ms |          0.603 ms |         0.635 ms |
-| Paste 500 layers, or take them out        |     1.175 ms |    10.60 ms |     1.810 ms |    11.42 ms |          1.775 ms |         12.86 ms |
-| Undo or redo, per step                    |     0.060 ms |    0.094 ms |     0.105 ms |    0.129 ms |          0.186 ms |         0.251 ms |
-| Save one file                             |     0.622 ms |    0.688 ms |     1.512 ms |    1.574 ms |          2.006 ms |         3.484 ms |
+| Open the project                          |     0.025 ms |    26.27 ms |     0.043 ms |   613.35 ms |          0.056 ms |       3,420.3 ms |
+| Set one field on one layer                |     0.073 ms |    0.079 ms |     0.127 ms |    0.307 ms |          0.247 ms |         0.624 ms |
+| A 300-frame drag of one design, per frame |     0.021 ms |    0.068 ms |     0.035 ms |    0.105 ms |          0.061 ms |         0.159 ms |
+| Type into a text layer, per character     |     0.086 ms |    0.231 ms |     0.152 ms |    0.360 ms |          0.289 ms |         0.690 ms |
+| Paste 500 layers, or take them out        |     0.582 ms |    10.43 ms |     0.678 ms |    10.84 ms |          0.843 ms |         9.184 ms |
+| Undo or redo, per step                    |     0.031 ms |    0.096 ms |     0.047 ms |    0.119 ms |          0.083 ms |         0.208 ms |
+| Save one file                             |     0.320 ms |    0.626 ms |     0.721 ms |    1.573 ms |          0.855 ms |         1.851 ms |
 
 | Only Loro has                                  |    Small |    Large | Very large |
 | ---------------------------------------------- | -------: | -------: | ---------: |
-| Exchange 1,000 transactions with a replica     | 33.46 ms | 43.67 ms |   63.48 ms |
-| One field change, compared with `containerOps` | 0.071 ms | 0.091 ms |   0.154 ms |
-| The same change, sent as the operation         | 0.064 ms | 0.089 ms |   0.147 ms |
+| Exchange 1,000 transactions with a replica     | 31.83 ms | 38.78 ms |   55.06 ms |
+| One field change, compared with `containerOps` | 0.064 ms | 0.087 ms |   0.140 ms |
+| The same change, sent as the operation         | 0.057 ms | 0.082 ms |   0.135 ms |
 | Loro's WebAssembly memory after opening        |    10 MB |    89 MB |     461 MB |
 | A snapshot of the document                     |   0.2 MB |   2.4 MB |    12.2 MB |
 | Opening from that snapshot, in plain Node      |    27 ms |    84 ms |     708 ms |
@@ -1107,18 +1106,21 @@ busy with other work during the run, so read differences under a few tenths of a
 
 What they say about Loro:
 
-- **Editing costs what it does on the local provider,** within a tenth of a millisecond, since most of an edit is
-  `ProjectDoc`'s comparing and checking, the same for both. A field costs 0.6 ms at 100,000 layers, against 2.5 ms
-  today, and a typed character the same.
-- **Opening costs what building every node costs:** 0.7 s for the large project and 3.5 s for the very large one, in
+- **Editing costs two to three times what it does on the local provider,** and still a quarter of today's: a field takes
+  0.6 ms at 100,000 layers, against 0.25 ms local and 2.1 ms today. Loro's own calls are about 0.03 ms of that. The rest
+  is `ProjectDoc`'s comparing and checking, the same code as on the local provider, which runs about twice as slowly
+  once Loro has opened a project. The local provider slows the same way with a Loro document opened beside it, even one
+  opened on a copy of the files and disposed before the edits, so it's V8 after Loro has run, not the provider's work.
+  Where that comes from is open.
+- **Opening costs what building every node costs:** 0.6 s for the large project and 3.4 s for the very large one, in
   Loro's own calls, which grow faster than the nodes do. Opening from a snapshot takes a fifth of that, since importing
   one takes 29 ms on the very large project and only the designs' roots are read until an operation needs a design's
   layers. Keeping a snapshot beside the files, to open from when they haven't changed, is the way to open a large
   project quickly; step 7 can decide on it.
-- **Pasting is the slowest edit,** 11 to 13 ms for 500 layers against 1 to 2 ms: each new layer is a node, its fields
+- **Pasting is the slowest edit,** 9 to 11 ms for 500 layers against under 1 ms: each new layer is a node, its fields
   and a mergeable text, about 20 µs in Loro's calls. Loro alone takes 7 to 8 ms for the same layers, and setting the
   text as a plain value would halve that, but then two people typing in one new layer wouldn't merge.
-- **Exchanging is cheap:** 1,000 transactions reach a replica and come back in 33 to 63 ms, repairs included.
+- **Exchanging is cheap:** 1,000 transactions reach a replica and come back in 32 to 55 ms, repairs included.
 - **Memory is mostly Loro's WebAssembly,** which the heap figures leave out: 461 MB for the very large project, against
   22 MB of plain values. The heap holds the plain values, as on the local provider, and the index of each design's
   layers. Disposing frees all of it at once, since the backend frees every Loro object it holds.
