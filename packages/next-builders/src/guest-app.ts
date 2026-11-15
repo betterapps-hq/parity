@@ -6,6 +6,7 @@ import {
   elementSourcesLoaderFile,
   elementSourcesLoaderSource
 } from "./element-sources.ts"
+import { nextRouterFile, nextRouterSource } from "./next-router.ts"
 
 /*
  * The guest app: a small Next.js app of Parity's own, which the builder runs the project's own Next on, so Next compiles
@@ -74,6 +75,7 @@ export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
     { path: "next.config.mjs", text: nextConfigSource(options) },
     { path: elementSourcesConfigFile, text: elementSourcesConfigSource(options.origin) },
     { path: elementSourcesLoaderFile, text: elementSourcesLoaderSource },
+    { path: nextRouterFile, text: nextRouterSource },
     { path: `${guestRouteGroup}/layout.tsx`, text: layoutSource },
     {
       path: `${guestRouteGroup}/parity-guest/page.tsx`,

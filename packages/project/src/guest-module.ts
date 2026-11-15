@@ -1,4 +1,10 @@
-import { iconStyleModules, libraryImports, type ProjectConfig, valueImports } from "@parity-app/core"
+import {
+  iconStyleModules,
+  type LibraryDecorator,
+  libraryImports,
+  type ProjectConfig,
+  valueImports
+} from "@parity-app/core"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 
 /**
@@ -17,6 +23,11 @@ export interface GuestModuleOptions {
    * takes, but the CSS), `libraryCss` and the renderer's `createGuest`.
    */
   styles: "inline" | "bundled"
+  /**
+   * Decorators of the builder's own, outermost first, around the libraries': what its framework needs mounted around
+   * every frame, as Next's router (PAR-1160). Each names the library it stands for, and its modules by their specifier.
+   */
+  decorators?: readonly { library: string; decorator: LibraryDecorator }[]
 }
 
 /** The guest module's source, the modules it imports eagerly, and those of them it can do without. */
@@ -116,14 +127,18 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
       return `    ${JSON.stringify(library.id)}: { ${set.join(", ")} }`
     })
 
-  const decorated = config.libraries.flatMap((library) =>
-    (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
-  )
+  const decorated = [
+    ...(options.decorators ?? []),
+    ...config.libraries.flatMap((library) =>
+      (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
+    )
+  ]
 
   // Factories used by samples and library designs share one module registry. A design can call a module that no
   // component sample, decorator or icon needs; it must be loaded before that design is drawn too.
   const decoratorModules = [
     ...new Set([
+      ...libraryImports({ decorators: (options.decorators ?? []).map(({ decorator }) => decorator) }),
       ...config.libraries.flatMap((library) => libraryImports(library)),
       ...Object.values(config.components).flatMap((source) => valueImports(source.sample, "sample")),
       ...config.libraries.flatMap((library) => valueImports(library.designs, "sample"))

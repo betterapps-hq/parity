@@ -8,6 +8,7 @@ import type { NextBundler } from "./bundler.ts"
 import { elementSourcesRoute, taggedNextSource } from "./element-sources.ts"
 import { guestAppFiles, guestAppFolder, type GuestAppOptions, guestModuleFile, projectImport } from "./guest-app.ts"
 import { copyGuestRuntime } from "./guest-runtime.ts"
+import { nextRouterDecorator } from "./next-router.ts"
 import { detectNext, postcssConfigFile, projectTsconfigFile } from "./next.ts"
 import { type GuestPage, readGuestPage } from "./page.ts"
 import { projectPageFiles, projectRouteFolders, type ProjectRouteFile, routeFolders } from "./project-pages.ts"
@@ -75,7 +76,9 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
       return standIn ? `./${posix.relative(guestFolder, standIn)}` : projectImport(path)
     },
-    styles: "bundled"
+    styles: "bundled",
+    // Components that read Next's router draw inside a still one, as they would throw outside any router.
+    decorators: [nextRouterDecorator]
   })
 
   const [postcss, tsconfig, pages] = await Promise.all([

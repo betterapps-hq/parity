@@ -1321,6 +1321,25 @@ Code: `packages/next-builders/src/element-sources.ts`, the route in `guest-serve
 Tests: `element-sources.test.ts`. Checked by hand against Next 16.4 on Turbopack and webpack: an App Router page, a
 client component it imports and a Pages Router page each served with their elements' sources.
 
+### Next's router on canvas (PAR-1160)
+
+A component that reads Next's router, through `next/navigation`'s `useRouter`, `usePathname`, `useSearchParams` or
+`useParams`, `next/link`, or the Pages Router's `next/router`, threw "invariant expected app router to be mounted" on
+canvas, since frames draw outside any of Next's pages. Now each frame draws inside a still router.
+
+- **A module of the guest app's own,** `app/parity-router.tsx`, beside the guest module: `ParityNextRouter` gives Next's
+  own contexts, from the project's own Next, so the hooks the project's components import read them. The App Router's
+  router navigates nowhere, its path is `/` with no search params or params, and the Pages Router's router is at `/` and
+  ready. A frame stands for no route of its own, so every frame is at the root.
+- **A decorator of the builder's own.** `guestModule` (`@parity-app/project`) takes `decorators`, which the builder
+  lists outermost, around the libraries' own, and whose modules the guest loads beside theirs; the Next builders pass
+  the router's.
+
+Code: `packages/next-builders/src/next-router.ts`, `guest-server.ts` and `packages/project/src/guest-module.ts`. Tests:
+`next-router.test.ts`. Checked by hand against Next 16.4 on Turbopack and webpack: a component using all four hooks,
+`next/router` and `next/link`, in a React root of its own as the canvas draws it, drew inside the router and threw the
+invariant without it. Gaps: a frame drawn for a page doesn't take its route's path yet.
+
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 
 Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does
