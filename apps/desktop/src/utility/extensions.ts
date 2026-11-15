@@ -1,7 +1,10 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, type Stats, unwatchFile, watchFile } from "node:fs"
+import { readFile } from "node:fs/promises"
+import { homedir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { detectPeers, type PackageManifest } from "@parity-app/core"
+import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
@@ -9,6 +12,7 @@ import tailwindPackage from "@parity-app/extension-tailwind/package.json" with {
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
+  type ExtensionFiles,
   type ExtensionHosts,
   type ExtensionWindow,
   extensionHosts,
@@ -21,6 +25,7 @@ import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
 import { extensionProcesses } from "./extension-processes.ts"
 import { extensionStateStore } from "./extension-state.ts"
+import { processProviders } from "./process-providers.ts"
 import type { OpenProject, ProjectProviders } from "./projects.ts"
 
 /*
@@ -80,7 +85,13 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
   builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
     open?.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
-  )
+  ),
+  // Portless names local servers. Without its folder there's nothing to read, so it doesn't start.
+  builtIn(portlessPackage, "portless", () => {
+    const folder = environment().PORTLESS_STATE_DIR ?? join(homedir(), ".portless")
+
+    return existsSync(folder) ? { detected: { folder } } : undefined
+  })
 ]
 
 /** A project's package.json, as JSON parsed it, or nothing when it can't be read. */
@@ -92,6 +103,29 @@ function readPackageJson(root: string): unknown {
     return undefined
   }
 }
+
+/**
+ * Reading and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
+ * file's details each second, which works for a file that isn't there yet, as Portless's routes before it runs.
+ */
+const extensionFiles: ExtensionFiles = {
+  place: { home: homedir(), variables: process.env, platform: process.platform },
+  read: (path) => readFile(path, "utf8"),
+  watch(path, listener) {
+    const changed = (now: Stats, before: Stats) => {
+      if (now.mtimeMs !== before.mtimeMs || now.size !== before.size || now.ino !== before.ino) {
+        listener()
+      }
+    }
+
+    watchFile(path, { interval: 1000, persistent: false }, changed)
+
+    return () => unwatchFile(path, changed)
+  }
+}
+
+/** The providers extensions register for the open projects' processes. */
+const providers = processProviders()
 
 /**
  * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes
@@ -108,7 +142,9 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
     },
     state: extensionStateStore(environment().PARITY_EXTENSION_STATE_FILE),
     window,
-    processes: extensionProcesses((projectId) => projects.get(projectId))
+    processes: extensionProcesses((projectId) => projects.get(projectId), providers),
+    providers,
+    files: extensionFiles
   })
 }
 

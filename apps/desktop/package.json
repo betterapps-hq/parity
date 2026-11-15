@@ -48,6 +48,7 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
     "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extension-portless": "workspace:*",
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-storybook-a11y": "workspace:*",
     "@parity-app/extension-tailwind": "workspace:*",

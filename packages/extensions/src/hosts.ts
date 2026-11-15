@@ -14,6 +14,8 @@ import type {
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
+  ProviderKinds,
+  ServerFacts,
   SettingValue,
   ViewData,
   ViewKind
@@ -21,7 +23,7 @@ import type {
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import { readToolInput } from "./agents.ts"
 import type { ExtensionPackage } from "./manifest.ts"
-import { editsRefusal, writeRefusal } from "./permissions.ts"
+import { editsRefusal, type ReadPlace, readablePath, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
   type ProcessSnapshot,
@@ -184,8 +186,42 @@ export interface ExtensionProcesses {
   reattached(caller: ProcessCaller, hostStopped: "crash" | "stuck" | "reload"): void
   /** Stops every process an extension started, as the project closes. */
   stopAll(projectId: string, extension: string): void
-  /** The local servers Portless names, and their addresses, until Portless is an extension (step 3). */
-  routed(): Promise<{ url: string; address: string }[]>
+}
+
+/** The kinds of provider the processes list asks, as servers appear and as `find` is called. */
+export type ProcessProviderKind = Extract<ProviderKind, "addresses" | "discovery">
+
+/**
+ * How the service asks a process provider in an extension's host. What it answers is typed as the extension promises,
+ * and the service checks it before taking any of it.
+ */
+export interface ProviderAsk {
+  addresses(servers: ServerFacts[]): ReturnType<ProviderKinds["addresses"]["addresses"]>
+  discover(project: { root: string }): ReturnType<ProviderKinds["discovery"]["discover"]>
+}
+
+/** A process provider an extension registered: its kind, and how long its answers stay good. */
+export interface RegisteredProvider {
+  kind: ProcessProviderKind
+  maxAgeMs?: number
+}
+
+/** The service's registry of the process providers extensions register, by project, extension and kind. */
+export interface ExtensionProviders {
+  register(caller: ProcessCaller, provider: RegisteredProvider, ask: ProviderAsk): void
+  changed(caller: ProcessCaller, kind: ProcessProviderKind): void
+  dispose(caller: ProcessCaller, kind: ProcessProviderKind): void
+  /** Takes away every provider an extension registered, as its host stops. */
+  disposeAll(projectId: string, extension: string): void
+}
+
+/** Reading and watching files, once the extension's `read` permission has allowed the path. */
+export interface ExtensionFiles {
+  /** Where read paths are worked out, besides the project's folder. */
+  place: Omit<ReadPlace, "root">
+  read(path: string): Promise<string>
+  /** Calls `listener` when the file is created, changes or goes, until the function it returns is called. */
+  watch(path: string, listener: () => void): () => void
 }
 
 /**
@@ -234,6 +270,8 @@ export interface ExtensionHostsOptions<Project extends OpenedProject> {
   state: ExtensionStateStore
   window: ExtensionWindow
   processes: ExtensionProcesses
+  providers: ExtensionProviders
+  files: ExtensionFiles
   edits: ExtensionEdits
   timing?: Partial<HostTiming>
 }
@@ -331,8 +369,8 @@ interface Running {
   channel: Channel<HostServiceMethods, HostMethods>
   activated: Promise<void>
   stopPinging(): void
-  /** Stops telling it of the project's processes. */
-  unwatch(): void
+  /** Stops telling it of the project's processes, ends its watches and takes away its providers. */
+  release(): void
 }
 
 interface OpenProject<Project> {
@@ -456,7 +494,7 @@ export function extensionHosts<Project extends OpenedProject>(
     delete host.running
     running.stopPinging()
     // Its processes keep running: when it starts again, it gets them back (docs/proposals/processes.md, Lifecycle).
-    running.unwatch()
+    running.release()
 
     return running
   }
@@ -486,12 +524,42 @@ export function extensionHosts<Project extends OpenedProject>(
     }
   }
 
-  const handlersFor = (open: OpenProject<Project>, host: Host<Project>) => {
+  /** What a host asks of the service. `releases` gathers what ends with this run of it: its watches. */
+  const handlersFor = (open: OpenProject<Project>, host: Host<Project>, releases: Set<() => void>) => {
     const projectId = open.project.id
     const id = host.extension.package.id
     const { root } = open.project
     const { displayName, permissions } = host.extension.package.manifest
     const caller = callerOf(open, host)
+    const watches = new Map<number, () => void>()
+
+    releases.add(() => {
+      for (const unwatch of watches.values()) {
+        unwatch()
+      }
+
+      watches.clear()
+    })
+
+    /** The path the `read` permission allows, or a refusal. */
+    const readable = (path: string) => {
+      const allowed = readablePath(path, permissions, { ...options.files.place, root })
+
+      if (allowed === undefined) {
+        throw new Error(`${displayName} can't read ${path}. Its manifest's "read" permission doesn't name it.`)
+      }
+
+      return allowed
+    }
+
+    /** Asks the extension's provider, in whichever run of its host is current. Its answer is checked later. */
+    const askProvider = (call: HostMethods["provide"]["params"]) => {
+      const running = host.running
+
+      return running
+        ? running.channel.request("provide", call)
+        : Promise.reject(new Error(`${displayName} isn't running`))
+    }
 
     const ui =
       <M extends WindowAsk>(method: M) =>
@@ -623,7 +691,62 @@ export function extensionHosts<Project extends OpenedProject>(
       "processes.markReady"({ id: process, match }: HostServiceMethods["processes.markReady"]["params"]) {
         options.processes.markReady(caller, process, match)
       },
-      "servers.routed": () => options.processes.routed(),
+      "providers.register"({ kind, maxAgeMs }: HostServiceMethods["providers.register"]["params"]) {
+        if (!host.extension.package.manifest.contributes.providers?.[kind]) {
+          throw new Error(`${kind} isn't a provider ${displayName}'s manifest declares`)
+        }
+
+        // A router and a styling framework are asked by the project service, through the extension that declares them;
+        // the processes list asks the rest.
+        if (kind === "router" || kind === "styles") {
+          return
+        }
+
+        const registered: RegisteredProvider = { kind }
+
+        if (maxAgeMs !== undefined) {
+          registered.maxAgeMs = maxAgeMs
+        }
+
+        options.providers.register(caller, registered, {
+          // SAFETY: what the extension's code answered, typed as it promises; the service checks it before using it.
+          addresses: async (servers) =>
+            (await askProvider({ kind: "addresses", method: "addresses", params: servers })) as Awaited<
+              ReturnType<ProviderAsk["addresses"]>
+            >,
+          // SAFETY: as above.
+          discover: async (project) =>
+            (await askProvider({ kind: "discovery", method: "discover", params: project })) as Awaited<
+              ReturnType<ProviderAsk["discover"]>
+            >
+        })
+      },
+      "providers.changed"({ kind }: HostServiceMethods["providers.changed"]["params"]) {
+        if (kind !== "router" && kind !== "styles") {
+          options.providers.changed(caller, kind)
+        }
+      },
+      "providers.dispose"({ kind }: HostServiceMethods["providers.dispose"]["params"]) {
+        if (kind !== "router" && kind !== "styles") {
+          options.providers.dispose(caller, kind)
+        }
+      },
+      "files.read": async ({ path }: HostServiceMethods["files.read"]["params"]) => ({
+        text: await options.files.read(readable(path))
+      }),
+      "files.watch"({ id: watch, path }: HostServiceMethods["files.watch"]["params"]) {
+        watches.get(watch)?.()
+        watches.set(
+          watch,
+          options.files.watch(readable(path), () => {
+            void host.running?.channel.request("files.changed", { id: watch }).catch(() => undefined)
+          })
+        )
+      },
+      "files.unwatch"({ id: watch }: HostServiceMethods["files.unwatch"]["params"]) {
+        watches.get(watch)?.()
+        watches.delete(watch)
+      },
       async "edits.transact"({ label, operations, call }: HostServiceMethods["edits.transact"]["params"]) {
         const refused = editsRefusal(displayName, permissions)
 
@@ -692,9 +815,10 @@ export function extensionHosts<Project extends OpenedProject>(
     const { extension } = host
     const { package: found } = extension
     const link = options.start(extension, open.project)
+    const releases = new Set<() => void>()
 
     const channel = createChannel<HostServiceMethods, HostMethods>({
-      handlers: handlersFor(open, host),
+      handlers: handlersFor(open, host, releases),
       checks: hostChecks,
       disconnected: () => new Error(`${found.manifest.displayName} stopped`)
     })
@@ -777,7 +901,16 @@ export function extensionHosts<Project extends OpenedProject>(
       host.api = api
     })
 
-    const running: Running = { link, channel, activated, stopPinging: () => undefined, unwatch }
+    const release = () => {
+      unwatch()
+      options.providers.disposeAll(open.project.id, found.id)
+
+      for (const each of releases) {
+        each()
+      }
+    }
+
+    const running: Running = { link, channel, activated, stopPinging: () => undefined, release }
 
     if (again) {
       options.processes.reattached(caller, again)
@@ -1261,7 +1394,7 @@ export function extensionHosts<Project extends OpenedProject>(
 }
 
 /** Every kind of provider an extension can register. */
-const providerKinds: readonly ProviderKind[] = ["router", "styles"]
+const providerKinds: readonly ProviderKind[] = ["router", "styles", "addresses", "discovery"]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
 function declaredViews(contributes: Contributions): Record<string, ViewKind> {

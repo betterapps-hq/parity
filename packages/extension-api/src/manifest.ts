@@ -37,7 +37,10 @@ export type ActivationEvent =
 
 /** What an extension may read, write, reach and change. */
 export interface Permissions {
-  /** Paths it may read, as globs relative to the project's root. */
+  /**
+   * Paths it may read and watch, as globs: from the project's root, or outside it from the home folder (`~/.portless/**`)
+   * or an environment variable's folder (`$PORTLESS_STATE_DIR/**`), which is left out while the variable isn't set.
+   */
   read?: string[]
   /** Paths it may write through `parity.files.edit`. */
   write?: string[]
@@ -215,6 +218,10 @@ export interface Providers {
   connector?: Record<string, never>
   /** Answers Search actions with results of its own. */
   search?: Record<string, never>
+  /** Says where else a server is reached. */
+  addresses?: Record<string, never>
+  /** Finds servers running that Parity didn't start. */
+  discovery?: Record<string, never>
 }
 
 /** A tool agents can call, with a JSON Schema for its input. */

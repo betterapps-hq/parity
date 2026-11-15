@@ -85,25 +85,33 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 - **`status.item(id).set({ value, tooltip })`:** a declared status bar item's value. Parity keeps the last value and
   draws it next time before the code loads.
 - **`processes`:** starts a server or a task (`start`) that its manifest's `permissions.processes` allows, adopts a
-  server already running (`adopt`) that `find` turned up on a port, and lists the project's processes (`list`, `get`,
-  `onDidChange`). A handle gives its own process's output, `ready()`, `ended()`, `stop()` and `restart()`, and a task's
-  progress and summary. Its processes outlive its host: when the host starts again, it gets them back with their output.
-  It sees another's processes without their output, error text or public addresses, unless it has `observe`. Each shows
-  in the status bar's process list ([proposals/processes.md](proposals/processes.md)).
-- **`servers.routed`:** the local servers Portless names, until Portless is an extension of its own.
+  server already running (`adopt`) that `find` turned up, on a port or from a discovery provider, and lists the
+  project's processes (`list`, `get`, `onDidChange`). A handle gives its own process's output, `ready()`, `ended()`,
+  `stop()` and `restart()`, and a task's progress and summary. Its processes outlive its host: when the host starts
+  again, it gets them back with their output. It sees another's processes without their output, error text or public
+  addresses, unless it has `observe`. Each shows in the status bar's process list
+  ([proposals/processes.md](proposals/processes.md)).
+- **`providers.register(kind, provider)`** (PAR-1095, PAR-1103): gives behaviour to the provider of `kind` the
+  manifest's `providers` declares, one of each kind. Parity calls it with plain data over the host's channel (`provide`)
+  and reads its answer through a schema, so an answer that isn't what the provider gives is refused and logged. A
+  `router`'s `routes()` gives the app's routes, each parent before its children; Parity asks once as the project opens.
+  A `styles` provider's `handles({ source })`, `theme({ stylesheet })`,
+  `classes({ stylesheet, version, written, declarations })` and `writeTokens({ source, writes, theme })` read a styling
+  framework's theme, write a frame's declarations as classes and write token values into a stylesheet. An `addresses`
+  provider says where else each server is reached, as a name Portless routes to it; a `discovery` provider offers
+  servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask those two again. Each of
+  their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is left out, as
+  is an address that isn't on this machine, with `processes.providerFailed`. The processes list opens a server at a
+  name, then a proxy, then a container's address, else its endpoint.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.
 - **`settings`:** the extension's settings, by their manifest keys (below): `get(key)`, `onChange(key, listener)` and
   `update(key, value)`, which sets only a `project` setting.
-- **`providers.register(kind, provider)`** (PAR-1095): gives behaviour to a provider the manifest's `providers`
-  declares. Parity calls it with plain data and reads its answer through a schema, so an answer that isn't what the
-  provider gives is refused and logged. There's `router`, whose `routes()` gives the app's routes, each parent before
-  its children, asked once as the project opens; and `styles`, whose `handles({ source })`, `theme({ stylesheet })`,
-  `classes({ stylesheet, version, written, declarations })` and `writeTokens({ source, writes, theme })` read a styling
-  framework's theme, write a frame's declarations as classes and write token values into a stylesheet.
 - **`edits.transact(label, operations)`:** changes designs, with the `edits` permission (below).
 - **`files.edit(label, files)`:** writes project files the `write` permission names (below).
+- **`files.read(path)` and `files.watch(path, listener)`:** read and watch files the `read` permission names, from the
+  project's root or absolute. A watch fires when the file is created, changes or goes, and needn't find it there.
 - **`state.app` and `state.project`:** values that persist, for every project or for this one.
 - **`log`:** lines in the extension's log, as `console` writes are too.
 - **`views`:** fills the tabs, sections and pages the manifest declares (below).
@@ -198,8 +206,10 @@ Extensions change designs and files through Parity, never by writing them, so un
   file write unless `permissions.write` has a glob matching its path (`**` for any folders, `*` for any name, `?` for
   one character). It refuses `.par` files whatever the globs say, and paths outside the project. It refuses a process's
   `start` unless `permissions.processes` lists its run: `bin:<package>`, `script:<name>`, `exec:<name>` or
-  `node:<path>`. Permissions keep what an extension does through Parity to what it declared. They aren't a sandbox: its
-  code runs in Node of its own.
+  `node:<path>`. It refuses a read or watch unless a `read` glob names the path: from the project's root, or outside it
+  from the home folder (`~/.portless/**`) or an environment variable's folder (`$PORTLESS_STATE_DIR/**`), which names
+  nothing while the variable isn't set. Permissions keep what an extension does through Parity to what it declared. They
+  aren't a sandbox: its code runs in Node of its own.
 - **Commands for a layer.** A command placed at `layers` with `"when": "layer"` shows in the menu of any layer in
   Layers, and its handler gets `{ type: "layer", design, node }`. So an extension can rename the layer it was run on:
 
@@ -245,6 +255,14 @@ An extension can offer an API to other extensions, and its commands and tools to
   ```ts
   parity.agentTools.register("a11y.page", async ({ component }) => ({ url: await pageOf(String(component)) }))
   ```
+
+## Portless
+
+[packages/extension-portless](../packages/extension-portless) is Portless as an extension, built in. It starts for a
+project when Portless's folder is there (`PORTLESS_STATE_DIR`, else `~/.portless`), reads its `routes.json`,
+`proxy.port` and `proxy.tls` through `files.read`, and watches `routes.json`. Its address provider names each server
+Portless routes to, which the processes list then opens at; its discovery provider offers those servers to `find`, so
+Storybook adopts one running behind a Portless name. Routes whose process has ended are left out, as Portless does.
 
 ## Tests
 

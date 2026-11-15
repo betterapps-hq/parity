@@ -1,24 +1,8 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import type * as Processes from "./processes.ts"
+import { afterEach, describe, expect, it } from "vite-plus/test"
+import * as processes from "./processes.ts"
 
-let state: string
-let processes: typeof Processes
-
-// Portless's state folder is part of the service's environment, which is read once, so each test starts the service.
-beforeEach(async () => {
-  state = await mkdtemp(join(tmpdir(), "parity-portless-"))
-  vi.stubEnv("PORTLESS_STATE_DIR", state)
-  vi.resetModules()
-  processes = await import("./processes.ts")
-})
-
-afterEach(async () => {
+afterEach(() => {
   processes.forgetProject("D:/projects/shop")
-  vi.unstubAllEnvs()
-  await rm(state, { recursive: true, force: true })
 })
 
 const project = { projectId: "D:/projects/shop", project: "shop" } as const
@@ -47,25 +31,25 @@ describe("servers", () => {
     expect(await processes.listProcesses()).toEqual([])
   })
 
-  it("names a server by the Portless route to its port, and lists nothing else Portless routes", async () => {
-    await writeFile(
-      join(state, "routes.json"),
-      JSON.stringify([
-        { hostname: "storybook.shop.localhost", port: 6006, pid: process.pid },
-        { hostname: "api.shop.localhost", port: 4100, pid: process.pid }
-      ])
-    )
-    await writeFile(join(state, "proxy.port"), "1355")
+  it("lists the addresses providers give a server, and opens the one they set", async () => {
     processes.trackProcess({ ...storybook, state: "running" })
 
-    expect((await processes.listProcesses()).map((entry) => [entry.name, entry.opens])).toEqual([
-      ["Storybook", "http://storybook.shop.localhost:1355"]
-    ])
+    const named = {
+      url: "https://storybook.shop.localhost",
+      label: "storybook.shop.localhost",
+      kind: "name",
+      public: false,
+      provider: "@parity-app/extension-portless"
+    } as const
+
+    processes.setAddresses("storybook:shop", [named], named.url)
+
+    expect((await processes.listProcesses())[0]).toMatchObject({ addresses: [named], opens: named.url })
   })
 
-  it("leaves a server unnamed without Portless", async () => {
+  it("opens a server at its endpoint without addresses", async () => {
     processes.trackProcess({ ...storybook, state: "running" })
-    expect((await processes.listProcesses())[0]?.addresses).toEqual([])
+    expect((await processes.listProcesses())[0]).toMatchObject({ addresses: [], opens: "http://localhost:6006" })
   })
 })
 

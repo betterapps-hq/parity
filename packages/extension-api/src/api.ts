@@ -1,5 +1,6 @@
 import type { IconName, JsonValue, ViewKind } from "./manifest.ts"
 import type { Processes } from "./processes.ts"
+import type { ProviderRegistry } from "./providers.ts"
 
 /*
  * What an extension's code gets. Its module exports `activate`, which Parity calls with one `Parity` object when an
@@ -33,10 +34,9 @@ export interface Parity {
   readonly facts: Facts
   readonly status: StatusItems
   readonly processes: Processes
-  readonly servers: Servers
+  readonly providers: ProviderRegistry
   readonly edits: Edits
   readonly files: Files
-  readonly providers: ProviderRegistry
   readonly ui: Ui
   readonly settings: Settings
   readonly state: { readonly app: State; readonly project: State }
@@ -182,15 +182,6 @@ export interface StatusItem extends Disposable {
   set(update: { value?: string; tooltip?: string }): void
 }
 
-/** Portless's names for local servers, until Portless is an extension of its own (PAR-1103, step 3). */
-export interface Servers {
-  /**
-   * The local servers Portless gives names to: where each answers on this machine, and its address by name, which the
-   * person's browser opens. None without Portless.
-   */
-  routed(): Promise<{ url: string; address: string }[]>
-}
-
 /**
  * A layer's field, as a path into it: `["name"]`, `["hidden"]`, `["text"]`, `["props", "variant"]` or
  * `["style", "padding"]`. Not `id`, `type`, `children` or `slots`.
@@ -234,88 +225,27 @@ export type FileEdit =
   | { kind: "patch"; path: string; find: string; replace: string }
   | { kind: "delete"; path: string; expected: string }
 
-/** Changing the project's files: code, such as a story's args or a test. */
+/**
+ * The project's files, and files outside it that the manifest's `read` permission names: code, such as a story's args
+ * or a test, or another tool's state, as Portless's routes.
+ */
 export interface Files {
+  /**
+   * A file's text, by its path from the project's root or an absolute one, when the manifest's `read` permission names
+   * it. Rejects when it isn't there.
+   */
+  read(path: string): Promise<string>
+  /**
+   * Calls `listener` whenever the file at `path` is created, changes or goes, for a path `read` names, as `read` takes
+   * it. The file needn't be there yet.
+   */
+  watch(path: string, listener: () => void): Disposable
   /**
    * Writes the files together through the project service, which checks each still holds what the edit expects, and
    * shows the change with Undo under the extension's name and `label`. Limited to the paths the manifest's `write`
    * permission names, and never a `.par` file. Gives the paths it changed.
    */
   edit(label: string, files: FileEdit[]): Promise<string[]>
-}
-
-/**
- * The jobs the manifest's `providers` names, given behaviour. Parity calls a provider with plain data and waits for its
- * answer, so each method is asynchronous and takes and returns only what JSON can carry.
- */
-export interface ProviderRegistry {
-  /** Gives the router the manifest declares its behaviour. A second router is refused. */
-  register(kind: "router", provider: RouterProvider): Disposable
-  /** Gives the styling framework the manifest declares its behaviour. A second one is refused. */
-  register(kind: "styles", provider: StylesProvider): Disposable
-}
-
-/**
- * Reads a styling framework's theme from the project's own installation, writes a layer's declarations as its classes,
- * and writes token values where it keeps them. Stylesheets are named by their path from the project's root.
- */
-export interface StylesProvider {
-  /** Whether one of the project's stylesheets uses the framework, from its text. */
-  handles(request: { source: string }): Promise<boolean>
-  /** Every theme variable the stylesheet defines, resolved by the project's own copy of the framework. */
-  theme(request: { stylesheet: string }): Promise<ThemeVariable[]>
-  /**
-   * The classes the framework writes each declaration as, in order, or null for one it can't write; and the CSS those
-   * and the `written` classes compile to in this project. `version` goes up each time the project's stylesheets change,
-   * so what was loaded for an older one can go.
-   */
-  classes(request: {
-    stylesheet: string
-    version: number
-    written: string[]
-    declarations: CssDeclaration[]
-  }): Promise<WrittenClasses>
-  /**
-   * The stylesheet's source with token values written where the framework keeps them, and those without a value taken
-   * out, keeping everything else as written. `theme` is what `theme` read.
-   */
-  writeTokens(request: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }): Promise<string>
-}
-
-/** A theme variable without its `--`, as the framework defines it. */
-export interface ThemeVariable {
-  name: string
-  value: string
-}
-
-/** A CSS declaration of a layer's, as `background-color: var(--primary)`, in the state, viewport or theme it applies in. */
-export interface CssDeclaration {
-  property: string
-  value: string
-  when?: { state?: string; viewport?: string; theme?: string }
-}
-
-/** The classes declarations are written as, each null where the framework can't write it, and the CSS they compile to. */
-export interface WrittenClasses {
-  classes: (string[] | null)[]
-  css: string
-}
-
-/** A token's value in one theme (`default` for the root), or `value` undefined to take it out of that theme. */
-export interface TokenWrite {
-  /** Without `--`. */
-  name: string
-  theme: string
-  value: string | undefined
-}
-
-/** Reads an app's routes from its router's own files, so the canvas draws each page. */
-export interface RouterProvider {
-  /**
-   * The project's routes, each parent before its children. Empty when the router's files aren't there, as before its
-   * tooling first writes them. Parity asks while the project opens.
-   */
-  routes(): Promise<Route[]>
 }
 
 /** One route of an app, as its router declares it. */

@@ -39,6 +39,71 @@ export function writeRefusal(
   return undefined
 }
 
+/** Where an extension's read paths are worked out: the project's folder, the home folder, and the environment. */
+export interface ReadPlace {
+  root: string
+  home: string
+  variables: Record<string, string | undefined>
+  /** As Node's `process.platform` says: on Windows, paths are compared without case. */
+  platform: string
+}
+
+/**
+ * The absolute path an extension may read or watch for `path`, from the project's root or absolute, or nothing when
+ * its `read` permission doesn't name it. A glob is from the project's root, or from the home folder (`~/.portless/**`)
+ * or an environment variable's folder (`$PORTLESS_STATE_DIR/**`), which names nothing while the variable isn't set.
+ */
+export function readablePath(path: string, permissions: Permissions | undefined, place: ReadPlace): string | undefined {
+  const target = absolute(path, place.root)
+  const fold = (text: string) => (place.platform === "win32" ? text.toLowerCase() : text)
+
+  const allowed = (permissions?.read ?? []).some((glob) => {
+    const expanded = expandedGlob(glob, place)
+
+    return expanded !== undefined && globPattern(fold(expanded)).test(fold(target))
+  })
+
+  return allowed ? target : undefined
+}
+
+/** A read glob from where it starts: the home folder, a variable's folder, or the project's root. */
+function expandedGlob(glob: string, place: ReadPlace): string | undefined {
+  if (glob.startsWith("~/")) {
+    return absolute(glob.slice(2), place.home)
+  }
+
+  const variable = /^\$([A-Za-z_]\w*)(\/.*)?$/.exec(glob)
+
+  if (variable) {
+    const folder = place.variables[variable[1]!]
+
+    return folder ? absolute((variable[2] ?? "").replace(/^\//, ""), folder) : undefined
+  }
+
+  return isAbsolute(glob) ? undefined : absolute(glob, place.root)
+}
+
+function isAbsolute(path: string): boolean {
+  return /^(?:[\\/]|[a-z]:)/i.test(path)
+}
+
+/** A path made absolute from `base` when it isn't, with forward slashes and `.` and `..` worked out. */
+function absolute(path: string, base: string): string {
+  const joined = (isAbsolute(path) ? path : `${base}/${path}`).replaceAll("\\", "/")
+  const drive = /^[a-z]:/i.exec(joined)?.[0] ?? ""
+  const parts: string[] = []
+
+  for (const part of joined.slice(drive.length).split("/")) {
+    if (part === "..") {
+      parts.pop()
+    } else if (part !== "" && part !== ".") {
+      parts.push(part)
+    }
+  }
+
+  return `${drive}/${parts.join("/")}`
+}
+
 /** A path from the project's root with `.` and `..` worked out, or nothing when it's absolute or leaves the project. */
 function normalPath(path: string): string | undefined {
   const slashed = path.replaceAll("\\", "/")

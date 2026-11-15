@@ -8075,10 +8075,9 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   disabled, with the reason as its hint or beside it in a menu; without one, it's left out. Storybook's reason is "No
   story found", so a component no story's meta names still shows Open in Storybook, disabled, in every place below.
 - **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
-  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, the
-  component, and `servers`, which find a server already serving the project (one Portless routes to, else one on its
-  port) or start the tool's command line from the project's install, list it with the project's processes as a tool's
-  server and stop it with the project. An address the action gives opens in the browser.
+  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, and the
+  component. An address the action gives opens in the browser. A tool's server is an extension's now, through
+  `parity.processes` ([extensions.md](extensions.md)).
 - **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project.
 - **A code component offers the actions for it wherever it's picked,** each with its adapter's logo and the action's
   name: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on the canvas,
@@ -8105,13 +8104,12 @@ Before, the service had a `storybook.open` call and the status bar matched Story
   an external link icon, since it opens the page outside Parity, and searching "open in" lists it with `/projects/atlas`
   beside it once its ProjectId is `atlas`.
 
-Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAction` and `StatusItem.opens` in
-`packages/core/src/adapters.ts`; `openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`;
-`runAction` in `apps/desktop/src/utility/projects.ts` and `toolServers` in `apps/desktop/src/utility/tool-servers.ts`;
-`adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
-`adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
-`renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
-`renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
+Code: `AdapterAction`, `ActionContext`, `ProjectAction` and `StatusItem.opens` in `packages/core/src/adapters.ts`;
+`openStorybook` and `storybookServer` in `adapters/storybook-adapter/src/open.ts`; `runAction` in
+`apps/desktop/src/utility/projects.ts`; `adapter.run` in `shared/protocol.ts`; `adapterActions` in
+`packages/project/src/index.ts`, tested in `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and
+`selectionComponent` in `renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget`
+in `renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
 `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
 `SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
 `ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`,
@@ -8122,7 +8120,7 @@ page or, from Search, the page selected); `packages/project/src/adapter-status.t
 an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else
 Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
 action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
-Gaps: `tool-servers.ts` has no unit test, and the story play functions weren't run.
+Gaps: the story play functions weren't run.
 
 ### Each adapter detects its own tool
 

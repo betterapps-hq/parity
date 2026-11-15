@@ -188,6 +188,34 @@ export const processFound = defineEvent(
   { level: "info", sample: 0.1, sentBy: ["service"], when: "An extension's `find` returns." }
 )
 
+const providerKind = z.enum(["addresses", "discovery", "environment", "launcher"]).describe("The kind of provider")
+
+export const processProviderFailed = defineEvent(
+  "processes.providerFailed",
+  z.object({
+    provider: z.string().describe("The extension's id"),
+    kind: providerKind,
+    reason: z
+      .enum(["error", "timeout", "invalid", "refused"])
+      .describe(
+        "It threw, ran out of time, answered what its schema refuses, or gave an address or server Parity refuses"
+      ),
+    durationMs,
+    message: z.string().optional().describe("What went wrong, scrubbed")
+  }),
+  {
+    level: "warn",
+    sentBy: ["service"],
+    when: "A provider call throws, runs out of time, or answers what Parity refuses."
+  }
+)
+
+export const processProviderSlow = defineEvent(
+  "processes.providerSlow",
+  z.object({ provider: z.string().describe("The extension's id"), kind: providerKind, durationMs }),
+  { level: "info", sentBy: ["service"], when: "A provider call takes over half its time limit, but answers." }
+)
+
 export const processEvents = [
   processStarted,
   processFailed,
@@ -199,5 +227,7 @@ export const processEvents = [
   processLost,
   processRefused,
   processReattached,
-  processFound
+  processFound,
+  processProviderFailed,
+  processProviderSlow
 ] as const

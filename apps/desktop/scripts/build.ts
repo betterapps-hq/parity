@@ -62,7 +62,8 @@ await build({
     "extensions/storybook": require.resolve("@parity-app/extension-storybook"),
     "extensions/storybook-a11y": require.resolve("@parity-app/extension-storybook-a11y"),
     "extensions/tailwind": require.resolve("@parity-app/extension-tailwind"),
-    "extensions/tanstack-router": require.resolve("@parity-app/extension-tanstack-router")
+    "extensions/tanstack-router": require.resolve("@parity-app/extension-tanstack-router"),
+    "extensions/portless": require.resolve("@parity-app/extension-portless")
   }
 })
 
