@@ -24,6 +24,8 @@ declare module "cloudflare:workers" {
     SOURCES: RateLimit
     /** Parity's client in WorkOS, whose keys check each access token. */
     WORKOS_CLIENT_ID: string
+    /** WorkOS's API key, a secret the app's owner sets, which finishes a sign-in after choosing an organization. */
+    WORKOS_API_KEY?: string
     /** The sources' keys, which are secrets the app's owner sets, so each may be missing. */
     PARITY_MOBBIN_API_KEY?: string
     PARITY_PIXABAY_API_KEY?: string

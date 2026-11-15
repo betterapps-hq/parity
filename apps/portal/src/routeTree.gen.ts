@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as V1HealthRouteImport } from './routes/v1/health'
 import { Route as V1ConnectorsIndexRouteImport } from './routes/v1/connectors/index'
+import { Route as V1SignInOrganizationRouteImport } from './routes/v1/sign-in/organization'
 import { Route as V1ConnectorsIdSearchRouteImport } from './routes/v1/connectors/$id.search'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const V1ConnectorsIndexRoute = V1ConnectorsIndexRouteImport.update({
   path: '/v1/connectors/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const V1SignInOrganizationRoute = V1SignInOrganizationRouteImport.update({
+  id: '/v1/sign-in/organization',
+  path: '/v1/sign-in/organization',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const V1ConnectorsIdSearchRoute = V1ConnectorsIdSearchRouteImport.update({
   id: '/v1/connectors/$id/search',
   path: '/v1/connectors/$id/search',
@@ -38,12 +44,14 @@ const V1ConnectorsIdSearchRoute = V1ConnectorsIdSearchRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/v1/health': typeof V1HealthRoute
+  '/v1/sign-in/organization': typeof V1SignInOrganizationRoute
   '/v1/connectors/': typeof V1ConnectorsIndexRoute
   '/v1/connectors/$id/search': typeof V1ConnectorsIdSearchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/v1/health': typeof V1HealthRoute
+  '/v1/sign-in/organization': typeof V1SignInOrganizationRoute
   '/v1/connectors': typeof V1ConnectorsIndexRoute
   '/v1/connectors/$id/search': typeof V1ConnectorsIdSearchRoute
 }
@@ -51,19 +59,30 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/v1/health': typeof V1HealthRoute
+  '/v1/sign-in/organization': typeof V1SignInOrganizationRoute
   '/v1/connectors/': typeof V1ConnectorsIndexRoute
   '/v1/connectors/$id/search': typeof V1ConnectorsIdSearchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/v1/health' | '/v1/connectors/' | '/v1/connectors/$id/search'
+    | '/'
+    | '/v1/health'
+    | '/v1/sign-in/organization'
+    | '/v1/connectors/'
+    | '/v1/connectors/$id/search'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/v1/health' | '/v1/connectors' | '/v1/connectors/$id/search'
+  to:
+    | '/'
+    | '/v1/health'
+    | '/v1/sign-in/organization'
+    | '/v1/connectors'
+    | '/v1/connectors/$id/search'
   id:
     | '__root__'
     | '/'
     | '/v1/health'
+    | '/v1/sign-in/organization'
     | '/v1/connectors/'
     | '/v1/connectors/$id/search'
   fileRoutesById: FileRoutesById
@@ -71,6 +90,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   V1HealthRoute: typeof V1HealthRoute
+  V1SignInOrganizationRoute: typeof V1SignInOrganizationRoute
   V1ConnectorsIndexRoute: typeof V1ConnectorsIndexRoute
   V1ConnectorsIdSearchRoute: typeof V1ConnectorsIdSearchRoute
 }
@@ -98,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof V1ConnectorsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/v1/sign-in/organization': {
+      id: '/v1/sign-in/organization'
+      path: '/v1/sign-in/organization'
+      fullPath: '/v1/sign-in/organization'
+      preLoaderRoute: typeof V1SignInOrganizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/v1/connectors/$id/search': {
       id: '/v1/connectors/$id/search'
       path: '/v1/connectors/$id/search'
@@ -111,6 +138,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   V1HealthRoute: V1HealthRoute,
+  V1SignInOrganizationRoute: V1SignInOrganizationRoute,
   V1ConnectorsIndexRoute: V1ConnectorsIndexRoute,
   V1ConnectorsIdSearchRoute: V1ConnectorsIdSearchRoute,
 }

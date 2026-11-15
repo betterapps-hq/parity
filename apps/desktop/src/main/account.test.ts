@@ -67,10 +67,11 @@ const keptFor = (store: { kept?: StoredAccounts }, email = "ada@example.com") =>
  * The account with everything it talks to stood in for: WorkOS answers from a queue, the browser records what it was
  * opened at, and timers run when the test says.
  */
-function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
+function setUp(options: { store?: ReturnType<typeof memoryStore>; service?: string } = {}) {
   let now = 1_800_000_000_000
   const answers: { status: number; body: JsonValue }[] = []
   const requests: Record<string, JsonValue>[] = []
+  const urls: string[] = []
   const opened: string[] = []
   const states: AccountState[] = []
   const timers: { run: () => void; at: number }[] = []
@@ -78,7 +79,8 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
   let closed = 0
   let browserOpens = true
 
-  const fetch: Fetch = async (_url, init) => {
+  const fetch: Fetch = async (url, init) => {
+    urls.push(url)
     requests.push(JSON.parse(isText(init.body) ? init.body : "{}"))
     const answer = answers.shift() ?? { status: 503, body: {} }
 
@@ -90,6 +92,7 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
   const account = createAccount({
     clientId: "client_test",
     fetch,
+    ...(options.service !== undefined && { service: options.service }),
     redirect: async () => ({ uri: "http://127.0.0.1:4100/auth/callback", close: () => closed++ }),
     openBrowser: async (url) => {
       opened.push(url)
@@ -122,6 +125,7 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
     states,
     opened,
     requests,
+    urls,
     tracked: sink.events,
     /** The events recorded with `name`, by their attributes. */
     named: (name: string) => sink.named(name).map((each) => each.attributes),
@@ -262,6 +266,59 @@ describe("signing in", () => {
     const url = new URL(test.opened.at(-1)!)
     expect(url.searchParams.get("provider")).toBe("authkit")
     expect(url.searchParams.get("organization_id")).toBe("org_01ENGINES")
+  })
+
+  it("finishes the sign-in through Parity's service once an organization's chosen, without the browser (PAR-1143)", async () => {
+    const test = setUp({ service: "https://api.tryparity.dev" })
+    await test.account.signIn({ provider: "GoogleOAuth" })
+
+    const organizations = [
+      { id: "org_01KESTREL", name: "Kestrel" },
+      { id: "org_01ENGINES", name: "Engines" }
+    ]
+
+    test.answer(403, {
+      code: "organization_selection_required",
+      message: "Choose an organization.",
+      pending_authentication_token: "pending_01",
+      organizations
+    })
+    await test.account.takeLink(test.callback({ code: "1" }))
+    const opened = test.opened.length
+
+    test.answer(200, {
+      ...session("refresh_1", test.now(), { org_id: "org_01ENGINES" }),
+      organization_id: "org_01ENGINES"
+    })
+    await test.account.signIn({ provider: "authkit", organizationId: "org_01ENGINES" })
+
+    expect(test.opened).toHaveLength(opened)
+    expect(test.urls.at(-1)).toBe("https://api.tryparity.dev/v1/sign-in/organization")
+    expect(test.requests.at(-1)).toEqual({ pendingToken: "pending_01", organizationId: "org_01ENGINES" })
+    expect(test.account.state()).toMatchObject({
+      account: { organizationId: "org_01ENGINES", organizations },
+      attempt: null
+    })
+    expect(test.named("account.signedIn")).toEqual([expect.objectContaining({ provider: "GoogleOAuth" })])
+  })
+
+  it("signs in again with the organization named when the service can't finish it (PAR-1143)", async () => {
+    const test = setUp({ service: "https://api.tryparity.dev" })
+    await test.account.signIn({ provider: "GoogleOAuth" })
+
+    test.answer(403, {
+      code: "organization_selection_required",
+      message: "Choose.",
+      pending_authentication_token: "pending_01",
+      organizations: [{ id: "org_01KESTREL", name: "Kestrel" }]
+    })
+    await test.account.takeLink(test.callback({ code: "1" }))
+
+    test.answer(503, { error: "unavailable", message: "The service can't finish a sign-in yet." })
+    await test.account.signIn({ provider: "authkit", organizationId: "org_01KESTREL" })
+
+    expect(new URL(test.opened.at(-1)!).searchParams.get("organization_id")).toBe("org_01KESTREL")
+    expect(test.named("account.organizationChoiceFailed")).toEqual([{ reason: "unavailable", status: 503 }])
   })
 
   it("doesn't sign in when canceled while the code was traded", async () => {
