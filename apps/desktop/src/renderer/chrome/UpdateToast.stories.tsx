@@ -8,7 +8,7 @@ import { type UpdateNotice, UpdateToast } from "./UpdateToast.tsx"
 
 /** Update notifications at their real size, with the same Sonner host and placement as the app. No updater runs. */
 const meta = {
-  title: "Parity/Chrome/Updates",
+  title: "Parity/Chrome/Notices/Updates",
   component: UpdateToast,
   parameters: { layout: "centered" },
   args: {

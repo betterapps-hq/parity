@@ -4,14 +4,8 @@ import { join } from "node:path"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { traceWith } from "../shared/tracing.ts"
-import {
-  adoptProcess,
-  freePort,
-  type ManagedSpec,
-  managedProcess,
-  startProcess,
-  stopProject
-} from "./process-manager.ts"
+import { freePort } from "./ports.ts"
+import { adoptProcess, type ManagedSpec, managedProcess, startProcess, stopProject } from "./process-manager.ts"
 import { listProcesses } from "./processes.ts"
 
 let state: string

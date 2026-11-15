@@ -20,7 +20,7 @@ import { TabBar } from "./TabBar.tsx"
  * Shown on its own, above an empty window.
  */
 const meta = {
-  title: "Parity/Chrome/Tab bar",
+  title: "Parity/Chrome/Window/Tab bar",
   component: TabBar,
   decorators: [Chrome],
   loaders: [clearNotifications]

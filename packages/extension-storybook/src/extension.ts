@@ -1,14 +1,17 @@
 import { containerSpec, parseData } from "@parity-app/core"
 import type { Candidate, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
 import { projectSource } from "@parity-app/project"
-import { exportStoryScreen, importStoryScreens } from "./screens.ts"
+import { exportStoryScreen, importStories } from "./screens.ts"
 import {
   componentsWithStories,
-  type DetectedStorybook,
   type IndexEntry,
+  type LastRead,
   type PageKind,
-  readDetected,
+  type ProjectStorybook,
+  projectStorybook,
+  readLastRead,
   readStoryIndex,
+  scriptsOf,
   servesStories,
   storyPage
 } from "./storybook.ts"
@@ -19,8 +22,10 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * and Search actions, greyed where a component has no stories, and the status bar's count of components with stories.
  * Its declarative views (PAR-1094) are the Stories tab, a Stories section in the Design tab for the selected component,
  * and a setup guide that Show Storybook setup opens.
- * Its settings (PAR-1090) are the project's config folder, which detection reads from the main `.par` before this code
- * loads, and where stories open, the person's choice for every project.
+ * Its settings (PAR-1090) are the project's config folder and where stories open, the person's choice for every project.
+ * Parity finds it where its entities detection finds the project's Storybook (PAR-1128), and the extension reads the
+ * rest itself: its config folder and port from the settings and the `storybook dev` script, and which components have
+ * stories as its entities provider reads the story files, each time Parity imports them.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
  * it already runs, as a discovery provider such as Portless finds it or on its usual port, and adopts it, or starts it
  * with `parity.processes`. It opens at the server's preferred address, as the name Portless gives it. What `activate`
@@ -35,8 +40,8 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * `parity.extensions.get("@parity-app/extension-storybook").api`, each function giving a promise there.
  */
 export type StorybookApi = {
-  /** The components with stories, by key. */
-  componentsWithStories(): string[]
+  /** The components with stories, by key, once the project's story files have been read. */
+  componentsWithStories(): Promise<string[]>
   /** A component's story files, relative to the project's root. */
   storyFiles(component: string): string[]
   /**
@@ -47,12 +52,79 @@ export type StorybookApi = {
   storyPage(component?: string, kind?: PageKind): Promise<string>
 }
 
-export function activate(parity: Parity): StorybookApi | undefined {
+export function activate(parity: Parity): StorybookApi {
   const { root } = parity.project
+
+  // What the last import read, kept with the project, so a host started again shows it before the next import. Until
+  // the story files are read, Storybook is found in its usual folder, with no stories.
+  const saved = readLastRead(parity.state.project.get("lastRead"))
+  let scripts = saved?.scripts
+  let storybook: ProjectStorybook = projectStorybook(scripts, configDir(parity), saved?.stories ?? {})
+  let shown: string[] = []
+  let read: () => void = () => undefined
+  const firstRead = new Promise<void>((resolve) => (read = resolve))
+
+  const count = parity.status.item("storybook.stories")
+  const tree = parity.views.tree("storybook.stories", storiesTree(storybook).options)
+  const selected = parity.views.list("storybook.componentStories", componentStories(storybook).options)
+  const setup = parity.views.list("storybook.setupGuide", setupGuide(storybook).options)
+  parity.subscriptions.push(count, tree, selected, setup)
+
+  /** Shows what was read of the project's stories: the context key, each component's facts, the count and the views. */
+  const show = (next: ProjectStorybook) => {
+    storybook = next
+    const withStories = componentsWithStories(storybook)
+    parity.log.info(
+      `Found Storybook's config in ${storybook.configDir}, with stories for ${withStories.length} components`
+    )
+    parity.context.set("storybook.hasStories", withStories)
+
+    // A component that no longer has stories loses its facts.
+    for (const key of shown.filter((each) => !withStories.includes(each))) {
+      parity.facts.set({ type: "component", key }, [])
+    }
+
+    for (const key of withStories) {
+      const stories = storybook.stories[key]?.length ?? 0
+      parity.facts.set({ type: "component", key }, [
+        { id: "stories", label: stories === 1 ? "story" : "stories", value: String(stories) }
+      ])
+    }
+
+    shown = withStories
+    const noun = withStories.length === 1 ? "component" : "components"
+    count.set({
+      value: String(withStories.length),
+      tooltip: `${withStories.length} ${noun} with stories. Click to open it`
+    })
+    tree.set(storiesTree(storybook).items)
+    selected.set(componentStories(storybook).items)
+    setup.set(setupGuide(storybook).items)
+  }
 
   parity.subscriptions.push(
     parity.providers.register("entities", {
-      import: ({ components }) => importStoryScreens(projectSource(root, components)),
+      // Each import reads the story files afresh, so what the extension shows follows them.
+      async import({ components }) {
+        const source = projectSource(root, components)
+
+        try {
+          const imported = await importStories(source)
+          scripts = scriptsOf(await source.read("package.json"))
+          show(projectStorybook(scripts, configDir(parity), imported.stories))
+          const kept: LastRead = { stories: imported.stories }
+
+          if (scripts) {
+            kept.scripts = scripts
+          }
+
+          void parity.state.project.update("lastRead", kept)
+
+          return imported.entities
+        } finally {
+          read()
+        }
+      },
       // The design comes from Parity, which checked it; it's read as a container here all the same.
       export: ({ screen, edited, components }) =>
         exportStoryScreen(
@@ -63,57 +135,28 @@ export function activate(parity: Parity): StorybookApi | undefined {
     })
   )
 
-  const storybook = readDetected(parity.project.detected)
-
-  if (!storybook) {
-    parity.log.warn("Detection found no Storybook that this version can read.")
-
-    return undefined
-  }
-
-  const withStories = componentsWithStories(storybook)
-  parity.log.info(
-    `Found Storybook's config in ${storybook.configDir}, with stories for ${withStories.length} components`
-  )
-  parity.context.set("storybook.hasStories", withStories)
-
-  for (const key of withStories) {
-    const stories = storybook.stories[key]?.length ?? 0
-    parity.facts.set({ type: "component", key }, [
-      { id: "stories", label: stories === 1 ? "story" : "stories", value: String(stories) }
-    ])
-  }
-
-  const count = parity.status.item("storybook.stories")
-  const noun = withStories.length === 1 ? "component" : "components"
-  count.set({
-    value: String(withStories.length),
-    tooltip: `${withStories.length} ${noun} with stories. Click to open it`
-  })
-  parity.subscriptions.push(count)
-
-  const tree = storiesTree(storybook)
-  const stories = parity.views.tree("storybook.stories", tree.options)
-  stories.set(tree.items)
-
-  const section = componentStories(storybook)
-  const selected = parity.views.list("storybook.componentStories", section.options)
-  selected.set(section.items)
-
-  const guide = setupGuide(storybook)
-  const setup = parity.views.list("storybook.setupGuide", guide.options)
-  setup.set(guide.items)
-  parity.subscriptions.push(stories, selected, setup)
-
   parity.subscriptions.push(parity.commands.register("storybook.setup", () => setup.reveal()))
 
-  const paths = Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
+  // The project's settings can arrive after the first import, as the project opens, and change later.
+  parity.subscriptions.push(
+    parity.settings.onChange("storybook.configDir", () =>
+      show(projectStorybook(scripts, configDir(parity), storybook.stories))
+    )
+  )
+
+  if (saved) {
+    show(storybook)
+    read()
+  }
+
+  /** Every story file, so a running Storybook can be told for the project's. */
+  const paths = () => Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
   let finding: Promise<ProcessHandle> | undefined
 
   /** The project's Storybook, ready, with its stories: found or started once, then reused while it answers. */
   const ensure = async (): Promise<{ server: ProcessInfo; entries: IndexEntry[] }> => {
     // Two opens at once share one lookup, so they don't both adopt, or one adopt while the other starts.
-    finding ??= serve(parity, storybook, paths).finally(() => (finding = undefined))
+    finding ??= serve(parity, storybook, paths()).finally(() => (finding = undefined))
     const handle = await finding
     const server = await handle.ready()
     setup.set(setupGuide(storybook, { address: addressOf(server) }).items)
@@ -125,7 +168,7 @@ export function activate(parity: Parity): StorybookApi | undefined {
 
     // Closed by hand, or answering with something else: it's found or started again.
     await handle.stop()
-    finding ??= serve(parity, storybook, paths).finally(() => (finding = undefined))
+    finding ??= serve(parity, storybook, paths()).finally(() => (finding = undefined))
     const again = await (await finding).ready()
     setup.set(setupGuide(storybook, { address: addressOf(again) }).items)
 
@@ -180,14 +223,23 @@ export function activate(parity: Parity): StorybookApi | undefined {
   )
 
   return {
-    componentsWithStories: () => withStories,
+    componentsWithStories: async () => {
+      await firstRead
+
+      return componentsWithStories(storybook)
+    },
     storyFiles,
     storyPage: pageOf
   }
 }
 
+/** The config folder the project's `storybook.configDir` setting gives, a string as the manifest declares it. */
+function configDir(parity: Parity): string {
+  return parity.settings.get<string>("storybook.configDir")
+}
+
 /** The project's Storybook: ours already, one running that serves its stories, adopted, or one started. */
-async function serve(parity: Parity, storybook: DetectedStorybook, paths: string[]): Promise<ProcessHandle> {
+async function serve(parity: Parity, storybook: ProjectStorybook, paths: string[]): Promise<ProcessHandle> {
   // Ours already, started or adopted earlier, or before the host started again.
   const known = parity.processes.get("storybook")
 

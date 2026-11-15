@@ -21,7 +21,7 @@ import { QuickInsert } from "./QuickInsert.tsx"
  * the project's and its libraries' components, and icons, searchable from the keyboard.
  */
 const meta = {
-  title: "Parity/Chrome/Quick insert",
+  title: "Parity/Chrome/Menus/Quick insert",
   component: QuickInsert,
   render: () => <AppWindow />,
   decorators: [Window],

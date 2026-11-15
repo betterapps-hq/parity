@@ -7,9 +7,9 @@ import { gatherChanges } from "@parity-app/project"
 import { componentModuleSource, guestFiles, guestModuleSource } from "./browser-modules.ts"
 import type { Bundler, BundlerCompilation, BundlerConfig, BundlerStats } from "./bundler.ts"
 import { writeElementSourcesLoader, writeGuestAddressLoader } from "./element-sources.ts"
-import { changedComponents, filePath, loadedFiles, modulesByFile, providedExports } from "./graph.ts"
+import { changedComponents, entryImports, filePath, loadedFiles, providedExports } from "./graph.ts"
 import { guestConfig } from "./guest-config.ts"
-import { componentPath, entryPath, guestEntrySource, loadablePaths } from "./guest-entry.ts"
+import { componentPath, entryPath, guestEntrySource, isSourcePath, loadablePaths } from "./guest-entry.ts"
 import { freePort, portFree, serveGuest } from "./server.ts"
 
 /** What starts a guest build: the bundler and config the project's own tool gives, and what Parity asks for. */
@@ -48,9 +48,14 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   const addressLoader = await writeGuestAddressLoader(folder, guestUrl)
   const entry = join(folder, "guest-entry.js")
   const extra = new Set<string>()
+  /** The paths the entry, as last written, can load: discovery changes `start.config` before the entry is rewritten. */
+  let written = new Set<string>()
 
-  const writeEntry = () =>
-    writeFile(entry, guestEntrySource(start.config, { root, renderer, key, extra: [...extra] }), "utf8")
+  const writeEntry = async () => {
+    const paths = new Set(loadablePaths(start.config, [...extra]))
+    await writeFile(entry, guestEntrySource(start.config, { root, renderer, key, extra: [...extra] }), "utf8")
+    written = paths
+  }
 
   await writeEntry()
 
@@ -82,7 +87,13 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
 
   let cssDigest: string | undefined
 
-  compiler.hooks.invalid.tap("parity:guest", () => build.invalidated())
+  /** How many times the build has been invalidated: a build's results only count if no newer build has started. */
+  let invalidations = 0
+
+  compiler.hooks.invalid.tap("parity:guest", () => {
+    invalidations++
+    build.invalidated()
+  })
   compiler.hooks.failed.tap("parity:guest", (error) => build.failed(error))
   compiler.hooks.done.tap("parity:guest", (stats) => {
     const first = build.compilation === undefined
@@ -100,25 +111,41 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
       )
     )
 
-    build.done(stats)
+    // The CSS of the components' chunks, as this build named them; earlier builds' files stay for pages behind.
+    const componentCss = [...stats.compilation.chunks].flatMap((chunk) =>
+      chunk.name === "styles" || chunk.name === "package-styles"
+        ? []
+        : [...chunk.files].filter((file) => file.endsWith(".css")).sort()
+    )
 
-    void Promise.all([cssOf(output), changedSince(reached.keys(), watchStarted)]).then(([digest, changed]) => {
-      const restyled = cssDigest !== undefined && digest !== cssDigest
-      cssDigest = digest
+    const at = invalidations
 
-      if (first) {
-        return
-      }
+    // The canvas reads the gathered CSS once the build is done.
+    void gatherCss(output, componentCss)
+      .then(() => {
+        if (invalidations === at) {
+          build.done(stats)
+        }
 
-      const paths = changed.flatMap((file) => reached.get(file)!)
-      changes.stamp()
-      changes.add({ paths: [...new Set(paths)], styles: restyled })
-    })
+        return Promise.all([cssOf(output), changedSince(reached.keys(), watchStarted)])
+      })
+      .then(([digest, changed]) => {
+        const restyled = cssDigest !== undefined && digest !== cssDigest
+        cssDigest = digest
+
+        if (first) {
+          return
+        }
+
+        const paths = changed.flatMap((file) => reached.get(file)!)
+        changes.stamp()
+        changes.add({ paths: [...new Set(paths)], styles: restyled })
+      })
   })
 
   const watchStarted = Date.now()
   // Failures come through the `failed` hook.
-  const watching = compiler.watch({ aggregateTimeout: 50 }, () => undefined)
+  const watching = compiler.watch({ aggregateTimeout: 50, ignored: watchIgnored }, () => undefined)
 
   const close = async () => {
     changes.stop()
@@ -142,10 +169,14 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
 
   /** A component's module, once the build has it: added to the guest's entry first if it isn't there. */
   const component = async (path: string): Promise<string> => {
-    if (!loadablePaths(start.config, [...extra]).includes(path)) {
+    if (!written.has(path)) {
       extra.add(path)
       await writeEntry()
-      await build.until((compilation) => modulesByFile(compilation).has(entryPath(graphRoot, path)), addedWithin)
+      // The module may be in the build already, as another's import: it's the rewritten entry's build that loads it.
+      await build.until(
+        (compilation) => entryImports(compilation, filePath(entry), entryPath(graphRoot, path)),
+        addedWithin
+      )
     }
 
     const compilation = await build.settled()
@@ -166,7 +197,22 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
         return guestModuleSource(key)
       }
 
-      return url.searchParams.has("t") ? component(componentPath(decodeURIComponent(url.pathname))) : undefined
+      // A component found since the guest loaded may come without a stamp.
+      const path = componentPath(decodeURIComponent(url.pathname))
+
+      const loadable = loadablePaths(start.config, [...extra]).includes(path)
+
+      // A stamped request for a module of the project's own, which the canvas may know before discovery does; a stamped
+      // public file (`/images/photo.png?t=1`) is served as it is.
+      const stampedSource =
+        url.searchParams.has("t") &&
+        isSourcePath(path) &&
+        (await stat(join(root, path)).then(
+          (stats) => stats.isFile(),
+          () => false
+        ))
+
+      return loadable || stampedSource ? component(path) : undefined
     }
   })
 
@@ -229,6 +275,18 @@ async function changedSince(files: Iterable<string>, since: number): Promise<str
   )
 
   return list.filter((_, index) => times[index]! >= since)
+}
+
+/**
+ * What the watcher leaves alone: Git's folder and packages, as the tools do by default, but the guest's entry, which
+ * lives in a package cache folder and changes when a component is added to it.
+ */
+export const watchIgnored = /[\\/](?:\.git[\\/]|node_modules[\\/](?!\.cache[\\/]parity-[^\\/]+[\\/]guest-entry\.js$))/
+
+/** Writes the CSS files `files`, in the output folder, as one, for the guest module to read. */
+async function gatherCss(output: string, files: readonly string[]): Promise<void> {
+  const texts = await Promise.all(files.map((file) => readFile(join(output, file), "utf8").catch(() => "")))
+  await writeFile(join(output, guestFiles.componentStyles), texts.filter(Boolean).join("\n"), "utf8")
 }
 
 /** A digest of the CSS the build wrote, which changes when any of it does, whatever changed it. */

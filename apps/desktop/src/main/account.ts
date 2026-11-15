@@ -742,8 +742,13 @@ export function createAccount(options: AccountOptions): Account {
 
       problem(provider, said, workosAnswer(result))
 
-      // Choosing an organization or using single sign-on isn't a failure, only one more step in Parity.
-      return said.problem === "choose-organization" || said.problem === "single-sign-on" ? "continue" : "problem"
+      // Neither is a failure. Someone choosing an organization is signed in already, so the page says so; single sign-on
+      // still has a step to go in Parity.
+      if (said.problem === "choose-organization") {
+        return "choose-organization"
+      }
+
+      return said.problem === "single-sign-on" ? "continue" : "problem"
     }
   }
 }

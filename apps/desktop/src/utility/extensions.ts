@@ -1,11 +1,9 @@
-import { existsSync, readFileSync, type Stats, unwatchFile, watchFile } from "node:fs"
+import { existsSync, type Stats, unwatchFile, watchFile } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import {
   type BuilderDescription,
-  detectPeers,
   type EntitiesDescription,
   extensionBuilder,
   extensionEntities,
@@ -13,13 +11,11 @@ import {
   extensionTool,
   extensionRenderer,
   type PackageManifest,
-  type RendererDescription,
-  type StorybookInfo
+  type RendererDescription
 } from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import rspackPackage from "@parity-app/extension-rspack/package.json" with { type: "json" }
-import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
@@ -27,6 +23,7 @@ import routerPackage from "@parity-app/extension-tanstack-router/package.json" w
 import turbopackPackage from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
+  detectByManifest,
   type ExtensionEdits,
   type ExtensionFiles,
   type ExtensionHosts,
@@ -36,7 +33,6 @@ import {
   readExtension
 } from "@parity-app/extensions"
 import { detectStorybook } from "@parity-app/project"
-import { z } from "zod"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
@@ -61,8 +57,6 @@ export interface ExtensionProject {
   root: string
   name: string
   pkg: PackageManifest
-  /** Its Storybook, once discovery has found it, before the project has opened. */
-  storybook?: StorybookInfo
   /** The extensions whose tools' files detection found as entities, by prefix, before the project has opened. */
   entities?: string[]
   open?: OpenProject
@@ -70,32 +64,24 @@ export interface ExtensionProject {
 
 const hostScript = fileURLToPath(new URL("./extension-host.mjs", import.meta.url))
 
-/** A built-in extension: its `package.json`, its bundled code beside the service, and how it detects its tool. */
+/** Where detection's paths start: the home folder and the service's environment, as extensions' reads have them. */
+const detectPlace = { home: homedir(), variables: process.env, platform: process.platform, exists: existsSync }
+
+/**
+ * A built-in extension: its `package.json` and its bundled code beside the service. Its manifest's `detect` finds its
+ * tool, as every extension's does.
+ */
 function builtIn(
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a package.json, read by readExtension
   packageJson: unknown,
-  bundle: string,
-  detect: InstalledExtension<ExtensionProject>["detect"]
+  bundle: string
 ): InstalledExtension<ExtensionProject> {
+  const found = readExtension(packageJson)
+
   return {
-    package: readExtension(packageJson),
+    package: found,
     main: fileURLToPath(new URL(`./extensions/${bundle}.mjs`, import.meta.url)),
-    detect
-  }
-}
-
-/**
- * An extension found by its peer dependencies in the project's package.json, which Parity reads as it opens, or by a
- * package that ships its tool in their place, as Vite+ ships Vite.
- */
-function byPeers(found: InstalledExtension<ExtensionProject>): InstalledExtension<ExtensionProject> {
-  const { versions } = found.package
-
-  const packages = versions && [...versions.packages, ...Object.keys(versions.distributions ?? {})]
-
-  return {
-    ...found,
-    detect: ({ pkg }) => (versions && packages && detectPeers(pkg, { ...versions, packages }).found ? {} : undefined)
+    detect: (project) => detectByManifest(found, project, detectPlace)
   }
 }
 
@@ -124,50 +110,18 @@ export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage].fl
   (found) => extensionTool(found) ?? []
 )
 
-/** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
+/** Parity's own extensions, in the order the status bar shows their items: the builder, the renderer, then the rest. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
-  // In the order the status bar shows their items: the builder, then the renderer, then the rest.
-  byPeers(builtIn(vitePackage, "vite", () => undefined)),
-  byPeers(builtIn(rspackPackage, "rspack", () => undefined)),
-  byPeers(builtIn(turbopackPackage, "turbopack", () => undefined)),
-  byPeers(builtIn(reactPackage, "react", () => undefined)),
-  byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
-  byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
-  builtIn(storybookPackage, "storybook", ({ open, storybook, entities }) => {
-    const found = open?.info.storybook ?? storybook
-
-    // Stories without a config discovery can read are still imported, by the entities provider the extension registers
-    // before it looks at what was found.
-    if (!found) {
-      return entities?.includes(storybookPackage.parity.prefix) ? {} : undefined
-    }
-
-    // What detection found goes to the host as JSON carries it, without the fields it leaves out, which structuredClone
-    // would keep.
-    // oxlint-disable-next-line unicorn/prefer-structured-clone
-    return { detected: z.json().parse(JSON.parse(JSON.stringify(found))) }
-  }),
-  // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
-  builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
-    open?.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
-  ),
-  // Portless names local servers. Without its folder there's nothing to read, so it doesn't start.
-  builtIn(portlessPackage, "portless", () => {
-    const folder = environment().PORTLESS_STATE_DIR ?? join(homedir(), ".portless")
-
-    return existsSync(folder) ? { detected: { folder } } : undefined
-  })
+  builtIn(vitePackage, "vite"),
+  builtIn(rspackPackage, "rspack"),
+  builtIn(turbopackPackage, "turbopack"),
+  builtIn(reactPackage, "react"),
+  builtIn(tailwindPackage, "tailwind"),
+  builtIn(routerPackage, "tanstack-router"),
+  builtIn(storybookPackage, "storybook"),
+  builtIn(accessibilityPackage, "storybook-a11y"),
+  builtIn(portlessPackage, "portless")
 ]
-
-/** A project's package.json, as JSON parsed it, or nothing when it can't be read. */
-// oxlint-disable-next-line anti-slop/no-unknown-returns -- a package.json can hold anything; its reader checks it
-function readPackageJson(root: string): unknown {
-  try {
-    return JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
-  } catch {
-    return undefined
-  }
-}
 
 /**
  * Reading and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
@@ -221,8 +175,8 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
 export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): ProjectProviders {
   /**
    * Tells the hosts of the project, as early as its package is read, and again once detection has found files of its
-   * tools that are entities or discovery its Storybook, which starts Storybook's extension for its entities. What they
-   * were told goes with the project, so a project closed and opened again tells them afresh.
+   * tools that are entities, which starts the extensions that provide them. What they were told goes with the project,
+   * so a project closed and opened again tells them afresh.
    */
   const told = (project: ProviderProject) => {
     const id = project.root
@@ -233,11 +187,10 @@ export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): Proje
       return id
     }
 
-    const storybook = known?.storybook || !!project.storybook
     const entities = known?.entities || (project.entities?.length ?? 0) > 0
 
-    if (!known || storybook !== known.storybook || entities !== known.entities) {
-      projects.set(id, { root: project.root, name: project.name, storybook, entities })
+    if (!known || entities !== known.entities) {
+      projects.set(id, { root: project.root, name: project.name, entities })
       hosts.open({ id, ...project })
     }
 
@@ -251,10 +204,7 @@ export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): Proje
 }
 
 /** The open projects hosts were told of, by id, for their servers' folders and names. */
-const projects = new Map<
-  string,
-  { root: string; name: string; storybook?: boolean; entities?: boolean; opened?: boolean }
->()
+const projects = new Map<string, { root: string; name: string; entities?: boolean; opened?: boolean }>()
 
 /**
  * Tells the hosts a project opened, which starts the extensions that activate when detected, with the project's

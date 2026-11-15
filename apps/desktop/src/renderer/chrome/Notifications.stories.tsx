@@ -26,7 +26,7 @@ import { exportAllImages } from "./commands.ts"
  * go after its usual few seconds.
  */
 const meta = {
-  title: "Parity/Chrome/Notifications",
+  title: "Parity/Chrome/Notices/Notifications",
   component: SonnerToaster,
   render: () => <AppWindow />,
   decorators: [Window],

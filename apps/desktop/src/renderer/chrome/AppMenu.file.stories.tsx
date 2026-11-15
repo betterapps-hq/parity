@@ -20,7 +20,7 @@ import { formatKeys } from "./keys.ts"
 
 /** File: a new tab, opening projects, saving, exporting, Settings, closing the tab and exiting. */
 const meta = {
-  title: "Parity/Chrome/App menu/File",
+  title: "Parity/Chrome/Menus/App menu/File",
   ...menuStories
 } satisfies Meta<typeof AppMenu>
 

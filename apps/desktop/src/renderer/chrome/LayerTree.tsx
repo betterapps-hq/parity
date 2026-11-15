@@ -100,10 +100,9 @@ import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { componentOffers, layerOffers, pageOffers } from "./adapter-actions.ts"
-import { AdapterMenuItems } from "./AdapterMenuItems.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
+import { componentOffers, layerOffers, pageOffers } from "./command-offers.ts"
 import { showConsole } from "./ConsolePanel.tsx"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
@@ -112,6 +111,7 @@ import { keymap } from "./keymap.ts"
 import { layerComponent } from "./layer-kind.ts"
 import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
 import { Name, NameInput } from "./Name.tsx"
+import { OfferMenuItems } from "./OfferMenuItems.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 import { readFromCode } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
@@ -1598,7 +1598,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const { extensions } = useExtensions(session)
 
   const placed = { session, extensions, placement: "layers" as const }
-  let offers = page ? pageOffers(session.info, page.route, placed) : componentOffers(session.info, component, placed)
+  let offers = page ? pageOffers(page.route, placed) : componentOffers(component, placed)
 
   // Any other layer offers the extensions' commands placed in Layers, run for the layer (PAR-1093).
   if (!page && !component && row.node && row.path === row.node.id) {
@@ -1633,11 +1633,11 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
     )
   })
 
-  // What the project's adapters offer for a code component, as Open in Storybook, after the editor's own commands.
+  // What the project's extensions offer for a code component, as Open in Storybook, after the editor's own commands.
   return (
     <>
       {items}
-      <AdapterMenuItems offers={offers} projectId={session.id} component={component} page={page} />
+      <OfferMenuItems offers={offers} page={page !== undefined} />
     </>
   )
 }

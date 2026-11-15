@@ -25,7 +25,7 @@ import { StatusBar } from "./StatusBar.tsx"
  * what it opens.
  */
 const meta = {
-  title: "Parity/Chrome/Status bar",
+  title: "Parity/Chrome/Window/Status bar",
   component: StatusBar,
   decorators: [AtBottom],
   loaders: [clearNotifications]
@@ -57,7 +57,7 @@ export const ExampleProject: Story = {
 /**
  * Everything the status bar can hold at once: the project's renderer, builder, components, tokens and Storybook; a save
  * that failed; a light for each process, with the build server's breathing, Storybook's turning as it starts and a
- * stopped Playwright run's hollow; and the performance stats.
+ * canceled unit test run's hollow; and the performance stats.
  */
 export const Everything: Story = {
   loaders: [
@@ -87,11 +87,11 @@ export const Everything: Story = {
         },
         {
           ...base,
-          id: `e2e:${roots.example}`,
-          owner: { kind: "parity", role: "e2e" },
+          id: `test:${roots.example}`,
+          owner: { kind: "parity", role: "test" },
           addresses: [],
           lifetime: "task",
-          name: "Playwright",
+          name: "Unit tests",
           state: "canceled",
           startedAt: Date.now() - 300_000,
           stoppedAt: Date.now() - 240_000,

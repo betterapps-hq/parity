@@ -6,7 +6,7 @@ export interface ContributingExtension {
   }
 }
 
-/** What the open project says of its tools' adapters: the role each fills, its actions and its status items. */
+/** What the open project says of its tools' adapters: the role each fills and its status items. */
 export interface AdapterFacts {
   renderer: { id: string }
   builder: { id: string }
@@ -16,14 +16,13 @@ export interface AdapterFacts {
   routes: readonly { parent?: string }[]
   /** The screens adapters read, by the adapter that read each. */
   entities: { screens?: readonly { adapter: string }[] }
-  actions: readonly { adapter: string; name: string }[]
   /** The status bar items adapters show, by adapter. */
   status: readonly { adapter: string }[]
 }
 
 /**
  * What a built-in extension adds to the open project, as Settings lists it: what its adapter does for the role it fills,
- * then the actions it and its extension offer, by their names, then a status bar item when it shows one. An extension's
+ * then the commands its extension offers, by their names, then a status bar item when it shows one. An extension's
  * contributions are those whose ids start with its own, as `storybook.open`. Nothing for a tool the project doesn't use.
  */
 export function extensionAdds(
@@ -38,13 +37,11 @@ export function extensionAdds(
     (extension) => extension.contributes.commands?.filter(own).map((command) => command.title) ?? []
   )
 
-  const actions = project.actions.filter((action) => action.adapter === id).map((action) => action.name)
-
   const shown =
     project.status.some((item) => item.adapter === id) ||
     contributed.some((extension) => extension.contributes.statusItems?.some(own))
 
-  return unique([...rolesOf(id, project), ...actions, ...commands, ...(shown ? ["A status bar item"] : [])])
+  return unique([...rolesOf(id, project), ...commands, ...(shown ? ["A status bar item"] : [])])
 }
 
 /** What an adapter does for each role it fills in the project. */

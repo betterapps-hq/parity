@@ -74,7 +74,7 @@ describe("layerKind", () => {
 })
 
 describe("layerComponent", () => {
-  it("names the code component a layer draws, for its adapters' actions, but not an icon or any other layer", () => {
+  it("names the code component a layer draws, for its extensions' commands, but not an icon or any other layer", () => {
     expect(layerComponent({ type: "component", id: "n", component: "nova/Card" }, libraries)).toBe("nova/Card")
     expect(layerComponent({ type: "component", id: "l", component: "lucide/Check" }, libraries)).toBeUndefined()
     expect(layerComponent({ type: "instance", id: "i", design: "plan-card" }, libraries)).toBeUndefined()
@@ -91,7 +91,7 @@ describe("layerActions", () => {
     expect(actions({ type: "instance", id: "i", design: "plan-card" }, none)).toEqual([])
   })
 
-  it("offers nothing of its own for a code component, whose adapters offer their actions, and never the editor", () => {
+  it("offers nothing of its own for a code component, whose extensions offer their commands, and never the editor", () => {
     expect(actions({ type: "component", id: "n", component: "nova/Card" })).toEqual([])
   })
 

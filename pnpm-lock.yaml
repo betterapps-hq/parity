@@ -279,12 +279,6 @@ importers:
       '@buildkitgg/shadcn-baseui-kit':
         specifier: 'catalog:'
         version: '@buildkitgg/shadcn-baseui-nova@0.5.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)'
-      '@parity-app/extension-rspack':
-        specifier: workspace:*
-        version: link:../../packages/extension-rspack
-      '@parity-app/extension-turbopack':
-        specifier: workspace:*
-        version: link:../../packages/extension-turbopack
       '@sentry/electron':
         specifier: 'catalog:'
         version: 8.3.0(@babel/core@7.29.7(supports-color@7.2.0))
@@ -361,6 +355,9 @@ importers:
       '@parity-app/extension-react':
         specifier: workspace:*
         version: link:../../packages/extension-react
+      '@parity-app/extension-rspack':
+        specifier: workspace:*
+        version: link:../../packages/extension-rspack
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../../packages/extension-storybook
@@ -373,6 +370,9 @@ importers:
       '@parity-app/extension-tanstack-router':
         specifier: workspace:*
         version: link:../../packages/extension-tanstack-router
+      '@parity-app/extension-turbopack':
+        specifier: workspace:*
+        version: link:../../packages/extension-turbopack
       '@parity-app/extension-vite':
         specifier: workspace:*
         version: link:../../packages/extension-vite

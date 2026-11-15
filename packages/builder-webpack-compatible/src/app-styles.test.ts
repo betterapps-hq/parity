@@ -34,6 +34,7 @@ function compilation(entries: string[], imports: Record<string, string[]>): Bund
   return {
     modules: modules.values(),
     entries: new Map([["main", { dependencies: [...dependencies.keys()] }]]),
+    chunks: [],
     moduleGraph: {
       getIncomingConnections: (target) => connections.filter((connection) => connection.module === target),
       getOutgoingConnections: (origin) => connections.filter((connection) => connection.originModule === origin),

@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Extensions find their own tools through their manifests' detect rules; the service no longer detects Storybook, its accessibility checks or Portless for them.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

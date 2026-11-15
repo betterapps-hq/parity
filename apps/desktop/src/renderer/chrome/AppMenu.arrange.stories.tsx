@@ -6,7 +6,7 @@ import type { AppMenu } from "./AppMenu.tsx"
 
 /** Arrange: aligning and distributing what's selected. */
 const meta = {
-  title: "Parity/Chrome/App menu/Arrange",
+  title: "Parity/Chrome/Menus/App menu/Arrange",
   ...menuStories
 } satisfies Meta<typeof AppMenu>
 

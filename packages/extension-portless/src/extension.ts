@@ -5,12 +5,12 @@ import { inFolder, type PortlessState, readPortless, type Route } from "./portle
 /*
  * Portless as an extension (docs/proposals/processes.md, Portless as an extension), using only Parity's public API: an
  * address provider that names each local server Portless routes to, and a discovery provider that offers those servers
- * to extensions' `find`, as Storybook's when it already runs. Portless's folder is what Parity found, from
+ * to extensions' `find`, as Storybook's when it already runs. Portless's folder is what its manifest's `detect` found,
  * `PORTLESS_STATE_DIR` or its default `~/.portless`, which the manifest's `read` permission names.
  */
 
-/** What Parity found: Portless's folder. */
-const detected = z.object({ folder: z.string() })
+/** What the manifest's `detect` found: Portless's folder. */
+const detected = z.object({ path: z.string() })
 
 export function activate(parity: Parity): void {
   const found = detected.safeParse(parity.project.detected)
@@ -21,7 +21,7 @@ export function activate(parity: Parity): void {
     return
   }
 
-  const { folder } = found.data
+  const { path: folder } = found.data
   const read = () => readPortless(folder, (path) => parity.files.read(path))
   let state = read()
 

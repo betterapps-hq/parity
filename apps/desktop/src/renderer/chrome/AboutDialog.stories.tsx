@@ -3,7 +3,7 @@ import { dialogStories, exampleOpen, openOverExample } from "./chrome-fixtures.t
 
 /** About Parity, from Help > About Parity, over the window. */
 const meta = {
-  title: "Parity/Chrome/About",
+  title: "Parity/Chrome/Dialogs/About",
   ...dialogStories
 } satisfies Meta
 

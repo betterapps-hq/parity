@@ -13,7 +13,7 @@ import { StatusBar } from "./StatusBar.tsx"
  * and finish with a result, and the last result of each stays listed.
  */
 const meta = {
-  title: "Parity/Chrome/Processes",
+  title: "Parity/Chrome/Panels/Processes",
   component: StatusBar,
   decorators: [AtBottom]
 } satisfies Meta<typeof StatusBar>
@@ -129,7 +129,7 @@ function recent(): ProjectProcess[] {
     }),
     task("format", "Format", { state: "passed", minutes: 12, took: 0.03, summary: "Formatted 12 files" }),
     task("lint", "Lint", { state: "failed", minutes: 9, took: 0.08, summary: "3 problems in 2 files" }),
-    task("e2e", "Playwright", { state: "canceled", minutes: 4, took: 1.2, summary: "Canceled after 18 of 42 tests" })
+    task("test", "Unit tests", { state: "canceled", minutes: 4, took: 1.2, summary: "Canceled after 18 of 42 tests" })
   ]
 }
 
@@ -297,12 +297,12 @@ export const CancelingATask: Story = {
     () =>
       runningWith(
         storybook(),
-        task("e2e", "Playwright", { minutes: 1.2, detail: "checkout.spec.ts", progress: { done: 18, total: 42 } })
+        task("test", "Unit tests", { minutes: 1.2, detail: "checkout.test.ts", progress: { done: 18, total: 42 } })
       )
   ],
   play: async () => {
     const flyout = await openFlyout()
-    const cancel = await rowButton(flyout, "Playwright", "Cancel")
+    const cancel = await rowButton(flyout, "Unit tests", "Cancel")
     cancel.focus()
     await userEvent.keyboard("{Enter}")
     await waitFor(() => expect(document.activeElement).toHaveTextContent("Cancel"))

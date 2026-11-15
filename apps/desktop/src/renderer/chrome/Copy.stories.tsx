@@ -10,7 +10,7 @@ import { CopyButton, CopyOnClick } from "./Copy.tsx"
  * without a word.
  */
 const meta = {
-  title: "Parity/Chrome/Copy",
+  title: "Parity/Chrome/Window/Copy",
   parameters: { layout: "centered" }
 } satisfies Meta
 

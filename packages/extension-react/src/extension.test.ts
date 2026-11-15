@@ -13,7 +13,7 @@ describe("the React extension", () => {
       runtimePackages: ["react", "react-dom"],
       componentExtensions: [".tsx", ".ts", ".jsx", ".js"]
     })
-    expect(found.versions).toEqual({ packages: ["react", "react-dom"], range: "^19.0.0" })
+    expect(found.versions).toEqual({ packages: ["react", "react-dom"], range: "^18.0.0 || ^19.0.0" })
   })
 
   it("names a guest module its package exports", () => {

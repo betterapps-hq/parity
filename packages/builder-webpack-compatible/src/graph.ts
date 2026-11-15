@@ -12,6 +12,17 @@ export function filePath(path: string): string {
 }
 
 /** The build's modules by their file, absolute, with forward slashes. */
+/** Whether the module of the file `entry` imports the file `file`'s, in this compilation. */
+export function entryImports(compilation: BundlerCompilation, entry: string, file: string): boolean {
+  const modules = modulesByFile(compilation)
+
+  return (modules.get(entry) ?? []).some((module) =>
+    [...compilation.moduleGraph.getOutgoingConnections(module)].some(
+      (connection) => !!connection.module?.resource && filePath(connection.module.resource) === file
+    )
+  )
+}
+
 export function modulesByFile(compilation: BundlerCompilation): Map<string, BundlerModule[]> {
   const byFile = new Map<string, BundlerModule[]>()
 

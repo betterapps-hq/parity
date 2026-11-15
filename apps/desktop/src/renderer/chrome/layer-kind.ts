@@ -87,7 +87,7 @@ export interface ComponentHas {
 
 /**
  * What a layer's header offers of its own: an instance of a design goes to the component. A code component's are its
- * adapters' actions (`layerComponent`). Open in editor was set aside with the code side (Explorations › Code › Open in
+ * extensions' commands (`layerComponent`). Open in editor was set aside with the code side (Explorations › Code › Open in
  * editor).
  */
 export function layerActions(node: DesignNode, has: ComponentHas): HeaderAction[] {
@@ -95,7 +95,7 @@ export function layerActions(node: DesignNode, has: ComponentHas): HeaderAction[
 }
 
 /**
- * The project's component a layer draws, whose adapters' actions it offers, as Open in Storybook: a code component's,
+ * The project's component a layer draws, whose extensions' commands it offers, as Open in Storybook: a code component's,
  * but not an icon's.
  */
 export function layerComponent(

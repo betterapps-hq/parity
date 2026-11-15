@@ -4,6 +4,7 @@ import type {
   AgentToolContribution,
   CommandContribution,
   Contributions,
+  Detection,
   JsonSchema,
   JsonValue,
   Manifest,
@@ -219,13 +220,28 @@ const toolVersions = z.strictObject({
   distributions: z.record(z.string(), title).optional()
 }) satisfies z.ZodType<ToolVersionFacts>
 
+const detection = z.strictObject({
+  peers: z.boolean().optional(),
+  entities: z.boolean().optional(),
+  paths: z
+    .array(
+      z
+        .string()
+        .refine(
+          (path) => path.startsWith("~/") || path.startsWith("$") || !/^(?:[\\/]|[a-z]:)/i.test(path),
+          "expected a path from the home folder (~/), a variable's folder ($NAME) or the project's root"
+        )
+    )
+    .optional()
+}) satisfies z.ZodType<Detection>
+
 const manifest = z
   .strictObject({
     displayName: title,
     prefix: z.string().regex(part, "expected a letter, then letters, digits and dashes"),
     icon: pathIcon,
     activates: z.array(activationEvent),
-    detect: z.string().optional(),
+    detect: detection.optional(),
     watches: z.array(z.string()).optional(),
     versions: toolVersions.optional(),
     permissions: z
@@ -301,6 +317,28 @@ export function readExtension(packageJson: unknown): ExtensionPackage {
 interface Problem {
   path: (string | number)[]
   message: string
+}
+
+/**
+ * What breaks the rules of `detect`: entities need an entities provider, and the `read` permission has to name each
+ * path, as `~/.portless/**` names `~/.portless`.
+ */
+function detectionProblems({ detect, permissions, contributes }: Manifest): Problem[] {
+  const problems: Problem[] = []
+
+  if (detect?.entities && !contributes.providers?.entities) {
+    problems.push({ path: ["detect", "entities"], message: "needs an entities provider in contributes.providers" })
+  }
+
+  for (const [index, path] of (detect?.paths ?? []).entries()) {
+    const named = (permissions?.read ?? []).some((glob) => glob === path || glob.startsWith(`${path}/`))
+
+    if (!named) {
+      problems.push({ path: ["detect", "paths", index], message: `isn't one the "read" permission names: ${path}` })
+    }
+  }
+
+  return problems
 }
 
 /** What breaks the rules a schema can't say: every id starts with the prefix, and what's named is declared. */
@@ -381,6 +419,8 @@ function ruleProblems(read: Manifest): Problem[] {
       problems.push({ path: ["activates", index], message: `names a tab or page the manifest doesn't declare: ${id}` })
     }
   }
+
+  problems.push(...detectionProblems(read))
 
   return problems
 

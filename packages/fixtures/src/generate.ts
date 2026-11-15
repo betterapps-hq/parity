@@ -96,6 +96,39 @@ const projects = new Map<string, Project>([
     }
   ],
   [
+    "react18-mui-js",
+    {
+      install: "yarn install --immutable",
+      async generate(dir) {
+        // create-vite 6 scaffolds Vite 6, the oldest Vite with time left; React goes back to 18 from the template's 19.
+        await createVite("6.5.0", dir, "react", "")
+        await remove(dir, "src/App.jsx", "src/App.css", "src/assets")
+        await overlay(dir, "react18-mui-js")
+        await writeFile(
+          join(dir, ".gitignore"),
+          `${await readFile(join(dir, ".gitignore"), "utf8")}.yarn/install-state.gz\n`
+        )
+        // An empty lockfile makes Yarn treat this folder as a project of its own, not part of the repo around it.
+        await writeFile(join(dir, "yarn.lock"), "")
+        await editPackage(dir, (pkg) => {
+          pkg.packageManager = "yarn@4.18.1"
+          // MUI on Emotion with MUI's icons, and React Router in library mode (React Router 8 needs React 19).
+          addDependencies(pkg, "dependencies", {
+            "@emotion/react": "11.14.0",
+            "@emotion/styled": "11.14.1",
+            "@mui/icons-material": "9.5.0",
+            "@mui/material": "9.5.0",
+            react: "18.3.1",
+            "react-dom": "18.3.1",
+            "react-router": "7.18.5"
+          })
+          addDependencies(pkg, "devDependencies", { "@types/react": "18.3.31", "@types/react-dom": "18.3.7" })
+        })
+        await run(dir, "yarn install")
+      }
+    }
+  ],
+  [
     "nextjs-webpack",
     {
       install: "npm ci",

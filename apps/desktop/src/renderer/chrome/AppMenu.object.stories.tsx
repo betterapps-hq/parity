@@ -16,7 +16,7 @@ import { formatKeys } from "./keys.ts"
 
 /** Object: making designs and inserting, wrapping, components, order, hiding and locking. */
 const meta = {
-  title: "Parity/Chrome/App menu/Object",
+  title: "Parity/Chrome/Menus/App menu/Object",
   ...menuStories
 } satisfies Meta<typeof AppMenu>
 
