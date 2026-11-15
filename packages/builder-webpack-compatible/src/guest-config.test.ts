@@ -99,10 +99,13 @@ describe("guestConfig", () => {
     ])
   })
 
-  it("doesn't add a second CSS extractor to a project that has one", () => {
-    const config = guestConfig({ plugins: [plugin("CssExtractRspackPlugin")] }, bundler, options)
+  it("puts its own CSS extractor in place of the project's, and leaves out Rsbuild's HTML plugin", () => {
+    const own = plugin("CssExtractRspackPlugin")
+    const config = guestConfig({ plugins: [own, plugin("RsbuildHtmlPlugin")] }, bundler, options)
 
     expect(names(config.plugins).filter((name) => name === "CssExtractRspackPlugin")).toHaveLength(1)
+    expect(config.plugins).not.toContain(own)
+    expect(names(config.plugins)).not.toContain("RsbuildHtmlPlugin")
   })
 
   it("has one copy of the renderer's runtime packages, beside the project's own aliases", () => {

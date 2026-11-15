@@ -37,19 +37,29 @@ export interface GuestConfigOptions {
   standIns: Readonly<Record<string, string>>
 }
 
-/** Plugins the app's dev server needs that the guest doesn't, by their class's name: HTML pages and Fast Refresh. */
-const appOnlyPlugins = /^(?:Html(?:Rspack|Webpack)?Plugin|ReactRefresh(?:Rspack|Webpack)?Plugin|ReactRefreshPlugin)$/
+/**
+ * Plugins the app's dev server needs that the guest doesn't, by their class's name: HTML pages (Rsbuild's included)
+ * and Fast Refresh.
+ */
+const appOnlyPlugins =
+  /^(?:Html(?:Rspack|Webpack)?Plugin|RsbuildHtmlPlugin|ReactRefresh(?:Rspack|Webpack)?Plugin|ReactRefreshPlugin)$/
+
 const cssExtractPlugins = /^(?:CssExtractRspackPlugin|MiniCssExtractPlugin)$/
 
 /** The config the guest is built with, from the project's, as `bundlerConfig` read it. */
 export function guestConfig(config: BundlerConfig, bundler: Bundler, options: GuestConfigOptions): BundlerConfig {
+  const extract = bundler.extractCss
+
+  // The project's own CSS extractor, if it has one, names its files as the app wants them (Rsbuild's, `static/css/`):
+  // the builder's own, from the same tool, takes its place and writes them where the guest module fetches them.
   const plugins = (config.plugins ?? []).flatMap((entry) => {
     const plugin = bundlerPlugin.safeParse(entry)
+    const name = plugin.success ? className(plugin.data) : ""
 
-    return plugin.success && !appOnlyPlugins.test(className(plugin.data)) ? [plugin.data] : []
+    return plugin.success && !appOnlyPlugins.test(name) && !(extract && cssExtractPlugins.test(name))
+      ? [plugin.data]
+      : []
   })
-
-  const extracting = plugins.some((plugin) => cssExtractPlugins.test(className(plugin)))
 
   const entries = Object.fromEntries([
     ["main", { import: [options.entry], library: { type: "window", name: options.key } }],
@@ -58,7 +68,6 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
   ])
 
   const rules = config.module?.rules ?? []
-  const extract = bundler.extractCss
 
   return {
     ...config,
@@ -113,7 +122,7 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
     resolve: { ...config.resolve, alias: withAliases(config.resolve?.alias, options.dedupe) },
     plugins: [
       ...plugins,
-      ...(extract && !extracting ? [extract.plugin()] : []),
+      ...(extract ? [extract.plugin()] : []),
       bundler.hotModuleReplacement(),
       // React's production build: its development one keeps a stack for every element it makes, and its warnings are
       // for the app's own dev server to show. Fast Refresh's calls, compiled in by a loader set up for it, do nothing.
