@@ -295,6 +295,21 @@ export function changeKeys<C extends string>(
 
   replacements.push({ command, keys: sameKeys(next, defaults[command].keys) ? null : next })
 
+  const wanted = (each: C) => replacements.find((one) => one.command === each)?.keys ?? defaults[each].keys
+  const intended = (each: C) => (replacements.some((one) => one.command === each) ? wanted(each) : now[each])
+  const after = resolveBindings(defaults, entriesAfter(entries, replacements)).keys
+
+  // Removing an entry can hand its keys to an earlier one it outranked, so it's written out in full instead.
+  if (Object.keys(now).some((each) => isCommand(defaults, each) && !sameKeys(after[each], intended(each)))) {
+    return {
+      replacements: replacements.map((one) => ({
+        ...one,
+        keys: one.keys ?? (isCommand(defaults, one.command) ? wanted(one.command) : null)
+      })),
+      lost
+    }
+  }
+
   return { replacements, lost }
 }
 

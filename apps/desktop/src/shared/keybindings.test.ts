@@ -234,6 +234,22 @@ describe("swapKeys (PAR-1042)", () => {
       undo: []
     })
   })
+
+  it("leaves other commands as they were when the holder's keys come back to the keymap's", () => {
+    // Redo's entry outranks Undo's for Ctrl Y, so removing it would hand Ctrl Y back to Undo.
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: ["Ctrl Y"] },
+      { command: "redo", keys: ["Ctrl Shift H", "Ctrl Y"] },
+      { command: "hide", keys: ["Ctrl Shift Z"] }
+    ]
+
+    expect(keysAfter(entries, swapKeys(defaults, entries, "hide", ["Ctrl Shift H"]).replacements)).toEqual({
+      ...keymapKeys,
+      undo: [],
+      redo: ["Ctrl Shift Z", "Ctrl Y"],
+      hide: ["Ctrl Shift H"]
+    })
+  })
 })
 
 describe("resetAllKeys (PAR-1042)", () => {
