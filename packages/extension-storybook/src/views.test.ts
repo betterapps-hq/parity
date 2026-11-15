@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
-import { readDetected } from "./storybook.ts"
+import type { ProjectStorybook } from "./storybook.ts"
 import { componentStories, setupGuide, storiesTree, storyName } from "./views.ts"
 
-const storybook = readDetected({
+const storybook: ProjectStorybook = {
   configDir: ".storybook",
   stories: {
     Card: [{ path: "src/card.stories.tsx" }],
@@ -12,7 +12,7 @@ const storybook = readDetected({
     ],
     Badge: []
   }
-})!
+}
 
 const button = { type: "component", key: "Button" }
 

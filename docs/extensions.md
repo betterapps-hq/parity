@@ -14,6 +14,15 @@ a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id
   or markup.
 - **`activates`:** `onDetect` (the project has the extension's tool), `onStartup`, `onCommand:<id>`, `onView:<id>` or
   `onNodeType:<type>`. An event naming a command, tab or page has to name one the manifest declares.
+- **`detect`** (PAR-1128) says how Parity finds the extension's tool, with no code of the extension's and nothing Parity
+  knows of the tool ([`detect.ts`](../packages/extensions/src/detect.ts)). It's found when any rule holds: `peers`, the
+  project's package.json declares a package its peer dependencies name (what an extension without `detect` gets, as
+  Vite, React, Tailwind, TanStack Router and Storybook's accessibility checks are found); `entities`, Parity's entities
+  detection found its files, for an extension with an entities provider (Storybook); or `paths`, the first of its paths
+  that names something exists, from the home folder, a variable's folder or the project's root (Portless's
+  `$PORTLESS_STATE_DIR`, else `~/.portless`). Its `read` permission has to name each path, and the extension gets the
+  one found as `parity.project.detected.path`. An extension that needs another's (`extensionDependencies`) is found only
+  where that one is.
 - **`contributes`:** `commands`, `menus`, `keybindings`, `tabs`, `sections`, `pages`, `statusItems`, `nodeTypes`,
   `providers`, `agentTools` and `settings`, and no other keys. Every id starts with the prefix and a dot
   (`storybook.open`), as do settings, agent tools and the context keys that `when` and `enablement` test. Menus, keys
@@ -277,10 +286,11 @@ An extension can offer an API to other extensions, and its commands and tools to
 ## Portless
 
 [packages/extension-portless](../packages/extension-portless) is Portless as an extension, built in. It starts for a
-project when Portless's folder is there (`PORTLESS_STATE_DIR`, else `~/.portless`), reads its `routes.json`,
-`proxy.port` and `proxy.tls` through `files.read`, and watches `routes.json`. Its address provider names each server
-Portless routes to, which the processes list then opens at; its discovery provider offers those servers to `find`, so
-Storybook adopts one running behind a Portless name. Routes whose process has ended are left out, as Portless does.
+project when Portless's folder is there (its manifest's `detect.paths`: `$PORTLESS_STATE_DIR`, else `~/.portless`),
+reads its `routes.json`, `proxy.port` and `proxy.tls` through `files.read`, and watches `routes.json`. Its address
+provider names each server Portless routes to, which the processes list then opens at; its discovery provider offers
+those servers to `find`, so Storybook adopts one running behind a Portless name. Routes whose process has ended are left
+out, as Portless does.
 
 ## Tests
 

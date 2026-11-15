@@ -36,8 +36,6 @@ const serviceEnvironment = z.object({
   PARITY_RECOVERY_DIR: z.string().optional(),
   /** Where extensions' state is kept: what `parity.state` saves, and their status items' values (see extension-state.ts). */
   PARITY_EXTENSION_STATE_FILE: z.string().optional(),
-  /** Portless's state folder, when it isn't `~/.portless` (see portless.ts). */
-  PORTLESS_STATE_DIR: z.string().optional(),
   /**
    * Which copy of the app this service belongs to (PAR-598): its process id and when it started, which name the copy's
    * agent registry entry.

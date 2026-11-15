@@ -1,36 +1,64 @@
+import { commandOption, scriptRunning } from "@parity-app/project"
 import { z } from "zod"
 
 /*
- * What the Storybook extension reads and decides, as data: what detection found of the project's Storybook, the
- * entries of a running Storybook's `/index.json`, and the page that opens a component's stories.
+ * What the Storybook extension reads and decides, as data: the project's Storybook, as the extension reads it from the
+ * project's files, the entries of a running Storybook's `/index.json`, and the page that opens a component's stories.
  */
 
-const storyFile = z.object({
-  path: z.string(),
+/** One of a component's story files: its path from the root, its meta's title, and the stories it exports. */
+export interface ComponentStoryFile {
+  path: string
+  title?: string
   /** The stories it exports, by export name. */
-  exports: z.array(z.string()).optional()
-})
+  exports?: string[]
+}
 
-/** What detection found of the project's Storybook, as `parity.project.detected` gives it. */
-const detected = z.object({
+/** The project's Storybook (PAR-1128): its config folder, the port its script asks for, and story files by component. */
+export interface ProjectStorybook {
   /** Its config folder, relative to the root. */
-  configDir: z.string(),
+  configDir: string
   /** The port its `storybook dev` script asks for. */
-  port: z.number().optional(),
-  /** Story files by component. */
-  stories: z.record(z.string(), z.array(storyFile))
-})
+  port?: number
+  stories: Record<string, ComponentStoryFile[]>
+}
 
-export type DetectedStorybook = z.infer<typeof detected>
+/** The config folder the manifest's `storybook.configDir` setting gives by default. */
+const defaultConfigDir = ".storybook"
 
-/** What detection found, or nothing when it found no Storybook or something this version doesn't read. */
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- what detection passes is checked here, where it comes in
-export function readDetected(value: unknown): DetectedStorybook | undefined {
-  return detected.safeParse(value).data
+/**
+ * The project's Storybook from what the extension read: its config folder is the `storybook.configDir` setting when
+ * it's changed from `.storybook`, else the one the `storybook dev` script names with `-c` or `--config-dir`, else
+ * `.storybook`; its port is the one the script names with `-p` or `--port`.
+ */
+export function projectStorybook(
+  scripts: Record<string, string> | undefined,
+  configured: string,
+  stories: Record<string, ComponentStoryFile[]>
+): ProjectStorybook {
+  const script = scriptRunning(scripts, /\bstorybook\s+dev\b/)
+  const named = script && commandOption(script[1], ["-c", "--config-dir"])
+  const set = configured.trim()
+  const configDir = set && set !== defaultConfigDir ? set : (named ?? defaultConfigDir)
+  const port = script ? Number(commandOption(script[1], ["-p", "--port"])) || undefined : undefined
+
+  return port ? { configDir, port, stories } : { configDir, stories }
+}
+
+/** The fields of a package.json the extension reads: the scripts that start Storybook. */
+const packageScripts = z.looseObject({ scripts: z.record(z.string(), z.string()).optional() })
+
+/** A package.json's scripts, or none when it can't be read. */
+export function scriptsOf(text: string | undefined): Record<string, string> | undefined {
+  try {
+    return packageScripts.safeParse(JSON.parse(text ?? "")).data?.scripts
+  } catch {
+    return undefined
+  }
 }
 
 /** The components with stories, by key. */
-export function componentsWithStories(storybook: DetectedStorybook): string[] {
+export function componentsWithStories(storybook: ProjectStorybook): string[] {
   return Object.entries(storybook.stories)
     .filter(([, files]) => files.length > 0)
     .map(([key]) => key)

@@ -52,6 +52,9 @@
     "activates": [
       "onDetect"
     ],
+    "detect": {
+      "entities": true
+    },
     "permissions": {
       "processes": [
         "bin:storybook"
