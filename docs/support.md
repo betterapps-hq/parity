@@ -494,20 +494,21 @@ of every axis at least once. The more of each project that's tested end to end, 
 
 ### The projects
 
-| Project                | Stack                                                                                                                       | Mainly tests                                                                    | Today |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----- |
-| `shadcn-vite` (exists) | React 19, Vite 8, Tailwind v4, Shadcn Nova, TypeScript, pnpm, Storybook 10, Lucide, `vite.config.ts`                        | The main path: everything that works today                                      | ✅    |
-| `scaffolder`           | The Buildkit scaffolder's output: TanStack Router, Hono on Workers, Drizzle on D1, nova, Tailwind v4, pnpm workspace        | Monorepo detection, routes, data and API lenses, mock data                      | 🔜    |
-| `vite7-js` (exists)    | React 19, Vite 7, JavaScript (`.jsx`), npm, plain CSS variables with `[data-theme]` themes, `vite.config.cjs`, no Storybook | The oldest Vite tested, JavaScript, CommonJS config, attribute themes, no icons | ❔    |
-| `react-aria` (exists)  | React 19, Vite 7, React Aria Components with Tailwind v4, Yarn Berry, Storybook 9, Hugeicons, `vite.config.mts`             | Another component library, Yarn Berry, a second icon set                        | ❔    |
-| `mantine` (exists)     | React 19, Vite 8, Mantine 9, CSS modules, bun, `vite.config.cts`, `prefers-color-scheme` themes                             | Per-component CSS, CSS modules, bun                                             | ❔    |
-| `mui`                  | React 19, Vite 8, MUI 9 on Emotion, npm, Storybook 10                                                                       | CSS-in-JS, styled in frames by MUI's decorator                                  | ❔    |
-| `fluent`               | React 19, Vite 8, Fluent UI v9 with Griffel, Fluent icons, TypeScript, npm, Storybook 10                                    | Styles written at run time, themes from a provider as modes, a third icon set   | 🔜    |
-| `react-router`         | React Router 8 in framework mode, loaders and actions, shadcn on Radix, Tailwind v4, pnpm                                   | The routes lens and server functions                                            | 🔜    |
-| `tanstack-start`       | TanStack Start, server functions, oRPC, Drizzle on Postgres, pnpm                                                           | The API lens from oRPC, a server database                                       | 🔜    |
-| `standards-only`       | A React 19 and Vite 8 front end, with `openapi.yaml` and SQL migrations from a backend in another language                  | The standards pass: lenses with no adapter                                      | 🔜    |
-| `next`                 | Next.js 16, App Router, shadcn, Tailwind v4, npm                                                                            | Clear "not supported yet"; later the Next.js builder                            | ❌    |
-| `too-old` (exists)     | React 18, Vite 5, Tailwind v3, Storybook 8, npm                                                                             | Untested versions open as far as they can, with a quiet note; nothing written   | ❌    |
+| Project                   | Stack                                                                                                                       | Mainly tests                                                                    | Today |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----- |
+| `shadcn-vite` (exists)    | React 19, Vite 8, Tailwind v4, Shadcn Nova, TypeScript, pnpm, Storybook 10, Lucide, `vite.config.ts`                        | The main path: everything that works today                                      | ✅    |
+| `scaffolder`              | The Buildkit scaffolder's output: TanStack Router, Hono on Workers, Drizzle on D1, nova, Tailwind v4, pnpm workspace        | Monorepo detection, routes, data and API lenses, mock data                      | 🔜    |
+| `vite7-js` (exists)       | React 19, Vite 7, JavaScript (`.jsx`), npm, plain CSS variables with `[data-theme]` themes, `vite.config.cjs`, no Storybook | The oldest Vite tested, JavaScript, CommonJS config, attribute themes, no icons | ❔    |
+| `react-aria` (exists)     | React 19, Vite 7, React Aria Components with Tailwind v4, Yarn Berry, Storybook 9, Hugeicons, `vite.config.mts`             | Another component library, Yarn Berry, a second icon set                        | ❔    |
+| `mantine` (exists)        | React 19, Vite 8, Mantine 9, CSS modules, bun, `vite.config.cts`, `prefers-color-scheme` themes                             | Per-component CSS, CSS modules, bun                                             | ❔    |
+| `mui`                     | React 19, Vite 8, MUI 9 on Emotion, npm, Storybook 10                                                                       | CSS-in-JS, styled in frames by MUI's decorator                                  | ❔    |
+| `fluent`                  | React 19, Vite 8, Fluent UI v9 with Griffel, Fluent icons, TypeScript, npm, Storybook 10                                    | Styles written at run time, themes from a provider as modes, a third icon set   | 🔜    |
+| `react-router`            | React Router 8 in framework mode, loaders and actions, shadcn on Radix, Tailwind v4, pnpm                                   | The routes lens and server functions                                            | 🔜    |
+| `tanstack-start`          | TanStack Start, server functions, oRPC, Drizzle on Postgres, pnpm                                                           | The API lens from oRPC, a server database                                       | 🔜    |
+| `standards-only`          | A React 19 and Vite 8 front end, with `openapi.yaml` and SQL migrations from a backend in another language                  | The standards pass: lenses with no adapter                                      | 🔜    |
+| `next`                    | Next.js 16, App Router, shadcn, Tailwind v4, npm                                                                            | Clear "not supported yet"; later the Next.js builder                            | ❌    |
+| `too-old` (exists)        | React 18, Vite 5, Tailwind v3, Storybook 8, npm                                                                             | Untested versions open as far as they can, with a quiet note; nothing written   | ❌    |
+| `react18-mui-js` (exists) | React 18, Vite 6, React Router 7 in library mode, MUI 9 on Emotion, MUI's icons, JavaScript, Yarn Berry                     | Components drawn on React 18, MUI in plain JavaScript, routes as route objects  | ◐     |
 
 `react-aria` runs on Vite 7, not 8 as first planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on
 Vite 8 can't be installed cleanly. Its Yarn Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no
@@ -526,6 +527,12 @@ What the detection snapshots record on 2026-10-29, gaps included:
   stay the defaults (PAR-138).
 - **`too-old`:** the project opens, with one quiet notice that React 18, Vite 5, Tailwind 3 and Storybook 8 are
   untested. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3 `@apply`.
+- **`react18-mui-js`** (2026-11-15, PAR-1144): Vite 6.4.6 with `vite.config.js` and Yarn Berry, 16 components with
+  `EmptyState` as a default export, MUI listed as a library with 147 components and its four breakpoints, and the one
+  quiet notice that React 18.3.1 is untested. MUI's icons aren't listed as an icon set, since the registry doesn't
+  describe `@mui/icons-material` yet, and the theme made with `createTheme` gives no tokens. In the app its components
+  draw on React 18 with MUI's styles and icons; those that use React Router's `Link` fail without a router around them
+  until React Router's extension gives one.
 - **`chakra`:** Chakra UI is listed as a library with its five breakpoints, and Phosphor and Tabler as icon sets.
 - **`headless`:** Base UI and Radix are listed as libraries, Heroicons and Lucide as icon sets, and the `.dark` theme is
   read.
@@ -536,21 +543,21 @@ What the detection snapshots record on 2026-10-29, gaps included:
 
 Every axis, and where it's covered:
 
-| Axis            | Values                                                                                   | Covered by                                                              |
-| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| React           | 19, 18 (dropped)                                                                         | Most; `too-old`                                                         |
-| Build tool      | Vite 8, 7, 5 (dropped); Next.js 16                                                       | Most; `vite7-js`, `react-aria`; `too-old`; `next`                       |
-| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`                                                            | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`                      |
-| Router          | None, TanStack Router, React Router 8, TanStack Start, Next.js                           | `shadcn-vite`; `scaffolder`; `react-router`; `tanstack-start`; `next`   |
-| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                      | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`; `fluent` |
-| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped) | Most; `vite7-js`; `mantine`; `mui`, `fluent`; `too-old`                 |
-| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider  | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                          |
-| Icons           | Lucide, Hugeicons, Fluent icons, none                                                    | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                       |
-| Language        | TypeScript, JavaScript                                                                   | Most; `vite7-js`                                                        |
-| Package manager | pnpm, npm, Yarn Berry, bun                                                               | `shadcn-vite`; `vite7-js`; `react-aria`; `mantine`                      |
-| Repo            | One package, a workspace monorepo                                                        | Most; `scaffolder`                                                      |
-| Storybook       | 10, 9, 8 (dropped), none                                                                 | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`               |
-| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only        | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`        |
+| Axis            | Values                                                                                         | Covered by                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| React           | 19, 18 (dropped)                                                                               | Most; `too-old`, `react18-mui-js`                                                         |
+| Build tool      | Vite 8, 7, 6, 5 (dropped); Next.js 16                                                          | Most; `vite7-js`, `react-aria`; `react18-mui-js`; `too-old`; `next`                       |
+| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`, `.js`                                                           | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`; `react18-mui-js`                      |
+| Router          | None, TanStack Router, React Router 8, React Router 7 in library mode, TanStack Start, Next.js | `shadcn-vite`; `scaffolder`; `react-router`; `react18-mui-js`; `tanstack-start`; `next`   |
+| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                            | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`, `react18-mui-js`; `fluent` |
+| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped)       | Most; `vite7-js`; `mantine`; `mui`, `fluent`, `react18-mui-js`; `too-old`                 |
+| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider        | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                            |
+| Icons           | Lucide, Hugeicons, Fluent icons, none                                                          | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                         |
+| Language        | TypeScript, JavaScript                                                                         | Most; `vite7-js`, `react18-mui-js`                                                        |
+| Package manager | pnpm, npm, Yarn Berry, bun                                                                     | `shadcn-vite`; `vite7-js`; `react-aria`, `react18-mui-js`; `mantine`                      |
+| Repo            | One package, a workspace monorepo                                                              | Most; `scaffolder`                                                                        |
+| Storybook       | 10, 9, 8 (dropped), none                                                                       | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                 |
+| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only              | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                          |
 
 ### What runs against each project
 

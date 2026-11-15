@@ -101,7 +101,8 @@ to pass on to its DOM.
   button's class, attributes, handlers and ref, merged under the link's own as Radix merges them onto an element, and a
   `$render:` or `$renderWith:` slot gives its layer what the component renders it with. That holds for component layers
   as for element layers: the boundary that marks a component layer sits inside what the parent clones, so the props go
-  past it to the component, and the layer is still found and still keeps its errors to itself.
+  past it to the component, and the layer is still found and still keeps its errors to itself. On React 18, which keeps
+  a ref out of a function component's props, the component layer forwards the ref (PAR-1144).
 - **Edge cases.** A component that draws nothing has no box: it can be selected from Layers but not on the canvas.
   Content portaled to the page's body, as a dialog's or a menu's is, is drawn in the frame's body (see Popups draw
   inside their frame) but isn't part of the layer's box; content portaled to a place inside the frame, as MUI's is, is.
@@ -112,12 +113,12 @@ to pass on to its DOM.
   on 2026-10-29: finding the layers under a point took about 0.15 ms on Sign in (45 layers) and 0.75 to 0.9 ms on the
   example's largest frames (about 330 layers and 470 elements), where the attribute lookup it replaces took 0.7 to 1 ms;
   walking React's tree again after a change took 0.2 to 0.6 ms on those largest frames.
-- **It fails soft.** This reads React's internals as React 19 has them: the root's `_internalRoot.current`, else the
-  container's `__reactContainer$` key, and each fiber's `child`, `sibling`, `stateNode` and `memoizedProps`. If they're
-  missing, or the walk places an element the guest drew in another layer, the frame's lookups use the `data-canvas-node`
-  attribute as before, which finds only components that pass their props to their DOM. The guest still passes the
-  attribute to components as a prop, where it does no harm, so that fallback and the scripts that count drawn layers
-  keep working.
+- **It fails soft.** This reads React's internals as React 19 and 18 have them: the root's `_internalRoot.current`, else
+  the container's `__reactContainer$` key, and each fiber's `child`, `sibling`, `stateNode` and `memoizedProps`. If
+  they're missing, or the walk places an element the guest drew in another layer, the frame's lookups use the
+  `data-canvas-node` attribute as before, which finds only components that pass their props to their DOM. The guest
+  still passes the attribute to components as a prop, where it does no harm, so that fallback and the scripts that count
+  drawn layers keep working.
 - **When a component doesn't take `style`.** What a design sets on a component (size, spacing, place, fill) goes to its
   root through its `style` prop. When the props the type checker reads have no `style`, the inspector shows no style
   sections and says why: "MemberRow doesn't take a `style`, so it can't be sized or styled here. Wrap it in a layout and
@@ -6057,7 +6058,9 @@ A component that fails to draw draws a box in its place, and the rest of its fra
 dashed red outline over fine red hatching with a small warning icon, as a missing component's thin dashed outline is,
 and no text, so it reads as a broken layer at any zoom without crowding the design; its styles are inline, so the
 project's CSS and a dark frame leave it alone. The frame no longer lays a red sheet over everything it drew; only an
-error that stopped the frame drawing, as a decorator's can, shows across its top. Why it fails is told where you look:
+error that stopped the frame drawing, as a decorator's can, shows across its top. React 18 has no `onCaughtError` or
+`onUncaughtError`, so there the guest's boundaries tell the frame instead, and a boundary around the whole frame catches
+what no component's did (PAR-1144). Why it fails is told where you look:
 
 - **In the console,** each failing layer is an error, with the frames it fails in, for as long as it fails: Clear leaves
   it, and it goes once the component draws again. It says the component fails to draw, why and how to fix it, with the
